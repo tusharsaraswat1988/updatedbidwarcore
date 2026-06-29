@@ -37,3 +37,28 @@ export function formatPlayerGender(code: string | null | undefined): string {
   if (code === "F") return "Female";
   return "";
 }
+
+/** Labels shown in BMW Excel dropdowns — matches website PlayerGenderSelect. */
+export const WORKBOOK_GENDER_LABELS = ["Male", "Female", "Not specified"] as const;
+
+export function formatPlayerGenderForWorkbook(code: string | null | undefined): string {
+  if (code === "M") return "Male";
+  if (code === "F") return "Female";
+  return "Not specified";
+}
+
+/**
+ * Parse BMW / Excel gender cell → DB code.
+ * Returns undefined when the cell is omitted (no update).
+ */
+export function parseWorkbookGenderLabel(
+  label: unknown,
+): PlayerGenderCode | null | undefined {
+  if (label == null || label === "") return undefined;
+  const s = String(label).trim();
+  if (!s || /^not specified$/i.test(s) || /^none$/i.test(s) || /^-$/.test(s)) return null;
+  const upper = s.toUpperCase();
+  if (upper === "M" || upper === "MALE") return "M";
+  if (upper === "F" || upper === "FEMALE") return "F";
+  return undefined;
+}

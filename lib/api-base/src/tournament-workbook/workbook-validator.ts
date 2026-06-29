@@ -24,6 +24,13 @@ import { isValidRoleForSport, getRoleLabelsForSport, normalizeSportId } from "./
 import { computeHealthScore } from "./health-score.ts";
 import { buildFieldDiffs, getActionableDiffs } from "./field-diff.ts";
 import { generateImportSuggestions } from "./ai-suggestions.ts";
+import { parseWorkbookGenderLabel } from "../player-gender.ts";
+import {
+  BMW_CATEGORY_NAME_HEADER,
+  BMW_CATEGORY_SHEET,
+  BMW_TEAM_NAME_HEADER,
+  BMW_TEAM_SHEET,
+} from "./sheet-definitions.ts";
 
 export type ValidationContext = {
   tournamentId: number;
@@ -52,6 +59,29 @@ function resolveRef(value: unknown, nameMap: Map<string, number>): number | null
   if (byName != null) return byName;
   const asNum = parseInt(s, 10);
   return Number.isFinite(asNum) ? asNum : null;
+}
+
+/** Include categories/teams defined in the workbook so new rows validate before DB commit. */
+function mergeWorkbookRefNames(
+  workbook: ParsedWorkbook,
+  ctx: ValidationContext,
+): ValidationContext {
+  const categoryNames = new Map(ctx.categoryNames);
+  let syntheticId = -1;
+  for (const row of workbook.sheets[BMW_CATEGORY_SHEET] ?? []) {
+    const name = String(row[BMW_CATEGORY_NAME_HEADER] ?? "").trim();
+    if (name && !categoryNames.has(name.toLowerCase())) {
+      categoryNames.set(name.toLowerCase(), syntheticId--);
+    }
+  }
+  const teamNames = new Map(ctx.teamNames);
+  for (const row of workbook.sheets[BMW_TEAM_SHEET] ?? []) {
+    const name = String(row[BMW_TEAM_NAME_HEADER] ?? "").trim();
+    if (name && !teamNames.has(name.toLowerCase())) {
+      teamNames.set(name.toLowerCase(), syntheticId--);
+    }
+  }
+  return { ...ctx, categoryNames, teamNames };
 }
 
 
@@ -180,6 +210,8 @@ function validatePlayersSheet(
         case "enum": {
           if (field.key === "status" && normalizeStatusInput(rawValue) == null) {
             error = `Invalid status "${rawValue}"`;
+          } else if (field.key === "gender" && parseWorkbookGenderLabel(rawValue) === undefined) {
+            error = `Invalid gender "${rawValue}". Use Male, Female, or Not specified.`;
           }
           break;
         }
@@ -342,10 +374,11 @@ export function validateWorkbook(
   const sheetsProcessed: string[] = [];
   const dryRun = ctx.mode === "dry_run";
   const sport = ctx.sport ?? getWorkbookSport(workbook);
+  const enrichedCtx = mergeWorkbookRefNames(workbook, ctx);
 
   const playerRows = workbook.sheets["03_Players"] ?? [];
   if (playerRows.length > 0) sheetsProcessed.push("03_Players");
-  validatePlayersSheet(workbook, { ...ctx, sport }, issues, changedFields, {
+  validatePlayersSheet(workbook, { ...enrichedCtx, sport }, issues, changedFields, {
     addCreate: () => { creates++; },
     addUpdate: () => { updates++; },
   });

@@ -23,6 +23,9 @@ export const REF_SHEET_TEAMS = "_REF_Teams";
 export const REF_SHEET_STATUS = "_REF_Status";
 export const REF_SHEET_ROLES = "_REF_Roles";
 export const REF_SHEET_SETTINGS = "_REF_Settings";
+export const REF_SHEET_YES_NO = "_REF_YesNo";
+export const REF_SHEET_SPORTS = "_REF_Sports";
+export const REF_SHEET_GENDER = "_REF_Gender";
 
 /** @deprecated Legacy TMW ref sheet names — read-only compat */
 export const LEGACY_REF_SHEET_CATEGORIES = "_Ref_Categories";
@@ -31,6 +34,13 @@ export const LEGACY_REF_SHEET_STATUS = "_Ref_Status";
 export const LEGACY_REF_SHEET_ROLES = "_Ref_Roles";
 
 export const INSTRUCTIONS_SHEET = "00_Instructions";
+export const SUMMARY_SHEET = "00_Summary";
+
+/** Data sheets used as live dropdown sources in exported workbooks */
+export const BMW_CATEGORY_SHEET = "02_Categories";
+export const BMW_TEAM_SHEET = "04_Teams";
+export const BMW_CATEGORY_NAME_HEADER = "Category Name";
+export const BMW_TEAM_NAME_HEADER = "Team Name";
 
 /** All BMW data sheets — metadata-driven; new fields auto-appear in export/import */
 export const BMW_SHEETS: WorkbookSheetDefinition[] = [
@@ -88,7 +98,7 @@ export const BMW_SHEETS: WorkbookSheetDefinition[] = [
       { key: "mobile", label: "Mobile", type: "string", editability: "editable", entity: "player", column: "mobileNumber" },
       { key: "email", label: "Email", type: "string", editability: "editable", entity: "player", column: "email" },
       { key: "dob", label: "DOB", type: "date", editability: "editable" },
-      { key: "gender", label: "Gender", type: "string", editability: "editable", entity: "player", column: "gender" },
+      { key: "gender", label: "Gender", type: "enum", editability: "editable", entity: "player", column: "gender", enumValues: ["M", "F", ""], enumLabels: { M: "Male", F: "Female", "": "Not specified" } },
       { key: "city", label: "City", type: "string", editability: "editable", entity: "player", column: "city" },
       { key: "state", label: "State", type: "string", editability: "editable" },
       { key: "country", label: "Country", type: "string", editability: "editable" },
@@ -248,11 +258,15 @@ export function getRegistrationCodeFromRow(row: Record<string, unknown>): string
 
 export const HIDDEN_SHEETS = [
   BMW_MANIFEST_SHEET,
+  SUMMARY_SHEET,
   REF_SHEET_CATEGORIES,
   REF_SHEET_TEAMS,
   REF_SHEET_STATUS,
   REF_SHEET_ROLES,
   REF_SHEET_SETTINGS,
+  REF_SHEET_YES_NO,
+  REF_SHEET_SPORTS,
+  REF_SHEET_GENDER,
   LEGACY_REF_SHEET_CATEGORIES,
   LEGACY_REF_SHEET_TEAMS,
   LEGACY_REF_SHEET_STATUS,

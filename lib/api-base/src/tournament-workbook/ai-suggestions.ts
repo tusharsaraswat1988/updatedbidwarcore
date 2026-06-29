@@ -26,6 +26,7 @@ type SynonymRule = {
 const GLOBAL_SYNONYMS: SynonymRule[] = [
   { patterns: [/^male?s?$/i, /^m$/i], canonical: "Male", reason: "Normalized gender value", confidence: 0.95, autoApply: true },
   { patterns: [/^female?s?$/i, /^f$/i], canonical: "Female", reason: "Normalized gender value", confidence: 0.95, autoApply: true },
+  { patterns: [/^not specified$/i, /^none$/i, /^-$/], canonical: "Not specified", reason: "Normalized gender value", confidence: 0.95, autoApply: true },
   { patterns: [/^yes$/i, /^y$/i, /^true$/i, /^1$/], canonical: "Yes", reason: "Normalized boolean", confidence: 0.98, autoApply: true },
   { patterns: [/^no$/i, /^n$/i, /^false$/i, /^0$/], canonical: "No", reason: "Normalized boolean", confidence: 0.98, autoApply: true },
   { patterns: [/^available$/i, /^avail$/i], canonical: "Available", reason: "Normalized status", confidence: 0.9, autoApply: true },

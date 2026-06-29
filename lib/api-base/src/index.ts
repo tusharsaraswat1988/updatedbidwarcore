@@ -40,7 +40,7 @@ export {
   type ExportTeamMap,
 } from "./export-players-rows.ts";
 
-export { formatPlayerGender } from "./player-gender.ts";
+export { formatPlayerGender, formatPlayerGenderForWorkbook, parseWorkbookGenderLabel, WORKBOOK_GENDER_LABELS } from "./player-gender.ts";
 export { playerTagLabel } from "./player-tag-label.ts";
 export {
   collectSpecColumnLabels,

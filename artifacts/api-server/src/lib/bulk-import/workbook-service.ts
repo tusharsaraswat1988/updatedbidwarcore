@@ -28,6 +28,7 @@ import {
 } from "@workspace/api-base/tournament-workbook";
 import { normalizeBooleanInput } from "@workspace/api-base/auction-data";
 import { getOrganizerBidOptions } from "@workspace/api-base/bid-value";
+import { parseWorkbookGenderLabel } from "@workspace/api-base/player-gender";
 import type { SponsorLogo } from "@workspace/api-base/sponsor-priority";
 import { buildTournamentWorkbookExcel } from "./workbook-excel-builder.ts";
 import {
@@ -43,6 +44,7 @@ import {
 import { parseWorkbookFromZip, applyLocalMediaToPlayers, cleanupZipExtract } from "./zip-import-service.ts";
 import { importAssetsFromWorkbook, applyAssetResultsToWorkbook } from "./asset-import-service.ts";
 import { writeEntityAuditLogs } from "./entity-audit-service.ts";
+export { buildWorkbookExportFilename } from "./workbook-export-filename.ts";
 
 export async function loadTournamentExportContext(tournamentId: number) {
   const [tournament] = await db
@@ -259,6 +261,40 @@ async function commitWorkbookEntities(
     }
     if (Object.keys(tournamentUpdates).length > 0) {
       await tx.update(tournamentsTable).set(tournamentUpdates).where(eq(tournamentsTable.id, tournamentId));
+    }
+
+    const [tournament] = await tx
+      .select({ auctionCode: tournamentsTable.auctionCode })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1);
+    const existingPlayerRows = await tx
+      .select({
+        id: playersTable.id,
+        name: playersTable.name,
+        mobileNumber: playersTable.mobileNumber,
+        email: playersTable.email,
+        age: playersTable.age,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tournamentId));
+    const existingPlayers = existingPlayerRows.map((p) => ({
+      id: p.id,
+      name: String(p.name),
+      mobileNumber: String(p.mobileNumber ?? ""),
+      email: p.email,
+      age: p.age,
+    }));
+
+    for (const row of workbook.sheets["03_Players"] ?? []) {
+      const identity = resolvePlayerIdentity(row, existingPlayers, tournament?.auctionCode);
+      if (!identity.playerId) continue;
+      const gender = parseWorkbookGenderLabel(row["Gender"]);
+      if (gender === undefined) continue;
+      await tx
+        .update(playersTable)
+        .set({ gender })
+        .where(eq(playersTable.id, identity.playerId));
     }
   });
 
