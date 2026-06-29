@@ -1,10 +1,10 @@
 # Production Memory Hotfix Report
 
-Date: 2026-06-28
+Date: 2026-06-29
 
 ## Scope
 
-This hotfix reduces Render memory pressure without changing existing API contracts. Existing upload endpoints and JSON responses remain unchanged.
+This hotfix reduces Render memory pressure without changing existing API contracts. It intentionally preserves the upload memory pipeline already merged to `main` in PR #30.
 
 ## Redis
 
@@ -23,7 +23,7 @@ Audited SSE endpoints:
 
 Changes made:
 
-- Registries no longer store full Express `Response` objects; they store minimal write closures.
+- Registries no longer store full Express `Response` objects; they store minimal write callbacks.
 - Close handlers remove clients immediately.
 - Close listeners remove themselves during cleanup.
 - Heartbeat timers are cleared on disconnect and on write failure.
@@ -44,25 +44,13 @@ A warning is emitted when RSS exceeds 400 MB.
 
 ## Upload Audit
 
-The current default upload path intentionally still uses `multer.memoryStorage()` for backward compatibility.
+PR #30's upload pipeline is preserved:
 
-Code inspection proof:
-
-- Multer buffers are only passed into `cloudinary.uploader.upload_stream(...).end(buffer)`.
-- No module-level arrays, caches, or registries store `req.file` or `req.file.buffer`.
-- Each upload route now clears `req.file.buffer` and removes `req.file` in `finally`, releasing the request-scoped buffer reference after Cloudinary finishes or fails.
-- Cloudinary streams are scoped inside per-request promises and are not retained after callback resolution/rejection.
-- The new streaming path pipes through Sharp only when `UPLOAD_STREAMING=true`; Sharp stream instances are per-request pipeline locals and are released when the pipeline settles.
-
-## Future Streaming Implementation
-
-A second upload implementation is present behind `UPLOAD_STREAMING=true` and is disabled by default. It uses:
-
-- Busboy multipart parsing
-- Sharp stream rotation for non-SVG/non-GIF image uploads
-- Cloudinary `upload_stream`
-
-The endpoint URLs and response bodies remain unchanged.
+- Image uploads are limited to 5 MB.
+- Raster images are resized inside 1200x1200, rotated from metadata, converted to WebP, and uploaded to Cloudinary.
+- SVG and GIF uploads are not raster-optimized to avoid breaking animation/vector behavior.
+- Media image uploads above 5 MB are rejected while video media uploads keep the existing 20 MB limit.
+- Multer buffers are cleared in `finally` after upload processing.
 
 ## Before / After RAM Usage
 

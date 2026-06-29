@@ -34,7 +34,6 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
-      "busboy",
       "better-sqlite3",
       "sqlite3",
       "canvas",
