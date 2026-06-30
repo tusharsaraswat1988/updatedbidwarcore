@@ -18,6 +18,8 @@ import { DisplayConnectionBanner } from "./display-connection-banner";
 import { DisplayStageViewport } from "./display-stage-viewport";
 import { LedStageContent, StageThemeProvider } from "./v1";
 import type { AudioSettings } from "@/lib/audio-manager";
+import { resolveBroadcastAudioUrls } from "@workspace/api-base/platform-audio";
+import type { PlatformAudioDefaults } from "@workspace/api-base/platform-audio";
 
 /**
  * DisplayShell — single owner of realtime auction state for the LED broadcast screen.
@@ -54,34 +56,40 @@ export function DisplayShell({
 
   const audioSettings = useMemo<AudioSettings | null>(() => {
     if (!tournament) return null;
+    const platform = (tournament as { platformAudioDefaults?: PlatformAudioDefaults }).platformAudioDefaults;
+    const resolved = resolveBroadcastAudioUrls(
+      {
+        countdownSoundUrl:
+          (tournament as { resolvedCountdownSoundUrl?: string | null }).resolvedCountdownSoundUrl
+          ?? tournament.countdownSoundUrl,
+        soldSoundUrl:
+          (tournament as { resolvedSoldSoundUrl?: string | null }).resolvedSoldSoundUrl
+          ?? tournament.soldSoundUrl,
+        breakEndMusicUrl:
+          (tournament as { resolvedBreakEndMusicUrl?: string | null }).resolvedBreakEndMusicUrl
+          ?? tournament.breakEndMusicUrl,
+      },
+      platform ?? {
+        countdownSoundUrl: null,
+        soldSoundUrl: null,
+        breakEndMusicUrl: null,
+      },
+    );
     return {
       audioEnabled: tournament.audioEnabled ?? true,
       masterVolume: tournament.masterVolume ?? 80,
       countdownSoundEnabled: tournament.countdownSoundEnabled ?? true,
-      countdownSoundUrl: tournament.resolvedCountdownSoundUrl ?? tournament.countdownSoundUrl ?? null,
+      countdownSoundUrl: resolved.countdownSoundUrl,
       countdownSoundVolume: tournament.countdownSoundVolume ?? 70,
       soldSoundEnabled: tournament.soldSoundEnabled ?? true,
-      soldSoundUrl: tournament.resolvedSoldSoundUrl ?? tournament.soldSoundUrl ?? null,
+      soldSoundUrl: resolved.soldSoundUrl,
       soldSoundVolume: tournament.soldSoundVolume ?? 80,
       breakEndMusicEnabled: tournament.breakEndMusicEnabled ?? false,
-      breakEndMusicUrl: tournament.resolvedBreakEndMusicUrl ?? tournament.breakEndMusicUrl ?? null,
+      breakEndMusicUrl: resolved.breakEndMusicUrl,
       breakEndMusicVolume: tournament.breakEndMusicVolume ?? 80,
     };
   }, [
-    tournament?.audioEnabled,
-    tournament?.masterVolume,
-    tournament?.countdownSoundEnabled,
-    tournament?.countdownSoundUrl,
-    tournament?.resolvedCountdownSoundUrl,
-    tournament?.countdownSoundVolume,
-    tournament?.soldSoundEnabled,
-    tournament?.soldSoundUrl,
-    tournament?.resolvedSoldSoundUrl,
-    tournament?.soldSoundVolume,
-    tournament?.breakEndMusicEnabled,
-    tournament?.breakEndMusicUrl,
-    tournament?.resolvedBreakEndMusicUrl,
-    tournament?.breakEndMusicVolume,
+    tournament,
   ]);
 
   const soldKey =
@@ -90,8 +98,10 @@ export function DisplayShell({
       : "";
 
   const dc = state?.displayCountdown ?? null;
-  const hasDisplayCountdown = dc?.type === "break" || dc?.type === "pre-auction";
-  const displayCountdownEndsAt = hasDisplayCountdown ? (dc?.endsAt ?? null) : null;
+  const displayCountdownType = dc?.type;
+  const displayCountdownEndsAt =
+    dc?.type === "break" || dc?.type === "pre-auction" ? (dc?.endsAt ?? null) : null;
+  const displayCountdownMusicMuted = dc?.musicMuted === true;
 
   const isAudioLeader = useDisplayAudioLeader(tournamentId, "main");
 
@@ -100,8 +110,9 @@ export function DisplayShell({
     timerEndsAt: state?.timerEndsAt,
     soldKey,
     settings: audioSettings,
-    hasDisplayCountdown,
+    displayCountdownType,
     displayCountdownEndsAt,
+    displayCountdownMusicMuted,
     auctionStateReady: !!state,
     isAudioLeader,
   });

@@ -64,7 +64,7 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Search,
   Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
-  Coffee, PlusCircle, ChevronDown,
+  Coffee, PlusCircle, ChevronDown, Volume2, VolumeX,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -506,6 +506,18 @@ export default function AuctionOperator() {
   }
 
   function openCountdownDialog() {
+    if (currentCountdown?.endsAt) {
+      setCountdownDialogOpen(true);
+      return;
+    }
+    if (state?.status === "active" && state?.currentPlayer) {
+      toast({
+        title: "Player on block",
+        description: "Sold, unsold, or defer the current player before starting a break timer.",
+        variant: "destructive",
+      });
+      return;
+    }
     setCountdownMinutes("5");
     setCountdownSeconds("0");
     setCountdownLabel("");
@@ -521,6 +533,14 @@ export default function AuctionOperator() {
   }
 
   async function handleStartCountdown() {
+    if (state?.status === "active" && state?.currentPlayer) {
+      toast({
+        title: "Player on block",
+        description: "Sold, unsold, or defer the current player before starting a break timer.",
+        variant: "destructive",
+      });
+      return;
+    }
     const message = countdownLabel.trim() || undefined;
     const durationSeconds = parseCountdownDuration();
     if (!durationSeconds) {
@@ -549,6 +569,7 @@ export default function AuctionOperator() {
     try {
       const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
       applyMutationResult(result);
+      setCountdownDialogOpen(false);
       toast({
         title: "Break timer cancelled",
         description:
@@ -651,6 +672,7 @@ export default function AuctionOperator() {
   const hasPlayer  = !!state?.currentPlayer;
   const hasBid     = !!state?.currentBidTeamId;
   const timerActive = !!state?.timerEndsAt && !timerExpired;
+  const livePlayerAuctionActive = isActive && hasPlayer;
   const allPlayers  = players || [];
   const available   = allPlayers.filter(p => p.status === "available");
   const soldPlayers   = allPlayers.filter(p => p.status === "sold");
@@ -673,7 +695,27 @@ export default function AuctionOperator() {
   const isTrialMode = licenseStatus !== "active";
   const trialTeamIds: number[] | null = (state as any)?.trialTeamIds ?? null;
   const deferredPlayerIds: number[] | null = (state as any)?.deferredPlayerIds ?? null;
-  const currentCountdown = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown ?? null;
+  const currentCountdown = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null; musicMuted?: boolean } | null } | undefined)?.displayCountdown ?? null;
+
+  async function handleToggleBreakMusic() {
+    const muted = currentCountdown?.musicMuted === true;
+    try {
+      const result = await setBreakTimerMut.mutateAsync({
+        tournamentId,
+        data: { action: muted ? "unmute_music" : "mute_music" },
+      });
+      applyMutationResult(result);
+      toast({
+        title: muted ? "Break music resumed" : "Break music stopped",
+        description: muted
+          ? "Music is playing again on LED displays."
+          : "Break timer continues — music is off on LED displays.",
+      });
+    } catch (err: unknown) {
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not update break music.";
+      toast({ title: "Update failed", description: msg, variant: "destructive" });
+    }
+  }
 
   // Keyboard shortcuts — declared here so derived vars are in scope
   useEffect(() => {
@@ -1329,17 +1371,32 @@ export default function AuctionOperator() {
 
               {currentCountdown?.endsAt ? (
                 <div
-                  title={currentCountdown.message ?? "Pre Auction & Break"}
-                  className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 flex-shrink-0"
+                  role="button"
+                  tabIndex={0}
+                  onClick={openCountdownDialog}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openCountdownDialog();
+                    }
+                  }}
+                  title={currentCountdown.message ?? "Pre Auction & Break — click to manage"}
+                  className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 flex-shrink-0 hover:bg-amber-500/25 transition-colors cursor-pointer"
                 >
                   <Coffee className="w-3 h-3 flex-shrink-0" />
                   <CountdownClock
                     endsAt={currentCountdown.endsAt}
                     className="font-mono font-bold tabular-nums text-sm leading-none min-w-[2.75rem] text-center"
                   />
+                  {(currentCountdown.musicMuted) ? (
+                    <VolumeX className="w-3 h-3 flex-shrink-0 text-amber-200/70" />
+                  ) : null}
                   <button
                     type="button"
-                    onClick={handleCancelCountdown}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleCancelCountdown();
+                    }}
                     disabled={setBreakTimerMut.isPending}
                     title="Cancel break timer"
                     className="h-5 w-5 flex items-center justify-center rounded bg-amber-500/25 hover:bg-red-500/35 hover:text-red-300 transition-colors disabled:opacity-40 flex-shrink-0"
@@ -1351,7 +1408,13 @@ export default function AuctionOperator() {
                 <button
                   type="button"
                   onClick={openCountdownDialog}
-                  className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
+                  disabled={livePlayerAuctionActive || controlsLocked}
+                  title={
+                    livePlayerAuctionActive
+                      ? "Finish or defer the current player before starting a break timer"
+                      : "Start pre-auction or break countdown on all displays"
+                  }
+                  className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Coffee className="w-3 h-3" /> Pre Auction & Break Timer
                 </button>
@@ -1930,9 +1993,56 @@ export default function AuctionOperator() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Coffee className="w-4 h-4 text-amber-400" />
-                Pre Auction & Break Timer
+                {currentCountdown?.endsAt ? "Break in progress" : "Pre Auction & Break Timer"}
               </DialogTitle>
             </DialogHeader>
+            {currentCountdown?.endsAt ? (
+              <div className="space-y-4 py-2">
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
+                  <p className="text-xs uppercase tracking-widest text-amber-200/70 mb-1">
+                    {currentCountdown.message?.trim() || "Break countdown"}
+                  </p>
+                  <CountdownClock
+                    endsAt={currentCountdown.endsAt}
+                    className="font-mono text-3xl font-bold tabular-nums text-amber-100"
+                  />
+                </div>
+                {currentCountdown.type === "break" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-2"
+                    disabled={setBreakTimerMut.isPending}
+                    onClick={handleToggleBreakMusic}
+                  >
+                    {(currentCountdown.musicMuted) ? (
+                      <>
+                        <Volume2 className="w-4 h-4" />
+                        Resume break music
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="w-4 h-4" />
+                        Stop break music
+                      </>
+                    )}
+                  </Button>
+                ) : null}
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setCountdownDialogOpen(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    disabled={setBreakTimerMut.isPending}
+                    onClick={handleCancelCountdown}
+                  >
+                    End break
+                  </Button>
+                </div>
+              </div>
+            ) : (
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -1950,11 +2060,12 @@ export default function AuctionOperator() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setCountdownDialogOpen(false)}>Cancel</Button>
-                <Button className="flex-1" disabled={setBreakTimerMut.isPending} onClick={handleStartCountdown}>
+                <Button className="flex-1" disabled={setBreakTimerMut.isPending || livePlayerAuctionActive} onClick={handleStartCountdown}>
                   Start
                 </Button>
               </div>
             </div>
+            )}
           </DialogContent>
         </Dialog>
 

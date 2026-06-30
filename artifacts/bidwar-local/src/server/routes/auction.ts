@@ -297,10 +297,15 @@ export function createAuctionRouter(db: LocalDb) {
       try { displayPlayerFilter = JSON.parse(session.displayPlayerFilter); } catch { /* ignore */ }
     }
 
-    let displayCountdown: { type: string; endsAt: string; message: string | null } | null = null;
+    let displayCountdown: { type: string; endsAt: string; message: string | null; musicMuted?: boolean } | null = null;
     if (session.displayCountdown) {
       try {
-        const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
+        const parsed = JSON.parse(session.displayCountdown) as {
+          type: string;
+          endsAt: string;
+          message: string | null;
+          musicMuted?: boolean;
+        };
         if (parsed && new Date(parsed.endsAt) > new Date()) displayCountdown = parsed;
       } catch { /* ignore */ }
     }
@@ -919,12 +924,50 @@ export function createAuctionRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const body = z.object({
-      action: z.enum(["start", "cancel", "extend"]),
+      action: z.enum(["start", "cancel", "extend", "mute_music", "unmute_music"]),
       durationSeconds: z.number().int().min(10).max(3600).optional(),
       message: z.string().max(60).optional(),
     }).safeParse(req.body);
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
     const session = await getOrCreateSession(tid);
+
+    type StoredCountdown = {
+      type: string;
+      endsAt: string;
+      message: string | null;
+      musicMuted?: boolean;
+    };
+
+    function parseStoredCountdown(raw: string | null | undefined): StoredCountdown | null {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw) as StoredCountdown;
+      } catch {
+        return null;
+      }
+    }
+
+    const existingCountdown = parseStoredCountdown(session.displayCountdown);
+
+    if (body.data.action === "mute_music" || body.data.action === "unmute_music") {
+      if (!existingCountdown || existingCountdown.type !== "break") {
+        res.status(400).json({ error: "mute_music is only valid for an active break countdown" });
+        return;
+      }
+      if (new Date(existingCountdown.endsAt).getTime() <= Date.now()) {
+        res.status(400).json({ error: "Break countdown has already expired" });
+        return;
+      }
+      const musicMuted = body.data.action === "mute_music";
+      await db
+        .update(auctionSessionsTable)
+        .set({
+          displayCountdown: JSON.stringify({ ...existingCountdown, musicMuted }),
+        })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+      res.json(await broadcastState(tid));
+      return;
+    }
     if (body.data.action === "start" && session.status === "active") {
       let pausedTimeRemaining: number | null = null;
       if (session.timerEndsAt) {
@@ -949,14 +992,13 @@ export function createAuctionRouter(db: LocalDb) {
     let countdown: string | null = null;
     if (body.data.action === "start" && body.data.durationSeconds) {
       const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
-      countdown = JSON.stringify({ type: "break", endsAt, message: body.data.message ?? null });
+      countdown = JSON.stringify({
+        type: "break",
+        endsAt,
+        message: body.data.message ?? null,
+        musicMuted: false,
+      });
     } else if (body.data.action === "extend") {
-      let existingCountdown: { type: string; endsAt: string; message: string | null } | null = null;
-      if (session.displayCountdown) {
-        try {
-          existingCountdown = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
-        } catch { /* ignore */ }
-      }
       if (!existingCountdown || existingCountdown.type !== "break") {
         res.status(400).json({ error: "extend is only valid for an active break countdown" });
         return;
@@ -966,7 +1008,12 @@ export function createAuctionRouter(db: LocalDb) {
         ? new Date(existingCountdown.endsAt).getTime()
         : Date.now();
       const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
-      countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
+      countdown = JSON.stringify({
+        type: "break",
+        endsAt,
+        message: existingCountdown.message,
+        musicMuted: existingCountdown.musicMuted ?? false,
+      });
     }
 
     const sessionPatch: Record<string, unknown> = { displayCountdown: countdown };

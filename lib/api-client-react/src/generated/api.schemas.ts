@@ -1191,6 +1191,8 @@ export interface DisplayCountdown {
    * @nullable
    */
   message?: string | null;
+  /** When true, break music is silenced on LED displays while the countdown continues */
+  musicMuted?: boolean;
 }
 
 export interface LastPurseBooster {
@@ -1957,6 +1959,8 @@ export const SetBreakTimerBodyAction = {
   start: "start",
   cancel: "cancel",
   extend: "extend",
+  mute_music: "mute_music",
+  unmute_music: "unmute_music",
 } as const;
 
 export type SetBreakTimerBody = {

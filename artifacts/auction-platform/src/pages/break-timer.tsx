@@ -8,7 +8,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
-import { Coffee, Play, StopCircle, PlusCircle, ShieldAlert } from "lucide-react";
+import { Coffee, Play, StopCircle, PlusCircle, ShieldAlert, Volume2, VolumeX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 function useRemainingTime(endsAt: string | null | undefined) {
@@ -58,7 +58,7 @@ export default function BreakTimerPage() {
   const [breakLabel, setBreakLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown ?? null;
+  const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null; musicMuted?: boolean } | null } | undefined)?.displayCountdown ?? null;
   const { mins, secs, expired } = useRemainingTime(isCountdownActive(dc) ? dc?.endsAt : null);
 
   async function handleStartBreak() {
@@ -91,6 +91,20 @@ export default function BreakTimerPage() {
       });
       await refetch();
     } catch { setError("Failed to extend countdown."); }
+  }
+
+  async function handleToggleBreakMusic() {
+    const muted = dc?.musicMuted === true;
+    try {
+      await setBreakTimerMut.mutateAsync({
+        tournamentId,
+        data: { action: muted ? "unmute_music" : "mute_music" },
+      });
+      await refetch();
+    } catch (err: unknown) {
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not update break music.";
+      setError(msg);
+    }
   }
 
   async function handleCancelBreak() {
@@ -154,7 +168,26 @@ export default function BreakTimerPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!expired && dc?.type === "break" && (
+                  <button
+                    onClick={handleToggleBreakMusic}
+                    disabled={setBreakTimerMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-foreground hover:bg-white/10 text-xs font-semibold transition-colors disabled:opacity-40"
+                  >
+                    {dc.musicMuted ? (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5" />
+                        Resume music
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="w-3.5 h-3.5" />
+                        Stop music
+                      </>
+                    )}
+                  </button>
+                )}
                 {!expired && (
                   <button
                     onClick={handleExtend}

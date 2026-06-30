@@ -27,7 +27,7 @@ const FIELD_META: Record<AudioField, { label: string; hint: string; icon: typeof
     icon: Gavel,
   },
   breakEndMusicUrl: {
-    label: "Break End Sound",
+    label: "Break Music",
     hint: "When a break timer expires",
     icon: Coffee,
   },
@@ -127,7 +127,7 @@ export function DefaultAudioSettingsPanel() {
     });
     if (field === "countdownSoundUrl") mgr.previewCountdown();
     else if (field === "soldSoundUrl") mgr.previewSold();
-    else mgr.previewBreakEnd();
+    else mgr.previewBreakMusic();
   }
 
   async function save() {

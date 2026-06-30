@@ -422,7 +422,7 @@ export default function TournamentSettings() {
       breakEndMusicUrl: resolveBroadcastAudioUrl((editForm.breakEndMusicUrl as string).trim() || null, platform),
       breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
     });
-    mgr.previewBreakEnd();
+    mgr.previewBreakMusic();
   }
 
   const isDirty = useMemo(
@@ -1531,7 +1531,7 @@ export default function TournamentSettings() {
 
             <SettingsCard
               title="Auction Sounds"
-              description="Countdown, sold, and break-end sounds for the live auction."
+              description="Countdown, sold, and break music for the live auction."
               icon={<Megaphone className="w-4 h-4 text-muted-foreground" />}
               className="xl:col-span-2"
               contentClassName="space-y-3"
@@ -1662,13 +1662,13 @@ export default function TournamentSettings() {
                     )}
                   </div>
 
-                  {/* Break End Sound */}
+                  {/* Break Music */}
                   <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium flex items-center gap-1.5">
                         <Coffee className="w-3.5 h-3.5 text-muted-foreground" />
-                        Break End Sound
-                        <span className="text-[10px] text-muted-foreground font-normal">on break timer expiry</span>
+                        Break Music
+                        <span className="text-[10px] text-muted-foreground font-normal">loops on LED during break</span>
                       </Label>
                       <Switch
                         checked={editForm.breakEndMusicEnabled === true}
@@ -1715,7 +1715,7 @@ export default function TournamentSettings() {
                               value={[Number(editForm.breakEndMusicVolume)]}
                               onValueChange={([v]) => setEditForm(f => ({ ...f, breakEndMusicVolume: String(v) }))} />
                           </div>
-                          <Button type="button" size="sm" variant="outline" className="gap-1.5 h-7 text-xs shrink-0" onClick={previewBreakEnd}>
+                          <Button type="button" size="sm" variant="outline" className="gap-1.5 h-7 text-xs shrink-0" onClick={previewBreakMusic}>
                             <Play className="w-3 h-3" /> Preview
                           </Button>
                         </div>

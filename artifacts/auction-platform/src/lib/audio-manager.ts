@@ -20,6 +20,7 @@ export interface AudioSettings {
   soldSoundEnabled: boolean;
   soldSoundUrl: string | null;
   soldSoundVolume: number;       // 0–100
+  /** Plays on loop on the LED while a break countdown is active */
   breakEndMusicEnabled: boolean;
   breakEndMusicUrl: string | null;
   breakEndMusicVolume: number;   // 0–100
@@ -43,17 +44,27 @@ export class AuctionAudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
 
-  // Custom HTML audio elements for URL-backed sounds
+  // Custom HTML audio elements — fallback when Web Audio decode fails
   private countdownAudio: HTMLAudioElement | null = null;
   private soldAudio: HTMLAudioElement | null = null;
   private breakEndAudio: HTMLAudioElement | null = null;
 
+  // Decoded buffers play through the unlocked AudioContext (reliable on LED displays)
+  private countdownBuffer: AudioBuffer | null = null;
+  private soldBuffer: AudioBuffer | null = null;
+  private breakEndBuffer: AudioBuffer | null = null;
+  private countdownLoadId = 0;
+  private soldLoadId = 0;
+  private breakEndLoadId = 0;
+
   private settings: AudioSettings = { ...DEFAULT_SETTINGS };
+
+  // Looping break music (HTMLAudioElement — supports long tracks + loop)
+  private breakLoopEl: HTMLAudioElement | null = null;
 
   // Deduplication state
   private lastCountdownSec = -1;
   private soldKeyPlayed = "";
-  private breakEndKeyPlayed = "";
 
   /** Mark a sold event as already handled (e.g. page load) without playing audio. */
   ackSoldKey(key: string): void {
@@ -63,6 +74,13 @@ export class AuctionAudioManager {
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async unlock(): Promise<void> {
+    await this.ensureContext();
+    await this.primeHtmlAudio(this.countdownAudio);
+    await this.primeHtmlAudio(this.soldAudio);
+    await this.primeHtmlAudio(this.breakEndAudio);
+  }
+
+  private async ensureContext(): Promise<AudioContext | null> {
     if (!this.ctx) {
       this.ctx = new AudioContext();
       this.masterGain = this.ctx.createGain();
@@ -70,8 +88,13 @@ export class AuctionAudioManager {
       this.applyMasterGain();
     }
     if (this.ctx.state === "suspended") {
-      await this.ctx.resume();
+      try {
+        await this.ctx.resume();
+      } catch {
+        // Playback may still require an explicit user gesture.
+      }
     }
+    return this.ctx;
   }
 
   get isUnlocked(): boolean {
@@ -79,11 +102,16 @@ export class AuctionAudioManager {
   }
 
   dispose(): void {
+    this.stopBreakMusic();
     this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.masterGain = null;
     this.countdownAudio = null;
     this.soldAudio = null;
+    this.breakEndAudio = null;
+    this.countdownBuffer = null;
+    this.soldBuffer = null;
+    this.breakEndBuffer = null;
   }
 
   // ── Settings ──────────────────────────────────────────────────────────
@@ -98,20 +126,140 @@ export class AuctionAudioManager {
     // Reload custom audio only when URLs change
     if (s.countdownSoundUrl !== prevCountdownUrl) {
       this.countdownAudio = s.countdownSoundUrl ? this.makeAudio(s.countdownSoundUrl) : null;
+      this.countdownBuffer = null;
     }
     if (s.soldSoundUrl !== prevSoldUrl) {
       this.soldAudio = s.soldSoundUrl ? this.makeAudio(s.soldSoundUrl) : null;
+      this.soldBuffer = null;
     }
     if (s.breakEndMusicUrl !== prevBreakEndUrl) {
       this.breakEndAudio = s.breakEndMusicUrl ? this.makeAudio(s.breakEndMusicUrl) : null;
+      this.breakEndBuffer = null;
+    }
+
+    if (
+      s.countdownSoundUrl !== prevCountdownUrl
+      || s.soldSoundUrl !== prevSoldUrl
+      || s.breakEndMusicUrl !== prevBreakEndUrl
+    ) {
+      this.reloadCustomBuffers();
     }
   }
 
   private makeAudio(url: string): HTMLAudioElement {
     const el = new Audio(url);
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      el.crossOrigin = "anonymous";
+    }
     el.preload = "auto";
     el.load();
     return el;
+  }
+
+  private reloadCustomBuffers(): void {
+    const { countdownSoundUrl, soldSoundUrl, breakEndMusicUrl } = this.settings;
+    this.scheduleBufferLoad(countdownSoundUrl, "countdown");
+    this.scheduleBufferLoad(soldSoundUrl, "sold");
+    this.scheduleBufferLoad(breakEndMusicUrl, "breakEnd");
+  }
+
+  private scheduleBufferLoad(
+    url: string | null,
+    kind: "countdown" | "sold" | "breakEnd",
+  ): void {
+    if (!url) {
+      if (kind === "countdown") this.countdownBuffer = null;
+      if (kind === "sold") this.soldBuffer = null;
+      if (kind === "breakEnd") this.breakEndBuffer = null;
+      return;
+    }
+
+    const loadId = kind === "countdown"
+      ? ++this.countdownLoadId
+      : kind === "sold"
+        ? ++this.soldLoadId
+        : ++this.breakEndLoadId;
+
+    void this.loadAudioBuffer(url).then((buffer) => {
+      if (kind === "countdown" && loadId !== this.countdownLoadId) return;
+      if (kind === "sold" && loadId !== this.soldLoadId) return;
+      if (kind === "breakEnd" && loadId !== this.breakEndLoadId) return;
+      if (kind === "countdown") this.countdownBuffer = buffer;
+      if (kind === "sold") this.soldBuffer = buffer;
+      if (kind === "breakEnd") this.breakEndBuffer = buffer;
+    });
+  }
+
+  private async loadAudioBuffer(url: string): Promise<AudioBuffer | null> {
+    try {
+      const ctx = await this.ensureContext();
+      if (!ctx) return null;
+
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (!response.ok) return null;
+      const data = await response.arrayBuffer();
+      return await ctx.decodeAudioData(data.slice(0));
+    } catch {
+      return null;
+    }
+  }
+
+  private async primeHtmlAudio(el: HTMLAudioElement | null): Promise<void> {
+    if (!el) return;
+    try {
+      const prevVolume = el.volume;
+      el.volume = 0;
+      el.currentTime = 0;
+      await el.play();
+      el.pause();
+      el.currentTime = 0;
+      el.volume = prevVolume;
+    } catch {
+      // Ignore — HTML fallback may still work after a later user gesture.
+    }
+  }
+
+  private scaledVolume(soundVolume: number): number {
+    return Math.min(1, (soundVolume / 100) * (this.settings.masterVolume / 100));
+  }
+
+  private playBuffer(buffer: AudioBuffer, soundVolume: number): boolean {
+    const ctx = this.ctx;
+    if (!ctx || !this.masterGain) return false;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = this.scaledVolume(soundVolume);
+    source.connect(gain);
+    gain.connect(this.masterGain);
+    source.start();
+    return true;
+  }
+
+  private async playHtmlClone(el: HTMLAudioElement, soundVolume: number): Promise<boolean> {
+    const clone = el.cloneNode(true) as HTMLAudioElement;
+    if (el.crossOrigin) clone.crossOrigin = el.crossOrigin;
+    clone.volume = this.scaledVolume(soundVolume);
+    try {
+      await clone.play();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private playCustomSound(
+    buffer: AudioBuffer | null,
+    el: HTMLAudioElement | null,
+    soundVolume: number,
+    synth: () => void,
+  ): void {
+    void this.unlock().then(async () => {
+      if (buffer && this.playBuffer(buffer, soundVolume)) return;
+      if (el && await this.playHtmlClone(el, soundVolume)) return;
+      synth();
+    });
   }
 
   private applyMasterGain(): void {
@@ -130,16 +278,16 @@ export class AuctionAudioManager {
     if (secondsLeft === this.lastCountdownSec) return; // deduplicate per-second
     this.lastCountdownSec = secondsLeft;
 
-    if (this.countdownAudio) {
-      const clone = this.countdownAudio.cloneNode() as HTMLAudioElement;
-      clone.volume = Math.min(
-        1,
-        (this.settings.countdownSoundVolume / 100) * (this.settings.masterVolume / 100),
+    if (this.countdownBuffer || this.countdownAudio) {
+      this.playCustomSound(
+        this.countdownBuffer,
+        this.countdownAudio,
+        this.settings.countdownSoundVolume,
+        () => this.synthTick(secondsLeft),
       );
-      clone.play().catch(() => {});
       return;
     }
-    this.synthTick(secondsLeft);
+    void this.unlock().then(() => this.synthTick(secondsLeft));
   }
 
   resetCountdownState(): void {
@@ -161,41 +309,67 @@ export class AuctionAudioManager {
     // Stop countdown state so ticks don't fire during sold animation
     this.stopCountdown();
 
-    if (this.soldAudio) {
-      const clone = this.soldAudio.cloneNode() as HTMLAudioElement;
-      clone.volume = Math.min(
-        1,
-        (this.settings.soldSoundVolume / 100) * (this.settings.masterVolume / 100),
+    if (this.soldBuffer || this.soldAudio) {
+      this.playCustomSound(
+        this.soldBuffer,
+        this.soldAudio,
+        this.settings.soldSoundVolume,
+        () => this.synthSold(),
       );
-      clone.play().catch(() => {});
       return;
     }
-    this.synthSold();
+    void this.unlock().then(() => this.synthSold());
   }
 
-  // ── Break-end sound ───────────────────────────────────────────────────
+  // ── Break music (loops for the duration of the break countdown) ───────
 
-  playBreakEnd(key: string): void {
+  startBreakMusic(): void {
     if (!this.settings.audioEnabled) return;
     if (!this.settings.breakEndMusicEnabled) return;
-    if (key && key === this.breakEndKeyPlayed) return; // deduplicate per event
-    this.breakEndKeyPlayed = key;
+    if (this.breakLoopEl && !this.breakLoopEl.paused) return;
 
-    if (this.breakEndAudio) {
-      const clone = this.breakEndAudio.cloneNode() as HTMLAudioElement;
-      clone.volume = Math.min(
-        1,
-        (this.settings.breakEndMusicVolume / 100) * (this.settings.masterVolume / 100),
-      );
-      clone.play().catch(() => {});
+    this.stopBreakMusic();
+
+    const url = this.settings.breakEndMusicUrl;
+    if (url) {
+      const el = this.makeAudio(url);
+      el.loop = true;
+      el.volume = this.scaledVolume(this.settings.breakEndMusicVolume);
+      this.breakLoopEl = el;
+      void this.unlock().then(() => {
+        el.play().catch(() => {});
+      });
       return;
     }
-    this.synthBreakEnd();
+
+    // Built-in fallback: short ambient chime on loop via the preloaded element
+    if (this.breakEndAudio) {
+      const el = this.breakEndAudio.cloneNode(true) as HTMLAudioElement;
+      if (this.breakEndAudio.crossOrigin) el.crossOrigin = this.breakEndAudio.crossOrigin;
+      el.loop = true;
+      el.volume = this.scaledVolume(this.settings.breakEndMusicVolume);
+      this.breakLoopEl = el;
+      void this.unlock().then(() => {
+        el.play().catch(() => {});
+      });
+      return;
+    }
+
+    void this.unlock().then(() => this.synthBreakEnd());
   }
 
-  previewBreakEnd(): void {
-    this.breakEndKeyPlayed = ""; // reset so preview always plays
-    this.playBreakEnd("__preview__" + Date.now());
+  stopBreakMusic(): void {
+    if (!this.breakLoopEl) return;
+    this.breakLoopEl.pause();
+    this.breakLoopEl.currentTime = 0;
+    this.breakLoopEl.loop = false;
+    this.breakLoopEl = null;
+  }
+
+  previewBreakMusic(): void {
+    this.stopBreakMusic();
+    this.startBreakMusic();
+    setTimeout(() => this.stopBreakMusic(), 4000);
   }
 
   // ── Emergency controls ────────────────────────────────────────────────

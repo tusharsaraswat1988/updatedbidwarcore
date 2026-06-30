@@ -5,6 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AlertTriangle, RefreshCw, ShieldCheck, CheckCircle2, ArrowLeft } from "lucide-react";
 import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
 
@@ -26,6 +28,10 @@ export default function AuctionReset() {
   const resetMut = useResetTrialAuction();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  const confirmPhrase = "reset";
+  const confirmMatches = confirmText.trim().toLowerCase() === confirmPhrase;
 
   const resetCount = tournament?.resetCount ?? 0;
   const lastResetAt = tournament?.lastResetAt ? new Date(tournament.lastResetAt) : null;
@@ -40,6 +46,10 @@ export default function AuctionReset() {
       setError("This tournament is completed. Auction reset is no longer available from the organizer panel.");
       return;
     }
+    if (!confirmMatches) {
+      setError(`Type "${confirmPhrase}" in the box below to confirm.`);
+      return;
+    }
     setError(null);
     try {
       await resetMut.mutateAsync({
@@ -47,6 +57,7 @@ export default function AuctionReset() {
         data: { password: "", reason: "", resetContext: "organizer" },
       });
       setSuccess(true);
+      setConfirmText("");
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
       await refetchTournament();
     } catch (e: unknown) {
@@ -146,10 +157,29 @@ export default function AuctionReset() {
               </div>
             )}
 
+            <div className="space-y-2">
+              <Label htmlFor="reset-confirm" className="text-sm">
+                Type <span className="font-mono font-semibold text-red-300">reset</span> to confirm
+              </Label>
+              <Input
+                id="reset-confirm"
+                value={confirmText}
+                onChange={(e) => {
+                  setConfirmText(e.target.value);
+                  if (error?.includes("Type")) setError(null);
+                }}
+                placeholder="reset"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={resetMut.isPending || success}
+                className="font-mono"
+              />
+            </div>
+
             <div className="flex gap-3 pt-1">
               <Button
                 className="flex-1 bg-red-700 hover:bg-red-600 text-white border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] gap-2"
-                disabled={resetMut.isPending}
+                disabled={resetMut.isPending || success || !confirmMatches}
                 onClick={handleReset}
               >
                 <RefreshCw className={`w-4 h-4 ${resetMut.isPending ? "animate-spin" : ""}`} />

@@ -1295,7 +1295,7 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [start, cancel, extend]
+                  enum: [start, cancel, extend, mute_music, unmute_music]
                 durationSeconds:
                   type: integer
                   minimum: 10
@@ -3496,6 +3496,9 @@ components:
         message:
           type: ["string", "null"]
           description: Optional display message override
+        musicMuted:
+          type: boolean
+          description: When true, break music is silenced on LED displays while the countdown continues
 
     RegistrationStatus:
       type: object

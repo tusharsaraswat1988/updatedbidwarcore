@@ -76,7 +76,7 @@ export const tournamentsTable = pgTable("tournaments", {
   soldSoundEnabled: boolean("sold_sound_enabled").notNull().default(true),
   soldSoundUrl: text("sold_sound_url"),
   soldSoundVolume: integer("sold_sound_volume").notNull().default(80),
-  // Break-end sound (plays on LED display when a break countdown expires)
+  // Break music (loops on LED display while a break countdown is active)
   breakEndMusicEnabled: boolean("break_end_sound_enabled").notNull().default(false),
   breakEndMusicUrl: text("break_end_sound_url"),
   breakEndMusicVolume: integer("break_end_sound_volume").notNull().default(80),

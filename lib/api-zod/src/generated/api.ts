@@ -7033,7 +7033,7 @@ export const setBreakTimerBodyDurationSecondsMin = 10;
 export const setBreakTimerBodyDurationSecondsMax = 3600;
 
 export const SetBreakTimerBody = zod.object({
-  action: zod.enum(["start", "cancel", "extend"]),
+  action: zod.enum(["start", "cancel", "extend", "mute_music", "unmute_music"]),
   durationSeconds: zod
     .number()
     .min(setBreakTimerBodyDurationSecondsMin)

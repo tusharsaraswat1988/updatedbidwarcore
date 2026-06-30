@@ -230,7 +230,7 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   try {
     const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
       folder: "bidwar/audio",
-      resource_type: "video",
+      resource_type: "raw",
     });
     res.json({ url: uploaded.url, publicId: uploaded.publicId });
   } catch (err) {

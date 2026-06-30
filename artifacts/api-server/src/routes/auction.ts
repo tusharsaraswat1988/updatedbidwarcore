@@ -545,10 +545,15 @@ async function buildAuctionState(tournamentId: number) {
     if (session.deferredPlayerIds) deferredPlayerIds = JSON.parse(session.deferredPlayerIds);
   } catch { /* ignore */ }
 
-  let displayCountdown: { type: string; endsAt: string; message: string | null } | null = null;
+  let displayCountdown: { type: string; endsAt: string; message: string | null; musicMuted?: boolean } | null = null;
   try {
     if (session.displayCountdown) {
-      const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
+      const parsed = JSON.parse(session.displayCountdown) as {
+        type: string;
+        endsAt: string;
+        message: string | null;
+        musicMuted?: boolean;
+      };
       // Only include if still in the future (auto-expire stale countdowns)
       if (new Date(parsed.endsAt).getTime() > Date.now()) {
         displayCountdown = parsed;
@@ -2749,12 +2754,50 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const body = z.object({
-    action: z.enum(["start", "cancel", "extend"]),
+    action: z.enum(["start", "cancel", "extend", "mute_music", "unmute_music"]),
     durationSeconds: z.number().int().min(10).max(3600).optional(),
     message: z.string().max(60).optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
+
+  type StoredCountdown = {
+    type: string;
+    endsAt: string;
+    message: string | null;
+    musicMuted?: boolean;
+  };
+
+  function parseStoredCountdown(raw: string | null | undefined): StoredCountdown | null {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as StoredCountdown;
+    } catch {
+      return null;
+    }
+  }
+
+  const existingCountdown = parseStoredCountdown(session.displayCountdown);
+
+  if (body.data.action === "mute_music" || body.data.action === "unmute_music") {
+    if (!existingCountdown || existingCountdown.type !== "break") {
+      res.status(400).json({ error: "mute_music is only valid for an active break countdown" });
+      return;
+    }
+    if (new Date(existingCountdown.endsAt).getTime() <= Date.now()) {
+      res.status(400).json({ error: "Break countdown has already expired" });
+      return;
+    }
+    const musicMuted = body.data.action === "mute_music";
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        displayCountdown: JSON.stringify({ ...existingCountdown, musicMuted }),
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid));
+    return;
+  }
   // Auto-pause live bidding when a break starts so all displays can show the countdown
   if (body.data.action === "start" && session.status === "active") {
     let pausedTimeRemaining: number | null = null;
@@ -2790,15 +2833,14 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   let countdown: string | null = null;
   if (body.data.action === "start" && body.data.durationSeconds) {
     const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
-    countdown = JSON.stringify({ type: "break", endsAt, message: body.data.message ?? null });
+    countdown = JSON.stringify({
+      type: "break",
+      endsAt,
+      message: body.data.message ?? null,
+      musicMuted: false,
+    });
   } else if (body.data.action === "extend") {
     // extend is only valid for an active break countdown.
-    let existingCountdown: { type: string; endsAt: string; message: string | null } | null = null;
-    if (session.displayCountdown) {
-      try {
-        existingCountdown = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
-      } catch { /* ignore */ }
-    }
     if (!existingCountdown || existingCountdown.type !== "break") {
       res.status(400).json({ error: "extend is only valid for an active break countdown" });
       return;
@@ -2808,7 +2850,12 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
       ? new Date(existingCountdown.endsAt).getTime()
       : Date.now();
     const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
-    countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
+    countdown = JSON.stringify({
+      type: "break",
+      endsAt,
+      message: existingCountdown.message,
+      musicMuted: existingCountdown.musicMuted ?? false,
+    });
   }
 
   const sessionPatch: Record<string, unknown> = { displayCountdown: countdown };
