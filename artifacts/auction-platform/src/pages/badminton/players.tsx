@@ -9,6 +9,11 @@ import { Users, Pencil, Trash2, Upload, User, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import {
+  PLAYER_PHOTO_ASPECT,
+  PLAYER_PHOTO_EXPORT_MAX_MB,
+  PLAYER_PHOTO_WIDTH,
+} from "@/lib/player-photo";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
@@ -869,8 +874,11 @@ function PlayerFormModal({
         open={photoEditorOpen}
         onClose={() => setPhotoEditorOpen(false)}
         initialUrl={form.photoUrl || undefined}
-        aspect={1}
+        aspect={PLAYER_PHOTO_ASPECT}
         title="Player Photo"
+        exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
+        exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
+        exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
         onSave={(upload) => {
           setField("photoUrl", upload.url);
           setField("photoPublicId", upload.publicId);

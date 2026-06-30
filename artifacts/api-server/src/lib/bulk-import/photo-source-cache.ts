@@ -18,6 +18,7 @@ export type CachedPhotoAsset = {
   standardUrl: string;
   standardPublicId: string;
   downloadedAt: Date;
+  processingVersion: string;
 };
 
 export async function findCachedPhotoBySourceKey(
@@ -129,5 +130,6 @@ function mapCachedAsset(row: PhotoSourceAsset): CachedPhotoAsset {
     standardUrl: row.standardUrl,
     standardPublicId: row.standardPublicId,
     downloadedAt: row.downloadedAt,
+    processingVersion: row.processingVersion,
   };
 }

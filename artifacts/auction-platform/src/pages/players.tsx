@@ -1,5 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import {
+  PLAYER_PHOTO_ASPECT,
+  PLAYER_PHOTO_EXPORT_MAX_MB,
+  PLAYER_PHOTO_WIDTH,
+} from "@/lib/player-photo";
 import { useRoute } from "wouter";
 import {
   useListPlayers,
@@ -1179,8 +1184,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             open={photoEditorOpen}
             onClose={() => setPhotoEditorOpen(false)}
             initialUrl={form.photoUrl || undefined}
-            aspect={1}
+            aspect={PLAYER_PHOTO_ASPECT}
             title="Player Photo"
+            exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
+            exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
+            exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
             onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
           />
         </div>

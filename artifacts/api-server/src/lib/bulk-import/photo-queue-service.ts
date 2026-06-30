@@ -350,7 +350,7 @@ async function processPhotoItem(
     .where(eq(bulkImportPhotoItemsTable.id, item.id));
 
   const globalCache = await findCachedPhotoBySourceKey(item.sourceKey);
-  if (globalCache) {
+  if (globalCache && globalCache.processingVersion === PHOTO_PROCESSING_VERSION) {
     const result = {
       storedUrl: globalCache.standardUrl,
       publicId: globalCache.standardPublicId,

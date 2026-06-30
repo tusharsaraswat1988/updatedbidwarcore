@@ -24,13 +24,13 @@ const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
 const MAX_DOWNLOAD_RETRIES = 5;
 const INITIAL_RETRY_BACKOFF_MS = 1000;
 
-export const PHOTO_PROCESSING_VERSION = "2.0";
+export const PHOTO_PROCESSING_VERSION = "3.0";
 export const ORIGINAL_PHOTO_FOLDER = "bidwar/workbook/photos/originals";
 export const STANDARD_PHOTO_FOLDER = "bidwar/workbook/photos";
 
 /** BidWar player card standard — matches cldUrl playerCard preset aspect ratio. */
-export const PLAYER_PHOTO_WIDTH = 560;
-export const PLAYER_PHOTO_HEIGHT = 700;
+export const PLAYER_PHOTO_WIDTH = 1200;
+export const PLAYER_PHOTO_HEIGHT = 1500;
 
 /** Minimum acceptable resolution for player photos */
 export const MIN_PHOTO_WIDTH = 200;
@@ -439,7 +439,7 @@ export async function normalizePlayerPhotoBuffer(buffer: Buffer): Promise<Buffer
       fit: "cover",
       position: "attention",
     })
-    .webp({ quality: 82, effort: 4 })
+    .webp({ quality: 88, effort: 4 })
     .toBuffer();
 }
 
@@ -485,6 +485,10 @@ function mapCacheToResult(url: string, cache: CachedPhotoAsset): PhotoImportResu
   };
 }
 
+function isPhotoCacheCurrent(cache: { processingVersion: string }): boolean {
+  return cache.processingVersion === PHOTO_PROCESSING_VERSION;
+}
+
 function inferUploadFormat(format: string | null, contentType: string): string | undefined {
   const normalized = (format ?? contentType.replace("image/", "")).toLowerCase();
   if (normalized === "jpg") return "jpg";
@@ -511,7 +515,7 @@ export async function importPhotoFromUrl(
 
   const cacheModule = await import("./photo-source-cache.ts");
   const cachedByKey = await cacheModule.findCachedPhotoBySourceKey(sourceKey);
-  if (cachedByKey) {
+  if (cachedByKey && isPhotoCacheCurrent(cachedByKey)) {
     return {
       ...mapCacheToResult(url, cachedByKey),
       sourceType: adapter.type,
@@ -547,7 +551,7 @@ export async function importPhotoFromUrl(
   }
 
   const cachedByChecksum = await cacheModule.findCachedPhotoByChecksum(metadata.checksum);
-  if (cachedByChecksum) {
+  if (cachedByChecksum && isPhotoCacheCurrent(cachedByChecksum)) {
     return {
       ...mapCacheToResult(url, cachedByChecksum),
       sourceType: adapter.type,

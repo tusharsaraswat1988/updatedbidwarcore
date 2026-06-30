@@ -7,6 +7,7 @@ import {
   buildPortraitInfoRows,
   portraitSpecGridClass,
 } from "@/lib/led-view/portrait-footer-stats";
+import { cldUrl } from "@/lib/cloudinary";
 
 /**
  * PLAYER PORTRAIT — full-bleed photo with identity + spec grid overlaid at bottom.
@@ -41,10 +42,12 @@ export const PlayerPortrait = memo(function PlayerPortrait({
     <div className="@container/portrait relative h-full min-h-0 overflow-hidden bg-black/40 border border-white/10">
       {showPhoto ? (
         <img
-          src={currentPlayer.portrait}
+          src={cldUrl(currentPlayer.portrait, "playerCard")}
           alt={currentPlayer.name}
           className="absolute inset-0 w-full h-full object-cover object-top"
           loading="eager"
+          decoding="async"
+          fetchPriority="high"
           onError={() => setPhotoFailed(true)}
         />
       ) : (

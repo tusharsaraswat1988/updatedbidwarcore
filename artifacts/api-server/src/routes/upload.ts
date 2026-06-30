@@ -9,7 +9,7 @@ import {
 const router = Router();
 
 const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_SPONSOR_LOGO_DIMENSION_PX = 1200;
+const MAX_IMAGE_UPLOAD_DIMENSION_PX = 1600;
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -98,12 +98,12 @@ async function optimizeImageBuffer(file: Express.Multer.File) {
   const optimized = await sharp(file.buffer, { failOn: "none" })
     .rotate()
     .resize({
-      width: MAX_SPONSOR_LOGO_DIMENSION_PX,
-      height: MAX_SPONSOR_LOGO_DIMENSION_PX,
+      width: MAX_IMAGE_UPLOAD_DIMENSION_PX,
+      height: MAX_IMAGE_UPLOAD_DIMENSION_PX,
       fit: "inside",
       withoutEnlargement: true,
     })
-    .webp({ quality: 82, effort: 4 })
+    .webp({ quality: 88, effort: 4 })
     .toBuffer();
 
   return { buffer: optimized, mimetype: "image/webp" };

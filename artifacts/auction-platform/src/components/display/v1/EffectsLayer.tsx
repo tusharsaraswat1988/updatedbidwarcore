@@ -21,6 +21,7 @@ import {
   LED_STAGE_FONT_CLASS,
   LED_SUBHEAD_CLASS,
 } from "@/lib/led-display-typography";
+import { cldUrl } from "@/lib/cloudinary";
 
 function LedPoweredByFooter({ text }: { text?: string }) {
   return (
@@ -119,7 +120,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         >
           {photo ? (
             <img
-              src={photo}
+              src={cldUrl(photo, "soldCard")}
               alt={playerName}
               className="h-40 w-32 object-cover border-4"
               style={{ borderColor: teamColor }}
@@ -176,7 +177,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         >
           {photo ? (
             <img
-              src={photo}
+              src={cldUrl(photo, "soldCard")}
               alt={playerName}
               className="h-40 w-32 object-cover border-4 border-red-500 grayscale"
             />
@@ -629,7 +630,7 @@ export const EffectsLayer = memo(function EffectsLayer({
                 >
                   {p.portrait ? (
                     <img
-                      src={p.portrait}
+                      src={cldUrl(p.portrait, "thumbnail")}
                       alt=""
                       className="h-10 w-10 object-cover border border-white/20"
                     />
@@ -990,7 +991,7 @@ function TopSoldRow({
       </span>
       {player.portrait ? (
         <img
-          src={player.portrait}
+          src={cldUrl(player.portrait, "soldCard")}
           alt=""
           className="object-cover border-2"
           style={{ borderColor: accent, height: "7vw", width: "7vw" }}

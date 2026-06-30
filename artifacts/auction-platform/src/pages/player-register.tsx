@@ -12,6 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X, ExternalLink } from "lucide-react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import {
+  PLAYER_PHOTO_ASPECT,
+  PLAYER_PHOTO_EXPORT_MAX_MB,
+  PLAYER_PHOTO_WIDTH,
+} from "@/lib/player-photo";
 import { motion, AnimatePresence } from "framer-motion";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
@@ -1019,8 +1024,11 @@ export default function PlayerRegister() {
                           open={photoEditorOpen}
                           onClose={() => setPhotoEditorOpen(false)}
                           initialUrl={form.photoUrl || undefined}
-                          aspect={1}
+                          aspect={PLAYER_PHOTO_ASPECT}
                           title="Player Photo"
+                          exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
+                          exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
+                          exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
                           onSave={upload => {
                             f("photoUrl", upload.url);
                             f("photoPublicId", upload.publicId);

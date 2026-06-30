@@ -9,6 +9,7 @@ import {
   broadcastSpecLabel,
   portraitSpecGridClass,
 } from "@/lib/led-view/portrait-footer-stats";
+import { cldUrl } from "@/lib/cloudinary";
 
 const SIDE_HEADER_LOGO_MAX_HEIGHT_PX = 30;
 const SIDE_HEADER_LOGO_MAX_WIDTH_PX = 150;
@@ -122,10 +123,12 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
       <div className="relative min-h-0 flex-1 shrink">
         {showPhoto ? (
           <img
-            src={player.portrait}
+            src={cldUrl(player.portrait, "playerCard")}
             alt={player.name}
             className="absolute inset-0 h-full w-full object-cover object-top"
             loading="eager"
+            decoding="async"
+            fetchPriority="high"
             onError={() => setPhotoFailed(true)}
           />
         ) : (

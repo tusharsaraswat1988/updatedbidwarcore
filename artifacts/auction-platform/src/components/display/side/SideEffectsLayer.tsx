@@ -1,5 +1,6 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
+import { cldUrl } from "@/lib/cloudinary";
 
 /**
  * Side-panel overlays — sold / unsold on player panel only.
@@ -46,7 +47,7 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
         >
           {photo ? (
             <img
-              src={photo}
+              src={cldUrl(photo, "soldCard")}
               alt={playerName}
               className="mx-auto mb-4 h-32 w-28 object-cover border-2"
               style={{ borderColor: teamColor }}
