@@ -81,6 +81,9 @@ export default function TournamentSettings() {
   const [bannerEditorInitial, setBannerEditorInitial] = useState<string | undefined>();
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
+  const [audioUploadingField, setAudioUploadingField] = useState<
+    "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl" | null
+  >(null);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
 
@@ -326,19 +329,38 @@ export default function TournamentSettings() {
     finally { setSponsorUploadingIdx(null); }
   }
 
-  function handleAudioUpload(
+  async function handleAudioUpload(
     e: React.ChangeEvent<HTMLInputElement>,
     field: "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl",
     setFileName: (n: string) => void,
   ) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { alert("Audio file must be under 8 MB"); e.target.value = ""; return; }
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => setEditForm(f => ({ ...f, [field]: reader.result as string }));
-    reader.readAsDataURL(file);
     e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Audio file must be under 8 MB", variant: "destructive" });
+      return;
+    }
+    setAudioUploadingField(field);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch("/api/upload/audio", { method: "POST", credentials: "include", body: fd });
+      const data = await r.json() as { url?: string; error?: string };
+      if (!r.ok || !data.url) {
+        throw new Error(data.error ?? "Upload failed");
+      }
+      setFileName(file.name);
+      setEditForm(f => ({ ...f, [field]: data.url! }));
+    } catch (err) {
+      toast({
+        title: "Audio upload failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAudioUploadingField(null);
+    }
   }
 
   function clearAudioField(
@@ -441,6 +463,15 @@ export default function TournamentSettings() {
     if (sportLocked && tournament && (editForm.sport as string) !== tournament.sport) {
       return "Sport cannot be changed while players exist in the pool.";
     }
+    if (audioUploadingField) {
+      return "Wait for audio upload to finish";
+    }
+    for (const field of ["countdownSoundUrl", "soldSoundUrl", "breakEndMusicUrl"] as const) {
+      const url = (editForm[field] as string).trim();
+      if (url.startsWith("data:")) {
+        return "Re-upload audio files — please select your files again";
+      }
+    }
     if (editForm.enableRegistrationPayment === true) {
       const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
       const upi = (editForm.upiId as string).trim();
@@ -468,7 +499,7 @@ export default function TournamentSettings() {
       return sponsorValidation.error;
     }
     return null;
-  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos]);
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
@@ -1527,9 +1558,11 @@ export default function TournamentSettings() {
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Custom audio file</Label>
                           <div className="flex items-center gap-2">
-                            <label className="flex-1 cursor-pointer">
+                            <label className={`flex-1 ${audioUploadingField === "countdownSoundUrl" ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                               <div className="flex items-center gap-2 h-7 px-2.5 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-                                <Upload className="w-3 h-3 shrink-0" />
+                                {audioUploadingField === "countdownSoundUrl"
+                                  ? <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                                  : <Upload className="w-3 h-3 shrink-0" />}
                                 <span className="truncate">{countdownFileName || "Upload .mp3 / .ogg / .wav"}</span>
                               </div>
                               <input type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/aac,.mp3,.ogg,.wav,.aac" className="hidden"
@@ -1586,9 +1619,11 @@ export default function TournamentSettings() {
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Custom audio file</Label>
                           <div className="flex items-center gap-2">
-                            <label className="flex-1 cursor-pointer">
+                            <label className={`flex-1 ${audioUploadingField === "soldSoundUrl" ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                               <div className="flex items-center gap-2 h-7 px-2.5 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-                                <Upload className="w-3 h-3 shrink-0" />
+                                {audioUploadingField === "soldSoundUrl"
+                                  ? <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                                  : <Upload className="w-3 h-3 shrink-0" />}
                                 <span className="truncate">{soldFileName || "Upload .mp3 / .ogg / .wav"}</span>
                               </div>
                               <input type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/aac,.mp3,.ogg,.wav,.aac" className="hidden"
@@ -1645,9 +1680,11 @@ export default function TournamentSettings() {
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Custom audio file</Label>
                           <div className="flex items-center gap-2">
-                            <label className="flex-1 cursor-pointer">
+                            <label className={`flex-1 ${audioUploadingField === "breakEndMusicUrl" ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                               <div className="flex items-center gap-2 h-7 px-2.5 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-                                <Upload className="w-3 h-3 shrink-0" />
+                                {audioUploadingField === "breakEndMusicUrl"
+                                  ? <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                                  : <Upload className="w-3 h-3 shrink-0" />}
                                 <span className="truncate">{breakEndFileName || "Upload .mp3 / .ogg / .wav"}</span>
                               </div>
                               <input type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/aac,.mp3,.ogg,.wav,.aac" className="hidden"
