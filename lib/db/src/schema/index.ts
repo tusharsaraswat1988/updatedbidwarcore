@@ -16,6 +16,7 @@ export * from "./sports";
 export * from "./branding";
 export * from "./branding-assets";
 export * from "./push_subscriptions";
+export * from "./owner_sessions";
 export * from "./settings";
 export * from "./sms-settings";
 export * from "./display-auctions";

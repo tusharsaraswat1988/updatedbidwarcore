@@ -15,6 +15,9 @@ import {
   getStoredOwnerAccessCode,
   isOwnerSessionVerified,
   teamNeedsAccessCode,
+  establishOwnerServerSession,
+  subscribeOwnerPush,
+  logoutOwnerPushAndSession,
 } from "@workspace/api-base/owner-auth";
 import { Warmup } from "./Warmup";
 import { LiveBid } from "./LiveBid";
@@ -31,47 +34,6 @@ import { resolveSplashLogoUrl } from "@/lib/brand-assets";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
-// ── Push subscription helper ──────────────────────────────────────────────────
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const output  = new Uint8Array(rawData.length) as Uint8Array<ArrayBuffer>;
-  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
-  return output;
-}
-
-async function subscribeToPush(tournamentId: number, teamId: number) {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-  try {
-    const keyRes = await fetch("/api/vapid-public-key");
-    if (!keyRes.ok) return;
-    const { publicKey } = (await keyRes.json()) as { publicKey: string };
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
-
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly:      true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
-
-    const subJson = sub.toJSON() as {
-      endpoint: string;
-      keys: { p256dh: string; auth: string };
-    };
-
-    await fetch(`/api/tournaments/${tournamentId}/push-subscribe?teamId=${teamId}`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(subJson),
-    });
-  } catch {
-    // Push is optional — fail silently
-  }
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export function OwnerRoute() {
   const params       = useParams<{ id: string; teamId: string }>();
@@ -79,6 +41,7 @@ export function OwnerRoute() {
   const teamId       = parseInt(params.teamId || "0");
   const qc           = useQueryClient();
   const pushDoneRef  = useRef(false);
+  const [serverVerified, setServerVerified] = useState(false);
 
   const [screen, setScreen] = useState<Screen>("loading");
   const { logos, brandName, miniBrandText } = useBranding();
@@ -151,13 +114,28 @@ export function OwnerRoute() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team, teamId]);
 
-  // Subscribe to push once the owner is past the gate
+  // Establish verified server session (httpOnly cookie) after passing the gate.
   useEffect(() => {
-    if (screen === "loading" || screen === "gate") return;
-    if (pushDoneRef.current) return;
+    if (!team || screen === "loading" || screen === "gate") return;
+
+    let cancelled = false;
+    void (async () => {
+      const code = getStoredOwnerAccessCode(teamId) ?? "";
+      const result = await establishOwnerServerSession(tournamentId, teamId, code);
+      if (!cancelled && result.ok) {
+        setServerVerified(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [team, screen, tournamentId, teamId]);
+
+  // Subscribe to push only after verified server session exists.
+  useEffect(() => {
+    if (!serverVerified || pushDoneRef.current) return;
     pushDoneRef.current = true;
-    subscribeToPush(tournamentId, teamId);
-  }, [screen, tournamentId, teamId]);
+    void subscribeOwnerPush(tournamentId, teamId);
+  }, [serverVerified, tournamentId, teamId]);
 
   // Detect auction completion
   useEffect(() => {
@@ -358,8 +336,12 @@ export function OwnerRoute() {
       onSync={handleSync}
       isSyncError={stateIsError}
       onSignOut={() => {
-        clearOwnerSession(teamId);
-        setScreen("gate");
+        void logoutOwnerPushAndSession(tournamentId, teamId).finally(() => {
+          clearOwnerSession(teamId);
+          pushDoneRef.current = false;
+          setServerVerified(false);
+          setScreen("gate");
+        });
       }}
     />
   );

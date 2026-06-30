@@ -41,9 +41,14 @@ export function teamNeedsAccessCode(team: {
 }
 
 export type VerifyOwnerAccessResult =
-  | { ok: true }
+  | { ok: true; sessionId?: string }
   | { ok: false; reason: "invalid" }
   | { ok: false; reason: "lockout"; lockoutRemainingSec: number };
+
+const ownerFetchInit: RequestInit = {
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+};
 
 /** POST /api/tournaments/:tid/teams/:teamId/verify-access — server is the only verifier. */
 export async function verifyOwnerAccessCode(
@@ -57,8 +62,8 @@ export async function verifyOwnerAccessCode(
   const res = await fetch(
     `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access`,
     {
+      ...ownerFetchInit,
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: normalized }),
     },
   );
@@ -73,8 +78,122 @@ export async function verifyOwnerAccessCode(
   }
 
   if (!res.ok) return { ok: false, reason: "invalid" };
-  const body = (await res.json()) as { valid?: boolean };
-  return body.valid === true ? { ok: true } : { ok: false, reason: "invalid" };
+  const body = (await res.json()) as { valid?: boolean; sessionId?: string };
+  return body.valid === true
+    ? { ok: true, sessionId: body.sessionId }
+    : { ok: false, reason: "invalid" };
+}
+
+/**
+ * Ensures a verified server-side owner session (httpOnly cookie) exists.
+ * Call after access-code gate or for teams without a required access code.
+ */
+export async function establishOwnerServerSession(
+  tournamentId: number,
+  teamId: number,
+  code?: string,
+): Promise<{ ok: true; sessionId?: string } | { ok: false }> {
+  const normalized = (code ?? "").trim().toUpperCase();
+  const res = await fetch(
+    `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access`,
+    {
+      ...ownerFetchInit,
+      method: "POST",
+      body: JSON.stringify({ code: normalized }),
+    },
+  );
+
+  if (res.status === 429 || !res.ok) return { ok: false };
+  const body = (await res.json()) as { valid?: boolean; sessionId?: string };
+  return body.valid === true
+    ? { ok: true, sessionId: body.sessionId }
+    : { ok: false };
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const output  = new Uint8Array(rawData.length) as Uint8Array<ArrayBuffer>;
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
+
+/** Subscribe to push after verified owner session cookie is present. */
+export async function subscribeOwnerPush(
+  tournamentId: number,
+  teamId: number,
+): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  try {
+    const keyRes = await fetch("/api/vapid-public-key");
+    if (!keyRes.ok) return false;
+    const { publicKey } = (await keyRes.json()) as { publicKey: string };
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return false;
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    const subJson = sub.toJSON() as {
+      endpoint: string;
+      keys: { p256dh: string; auth: string };
+    };
+
+    const res = await fetch(
+      `/api/tournaments/${tournamentId}/push-subscribe?teamId=${teamId}`,
+      {
+        ...ownerFetchInit,
+        method: "POST",
+        body: JSON.stringify(subJson),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Logout: remove DB subscription, revoke server session, unsubscribe browser. */
+export async function logoutOwnerPushAndSession(
+  tournamentId: number,
+  teamId: number,
+): Promise<void> {
+  try {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const subJson = sub.toJSON() as { endpoint?: string };
+        if (subJson.endpoint) {
+          await fetch(
+            `/api/tournaments/${tournamentId}/push-unsubscribe?teamId=${teamId}`,
+            {
+              ...ownerFetchInit,
+              method: "POST",
+              body: JSON.stringify({ endpoint: subJson.endpoint }),
+            },
+          );
+        }
+        await sub.unsubscribe();
+      }
+    }
+  } catch {
+    // Best-effort cleanup
+  }
+
+  try {
+    await fetch(
+      `/api/tournaments/${tournamentId}/teams/${teamId}/owner-session/revoke`,
+      { ...ownerFetchInit, method: "POST" },
+    );
+  } catch {
+    // Best-effort cleanup
+  }
 }
 
 /** GET owner-access-lockout — current IP lockout status (owner-app polling). */

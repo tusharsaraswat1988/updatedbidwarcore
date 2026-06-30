@@ -4,8 +4,10 @@ import { getRuntimeConfig, getSessionSecret } from "./runtime-env";
 
 const COOKIE_NAME = "bidwar_auth";
 const OAUTH_COOKIE_NAME = "bidwar_oauth";
+const OWNER_COOKIE_NAME = "bidwar_owner";
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 const OAUTH_EXPIRY = 30 * 60; // 30 minutes — complete-profile can take a few steps
+const OWNER_SESSION_EXPIRY = JWT_EXPIRY;
 
 export interface AuthClaims {
   isAdmin?: boolean;
@@ -26,6 +28,12 @@ export interface OAuthState {
     googleEmail: string;
   };
   pendingGoogleMobile?: string;
+}
+
+export interface OwnerSessionClaims {
+  sessionId: string;
+  tournamentId: number;
+  teamId: number;
 }
 
 function getSecret(): string {
@@ -63,6 +71,28 @@ export function verifyOAuthJwt(token: string): OAuthState | null {
   try {
     const payload = jwt.verify(token, getSecret()) as OAuthState & { exp?: unknown; iat?: unknown; nbf?: unknown };
     return stripJwtReservedFields(payload) as OAuthState;
+  } catch {
+    return null;
+  }
+}
+
+export function signOwnerSessionJwt(claims: OwnerSessionClaims): string {
+  const clean = stripJwtReservedFields(claims as OwnerSessionClaims & { exp?: unknown; iat?: unknown; nbf?: unknown });
+  return jwt.sign(clean, getSecret(), { expiresIn: OWNER_SESSION_EXPIRY });
+}
+
+export function verifyOwnerSessionJwt(token: string): OwnerSessionClaims | null {
+  try {
+    const payload = jwt.verify(token, getSecret()) as OwnerSessionClaims & { exp?: unknown; iat?: unknown; nbf?: unknown };
+    const clean = stripJwtReservedFields(payload) as OwnerSessionClaims;
+    if (
+      typeof clean.sessionId !== "string" ||
+      typeof clean.tournamentId !== "number" ||
+      typeof clean.teamId !== "number"
+    ) {
+      return null;
+    }
+    return clean;
   } catch {
     return null;
   }
@@ -134,4 +164,14 @@ export function clearOAuthCookie(res: Response): void {
   clearCookieAllVariants(res, OAUTH_COOKIE_NAME);
 }
 
-export { COOKIE_NAME, OAUTH_COOKIE_NAME };
+export function setOwnerSessionCookie(res: Response, claims: OwnerSessionClaims): void {
+  clearCookieAllVariants(res, OWNER_COOKIE_NAME);
+  const token = signOwnerSessionJwt(claims);
+  res.cookie(OWNER_COOKIE_NAME, token, baseCookieOpts(OWNER_SESSION_EXPIRY));
+}
+
+export function clearOwnerSessionCookie(res: Response): void {
+  clearCookieAllVariants(res, OWNER_COOKIE_NAME);
+}
+
+export { COOKIE_NAME, OAUTH_COOKIE_NAME, OWNER_COOKIE_NAME };

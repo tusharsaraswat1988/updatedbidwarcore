@@ -23,6 +23,7 @@ import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { buildPublicUrl } from "../lib/runtime-env";
 import { auditLog } from "../lib/audit-service";
+import { createVerifiedOwnerSession } from "../lib/owner-session";
 import { defaultTeamPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotTeam } from "../lib/audit-snapshots";
 import { notifyAsync } from "../lib/notifications";
@@ -562,7 +563,14 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
     resource: { type: "team", id: team.id },
     actor: { type: "team_owner", id: String(teamId), label: team.ownerName },
   });
-  res.json({ valid });
+
+  if (!valid) {
+    res.json({ valid: false });
+    return;
+  }
+
+  const session = await createVerifiedOwnerSession(res, tid, teamId);
+  res.json({ valid: true, sessionId: session.sessionId });
 });
 
 router.post("/tournaments/:tournamentId/teams/:teamId/reset-access-lockout", async (req, res) => {
@@ -628,6 +636,10 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     });
     return;
   }
+
+  const { deleteOwnerSessionsForTeam, deletePushSubscriptionsForTeam } = await import("../lib/owner-session");
+  await deletePushSubscriptionsForTeam(tid, teamId);
+  await deleteOwnerSessionsForTeam(tid, teamId);
 
   await db.delete(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   auditLog(req, {

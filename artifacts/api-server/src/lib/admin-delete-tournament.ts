@@ -27,6 +27,7 @@ import {
   playersTable,
   purseBoostersTable,
   pushSubscriptionsTable,
+  ownerSessionsTable,
   scoringDrawsTable,
   scoringEventsTable,
   scoringFixturesTable,
@@ -156,6 +157,9 @@ export async function adminDeleteTournamentCascade(tournamentId: number): Promis
     await tx
       .delete(pushSubscriptionsTable)
       .where(eq(pushSubscriptionsTable.tournamentId, tournamentId));
+    await tx
+      .delete(ownerSessionsTable)
+      .where(eq(ownerSessionsTable.tournamentId, tournamentId));
     await tx.delete(creativeJobsTable).where(eq(creativeJobsTable.tournamentId, tournamentId));
     await tx
       .delete(displayAuctionsTable)
