@@ -1,6 +1,8 @@
 import { memo, useEffect, useState } from "react";
 import type { LedView } from "@/lib/led-view/types";
 import { ChyronStrip } from "./ChyronStrip";
+import { SponsorSpotlight } from "./SponsorSpotlight";
+import { TopStrip } from "./TopStrip";
 import { LedOverlayTopBar } from "./led-overlay-top-bar";
 import {
   computeTeamWiseGrid,
@@ -469,6 +471,22 @@ export const EffectsLayer = memo(function EffectsLayer({
 
   // ---------- BANNER VIEW ----------
   if (derivedState === "banner") {
+    if (!banner.url) {
+      return (
+        <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[3.5rem_1fr_minmax(3rem,8%)] ${LED_STAGE_FONT_CLASS}`}>
+          <TopStrip view={view} />
+          <div className="relative min-h-0 h-full w-full">
+            <SponsorSpotlight
+              tournamentName={tournament.name}
+              sponsors={view.sponsors ?? []}
+            />
+          </div>
+          <ChyronStrip view={view} />
+          <ToastLayer toast={toast} booster={purseBooster} />
+        </div>
+      );
+    }
+
     return (
       <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[3.5rem_1fr_auto] ${LED_STAGE_FONT_CLASS}`}>
         <LedOverlayTopBar
