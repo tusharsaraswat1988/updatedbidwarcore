@@ -1812,6 +1812,7 @@ function SortableTableHead({
   sortDir,
   onSort,
   className,
+  title,
 }: {
   label: string;
   sortKey: PlayerSortKey;
@@ -1819,12 +1820,14 @@ function SortableTableHead({
   sortDir: SortDir;
   onSort: (key: PlayerSortKey) => void;
   className?: string;
+  title?: string;
 }) {
   const active = activeKey === sortKey;
   return (
     <TableHead className={className}>
       <button
         type="button"
+        title={title}
         className="inline-flex items-center gap-1 font-semibold hover:text-foreground transition-colors"
         onClick={() => onSort(sortKey)}
       >
@@ -2965,7 +2968,8 @@ export default function Players() {
                       className="min-w-[120px]"
                     />
                     <SortableTableHead
-                      label="Base Value"
+                      label="Sold at"
+                      title="Sold or retained price when assigned; base value before auction otherwise"
                       sortKey="amount"
                       activeKey={sortKey}
                       sortDir={sortDir}

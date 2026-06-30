@@ -31,8 +31,8 @@ import {
   Building2, Timer, Trash2, ArrowUp, ArrowDown,
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
-  Volume2, VolumeX, Play, Coffee,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
+  Play, Coffee,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -147,8 +147,11 @@ export default function TournamentSettings() {
       bidValueMode: (t as { bidValueMode?: string }).bidValueMode || "system",
       minimumSquadSize: String(t.minimumSquadSize ?? 0),
       maximumSquadSize: String(t.maximumSquadSize ?? 0),
-      audioEnabled: t.audioEnabled ?? true,
-      masterVolume: String(t.masterVolume ?? 80),
+      audioEnabled:
+        (t.countdownSoundEnabled ?? true)
+        || (t.soldSoundEnabled ?? true)
+        || (t.breakEndMusicEnabled ?? false),
+      masterVolume: "100",
       countdownSoundEnabled: t.countdownSoundEnabled ?? true,
       countdownSoundUrl: t.countdownSoundUrl ?? "",
       countdownSoundVolume: String(t.countdownSoundVolume ?? 70),
@@ -381,7 +384,7 @@ export default function TournamentSettings() {
     const platform = (tournament as { platformAudioDefaults?: { countdownSoundUrl?: string | null } } | undefined)
       ?.platformAudioDefaults?.countdownSoundUrl ?? null;
     mgr.setSettings({
-      audioEnabled: true, masterVolume: 80,
+      audioEnabled: true, masterVolume: 100,
       countdownSoundEnabled: true,
       countdownSoundUrl: resolveBroadcastAudioUrl((editForm.countdownSoundUrl as string).trim() || null, platform),
       countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
@@ -398,7 +401,7 @@ export default function TournamentSettings() {
     const platform = (tournament as { platformAudioDefaults?: { soldSoundUrl?: string | null } } | undefined)
       ?.platformAudioDefaults?.soldSoundUrl ?? null;
     mgr.setSettings({
-      audioEnabled: true, masterVolume: 80,
+      audioEnabled: true, masterVolume: 100,
       countdownSoundEnabled: false, countdownSoundUrl: null, countdownSoundVolume: 0,
       soldSoundEnabled: true,
       soldSoundUrl: resolveBroadcastAudioUrl((editForm.soldSoundUrl as string).trim() || null, platform),
@@ -408,14 +411,14 @@ export default function TournamentSettings() {
     mgr.previewSold();
   }
 
-  async function previewBreakEnd() {
+  async function previewBreakMusic() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
     const platform = (tournament as { platformAudioDefaults?: { breakEndMusicUrl?: string | null } } | undefined)
       ?.platformAudioDefaults?.breakEndMusicUrl ?? null;
     mgr.setSettings({
-      audioEnabled: true, masterVolume: 80,
+      audioEnabled: true, masterVolume: 100,
       countdownSoundEnabled: false, countdownSoundUrl: null, countdownSoundVolume: 0,
       soldSoundEnabled: false, soldSoundUrl: null, soldSoundVolume: 0,
       breakEndMusicEnabled: true,
@@ -553,8 +556,11 @@ export default function TournamentSettings() {
           registrationDeclarationText: ((editForm.registrationDeclarationText as string).trim() || null),
           bidValueMode: (editForm.bidValueMode as "system" | "player") || "system",
           bidValueOptions: bidValueOptions.filter((n) => n > 0),
-          audioEnabled: editForm.audioEnabled === true,
-          masterVolume: Number(editForm.masterVolume) || 80,
+          audioEnabled:
+            editForm.countdownSoundEnabled === true
+            || editForm.soldSoundEnabled === true
+            || editForm.breakEndMusicEnabled === true,
+          masterVolume: 100,
           countdownSoundEnabled: editForm.countdownSoundEnabled === true,
           countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
           countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
@@ -1510,36 +1516,13 @@ export default function TournamentSettings() {
             </SettingsCard>
 
             <SettingsCard
-              title="Audio Settings"
-              description="Master audio toggle and volume for the LED display."
-              icon={editForm.audioEnabled ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <Label className="text-xs">Broadcast Audio</Label>
-                <Switch checked={editForm.audioEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, audioEnabled: v }))} />
-              </div>
-              {editForm.audioEnabled === true ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Master Volume</Label>
-                    <span className="text-xs font-medium tabular-nums">{editForm.masterVolume}%</span>
-                  </div>
-                  <Slider min={0} max={100} step={1} value={[Number(editForm.masterVolume)]} onValueChange={([v]) => setEditForm(f => ({ ...f, masterVolume: String(v) }))} />
-                </div>
-              ) : null}
-            </SettingsCard>
-
-            <SettingsCard
               title="Auction Sounds"
-              description="Countdown, sold, and break music for the live auction."
+              description="Countdown, sold, and break music — each plays at its own moment during the auction."
               icon={<Megaphone className="w-4 h-4 text-muted-foreground" />}
               className="xl:col-span-2"
               contentClassName="space-y-3"
             >
-              {editForm.audioEnabled !== true ? (
-                <p className="text-xs text-muted-foreground">Enable Broadcast Audio above to configure individual sounds.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {/* Countdown Sound */}
                   <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
                     <div className="flex items-center justify-between">
@@ -1723,7 +1706,6 @@ export default function TournamentSettings() {
                     )}
                   </div>
                 </div>
-              )}
             </SettingsCard>
           </div>
           </SettingsTabPanel>

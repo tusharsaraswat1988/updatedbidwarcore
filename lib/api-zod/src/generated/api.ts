@@ -135,7 +135,7 @@ export const ListTournamentsResponseItem = zod.object({
   cheerCooldownSeconds: zod
     .number()
     .optional()
-    .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+    .describe("Per-viewer cheer cooldown in seconds (2–60)"),
   cheerHeatMeterEnabled: zod
     .boolean()
     .optional()
@@ -356,7 +356,7 @@ export const GetTournamentResponse = zod.object({
   cheerCooldownSeconds: zod
     .number()
     .optional()
-    .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+    .describe("Per-viewer cheer cooldown in seconds (2–60)"),
   cheerHeatMeterEnabled: zod
     .boolean()
     .optional()
@@ -612,7 +612,7 @@ export const UpdateTournamentResponse = zod.object({
   cheerCooldownSeconds: zod
     .number()
     .optional()
-    .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+    .describe("Per-viewer cheer cooldown in seconds (2–60)"),
   cheerHeatMeterEnabled: zod
     .boolean()
     .optional()
@@ -806,7 +806,7 @@ export const ExportTournamentForLocalResponse = zod.object({
     cheerCooldownSeconds: zod
       .number()
       .optional()
-      .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+      .describe("Per-viewer cheer cooldown in seconds (2–60)"),
     cheerHeatMeterEnabled: zod
       .boolean()
       .optional()
@@ -891,6 +891,11 @@ export const ExportTournamentForLocalResponse = zod.object({
   players: zod.array(
     zod.object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -900,6 +905,18 @@ export const ExportTournamentForLocalResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -1434,6 +1451,11 @@ export const ListPlayersParams = zod.object({
 
 export const ListPlayersResponseItem = zod.object({
   id: zod.number(),
+  serialNo: zod
+    .number()
+    .describe(
+      "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+    ),
   tournamentId: zod.number(),
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
@@ -1443,6 +1465,18 @@ export const ListPlayersResponseItem = zod.object({
   battingStyle: zod.string().nullish(),
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        groupName: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+    ),
   age: zod.number().nullish(),
   gender: zod
     .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -1587,6 +1621,17 @@ export const CreatePlayerBody = zod.object({
     .describe(
       "Player accepts organizer registration declaration (required when enabled)",
     ),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)",
+    ),
 });
 
 /**
@@ -1720,6 +1765,17 @@ export const RegisterPlayerBody = zod.object({
     .describe(
       "Player accepts organizer registration declaration (required when enabled)",
     ),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)",
+    ),
 });
 
 /**
@@ -1798,6 +1854,17 @@ export const BulkCreatePlayersBody = zod.object({
         .describe(
           "Player accepts organizer registration declaration (required when enabled)",
         ),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)",
+        ),
     }),
   ),
 });
@@ -1818,6 +1885,11 @@ export const GetPlayerParams = zod.object({
 
 export const GetPlayerResponse = zod.object({
   id: zod.number(),
+  serialNo: zod
+    .number()
+    .describe(
+      "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+    ),
   tournamentId: zod.number(),
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
@@ -1827,6 +1899,18 @@ export const GetPlayerResponse = zod.object({
   battingStyle: zod.string().nullish(),
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        groupName: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+    ),
   age: zod.number().nullish(),
   gender: zod
     .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -1912,6 +1996,17 @@ export const UpdatePlayerBody = zod.object({
   battingStyle: zod.string().optional(),
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)",
+    ),
   age: zod.number().optional(),
   gender: zod.enum(["M", "F"]).nullish(),
   photoUrl: zod.string().optional(),
@@ -1959,6 +2054,11 @@ export const UpdatePlayerBody = zod.object({
 
 export const UpdatePlayerResponse = zod.object({
   id: zod.number(),
+  serialNo: zod
+    .number()
+    .describe(
+      "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+    ),
   tournamentId: zod.number(),
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
@@ -1968,6 +2068,18 @@ export const UpdatePlayerResponse = zod.object({
   battingStyle: zod.string().nullish(),
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        groupName: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+    ),
   age: zod.number().nullish(),
   gender: zod
     .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -2055,6 +2167,11 @@ export const ApproveRegistrationPaymentParams = zod.object({
 
 export const ApproveRegistrationPaymentResponse = zod.object({
   id: zod.number(),
+  serialNo: zod
+    .number()
+    .describe(
+      "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+    ),
   tournamentId: zod.number(),
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
@@ -2064,6 +2181,18 @@ export const ApproveRegistrationPaymentResponse = zod.object({
   battingStyle: zod.string().nullish(),
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        groupName: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+    ),
   age: zod.number().nullish(),
   gender: zod
     .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -2143,6 +2272,11 @@ export const RejectRegistrationPaymentParams = zod.object({
 
 export const RejectRegistrationPaymentResponse = zod.object({
   id: zod.number(),
+  serialNo: zod
+    .number()
+    .describe(
+      "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+    ),
   tournamentId: zod.number(),
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
@@ -2152,6 +2286,18 @@ export const RejectRegistrationPaymentResponse = zod.object({
   battingStyle: zod.string().nullish(),
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        groupName: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+    ),
   age: zod.number().nullish(),
   gender: zod
     .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -2231,6 +2377,11 @@ export const ResetRegistrationPaymentPendingParams = zod.object({
 
 export const ResetRegistrationPaymentPendingResponse = zod.object({
   id: zod.number(),
+  serialNo: zod
+    .number()
+    .describe(
+      "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+    ),
   tournamentId: zod.number(),
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
@@ -2240,6 +2391,18 @@ export const ResetRegistrationPaymentPendingResponse = zod.object({
   battingStyle: zod.string().nullish(),
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        specGroupId: zod.number(),
+        groupName: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+    ),
   age: zod.number().nullish(),
   gender: zod
     .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -2322,6 +2485,11 @@ export const GetAuctionStateResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -2331,6 +2499,18 @@ export const GetAuctionStateResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -2521,6 +2701,12 @@ export const GetAuctionStateResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -2591,6 +2777,11 @@ export const StartAuctionResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -2600,6 +2791,18 @@ export const StartAuctionResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -2790,6 +2993,12 @@ export const StartAuctionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -2860,6 +3069,11 @@ export const PauseAuctionResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -2869,6 +3083,18 @@ export const PauseAuctionResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -3059,6 +3285,12 @@ export const PauseAuctionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -3134,6 +3366,11 @@ export const NextPlayerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -3143,6 +3380,18 @@ export const NextPlayerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -3333,6 +3582,12 @@ export const NextPlayerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -3412,6 +3667,11 @@ export const PlaceBidResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -3421,6 +3681,18 @@ export const PlaceBidResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -3611,6 +3883,12 @@ export const PlaceBidResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -3681,6 +3959,11 @@ export const SellPlayerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -3690,6 +3973,18 @@ export const SellPlayerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -3880,6 +4175,12 @@ export const SellPlayerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -3959,6 +4260,11 @@ export const ManualSellResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -3968,6 +4274,18 @@ export const ManualSellResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -4158,6 +4476,12 @@ export const ManualSellResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -4228,6 +4552,11 @@ export const MarkUnsoldResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -4237,6 +4566,18 @@ export const MarkUnsoldResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -4427,6 +4768,12 @@ export const MarkUnsoldResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -4506,6 +4853,11 @@ export const ReAuctionPlayerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -4515,6 +4867,18 @@ export const ReAuctionPlayerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -4705,6 +5069,12 @@ export const ReAuctionPlayerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -4774,6 +5144,16 @@ export const ReAuctionAllUnsoldBody = zod.object({
     .string()
     .optional()
     .describe("Optional audit reason for batch re-auction of unsold players"),
+  strategy: zod
+    .enum(["keep_existing", "reset_defaults", "fixed"])
+    .optional()
+    .describe("How opening bids are initialized for the re-auction round"),
+  fixedAmount: zod
+    .number()
+    .optional()
+    .describe(
+      "Required when strategy is fixed — same starting bid for every unsold player",
+    ),
 });
 
 export const ReAuctionAllUnsoldResponse = zod.object({
@@ -4782,6 +5162,11 @@ export const ReAuctionAllUnsoldResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -4791,6 +5176,18 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -4981,6 +5378,12 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -5058,6 +5461,11 @@ export const ConcludeAuctionResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -5067,6 +5475,18 @@ export const ConcludeAuctionResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -5257,6 +5677,12 @@ export const ConcludeAuctionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -5327,6 +5753,11 @@ export const UndoLastActionResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -5336,6 +5767,18 @@ export const UndoLastActionResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -5526,6 +5969,12 @@ export const UndoLastActionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -5584,7 +6033,7 @@ export const UndoLastActionResponse = zod.object({
 });
 
 /**
- * @summary Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
+ * @summary Reset all players back to available (clears bids, bid feed history, and AI intelligence logs). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
  */
 export const ResetTrialAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
@@ -5614,6 +6063,11 @@ export const ResetTrialAuctionResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -5623,6 +6077,18 @@ export const ResetTrialAuctionResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -5813,6 +6279,12 @@ export const ResetTrialAuctionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -5887,6 +6359,11 @@ export const SetDisplayOverlayResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -5896,6 +6373,18 @@ export const SetDisplayOverlayResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -6086,6 +6575,12 @@ export const SetDisplayOverlayResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -6162,6 +6657,11 @@ export const SetDisplayPlayerFilterResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -6171,6 +6671,18 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -6361,6 +6873,12 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -6493,6 +7011,11 @@ export const SyncFortuneWheelResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -6502,6 +7025,18 @@ export const SyncFortuneWheelResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -6692,6 +7227,12 @@ export const SyncFortuneWheelResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -6766,6 +7307,11 @@ export const SetCategoryFilterResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -6775,6 +7321,18 @@ export const SetCategoryFilterResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -6965,6 +7523,12 @@ export const SetCategoryFilterResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -7051,6 +7615,11 @@ export const SetBreakTimerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -7060,6 +7629,18 @@ export const SetBreakTimerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -7250,6 +7831,12 @@ export const SetBreakTimerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -7330,6 +7917,11 @@ export const StartTimerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -7339,6 +7931,18 @@ export const StartTimerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -7529,6 +8133,12 @@ export const StartTimerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -7599,6 +8209,11 @@ export const StopTimerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -7608,6 +8223,18 @@ export const StopTimerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -7798,6 +8425,12 @@ export const StopTimerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -7868,6 +8501,11 @@ export const DeferPlayerResponse = zod.object({
   currentPlayer: zod
     .object({
       id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
       tournamentId: zod.number(),
       categoryId: zod.number().nullish(),
       teamId: zod.number().nullish(),
@@ -7877,6 +8515,18 @@ export const DeferPlayerResponse = zod.object({
       battingStyle: zod.string().nullish(),
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
       age: zod.number().nullish(),
       gender: zod
         .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
@@ -8067,6 +8717,12 @@ export const DeferPlayerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
     })
     .nullish(),
   lastPurseBooster: zod
@@ -8383,6 +9039,12 @@ export const SearchGlobalPlayersQueryParams = zod.object({
     .string()
     .describe("Name prefix, mobile prefix, or exact global player ID"),
   limit: zod.coerce.number().default(searchGlobalPlayersQueryLimitDefault),
+  sport: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Filter suggestions to a sport slug (e.g. badminton). Used when PLAYER_SPORT_PROFILES_ENABLED=true.",
+    ),
 });
 
 export const SearchGlobalPlayersResponseItem = zod.object({
@@ -8419,10 +9081,207 @@ export const SearchGlobalPlayersResponseItem = zod.object({
   availabilityDates: zod.string().nullish(),
   basePrice: zod.number().optional(),
   appearanceCount: zod.number(),
+  sport: zod
+    .string()
+    .nullish()
+    .describe(
+      "Tournament sport for this suggestion row (when PLAYER_SPORT_PROFILES_ENABLED=true)",
+    ),
+  sportProfiles: zod
+    .array(
+      zod.object({
+        sport: zod.string(),
+        defaultRole: zod.string().nullable(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Per-sport roles on global player GET responses (PLAYER_SPORT_PROFILES_ENABLED)",
+    ),
 });
 export const SearchGlobalPlayersResponse = zod.array(
   SearchGlobalPlayersResponseItem,
 );
+
+/**
+ * @summary Public points table for a cricket tournament
+ */
+export const GetScoringStandingsParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const GetScoringStandingsResponse = zod.object({
+  standings: zod.array(
+    zod.object({
+      teamId: zod.number().optional(),
+      teamName: zod.string().optional(),
+      shortCode: zod.string().optional(),
+      played: zod.number().optional(),
+      won: zod.number().optional(),
+      lost: zod.number().optional(),
+      tied: zod.number().optional(),
+      noResult: zod.number().optional(),
+      points: zod.number().optional(),
+      netRunRate: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Public tournament leaderboard (runs, wickets, fours, sixes, etc.)
+ */
+export const GetScoringLeaderboardParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  category: zod.enum([
+    "runs",
+    "wickets",
+    "sixes",
+    "fours",
+    "strike_rate",
+    "economy",
+    "catches",
+    "stumpings",
+  ]),
+});
+
+export const getScoringLeaderboardQueryLimitDefault = 20;
+export const getScoringLeaderboardQueryLimitMax = 50;
+
+export const GetScoringLeaderboardQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .max(getScoringLeaderboardQueryLimitMax)
+    .default(getScoringLeaderboardQueryLimitDefault),
+});
+
+export const GetScoringLeaderboardResponse = zod.object({
+  category: zod.string(),
+  rows: zod.array(
+    zod.object({
+      rank: zod.number(),
+      playerId: zod.number(),
+      playerName: zod.string(),
+      teamId: zod.number(),
+      shortCode: zod.string(),
+      value: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Public full scorecard for a completed or live match
+ */
+export const GetPublicMatchScorecardParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  matchId: zod.coerce.number(),
+});
+
+export const GetPublicMatchScorecardResponse = zod
+  .object({
+    match: zod.object({}).passthrough().optional(),
+    innings: zod.array(zod.object({}).passthrough()).optional(),
+    manOfTheMatch: zod
+      .object({
+        playerId: zod.number().optional(),
+        playerName: zod.string().optional(),
+        teamId: zod.number().optional(),
+        reason: zod.string().optional(),
+      })
+      .nullish(),
+  })
+  .describe("Full public scorecard for a match");
+
+/**
+ * @summary Public tournament player profile (stats and Man of the Match awards)
+ */
+export const GetTournamentPlayerScoringProfileParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  playerId: zod.coerce.number(),
+});
+
+export const GetTournamentPlayerScoringProfileResponse = zod.object({
+  player: zod.object({}).passthrough().optional(),
+  team: zod.object({}).passthrough().nullish(),
+  stats: zod.object({}).passthrough().nullish(),
+  manOfTheMatchAwards: zod
+    .array(
+      zod.object({
+        matchId: zod.number().optional(),
+        reason: zod.string().optional(),
+        awardedAt: zod.coerce.date().optional(),
+      }),
+    )
+    .optional(),
+  recentMatches: zod.array(zod.object({}).passthrough()).optional(),
+});
+
+/**
+ * @summary Public tournament team profile (squad and recent results)
+ */
+export const GetTournamentTeamScoringProfileParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  teamId: zod.coerce.number(),
+});
+
+export const GetTournamentTeamScoringProfileResponse = zod.object({
+  team: zod.object({}).passthrough().optional(),
+  standing: zod.object({}).passthrough().nullish(),
+  squad: zod.array(zod.object({}).passthrough()).optional(),
+  recentResults: zod.array(zod.object({}).passthrough()).optional(),
+  topBatsmen: zod.array(zod.object({}).passthrough()).optional(),
+});
+
+/**
+ * @summary Global cricket player career profile across tournaments
+ */
+export const GetGlobalCricketPlayerProfileParams = zod.object({
+  globalPlayerId: zod.coerce.string(),
+});
+
+export const GetGlobalCricketPlayerProfileResponse = zod.object({
+  globalPlayer: zod.object({}).passthrough().optional(),
+  careerStats: zod.object({}).passthrough().nullish(),
+  manOfTheMatchCount: zod.number().optional(),
+  tournaments: zod.array(zod.object({}).passthrough()).optional(),
+});
+
+/**
+ * @summary Global cricket career leaderboards (cross-tournament)
+ */
+export const GetGlobalCricketLeaderboardParams = zod.object({
+  category: zod.enum([
+    "runs",
+    "wickets",
+    "sixes",
+    "fours",
+    "strike_rate",
+    "economy",
+    "catches",
+    "stumpings",
+  ]),
+});
+
+export const getGlobalCricketLeaderboardQueryLimitDefault = 20;
+export const getGlobalCricketLeaderboardQueryLimitMax = 50;
+
+export const GetGlobalCricketLeaderboardQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .max(getGlobalCricketLeaderboardQueryLimitMax)
+    .default(getGlobalCricketLeaderboardQueryLimitDefault),
+});
+
+export const GetGlobalCricketLeaderboardResponse = zod.object({
+  category: zod.string(),
+  rows: zod.array(
+    zod.object({
+      rank: zod.number(),
+      globalPlayerId: zod.string(),
+      playerName: zod.string(),
+      value: zod.number(),
+    }),
+  ),
+});
 
 /**
  * @summary List tournaments that can be used as player import sources

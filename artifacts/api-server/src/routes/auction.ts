@@ -55,6 +55,13 @@ import {
   logTimerEvent,
 } from "../lib/auction-logger";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import {
+  parseReAuctionStrategy,
+  parseReAuctionStrategyFromRequest,
+  resolveOpeningBid,
+  serializeReAuctionStrategy,
+  validateFixedReAuctionAmount,
+} from "@workspace/api-base/re-auction-strategy";
 import { pickRandomPlayerFromPool } from "@workspace/api-base/auction-player-selection";
 import {
   tournamentToReadinessInput,
@@ -393,6 +400,33 @@ async function resolveActiveBidIncrement(
   }
 
   return computeTieredIncrement(session.currentBid ?? 0, activeTiers);
+}
+
+async function resolveOpeningBidForPlayer(
+  tournamentId: number,
+  player: { basePrice: number; categoryId: number | null },
+  reAuctionStrategyJson: string | null | undefined,
+): Promise<number> {
+  const [tournamentRow] = await db
+    .select({ minBid: tournamentsTable.minBid })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  let categoryMinBid: number | null = null;
+  if (player.categoryId) {
+    const [cat] = await db
+      .select({ minBid: categoriesTable.minBid })
+      .from(categoriesTable)
+      .where(eq(categoriesTable.id, player.categoryId));
+    categoryMinBid = cat?.minBid ?? null;
+  }
+
+  return resolveOpeningBid({
+    strategy: parseReAuctionStrategy(reAuctionStrategyJson),
+    playerBasePrice: player.basePrice,
+    categoryMinBid,
+    tournamentMinBid: tournamentRow?.minBid ?? 0,
+  });
 }
 
 async function countPlayerStatuses(tournamentId: number) {
@@ -1174,17 +1208,11 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     .from(playersTable)
     .where(eq(playersTable.id, selectedPlayerId));
 
-  // Use category's minBid as the starting bid if set, otherwise fall back to player's basePrice
-  let categoryStartBid = selectedPlayer.basePrice;
-  if (selectedPlayer.categoryId) {
-    const [catForStart] = await db
-      .select({ minBid: categoriesTable.minBid })
-      .from(categoriesTable)
-      .where(eq(categoriesTable.id, selectedPlayer.categoryId));
-    if (catForStart?.minBid != null && catForStart.minBid > 0) {
-      categoryStartBid = catForStart.minBid;
-    }
-  }
+  const openingBid = await resolveOpeningBidForPlayer(
+    tid,
+    selectedPlayer,
+    session.reAuctionStrategyJson,
+  );
 
   // Optimistic concurrency: only commit if no other next-player call mutated
   // the session since we read it (prevents concurrent random-draw queue corruption).
@@ -1193,7 +1221,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     .set({
       status: "active",
       currentPlayerId: selectedPlayerId,
-      currentBid: categoryStartBid,
+      currentBid: openingBid,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
@@ -1971,6 +1999,33 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
   const reasonResult = parseAuditReason(req.body, false);
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
+  const bodySchema = z.object({
+    strategy: z.enum(["keep_existing", "reset_defaults", "fixed"]).optional(),
+    fixedAmount: z.number().int().optional(),
+  });
+  const bodyParsed = bodySchema.safeParse(req.body ?? {});
+  if (!bodyParsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  const strategyResult = parseReAuctionStrategyFromRequest(bodyParsed.data);
+  if (!strategyResult.ok) { res.status(400).json({ error: strategyResult.error }); return; }
+
+  const [tournamentForStrategy] = await db
+    .select({ minBid: tournamentsTable.minBid })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+
+  if (strategyResult.strategy.mode === "fixed") {
+    const fixedValidation = validateFixedReAuctionAmount(
+      strategyResult.strategy.fixedAmount ?? 0,
+      tournamentForStrategy?.minBid ?? 0,
+    );
+    if (!fixedValidation.ok) {
+      res.status(400).json({ error: fixedValidation.error });
+      return;
+    }
+    strategyResult.strategy.fixedAmount = fixedValidation.amount;
+  }
+
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
 
@@ -1997,6 +2052,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
       .update(auctionSessionsTable)
       .set({
         randomDrawQueue: null,
+        reAuctionStrategyJson: serializeReAuctionStrategy(strategyResult.strategy),
         lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue`,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -2010,7 +2066,11 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
     reason: reasonResult.reason,
     tournamentId: tid,
     resource: { type: "auction_session", id: tid },
-    metadata: { playerCount: unsoldPlayers.length, playerIds: unsoldPlayers.map((p) => p.id) },
+    metadata: {
+      playerCount: unsoldPlayers.length,
+      playerIds: unsoldPlayers.map((p) => p.id),
+      reAuctionStrategy: strategyResult.strategy,
+    },
     alertKey: "auction_reauction_bulk",
   });
 
@@ -2141,6 +2201,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
         timerEndsAt: null,
         deferredPlayerIds: null,
         randomDrawQueue: null,
+        reAuctionStrategyJson: null,
         soldPlayersCount: 0,
         unsoldPlayersCount: 0,
         lastAction: "Reset complete — ready for live auction",
@@ -2318,24 +2379,18 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
     .from(playersTable)
     .where(eq(playersTable.id, selectedPlayerId));
 
-  // Use category's minBid as the starting bid if set, otherwise fall back to player's basePrice
-  let categoryStartBidDefer = selectedPlayer.basePrice;
-  if (selectedPlayer.categoryId) {
-    const [catForStartDefer] = await db
-      .select({ minBid: categoriesTable.minBid })
-      .from(categoriesTable)
-      .where(eq(categoriesTable.id, selectedPlayer.categoryId));
-    if (catForStartDefer?.minBid != null && catForStartDefer.minBid > 0) {
-      categoryStartBidDefer = catForStartDefer.minBid;
-    }
-  }
+  const openingBidDefer = await resolveOpeningBidForPlayer(
+    tid,
+    selectedPlayer,
+    session.reAuctionStrategyJson,
+  );
 
   await db
     .update(auctionSessionsTable)
     .set({
       status: "active",
       currentPlayerId: selectedPlayerId,
-      currentBid: categoryStartBidDefer,
+      currentBid: openingBidDefer,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
@@ -2723,6 +2778,7 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
         timerType: null,
         deferredPlayerIds: null,
         randomDrawQueue: null,
+        reAuctionStrategyJson: null,
         displayCountdown: null,
         lastAction:
           unsoldCount > 0

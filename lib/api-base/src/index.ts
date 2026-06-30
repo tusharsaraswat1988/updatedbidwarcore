@@ -33,6 +33,17 @@ export {
 } from "./bid-value.ts";
 
 export {
+  type ReAuctionStrategy,
+  type ReAuctionStrategyMode,
+  type OpeningBidInput,
+  parseReAuctionStrategy,
+  serializeReAuctionStrategy,
+  resolveOpeningBid,
+  validateFixedReAuctionAmount,
+  parseReAuctionStrategyFromRequest,
+} from "./re-auction-strategy.ts";
+
+export {
   buildPlayerExportRows,
   buildPlayerExportSheetValues,
   playerExportRowsToSheetValues,

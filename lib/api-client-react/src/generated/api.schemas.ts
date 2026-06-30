@@ -95,18 +95,6 @@ export const TournamentScoringPhase = {
   completed: "completed",
 } as const;
 
-/** Per-tournament module feature flags (Buzz Studio, future modules). */
-export interface TournamentFeatures {
-  buzzStudio?: boolean;
-  allowCreativeDownloads?: boolean;
-  allowPlayerDownloads?: boolean;
-  watermarkRequired?: boolean;
-  ownerApp?: boolean;
-  scoring?: boolean;
-  sponsorshipHub?: boolean;
-  analytics?: boolean;
-}
-
 export interface Tournament {
   id: number;
   name: string;
@@ -203,7 +191,7 @@ export interface Tournament {
   cheerMessagesEnabled?: boolean;
   /** @nullable */
   cheerMessagePresets?: string | null;
-  /** Per-viewer cheer cooldown in seconds (3–60) */
+  /** Per-viewer cheer cooldown in seconds (2–60) */
   cheerCooldownSeconds?: number;
   /** Show heat level indicator on the live viewer */
   cheerHeatMeterEnabled?: boolean;
@@ -240,8 +228,6 @@ export interface Tournament {
    * @nullable
    */
   scoringPin?: string | null;
-  /** Per-tournament module feature flags */
-  features?: TournamentFeatures;
   createdAt: string;
 }
 
@@ -646,6 +632,17 @@ export const JerseySize = {
   "5XL": "5XL",
 } as const;
 
+export interface PlayerSpecification {
+  specGroupId: number;
+  groupName: string;
+  value: string;
+}
+
+export interface PlayerSpecificationInput {
+  specGroupId: number;
+  value: string;
+}
+
 /**
  * Player gender — M (Male) or F (Female)
  * @nullable
@@ -732,7 +729,7 @@ export const PlayerRegistrationPaymentStatus = {
 
 export interface Player {
   id: number;
-  /** Tournament-scoped display serial (1..N). Use for auction Serial # — not global id. */
+  /** Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial */
   serialNo: number;
   tournamentId: number;
   /** @nullable */
@@ -750,12 +747,8 @@ export interface Player {
   bowlingStyle?: string | null;
   /** @nullable */
   specialization?: string | null;
-  /** Normalized sport specifications (when PLAYER_SPECS_V2_ENABLED). */
-  specifications?: {
-    specGroupId: number;
-    groupName: string;
-    value: string;
-  }[];
+  /** Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED) */
+  specifications?: PlayerSpecification[];
   /** @nullable */
   age?: number | null;
   /**
@@ -839,11 +832,6 @@ export const PlayerInputPlayerTag = {
   star_player: "star_player",
 } as const;
 
-export interface PlayerSpecificationInput {
-  specGroupId: number;
-  value: string;
-}
-
 export interface PlayerInput {
   categoryId?: number;
   name: string;
@@ -882,7 +870,7 @@ export interface PlayerInput {
   markPaymentCompleted?: boolean;
   /** Player accepts organizer registration declaration (required when enabled) */
   registrationDeclarationAccepted?: boolean;
-  /** Normalized sport-specific specification values (4+ spec groups e.g. badminton Court Preference) */
+  /** Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference) */
   specifications?: PlayerSpecificationInput[];
 }
 
@@ -928,6 +916,8 @@ export interface PlayerUpdate {
   battingStyle?: string;
   bowlingStyle?: string;
   specialization?: string;
+  /** Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference) */
+  specifications?: PlayerSpecificationInput[];
   age?: number;
   gender?: PlayerUpdateGender;
   photoUrl?: string;
@@ -955,8 +945,6 @@ export interface PlayerUpdate {
   reason?: string;
   /** Organizer updates registration payment verification status */
   registrationPaymentStatus?: PlayerUpdateRegistrationPaymentStatus;
-  /** Normalized sport-specific specification values (4+ spec groups e.g. badminton Court Preference) */
-  specifications?: PlayerSpecificationInput[];
 }
 
 export interface BulkPlayerInput {
@@ -990,9 +978,25 @@ export interface ReAuctionInput {
   reason?: string;
 }
 
+/**
+ * How opening bids are initialized for the re-auction round
+ */
+export type ReAuctionAllUnsoldBodyStrategy =
+  (typeof ReAuctionAllUnsoldBodyStrategy)[keyof typeof ReAuctionAllUnsoldBodyStrategy];
+
+export const ReAuctionAllUnsoldBodyStrategy = {
+  keep_existing: "keep_existing",
+  reset_defaults: "reset_defaults",
+  fixed: "fixed",
+} as const;
+
 export interface ReAuctionAllUnsoldBody {
   /** Optional audit reason for batch re-auction of unsold players */
   reason?: string;
+  /** How opening bids are initialized for the re-auction round */
+  strategy?: ReAuctionAllUnsoldBodyStrategy;
+  /** Required when strategy is fixed — same starting bid for every unsold player */
+  fixedAmount?: number;
 }
 
 export interface ConcludeAuctionInput {
@@ -1564,6 +1568,12 @@ export interface CategoryBreakdown {
   totalSpent?: number;
 }
 
+export interface GlobalPlayerSportProfile {
+  sport: string;
+  /** @nullable */
+  defaultRole: string | null;
+}
+
 /**
  * @nullable
  */
@@ -1629,6 +1639,13 @@ export interface GlobalPlayerSuggestion {
   availabilityDates?: string | null;
   basePrice?: number;
   appearanceCount: number;
+  /**
+   * Tournament sport for this suggestion row (when PLAYER_SPORT_PROFILES_ENABLED=true)
+   * @nullable
+   */
+  sport?: string | null;
+  /** Per-sport roles on global player GET responses (PLAYER_SPORT_PROFILES_ENABLED) */
+  sportProfiles?: GlobalPlayerSportProfile[];
 }
 
 export interface ImportSource {
@@ -1886,6 +1903,138 @@ export interface ShowcaseEventInput {
   active?: boolean;
 }
 
+export interface ScoringStandingRow {
+  teamId?: number;
+  teamName?: string;
+  shortCode?: string;
+  played?: number;
+  won?: number;
+  lost?: number;
+  tied?: number;
+  noResult?: number;
+  points?: number;
+  netRunRate?: number;
+}
+
+export interface ScoringLeaderboardRow {
+  rank: number;
+  playerId: number;
+  playerName: string;
+  teamId: number;
+  shortCode: string;
+  value: number;
+}
+
+export type ScoringPublicScorecardMatch = { [key: string]: unknown };
+
+export type ScoringPublicScorecardInningsItem = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type ScoringPublicScorecardManOfTheMatch = {
+  playerId?: number;
+  playerName?: string;
+  teamId?: number;
+  reason?: string;
+} | null;
+
+/**
+ * Full public scorecard for a match
+ */
+export interface ScoringPublicScorecard {
+  match?: ScoringPublicScorecardMatch;
+  innings?: ScoringPublicScorecardInningsItem[];
+  /** @nullable */
+  manOfTheMatch?: ScoringPublicScorecardManOfTheMatch;
+}
+
+export type ScoringPlayerPublicProfilePlayer = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type ScoringPlayerPublicProfileTeam = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type ScoringPlayerPublicProfileStats = { [key: string]: unknown } | null;
+
+export type ScoringPlayerPublicProfileManOfTheMatchAwardsItem = {
+  matchId?: number;
+  reason?: string;
+  awardedAt?: string;
+};
+
+export type ScoringPlayerPublicProfileRecentMatchesItem = {
+  [key: string]: unknown;
+};
+
+export interface ScoringPlayerPublicProfile {
+  player?: ScoringPlayerPublicProfilePlayer;
+  /** @nullable */
+  team?: ScoringPlayerPublicProfileTeam;
+  /** @nullable */
+  stats?: ScoringPlayerPublicProfileStats;
+  manOfTheMatchAwards?: ScoringPlayerPublicProfileManOfTheMatchAwardsItem[];
+  recentMatches?: ScoringPlayerPublicProfileRecentMatchesItem[];
+}
+
+export type ScoringTeamPublicProfileTeam = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type ScoringTeamPublicProfileStanding = {
+  [key: string]: unknown;
+} | null;
+
+export type ScoringTeamPublicProfileSquadItem = { [key: string]: unknown };
+
+export type ScoringTeamPublicProfileRecentResultsItem = {
+  [key: string]: unknown;
+};
+
+export type ScoringTeamPublicProfileTopBatsmenItem = { [key: string]: unknown };
+
+export interface ScoringTeamPublicProfile {
+  team?: ScoringTeamPublicProfileTeam;
+  /** @nullable */
+  standing?: ScoringTeamPublicProfileStanding;
+  squad?: ScoringTeamPublicProfileSquadItem[];
+  recentResults?: ScoringTeamPublicProfileRecentResultsItem[];
+  topBatsmen?: ScoringTeamPublicProfileTopBatsmenItem[];
+}
+
+export type GlobalCricketPlayerProfileGlobalPlayer = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type GlobalCricketPlayerProfileCareerStats = {
+  [key: string]: unknown;
+} | null;
+
+export type GlobalCricketPlayerProfileTournamentsItem = {
+  [key: string]: unknown;
+};
+
+export interface GlobalCricketPlayerProfile {
+  globalPlayer?: GlobalCricketPlayerProfileGlobalPlayer;
+  /** @nullable */
+  careerStats?: GlobalCricketPlayerProfileCareerStats;
+  manOfTheMatchCount?: number;
+  tournaments?: GlobalCricketPlayerProfileTournamentsItem[];
+}
+
+export interface GlobalLeaderboardRow {
+  rank: number;
+  globalPlayerId: string;
+  playerName: string;
+  value: number;
+}
+
 export type UploadImageBody = {
   /** Image file (PNG, JPG, WebP, etc.) */
   file: Blob;
@@ -1898,6 +2047,19 @@ export type UploadImage200 = {
 
 export type MirrorAuctionState200 = {
   ok?: boolean;
+};
+
+export type DeleteCategory409Code =
+  (typeof DeleteCategory409Code)[keyof typeof DeleteCategory409Code];
+
+export const DeleteCategory409Code = {
+  CATEGORY_HAS_PLAYERS: "CATEGORY_HAS_PLAYERS",
+} as const;
+
+export type DeleteCategory409 = {
+  error: string;
+  code: DeleteCategory409Code;
+  playerCount?: number;
 };
 
 export type SetDisplayOverlayBodyMode =
@@ -1993,8 +2155,38 @@ export type SearchGlobalPlayersParams = {
    */
   q: string;
   limit?: number;
-  /** When set, prefer tournament rows for this sport (prevents cross-sport spec bleed). */
+  /**
+   * Filter suggestions to a sport slug (e.g. badminton). Used when PLAYER_SPORT_PROFILES_ENABLED=true.
+   */
   sport?: string;
+};
+
+export type GetScoringStandings200 = {
+  standings: ScoringStandingRow[];
+};
+
+export type GetScoringLeaderboardParams = {
+  /**
+   * @maximum 50
+   */
+  limit?: number;
+};
+
+export type GetScoringLeaderboard200 = {
+  category: string;
+  rows: ScoringLeaderboardRow[];
+};
+
+export type GetGlobalCricketLeaderboardParams = {
+  /**
+   * @maximum 50
+   */
+  limit?: number;
+};
+
+export type GetGlobalCricketLeaderboard200 = {
+  category: string;
+  rows: GlobalLeaderboardRow[];
 };
 
 export type ListImportCandidatesParams = {

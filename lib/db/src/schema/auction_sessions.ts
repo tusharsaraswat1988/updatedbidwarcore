@@ -32,6 +32,8 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   deferredPlayerIds: text("deferred_player_ids"),
   // Shuffled draw order for fair random selection when few players remain.
   randomDrawQueue: text("random_draw_queue"),
+  // Session-scoped re-auction opening bid strategy (JSON). Set by bulk "Bring Unsold Players".
+  reAuctionStrategyJson: text("re_auction_strategy_json"),
   displayCountdown: text("display_countdown"),
   soldPlayersCount: integer("sold_players_count").notNull().default(0),
   unsoldPlayersCount: integer("unsold_players_count").notNull().default(0),

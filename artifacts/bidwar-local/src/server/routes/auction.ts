@@ -3,6 +3,13 @@ import { randomUUID } from "node:crypto";
 import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import {
+  parseReAuctionStrategy,
+  parseReAuctionStrategyFromRequest,
+  resolveOpeningBid,
+  serializeReAuctionStrategy,
+  validateFixedReAuctionAmount,
+} from "@workspace/api-base/re-auction-strategy";
 import { pickRandomPlayerFromPool } from "@workspace/api-base/auction-player-selection";
 import {
   tournamentToReadinessInput,
@@ -158,21 +165,34 @@ export function createAuctionRouter(db: LocalDb) {
     return false;
   }
 
-  async function resolvePlayerOpeningBid(player: {
-    basePrice: number;
-    categoryId: number | null;
-  }): Promise<number> {
-    let openingBid = player.basePrice;
+  async function resolvePlayerOpeningBid(
+    tournamentId: number,
+    player: {
+      basePrice: number;
+      categoryId: number | null;
+    },
+    reAuctionStrategyJson?: string | null,
+  ): Promise<number> {
+    const [tournamentRow] = await db
+      .select({ minBid: tournamentsTable.minBid })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+
+    let categoryMinBid: number | null = null;
     if (player.categoryId) {
       const [cat] = await db
         .select({ minBid: categoriesTable.minBid })
         .from(categoriesTable)
         .where(eq(categoriesTable.id, player.categoryId));
-      if (cat?.minBid != null && cat.minBid > 0) {
-        openingBid = cat.minBid;
-      }
+      categoryMinBid = cat?.minBid ?? null;
     }
-    return openingBid;
+
+    return resolveOpeningBid({
+      strategy: parseReAuctionStrategy(reAuctionStrategyJson),
+      playerBasePrice: player.basePrice,
+      categoryMinBid,
+      tournamentMinBid: tournamentRow?.minBid ?? 0,
+    });
   }
 
   async function handleAvailablePoolExhausted(tid: number): Promise<void> {
@@ -570,7 +590,7 @@ export function createAuctionRouter(db: LocalDb) {
     }
 
     const [selectedPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, selectedPlayerId));
-    const openingBid = await resolvePlayerOpeningBid(selectedPlayer);
+    const openingBid = await resolvePlayerOpeningBid(tid, selectedPlayer, session.reAuctionStrategyJson);
     await db.update(auctionSessionsTable).set({
       status: "active", currentPlayerId: selectedPlayerId,
       currentBid: openingBid, currentBidTeamId: null,
@@ -764,6 +784,34 @@ export function createAuctionRouter(db: LocalDb) {
   router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const bodySchema = z.object({
+      strategy: z.enum(["keep_existing", "reset_defaults", "fixed"]).optional(),
+      fixedAmount: z.number().int().optional(),
+    });
+    const bodyParsed = bodySchema.safeParse(req.body ?? {});
+    if (!bodyParsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+    const strategyResult = parseReAuctionStrategyFromRequest(bodyParsed.data);
+    if (!strategyResult.ok) { res.status(400).json({ error: strategyResult.error }); return; }
+
+    const [tournamentForStrategy] = await db
+      .select({ minBid: tournamentsTable.minBid })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+
+    if (strategyResult.strategy.mode === "fixed") {
+      const fixedValidation = validateFixedReAuctionAmount(
+        strategyResult.strategy.fixedAmount ?? 0,
+        tournamentForStrategy?.minBid ?? 0,
+      );
+      if (!fixedValidation.ok) {
+        res.status(400).json({ error: fixedValidation.error });
+        return;
+      }
+      strategyResult.strategy.fixedAmount = fixedValidation.amount;
+    }
+
     const session = await getOrCreateSession(tid);
     if (rejectIfAuctionPaused(session, res)) return;
     const unsoldPlayers = await db.select().from(playersTable)
@@ -775,6 +823,7 @@ export function createAuctionRouter(db: LocalDb) {
     await db.update(auctionSessionsTable)
       .set({
         randomDrawQueue: null,
+        reAuctionStrategyJson: serializeReAuctionStrategy(strategyResult.strategy),
         lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue`,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -818,6 +867,7 @@ export function createAuctionRouter(db: LocalDb) {
         pausedTimeRemaining: null,
         deferredPlayerIds: null,
         randomDrawQueue: null,
+        reAuctionStrategyJson: null,
         displayCountdown: null,
         lastAction:
           unsoldCount > 0
@@ -852,7 +902,7 @@ export function createAuctionRouter(db: LocalDb) {
     await db.update(auctionSessionsTable).set({
       status: "idle", currentPlayerId: null, currentBid: null, currentBidTeamId: null,
       timerEndsAt: null, soldPlayersCount: 0, unsoldPlayersCount: 0,
-      deferredPlayerIds: null, randomDrawQueue: null,
+      deferredPlayerIds: null, randomDrawQueue: null, reAuctionStrategyJson: null,
       lastAction: "Reset complete — ready for live auction",
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     await db.update(tournamentsTable).set({ status: "setup" }).where(eq(tournamentsTable.id, tid));
@@ -1381,7 +1431,7 @@ export function createAuctionRouter(db: LocalDb) {
     }
 
     const [selectedPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, pick.playerId));
-    const startingBid = await resolvePlayerOpeningBid(selectedPlayer);
+    const startingBid = await resolvePlayerOpeningBid(tid, selectedPlayer, session.reAuctionStrategyJson);
 
     await db.update(auctionSessionsTable).set({
       status: "active",

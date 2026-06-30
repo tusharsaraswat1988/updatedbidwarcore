@@ -66,6 +66,15 @@ export class AuctionAudioManager {
   private lastCountdownSec = -1;
   private soldKeyPlayed = "";
 
+  // Preview session — stops overlapping playback from repeated Preview clicks
+  private previewGeneration = 0;
+  private previewTimerIds: ReturnType<typeof setTimeout>[] = [];
+  private breakPreviewTimerId: ReturnType<typeof setTimeout> | null = null;
+  private previewHtmlElements: HTMLAudioElement[] = [];
+  private previewGain: GainNode | null = null;
+  private previewBufferSources: AudioBufferSourceNode[] = [];
+  private breakMusicStartId = 0;
+
   /** Mark a sold event as already handled (e.g. page load) without playing audio. */
   ackSoldKey(key: string): void {
     if (key) this.soldKeyPlayed = key;
@@ -102,6 +111,7 @@ export class AuctionAudioManager {
   }
 
   dispose(): void {
+    this.stopPreviewPlayback();
     this.stopBreakMusic();
     this.ctx?.close().catch(() => {});
     this.ctx = null;
@@ -329,6 +339,7 @@ export class AuctionAudioManager {
     if (this.breakLoopEl && !this.breakLoopEl.paused) return;
 
     this.stopBreakMusic();
+    const startId = ++this.breakMusicStartId;
 
     const url = this.settings.breakEndMusicUrl;
     if (url) {
@@ -337,6 +348,7 @@ export class AuctionAudioManager {
       el.volume = this.scaledVolume(this.settings.breakEndMusicVolume);
       this.breakLoopEl = el;
       void this.unlock().then(() => {
+        if (startId !== this.breakMusicStartId) return;
         el.play().catch(() => {});
       });
       return;
@@ -350,15 +362,20 @@ export class AuctionAudioManager {
       el.volume = this.scaledVolume(this.settings.breakEndMusicVolume);
       this.breakLoopEl = el;
       void this.unlock().then(() => {
+        if (startId !== this.breakMusicStartId) return;
         el.play().catch(() => {});
       });
       return;
     }
 
-    void this.unlock().then(() => this.synthBreakEnd());
+    void this.unlock().then(() => {
+      if (startId !== this.breakMusicStartId) return;
+      this.synthBreakEnd();
+    });
   }
 
   stopBreakMusic(): void {
+    this.breakMusicStartId += 1;
     if (!this.breakLoopEl) return;
     this.breakLoopEl.pause();
     this.breakLoopEl.currentTime = 0;
@@ -367,9 +384,14 @@ export class AuctionAudioManager {
   }
 
   previewBreakMusic(): void {
-    this.stopBreakMusic();
+    this.stopPreviewPlayback();
+    const gen = this.previewGeneration;
     this.startBreakMusic();
-    setTimeout(() => this.stopBreakMusic(), 4000);
+    this.breakPreviewTimerId = setTimeout(() => {
+      if (gen !== this.previewGeneration) return;
+      this.stopBreakMusic();
+      this.breakPreviewTimerId = null;
+    }, 4000);
   }
 
   // ── Emergency controls ────────────────────────────────────────────────
@@ -384,26 +406,178 @@ export class AuctionAudioManager {
 
   // ── Preview helpers (used by tournament settings UI) ──────────────────
 
+  /** Stop any in-progress preview so repeated Preview clicks do not stack audio. */
+  stopPreviewPlayback(): void {
+    this.previewGeneration += 1;
+
+    for (const id of this.previewTimerIds) clearTimeout(id);
+    this.previewTimerIds = [];
+
+    if (this.breakPreviewTimerId !== null) {
+      clearTimeout(this.breakPreviewTimerId);
+      this.breakPreviewTimerId = null;
+    }
+
+    this.stopBreakMusic();
+
+    for (const el of this.previewHtmlElements) {
+      el.pause();
+      el.currentTime = 0;
+    }
+    this.previewHtmlElements = [];
+
+    this.resetCountdownState();
+    this.stopPreviewBufferSources();
+    this.mutePreviewSynth();
+  }
+
+  private mutePreviewSynth(): void {
+    if (!this.previewGain || !this.ctx) return;
+    try {
+      this.previewGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.previewGain.disconnect();
+    } catch {
+      // Already disconnected.
+    }
+    this.previewGain = null;
+  }
+
+  private getPreviewGain(): GainNode | null {
+    const ctx = this.ctx;
+    if (!ctx || !this.masterGain) return null;
+    this.mutePreviewSynth();
+    const gain = ctx.createGain();
+    gain.gain.value = 1;
+    gain.connect(this.masterGain);
+    this.previewGain = gain;
+    return gain;
+  }
+
+  private trackPreviewTimer(id: ReturnType<typeof setTimeout>): void {
+    this.previewTimerIds.push(id);
+  }
+
+  private async playPreviewHtmlClone(el: HTMLAudioElement, soundVolume: number): Promise<boolean> {
+    const clone = el.cloneNode(true) as HTMLAudioElement;
+    if (el.crossOrigin) clone.crossOrigin = el.crossOrigin;
+    clone.volume = this.scaledVolume(soundVolume);
+    this.previewHtmlElements.push(clone);
+    clone.addEventListener("ended", () => {
+      this.previewHtmlElements = this.previewHtmlElements.filter((item) => item !== clone);
+    }, { once: true });
+    try {
+      await clone.play();
+      return true;
+    } catch {
+      this.previewHtmlElements = this.previewHtmlElements.filter((item) => item !== clone);
+      return false;
+    }
+  }
+
+  private stopPreviewBufferSources(): void {
+    for (const source of this.previewBufferSources) {
+      try {
+        source.stop();
+      } catch {
+        // Already stopped.
+      }
+    }
+    this.previewBufferSources = [];
+  }
+
+  private playPreviewBuffer(buffer: AudioBuffer, soundVolume: number, out: GainNode): boolean {
+    const ctx = this.ctx;
+    if (!ctx) return false;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = this.scaledVolume(soundVolume);
+    source.connect(gain);
+    gain.connect(out);
+    source.onended = () => {
+      this.previewBufferSources = this.previewBufferSources.filter((item) => item !== source);
+    };
+    this.previewBufferSources.push(source);
+    source.start();
+    return true;
+  }
+
+  private playPreviewCustomSound(
+    gen: number,
+    buffer: AudioBuffer | null,
+    el: HTMLAudioElement | null,
+    soundVolume: number,
+    synth: (out: GainNode) => void,
+  ): void {
+    void this.unlock().then(async () => {
+      if (gen !== this.previewGeneration) return;
+      const out = this.getPreviewGain();
+      if (!out) return;
+      if (buffer && this.playPreviewBuffer(buffer, soundVolume, out)) return;
+      if (el && await this.playPreviewHtmlClone(el, soundVolume)) return;
+      if (gen !== this.previewGeneration) return;
+      synth(out);
+    });
+  }
+
   previewCountdown(): void {
+    this.stopPreviewPlayback();
+    const gen = this.previewGeneration;
+    if (!this.settings.audioEnabled || !this.settings.countdownSoundEnabled) return;
+
     for (let i = 5; i >= 1; i--) {
       const delay = (5 - i) * 700;
-      setTimeout(() => {
-        this.lastCountdownSec = -1; // allow each tick to play
-        this.playCountdownTick(i);
+      const id = setTimeout(() => {
+        if (gen !== this.previewGeneration) return;
+        this.lastCountdownSec = -1;
+        if (this.countdownBuffer || this.countdownAudio) {
+          this.playPreviewCustomSound(
+            gen,
+            this.countdownBuffer,
+            this.countdownAudio,
+            this.settings.countdownSoundVolume,
+            (out) => this.synthTick(i, out),
+          );
+          return;
+        }
+        void this.unlock().then(() => {
+          if (gen !== this.previewGeneration) return;
+          const out = this.getPreviewGain();
+          if (out) this.synthTick(i, out);
+        });
       }, delay);
+      this.trackPreviewTimer(id);
     }
   }
 
   previewSold(): void {
-    this.soldKeyPlayed = ""; // reset so preview always plays
-    this.playSold("__preview__" + Date.now());
+    this.stopPreviewPlayback();
+    const gen = this.previewGeneration;
+    if (!this.settings.audioEnabled || !this.settings.soldSoundEnabled) return;
+
+    if (this.soldBuffer || this.soldAudio) {
+      this.playPreviewCustomSound(
+        gen,
+        this.soldBuffer,
+        this.soldAudio,
+        this.settings.soldSoundVolume,
+        (out) => this.synthSold(out),
+      );
+      return;
+    }
+    void this.unlock().then(() => {
+      if (gen !== this.previewGeneration) return;
+      const out = this.getPreviewGain();
+      if (out) this.synthSold(out);
+    });
   }
 
   // ── Web Audio synthesis ───────────────────────────────────────────────
 
-  private synthTick(secondsLeft: number): void {
+  private synthTick(secondsLeft: number, out: GainNode | null = this.masterGain): void {
     const ctx = this.ctx;
-    if (!ctx || !this.masterGain) return;
+    if (!ctx || !out) return;
 
     const vol = this.settings.countdownSoundVolume / 100;
     const now = ctx.currentTime;
@@ -420,7 +594,7 @@ export class AuctionAudioManager {
 
     // Primary sine pip
     const env = ctx.createGain();
-    env.connect(this.masterGain);
+    env.connect(out);
     env.gain.setValueAtTime(0, now);
     env.gain.linearRampToValueAtTime(vol * 0.55, now + 0.009);
     env.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
@@ -435,7 +609,7 @@ export class AuctionAudioManager {
 
     // Subtle harmonic layer for a digital "ping" feel
     const env2 = ctx.createGain();
-    env2.connect(this.masterGain);
+    env2.connect(out);
     env2.gain.setValueAtTime(0, now);
     env2.gain.linearRampToValueAtTime(vol * 0.12, now + 0.008);
     env2.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
@@ -448,9 +622,9 @@ export class AuctionAudioManager {
     osc2.stop(now + 0.14);
   }
 
-  private synthSold(): void {
+  private synthSold(out: GainNode | null = this.masterGain): void {
     const ctx = this.ctx;
-    if (!ctx || !this.masterGain) return;
+    if (!ctx || !out) return;
 
     const vol = this.settings.soldSoundVolume / 100;
 
@@ -467,7 +641,7 @@ export class AuctionAudioManager {
 
       // Sine body
       const g = ctx.createGain();
-      g.connect(this.masterGain!);
+      g.connect(out);
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(vol * amp, t + 0.014);
       g.gain.setValueAtTime(vol * amp, t + dur * 0.55);
@@ -482,7 +656,7 @@ export class AuctionAudioManager {
 
       // Triangle harmonic for warmth / richness
       const g2 = ctx.createGain();
-      g2.connect(this.masterGain!);
+      g2.connect(out);
       g2.gain.setValueAtTime(0, t);
       g2.gain.linearRampToValueAtTime(vol * amp * 0.18, t + 0.018);
       g2.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.75);
@@ -496,9 +670,9 @@ export class AuctionAudioManager {
     });
   }
 
-  private synthBreakEnd(): void {
+  private synthBreakEnd(out: GainNode | null = this.masterGain): void {
     const ctx = this.ctx;
-    if (!ctx || !this.masterGain) return;
+    if (!ctx || !out) return;
 
     const vol = this.settings.breakEndMusicVolume / 100;
 
@@ -513,7 +687,7 @@ export class AuctionAudioManager {
       const t = ctx.currentTime + delay;
 
       const g = ctx.createGain();
-      g.connect(this.masterGain!);
+      g.connect(out);
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(vol * amp, t + 0.012);
       g.gain.setValueAtTime(vol * amp, t + dur * 0.5);

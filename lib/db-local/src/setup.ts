@@ -175,6 +175,7 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE auction_sessions ADD COLUMN last_purse_booster_json TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN last_led_toast_json TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN random_draw_queue TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN re_auction_strategy_json TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN display_player_filter TEXT",
     "ALTER TABLE teams ADD COLUMN owner_email TEXT",
     "ALTER TABLE teams ADD COLUMN owner_photo_url TEXT",

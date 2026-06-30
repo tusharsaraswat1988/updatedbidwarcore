@@ -3125,6 +3125,13 @@ components:
         reason:
           type: string
           description: Optional audit reason for batch re-auction of unsold players
+        strategy:
+          type: string
+          enum: [keep_existing, reset_defaults, fixed]
+          description: How opening bids are initialized for the re-auction round
+        fixedAmount:
+          type: integer
+          description: Required when strategy is fixed — same starting bid for every unsold player
 
     ConcludeAuctionInput:
       type: object
