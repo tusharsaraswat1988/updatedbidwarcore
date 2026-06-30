@@ -244,6 +244,78 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam }: {
   );
 }
 
+interface BidDisabledHint {
+  headline: string;
+  subline?: string;
+}
+
+function getBidDisabledHint(params: {
+  isPaused: boolean;
+  isActive: boolean;
+  maxSquadReached: boolean;
+  categoryLimitReached: boolean;
+  categoryMax: number | null;
+  categoryName: string | null | undefined;
+  biddingEnabled: boolean;
+  timerActive: boolean;
+  hasTimer: boolean;
+  spendablePurse: number;
+  nextBidAmount: number;
+  reservePurse: number;
+  slotsRequired: number;
+}): BidDisabledHint {
+  if (params.isPaused) {
+    return { headline: "Auction paused", subline: "The operator has paused bidding" };
+  }
+  if (!params.isActive) {
+    return { headline: "Auction not live", subline: "Bidding opens when the auction starts" };
+  }
+  if (params.maxSquadReached) {
+    return { headline: "Squad full", subline: "Maximum squad size reached" };
+  }
+  if (params.categoryLimitReached) {
+    return {
+      headline: "Category limit reached",
+      subline: `Max ${params.categoryMax} in ${params.categoryName ?? "this category"}`,
+    };
+  }
+  if (!params.biddingEnabled) {
+    return { headline: "Bidding disabled", subline: "Contact the auction operator" };
+  }
+  if (!params.timerActive) {
+    return params.hasTimer
+      ? { headline: "Timer ended", subline: "Waiting for the operator's next action" }
+      : { headline: "Bidding not open yet", subline: "Wait for the operator to start the timer" };
+  }
+  if (params.spendablePurse < params.nextBidAmount) {
+    const shortfall = params.nextBidAmount - params.spendablePurse;
+    if (params.reservePurse > 0) {
+      return {
+        headline: `${formatShortIndianRupee(shortfall)} short for this bid`,
+        subline: `${formatShortIndianRupee(params.spendablePurse)} spendable · ${formatShortIndianRupee(params.reservePurse)} held for ${params.slotsRequired} open slot${params.slotsRequired !== 1 ? "s" : ""}`,
+      };
+    }
+    return {
+      headline: `${formatShortIndianRupee(shortfall)} short for this bid`,
+      subline: `${formatShortIndianRupee(params.spendablePurse)} spendable · bid needs ${formatShortIndianRupee(params.nextBidAmount)}`,
+    };
+  }
+  return { headline: "Bid unavailable", subline: "Try refreshing or wait a moment" };
+}
+
+function BidDisabledMessage({ hint, compact }: { hint: BidDisabledHint; compact?: boolean }) {
+  return (
+    <div
+      className={`text-center rounded-xl border border-[#27272a] bg-[#18181b] ${compact ? "px-2 py-1.5" : "px-3 py-2.5"}`}
+    >
+      <p className={`font-semibold text-[#d4d4d8] ${compact ? "text-xs" : "text-sm"}`}>{hint.headline}</p>
+      {hint.subline && (
+        <p className={`text-[#71717a] mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>{hint.subline}</p>
+      )}
+    </div>
+  );
+}
+
 function BidButton({
   canBid, isLeading, timerExpired, hasPlayer, isActive, isPaused, isIdle,
   bidding, bidFeedback, nextBidAmount, teamColor, onBid, landscape,
@@ -546,16 +618,23 @@ export function LiveBid({
   const isPaused = state?.status === "paused";
   const isIdle = state?.status === "idle";
 
-  const disabledReason =
+  const bidDisabledHint =
     !canBid && !isLeading && !expired && hasPlayer
-      ? isPaused                         ? "Auction paused by operator"
-      : !isActive                        ? "Auction not active"
-      : maxSquadReached                  ? "Maximum squad size reached"
-      : categoryLimitReached             ? `Category limit (max ${categoryMax} in "${state?.currentCategoryName}")`
-      : !(team.isBiddingEnabled ?? true) ? "Bidding disabled for your team"
-      : reservePurse > 0 && spendablePurse < nextBidAmount
-                                         ? `${formatShortIndianRupee(reservePurse)} reserved for ${slotsRequired} slot${slotsRequired !== 1 ? "s" : ""}`
-      : `Need ${formatShortIndianRupee(nextBidAmount - spendablePurse)} more purse`
+      ? getBidDisabledHint({
+          isPaused,
+          isActive,
+          maxSquadReached,
+          categoryLimitReached,
+          categoryMax,
+          categoryName: state?.currentCategoryName,
+          biddingEnabled: team.isBiddingEnabled ?? true,
+          timerActive,
+          hasTimer: !!state?.timerEndsAt,
+          spendablePurse,
+          nextBidAmount,
+          reservePurse,
+          slotsRequired,
+        })
       : null;
 
   const statusLabel =
@@ -877,9 +956,7 @@ export function LiveBid({
             {bidFeedback === "error" && (
               <p className="text-center text-red-400 text-base font-semibold">{bidErrorMsg || "Bid failed. Please try again."}</p>
             )}
-            {disabledReason && (
-              <p className="text-center text-sm text-[#71717a]">{disabledReason}</p>
-            )}
+            {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} />}
 
             {/* Purse strip */}
             <div className="grid grid-cols-3 gap-2 pt-1">
@@ -1186,9 +1263,7 @@ export function LiveBid({
         {bidFeedback === "error" && (
           <p className="text-center text-red-400 text-sm font-semibold">{bidErrorMsg || "Bid failed. Try again."}</p>
         )}
-        {disabledReason && (
-          <p className="text-center text-xs text-[#71717a]">{disabledReason}</p>
-        )}
+        {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact />}
 
         {showPoweredBy && (
           <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest flex-shrink-0">

@@ -126,9 +126,15 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
     secure: false,
     ws: false,
   };
+  const brandingIconProxy: ViteApiProxyOptions = manifestProxy;
   return {
     "/site.webmanifest": manifestProxy,
     "/owner-app/manifest.webmanifest": manifestProxy,
+    "/favicon.ico": brandingIconProxy,
+    "/favicon.svg": brandingIconProxy,
+    "/favicon-32.png": brandingIconProxy,
+    "/favicon-32x32.png": brandingIconProxy,
+    "/apple-touch-icon.png": brandingIconProxy,
     [API_PREFIX]: {
       target,
       changeOrigin: true,

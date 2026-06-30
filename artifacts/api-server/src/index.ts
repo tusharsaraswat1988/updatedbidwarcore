@@ -11,6 +11,7 @@ import { initRedisClients } from "./lib/redis";
 import { startAuctionEventSubscriber } from "./lib/auction-events";
 import { ensureCoreSchema, pool } from "@workspace/db";
 import { brandingService } from "./lib/branding-service.js";
+import { refreshBrandingIconCache } from "./lib/branding-asset-resolver.js";
 import { startMemoryDiagnostics } from "./lib/memory-diagnostics.js";
 
 const { port } = getRuntimeConfig();
@@ -19,6 +20,7 @@ async function start() {
   await ensureCoreSchema(pool);
   await brandingService.migrateLegacyBrandingAssets();
   await brandingService.refreshPlatformBrandingCache();
+  await refreshBrandingIconCache();
   await seedCommunicationDefaults();
   await initRedisClients();
   await startAuctionEventSubscriber();

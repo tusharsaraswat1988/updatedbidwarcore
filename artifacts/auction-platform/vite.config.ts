@@ -9,6 +9,7 @@ import {
   ownerAppDevProxyPlugin,
   scoringAppDevProxyPlugin,
 } from "../../lib/api-base/src/vite-proxy.ts";
+import { brandingIconsDevPlugin } from "../../lib/api-base/src/vite-branding-icons-plugin.ts";
 import { stripUseClientDirective } from "../../lib/api-base/src/vite-strip-use-client.ts";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
@@ -37,6 +38,7 @@ function apiBaseAliases(dirname: string): Record<string, string> {
     "@workspace/api-base/tournament-features": path.join(src, "tournament-features.ts"),
     "@workspace/api-base/sponsor-priority": path.join(src, "sponsor-priority.ts"),
     "@workspace/api-base/branding-assets": path.join(src, "branding-assets.ts"),
+    "@workspace/api-base/branding-icon-head": path.join(src, "branding-icon-head.ts"),
     "@workspace/api-base/scoring-urls": path.join(src, "scoring-urls.ts"),
     "@workspace/api-base/vite-proxy": path.join(src, "vite-proxy.ts"),
     "@workspace/api-base": path.join(src, "index.ts"),
@@ -54,6 +56,7 @@ export default defineConfig({
   base: basePath,
   plugins: [
     stripUseClientDirective(),
+    brandingIconsDevPlugin(),
     react(),
     tailwindcss(),
     scoringAppDevProxyPlugin(),

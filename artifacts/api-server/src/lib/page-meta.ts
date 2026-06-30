@@ -36,7 +36,7 @@ const ORGANIZATION_SCHEMA = {
   "@type": "Organization",
   "name": "BidWar",
   "url": BASE_URL,
-  "logo": `${BASE_URL}/favicon.svg`,
+  "logo": `${BASE_URL}/favicon-32.png`,
   "description": "India's live sports auction platform for cricket, football, kabaddi and franchise leagues.",
   "foundingLocation": {
     "@type": "Place",

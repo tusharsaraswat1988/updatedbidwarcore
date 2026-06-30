@@ -24,8 +24,9 @@ import {
   resolveRegistrationPageMeta,
 } from "./lib/registration-page-meta.js";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
-import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
+import { loadIndexHtml, injectPageMeta, sendSpaIndexHtml } from "./lib/html-meta-injector.js";
 import { registerOgImageRoutes } from "./routes/og-images.js";
+import { registerBrandingIconRoutes } from "./lib/branding-asset-resolver.js";
 import {
   buildAuctionPlatformManifest,
   buildOwnerAppManifest,
@@ -132,6 +133,9 @@ logger.info("Auth: stateless JWT cookies (bidwar_auth)");
 app.use(globalLimiter);
 
 app.use("/api", router);
+
+// ── Dynamic branding icons (Google-canonical favicon URLs → DB assets) ────────
+registerBrandingIconRoutes(app);
 
 // ── Dynamic PWA manifests (BrandingService → install icons) ───────────────────
 app.get("/site.webmanifest", async (_req, res) => {
@@ -382,6 +386,7 @@ if (serveStatic) {
     // Auction platform catch-all at /
     app.use("/", expressStaticGzip(auctionDist, staticOpts));
     app.use((_req: express.Request, res: express.Response) => {
+      if (sendSpaIndexHtml(res)) return;
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.sendFile(path.join(auctionDist, "index.html"));
     });

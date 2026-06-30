@@ -36,6 +36,7 @@ export interface BrandingSettings {
   watermarkPosition: string;
   logoAnimationUrl: string | null;
   assets?: Partial<Record<BrandingAssetType, string>>;
+  iconVersion?: number;
 }
 
 export const BRANDING_DEFAULTS: BrandingSettings = {
@@ -111,6 +112,7 @@ export function useBranding() {
   return {
     loading,
     raw: settings,
+    iconVersion: settings.iconVersion ?? 0,
     brandName: settings.brandName,
     tagline: settings.tagline,
     poweredByText: settings.poweredByText,

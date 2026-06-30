@@ -1,3 +1,5 @@
+import { BRANDING_ICON_PATHS } from "@workspace/api-base/branding-assets";
+
 type BrandLogos = {
   main?: string | null;
   mainReverse?: string | null;
@@ -9,15 +11,12 @@ type BrandLogos = {
   splash?: string | null;
 };
 
-const STATIC_FAVICON = "/owner-app/pwa-icon.svg";
-const STATIC_APPLE = "/owner-app/pwa-icon-192.png";
-
-export function resolvePwaIconUrl(logos: BrandLogos): string {
-  return logos.pwaIcon ?? logos.favicon ?? logos.appIcon ?? STATIC_FAVICON;
+export function resolvePwaIconUrl(_logos?: BrandLogos): string {
+  return BRANDING_ICON_PATHS.favicon32;
 }
 
-export function resolveAppleTouchIconUrl(logos: BrandLogos): string {
-  return logos.appleTouchIcon ?? logos.pwaIcon ?? logos.favicon ?? logos.appIcon ?? STATIC_APPLE;
+export function resolveAppleTouchIconUrl(_logos?: BrandLogos): string {
+  return BRANDING_ICON_PATHS.appleTouchIcon;
 }
 
 /** SPLASH_LOGO → REVERSE → PRIMARY → SYMBOL on dark owner surfaces */
@@ -25,9 +24,9 @@ export function resolveSplashLogoUrl(logos: BrandLogos): string | null {
   return logos.splash ?? logos.mainReverse ?? logos.main ?? logos.mini ?? null;
 }
 
-export function applyPwaHeadBranding(logos: BrandLogos, manifestHref = "/owner-app/manifest.webmanifest"): void {
-  const faviconSrc = resolvePwaIconUrl(logos);
-  const appleSrc = resolveAppleTouchIconUrl(logos);
+export function applyPwaHeadBranding(_logos: BrandLogos, manifestHref = "/owner-app/manifest.webmanifest"): void {
+  const faviconSrc = resolvePwaIconUrl();
+  const appleSrc = resolveAppleTouchIconUrl();
 
   document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]').forEach((link) => {
     link.href = faviconSrc;

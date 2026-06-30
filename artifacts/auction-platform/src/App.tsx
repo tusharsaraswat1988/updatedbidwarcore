@@ -6,8 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { PageTracking } from "@/components/page-tracking";
-import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
-import { applyPwaHeadBranding, resolvePwaIconUrl } from "@/lib/branding-pwa";
+import { applyPwaHeadBranding } from "@/lib/branding-pwa";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
@@ -87,26 +86,16 @@ const queryClient = new QueryClient({
 });
 
 function BrandingEffects() {
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, iconVersion } = useBranding();
   const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
 
   useEffect(() => {
-    applyPwaHeadBranding(logos, "/site.webmanifest");
-
-    const faviconSrc = getBrandLogoSrc(logos, ["favicon", "appIcon", "pwaIcon", "mini", "main"]) || BRAND_ICON_PLACEHOLDER;
-    const appleSrc = resolvePwaIconUrl(logos) || faviconSrc;
-
-    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]').forEach((link) => {
-      link.href = faviconSrc;
-    });
-    document.querySelectorAll<HTMLLinkElement>('link[rel="apple-touch-icon"]').forEach((link) => {
-      link.href = appleSrc;
-    });
+    applyPwaHeadBranding(logos, "/site.webmanifest", iconVersion);
 
     if (brandName && brandName !== "BidWar") {
       document.title = document.title.replace(/BidWar/g, brandName);
     }
-  }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, logos.mini, logos.main, brandName]);
+  }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, brandName, iconVersion]);
 
   useEffect(() => {
     const ogImage = logos.openGraph;

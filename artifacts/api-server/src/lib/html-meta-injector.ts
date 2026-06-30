@@ -18,6 +18,7 @@
 
 import { readFileSync } from "fs";
 import path from "path";
+import { injectBrandingIconsIntoHtml } from "@workspace/api-base/branding-icon-head";
 import type { PageMeta } from "./page-meta.js";
 
 let cachedHtml: string | null = null;
@@ -106,6 +107,25 @@ function buildSchemaBlock(meta: PageMeta): string {
 
 const META_RE = /<!-- PAGE_META_START -->[\s\S]*?<!-- PAGE_META_END -->/;
 const SCHEMA_RE = /<!-- PAGE_SCHEMA_START -->[\s\S]*?<!-- PAGE_SCHEMA_END -->/;
+
+export function patchBrandingIconsInCachedHtml(version: number): void {
+  if (!cachedHtml) return;
+  cachedHtml = injectBrandingIconsIntoHtml(cachedHtml, version);
+}
+
+/** Patched index.html shell (meta + versioned favicons) for SPA catch-all responses. */
+export function getSpaIndexHtml(): string | null {
+  return cachedHtml;
+}
+
+export function sendSpaIndexHtml(res: { setHeader: (k: string, v: string) => void; send: (body: string) => void }): boolean {
+  const html = getSpaIndexHtml();
+  if (!html) return false;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.send(html);
+  return true;
+}
 
 export function injectPageMeta(meta: PageMeta): string | null {
   if (!cachedHtml) return null;

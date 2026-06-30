@@ -1,3 +1,5 @@
+import { BRANDING_ICON_PATHS } from "@workspace/api-base/branding-assets";
+
 type BrandLogos = {
   main?: string | null;
   mini?: string | null;
@@ -9,15 +11,19 @@ type BrandLogos = {
   obsWatermark?: string | null;
 };
 
-const STATIC_FAVICON = "/favicon-32.png";
-const STATIC_APPLE = "/apple-touch-icon.png";
-
-export function resolvePwaIconUrl(logos: BrandLogos): string {
-  return logos.pwaIcon ?? logos.favicon ?? logos.appIcon ?? STATIC_FAVICON;
+/** Append branding asset version for browser cache busting. */
+export function withIconVersion(path: string, version?: number | null): string {
+  if (!version || version <= 0) return path;
+  return `${path}?v=${version}`;
 }
 
-export function resolveAppleTouchIconUrl(logos: BrandLogos): string {
-  return logos.appleTouchIcon ?? logos.pwaIcon ?? logos.favicon ?? logos.appIcon ?? STATIC_APPLE;
+/** Canonical resolver paths — always serve latest DB branding without code changes. */
+export function resolvePwaIconUrl(_logos?: BrandLogos, version?: number | null): string {
+  return withIconVersion(BRANDING_ICON_PATHS.favicon32, version);
+}
+
+export function resolveAppleTouchIconUrl(_logos?: BrandLogos, version?: number | null): string {
+  return withIconVersion(BRANDING_ICON_PATHS.appleTouchIcon, version);
 }
 
 /** SPLASH_LOGO → PRIMARY_LOGO → SYMBOL_LOGO */
@@ -47,13 +53,19 @@ function upsertLink(rel: string, href: string, extra?: Record<string, string>): 
 }
 
 /** Apply favicon, apple-touch-icon, and manifest link for PWA install surfaces. */
-export function applyPwaHeadBranding(logos: BrandLogos, manifestHref: string): void {
-  const faviconSrc = resolvePwaIconUrl(logos);
-  const appleSrc = resolveAppleTouchIconUrl(logos);
+export function applyPwaHeadBranding(_logos: BrandLogos, manifestHref: string, iconVersion?: number | null): void {
+  const faviconSrc = resolvePwaIconUrl(undefined, iconVersion);
+  const appleSrc = resolveAppleTouchIconUrl(undefined, iconVersion);
+  const v = iconVersion && iconVersion > 0 ? iconVersion : null;
 
   document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]').forEach((link) => {
     link.href = faviconSrc;
   });
+
+  upsertLink("icon", withIconVersion(BRANDING_ICON_PATHS.faviconIco, v), { sizes: "any" });
+  upsertLink("icon", withIconVersion(BRANDING_ICON_PATHS.faviconSvg, v), { type: "image/svg+xml" });
+  upsertLink("icon", withIconVersion(BRANDING_ICON_PATHS.favicon32, v), { sizes: "32x32", type: "image/png" });
+  upsertLink("icon", withIconVersion(BRANDING_ICON_PATHS.favicon32x32, v), { sizes: "32x32", type: "image/png" });
 
   document.querySelectorAll<HTMLLinkElement>('link[rel="apple-touch-icon"]').forEach((link) => {
     link.href = appleSrc;

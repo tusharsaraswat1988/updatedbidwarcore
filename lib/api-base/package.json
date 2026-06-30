@@ -31,6 +31,7 @@
     "./registration-url": "./src/registration-url.ts",
     "./registration-fields": "./src/registration-fields.ts",
     "./branding-assets": "./src/branding-assets.ts",
+    "./branding-icon-head": "./src/branding-icon-head.ts",
     "./player-specs-v2": "./src/player-specs-v2.ts",
     "./player-spec-export": "./src/player-spec-export.ts",
     "./export-players-rows": "./src/export-players-rows.ts",

@@ -280,3 +280,16 @@ export function validateBrandingAssetUpload(
 
   return warnings;
 }
+
+/** Canonical root paths — always served by the branding asset resolver (never static files). */
+export const BRANDING_ICON_PATHS = {
+  faviconIco: "/favicon.ico",
+  faviconSvg: "/favicon.svg",
+  favicon32: "/favicon-32.png",
+  favicon32x32: "/favicon-32x32.png",
+  appleTouchIcon: "/apple-touch-icon.png",
+} as const;
+
+export type BrandingIconPath = (typeof BRANDING_ICON_PATHS)[keyof typeof BRANDING_ICON_PATHS];
+
+export const ALL_BRANDING_ICON_PATHS: readonly BrandingIconPath[] = Object.values(BRANDING_ICON_PATHS);
