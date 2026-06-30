@@ -49,17 +49,8 @@ async function uploadAudioFile(file: File): Promise<string> {
   fd.append("file", file);
   const r = await fetch("/api/upload/audio", { method: "POST", credentials: "include", body: fd });
   const data = await r.json() as { url?: string; error?: string };
-  if (!data.url) throw new Error(data.error ?? "Upload failed");
+  if (!r.ok || !data.url) throw new Error(data.error ?? "Upload failed");
   return data.url;
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 export function DefaultAudioSettingsPanel() {
@@ -95,6 +86,9 @@ export function DefaultAudioSettingsPanel() {
   useEffect(() => { void load(); }, [load]);
 
   const isDirty = JSON.stringify(form) !== baseline;
+  const hasEmbeddedAudio = (Object.values(form) as Array<string | null>).some(
+    (url) => typeof url === "string" && url.startsWith("data:"),
+  );
 
   async function handleUpload(field: AudioField, file: File) {
     if (file.size > 8 * 1024 * 1024) {
@@ -104,12 +98,7 @@ export function DefaultAudioSettingsPanel() {
     setUploadingField(field);
     setError("");
     try {
-      let url: string;
-      try {
-        url = await uploadAudioFile(file);
-      } catch {
-        url = await readFileAsDataUrl(file);
-      }
+      const url = await uploadAudioFile(file);
       setForm((prev) => ({ ...prev, [field]: url }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -142,6 +131,14 @@ export function DefaultAudioSettingsPanel() {
   }
 
   async function save() {
+    if (uploadingField) {
+      setError("Wait for audio upload to finish");
+      return;
+    }
+    if (hasEmbeddedAudio) {
+      setError("Re-upload audio files — please select your files again");
+      return;
+    }
     setSaving(true);
     setError("");
     setSaved(false);
@@ -189,7 +186,7 @@ export function DefaultAudioSettingsPanel() {
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void load()} disabled={saving}>
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={!isDirty || saving}>
+          <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={!isDirty || saving || uploadingField !== null || hasEmbeddedAudio}>
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             Save defaults
           </Button>
@@ -217,7 +214,7 @@ export function DefaultAudioSettingsPanel() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Default audio file</Label>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer">
+                  <label className={`flex-1 ${uploadingField === field ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                     <div className="flex items-center gap-2 h-7 px-2.5 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
                       {uploadingField === field
                         ? <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
