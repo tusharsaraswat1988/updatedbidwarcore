@@ -383,6 +383,12 @@ if (serveStatic) {
       logger.info({ path: scoringDist }, "Static: scoring-app at /scoring-app");
     }
 
+    // Canonical SPA entry is / — never serve the built index.html at /index.html.
+    app.get("/index.html", (req: express.Request, res: express.Response) => {
+      const qs = req.url.slice("/index.html".length);
+      res.redirect(301, `/${qs}`);
+    });
+
     // Auction platform catch-all at /
     app.use("/", expressStaticGzip(auctionDist, staticOpts));
     app.use((_req: express.Request, res: express.Response) => {
