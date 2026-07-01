@@ -49,6 +49,10 @@ import { scheduleGoogleSheetSync } from "../lib/google-sheets-sync-queue.js";
 function afterPlayerDataChanged(tournamentId: number, log?: import("pino").Logger) {
   scheduleGoogleSheetSync(tournamentId, log);
 }
+
+function bumpTournamentInsights(tournamentId: number) {
+  invalidateTournamentInsightsCache(tournamentId);
+}
 import {
   logBidEvent,
   logPlayerAuctionStart,
@@ -73,6 +77,7 @@ import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-gua
 import { parseLedPurseBoosterOverlay } from "@workspace/api-base";
 import { auditLog } from "../lib/audit-service";
 import { invalidateIntelCacheForTournament } from "../lib/intelligence-cache";
+import { invalidateTournamentInsightsCache } from "../lib/tournament-insights";
 import { parseAuditReason } from "../lib/audit-reason";
 import {
   onAuctionPlayerSoldAsync,
@@ -1085,6 +1090,7 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
     resource: { type: "auction_session", id: tid },
   });
 
+  bumpTournamentInsights(tid);
   res.json(await broadcastState(tid));
 });
 
@@ -1117,6 +1123,7 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
     resource: { type: "auction_session", id: tid },
     metadata: { pausedTimeRemaining },
   });
+  bumpTournamentInsights(tid);
   res.json(await broadcastState(tid));
 });
 
@@ -1676,6 +1683,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   }
 
   afterPlayerDataChanged(tid, req.log);
+  bumpTournamentInsights(tid);
   res.json(await broadcastSoldDelta(tid, { playerId, teamId, amount: soldAmount }, ["bids", "players"]));
 });
 router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) => {
@@ -1822,6 +1830,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   }
 
   afterPlayerDataChanged(tid, req.log);
+  bumpTournamentInsights(tid);
   res.json(await broadcastSoldDelta(tid, { playerId, teamId, amount }, ["bids", "players"]));
 });
 
@@ -1896,6 +1905,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   });
 
   afterPlayerDataChanged(tid, req.log);
+  bumpTournamentInsights(tid);
   res.json(await broadcastState(tid, ["players"]));
 });
 
@@ -2254,6 +2264,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
 
   // In-memory cache invalidation — runs after the DB transaction commits.
   invalidateIntelCacheForTournament(tid);
+  bumpTournamentInsights(tid);
 
   auditLog(req, {
     category: "auction",
@@ -2826,6 +2837,7 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
 
   syncAllAuctionPlayersAsync(tid);
 
+  bumpTournamentInsights(tid);
   res.json(await broadcastState(tid, ["players"]));
 });
 

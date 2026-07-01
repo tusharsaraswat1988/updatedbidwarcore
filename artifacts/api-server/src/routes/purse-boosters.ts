@@ -24,6 +24,7 @@ import {
   type LedPurseBoosterTeamLine,
 } from "@workspace/api-base";
 import { broadcastState, getOrCreateSession } from "./auction";
+import { invalidateTournamentInsightsCache } from "../lib/tournament-insights";
 
 const router = Router();
 
@@ -285,6 +286,7 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
   await broadcastState(tid);
+  invalidateTournamentInsightsCache(tid);
 
   res.status(201).json({ applied, totalTeamsAffected: applied.length });
 });

@@ -1463,6 +1463,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/TeamPurse"
 
+  /tournaments/{tournamentId}/analytics/insights:
+    get:
+      operationId: getTournamentInsights
+      tags: [analytics]
+      summary: Get AI-generated tournament insights for the home dashboard
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cached tournament insights (max 4 cards)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentInsightsResponse"
+
   /tournaments/{tournamentId}/purse-boosters:
     get:
       operationId: listPurseBoosters
@@ -3670,6 +3689,45 @@ components:
           type: integer
         mostActiveTeam:
           type: ["string", "null"]
+
+    TournamentInsightType:
+      type: string
+      enum: [trending, insight, funFact, strategy]
+
+    TournamentInsight:
+      type: object
+      required: [type, emoji, title, description, priority]
+      properties:
+        type:
+          $ref: "#/components/schemas/TournamentInsightType"
+        emoji:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 4
+
+    TournamentInsightsResponse:
+      type: object
+      required: [insights, generatedAt, cacheTtlSeconds, source]
+      properties:
+        insights:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/TournamentInsight"
+        generatedAt:
+          type: string
+          format: date-time
+        cacheTtlSeconds:
+          type: integer
+        source:
+          type: string
+          enum: [llm, template]
 
     TeamPurse:
       type: object

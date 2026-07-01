@@ -1523,6 +1523,44 @@ export interface TournamentSummary {
   mostActiveTeam?: string | null;
 }
 
+export type TournamentInsightType =
+  (typeof TournamentInsightType)[keyof typeof TournamentInsightType];
+
+export const TournamentInsightType = {
+  trending: "trending",
+  insight: "insight",
+  funFact: "funFact",
+  strategy: "strategy",
+} as const;
+
+export interface TournamentInsight {
+  type: TournamentInsightType;
+  emoji: string;
+  title: string;
+  description: string;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  priority: number;
+}
+
+export type TournamentInsightsResponseSource =
+  (typeof TournamentInsightsResponseSource)[keyof typeof TournamentInsightsResponseSource];
+
+export const TournamentInsightsResponseSource = {
+  llm: "llm",
+  template: "template",
+} as const;
+
+export interface TournamentInsightsResponse {
+  /** @maxItems 4 */
+  insights: TournamentInsight[];
+  generatedAt: string;
+  cacheTtlSeconds: number;
+  source: TournamentInsightsResponseSource;
+}
+
 export interface TopBidEntry {
   playerId: number;
   playerName: string;

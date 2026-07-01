@@ -88,6 +88,7 @@ import type {
   Tournament,
   TournamentExport,
   TournamentInput,
+  TournamentInsightsResponse,
   TournamentSummary,
   TournamentUpdate,
   UploadImage200,
@@ -5187,6 +5188,101 @@ export function useGetTeamPurses<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetTeamPursesQueryOptions(tournamentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI-generated tournament insights for the home dashboard
+ */
+export const getGetTournamentInsightsUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/analytics/insights`;
+};
+
+export const getTournamentInsights = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<TournamentInsightsResponse> => {
+  return customFetch<TournamentInsightsResponse>(
+    getGetTournamentInsightsUrl(tournamentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTournamentInsightsQueryKey = (tournamentId: number) => {
+  return [`/api/tournaments/${tournamentId}/analytics/insights`] as const;
+};
+
+export const getGetTournamentInsightsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTournamentInsights>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTournamentInsights>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTournamentInsightsQueryKey(tournamentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTournamentInsights>>
+  > = ({ signal }) =>
+    getTournamentInsights(tournamentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTournamentInsights>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTournamentInsightsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTournamentInsights>>
+>;
+export type GetTournamentInsightsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI-generated tournament insights for the home dashboard
+ */
+
+export function useGetTournamentInsights<
+  TData = Awaited<ReturnType<typeof getTournamentInsights>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTournamentInsights>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTournamentInsightsQueryOptions(
+    tournamentId,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

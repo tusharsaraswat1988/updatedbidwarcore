@@ -20,8 +20,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getReadinessChecklistItems,
   tournamentToReadinessInput,
+  MIN_TEAMS_REQUIRED,
+  minPlayersRequired,
   type AuctionReadinessCheckId,
 } from "@workspace/api-base/auction-readiness";
+import { TournamentInsightsSection } from "@/components/tournament-insights-section";
+import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
@@ -38,6 +42,10 @@ export default function TournamentHub() {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { formatAmount, formatShort, budgetLabel } = useAuctionUnit(tournament);
+  const { data: insightsPayload, isLoading: loadingInsights } = useTournamentInsightsFeed(
+    tournamentId,
+    tournament,
+  );
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
@@ -51,7 +59,11 @@ export default function TournamentHub() {
     minSquad: readinessFixPath(tournamentId, "minSquad"),
   };
   const isSetupPhase = tournament?.status === "setup";
-  const minPlayersNeeded = readinessMode === "trial" ? 1 : 2;
+  const minPlayersNeeded = minPlayersRequired(readinessMode);
+  const teamCount = teamPurses?.length ?? 0;
+  const playerCount = summary?.totalPlayers ?? 0;
+  const teamsReady = teamCount >= MIN_TEAMS_REQUIRED;
+  const playersReady = playerCount >= minPlayersNeeded;
   const readinessInput = tournament && summary && Array.isArray(teamPurses)
     ? tournamentToReadinessInput(
         tournament,
@@ -123,10 +135,14 @@ export default function TournamentHub() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">Teams</p>
                       {loadingPurses ? <Skeleton className="h-9 w-16" /> : (
-                        <p className="text-3xl font-display font-bold">
-                          {teamPurses?.length || 0}
-                          <span className="text-lg text-muted-foreground font-normal"> / 2</span>
-                        </p>
+                        <>
+                          <p className="text-3xl font-display font-bold">{teamCount}</p>
+                          <p className={`text-xs ${teamsReady ? "text-green-400" : "text-muted-foreground"}`}>
+                            {teamsReady
+                              ? `Ready · min ${MIN_TEAMS_REQUIRED}`
+                              : `${teamCount} of ${MIN_TEAMS_REQUIRED} minimum`}
+                          </p>
+                        </>
                       )}
                     </div>
                     <div className="p-3 bg-amber-500/10 rounded-lg"><Users className="w-5 h-5 text-amber-500" /></div>
@@ -139,10 +155,14 @@ export default function TournamentHub() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">Players</p>
                       {loadingSummary ? <Skeleton className="h-9 w-16" /> : (
-                        <p className="text-3xl font-display font-bold">
-                          {summary?.totalPlayers || 0}
-                          <span className="text-lg text-muted-foreground font-normal"> / {minPlayersNeeded}</span>
-                        </p>
+                        <>
+                          <p className="text-3xl font-display font-bold">{playerCount}</p>
+                          <p className={`text-xs ${playersReady ? "text-green-400" : "text-muted-foreground"}`}>
+                            {playersReady
+                              ? `Ready · min ${minPlayersNeeded}`
+                              : `${playerCount} of ${minPlayersNeeded} minimum`}
+                          </p>
+                        </>
                       )}
                     </div>
                     <div className="p-3 bg-blue-500/10 rounded-lg"><UserCheck className="w-5 h-5 text-blue-500" /></div>
@@ -222,6 +242,11 @@ export default function TournamentHub() {
           )}
         </div>
 
+        <TournamentInsightsSection
+          insights={insightsPayload?.insights}
+          isLoading={loadingInsights && !insightsPayload}
+        />
+
         {/* Setup Checklist — hidden once every item is complete */}
         {isSetupPhase && readinessDataLoaded && !readinessComplete && (
           <div className="rounded-xl border border-border bg-card/30 p-5 space-y-4">
@@ -273,55 +298,6 @@ export default function TournamentHub() {
           </div>
         )}
 
-        {/* Team Purses — compact during setup, full breakdown once auction has spend */}
-        {!isSetupPhase && (
-        <div>
-          <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-primary" /> Team Purses
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loadingPurses ? (
-              Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-36" />)
-            ) : teamPurses?.map(team => {
-              const usedPercentage = team.purse > 0 ? (team.purseUsed / team.purse) * 100 : 0;
-              return (
-                <Card key={team.teamId} className="bg-card/50 border-border">
-                  <CardContent className="p-5">
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center gap-3">
-                        {team.logoUrl ? (
-                          <img src={team.logoUrl} alt={team.teamName} className="w-10 h-10 object-contain rounded" />
-                        ) : (
-                          <div className="w-4 h-8 rounded-sm" style={{ backgroundColor: team.color || "#444" }} />
-                        )}
-                        <div>
-                          <h3 className="font-bold text-lg leading-none">{team.teamName}</h3>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">{team.playersBought} players</span>
-                            <span className="text-xs text-muted-foreground">·</span>
-                            <span className="text-xs font-mono text-muted-foreground">{team.shortCode}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Remaining</p>
-                        <p className="font-mono font-bold text-primary">{formatShort(team.purseRemaining)}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{formatShort(team.purseUsed)} spent</span>
-                        <span>{formatShort(team.purse)} budget</span>
-                      </div>
-                      <Progress value={usedPercentage} className="h-2" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-        )}
       </div>
     </AppLayout>
   );

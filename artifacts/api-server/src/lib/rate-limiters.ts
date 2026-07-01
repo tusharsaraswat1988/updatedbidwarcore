@@ -196,6 +196,23 @@ export const ownerLookupLimiter = rateLimit({
 });
 
 /**
+ * Tournament insights limiter (30 req / 15 min per IP).
+ * Responses are cached server-side; this prevents LLM cost abuse.
+ */
+export const insightsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_INSIGHTS_MAX ?? 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many insight requests, please try again later." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "insights");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
  * Public Contact Us form limiter (8 submits / 15 min per IP).
  * Keeps inquiry inbox usable and blocks automated spam bursts.
  */

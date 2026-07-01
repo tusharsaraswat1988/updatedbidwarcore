@@ -292,5 +292,50 @@ export function createTournamentsRouter(db: LocalDb) {
     await respondTeamPurses(id, res);
   });
 
+  router.get("/tournaments/:tournamentId/analytics/insights", async (req, res) => {
+    const id = parseInt(req.params.tournamentId);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+    if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+    const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
+    const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
+    const sold = players.filter(p => p.status === "sold").length;
+    const insights = tournament.status === "setup"
+      ? [
+          {
+            type: "insight",
+            emoji: "📋",
+            title: `${teams.length} teams, ${players.length} players registered`,
+            description: "Local auction floor is ready — live insights appear once bidding starts.",
+            priority: 1,
+          },
+        ]
+      : [
+          {
+            type: "insight",
+            emoji: "🏏",
+            title: `${sold} players sold so far`,
+            description: `${players.filter(p => p.status === "available").length} still available on the board.`,
+            priority: 1,
+          },
+          {
+            type: "strategy",
+            emoji: "⚡",
+            title: "Budgets are shifting every pick",
+            description: "Watch purse balances — teams with room hold the late-auction advantage.",
+            priority: 2,
+          },
+        ].slice(0, 4);
+
+    res.json({
+      insights,
+      generatedAt: new Date().toISOString(),
+      cacheTtlSeconds: 600,
+      source: "template",
+    });
+  });
+
   return router;
 }

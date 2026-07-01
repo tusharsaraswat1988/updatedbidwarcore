@@ -147,6 +147,10 @@ function minPlayersRequired(mode: AuctionReadinessMode): number {
   return mode === "trial" ? 1 : 2;
 }
 
+export const MIN_TEAMS_REQUIRED = 2;
+
+export { minPlayersRequired };
+
 function playersIssueMessage(mode: AuctionReadinessMode): string {
   return mode === "trial" ? "Add at least 1 player" : "Add at least 2 players";
 }
@@ -160,7 +164,7 @@ export function validateAuctionReadiness(
 ): AuctionReadinessIssue[] {
   const issues: AuctionReadinessIssue[] = [];
 
-  if (input.teamCount < 2) {
+  if (input.teamCount < MIN_TEAMS_REQUIRED) {
     issues.push({ id: "teams", message: CHECK_LABELS.teams });
   }
 

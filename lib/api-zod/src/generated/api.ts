@@ -9378,6 +9378,37 @@ export const GetTeamPursesResponseItem = zod.object({
 export const GetTeamPursesResponse = zod.array(GetTeamPursesResponseItem);
 
 /**
+ * @summary Get AI-generated tournament insights for the home dashboard
+ */
+export const GetTournamentInsightsParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const getTournamentInsightsResponseInsightsItemPriorityMax = 4;
+
+export const getTournamentInsightsResponseInsightsMax = 4;
+
+export const GetTournamentInsightsResponse = zod.object({
+  insights: zod
+    .array(
+      zod.object({
+        type: zod.enum(["trending", "insight", "funFact", "strategy"]),
+        emoji: zod.string(),
+        title: zod.string(),
+        description: zod.string(),
+        priority: zod
+          .number()
+          .min(1)
+          .max(getTournamentInsightsResponseInsightsItemPriorityMax),
+      }),
+    )
+    .max(getTournamentInsightsResponseInsightsMax),
+  generatedAt: zod.coerce.date(),
+  cacheTtlSeconds: zod.number(),
+  source: zod.enum(["llm", "template"]),
+});
+
+/**
  * @summary List purse boosters (organizer — includes reason)
  */
 export const ListPurseBoostersParams = zod.object({

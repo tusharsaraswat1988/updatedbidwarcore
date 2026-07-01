@@ -7,6 +7,8 @@ import {
 import {
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
+  getGetTournamentInsightsQueryKey,
+  getGetTournamentSummaryQueryKey,
   getListBidsQueryKey,
   getListPlayersQueryKey,
   type Bid,
@@ -111,6 +113,11 @@ function applyInvalidations(
   if (invalidate.includes("players")) {
     qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
   }
+}
+
+function bumpInsightsQueries(qc: QueryClient, tournamentId: number): void {
+  qc.invalidateQueries({ queryKey: getGetTournamentInsightsQueryKey(tournamentId) });
+  qc.invalidateQueries({ queryKey: getGetTournamentSummaryQueryKey(tournamentId) });
 }
 
 function syncTeamPurses(
@@ -249,6 +256,7 @@ export function applyAuctionSseMessage(
     );
     syncTeamPurses(qc, tournamentId, teamPurses);
     applyInvalidations(qc, tournamentId, msg.invalidate ?? [], teamPurses);
+    bumpInsightsQueries(qc, tournamentId);
     return;
   }
 
@@ -265,6 +273,7 @@ export function applyAuctionSseMessage(
     qc.setQueryData(key, merged);
     syncTeamPurses(qc, tournamentId, msg.teamPurses);
     applyInvalidations(qc, tournamentId, msg.invalidate ?? [], msg.teamPurses);
+    bumpInsightsQueries(qc, tournamentId);
     return;
   }
 
@@ -293,6 +302,7 @@ export function applyAuctionSseMessage(
       ),
     );
     applyInvalidations(qc, tournamentId, msg.invalidate ?? []);
+    bumpInsightsQueries(qc, tournamentId);
     return;
   }
 }

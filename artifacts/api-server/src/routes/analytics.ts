@@ -9,6 +9,8 @@ import {
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
+import { getTournamentInsights } from "../lib/tournament-insights";
+import { insightsLimiter } from "../lib/rate-limiters";
 
 const router = Router();
 
@@ -160,5 +162,18 @@ router.get("/tournaments/:tournamentId/analytics/category-breakdown", async (req
 
   res.json(result);
 });
+
+// GET AI tournament insights for home dashboard
+router.get(
+  "/tournaments/:tournamentId/analytics/insights",
+  insightsLimiter,
+  async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const payload = await getTournamentInsights(tid);
+    res.json(payload);
+  },
+);
 
 export default router;
