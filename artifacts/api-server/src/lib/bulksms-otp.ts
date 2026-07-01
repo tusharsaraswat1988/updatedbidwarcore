@@ -55,6 +55,56 @@ function f2sError(data: F2SResponse): string {
   return Array.isArray(data.message) ? data.message.join(", ") : data.message;
 }
 
+/** Fast2SMS rejects a code that was already consumed — common after our DB step failed post-verify. */
+function isFast2SmsAlreadyVerified(data: F2SResponse): boolean {
+  const msg = f2sError(data).toLowerCase();
+  return msg.includes("already verified") || msg.includes("not found or already verified");
+}
+
+function mobileDbKey(mobile10: string): string {
+  return mobile10.length === 10 ? `91${mobile10}` : mobile10;
+}
+
+/** Active local OTP session — unused and not expired. */
+async function findActiveOtpSession(mobileDb: string, purpose?: string) {
+  const conditions = [
+    eq(otpSessionsTable.mobile, mobileDb),
+    eq(otpSessionsTable.used, false),
+    gt(otpSessionsTable.expiresAt, new Date()),
+  ];
+  if (purpose) conditions.push(eq(otpSessionsTable.purpose, purpose));
+
+  const [session] = await db
+    .select()
+    .from(otpSessionsTable)
+    .where(and(...conditions))
+    .orderBy(desc(otpSessionsTable.createdAt))
+    .limit(1);
+
+  return session ?? null;
+}
+
+/**
+ * When Fast2SMS already accepted the OTP but our handler failed (e.g. DB timeout),
+ * allow completing the flow using the matching local session within its TTL.
+ */
+async function findRecoverableOtpSession(mobileDb: string, purpose: string) {
+  const [session] = await db
+    .select()
+    .from(otpSessionsTable)
+    .where(
+      and(
+        eq(otpSessionsTable.mobile, mobileDb),
+        eq(otpSessionsTable.purpose, purpose),
+        gt(otpSessionsTable.expiresAt, new Date()),
+      ),
+    )
+    .orderBy(desc(otpSessionsTable.createdAt))
+    .limit(1);
+
+  return session ?? null;
+}
+
 function f2sSuccess(res: Response, data: F2SResponse): boolean {
   if (data.return === true || data.return === "true" || data.return === 1) return true;
   if (data.status_code === 200) return true;
@@ -119,8 +169,7 @@ export async function sendOtp(
 
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   const mobile10 = normaliseMobile(mobile);
-  // Store as 91XXXXXXXXXX in DB for consistent lookup
-  const mobileDb = mobile10.length === 10 ? `91${mobile10}` : mobile10;
+  const mobileDb = mobileDbKey(mobile10);
 
   const { ok, data } = await f2sPost("/otp/send", {
     mobile: mobile10,
@@ -156,31 +205,27 @@ export async function verifyOtp(
   purpose?: string,
 ): Promise<OtpVerifyResult> {
   const mobile10 = normaliseMobile(mobile);
+  const mobileDb = mobileDbKey(mobile10);
 
-  // Fast2SMS does the OTP check
   const { ok, data } = await f2sPost("/otp/verify", { mobile: mobile10, otp });
+
   if (!ok) {
+    if (purpose && isFast2SmsAlreadyVerified(data)) {
+      const recovery = await findRecoverableOtpSession(mobileDb, purpose);
+      if (recovery) {
+        if (!recovery.used) {
+          await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, recovery.id));
+        }
+        logger.info({ mobile: mobile10, purpose, sessionId: recovery.id }, "OTP recovery after Fast2SMS already-verified");
+        return { success: true, sessionId: recovery.id, payload: recovery.payload };
+      }
+    }
     return { success: false, error: f2sError(data) || "Invalid or expired OTP" };
   }
 
-  // Read the local session for payload + mark used
-  const mobileDb = mobile10.length === 10 ? `91${mobile10}` : mobile10;
-  const conditions = [
-    eq(otpSessionsTable.mobile, mobileDb),
-    eq(otpSessionsTable.used, false),
-    gt(otpSessionsTable.expiresAt, new Date()),
-  ];
-  if (purpose) conditions.push(eq(otpSessionsTable.purpose, purpose));
-
-  const [session] = await db
-    .select()
-    .from(otpSessionsTable)
-    .where(and(...conditions))
-    .orderBy(desc(otpSessionsTable.createdAt))
-    .limit(1);
+  const session = await findActiveOtpSession(mobileDb, purpose);
 
   if (!session) {
-    // OTP was valid but session expired — still a success for pure OTP verify use cases
     logger.warn({ mobile: mobile10, purpose }, "OTP verified but no local session found");
     return { success: true, payload: null };
   }
@@ -197,7 +242,7 @@ export async function verifyOtp(
  */
 export async function resendOtp(
   mobile: string,
-  _purpose?: string,
+  purpose?: string,
 ): Promise<OtpResult> {
   const mobile10 = normaliseMobile(mobile);
   const { ok, data } = await f2sPost("/otp/resend", { mobile: mobile10 });
@@ -205,6 +250,18 @@ export async function resendOtp(
     logger.error({ mobile: mobile10, err: f2sError(data) }, "Fast2SMS OTP resend failed");
     return { success: false, error: f2sError(data) };
   }
-  logger.info({ mobile: mobile10 }, "Fast2SMS OTP resent");
+
+  if (purpose) {
+    const mobileDb = mobileDbKey(mobile10);
+    await db.insert(otpSessionsTable).values({
+      mobile: mobileDb,
+      otpHash: null,
+      purpose,
+      payload: null,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    });
+  }
+
+  logger.info({ mobile: mobile10, purpose }, "Fast2SMS OTP resent");
   return { success: true };
 }

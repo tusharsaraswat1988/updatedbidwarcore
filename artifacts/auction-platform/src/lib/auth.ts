@@ -537,10 +537,24 @@ export async function verifyOtpAndReset(mobile: string, code: string, newPasswor
       method: "POST",
       body: JSON.stringify({ mobile, code, newPassword }),
     });
-    const d = await r.json();
+    let d: { error?: string; organizer?: OrganizerInfo } = {};
+    try {
+      d = await r.json();
+    } catch {
+      if (!r.ok) {
+        return {
+          success: false,
+          error: r.status >= 500
+            ? "Server is temporarily unavailable. Please wait a moment and try again."
+            : "Unexpected server response. Please try again.",
+        };
+      }
+    }
     if (!r.ok) return { success: false, error: d.error || "OTP verification failed" };
     return { success: true, organizer: d.organizer };
-  } catch { return { success: false, error: "Network error" }; }
+  } catch {
+    return { success: false, error: "Network error — check your connection and try again." };
+  }
 }
 
 // ─── Admin: SMS notification settings ────────────────────────────────────────

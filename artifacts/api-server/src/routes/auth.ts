@@ -1417,24 +1417,33 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
   const mobile = mobileParsed.normalized;
 
-  const result = await bulkSmsOtpVerify(mobile, code, "password_reset");
-  if (!result.success) {
-    res.status(400).json({ error: result.error ?? "Invalid or expired OTP code" }); return;
+  try {
+    const result = await bulkSmsOtpVerify(mobile, code, "password_reset");
+    if (!result.success) {
+      res.status(400).json({ error: result.error ?? "Invalid or expired OTP code" });
+      return;
+    }
+
+    const { organizer } = await findOrganizerByMobileInput(mobile);
+    if (!organizer) { res.status(404).json({ error: "Account not found" }); return; }
+
+    const newHash = await hashPassword(newPassword);
+    const [updated] = await db.update(organizersTable).set({ passwordHash: newHash })
+      .where(eq(organizersTable.id, organizer.id)).returning();
+
+    if (!updated) {
+      res.status(500).json({ error: "Failed to update password. Please try again." });
+      return;
+    }
+
+    await issueOrganizerAuthCookie(req, res, updated.id);
+    res.json({ success: true, organizer: organizerToJson(updated) });
+  } catch (err) {
+    req.log.error({ err, mobile }, "OTP password reset error");
+    res.status(503).json({
+      error: "Server is temporarily unavailable. Your OTP may already be verified — tap Verify again or use Resend OTP.",
+    });
   }
-
-  const { organizer } = await findOrganizerByMobileInput(mobile);
-  if (!organizer) { res.status(404).json({ error: "Account not found" }); return; }
-
-  const newHash = await hashPassword(newPassword);
-  const [updated] = await db.update(organizersTable).set({ passwordHash: newHash })
-    .where(eq(organizersTable.id, organizer.id)).returning();
-
-  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
-  for (const t of myTournaments) orgMap[String(t.id)] = true;
-
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: updated.id, organizer: orgMap });
-  res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
 // ─── OTP: Resend code ─────────────────────────────────────────────────────────
@@ -1530,10 +1539,20 @@ async function issueOrganizerAuthCookie(
   res: import("express").Response,
   organizerId: number,
 ): Promise<void> {
-  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizerId));
-  for (const t of myTournaments) orgMap[String(t.id)] = true;
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizerId, organizer: orgMap });
+  const writeCookie = async () => {
+    const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
+    const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizerId));
+    for (const t of myTournaments) orgMap[String(t.id)] = true;
+    setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizerId, organizer: orgMap });
+  };
+
+  try {
+    await writeCookie();
+  } catch (firstErr) {
+    req.log.warn({ err: firstErr, organizerId }, "Auth cookie write failed — retrying once");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await writeCookie();
+  }
 }
 
 router.get("/auth/google", (req, res) => {
@@ -1633,6 +1652,12 @@ router.get("/auth/google/callback", async (req, res) => {
         res.redirect(cpRedirect);
         return;
       }
+    }
+
+    if (!organizer) {
+      clearOAuthCookie(res);
+      res.redirect("/organizer?error=google_failed");
+      return;
     }
 
     clearOAuthCookie(res);
