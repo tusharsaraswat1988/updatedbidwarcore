@@ -204,6 +204,7 @@ const EMPTY_VIEW: LedView = {
   lastOutcome: null,
   toast: null,
   purseBooster: null,
+  purseBoosterOverlay: null,
   wheel: { active: false, spinning: false, items: [], winner: null },
   breakInfo: { active: false, endsAt: null, secondsLeft: 0, type: "break", message: null },
   pausedSeconds: null,
@@ -707,16 +708,7 @@ export function useLedView(
       fit: tournament.mainBannerFit === "cover" ? "cover" : "contain",
     };
 
-    const toast: LedView["toast"] = stateExt?.ledPurseToast?.teamName
-      ? { teamName: stateExt.ledPurseToast.teamName }
-      : null;
-
-    const purseBooster: LedView["purseBooster"] = stateExt?.lastPurseBooster
-      ? {
-          teamName: stateExt.lastPurseBooster.teamName,
-          amount: stateExt.lastPurseBooster.amount,
-        }
-      : null;
+    const purseBoosterOverlay = stateExt?.ledPurseBoosterOverlay ?? null;
 
     return {
       state: {
@@ -752,8 +744,9 @@ export function useLedView(
       branding,
       banner,
       lastOutcome,
-      toast,
-      purseBooster,
+      toast: null,
+      purseBooster: null,
+      purseBoosterOverlay,
       wheel: {
         active: fortuneWheelActive,
         spinning: !!state?.wheelSpinning,

@@ -17,6 +17,12 @@ import {
   getActiveBoosterTotal,
   validateCancelBooster,
 } from "../lib/purse-capacity";
+import {
+  createLedPurseBoosterOverlay,
+  parseLedPurseBoosterOverlay,
+  replayLedPurseBoosterOverlay,
+  type LedPurseBoosterTeamLine,
+} from "@workspace/api-base";
 import { broadcastState, getOrCreateSession } from "./auction";
 
 const router = Router();
@@ -185,7 +191,8 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     appliedAt: string;
   } | null = null;
 
-  let ledToast: { teamName: string; expiresAt: string } | null = null;
+  let ledOverlayJson: string | null = null;
+  const batchId = randomUUID();
 
   for (const team of targetTeams) {
     const boosterTotal = await getActiveBoosterTotal(tid, team.id);
@@ -246,20 +253,26 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
       newCapacity,
       appliedAt: inserted.createdAt.toISOString(),
     };
-
-    if (showOnLed && target === "single") {
-      ledToast = {
-        teamName: team.name,
-        expiresAt: new Date(Date.now() + 5000).toISOString(),
-      };
-    }
   }
 
-  if (showOnLed && target === "all") {
-    ledToast = {
-      teamName: "All Teams",
-      expiresAt: new Date(Date.now() + 5000).toISOString(),
-    };
+  if (showOnLed && applied.length > 0) {
+    const teamById = new Map(targetTeams.map((team) => [team.id, team]));
+    const overlayTeams: LedPurseBoosterTeamLine[] = applied.map((entry) => {
+      const team = teamById.get(entry.teamId);
+      return {
+        teamId: entry.teamId,
+        teamName: entry.teamName,
+        shortCode: team?.shortCode || entry.teamName.slice(0, 3).toUpperCase(),
+        color: team?.color ?? "#3B82F6",
+        logoUrl: team?.logoUrl ?? null,
+        previousCapacity: entry.previousCapacity,
+        boosterAmount: entry.amount,
+        newCapacity: entry.newCapacity,
+      };
+    });
+    ledOverlayJson = JSON.stringify(
+      createLedPurseBoosterOverlay(target, amount, overlayTeams, { batchId }),
+    );
   }
 
   await getOrCreateSession(tid);
@@ -267,13 +280,40 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     .update(auctionSessionsTable)
     .set({
       lastPurseBoosterJson: lastNotification ? JSON.stringify(lastNotification) : null,
-      lastLedToastJson: ledToast ? JSON.stringify(ledToast) : null,
+      lastLedToastJson: ledOverlayJson,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
   await broadcastState(tid);
 
   res.status(201).json({ applied, totalTeamsAffected: applied.length });
+});
+
+router.post("/tournaments/:tournamentId/purse-boosters/replay-led", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [session] = await db
+    .select()
+    .from(auctionSessionsTable)
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  if (!session) { res.status(404).json({ error: "Auction session not found" }); return; }
+
+  const existing = parseLedPurseBoosterOverlay(session.lastLedToastJson, { includeExpired: true });
+  if (!existing) {
+    res.status(404).json({ error: "No purse booster LED animation to replay" });
+    return;
+  }
+
+  const replayed = replayLedPurseBoosterOverlay(existing);
+  await db
+    .update(auctionSessionsTable)
+    .set({ lastLedToastJson: JSON.stringify(replayed) })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  await broadcastState(tid);
+  res.json({ ok: true, replayKey: replayed.replayKey, expiresAt: replayed.expiresAt });
 });
 
 // POST cancel booster

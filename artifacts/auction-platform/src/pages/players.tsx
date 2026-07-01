@@ -1535,9 +1535,17 @@ const statusLabels: Record<string, string> = {
   withdrawn: "Withdrawn",
 };
 
-function formatPlayerAmount(player: {
-  status?: string | null;
+function formatPlayerBaseValue(player: {
   basePrice?: number | null;
+}): { text: string; className: string } {
+  if (player.basePrice != null && player.basePrice > 0) {
+    return { text: formatIndianRupee(player.basePrice), className: "text-primary font-mono font-semibold" };
+  }
+  return { text: "—", className: "text-muted-foreground" };
+}
+
+function formatSoldAtAmount(player: {
+  status?: string | null;
   soldPrice?: number | null;
   retainedPrice?: number | null;
 }): { text: string; className: string } {
@@ -1547,21 +1555,21 @@ function formatPlayerAmount(player: {
   if (player.status === "retained" && player.retainedPrice) {
     return { text: formatIndianRupee(player.retainedPrice), className: "text-purple-400 font-mono font-semibold" };
   }
-  if (player.basePrice != null && player.basePrice > 0) {
-    return { text: formatIndianRupee(player.basePrice), className: "text-primary font-mono font-semibold" };
-  }
   return { text: "—", className: "text-muted-foreground" };
 }
 
-function playerAmountForSort(player: {
+function playerBaseValueForSort(player: { basePrice?: number | null }) {
+  return player.basePrice ?? 0;
+}
+
+function playerSoldAtForSort(player: {
   status?: string | null;
-  basePrice?: number | null;
   soldPrice?: number | null;
   retainedPrice?: number | null;
 }) {
   if (player.status === "sold") return player.soldPrice ?? 0;
   if (player.status === "retained") return player.retainedPrice ?? 0;
-  return player.basePrice ?? 0;
+  return 0;
 }
 
 function playerMatchesSearch(
@@ -1584,7 +1592,7 @@ function playerMatchesSearch(
   return false;
 }
 
-type PlayerSortKey = "id" | "name" | "status" | "category" | "amount" | "team";
+type PlayerSortKey = "id" | "name" | "status" | "category" | "baseValue" | "amount" | "team";
 type SortDir = "asc" | "desc";
 
 type PlayersFilterPersist = {
@@ -1654,8 +1662,11 @@ function sortPlayers(
         cmp = ca.localeCompare(cb, undefined, { sensitivity: "base" });
         break;
       }
+      case "baseValue":
+        cmp = playerBaseValueForSort(a) - playerBaseValueForSort(b);
+        break;
       case "amount":
-        cmp = playerAmountForSort(a) - playerAmountForSort(b);
+        cmp = playerSoldAtForSort(a) - playerSoldAtForSort(b);
         break;
       case "team": {
         const ta = a.teamId ? (teamMap[a.teamId]?.name ?? "") : "";
@@ -2571,7 +2582,7 @@ export default function Players() {
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
 
-  const tableColCount = 8 + (hasCategories ? 1 : 0) + (paymentEnabled ? 1 : 0);
+  const tableColCount = 9 + (hasCategories ? 1 : 0) + (paymentEnabled ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -2848,6 +2859,7 @@ export default function Players() {
                   <SelectItem value="name:desc">Name Z–A</SelectItem>
                   <SelectItem value="status:asc">Status</SelectItem>
                   {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
+                  <SelectItem value="baseValue:desc">Base value ↓</SelectItem>
                   <SelectItem value="amount:desc">Sold amount ↓</SelectItem>
                   <SelectItem value="team:asc">Team → Name</SelectItem>
                 </SelectContent>
@@ -2960,21 +2972,30 @@ export default function Players() {
                       <TableHead className="min-w-[120px]">Payment</TableHead>
                     )}
                     <SortableTableHead
+                      label="Base value"
+                      title="Starting bid value from auction settings, player selection, or category"
+                      sortKey="baseValue"
+                      activeKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={handleSort}
+                      className="min-w-[100px] text-right"
+                    />
+                    <SortableTableHead
+                      label="Sold at"
+                      title="Final sold or retained price"
+                      sortKey="amount"
+                      activeKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={handleSort}
+                      className="min-w-[100px] text-right"
+                    />
+                    <SortableTableHead
                       label="Team"
                       sortKey="team"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
                       className="min-w-[120px]"
-                    />
-                    <SortableTableHead
-                      label="Sold at"
-                      title="Sold or retained price when assigned; base value before auction otherwise"
-                      sortKey="amount"
-                      activeKey={sortKey}
-                      sortDir={sortDir}
-                      onSort={handleSort}
-                      className="min-w-[100px] text-right"
                     />
                     <TableHead className="w-20 text-right"> </TableHead>
                   </TableRow>
@@ -2984,7 +3005,8 @@ export default function Players() {
                     const cat = player.categoryId ? catMap[player.categoryId] : null;
                     const team = player.teamId ? teamMap[player.teamId] : null;
                     const tagTeam = player.playerTagTeamId ? teamMap[player.playerTagTeamId] : null;
-                    const amount = formatPlayerAmount(player);
+                    const baseValue = formatPlayerBaseValue(player);
+                    const soldAt = formatSoldAtAmount(player);
                     const showTeam = player.status === "sold" || player.status === "retained";
                     const isExpanded = expandedId === player.id;
                     const roleSpecGroups = roleSpecMap.get((player.role || "").toLowerCase().trim()) || [];
@@ -3051,6 +3073,12 @@ export default function Players() {
                               />
                             </TableCell>
                           )}
+                          <TableCell className={`text-right text-sm ${baseValue.className}`}>
+                            {baseValue.text}
+                          </TableCell>
+                          <TableCell className={`text-right text-sm ${soldAt.className}`}>
+                            {soldAt.text}
+                          </TableCell>
                           <TableCell>
                             {showTeam && team ? (
                               <span className="text-sm font-medium truncate block" style={{ color: team.color || undefined }}>
@@ -3059,9 +3087,6 @@ export default function Players() {
                             ) : (
                               <span className="text-muted-foreground text-xs">—</span>
                             )}
-                          </TableCell>
-                          <TableCell className={`text-right text-sm ${amount.className}`}>
-                            {amount.text}
                           </TableCell>
                           <TableCell onClick={e => e.stopPropagation()}>
                             <div className="flex justify-end gap-0.5">
@@ -3127,7 +3152,8 @@ export default function Players() {
               {filtered.map(player => {
                 const cat = player.categoryId ? catMap[player.categoryId] : null;
                 const team = player.teamId ? teamMap[player.teamId] : null;
-                const amount = formatPlayerAmount(player);
+                const baseValue = formatPlayerBaseValue(player);
+                const soldAt = formatSoldAtAmount(player);
                 const showTeam = player.status === "sold" || player.status === "retained";
                 const tagTheme = getTagTheme(player.playerTag);
                 return (
@@ -3167,9 +3193,14 @@ export default function Players() {
                           {showTeam && team ? ` · ${team.name}` : ""}
                         </p>
                       </div>
-                      {amount.text !== "—" && (
-                        <p className={`text-sm font-mono shrink-0 ${amount.className}`}>{amount.text}</p>
-                      )}
+                      <div className="text-right shrink-0 space-y-0.5">
+                        {baseValue.text !== "—" && (
+                          <p className={`text-xs font-mono ${baseValue.className}`}>{baseValue.text}</p>
+                        )}
+                        {soldAt.text !== "—" && (
+                          <p className={`text-sm font-mono ${soldAt.className}`}>{soldAt.text}</p>
+                        )}
+                      </div>
                       <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                     </button>
                     {paymentEnabled && (

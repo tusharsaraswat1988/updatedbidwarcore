@@ -13,6 +13,7 @@ import {
 } from "./team-wise-layout";
 import type { LedTeam } from "@/lib/led-view/types";
 import { LedTopBrandMark } from "./led-top-brand-mark";
+import { PurseBoosterLedOverlay } from "../purse-booster-led-overlay";
 import {
   LED_AMOUNT_CLASS,
   LED_HEADLINE_CLASS,
@@ -53,8 +54,12 @@ function LedPoweredByFooter({ text }: { text?: string }) {
  *   fortuneWheel      → wheel spinner / winner reveal
  *   teamPurse         → "TEAM PURSE VIEW" overlay
  *   teamWise          → compact broadcast team rows (purse + squad stats)
- * Toasts + purse boosters render as transient corner cards on top.
+ * Purse booster overlay renders as a top broadcast panel for ~10 seconds.
  */
+function BoosterOverlaySlot({ overlay }: { overlay: LedView["purseBoosterOverlay"] }) {
+  return <PurseBoosterLedOverlay overlay={overlay} />;
+}
+
 export const EffectsLayer = memo(function EffectsLayer({
   view,
 }: {
@@ -71,8 +76,9 @@ export const EffectsLayer = memo(function EffectsLayer({
     pausedSeconds,
     wheel,
     state,
-    toast,
-    purseBooster,
+    toast: _toast,
+    purseBooster: _purseBooster,
+    purseBoosterOverlay,
     banner,
     filteredPlayers,
     topSoldPlayers,
@@ -155,7 +161,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             </div>
           )}
         </div>
-        <ToastLayer toast={toast} booster={purseBooster} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
       </div>
     );
   }
@@ -193,7 +199,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             </p>
           </div>
         </div>
-        <ToastLayer toast={toast} booster={purseBooster} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
       </div>
     );
   }
@@ -482,7 +488,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             />
           </div>
           <ChyronStrip view={view} />
-          <ToastLayer toast={toast} booster={purseBooster} />
+          <BoosterOverlaySlot overlay={purseBoosterOverlay} />
         </div>
       );
     }
@@ -521,7 +527,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         {/* Powered by — ticker hidden while banner is shown */}
         <LedPoweredByFooter />
 
-        <ToastLayer toast={toast} booster={purseBooster} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
       </div>
     );
   }
@@ -592,7 +598,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         />
 
         <LedPoweredByFooter />
-        <ToastLayer toast={toast} booster={purseBooster} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
       </div>
     );
   }
@@ -680,7 +686,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             ) : null}
           </div>
         </div>
-        <ToastLayer toast={toast} booster={purseBooster} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
       </div>
     );
   }
@@ -745,14 +751,14 @@ export const EffectsLayer = memo(function EffectsLayer({
           </div>
 
         </div>
-        <ToastLayer toast={toast} booster={purseBooster} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
       </div>
     );
   }
 
 
   // ---------- transient cards over normal stage ----------
-  return <ToastLayer toast={toast} booster={purseBooster} />;
+  return <BoosterOverlaySlot overlay={purseBoosterOverlay} />;
 });
 
 
@@ -1066,64 +1072,6 @@ function TopSoldRow({
   );
 }
 
-
-function ToastLayer({
-  toast,
-  booster,
-}: {
-  toast: LedView["toast"];
-  booster: LedView["purseBooster"];
-}) {
-  const now = Date.now();
-  const toastLive = toast?.expiresAt && Date.parse(toast.expiresAt) > now ? toast : null;
-  const boosterLive =
-    booster?.expiresAt && Date.parse(booster.expiresAt) > now ? booster : null;
-  if (!toastLive && !boosterLive) return null;
-
-  return (
-    <div className="absolute top-[12%] right-[3%] z-40 flex flex-col gap-3 pointer-events-none">
-      {boosterLive ? (
-        <div
-          className="px-5 py-3 border-l-4 bg-black/85"
-          style={{
-            borderColor: "var(--accent)",
-            animation: "auction-sold-slam 0.5s ease-out both",
-          }}
-        >
-          <p className="text-[9px] font-mono uppercase tracking-[0.4em] text-white/60">
-            Purse Booster
-          </p>
-          <p className="font-['Bebas_Neue'] text-2xl text-white tracking-wider">
-            {boosterLive.teamName ?? "Team"}
-          </p>
-          {boosterLive.amount != null ? (
-            <p className="font-['Bebas_Neue'] text-xl tabular-nums" style={{ color: "var(--accent)" }}>
-              +₹{boosterLive.amount.toLocaleString("en-IN")}
-            </p>
-          ) : null}
-          {boosterLive.reason ? (
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-white/50 mt-1">
-              {boosterLive.reason}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {toastLive ? (
-        <div
-          className="px-5 py-3 border-l-4 border-amber-400 bg-black/85"
-          style={{ animation: "auction-sold-slam 0.5s ease-out both" }}
-        >
-          <p className="text-[9px] font-mono uppercase tracking-[0.4em] text-amber-300">
-            Notice
-          </p>
-          <p className="font-['Bebas_Neue'] text-xl text-white tracking-wider">
-            {toastLive.teamName ?? toastLive.message ?? ""}
-          </p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function FortuneWheel({
   items,

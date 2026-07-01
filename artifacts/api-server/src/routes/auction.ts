@@ -69,6 +69,7 @@ import {
   type AuctionReadinessMode,
 } from "@workspace/api-base/auction-readiness";
 import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
+import { parseLedPurseBoosterOverlay } from "@workspace/api-base";
 import { auditLog } from "../lib/audit-service";
 import { invalidateIntelCacheForTournament } from "../lib/intelligence-cache";
 import { parseAuditReason } from "../lib/audit-reason";
@@ -685,14 +686,17 @@ async function buildAuctionState(tournamentId: number) {
     } catch { /* ignore */ }
   }
 
-  let ledPurseToast: { teamName: string } | null = null;
-  if (session.lastLedToastJson) {
+  let ledPurseBoosterOverlay = parseLedPurseBoosterOverlay(session.lastLedToastJson);
+  let ledPurseToast: { teamName: string; expiresAt?: string } | null = null;
+  if (ledPurseBoosterOverlay) {
+    ledPurseToast = null;
+  } else if (session.lastLedToastJson) {
     try {
       const parsed = JSON.parse(session.lastLedToastJson) as { teamName: string; expiresAt: string };
-      if (parsed && new Date(parsed.expiresAt) > new Date()) {
-        ledPurseToast = { teamName: parsed.teamName };
+      if (parsed?.teamName && parsed.expiresAt && new Date(parsed.expiresAt) > new Date()) {
+        ledPurseToast = { teamName: parsed.teamName, expiresAt: parsed.expiresAt };
       }
-    } catch { /* ignore */ }
+    } catch { /* ignore legacy */ }
   }
 
   const lastAuctionActivityAt =
@@ -748,6 +752,7 @@ async function buildAuctionState(tournamentId: number) {
     lastSoldPlayer,
     lastPurseBooster,
     ledPurseToast,
+    ledPurseBoosterOverlay,
     pausedTimeRemaining: session.pausedTimeRemaining ?? null,
     teamPurses,
     lastAuctionActivityAt,

@@ -75,10 +75,16 @@ import {
   type AuctionReadinessCheckId,
   type AuctionReadinessIssue,
 } from "@workspace/api-base/auction-readiness";
+import {
+  MAX_AUCTION_TIMER_SECONDS,
+  MIN_AUCTION_TIMER_SECONDS,
+  parseOperatorTimerSeconds,
+} from "@workspace/api-base/auction-timer";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import { PurseBoosterDialog } from "@/components/purse-booster-dialog";
+import { replayPurseBoosterLed } from "@/lib/replay-purse-booster-led";
 import { AuditReasonField } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
 
@@ -219,7 +225,8 @@ export default function AuctionOperator() {
   const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
   const [resumeBidDialogOpen, setResumeBidDialogOpen] = useState(false);
   const [currentBidPaused, setCurrentBidPaused] = useState(false);
-  const [timerSecs, setTimerSecs] = useState("30");
+  const [openingTimerSecs, setOpeningTimerSecs] = useState("30");
+  const [bidTimerSecs, setBidTimerSecs] = useState("15");
   const [playerSearch, setPlayerSearch] = useState("");
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
@@ -228,6 +235,7 @@ export default function AuctionOperator() {
   // Pre Auction & Break Timer dialog
   const [showFortuneWheel, setShowFortuneWheel] = useState(false);
   const [showPurseBooster, setShowPurseBooster] = useState(false);
+  const [replayingBoosterLed, setReplayingBoosterLed] = useState(false);
   const syncFortuneWheel = useSyncFortuneWheel();
   const wheelResetOnMountRef = useRef(false);
   const [countdownDialogOpen, setCountdownDialogOpen] = useState(false);
@@ -443,8 +451,8 @@ export default function AuctionOperator() {
   function resolveTimerSecondsForPhase(): number {
     const inBidPhase = !!state?.currentBidTeamId || state?.timerType === "bid";
     return inBidPhase
-      ? (state?.bidTimerSeconds ?? 15)
-      : (parseInt(timerSecs) || state?.timerSeconds || 30);
+      ? parseOperatorTimerSeconds(bidTimerSecs, state?.bidTimerSeconds ?? 15)
+      : parseOperatorTimerSeconds(openingTimerSecs, state?.timerSeconds ?? 30);
   }
 
   async function handleStartTimer() {
@@ -456,7 +464,7 @@ export default function AuctionOperator() {
 
   async function handleExtendTimer() {
     if (controlsLocked) return;
-    const secs = (parseInt(timerSecs) || 30) + 30;
+    const secs = resolveTimerSecondsForPhase() + 30;
     const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
     applyMutationResult(result);
   }
@@ -586,6 +594,23 @@ export default function AuctionOperator() {
     }
   }
 
+  async function handleReplayBoosterLed() {
+    setReplayingBoosterLed(true);
+    try {
+      await replayPurseBoosterLed(tournamentId);
+      await qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+      toast({
+        title: "LED animation replayed",
+        description: "The last purse booster panel is live on the LED screen for 10 seconds.",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not replay booster on LED.";
+      toast({ title: "Replay failed", description: msg, variant: "destructive" });
+    } finally {
+      setReplayingBoosterLed(false);
+    }
+  }
+
   async function handleBringUnsoldPlayers() {
     const payload: {
       strategy: "keep_existing" | "reset_defaults" | "fixed";
@@ -694,12 +719,19 @@ export default function AuctionOperator() {
     applyMutationResult(result);
   }
 
-  const timerSecsUserEdited = useRef(false);
+  const openingTimerUserEdited = useRef(false);
+  const bidTimerUserEdited = useRef(false);
   useEffect(() => {
-    if (!timerSecsUserEdited.current && state?.timerSeconds) {
-      setTimerSecs(String(state.timerSeconds));
+    if (!openingTimerUserEdited.current && state?.timerSeconds) {
+      setOpeningTimerSecs(String(state.timerSeconds));
     }
   }, [state?.timerSeconds]);
+
+  useEffect(() => {
+    if (!bidTimerUserEdited.current && state?.bidTimerSeconds != null) {
+      setBidTimerSecs(String(state.bidTimerSeconds));
+    }
+  }, [state?.bidTimerSeconds]);
 
   const timerExpired = useTimerExpired(state?.timerEndsAt);
 
@@ -709,6 +741,10 @@ export default function AuctionOperator() {
   const hasPlayer  = !!state?.currentPlayer;
   const hasBid     = !!state?.currentBidTeamId;
   const timerActive = !!state?.timerEndsAt && !timerExpired;
+  const inBidPhase = !!state?.currentBidTeamId || state?.timerType === "bid";
+  const openingTimerSecsNum = parseOperatorTimerSeconds(openingTimerSecs, state?.timerSeconds ?? 30);
+  const bidTimerSecsNum = parseOperatorTimerSeconds(bidTimerSecs, state?.bidTimerSeconds ?? 15);
+  const activeTimerSecsNum = inBidPhase ? bidTimerSecsNum : openingTimerSecsNum;
   const livePlayerAuctionActive = isActive && hasPlayer;
   const allPlayers  = players || [];
   const available   = allPlayers.filter(p => p.status === "available");
@@ -718,6 +754,12 @@ export default function AuctionOperator() {
   const mainRoundExhausted =
     (state as { mainRoundExhausted?: boolean } | undefined)?.mainRoundExhausted
     ?? (isActive && available.length === 0 && unsoldPlayers.length > 0 && !hasPlayer);
+  const auctionLive = isActive || isPaused;
+  const bringUnsoldDisabled =
+    controlsLocked ||
+    reAuctionAllUnsoldMut.isPending ||
+    unsoldPlayers.length === 0 ||
+    isPaused;
   const increment   = state?.bidIncrement ?? 50000;
   const nextBidAmount = computeNextBidAmount({
     currentBid: state?.currentBid,
@@ -810,7 +852,12 @@ export default function AuctionOperator() {
     { mode: "banner" as const, label: "Banner", icon: Clapperboard, bg: "bg-amber-600 text-white" },
   ];
 
-  const timerSecsNum = parseInt(timerSecs) || 30;
+  const timerPillClass = (active: boolean) =>
+    `flex items-center gap-1.5 px-2 py-1 rounded-md border transition-colors flex-shrink-0 ${
+      active
+        ? "border-yellow-400/45 bg-yellow-400/10 ring-1 ring-yellow-400/20"
+        : "border-white/10 bg-white/[0.03]"
+    }`;
 
   return (
     <OperatorLayout
@@ -926,26 +973,35 @@ export default function AuctionOperator() {
             </button>
           )}
 
-          {/* Start / Pause / Unsold round / Conclude (session-level) */}
+          {/* Bring unsold back to pool — always available while auction is live */}
+          {auctionLive && !isCompleted && (
+            <button
+              className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-orange-500/40 bg-orange-600/90 hover:bg-orange-500 text-white transition-all flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => setShowBatchReAuctionConfirm(true)}
+              disabled={bringUnsoldDisabled}
+              title={
+                isPaused
+                  ? "Resume auction before bringing unsold players back"
+                  : unsoldPlayers.length === 0
+                    ? "No unsold players in the pool"
+                    : "Return unsold players to the available queue for re-auction"
+              }
+            >
+              <RotateCcw className="w-3 h-3" />
+              Bring Unsold{unsoldPlayers.length > 0 ? ` (${unsoldPlayers.length})` : ""}
+            </button>
+          )}
+
+          {/* Start / Pause / Conclude (session-level) */}
           {mainRoundExhausted ? (
-            <>
-              <button
-                className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md bg-orange-600 hover:bg-orange-500 text-white transition-all flex-shrink-0 disabled:opacity-50"
-                onClick={() => setShowBatchReAuctionConfirm(true)}
-                disabled={reAuctionAllUnsoldMut.isPending || unsoldPlayers.length === 0}
-              >
-                <RotateCcw className="w-3 h-3" />
-                Bring Unsold Players
-              </button>
-              <button
-                className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-white/20 text-white/80 hover:bg-white/8 transition-all flex-shrink-0 disabled:opacity-50"
-                onClick={() => setConcludeDialogOpen(true)}
-                disabled={concludeAuctionMut.isPending}
-              >
-                <CheckCircle className="w-3 h-3" />
-                Conclude Auction
-              </button>
-            </>
+            <button
+              className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-white/20 text-white/80 hover:bg-white/8 transition-all flex-shrink-0 disabled:opacity-50"
+              onClick={() => setConcludeDialogOpen(true)}
+              disabled={concludeAuctionMut.isPending}
+            >
+              <CheckCircle className="w-3 h-3" />
+              Conclude Auction
+            </button>
           ) : !isActive && !isCompleted ? (
             <button
               className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md bg-green-600 hover:bg-green-500 text-white transition-all flex-shrink-0 disabled:opacity-50"
@@ -1110,14 +1166,25 @@ export default function AuctionOperator() {
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowPurseBooster(true)}
-            className="flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all text-amber-300/80 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/20 flex-shrink-0"
-            title="Apply purse booster"
-          >
-            💰 Booster
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowPurseBooster(true)}
+              className="flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all text-amber-300/80 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/20"
+              title="Apply purse booster"
+            >
+              💰 Booster
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleReplayBoosterLed()}
+              disabled={replayingBoosterLed}
+              className="flex items-center justify-center h-7 w-7 rounded text-xs font-bold transition-all text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/10 border border-amber-500/15 disabled:opacity-40"
+              title="Show last purse booster on LED again"
+            >
+              📺
+            </button>
+          </div>
 
           <div
             title={feedDiagnostic ? `${AUCTION_FEED_UI[feed.state].title} · ${feedDiagnostic}` : AUCTION_FEED_UI[feed.state].subtitle}
@@ -1230,8 +1297,8 @@ export default function AuctionOperator() {
               <div className="px-2 py-1.5 border-b border-white/6 flex-shrink-0">
                 <button
                   onClick={() => setShowBatchReAuctionConfirm(true)}
-                  disabled={isPaused}
-                  title={isPaused ? "Resume auction before re-auctioning" : undefined}
+                  disabled={bringUnsoldDisabled}
+                  title={isPaused ? "Resume auction before re-auctioning" : "Same as Bring Unsold in the top control bar"}
                   className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all disabled:opacity-35 disabled:cursor-not-allowed"
                 >
                   <RotateCcw className="w-3 h-3" /> Re-auction all {statusCounts.unsold} unsold
@@ -1372,11 +1439,9 @@ export default function AuctionOperator() {
           {/* ══ CENTER: AUCTION CONTROL ═════════════════════════════════════ */}
           <main className={`flex-col min-h-0 overflow-hidden ${mobilePanel === "control" ? "flex" : "hidden"} lg:flex`}>
 
-            {/* Timer bar */}
-            <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 bg-[#141720] border-b border-white/8">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/30 flex-shrink-0">
-                <Clock className="w-3 h-3 inline mr-1 mb-0.5" />Bid Timer
-              </span>
+            {/* Timer bar — opening + bid timers from tournament settings */}
+            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-[#141720] border-b border-white/8 flex-wrap">
+              <Clock className="w-3.5 h-3.5 text-white/25 flex-shrink-0" />
               <ServerCountdown
                 variant="operator"
                 timerEndsAt={state?.timerEndsAt}
@@ -1384,27 +1449,49 @@ export default function AuctionOperator() {
                 fallback={<span className="text-xs text-white/30">{hasPlayer ? "Ready to bid" : "No player"}</span>}
               />
 
-              {/* Timer input */}
-              <input
-                type="number"
-                value={timerSecs}
-                onChange={e => { timerSecsUserEdited.current = true; setTimerSecs(e.target.value); }}
-                className="w-12 h-7 text-center text-sm font-mono font-bold bg-white/6 border border-white/12 rounded text-white/70 outline-none focus:border-yellow-400/40"
-                min={5} max={300}
-              />
-              <span className="text-xs text-white/30">sec</span>
+              <div className={timerPillClass(!inBidPhase)} title="Before the first bid — operator Start uses this duration">
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${!inBidPhase ? "text-yellow-300" : "text-white/35"}`}>
+                  Opening
+                </span>
+                <input
+                  type="number"
+                  value={openingTimerSecs}
+                  onChange={e => { openingTimerUserEdited.current = true; setOpeningTimerSecs(e.target.value); }}
+                  className="w-11 h-7 text-center text-sm font-mono font-bold bg-white/6 border border-white/12 rounded text-white/70 outline-none focus:border-yellow-400/40"
+                  min={MIN_AUCTION_TIMER_SECONDS}
+                  max={MAX_AUCTION_TIMER_SECONDS}
+                  aria-label="Opening timer seconds"
+                />
+                <span className="text-[10px] text-white/30">sec</span>
+              </div>
+
+              <div className={timerPillClass(inBidPhase)} title="After each bid — countdown resets to this duration">
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${inBidPhase ? "text-yellow-300" : "text-white/35"}`}>
+                  Bid
+                </span>
+                <input
+                  type="number"
+                  value={bidTimerSecs}
+                  onChange={e => { bidTimerUserEdited.current = true; setBidTimerSecs(e.target.value); }}
+                  className="w-11 h-7 text-center text-sm font-mono font-bold bg-white/6 border border-white/12 rounded text-white/70 outline-none focus:border-yellow-400/40"
+                  min={MIN_AUCTION_TIMER_SECONDS}
+                  max={MAX_AUCTION_TIMER_SECONDS}
+                  aria-label="Bid timer seconds"
+                />
+                <span className="text-[10px] text-white/30">sec</span>
+              </div>
 
               {timerActive && (
                 <button
                   onClick={handleExtendTimer}
                   disabled={startTimerMut.isPending}
-                  className="h-7 px-2.5 text-xs font-semibold bg-white/5 border border-white/10 rounded text-white/40 hover:text-white/65 transition-all disabled:opacity-30"
+                  className="h-7 px-2.5 text-xs font-semibold bg-white/5 border border-white/10 rounded text-white/40 hover:text-white/65 transition-all disabled:opacity-30 flex-shrink-0"
                 >
                   +30s
                 </button>
               )}
 
-              <div className="flex-1" />
+              <div className="flex-1 min-w-[0.5rem]" />
 
               {currentCountdown?.endsAt ? (
                 <div
@@ -1537,7 +1624,7 @@ export default function AuctionOperator() {
                 <div className="grid grid-cols-2 gap-4">
                   <CircularTimer
                     endsAt={state?.timerEndsAt}
-                    totalSeconds={state?.timerType === "bid" ? (state?.bidTimerSeconds ?? 15) : timerSecsNum}
+                    totalSeconds={activeTimerSecsNum}
                     running={timerActive}
                   />
                   <div className="flex flex-col items-center justify-center py-4 rounded-2xl border border-white/8 bg-[#141820] text-center">

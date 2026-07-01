@@ -43,6 +43,12 @@ import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
+import {
+  MAX_AUCTION_TIMER_SECONDS,
+  MIN_AUCTION_TIMER_SECONDS,
+  parseAuctionTimerSeconds,
+  validateAuctionTimerSeconds,
+} from "@workspace/api-base/auction-timer";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import {
   REGISTRATION_MANDATORY_FIELD_KEYS,
@@ -447,6 +453,11 @@ export default function TournamentSettings() {
     return null;
   }, [editForm.minimumSquadSize, editForm.maximumSquadSize]);
 
+  const openingTimerParsed = parseAuctionTimerSeconds(editForm.timerSeconds);
+  const bidTimerParsed = parseAuctionTimerSeconds(editForm.bidTimerSeconds);
+  const openingTimerError = validateAuctionTimerSeconds(openingTimerParsed, "Opening Timer");
+  const bidTimerError = validateAuctionTimerSeconds(bidTimerParsed, "Bid Timer");
+
   const getSaveBlockReason = useCallback((): string | null => {
     if (!(editForm.name as string)?.trim()) {
       return "Tournament name is required";
@@ -459,6 +470,12 @@ export default function TournamentSettings() {
     }
     if (!bidTiers.some(t => t.increment > 0)) {
       return "Bid increase amount is required";
+    }
+    if (openingTimerError) {
+      return openingTimerError;
+    }
+    if (bidTimerError) {
+      return bidTimerError;
     }
     if (squadSizeError) {
       return squadSizeError;
@@ -502,7 +519,7 @@ export default function TournamentSettings() {
       return sponsorValidation.error;
     }
     return null;
-  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField]);
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField, openingTimerError, bidTimerError]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
@@ -530,8 +547,8 @@ export default function TournamentSettings() {
           basePurse: Number(editForm.basePurse) || undefined,
           minBid: Number(editForm.minBid) || undefined,
           bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
-          timerSeconds: Number(editForm.timerSeconds) || undefined,
-          bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
+          timerSeconds: openingTimerParsed!,
+          bidTimerSeconds: bidTimerParsed!,
           bidExtensionEnabled: editForm.bidExtensionEnabled === true,
           bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
           bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
@@ -1303,21 +1320,43 @@ export default function TournamentSettings() {
                 icon={<Timer className="w-4 h-4 text-muted-foreground" />}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div id="settings-field-openingTimer" className={`space-y-1.5 ${fieldWrapClass("openingTimer", Number(editForm.timerSeconds) <= 0)}`}>
+                  <div id="settings-field-openingTimer" className={`space-y-1.5 ${fieldWrapClass("openingTimer", !!openingTimerError)}`}>
                     <Label className="flex items-center gap-1">
                       <HintLabel hint="Naya player aane par kitni der wait karein">Opening Timer (sec)</HintLabel>
                       <FieldTooltip text="Countdown shown when a new player appears on screen before anyone bids. If no one bids in time, the player is passed." />
                     </Label>
-                    <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} min={5} max={300} />
-                    <p className="text-[10px] text-muted-foreground">Recommended: 30 seconds</p>
+                    <Input
+                      type="number"
+                      value={editForm.timerSeconds as string}
+                      onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))}
+                      min={MIN_AUCTION_TIMER_SECONDS}
+                      max={MAX_AUCTION_TIMER_SECONDS}
+                      aria-invalid={!!openingTimerError}
+                    />
+                    {openingTimerError ? (
+                      <p className="text-[10px] text-destructive">{openingTimerError}</p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground">Recommended: 30 seconds (minimum {MIN_AUCTION_TIMER_SECONDS})</p>
+                    )}
                   </div>
-                  <div id="settings-field-bidTimer" className={`space-y-1.5 ${fieldWrapClass("bidTimer", Number(editForm.bidTimerSeconds) <= 0)}`}>
+                  <div id="settings-field-bidTimer" className={`space-y-1.5 ${fieldWrapClass("bidTimer", !!bidTimerError)}`}>
                     <Label className="flex items-center gap-1">
                       <HintLabel hint="Har bid ke baad kitni der">Bid Timer (sec)</HintLabel>
                       <FieldTooltip text="After each bid, this timer resets. When it runs out, the highest bidder wins the player. Shorter timers create more urgency — recommended: 15 seconds." />
                     </Label>
-                    <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
-                    <p className="text-[10px] text-muted-foreground">Recommended: 15 seconds</p>
+                    <Input
+                      type="number"
+                      value={editForm.bidTimerSeconds as string}
+                      onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))}
+                      min={MIN_AUCTION_TIMER_SECONDS}
+                      max={MAX_AUCTION_TIMER_SECONDS}
+                      aria-invalid={!!bidTimerError}
+                    />
+                    {bidTimerError ? (
+                      <p className="text-[10px] text-destructive">{bidTimerError}</p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground">Recommended: 15 seconds (minimum {MIN_AUCTION_TIMER_SECONDS})</p>
+                    )}
                   </div>
                 </div>
                 <div id="settings-field-bidExtension" className="space-y-2 pt-1 border-t border-border/50">

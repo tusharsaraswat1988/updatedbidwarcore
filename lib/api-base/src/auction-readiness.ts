@@ -52,6 +52,8 @@ export type TournamentReadinessSource = {
   minimumSquadSize?: number | null;
 };
 
+import { MIN_AUCTION_TIMER_SECONDS } from "./auction-timer.ts";
+
 /** Default bid tiers JSON for newly created tournaments — one open-ended tier, blank raise-by. */
 export const DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON = JSON.stringify([{ increment: 0 }]);
 
@@ -76,8 +78,8 @@ const CHECK_LABELS: Record<AuctionReadinessCheckId, string> = {
   teams: "Add at least 2 teams",
   players: "Add players",
   minBid: "Set Minimum Player Value",
-  openingTimer: "Set Opening Timer",
-  bidTimer: "Set Bid Timer",
+  openingTimer: `Set Opening Timer (min ${MIN_AUCTION_TIMER_SECONDS}s)`,
+  bidTimer: `Set Bid Timer (min ${MIN_AUCTION_TIMER_SECONDS}s)`,
   playerOrder: "Select Player Order",
   bidTiers: "Configure Bid Increment Rules",
   minSquad: "Set Minimum Players per Team",
@@ -171,11 +173,11 @@ export function validateAuctionReadiness(
     issues.push({ id: "minBid", message: CHECK_LABELS.minBid });
   }
 
-  if (input.timerSeconds <= 0) {
+  if (input.timerSeconds < MIN_AUCTION_TIMER_SECONDS) {
     issues.push({ id: "openingTimer", message: CHECK_LABELS.openingTimer });
   }
 
-  if (input.bidTimerSeconds <= 0) {
+  if (input.bidTimerSeconds < MIN_AUCTION_TIMER_SECONDS) {
     issues.push({ id: "bidTimer", message: CHECK_LABELS.bidTimer });
   }
 

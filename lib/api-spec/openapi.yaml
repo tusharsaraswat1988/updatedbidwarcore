@@ -1516,6 +1516,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApplyPurseBoosterResponse"
 
+  /tournaments/{tournamentId}/purse-boosters/replay-led:
+    post:
+      operationId: replayPurseBoosterLed
+      tags: [finance]
+      summary: Replay the last purse booster LED animation
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: LED animation replay scheduled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, replayKey, expiresAt]
+                properties:
+                  ok:
+                    type: boolean
+                  replayKey:
+                    type: integer
+                  expiresAt:
+                    type: string
+                    format: date-time
+        "404":
+          description: No booster animation available to replay
+
   /tournaments/{tournamentId}/purse-boosters/{boosterId}/cancel:
     post:
       operationId: cancelPurseBooster
@@ -3342,6 +3372,10 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/LedPurseToast"
+        ledPurseBoosterOverlay:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/LedPurseBoosterOverlay"
         teamPurses:
           type: array
           description: Live team purse snapshot embedded for realtime sync without separate HTTP refetch
@@ -3374,6 +3408,54 @@ components:
       properties:
         teamName:
           type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    LedPurseBoosterOverlay:
+      type: object
+      required: [batchId, replayKey, expiresAt, durationMs, target, boosterAmount, teams]
+      properties:
+        batchId:
+          type: string
+        replayKey:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+        target:
+          type: string
+          enum: [single, all]
+        boosterAmount:
+          type: integer
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedPurseBoosterTeamLine"
+
+    LedPurseBoosterTeamLine:
+      type: object
+      required: [teamId, teamName, shortCode, color, previousCapacity, boosterAmount, newCapacity]
+      properties:
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        shortCode:
+          type: string
+        color:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        previousCapacity:
+          type: integer
+        boosterAmount:
+          type: integer
+        newCapacity:
+          type: integer
 
     ApplyPurseBoosterRequest:
       type: object

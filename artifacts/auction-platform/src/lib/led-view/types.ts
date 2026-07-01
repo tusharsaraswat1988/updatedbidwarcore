@@ -136,6 +136,25 @@ export type LivePurseBooster = {
   expiresAt?: string;
 };
 
+export type LedPurseBoosterOverlayView = {
+  batchId: string;
+  replayKey: number;
+  expiresAt: string;
+  durationMs: number;
+  target: "single" | "all";
+  boosterAmount: number;
+  teams: Array<{
+    teamId: number;
+    teamName: string;
+    shortCode: string;
+    color: string;
+    logoUrl: string | null;
+    previousCapacity: number;
+    boosterAmount: number;
+    newCapacity: number;
+  }>;
+};
+
 export type LiveWheelItem = { label: string; color?: string };
 
 export type LivePlayerFilter = {
@@ -156,8 +175,13 @@ export type LedAuctionStateSlice = {
     teamLogoUrl?: string | null;
     amount?: number | null;
   } | null;
-  ledPurseToast?: { teamName: string } | null;
-  lastPurseBooster?: { teamName: string; amount: number } | null;
+  ledPurseToast?: { teamName: string; expiresAt?: string } | null;
+  ledPurseBoosterOverlay?: LedPurseBoosterOverlayView | null;
+  lastPurseBooster?: {
+    teamName: string;
+    amount: number;
+    appliedAt?: string;
+  } | null;
   isBreak?: boolean;
   breakEndsAt?: string | null;
   pausedTimeRemaining?: number | null;
@@ -201,6 +225,7 @@ export type LedView = {
   lastOutcome: LiveLastOutcome | null;
   toast: LiveToast | null;
   purseBooster: LivePurseBooster | null;
+  purseBoosterOverlay: LedPurseBoosterOverlayView | null;
   wheel: { active: boolean; spinning: boolean; items: LiveWheelItem[]; winner: string | null };
   breakInfo: {
     active: boolean;
