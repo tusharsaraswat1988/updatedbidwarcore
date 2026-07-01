@@ -1,4 +1,5 @@
 import { cldUrl } from "@/lib/cloudinary";
+import { withIconVersion } from "@/lib/branding-pwa";
 
 export type BrandLogos = {
   main?: string | null;
@@ -69,8 +70,13 @@ export function getBrandLogoSrc(
 }
 
 /** OBS overlay / streaming brand mark: OBS_WATERMARK → SYMBOL → PRIMARY → app icon */
-export function getObsBrandMarkSrc(logos: BrandLogos | undefined): string {
-  return getBrandLogoSrc(logos, ["obsWatermark", "mini", "main", "appIcon"]);
+export function getObsBrandMarkSrc(
+  logos: BrandLogos | undefined,
+  iconVersion?: number | null,
+): string {
+  const src = getBrandLogoSrc(logos, ["obsWatermark", "mini", "main", "appIcon"]);
+  if (!src || src === BRAND_FALLBACK_LOGO_SVG) return src;
+  return withIconVersion(src, iconVersion);
 }
 
 /** Static fallback when admin OBS watermark is not configured. */
@@ -78,10 +84,14 @@ export const OBS_BROADCAST_LOGO_FALLBACK =
   "/assets/broadcast/bidwar-reverse-logo-official.png";
 
 /** OBS broadcast overlay top-center — admin PNG only (OBS_WATERMARK). */
-export function getObsBroadcastLogoSrc(logos: BrandLogos | undefined): string {
+export function getObsBroadcastLogoSrc(
+  logos: BrandLogos | undefined,
+  iconVersion?: number | null,
+): string {
   const raw = logos?.obsWatermark;
   if (!raw) return "";
-  return cldUrl(raw, "obsBroadcastLogo") || raw;
+  const url = cldUrl(raw, "obsBroadcastLogo") || raw;
+  return withIconVersion(url, iconVersion);
 }
 
 /** Splash / loading screens: SPLASH_LOGO → PRIMARY → SYMBOL */

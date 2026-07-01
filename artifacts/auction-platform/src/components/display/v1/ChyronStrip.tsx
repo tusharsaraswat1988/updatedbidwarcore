@@ -1,5 +1,7 @@
 import { memo } from "react";
 import type { LedView, LiveSponsorDTO } from "@/lib/led-view/types";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getObsBroadcastLogoSrc, getObsBrandMarkSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import {
   getSponsorChyronItemStyle,
@@ -62,6 +64,12 @@ const ChyronSponsorSegment = memo(function ChyronSponsorSegment({
 export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }) {
   const sponsors = view.sponsors ?? [];
   const branding = view.branding;
+  const { logos, brandName, iconVersion } = useBranding();
+  const chyronLogoSrc =
+    getObsBroadcastLogoSrc(logos, iconVersion) ||
+    getObsBrandMarkSrc(logos, iconVersion) ||
+    branding?.miniLogoUrl ||
+    "";
 
   return (
     <div className="border-t border-white/10 bg-black/50 h-full grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]">
@@ -95,10 +103,10 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
       </div>
 
       <div className="flex items-center pl-4 border-l border-white/10">
-        {branding?.miniLogoUrl ? (
+        {chyronLogoSrc ? (
           <img
-            src={branding.miniLogoUrl}
-            alt={branding.brandName ?? "BidWar"}
+            src={chyronLogoSrc}
+            alt={brandName ?? branding?.brandName ?? "BidWar"}
             className={chyronPreset.sizeClass}
           />
         ) : (

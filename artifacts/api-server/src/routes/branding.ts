@@ -30,6 +30,8 @@ router.get("/branding/icon-version", async (_req, res) => {
 });
 
 router.get("/branding", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+
   const [row] = await db.select().from(brandingSettingsTable).limit(1);
   const assetsMap = await brandingService.getAssetsMap();
 

@@ -7,6 +7,7 @@ import type { Express, Request, Response } from "express";
 import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 import {
   ALL_BRANDING_ICON_PATHS,
+  BRANDING_ASSET_TYPES,
   BRANDING_ICON_PATHS,
   type BrandingIconPath,
 } from "@workspace/api-base/branding-assets";
@@ -102,10 +103,10 @@ export async function resolveBrandingIconForPath(
   }
 }
 
-/** Highest favicon version across the fallback chain — used for cache-busting link hrefs. */
+/** Highest asset version across all branding uploads — used for cache-busting link hrefs. */
 export async function getBrandingIconCacheVersion(): Promise<number> {
   let maxVersion = 0;
-  for (const type of new Set([...FAVICON_CHAIN, ...APPLE_CHAIN])) {
+  for (const type of BRANDING_ASSET_TYPES) {
     const asset = await getAsset(type);
     if (asset?.version && asset.version > maxVersion) {
       maxVersion = asset.version;

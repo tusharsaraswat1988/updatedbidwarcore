@@ -29,6 +29,7 @@ import { formatINR, formatINRFull, nextIncrement } from "./format-inr";
 import { useCountdownSeconds } from "./use-countdown-seconds";
 import {
   mapApiPlayerFilter,
+  formatLedPlayerFilterLabel,
   type DerivedState,
   type LedPlayer,
   type LedPlayerStatus,
@@ -213,6 +214,7 @@ const EMPTY_VIEW: LedView = {
   teamPurseViewActive: false,
   displayOverlay: null,
   displayPlayerFilter: null,
+  playerFilterLabel: "All Players",
   banner: { enabled: false, url: null, fit: "contain" },
   teamSquads: [],
   filteredPlayers: [],
@@ -653,6 +655,13 @@ export function useLedView(
       if (filter?.teamId != null && String(p.soldToTeamId ?? "") !== String(filter.teamId)) return false;
       return true;
     });
+    const playerFilterLabel = formatLedPlayerFilterLabel(
+      filter,
+      teams,
+      filter?.categoryId != null
+        ? categoryNameById.get(Number(filter.categoryId)) ?? null
+        : null,
+    );
 
     const topSoldPlayers: LedTopSold[] = [...soldOrRetained]
       .filter((p) => (p.soldPrice ?? 0) > 0)
@@ -768,6 +777,7 @@ export function useLedView(
       teamPurseViewActive,
       displayOverlay: overlay,
       displayPlayerFilter: filter,
+      playerFilterLabel,
       teamSquads,
       filteredPlayers,
       topSoldPlayers,

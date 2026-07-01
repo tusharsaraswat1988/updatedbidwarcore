@@ -22,9 +22,9 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
   tournamentName?: string;
   filter?: DisplayPlayerFilter;
 }) {
-  const { logos, brandName, miniBrandText, poweredByText, visibility } = useBranding();
+  const { logos, brandName, miniBrandText, poweredByText, visibility, iconVersion } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
-  const obsMarkSrc = getObsBrandMarkSrc(logos);
+  const obsMarkSrc = getObsBrandMarkSrc(logos, iconVersion);
   const teamMap = useMemo(() => new Map(purses.map(t => [t.teamId, t])), [purses]);
   const catMap = useMemo(() => new Map(categories.map(c => [c.id, c.name])), [categories]);
 

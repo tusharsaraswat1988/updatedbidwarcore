@@ -26,6 +26,7 @@ import {
 } from "@/lib/led-display-typography";
 import { normalizeAuctionUnit, formatAuctionAmount } from "@workspace/api-base/auction-unit";
 import { cldUrl } from "@/lib/cloudinary";
+import { PlayerDirectoryOverlay } from "./player-directory-overlay";
 
 function LedPoweredByFooter({ text }: { text?: string }) {
   return (
@@ -89,6 +90,7 @@ export const EffectsLayer = memo(function EffectsLayer({
     banner,
     filteredPlayers,
     topSoldPlayers,
+    playerFilterLabel,
     displayPlayerFilter,
     tournament,
     branding,
@@ -615,91 +617,20 @@ export const EffectsLayer = memo(function EffectsLayer({
 
   // ---------- PLAYER WISE VIEW (with filters) ----------
   if (derivedState === "playerWise") {
-    const filterLabel = displayPlayerFilter?.status
-      ? displayPlayerFilter.status.toUpperCase()
-      : "ALL";
     return (
-      <div className={`absolute inset-0 z-30 bg-black/95 overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
-        <div className="absolute inset-0 p-[2%] flex flex-col">
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className={`${LED_SECTION_KICKER_CLASS} text-white/60`}>
-                Player-wise View
-              </p>
-              <p
-                className={`${LED_HEADLINE_CLASS} text-5xl tracking-widest`}
-                style={{ color: "var(--accent)" }}
-              >
-                PLAYERS
-              </p>
-            </div>
-            <div className="flex gap-2 text-xs font-mono uppercase tracking-[0.3em]">
-              <span className="px-3 py-1 border border-white/30 text-white/70">
-                Filter: {filterLabel}
-              </span>
-              <span className="px-3 py-1 border border-white/30 text-white/70">
-                {filteredPlayers.length} / {state.players.length}
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden grid grid-cols-3 gap-2 auto-rows-min content-start">
-            {filteredPlayers.slice(0, 30).map((p) => {
-              const team = teams.find((t) => state.players.find((pp) => pp.id === p.id && false));
-              void team;
-              const statusColor =
-                p.status === "sold"
-                  ? "#22C55E"
-                  : p.status === "unsold"
-                    ? "#EF4444"
-                    : p.status === "live"
-                      ? "var(--accent)"
-                      : p.status === "retained"
-                        ? "#A855F7"
-                        : "#FFFFFF44";
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-2 border-l-4 px-3 py-2 bg-white/[0.04]"
-                  style={{ borderColor: statusColor }}
-                >
-                  {p.portrait ? (
-                    <img
-                      src={cldUrl(p.portrait, "thumbnail")}
-                      alt=""
-                      className="h-10 w-10 object-cover border border-white/20"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 bg-white/5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-['Bebas_Neue'] text-base text-white tracking-wider truncate">
-                      <span className="text-white/35 font-mono text-sm mr-1.5">#{p.serialNo}</span>
-                      {p.name}
-                    </p>
-                    <p className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/50">
-                      {p.roleRaw} · {p.status}
-                    </p>
-                  </div>
-                  <p
-                    className="font-['Bebas_Neue'] tabular-nums text-sm"
-                    style={{ color: statusColor }}
-                  >
-                    {auctionUnit === "points"
-                      ? `${Math.round(p.basePrice / 1000)}K Pt.`
-                      : `₹${Math.round(p.basePrice / 1000)}K`}
-                  </p>
-                </div>
-              );
-            })}
-            {filteredPlayers.length === 0 ? (
-              <div className="col-span-3 text-center text-white/40 font-mono uppercase tracking-[0.4em] text-xs mt-10">
-                No players match this filter
-              </div>
-            ) : null}
-          </div>
-        </div>
+      <>
+        <PlayerDirectoryOverlay
+          players={filteredPlayers}
+          teams={teams}
+          totalPlayers={state.players.length}
+          playerFilterLabel={playerFilterLabel}
+          displayPlayerFilter={displayPlayerFilter}
+          currentPlayerId={currentPlayer?.id ?? null}
+          auctionUnit={auctionUnit}
+          purseBoosterOverlay={purseBoosterOverlay}
+        />
         <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
-      </div>
+      </>
     );
   }
 

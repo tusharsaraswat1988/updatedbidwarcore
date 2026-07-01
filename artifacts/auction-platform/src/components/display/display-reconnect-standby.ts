@@ -21,6 +21,58 @@ export type ReconnectStandbyCopy = {
   tournamentName?: string;
 };
 
+/** Never show raw API/JS exceptions on the LED — map to calm broadcast copy. */
+export function sanitizeStandbyMessage(raw: string | null | undefined): string {
+  const msg = (raw ?? "").trim();
+  if (!msg) return "Please wait — reconnecting to live auction";
+
+  const lower = msg.toLowerCase();
+
+  if (lower === "tournament not found") return msg;
+
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed") ||
+    lower.includes("load failed") ||
+    lower.includes("fetch failed") ||
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("connection refused") ||
+    lower.includes("econnrefused") ||
+    lower.includes("enotfound") ||
+    lower.includes("aborted")
+  ) {
+    return "Connection lost — restoring live feed";
+  }
+
+  if (/^(type|reference|syntax|range)?error:/i.test(msg)) {
+    return "Connection lost — restoring live feed";
+  }
+
+  if (/\b(401|403|404|500|502|503|504)\b/.test(lower) || lower.includes("unauthorized")) {
+    return "Unable to load auction — retrying shortly";
+  }
+
+  if (
+    msg.length <= 72 &&
+    !/\berror\b|\bexception\b|\btypeerror\b|\bfetch\b|\bundefined\b/i.test(msg)
+  ) {
+    return msg;
+  }
+
+  return "Please wait — reconnecting to live auction";
+}
+
+function isTransientStandbyMessage(message: string): boolean {
+  return (
+    message === "Connection lost — restoring live feed" ||
+    message === "Please wait — reconnecting to live auction" ||
+    message === "Unable to load auction — retrying shortly" ||
+    message === "Reconnecting to live auction"
+  );
+}
+
 export function resolveReconnectStandby(
   view: Pick<LedView, "loading" | "error" | "currentPlayer" | "derivedState" | "tournament">,
   feedState?: AuctionFeedState,
@@ -34,9 +86,10 @@ export function resolveReconnectStandby(
   }
 
   if (view.error) {
+    const message = sanitizeStandbyMessage(view.error);
     return {
-      tone: "error",
-      message: view.error,
+      tone: isTransientStandbyMessage(message) ? "info" : "error",
+      message,
       tournamentName: view.tournament?.name,
     };
   }

@@ -40,8 +40,8 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
     timerCeiling,
   } = view;
 
-  const { logos, brandName } = useBranding();
-  const logoSrc = getObsBroadcastLogoSrc(logos);
+  const { logos, brandName, iconVersion } = useBranding();
+  const logoSrc = getObsBroadcastLogoSrc(logos, iconVersion);
   const logoAlt = getBrandLogoAlt(brandName);
 
   const [photoFailed, setPhotoFailed] = useState(false);

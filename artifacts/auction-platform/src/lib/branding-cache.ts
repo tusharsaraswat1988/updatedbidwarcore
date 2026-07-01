@@ -32,6 +32,7 @@ export function brandingCacheSignature(settings: BrandingSettings): string {
     appIconUrl: settings.appIconUrl,
     splashScreenUrl: settings.splashScreenUrl,
     logoAnimationUrl: settings.logoAnimationUrl,
+    iconVersion: settings.iconVersion ?? 0,
     assets,
   });
 }

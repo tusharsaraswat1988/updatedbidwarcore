@@ -174,11 +174,11 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
   tournamentId: number;
 }) {
   const { tournament, branding } = view;
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, iconVersion } = useBranding();
   const sponsors = useCachedSponsors(tournamentId, view.sponsors ?? []);
   const { entries, index, visible } = useSponsorCarousel(sponsors);
   const current = entries[index];
-  const logoSrc = getObsBroadcastLogoSrc(logos);
+  const logoSrc = getObsBroadcastLogoSrc(logos, iconVersion);
   const logoAlt = getBrandLogoAlt(brandName);
   const tier = current ? sponsorTier(current) : "normal";
   const logoGlow = sideLogoBehindGlowLayers(tier);

@@ -26,9 +26,9 @@ export const TeamOverlay = memo(function TeamOverlay({
   currentBidTeamId?: number | null;
   tournamentName?: string;
 }) {
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, iconVersion } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
-  const brandLogoSrc = getObsBrandMarkSrc(logos);
+  const brandLogoSrc = getObsBrandMarkSrc(logos, iconVersion);
   return (
     <div
       className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"

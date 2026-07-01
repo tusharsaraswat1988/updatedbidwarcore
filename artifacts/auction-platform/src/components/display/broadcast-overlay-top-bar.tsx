@@ -27,8 +27,8 @@ export const BroadcastOverlayTopBar = memo(function BroadcastOverlayTopBar({
   tournamentName?: string | null;
   sponsorLogos: SponsorLogo[];
 }) {
-  const { logos, brandName } = useBranding();
-  const bidwarSrc = getObsBroadcastLogoSrc(logos);
+  const { logos, brandName, iconVersion } = useBranding();
+  const bidwarSrc = getObsBroadcastLogoSrc(logos, iconVersion);
   const bidwarAlt = getBrandLogoAlt(brandName);
   const logoH = BROADCAST_OVERLAY_TOP_LOGO_HEIGHT;
   const title = tournamentName?.trim();

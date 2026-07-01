@@ -240,6 +240,8 @@ export type LedView = {
   teamPurseViewActive: boolean;
   displayOverlay: string | null;
   displayPlayerFilter: LivePlayerFilter | null;
+  /** Human-readable active player-wise filter for LED headings. */
+  playerFilterLabel: string;
   teamSquads: LedTeamSquad[];
   filteredPlayers: LedPlayer[];
   topSoldPlayers: LedTopSold[];
@@ -262,4 +264,45 @@ export function mapApiPlayerFilter(f: ApiDisplayPlayerFilter | null | undefined)
     categoryId: f.categoryId != null ? String(f.categoryId) : null,
     teamId: f.teamId != null ? String(f.teamId) : null,
   };
+}
+
+const PLAYER_FILTER_STATUS_LABELS: Partial<Record<LivePlayerFilter["status"], string>> = {
+  queue: "Available",
+  available: "Available",
+  live: "Live Now",
+  sold: "Sold",
+  unsold: "Unsold",
+  retained: "Retained",
+};
+
+/** LED broadcast label for a player filter status (matches operator filter UI). */
+export function getLedPlayerFilterStatusLabel(
+  status: LivePlayerFilter["status"] | null | undefined,
+): string | null {
+  if (!status || status === "all") return null;
+  return PLAYER_FILTER_STATUS_LABELS[status] ?? status;
+}
+
+/** Human-readable label for the active LED player-wise filter (status, team, category). */
+export function formatLedPlayerFilterLabel(
+  filter: LivePlayerFilter | null | undefined,
+  teams: LedTeam[],
+  categoryName?: string | null,
+): string {
+  if (!filter) return "All Players";
+
+  const parts: string[] = [];
+
+  if (filter.status && filter.status !== "all") {
+    parts.push(getLedPlayerFilterStatusLabel(filter.status) ?? filter.status);
+  }
+  if (filter.teamId) {
+    const team = teams.find((t) => String(t.id) === String(filter.teamId));
+    parts.push(team?.name ?? team?.short ?? "Selected Team");
+  }
+  if (filter.categoryId && categoryName) {
+    parts.push(categoryName);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : "All Players";
 }

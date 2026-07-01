@@ -91,14 +91,14 @@ describe("branding-asset-resolver", () => {
     expect(html).toContain('href="/apple-touch-icon.png?v=5"');
   });
 
-  it("returns max version across icon assets", async () => {
+  it("returns max version across all branding assets", async () => {
     getAssetMock.mockImplementation(async (type: string) => {
       if (type === "FAVICON") return asset("FAVICON", "https://cdn.example/f.png", 2);
       if (type === "PWA_ICON") return asset("PWA_ICON", "https://cdn.example/p.png", 7);
-      if (type === "APPLE_TOUCH_ICON") return asset("APPLE_TOUCH_ICON", "https://cdn.example/a.png", 4);
+      if (type === "OBS_WATERMARK") return asset("OBS_WATERMARK", "https://cdn.example/obs.png", 9);
       return null;
     });
 
-    expect(await getBrandingIconCacheVersion()).toBe(7);
+    expect(await getBrandingIconCacheVersion()).toBe(9);
   });
 });

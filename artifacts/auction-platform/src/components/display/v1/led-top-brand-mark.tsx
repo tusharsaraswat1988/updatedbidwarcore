@@ -12,10 +12,10 @@ export const LED_TOP_BRAND_MAX_WIDTH_PX = 220;
 
 /** OBS broadcast crest — same asset/position as overlay + main LED top strip. */
 export const LedTopBrandMark = memo(function LedTopBrandMark() {
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, iconVersion } = useBranding();
   const logoSrc =
-    getObsBroadcastLogoSrc(logos) ||
-    getObsBrandMarkSrc(logos) ||
+    getObsBroadcastLogoSrc(logos, iconVersion) ||
+    getObsBrandMarkSrc(logos, iconVersion) ||
     OBS_BROADCAST_LOGO_FALLBACK;
 
   if (logoSrc) {

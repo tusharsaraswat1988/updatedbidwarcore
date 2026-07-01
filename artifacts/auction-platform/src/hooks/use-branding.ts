@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 import {
   brandingCacheSignature,
@@ -77,10 +77,12 @@ function resolveAsset(
   return assets?.[type] ?? legacy ?? null;
 }
 
+const BRANDING_POLL_MS = 30_000;
+
 /**
  * useBranding — reads global BidWar branding from /api/branding.
  * Falls back to BRANDING_DEFAULTS when the row has not been customised yet.
- * Intended for use across public-facing screens (viewer, owner app, display).
+ * Polls icon-version so open LED/OBS screens pick up admin logo changes without refresh.
  */
 export function useBranding() {
   const [settings, setSettings] = useState<BrandingSettings>(() => {
@@ -88,23 +90,55 @@ export function useBranding() {
     return cached ? { ...BRANDING_DEFAULTS, ...cached } : BRANDING_DEFAULTS;
   });
   const [loading, setLoading] = useState(() => !readBrandingCache());
+  const iconVersionRef = useRef(settings.iconVersion ?? 0);
 
   useEffect(() => {
-    fetch("/api/branding")
-      .then(r => (r.ok ? r.json() : null))
-      .then((data: BrandingSettings | null) => {
-        if (!data) return;
-        const merged = { ...BRANDING_DEFAULTS, ...data };
-        const cached = readBrandingCache();
-        const changed =
-          !cached || brandingCacheSignature(cached) !== brandingCacheSignature(merged);
-        if (changed) {
-          setSettings(merged);
-          writeBrandingCache(merged);
-        }
-      })
+    let cancelled = false;
+
+    const applyBranding = (data: BrandingSettings) => {
+      const merged = { ...BRANDING_DEFAULTS, ...data };
+      const cached = readBrandingCache();
+      const changed =
+        !cached || brandingCacheSignature(cached) !== brandingCacheSignature(merged);
+      if (changed) {
+        setSettings(merged);
+        writeBrandingCache(merged);
+      }
+      iconVersionRef.current = merged.iconVersion ?? iconVersionRef.current;
+    };
+
+    const fetchBranding = () =>
+      fetch("/api/branding", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: BrandingSettings | null) => {
+          if (!data || cancelled) return;
+          applyBranding(data);
+        });
+
+    void fetchBranding()
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    const poll = window.setInterval(() => {
+      fetch("/api/branding/icon-version", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((payload: { version?: number } | null) => {
+          if (cancelled || !payload) return;
+          const nextVersion = payload.version ?? 0;
+          if (nextVersion > iconVersionRef.current) {
+            iconVersionRef.current = nextVersion;
+            void fetchBranding();
+          }
+        })
+        .catch(() => {});
+    }, BRANDING_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, []);
 
   const assets = settings.assets;
