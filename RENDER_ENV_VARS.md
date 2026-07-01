@@ -31,7 +31,8 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `NODE_ENV` | Yes | `production` | Dashboard / secret | API exits at startup: "NODE_ENV is required". Safe to set on Render; use `--prod=false` in the **build command** (see above) so devDependencies still install at build time. |
 | `DATABASE_URL` | Yes* | `postgresql://user:pass@host/db?sslmode=require` | Secret (Neon/Render Postgres) | API exits: "DATABASE_URL or NEON_DATABASE_URL is required" |
 | `APP_DOMAIN` | Yes | `your-app.onrender.com` or `bidwar.in,www.bidwar.in` | Dashboard | API exits: "APP_DOMAIN is required"; CORS and public URLs break |
-| `APP_PUBLIC_SCHEME` | Yes (prod) | `https` | Dashboard | Defaults to `https` in production; must not be `http` in prod |
+| `APP_URL` | Yes | `https://bidwar.in` | Dashboard | API exits in production without it; OAuth redirect_uri and email links derive from this |
+| `APP_PUBLIC_SCHEME` | Yes (prod) | `https` | Dashboard | Legacy fallback when APP_URL unset; must not be `http` in prod |
 | `SESSION_SECRET` | Yes | 64-char hex (`openssl rand -hex 32`) | Secret | API exits: session secret missing or &lt; 32 chars; auth breaks |
 | `ADMIN_PASSWORD` | Yes | Strong password string | Secret | API exits: "ADMIN_PASSWORD is required"; admin login disabled |
 | `SERVE_STATIC` | Yes | `true` | Dashboard | Without build + static serving, UI returns 404; defaults to `true` in prod |
@@ -70,7 +71,6 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `EMAIL_ENABLED` | No | `true` | Dashboard | Email notifications run in stub mode (logged, not sent) |
 | `RESEND_API_KEY` | No | `re_...` | Secret | Resend API calls fail; emails stubbed when `EMAIL_ENABLED=true` |
 | `MAIL_FROM` | No | `BidWar <notifications@bidwar.in>` | Dashboard | Resend rejects sends without verified sender |
-| `APP_URL` | No | `https://bidwar.in` | Dashboard | Falls back to `APP_PUBLIC_SCHEME` + canonical `APP_DOMAIN` host |
 | `SMS_OTP_ENABLED` | No | `true` | Dashboard | OTP uses default Twilio/BulkSMS path (not SMS-only mode) |
 | `GITHUB_PAT` | No | `ghp_...` | Secret | GitHub workflow trigger in settings returns 500 |
 | `RATE_LIMIT_DISABLED` | No | `false` | Dashboard | Rate limiting enabled (default) |
@@ -113,6 +113,7 @@ NODE_ENV=production
 SERVE_STATIC=true
 DATABASE_URL=postgresql://...
 APP_DOMAIN=your-service.onrender.com
+APP_URL=https://your-service.onrender.com
 APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<openssl rand -hex 32>
 ADMIN_PASSWORD=<strong-password>

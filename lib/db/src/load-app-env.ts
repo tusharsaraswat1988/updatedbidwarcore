@@ -20,33 +20,52 @@ const HOST_MANAGED_SECRET_KEYS = [
   "NEON_DATABASE_URL",
 ] as const;
 
+/** Public URL config — host dashboard must win over committed `.env.production`. */
+const HOST_MANAGED_PUBLIC_KEYS = [
+  "APP_URL",
+  "APP_PUBLIC_SCHEME",
+  "APP_DOMAIN",
+  "NODE_ENV",
+] as const;
+
+type HostManagedKey =
+  | (typeof HOST_MANAGED_SECRET_KEYS)[number]
+  | (typeof HOST_MANAGED_PUBLIC_KEYS)[number];
+
+const HOST_MANAGED_KEYS: readonly HostManagedKey[] = [
+  ...HOST_MANAGED_SECRET_KEYS,
+  ...HOST_MANAGED_PUBLIC_KEYS,
+];
+
 function isManagedHost(): boolean {
   return !!(
     process.env.RENDER
     || process.env.RAILWAY_ENVIRONMENT
     || process.env.FLY_APP_NAME
     || process.env.VERCEL
+    || process.env.REPL_ID
   );
 }
 
-function snapshotHostSecrets(): Partial<Record<(typeof HOST_MANAGED_SECRET_KEYS)[number], string>> {
-  const snapshot: Partial<Record<(typeof HOST_MANAGED_SECRET_KEYS)[number], string>> = {};
-  for (const key of HOST_MANAGED_SECRET_KEYS) {
+function snapshotHostEnv(): Partial<Record<HostManagedKey, string>> {
+  const snapshot: Partial<Record<HostManagedKey, string>> = {};
+  for (const key of HOST_MANAGED_KEYS) {
     const value = process.env[key]?.trim();
     if (value) snapshot[key] = value;
   }
   return snapshot;
 }
 
-/** On Render/Railway/etc., never let `.env.production` override dashboard secrets. */
-function restoreHostSecrets(
-  snapshot: Partial<Record<(typeof HOST_MANAGED_SECRET_KEYS)[number], string>>,
-): void {
-  for (const key of HOST_MANAGED_SECRET_KEYS) {
+/** On Render/Railway/etc., never let `.env.production` override dashboard env. */
+function restoreHostEnv(snapshot: Partial<Record<HostManagedKey, string>>): void {
+  for (const key of HOST_MANAGED_KEYS) {
     const hostValue = snapshot[key];
     if (hostValue) {
       process.env[key] = hostValue;
-    } else if (key === "ADMIN_PASSWORD" || key === "ADMIN_DATA_PASSWORD") {
+    } else if (
+      key === "ADMIN_PASSWORD"
+      || key === "ADMIN_DATA_PASSWORD"
+    ) {
       delete process.env[key];
     }
   }
@@ -82,13 +101,13 @@ export function loadAppEnv(options?: {
     return { loaded: false, path: envPath, file, nodeEnv, repoRoot };
   }
 
-  const hostSecrets =
-    nodeEnv === "production" && isManagedHost() ? snapshotHostSecrets() : {};
+  const hostEnv =
+    nodeEnv === "production" && isManagedHost() ? snapshotHostEnv() : {};
 
   loadEnv({ path: envPath, override: false });
 
   if (nodeEnv === "production" && isManagedHost()) {
-    restoreHostSecrets(hostSecrets);
+    restoreHostEnv(hostEnv);
   }
 
   return { loaded: true, path: envPath, file, nodeEnv, repoRoot };

@@ -47,6 +47,20 @@ function assertProductionEnv(): void {
   }
 
   pass("Production env: no localhost in APP_DOMAIN / CORS lists");
+
+  const appUrl = process.env.APP_URL?.trim().replace(/\/+$/, "");
+  if (!appUrl) {
+    fail("APP_URL is required in production (e.g. https://bidwar.in)");
+  }
+  if (!appUrl.startsWith("https://")) {
+    fail(`APP_URL must use https in production (got: ${appUrl})`);
+  }
+  if (base && appUrl !== base) {
+    console.warn(
+      `⚠ APP_URL (${appUrl}) differs from VERIFY_BASE_URL (${base}) — they should match.`,
+    );
+  }
+  pass(`Production env: APP_URL=${appUrl}`);
 }
 
 async function main(): Promise<void> {

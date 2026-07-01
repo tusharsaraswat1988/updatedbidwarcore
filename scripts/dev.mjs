@@ -23,6 +23,34 @@ const FRONTEND_PORT_STR = String(FRONTEND_PORT);
 const OWNER_APP_PORT_STR = String(OWNER_APP_PORT);
 const SCORING_APP_PORT_STR = String(SCORING_APP_PORT);
 
+/** Local dev public origin — always overrides production APP_* from .env so OAuth stays on localhost. */
+function resolveDevPublicEnv(frontendPort) {
+  const explicit = process.env.DEV_PUBLIC_ORIGIN?.trim()?.replace(/\/+$/, "");
+  if (explicit) {
+    let hostname;
+    try {
+      hostname = new URL(
+        explicit.includes("://") ? explicit : `http://${explicit}`,
+      ).host;
+    } catch {
+      hostname = `localhost:${frontendPort}`;
+    }
+    return {
+      APP_URL: explicit.includes("://") ? explicit : `http://${explicit}`,
+      APP_DOMAIN: hostname,
+      APP_PUBLIC_SCHEME: explicit.startsWith("https://") ? "https" : "http",
+    };
+  }
+  const origin = `http://localhost:${frontendPort}`;
+  return {
+    APP_URL: origin,
+    APP_DOMAIN: `localhost:${frontendPort}`,
+    APP_PUBLIC_SCHEME: "http",
+  };
+}
+
+const devPublicEnv = resolveDevPublicEnv(FRONTEND_PORT);
+
 function devEnv(overrides) {
   return {
     ...process.env,
@@ -32,8 +60,7 @@ function devEnv(overrides) {
     PLAYER_SPORT_PROFILES_ENABLED:
       process.env.PLAYER_SPORT_PROFILES_ENABLED?.trim() || "true",
     SERVE_STATIC: "false",
-    APP_DOMAIN: process.env.APP_DOMAIN?.trim() || "localhost",
-    APP_PUBLIC_SCHEME: process.env.APP_PUBLIC_SCHEME?.trim() || "http",
+    ...devPublicEnv,
     API_PORT: API_PORT_STR,
     FRONTEND_PORT: FRONTEND_PORT_STR,
     OWNER_APP_PORT: OWNER_APP_PORT_STR,

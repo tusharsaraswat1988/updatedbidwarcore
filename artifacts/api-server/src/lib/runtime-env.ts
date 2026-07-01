@@ -50,6 +50,31 @@ function defaultPublicScheme(isProduction: boolean): "http" | "https" {
   return isProduction ? "https" : "http";
 }
 
+/** Canonical public origin from APP_URL when set (production single source of truth). */
+function parseAppUrlOrigin(raw: string | undefined): string | null {
+  const trimmed = raw?.trim().replace(/\/+$/, "");
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    if (!url.hostname) return null;
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function schemeFromOrigin(origin: string): "http" | "https" {
+  return origin.startsWith("https://") ? "https" : "http";
+}
+
+function resolvePublicOrigin(
+  appUrlOrigin: string | null,
+  publicScheme: "http" | "https",
+  canonicalHost: string,
+): string {
+  return appUrlOrigin ?? `${publicScheme}://${canonicalHost}`;
+}
+
 function buildCorsOrigins(
   hosts: string[],
   scheme: "http" | "https",
@@ -75,9 +100,16 @@ function buildCachedConfig(): RuntimeConfig {
     process.env.DATABASE_URL!.trim();
 
   const appHosts = parseCommaList(process.env.APP_DOMAIN);
-  const publicScheme = defaultPublicScheme(isProduction);
+  const appUrlOrigin = parseAppUrlOrigin(process.env.APP_URL);
+  const publicScheme = appUrlOrigin
+    ? schemeFromOrigin(appUrlOrigin)
+    : defaultPublicScheme(isProduction);
   const canonicalHost = appHosts[0]!;
-  const publicOrigin = `${publicScheme}://${canonicalHost}`;
+  const publicOrigin = resolvePublicOrigin(
+    appUrlOrigin,
+    publicScheme,
+    canonicalHost,
+  );
 
   const serveStatic =
     process.env.SERVE_STATIC === "true" ||
@@ -185,6 +217,30 @@ export function assertRuntimeEnv(): RuntimeConfig {
     errors.push("APP_PUBLIC_SCHEME must be https in production");
   }
 
+  const appUrlRaw = process.env.APP_URL?.trim();
+  if (appUrlRaw) {
+    const appOrigin = parseAppUrlOrigin(appUrlRaw);
+    if (!appOrigin) {
+      errors.push(
+        "APP_URL must be a valid absolute URL (e.g. https://bidwar.in)",
+      );
+    } else if (isProduction) {
+      if (!appOrigin.startsWith("https://")) {
+        errors.push("APP_URL must use https in production");
+      }
+      const hostname = new URL(appOrigin).hostname;
+      if (isDisallowedProductionHost(hostname)) {
+        errors.push(
+          `APP_URL hostname "${hostname}" is not allowed in production — use your public domain`,
+        );
+      }
+    }
+  } else if (isProduction) {
+    errors.push(
+      "APP_URL is required in production (e.g. https://bidwar.in) — used for OAuth callbacks and email links",
+    );
+  }
+
   if (isProduction && process.env.BYPASS_OTP === "true") {
     errors.push("BYPASS_OTP must not be true in production");
   }
@@ -201,6 +257,19 @@ export function assertRuntimeEnv(): RuntimeConfig {
   }
 
   cached = buildCachedConfig();
+
+  if (cached.isProduction && !cached.publicOrigin.startsWith("https://")) {
+    console.error(
+      `[bidwar] Production public origin must be https (got: ${cached.publicOrigin}). ` +
+        "Set APP_URL=https://your-domain in the host dashboard.",
+    );
+    process.exit(1);
+  }
+
+  const googleOAuthRedirect = buildPublicUrl("/api/auth/google/callback");
+  console.info(`[bidwar] Public origin: ${cached.publicOrigin}`);
+  console.info(`[bidwar] Google OAuth redirect URI: ${googleOAuthRedirect}`);
+
   return cached;
 }
 
