@@ -44,6 +44,12 @@ export async function tryCompleteGoogleSheetsOAuth(req: Request, res: Response):
 
   if (!oauthState?.ownerKey) return false;
 
+  // Shared callback URL — if this round-trip matches organizer login state, defer to auth.ts.
+  const loginState = req.oauthState?.state;
+  if (loginState && returnedState && safeCompare(loginState, returnedState)) {
+    return false;
+  }
+
   if (!code) {
     clearGoogleSheetsOAuthCookie(res);
     res.redirect("/organizer?error=google_sheets_cancelled");
@@ -52,7 +58,9 @@ export async function tryCompleteGoogleSheetsOAuth(req: Request, res: Response):
 
   const pendingNext = sanitizeSheetsOAuthNext(oauthState.next);
   if (!oauthState.state || !returnedState || !safeCompare(oauthState.state, returnedState)) {
+    // Stale Sheets cookie must not block organizer Google login on the same callback URI.
     clearGoogleSheetsOAuthCookie(res);
+    if (loginState) return false;
     res.redirect("/organizer?error=google_sheets_state_mismatch");
     return true;
   }

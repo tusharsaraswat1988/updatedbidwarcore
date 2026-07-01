@@ -696,6 +696,10 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   google_token_failed: "Google sign-in failed. Please try again.",
   google_failed: "Google sign-in failed. Please try again.",
   google_state_mismatch: "Sign-in session expired or invalid. Please try again.",
+  google_redirect_mismatch:
+    "Google OAuth redirect URI is not registered. Add the URI shown below to Google Cloud Console → Credentials → your OAuth client → Authorized redirect URIs.",
+  google_sheets_state_mismatch:
+    "Google Sheets connection expired. Try sign-in again, or disconnect Sheets and retry.",
   not_configured: "Google login is not configured yet.",
   no_email: "Your Google account did not provide an email address.",
 };
@@ -705,10 +709,11 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 const SESSION_SAVE_ERROR =
   "Sign-in worked but your browser did not save the session. Clear cookies for this site and try again.";
 
-function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; next?: string }) {
+function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; initialRedirectUriHint?: string; next?: string }) {
   const [view, setView] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError ?? "");
+  const [redirectUriHint] = useState(initialRedirectUriHint ?? "");
   const [showPw, setShowPw] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
@@ -1012,6 +1017,11 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                     </p>
                   )}
                   {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                  {redirectUriHint ? (
+                    <p className="text-xs text-muted-foreground break-all rounded-md border border-border/50 bg-muted/30 px-3 py-2 font-mono">
+                      {redirectUriHint}
+                    </p>
+                  ) : null}
                   <Button type="submit" className="w-full" disabled={signInDisabled}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     {cooldownSec > 0 ? `Sign In (${cooldownSec}s)` : "Sign In"}
@@ -1789,10 +1799,14 @@ export default function OrganizerPortal() {
 
   const [googleError, setGoogleError] = useState("");
 
+  const [googleRedirectUriHint, setGoogleRedirectUriHint] = useState("");
+
   useEffect(() => {
     const params = new URLSearchParams(search);
     const err = params.get("error");
     if (err) {
+      const redirectUri = params.get("oauth_redirect_uri");
+      setGoogleRedirectUriHint(redirectUri ?? "");
       setGoogleError(GOOGLE_ERROR_MESSAGES[err] ?? "Google sign-in failed. Please try again.");
       window.history.replaceState({}, "", "/organizer");
     } else if (params.get("require_mobile") === "1") {
@@ -1900,7 +1914,7 @@ export default function OrganizerPortal() {
           </motion.div>
         ) : (
           <motion.div key="auth" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} next={nextParam} />
+            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} initialRedirectUriHint={googleRedirectUriHint} next={nextParam} />
           </motion.div>
         )}
       </AnimatePresence>

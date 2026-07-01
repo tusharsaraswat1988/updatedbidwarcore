@@ -1612,8 +1612,31 @@ router.get("/auth/google/callback", async (req, res) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: "authorization_code" }),
     });
-    const tokens = await tokenRes.json() as { access_token?: string; error?: string };
-    if (!tokens.access_token) { res.redirect("/organizer?error=google_token_failed"); return; }
+    const tokens = await tokenRes.json() as {
+      access_token?: string;
+      error?: string;
+      error_description?: string;
+    };
+    if (!tokens.access_token) {
+      req.log.warn(
+        {
+          googleError: tokens.error,
+          googleErrorDescription: tokens.error_description,
+          redirectUri,
+        },
+        "Google OAuth token exchange failed",
+      );
+      const errCode =
+        tokens.error === "redirect_uri_mismatch"
+          ? "google_redirect_mismatch"
+          : "google_token_failed";
+      const devHint =
+        process.env.NODE_ENV !== "production"
+          ? `&oauth_redirect_uri=${encodeURIComponent(redirectUri)}`
+          : "";
+      res.redirect(`/organizer?error=${errCode}${devHint}`);
+      return;
+    }
 
     const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
