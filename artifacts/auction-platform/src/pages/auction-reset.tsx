@@ -127,6 +127,7 @@ export default function AuctionReset() {
               <li>All bid records and live bid feed history for this tournament</li>
               <li>All AI intelligence data (replay, behavior, demand, and briefing reports)</li>
               <li>All purse usage for every team (back to full purse)</li>
+              <li>All active purse boosters (teams return to original purse capacity)</li>
             </ul>
             <p className="text-sm text-muted-foreground pt-1">
               Retained players and their reserved purse amounts will{" "}

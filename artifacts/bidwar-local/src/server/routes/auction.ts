@@ -908,12 +908,26 @@ export function createAuctionRouter(db: LocalDb) {
         .reduce((s, p) => s + (p.retainedPrice ?? 0), 0);
       await db.update(teamsTable).set({ purseUsed: retainedCost }).where(eq(teamsTable.id, team.id));
     }
+    const resetNow = new Date().toISOString();
+    await db.update(purseBoostersTable).set({
+      status: "cancelled",
+      cancelledByType: "tournament_organizer",
+      cancelledByLabel: "Local Reset",
+      cancelledAt: resetNow,
+      cancelReason: "Cancelled during auction reset",
+      syncState: "pending",
+    }).where(and(
+      eq(purseBoostersTable.tournamentId, tid),
+      eq(purseBoostersTable.status, "active"),
+    ));
     await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
     await db.update(auctionSessionsTable).set({
       status: "idle", currentPlayerId: null, currentBid: null, currentBidTeamId: null,
       timerEndsAt: null, soldPlayersCount: 0, unsoldPlayersCount: 0,
       deferredPlayerIds: null, randomDrawQueue: null, reAuctionStrategyJson: null,
       lastAction: "Reset complete — ready for live auction",
+      lastPurseBoosterJson: null,
+      lastLedToastJson: null,
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     await db.update(tournamentsTable).set({ status: "setup" }).where(eq(tournamentsTable.id, tid));
     res.json(await broadcastState(tid, ["bids", "purses", "players"]));

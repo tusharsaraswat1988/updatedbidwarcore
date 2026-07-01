@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen, Zap } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
@@ -683,18 +683,27 @@ export default function Teams() {
                       const minSquad = tp?.minimumSquadSize ?? tournament?.minimumSquadSize ?? 0;
                       const maxSquad = tp?.maximumSquadSize ?? 0;
                       const maxReached = maxSquad > 0 && bought >= maxSquad;
-                      const minMet = minSquad === 0 || slotsNeeded === 0;
                       const canBuyMore = maxSquad > 0 ? maxSquad - bought : null;
                       const topName = tp?.topPlayerName ?? null;
                       const topAmt = tp?.topPlayerAmount ?? null;
+                      const squadLine = maxSquad <= 0
+                        ? `${bought} bought${retained > 0 ? ` (${retained} retained)` : ""}`
+                        : maxReached
+                        ? `${bought}/${maxSquad} · squad full`
+                        : slotsNeeded > 0
+                          ? `${bought}/${maxSquad} · need ${slotsNeeded} more (min ${minSquad})`
+                          : minSquad > 0
+                            ? `${bought}/${maxSquad} · min met${canBuyMore !== null ? ` · ${canBuyMore} left` : ""}`
+                            : `${bought}/${maxSquad}${canBuyMore !== null ? ` · ${canBuyMore} left` : ""}`;
                       return (
                         <div className="space-y-3 pt-3 border-t border-border">
-                          {/* Bidding status */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                              <Wallet className="w-3.5 h-3.5" />
-                              <span>Capacity: <span className="text-foreground font-semibold">{formatShortIndianRupee(effectiveCapacity)}</span></span>
-                            </div>
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            {boosterTotal > 0 && (
+                              <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] gap-1">
+                                <Zap className="w-3 h-3" />
+                                Booster +{formatShortIndianRupee(boosterTotal)}
+                              </Badge>
+                            )}
                             <Badge
                               variant={team.isBiddingEnabled ? "default" : "secondary"}
                               className={team.isBiddingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20 text-[10px]" : "text-[10px]"}
@@ -703,22 +712,25 @@ export default function Teams() {
                             </Badge>
                           </div>
 
-                          {/* Purse breakdown grid */}
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Original</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(originalPurse)}</p>
-                            </div>
-                            <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2">
-                              <p className="text-[10px] text-amber-400/80 uppercase tracking-wider mb-0.5">Boosters</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-amber-400">+{formatShortIndianRupee(boosterTotal)}</p>
-                            </div>
-                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Capacity</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(effectiveCapacity)}</p>
-                            </div>
-                          </div>
                           <div className="grid grid-cols-2 gap-2">
+                            <div className={`rounded-lg border px-3 py-2 col-span-2 ${boosterTotal > 0 ? "bg-amber-500/6 border-amber-500/25" : "bg-muted/20 border-border"}`}>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                <Wallet className="w-2.5 h-2.5" /> Budget
+                              </p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(effectiveCapacity)}</p>
+                              {boosterTotal > 0 ? (
+                                <p className="text-[10px] mt-0.5">
+                                  <span className="text-muted-foreground">{formatShortIndianRupee(originalPurse)} base</span>
+                                  <span className="text-amber-400 font-semibold"> + {formatShortIndianRupee(boosterTotal)} booster</span>
+                                </p>
+                              ) : (
+                                <p className="text-[10px] text-muted-foreground/70 mt-0.5">Original purse · no active booster</p>
+                              )}
+                            </div>
+                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Spent</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(team.purseUsed || 0)}</p>
+                            </div>
                             <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</p>
                               <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(purseRemaining)}</p>
@@ -728,10 +740,6 @@ export default function Teams() {
                               <p className={`text-sm font-bold font-mono tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
                                 {maxReached ? "Squad full" : formatShortIndianRupee(spendable)}
                               </p>
-                            </div>
-                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Spent</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(team.purseUsed || 0)}</p>
                             </div>
                             {reserved > 0 ? (
                               <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2">
@@ -749,27 +757,12 @@ export default function Teams() {
                             )}
                           </div>
 
-                          {/* Squad status */}
                           <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                                <span className={`text-xs font-semibold ${maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : minSquad > 0 ? "text-green-400" : "text-foreground"}`}>
-                                  {bought} bought{retained > 0 ? ` (${retained} retained)` : ""}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px]">
-                                {minSquad > 0 && (
-                                  <span className={slotsNeeded > 0 ? "text-amber-400" : "text-green-400"}>
-                                    min {minSquad}{slotsNeeded > 0 ? ` · need ${slotsNeeded}` : " met"}
-                                  </span>
-                                )}
-                                {maxSquad > 0 && (
-                                  <span className={maxReached ? "text-red-400 font-bold" : "text-muted-foreground"}>
-                                    max {maxSquad}{canBuyMore !== null && !maxReached ? ` · ${canBuyMore} left` : ""}
-                                  </span>
-                                )}
-                              </div>
+                            <div className="flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className={`text-xs font-semibold ${maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : minSquad > 0 ? "text-green-400" : "text-foreground"}`}>
+                                {squadLine}
+                              </span>
                             </div>
                             {maxSquad > 0 && (
                               <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
@@ -778,15 +771,6 @@ export default function Teams() {
                                   style={{ width: `${Math.min(100, (bought / maxSquad) * 100)}%` }}
                                 />
                               </div>
-                            )}
-                            {!minMet && minSquad > 0 && (
-                              <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
-                                <ShieldAlert className="w-2.5 h-2.5" />
-                                {slotsNeeded} more player{slotsNeeded !== 1 ? "s" : ""} required to meet minimum squad
-                              </p>
-                            )}
-                            {minMet && minSquad > 0 && (
-                              <p className="text-[10px] text-green-400/70">Minimum squad requirement met</p>
                             )}
                           </div>
 

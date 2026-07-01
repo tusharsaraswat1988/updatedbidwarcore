@@ -18,6 +18,7 @@ import {
   tournamentsTable,
   categoriesTable,
   organizersTable,
+  purseBoostersTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, inArray, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -2185,6 +2186,23 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
         .where(eq(teamsTable.id, team.id));
     }
 
+    const resetBoosterCancelReason = `Cancelled during auction reset: ${auditReason}`;
+    await tx
+      .update(purseBoostersTable)
+      .set({
+        status: "cancelled",
+        cancelledByType: resetActor === "super_admin" ? "super_admin" : "tournament_organizer",
+        cancelledByLabel: resetActor === "super_admin" ? "Super Admin" : "Organizer",
+        cancelledAt: new Date(),
+        cancelReason: resetBoosterCancelReason,
+      })
+      .where(
+        and(
+          eq(purseBoostersTable.tournamentId, tid),
+          eq(purseBoostersTable.status, "active"),
+        ),
+      );
+
     await tx.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
 
     // Trial resets must not leave behavioral intelligence — it would pollute live analytics.
@@ -2214,6 +2232,8 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
         fortuneWheelActive: false,
         wheelSpinning: false,
         wheelWinner: null,
+        lastPurseBoosterJson: null,
+        lastLedToastJson: null,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
 
