@@ -599,7 +599,7 @@ export default function Landing() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <button
-              onClick={() => navigate("/organizer")}
+              onClick={() => navigate("/organizer?tab=signup")}
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-primary text-black font-display font-black text-lg hover:bg-primary/90 transition-all hover:shadow-[0_0_40px_rgba(234,179,8,0.4)] flex items-center justify-center gap-2"
             >
               Start Free <ArrowRight className="w-5 h-5" />
@@ -1044,7 +1044,7 @@ export default function Landing() {
               const handlePlanSelect = () =>
                 p.discountedPrice
                   ? setPayingPlan({ label: p.label, price: p.price, discountedPrice: p.discountedPrice })
-                  : navigate("/organizer");
+                  : navigate("/organizer?tab=signup");
 
               return (
               <motion.div
@@ -1457,7 +1457,7 @@ export default function Landing() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
-                  onClick={() => navigate("/organizer")}
+                  onClick={() => navigate("/organizer?tab=signup")}
                   className="px-8 py-4 rounded-xl bg-primary text-black font-display font-black text-lg hover:bg-primary/90 transition-all hover:shadow-[0_0_40px_rgba(234,179,8,0.4)] flex items-center justify-center gap-2"
                 >
                   Create Free Account <ChevronRight className="w-5 h-5" />

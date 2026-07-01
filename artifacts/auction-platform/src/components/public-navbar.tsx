@@ -130,7 +130,7 @@ export function PublicNavbar() {
               Sign In
             </button>
             <button
-              onClick={() => navigate("/organizer")}
+              onClick={() => navigate("/organizer?tab=signup")}
               className="inline-flex px-3 py-2 sm:px-4 rounded-lg text-black text-sm font-medium transition-colors"
               style={{ backgroundColor: colors.primary }}
             >
@@ -208,7 +208,7 @@ export function PublicNavbar() {
                   Sign In
                 </button>
                 <button
-                  onClick={() => { closeMobileMenu(); navigate("/organizer"); }}
+                  onClick={() => { closeMobileMenu(); navigate("/organizer?tab=signup"); }}
                   className="w-full px-4 py-3 rounded-lg text-black text-sm font-semibold transition-colors"
                   style={{ backgroundColor: colors.primary }}
                 >

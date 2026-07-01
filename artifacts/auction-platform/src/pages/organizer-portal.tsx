@@ -709,8 +709,19 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 const SESSION_SAVE_ERROR =
   "Sign-in worked but your browser did not save the session. Clear cookies for this site and try again.";
 
-function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; initialRedirectUriHint?: string; next?: string }) {
-  const [view, setView] = useState<"login" | "signup" | "forgot">("login");
+function readAuthTabFromLocation(): "login" | "signup" {
+  try {
+    return new URLSearchParams(window.location.search).get("tab") === "signup" ? "signup" : "login";
+  } catch {
+    return "login";
+  }
+}
+
+function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initialView = "login" }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; initialRedirectUriHint?: string; next?: string; initialView?: "login" | "signup" }) {
+  const [view, setView] = useState<"login" | "signup" | "forgot">(() => {
+    const fromUrl = readAuthTabFromLocation();
+    return fromUrl === "signup" ? "signup" : initialView;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError ?? "");
   const [redirectUriHint] = useState(initialRedirectUriHint ?? "");
@@ -1774,6 +1785,9 @@ export default function OrganizerPortal() {
     try { return new URLSearchParams(search).get("next") ?? ""; } catch { return ""; }
   })();
 
+  // Capture before auth-check effects strip ?tab=signup from the URL.
+  const [authInitialView] = useState<"login" | "signup">(readAuthTabFromLocation);
+
   async function refresh(): Promise<boolean> {
     const me = await checkOrganizerAccountAuth();
     if (me.loggedIn && me.organizer) {
@@ -1802,7 +1816,7 @@ export default function OrganizerPortal() {
   const [googleRedirectUriHint, setGoogleRedirectUriHint] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(search);
+    const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
     if (err) {
       const redirectUri = params.get("oauth_redirect_uri");
@@ -1814,6 +1828,18 @@ export default function OrganizerPortal() {
       window.history.replaceState({}, "", "/organizer");
     }
   }, []);
+
+  useEffect(() => {
+    if (checking || organizer) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") !== "signup") return;
+    const next = params.get("next");
+    window.history.replaceState(
+      {},
+      "",
+      next ? `/organizer?next=${encodeURIComponent(next)}` : "/organizer",
+    );
+  }, [checking, organizer]);
 
   useEffect(() => {
     void refresh().then((loggedIn) => {
@@ -1914,7 +1940,7 @@ export default function OrganizerPortal() {
           </motion.div>
         ) : (
           <motion.div key="auth" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} initialRedirectUriHint={googleRedirectUriHint} next={nextParam} />
+            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} initialRedirectUriHint={googleRedirectUriHint} next={nextParam} initialView={authInitialView} />
           </motion.div>
         )}
       </AnimatePresence>

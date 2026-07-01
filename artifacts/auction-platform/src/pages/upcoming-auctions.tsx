@@ -272,7 +272,7 @@ export default function UpcomingAuctions() {
               Set up a professional franchise auction in under 15 minutes. Free trial available.
             </p>
             <button
-              onClick={() => navigate("/organizer")}
+              onClick={() => navigate("/organizer?tab=signup")}
               className="px-8 py-3.5 rounded-xl bg-primary text-black font-display font-black text-base hover:bg-primary/90 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.35)]"
             >
               Start Free on BidWar

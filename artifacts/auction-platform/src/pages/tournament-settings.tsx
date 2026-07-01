@@ -64,6 +64,17 @@ import {
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 
+/** Inline base64 URLs cannot be persisted; treat as unset (platform default). */
+function sanitizePersistedMediaUrl(url: unknown): string | null {
+  const trimmed = typeof url === "string" ? url.trim() : "";
+  if (!trimmed || trimmed.startsWith("data:")) return null;
+  return trimmed;
+}
+
+function isPersistableMediaUrl(url: unknown): url is string {
+  return sanitizePersistedMediaUrl(url) !== null;
+}
+
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
   const [, navigate] = useLocation();
@@ -164,13 +175,13 @@ export default function TournamentSettings() {
         || (t.breakEndMusicEnabled ?? false),
       masterVolume: "100",
       countdownSoundEnabled: t.countdownSoundEnabled ?? true,
-      countdownSoundUrl: t.countdownSoundUrl ?? "",
+      countdownSoundUrl: isPersistableMediaUrl(t.countdownSoundUrl) ? t.countdownSoundUrl : "",
       countdownSoundVolume: String(t.countdownSoundVolume ?? 70),
       soldSoundEnabled: t.soldSoundEnabled ?? true,
-      soldSoundUrl: t.soldSoundUrl ?? "",
+      soldSoundUrl: isPersistableMediaUrl(t.soldSoundUrl) ? t.soldSoundUrl : "",
       soldSoundVolume: String(t.soldSoundVolume ?? 80),
       breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
-      breakEndMusicUrl: String(t.breakEndMusicUrl ?? ""),
+      breakEndMusicUrl: isPersistableMediaUrl(t.breakEndMusicUrl) ? String(t.breakEndMusicUrl) : "",
       breakEndMusicVolume: String(t.breakEndMusicVolume ?? 80),
       mainBannerUrl: t.mainBannerUrl ?? "",
       mainBannerPublicId: (t as { mainBannerPublicId?: string | null }).mainBannerPublicId ?? "",
@@ -181,21 +192,21 @@ export default function TournamentSettings() {
     setEditForm(initialForm);
 
     setCountdownFileName(
-      t.countdownSoundUrl
+      isPersistableMediaUrl(t.countdownSoundUrl)
         ? "Custom file uploaded"
         : (t as { platformAudioDefaults?: { countdownSoundUrl?: string | null } }).platformAudioDefaults?.countdownSoundUrl
           ? "Platform default"
           : "",
     );
     setSoldFileName(
-      t.soldSoundUrl
+      isPersistableMediaUrl(t.soldSoundUrl)
         ? "Custom file uploaded"
         : (t as { platformAudioDefaults?: { soldSoundUrl?: string | null } }).platformAudioDefaults?.soldSoundUrl
           ? "Platform default"
           : "",
     );
     setBreakEndFileName(
-      t.breakEndMusicUrl
+      isPersistableMediaUrl(t.breakEndMusicUrl)
         ? "Custom file uploaded"
         : (t as { platformAudioDefaults?: { breakEndMusicUrl?: string | null } }).platformAudioDefaults?.breakEndMusicUrl
           ? "Platform default"
@@ -470,12 +481,6 @@ export default function TournamentSettings() {
     if (audioUploadingField) {
       return "Wait for audio upload to finish";
     }
-    for (const field of ["countdownSoundUrl", "soldSoundUrl", "breakEndMusicUrl"] as const) {
-      const url = (editForm[field] as string).trim();
-      if (url.startsWith("data:")) {
-        return "Re-upload audio files — please select your files again";
-      }
-    }
     if (editForm.enableRegistrationPayment === true) {
       const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
       const upi = (editForm.upiId as string).trim();
@@ -564,15 +569,15 @@ export default function TournamentSettings() {
             || editForm.breakEndMusicEnabled === true,
           masterVolume: 100,
           countdownSoundEnabled: editForm.countdownSoundEnabled === true,
-          countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+          countdownSoundUrl: sanitizePersistedMediaUrl(editForm.countdownSoundUrl),
           countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
           soldSoundEnabled: editForm.soldSoundEnabled === true,
-          soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+          soldSoundUrl: sanitizePersistedMediaUrl(editForm.soldSoundUrl),
           soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
           breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
-          breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+          breakEndMusicUrl: sanitizePersistedMediaUrl(editForm.breakEndMusicUrl),
           breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
-          mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
+          mainBannerUrl: sanitizePersistedMediaUrl(editForm.mainBannerUrl),
           mainBannerPublicId: (editForm.mainBannerPublicId as string) || null,
           mainBannerEnabled: editForm.mainBannerEnabled === true,
           mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
@@ -1221,36 +1226,34 @@ export default function TournamentSettings() {
           <SettingsTabPanel className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SettingsCard
-                title="Auction Units"
-                description="Choose whether bids and purse use Rupee (₹) or Points (Pt.) across LED, OBS, owner app, and reports."
-                icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
-              >
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1">
-                    Units *
-                    <FieldTooltip text="Rupee shows ₹ everywhere (IPL-style auctions). Points shows Pt. for fantasy/corporate leagues that use a points budget instead of money." />
-                  </Label>
-                  <Select
-                    value={normalizeAuctionUnit(editForm.auctionUnit as string)}
-                    onValueChange={(value) => setEditForm((f) => ({ ...f, auctionUnit: value }))}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent className="dark">
-                      {AUCTION_UNIT_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </SettingsCard>
-
-              <SettingsCard
                 title="Budget & Pricing"
                 description="Team purse, minimum player value, bid increment, and optional tiered raise rules."
                 icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
               >
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3 pb-3 border-b border-border/50">
+                  <div className="space-y-1.5 sm:w-44 shrink-0">
+                    <Label className="flex items-center gap-1">
+                      Units *
+                      <FieldTooltip text="Rupee shows ₹ everywhere (IPL-style auctions). Points shows Pt. for fantasy/corporate leagues that use a points budget instead of money." />
+                    </Label>
+                    <Select
+                      value={normalizeAuctionUnit(editForm.auctionUnit as string)}
+                      onValueChange={(value) => setEditForm((f) => ({ ...f, auctionUnit: value }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent className="dark">
+                        {AUCTION_UNIT_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed sm:pb-2">
+                    Applies to LED, OBS, owner app, and reports.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="flex items-center gap-1">
@@ -1262,7 +1265,7 @@ export default function TournamentSettings() {
                   </div>
                   <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
                     <Label className="flex items-center gap-1">
-                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">{minValueFieldLabel(normalizeAuctionUnit(editForm.auctionUnit as string))} *</HintLabel>
+                      {minValueFieldLabel(normalizeAuctionUnit(editForm.auctionUnit as string))} *
                       <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
                     </Label>
                     <Input type="number" value={editForm.minBid as string || ""} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} placeholder="e.g. 10000" />

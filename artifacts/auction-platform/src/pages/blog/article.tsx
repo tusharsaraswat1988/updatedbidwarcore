@@ -141,7 +141,7 @@ export default function ArticlePage({ slug }: ArticlePageProps) {
                 Start free with 2 teams — no payment required.
               </p>
               <a
-                href="/organizer"
+                href="/organizer?tab=signup"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-black text-sm font-bold hover:bg-primary/90 transition-all"
               >
                 Start Free Trial
@@ -172,7 +172,7 @@ export default function ArticlePage({ slug }: ArticlePageProps) {
                 Run your first auction with up to 2 teams at no cost.
               </p>
               <a
-                href="/organizer"
+                href="/organizer?tab=signup"
                 className="block w-full py-2 rounded-lg bg-primary text-black text-xs font-bold hover:bg-primary/90 transition-all"
               >
                 Get Started

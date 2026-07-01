@@ -1012,7 +1012,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.12 }} className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
-                onClick={() => navigate("/organizer")}
+                onClick={() => navigate("/organizer?tab=signup")}
                 className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-primary text-black font-black text-base hover:bg-primary/90 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.35)] flex items-center justify-center gap-2"
               >
                 Start Free <ArrowRight className="w-4 h-4" />
@@ -1284,7 +1284,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
             </div>
             <div className="mt-6 text-center">
               <button
-                onClick={() => navigate("/organizer")}
+                onClick={() => navigate("/organizer?tab=signup")}
                 className="px-6 py-3 rounded-xl bg-primary text-black font-bold text-sm hover:bg-primary/90 transition-all inline-flex items-center gap-2"
               >
                 Start Free <ArrowRight className="w-4 h-4" />
@@ -1350,7 +1350,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
-                    onClick={() => navigate("/organizer")}
+                    onClick={() => navigate("/organizer?tab=signup")}
                     className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-primary text-black font-black text-base hover:bg-primary/90 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.4)] inline-flex items-center justify-center gap-2"
                   >
                     Start Free <ArrowRight className="w-4 h-4" />
