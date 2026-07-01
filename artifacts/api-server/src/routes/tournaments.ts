@@ -201,6 +201,7 @@ router.post("/tournaments", async (req, res) => {
       logoUrl: d.logoUrl ?? null,
       logoPublicId: d.logoPublicId ?? null,
       sponsorLogos: validatedSponsorLogos ?? null,
+      auctionUnit: d.auctionUnit ?? "rupee",
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
       bidIncrement: d.bidIncrement ?? 100000,
@@ -262,6 +263,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     logoUrl: cloudinaryLogoUrl,
     logoPublicId: z.string().optional().nullable(),
     sponsorLogos: z.string().optional(),
+    auctionUnit: z.enum(["rupee", "points"]).optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
     bidIncrement: z.number().int().optional(),
@@ -409,6 +411,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     );
     updates.sponsorLogos = sponsorCheck.value ?? null;
   }
+  if (d.auctionUnit !== undefined) updates.auctionUnit = d.auctionUnit;
   if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;

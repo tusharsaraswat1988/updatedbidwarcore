@@ -22,7 +22,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen, Zap } from "lucide-react";
-import { formatShortIndianRupee } from "@/lib/format";
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
+import { useAuctionUnit } from "@/hooks/use-auction-unit";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { resetOwnerAccessLockout } from "@workspace/api-base/owner-auth";
@@ -76,7 +79,7 @@ function pickNextTeamColor(usedColors: (string | null | undefined)[]): string {
 }
 
 function TeamForm({
-  tournamentId, team, existingShortCodes, existingTeamColors, basePurse, onClose,
+  tournamentId, team, existingShortCodes, existingTeamColors, basePurse, onClose, purseLabel, formatShortAmount, amountUnit,
 }: {
   tournamentId: number;
   team?: any;
@@ -84,6 +87,9 @@ function TeamForm({
   existingTeamColors: (string | null | undefined)[];
   basePurse: number;
   onClose: () => void;
+  purseLabel: string;
+  formatShortAmount: (amount: number | null | undefined) => string;
+  amountUnit: AuctionUnit;
 }) {
   const qc = useQueryClient();
   const createTeam = useCreateTeam();
@@ -348,8 +354,9 @@ function TeamForm({
         {/* Purse — only show when editing existing team */}
         {!isNew && (
           <div className="space-y-2">
-            <Label>Purse (₹) <span className="text-destructive">*</span></Label>
+            <Label>{purseLabel.replace("Team Budget", "Purse")} <span className="text-destructive">*</span></Label>
             <Input type="number" value={form.purse} onChange={e => setForm(f => ({ ...f, purse: parseInt(e.target.value) || 0 }))} required />
+            <IndianAmountHint value={form.purse} unit={amountUnit} />
           </div>
         )}
       </div>
@@ -358,7 +365,7 @@ function TeamForm({
       {isNew && (
         <div className="flex items-center gap-2 rounded-md bg-muted/20 border border-border/50 px-3 py-2 text-xs text-muted-foreground">
           <Wallet className="w-3.5 h-3.5 flex-shrink-0" />
-          Purse automatically set to <span className="text-foreground font-semibold ml-1">{formatShortIndianRupee(basePurse)}</span>
+          Purse automatically set to <span className="text-foreground font-semibold ml-1">{formatShortAmount(basePurse)}</span>
           <span className="ml-1">(from Auction Hub settings)</span>
         </div>
       )}
@@ -452,6 +459,7 @@ export default function Teams() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { formatShort, formatAmount, budgetLabel } = useAuctionUnit(tournament);
   const { data: auctionState } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -595,6 +603,9 @@ export default function Teams() {
                 existingShortCodes={existingShortCodes}
                 existingTeamColors={existingTeamColors}
                 basePurse={basePurse}
+                purseLabel={budgetLabel}
+                formatShortAmount={formatShort}
+                amountUnit={normalizeAuctionUnit(tournament?.auctionUnit)}
                 onClose={() => { setOpen(false); setEditing(null); }}
               />
             </DialogContent>
@@ -701,7 +712,7 @@ export default function Teams() {
                             {boosterTotal > 0 && (
                               <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] gap-1">
                                 <Zap className="w-3 h-3" />
-                                Booster +{formatShortIndianRupee(boosterTotal)}
+                                Booster +{formatShort(boosterTotal)}
                               </Badge>
                             )}
                             <Badge
@@ -717,11 +728,11 @@ export default function Teams() {
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
                                 <Wallet className="w-2.5 h-2.5" /> Budget
                               </p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(effectiveCapacity)}</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShort(effectiveCapacity)}</p>
                               {boosterTotal > 0 ? (
                                 <p className="text-[10px] mt-0.5">
-                                  <span className="text-muted-foreground">{formatShortIndianRupee(originalPurse)} base</span>
-                                  <span className="text-amber-400 font-semibold"> + {formatShortIndianRupee(boosterTotal)} booster</span>
+                                  <span className="text-muted-foreground">{formatShort(originalPurse)} base</span>
+                                  <span className="text-amber-400 font-semibold"> + {formatShort(boosterTotal)} booster</span>
                                 </p>
                               ) : (
                                 <p className="text-[10px] text-muted-foreground/70 mt-0.5">Original purse · no active booster</p>
@@ -729,16 +740,16 @@ export default function Teams() {
                             </div>
                             <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Spent</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(team.purseUsed || 0)}</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShort(team.purseUsed || 0)}</p>
                             </div>
                             <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(purseRemaining)}</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShort(purseRemaining)}</p>
                             </div>
                             <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
                               <p className="text-[10px] text-emerald-400/80 uppercase tracking-wider mb-0.5">Max Bid / Player</p>
                               <p className={`text-sm font-bold font-mono tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
-                                {maxReached ? "Squad full" : formatShortIndianRupee(spendable)}
+                                {maxReached ? "Squad full" : formatShort(spendable)}
                               </p>
                             </div>
                             {reserved > 0 ? (
@@ -746,7 +757,7 @@ export default function Teams() {
                                 <p className="text-[10px] text-amber-400/80 uppercase tracking-wider mb-0.5 flex items-center gap-1">
                                   <ShieldAlert className="w-2.5 h-2.5" /> Reserved
                                 </p>
-                                <p className="text-sm font-bold font-mono tabular-nums text-amber-400">{formatShortIndianRupee(reserved)}</p>
+                                <p className="text-sm font-bold font-mono tabular-nums text-amber-400">{formatShort(reserved)}</p>
                                 <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">for {slotsNeeded} slot{slotsNeeded !== 1 ? "s" : ""}</p>
                               </div>
                             ) : (
@@ -784,7 +795,7 @@ export default function Teams() {
                               </div>
                               {topAmt != null && (
                                 <p className="text-sm font-display font-black tabular-nums text-amber-400 flex-shrink-0">
-                                  {formatShortIndianRupee(topAmt)}
+                                  {formatShort(topAmt)}
                                 </p>
                               )}
                             </div>

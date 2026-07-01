@@ -2,6 +2,28 @@ import type { AuctionReadinessCheckId } from "@workspace/api-base/auction-readin
 
 export type SettingsTab = "identity" | "playerRegistration" | "auction" | "sponsors" | "broadcast" | "recovery";
 
+export const SETTINGS_TABS: readonly SettingsTab[] = [
+  "identity",
+  "playerRegistration",
+  "auction",
+  "sponsors",
+  "broadcast",
+  "recovery",
+];
+
+export function parseSettingsTab(raw: string | null | undefined): SettingsTab | null {
+  if (raw && (SETTINGS_TABS as readonly string[]).includes(raw)) {
+    return raw as SettingsTab;
+  }
+  return null;
+}
+
+export function resolveSettingsTabFromSearch(search: string): SettingsTab {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  if (params.get("focus") === "registration") return "playerRegistration";
+  return parseSettingsTab(params.get("tab")) ?? "identity";
+}
+
 export type SettingsFocusField =
   | "minBid"
   | "openingTimer"

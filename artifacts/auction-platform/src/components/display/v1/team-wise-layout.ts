@@ -1,3 +1,5 @@
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import { formatAuctionAmount, formatShortAuctionAmount } from "@workspace/api-base/auction-unit";
 import type { LedTeam } from "@/lib/led-view/types";
 
 export function computeTeamWiseGrid(teamCount: number) {
@@ -63,13 +65,11 @@ export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseSt
   };
 }
 
-export function formatTeamWiseMoney(value: number) {
-  return `₹${value.toLocaleString("en-IN")}`;
+export function formatTeamWiseMoney(value: number, unit: AuctionUnit = "rupee") {
+  return formatAuctionAmount(value, unit);
 }
 
-/** Short form for stat blocks — ₹4.60Cr / ₹12.50L / ₹60,000 */
-export function formatTeamWiseMoneyShort(value: number) {
-  if (value >= 10_000_000) return `₹${(value / 10_000_000).toFixed(2)} Cr`;
-  if (value >= 100_000)    return `₹${(value / 100_000).toFixed(2)} L`;
-  return `₹${value.toLocaleString("en-IN")}`;
+/** Short form for stat blocks — ₹4.60Cr / ₹12.50L or points equivalent */
+export function formatTeamWiseMoneyShort(value: number, unit: AuctionUnit = "rupee") {
+  return formatShortAuctionAmount(value, unit);
 }

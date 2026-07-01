@@ -1,15 +1,23 @@
-export function formatIndianRupee(amount: number | null | undefined): string {
-  if (amount == null) return "₹0";
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import {
+  formatAuctionAmount,
+  formatShortAuctionAmount,
+} from "@workspace/api-base/auction-unit";
+
+export type { AuctionUnit };
+
+export function formatIndianRupee(
+  amount: number | null | undefined,
+  unit: AuctionUnit = "rupee",
+): string {
+  return formatAuctionAmount(amount, unit);
 }
 
-export function formatShortIndianRupee(amount: number | null | undefined): string {
-  if (amount == null) return "₹0";
-  if (amount >= 10_000_000) return `₹${(amount / 10_000_000).toFixed(2)}Cr`;
-  if (amount >= 100_000) return `₹${(amount / 100_000).toFixed(2)}L`;
-  return formatIndianRupee(amount);
+export function formatShortIndianRupee(
+  amount: number | null | undefined,
+  unit: AuctionUnit = "rupee",
+): string {
+  return formatShortAuctionAmount(amount, unit);
 }
+
+export { normalizeAuctionUnit as resolveAuctionUnit, auctionUnitSymbol } from "@workspace/api-base/auction-unit";

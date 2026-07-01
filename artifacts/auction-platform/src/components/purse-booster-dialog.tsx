@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
 import { replayPurseBoosterLed } from "@/lib/replay-purse-booster-led";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 
 type TeamOption = { id: number; name: string; shortCode: string };
 
@@ -149,6 +150,7 @@ export function PurseBoosterDialog({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+            <IndianAmountHint value={amount} />
           </div>
 
           <AuditReasonField

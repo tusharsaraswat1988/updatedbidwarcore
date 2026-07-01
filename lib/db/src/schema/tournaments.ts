@@ -21,6 +21,8 @@ export const tournamentsTable = pgTable("tournaments", {
   logoUrl: text("logo_url"),
   logoPublicId: text("logo_public_id"),
   sponsorLogos: text("sponsor_logos"),
+  /** Auction value unit: rupee (₹) or points (Pt.) — drives display across LED, owner app, and admin UI */
+  auctionUnit: text("auction_unit").notNull().default("rupee"),
   basePurse: integer("base_purse").notNull().default(10000000),
   minBid: integer("min_bid").notNull().default(100000),
   bidIncrement: integer("bid_increment").notNull().default(100000),

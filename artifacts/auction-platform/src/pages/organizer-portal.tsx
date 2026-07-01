@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { HintLabel } from "@/components/ui/hint-label";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -78,21 +79,6 @@ function TournamentLicenseBadge({ status }: { status: string }) {
 }
 
 type TimePeriod = "AM" | "PM";
-
-function toIndianWords(raw: string): string {
-  const n = parseInt(raw, 10);
-  if (!n || isNaN(n) || n <= 0) return "";
-  const crore = Math.floor(n / 10000000);
-  const lakh = Math.floor((n % 10000000) / 100000);
-  const thousand = Math.floor((n % 100000) / 1000);
-  const rest = n % 1000;
-  const parts: string[] = [];
-  if (crore) parts.push(`${crore} crore`);
-  if (lakh) parts.push(`${lakh} lakh`);
-  if (thousand) parts.push(`${thousand} thousand`);
-  if (rest) parts.push(String(rest));
-  return parts.join(" ");
-}
 
 function to24HourTime(hour12: number, minute: number, period: TimePeriod): string {
   let h = hour12 % 12;
@@ -215,8 +201,6 @@ function CreateTournamentModal({
     setCreatedTournamentId(r.tournament?.id ?? null);
     onCreated(r.tournament?.id);
   }
-
-  const purseWords = toIndianWords(form.basePurse);
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
@@ -361,9 +345,7 @@ function CreateTournamentModal({
                       min={1}
                       required
                     />
-                    {purseWords ? (
-                      <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
-                    ) : null}
+                    <IndianAmountHint value={form.basePurse} />
                   </div>
                   <div className="space-y-2">
                     <Label>
@@ -379,6 +361,7 @@ function CreateTournamentModal({
                       min={1}
                       required
                     />
+                    <IndianAmountHint value={form.minBid} />
                   </div>
                   <div className="space-y-2">
                     <Label>
@@ -394,6 +377,7 @@ function CreateTournamentModal({
                       min={1}
                       required
                     />
+                    <IndianAmountHint value={form.bidIncrement} />
                   </div>
                 </div>
               </>

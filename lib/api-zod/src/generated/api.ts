@@ -51,6 +51,10 @@ export const ListTournamentsResponseItem = zod.object({
   organizerMobile: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
   sponsorLogos: zod.string().nullish(),
+  auctionUnit: zod
+    .enum(["rupee", "points"])
+    .optional()
+    .describe("Auction value unit for bids, purse, and all display surfaces"),
   basePurse: zod.number().optional(),
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
@@ -210,6 +214,7 @@ export const CreateTournamentBody = zod.object({
   organizerMobile: zod.string().optional(),
   logoUrl: zod.string().optional(),
   sponsorLogos: zod.string().optional(),
+  auctionUnit: zod.enum(["rupee", "points"]).optional(),
   basePurse: zod.number().optional(),
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
@@ -272,6 +277,10 @@ export const GetTournamentResponse = zod.object({
   organizerMobile: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
   sponsorLogos: zod.string().nullish(),
+  auctionUnit: zod
+    .enum(["rupee", "points"])
+    .optional()
+    .describe("Auction value unit for bids, purse, and all display surfaces"),
   basePurse: zod.number().optional(),
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
@@ -435,6 +444,7 @@ export const UpdateTournamentBody = zod.object({
   organizerMobile: zod.string().optional(),
   logoUrl: zod.string().optional(),
   sponsorLogos: zod.string().optional(),
+  auctionUnit: zod.enum(["rupee", "points"]).optional(),
   basePurse: zod.number().optional(),
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
@@ -528,6 +538,10 @@ export const UpdateTournamentResponse = zod.object({
   organizerMobile: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
   sponsorLogos: zod.string().nullish(),
+  auctionUnit: zod
+    .enum(["rupee", "points"])
+    .optional()
+    .describe("Auction value unit for bids, purse, and all display surfaces"),
   basePurse: zod.number().optional(),
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
@@ -718,6 +732,10 @@ export const ExportTournamentForLocalResponse = zod.object({
     organizerMobile: zod.string().nullish(),
     logoUrl: zod.string().nullish(),
     sponsorLogos: zod.string().nullish(),
+    auctionUnit: zod
+      .enum(["rupee", "points"])
+      .optional()
+      .describe("Auction value unit for bids, purse, and all display surfaces"),
     basePurse: zod.number().optional(),
     minBid: zod.number().optional(),
     bidIncrement: zod.number().optional(),
@@ -2723,6 +2741,29 @@ export const GetAuctionStateResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -3015,6 +3056,29 @@ export const StartAuctionResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -3307,6 +3371,29 @@ export const PauseAuctionResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -3604,6 +3691,29 @@ export const NextPlayerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -3905,6 +4015,29 @@ export const PlaceBidResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -4197,6 +4330,29 @@ export const SellPlayerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -4498,6 +4654,29 @@ export const ManualSellResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -4790,6 +4969,29 @@ export const MarkUnsoldResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -5091,6 +5293,29 @@ export const ReAuctionPlayerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -5400,6 +5625,29 @@ export const ReAuctionAllUnsoldResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -5699,6 +5947,29 @@ export const ConcludeAuctionResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -5991,6 +6262,29 @@ export const UndoLastActionResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -6301,6 +6595,29 @@ export const ResetTrialAuctionResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -6597,6 +6914,29 @@ export const SetDisplayOverlayResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -6895,6 +7235,29 @@ export const SetDisplayPlayerFilterResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -7249,6 +7612,29 @@ export const SyncFortuneWheelResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -7545,6 +7931,29 @@ export const SetCategoryFilterResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -7853,6 +8262,29 @@ export const SetBreakTimerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -8155,6 +8587,29 @@ export const StartTimerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -8447,6 +8902,29 @@ export const StopTimerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -8739,6 +9217,29 @@ export const DeferPlayerResponse = zod.object({
   ledPurseToast: zod
     .object({
       teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
     })
     .nullish(),
   teamPurses: zod
@@ -8926,6 +9427,19 @@ export const ApplyPurseBoosterBody = zod.object({
   amount: zod.number().min(1),
   reason: zod.string().min(applyPurseBoosterBodyReasonMin),
   showOnLed: zod.boolean().default(applyPurseBoosterBodyShowOnLedDefault),
+});
+
+/**
+ * @summary Replay the last purse booster LED animation
+ */
+export const ReplayPurseBoosterLedParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const ReplayPurseBoosterLedResponse = zod.object({
+  ok: zod.boolean(),
+  replayKey: zod.number(),
+  expiresAt: zod.coerce.date(),
 });
 
 /**

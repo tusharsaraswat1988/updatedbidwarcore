@@ -2197,6 +2197,10 @@ components:
           type: ["string", "null"]
         sponsorLogos:
           type: ["string", "null"]
+        auctionUnit:
+          type: string
+          enum: [rupee, points]
+          description: "Auction value unit for bids, purse, and all display surfaces"
         basePurse:
           type: integer
         minBid:
@@ -2384,6 +2388,9 @@ components:
           type: string
         sponsorLogos:
           type: string
+        auctionUnit:
+          type: string
+          enum: [rupee, points]
         basePurse:
           type: integer
         minBid:
@@ -2468,6 +2475,9 @@ components:
           type: string
         sponsorLogos:
           type: string
+        auctionUnit:
+          type: string
+          enum: [rupee, points]
         basePurse:
           type: integer
         minBid:

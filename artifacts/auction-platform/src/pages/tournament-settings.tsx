@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, useSearch } from "wouter";
 import {
   useGetTournament,
   useUpdateTournament,
@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
-import { settingsPath } from "@/lib/settings-navigation";
+import { resolveSettingsTabFromSearch, settingsPath } from "@/lib/settings-navigation";
 import { auctionResetPath } from "@/lib/tournament-navigation";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,9 @@ import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
+import { AUCTION_UNIT_OPTIONS, bidIncrementFieldLabel, budgetFieldLabel, minValueFieldLabel, normalizeAuctionUnit } from "@/lib/format";
+import type { AuctionUnit } from "@/lib/format";
 import {
   MAX_AUCTION_TIMER_SECONDS,
   MIN_AUCTION_TIMER_SECONDS,
@@ -64,12 +67,13 @@ import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
   const [, navigate] = useLocation();
+  const search = useSearch();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
   const { toast } = useToast();
 
   const [initialized, setInitialized] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsTab>("identity");
+  const activeSection = resolveSettingsTabFromSearch(search);
   const [editForm, setEditForm] = useState<Record<string, string | number | boolean>>({});
   const audioPreviewRef = useRef<AuctionAudioManager | null>(null);
   const [countdownFileName, setCountdownFileName] = useState("");
@@ -134,6 +138,7 @@ export default function TournamentSettings() {
       auctionTime: t.auctionTime || "",
       logoUrl: t.logoUrl && !t.logoUrl.startsWith("data:") ? t.logoUrl : "",
       logoPublicId: (t as { logoPublicId?: string | null }).logoPublicId ?? "",
+      auctionUnit: normalizeAuctionUnit((t as { auctionUnit?: string }).auctionUnit),
       basePurse: t.basePurse ? String(t.basePurse) : "",
       minBid: t.minBid ? String(t.minBid) : "",
       timerSeconds: String(t.timerSeconds ?? "30"),
@@ -244,14 +249,9 @@ export default function TournamentSettings() {
 
   useEffect(() => {
     if (!initialized) return;
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab") as SettingsTab | null;
-    if (tab === "identity" || tab === "playerRegistration" || tab === "auction" || tab === "sponsors" || tab === "broadcast" || tab === "recovery") {
-      setActiveSection(tab);
-    }
+    const params = new URLSearchParams(search);
     const focus = params.get("focus") as SettingsFocusField | null;
     if (!focus) return;
-    if (focus === "registration") setActiveSection("playerRegistration");
     setHighlightField(focus);
     const scrollTimer = window.setTimeout(() => {
       document.getElementById(`settings-field-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -261,7 +261,7 @@ export default function TournamentSettings() {
       window.clearTimeout(scrollTimer);
       window.clearTimeout(clearTimer);
     };
-  }, [initialized]);
+  }, [initialized, search]);
 
   function fieldWrapClass(field: SettingsFocusField, needsAttention = false) {
     const highlight = highlightField === field ? "ring-2 ring-primary/50 rounded-lg p-1 -m-1" : "";
@@ -528,6 +528,7 @@ export default function TournamentSettings() {
           logoUrl: editForm.logoUrl as string || undefined,
           logoPublicId: (editForm.logoPublicId as string) || undefined,
           sponsorLogos: JSON.stringify(filteredLogos),
+          auctionUnit: normalizeAuctionUnit(editForm.auctionUnit as string),
           basePurse: Number(editForm.basePurse) || undefined,
           minBid: Number(editForm.minBid) || undefined,
           bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
@@ -715,7 +716,7 @@ export default function TournamentSettings() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveSection(tab.id)}
+              onClick={() => navigate(settingsPath(tournamentId, tab.id), { replace: true })}
               className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-semibold transition-all rounded-lg ${
                 active
                   ? "text-primary bg-[hsl(240,10%,14%)] shadow-sm ring-1 ring-primary/25"
@@ -1042,6 +1043,7 @@ export default function TournamentSettings() {
                                   }}
                                   placeholder="e.g. 1500"
                                 />
+                                <IndianAmountHint value={value} className="text-[10px]" />
                               </div>
                               <Button
                                 type="button"
@@ -1124,6 +1126,7 @@ export default function TournamentSettings() {
                             onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
                             placeholder="e.g. 500"
                           />
+                          <IndianAmountHint value={editForm.registrationFee as string} />
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
                           <Label className="text-xs">UPI ID <span className="text-destructive">*</span></Label>
@@ -1218,6 +1221,32 @@ export default function TournamentSettings() {
           <SettingsTabPanel className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SettingsCard
+                title="Auction Units"
+                description="Choose whether bids and purse use Rupee (₹) or Points (Pt.) across LED, OBS, owner app, and reports."
+                icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
+              >
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1">
+                    Units *
+                    <FieldTooltip text="Rupee shows ₹ everywhere (IPL-style auctions). Points shows Pt. for fantasy/corporate leagues that use a points budget instead of money." />
+                  </Label>
+                  <Select
+                    value={normalizeAuctionUnit(editForm.auctionUnit as string)}
+                    onValueChange={(value) => setEditForm((f) => ({ ...f, auctionUnit: value }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="dark">
+                      {AUCTION_UNIT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
                 title="Budget & Pricing"
                 description="Team purse, minimum player value, bid increment, and optional tiered raise rules."
                 icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
@@ -1225,24 +1254,26 @@ export default function TournamentSettings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="flex items-center gap-1">
-                      Team Budget (₹) *
-                      <FieldTooltip text="How many rupees each team can spend in total. Every team starts with this amount. Set this to your league's purse size, e.g. ₹1,00,00,000 for IPL-style." />
+                      {budgetFieldLabel(normalizeAuctionUnit(editForm.auctionUnit as string))} *
+                      <FieldTooltip text={`How much each team can spend in total. Every team starts with this amount. Example: ${normalizeAuctionUnit(editForm.auctionUnit as string) === "points" ? "10,000 Pt." : "₹1,00,00,000"} for IPL-style.`} />
                     </Label>
                     <Input type="number" value={editForm.basePurse as string || ""} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} placeholder="e.g. 10000000" />
+                    <IndianAmountHint value={editForm.basePurse as string} unit={normalizeAuctionUnit(editForm.auctionUnit as string)} />
                   </div>
                   <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
                     <Label className="flex items-center gap-1">
-                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹) *</HintLabel>
+                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">{minValueFieldLabel(normalizeAuctionUnit(editForm.auctionUnit as string))} *</HintLabel>
                       <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
                     </Label>
                     <Input type="number" value={editForm.minBid as string || ""} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} placeholder="e.g. 10000" />
+                    <IndianAmountHint value={editForm.minBid as string} unit={normalizeAuctionUnit(editForm.auctionUnit as string)} />
                   </div>
                 </div>
                 <div id="settings-field-bidTiers" className={`space-y-2 pt-1 border-t border-border/50 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
                   <div className="flex items-center justify-between gap-2">
                     <Label className="flex items-center gap-1">
-                      Bid Increase Amount (₹) *
-                      <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use + Add Tier for different increments at higher price points." />
+                      {bidIncrementFieldLabel(normalizeAuctionUnit(editForm.auctionUnit as string))} *
+                      <FieldTooltip text={`How much the bid goes up each time a team raises. Use + Add Tier for different increments at higher price points.`} />
                     </Label>
                     <Button type="button" size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}>
                       + Add Tier
@@ -1251,6 +1282,7 @@ export default function TournamentSettings() {
                   {bidTiers.length === 1 ? (
                     <div className="flex items-center gap-3">
                       <Input type="number" className="max-w-[200px]" value={bidTiers[0]?.increment || ""} onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])} placeholder="e.g. 10000" />
+                      <IndianAmountHint value={bidTiers[0]?.increment} />
                       <span className="text-xs text-muted-foreground">per raise</span>
                     </div>
                   ) : (
@@ -1267,12 +1299,16 @@ export default function TournamentSettings() {
                               {isLast ? (
                                 <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
                               ) : (
-                                <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
+                                <>
+                                  <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
+                                  <IndianAmountHint value={tier.upTo} className="text-[10px]" />
+                                </>
                               )}
                             </div>
                             <div className="space-y-1">
                               <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
                               <Input type="number" value={tier.increment || ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))} placeholder="e.g. 25000" />
+                              <IndianAmountHint value={tier.increment} className="text-[10px]" />
                             </div>
                             <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" disabled={bidTiers.length <= 1} onClick={() => setBidTiers(t => {
                               const next = t.filter((_, j) => j !== i);

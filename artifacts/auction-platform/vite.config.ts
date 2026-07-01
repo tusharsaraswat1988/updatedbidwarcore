@@ -16,6 +16,7 @@ function apiBaseAliases(dirname: string): Record<string, string> {
   const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
   return {
     "@workspace/api-base/auction-bid": path.join(src, "auction-bid.ts"),
+    "@workspace/api-base/auction-unit": path.join(src, "auction-unit.ts"),
     "@workspace/api-base/auction-connection-state": path.join(src, "auction-connection-state.ts"),
     "@workspace/api-base/auction-readiness": path.join(src, "auction-readiness.ts"),
     "@workspace/api-base/auction-timer": path.join(src, "auction-timer.ts"),

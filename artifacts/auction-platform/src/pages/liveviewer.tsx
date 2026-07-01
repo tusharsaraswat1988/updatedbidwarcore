@@ -18,6 +18,9 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -171,12 +174,15 @@ function TeamSquadSheet({
   players,
   open,
   onClose,
+  unit,
 }: {
   team: TeamPurse | null;
   players: Player[];
   open: boolean;
   onClose: () => void;
+  unit: AuctionUnit;
 }) {
+  const fmtShort = (amount: number | null | undefined) => formatShortIndianRupee(amount, unit);
   const tc = team?.color || "#F59E0B";
   const squadPlayers = useMemo(
     () => players.filter((p) => p.teamId === team?.teamId && p.status === "sold"),
@@ -239,13 +245,13 @@ function TeamSquadSheet({
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
                   <p className="font-display font-black text-base" style={{ color: tc }}>
-                    {formatShortIndianRupee(team?.purseRemaining ?? 0)}
+                    {fmtShort(team?.purseRemaining ?? 0)}
                   </p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Remaining</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
                   <p className="font-display font-black text-base text-foreground">
-                    {formatShortIndianRupee(team?.purseUsed ?? 0)}
+                    {fmtShort(team?.purseUsed ?? 0)}
                   </p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Spent</p>
                 </div>
@@ -266,7 +272,7 @@ function TeamSquadSheet({
                       <p className={`font-mono font-bold text-sm tabular-nums ${(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize) ? "text-red-400" : "text-emerald-400"}`}>
                         {(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize)
                           ? "Squad Full"
-                          : formatShortIndianRupee(team.spendablePurse)}
+                          : fmtShort(team.spendablePurse)}
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Max Bid</p>
                     </div>
@@ -274,7 +280,7 @@ function TeamSquadSheet({
                   {(team?.reservePurse ?? 0) > 0 && (
                     <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
                       <p className="font-mono font-bold text-sm tabular-nums text-amber-400/90">
-                        {formatShortIndianRupee(team?.reservePurse ?? 0)}
+                        {fmtShort(team?.reservePurse ?? 0)}
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Reserved</p>
                     </div>
@@ -303,7 +309,7 @@ function TeamSquadSheet({
                   <span className="text-xs text-muted-foreground truncate flex-1">{team.topPlayerName}</span>
                   {team.topPlayerAmount != null && (
                     <span className="text-xs font-mono font-bold text-amber-400 tabular-nums">
-                      {formatShortIndianRupee(team.topPlayerAmount)}
+                      {fmtShort(team.topPlayerAmount)}
                     </span>
                   )}
                 </div>
@@ -342,7 +348,7 @@ function TeamSquadSheet({
                       </div>
                       {player.soldPrice ? (
                         <p className="text-xs font-bold tabular-nums flex-shrink-0" style={{ color: tc }}>
-                          {formatShortIndianRupee(player.soldPrice)}
+                          {fmtShort(player.soldPrice)}
                         </p>
                       ) : null}
                     </div>
@@ -507,6 +513,8 @@ function CompletedScreen({
   players: Player[];
   teamPurses: TeamPurse[] | undefined;
 }) {
+  const unit = normalizeAuctionUnit(tournament?.auctionUnit);
+  const fmtShort = (amount: number | null | undefined) => formatShortIndianRupee(amount, unit);
   const soldPlayers = useMemo(
     () => players.filter((p) => p.status === "sold" && p.soldPrice),
     [players],
@@ -550,7 +558,7 @@ function CompletedScreen({
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Players Sold</p>
         </div>
         <div className="p-3 rounded-xl bg-card/50 border border-border/50 text-center">
-          <p className="font-display font-black text-xl text-primary">{formatShortIndianRupee(totalSpend)}</p>
+          <p className="font-display font-black text-xl text-primary">{fmtShort(totalSpend)}</p>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Total Spend</p>
         </div>
       </div>
@@ -594,7 +602,7 @@ function CompletedScreen({
                     )}
                   </div>
                   <p className="font-display font-black text-lg tabular-nums" style={{ color: tc }}>
-                    {formatShortIndianRupee(player.soldPrice!)}
+                    {fmtShort(player.soldPrice!)}
                   </p>
                 </div>
               );
@@ -632,7 +640,7 @@ function CompletedScreen({
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-sm truncate">{team.teamName}</p>
                       <p className="font-display font-black text-sm tabular-nums flex-shrink-0" style={{ color: tc }}>
-                        {formatShortIndianRupee(team.purseUsed)}
+                        {fmtShort(team.purseUsed)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
@@ -936,6 +944,7 @@ export default function LiveViewerPage() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 15000 },
   });
+  const { formatAmount, formatShort } = useAuctionUnit(tournament);
 
   const isCompleted = (tournament as { status?: string } | undefined)?.status === "completed";
 
@@ -1383,7 +1392,7 @@ export default function LiveViewerPage() {
                       {lastResult.soldToTeam}
                     </span>
                     <span className="text-muted-foreground/50">at</span>
-                    <span className="font-bold text-foreground">{formatIndianRupee(lastResult.soldPrice || 0)}</span>
+                    <span className="font-bold text-foreground">{formatAmount(lastResult.soldPrice || 0)}</span>
                   </>
                 ) : (
                   <>
@@ -1519,7 +1528,7 @@ export default function LiveViewerPage() {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground mt-1.5">
-                      Base: {formatIndianRupee(state?.currentPlayer?.basePrice)}
+                      Base: {formatAmount(state?.currentPlayer?.basePrice)}
                     </p>
                   </div>
 
@@ -1533,7 +1542,7 @@ export default function LiveViewerPage() {
                         className="font-display font-black text-5xl sm:text-6xl leading-none"
                         style={{ color: teamColor, textShadow: `0 0 28px ${teamColor}55` }}
                       >
-                        {formatIndianRupee(state?.currentBid || 0)}
+                        {formatAmount(state?.currentBid || 0)}
                       </p>
                     ) : (
                     <motion.p
@@ -1544,7 +1553,7 @@ export default function LiveViewerPage() {
                       className="font-display font-black text-5xl sm:text-6xl leading-none"
                       style={{ color: teamColor, textShadow: `0 0 28px ${teamColor}55` }}
                     >
-                      {formatIndianRupee(state?.currentBid || 0)}
+                      {formatAmount(state?.currentBid || 0)}
                     </motion.p>
                     )}
                   </div>
@@ -1749,6 +1758,7 @@ export default function LiveViewerPage() {
         players={playerList}
         open={selectedTeamId !== null}
         onClose={() => setSelectedTeamId(null)}
+        unit={normalizeAuctionUnit(tournament?.auctionUnit)}
       />
       <AllTeamsSheet
         teams={teamPurses ?? []}

@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LedPurseBoosterOverlayView } from "@/lib/led-view/types";
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { formatINRFull } from "@/lib/led-view/format-inr";
 
 function overlayIsLive(overlay: LedPurseBoosterOverlayView | null, now: number): boolean {
@@ -11,8 +12,10 @@ function overlayIsLive(overlay: LedPurseBoosterOverlayView | null, now: number):
 
 export const PurseBoosterLedOverlay = memo(function PurseBoosterLedOverlay({
   overlay,
+  unit = "rupee",
 }: {
   overlay: LedPurseBoosterOverlayView | null;
+  unit?: AuctionUnit;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const live = overlayIsLive(overlay, now);
@@ -84,7 +87,7 @@ export const PurseBoosterLedOverlay = memo(function PurseBoosterLedOverlay({
                   transition={{ delay: 0.12 }}
                   className="mt-1 font-['Bebas_Neue'] text-[clamp(2rem,4.2vw,4.5rem)] leading-none tracking-[0.08em] text-white"
                 >
-                  +{formatINRFull(overlay.boosterAmount)}
+                  +{formatINRFull(overlay.boosterAmount, unit)}
                 </motion.h2>
                 <motion.p
                   initial={{ opacity: 0 }}
@@ -159,13 +162,13 @@ export const PurseBoosterLedOverlay = memo(function PurseBoosterLedOverlay({
                 </div>
 
                 <p className="text-right font-mono tabular-nums text-[clamp(0.85rem,1.2vw,1.05rem)] text-white/75">
-                  {formatINRFull(team.previousCapacity)}
+                  {formatINRFull(team.previousCapacity, unit)}
                 </p>
                 <p className="text-right font-mono tabular-nums text-[clamp(0.85rem,1.2vw,1.05rem)] text-amber-300">
-                  +{formatINRFull(team.boosterAmount)}
+                  +{formatINRFull(team.boosterAmount, unit)}
                 </p>
                 <p className="text-right font-mono tabular-nums text-[clamp(0.95rem,1.35vw,1.15rem)] font-semibold text-emerald-300">
-                  {formatINRFull(team.newCapacity)}
+                  {formatINRFull(team.newCapacity, unit)}
                 </p>
               </motion.div>
             ))}

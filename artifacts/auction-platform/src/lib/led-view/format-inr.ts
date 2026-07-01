@@ -1,17 +1,15 @@
-export function formatINR(n: number): string {
-  if (n >= 1_00_00_000) {
-    const cr = n / 1_00_00_000;
-    return `₹${cr.toFixed(cr >= 10 ? 1 : 2)} CR`;
-  }
-  if (n >= 1_00_000) {
-    const lakh = n / 1_00_000;
-    return `₹${lakh.toFixed(lakh >= 10 ? 1 : 2)} L`;
-  }
-  return `₹${n.toLocaleString("en-IN")}`;
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import {
+  formatLedAuctionAmount,
+  formatLedAuctionAmountFull,
+} from "@workspace/api-base/auction-unit";
+
+export function formatINR(n: number, unit: AuctionUnit = "rupee"): string {
+  return formatLedAuctionAmount(n, unit);
 }
 
-export function formatINRFull(n: number): string {
-  return `₹${n.toLocaleString("en-IN")}`;
+export function formatINRFull(n: number, unit: AuctionUnit = "rupee"): string {
+  return formatLedAuctionAmountFull(n, unit);
 }
 
 export function nextIncrement(

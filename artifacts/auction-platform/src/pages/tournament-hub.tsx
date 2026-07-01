@@ -10,7 +10,7 @@ import {
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
@@ -37,6 +37,7 @@ export default function TournamentHub() {
   const { data: teamPurses, isLoading: loadingPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { formatAmount, formatShort, budgetLabel } = useAuctionUnit(tournament);
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
@@ -103,7 +104,7 @@ export default function TournamentHub() {
             {tournament?.sport?.toUpperCase()}
             {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
             {tournament?.venue && <span>· {tournament.venue}</span>}
-            <span>· Team budget: {formatIndianRupee(tournament?.basePurse)}</span>
+            <span>· {budgetLabel}: {formatAmount(tournament?.basePurse)}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
             {isSetupPhase && readinessComplete
@@ -211,7 +212,7 @@ export default function TournamentHub() {
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">Total Spent</p>
-                      {loadingSummary ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-display font-bold text-primary">{formatShortIndianRupee(summary?.totalSpent)}</p>}
+                      {loadingSummary ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-display font-bold text-primary">{formatShort(summary?.totalSpent)}</p>}
                     </div>
                     <div className="p-3 bg-primary/10 rounded-lg"><Wallet className="w-5 h-5 text-primary" /></div>
                   </div>
@@ -272,16 +273,17 @@ export default function TournamentHub() {
           </div>
         )}
 
-        {/* Team Purses */}
+        {/* Team Purses — compact during setup, full breakdown once auction has spend */}
+        {!isSetupPhase && (
         <div>
           <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" /> Team Purses
+            <Wallet className="w-5 h-5 text-primary" /> Team Purses
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {loadingPurses ? (
               Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-36" />)
             ) : teamPurses?.map(team => {
-              const usedPercentage = (team.purseUsed / team.purse) * 100;
+              const usedPercentage = team.purse > 0 ? (team.purseUsed / team.purse) * 100 : 0;
               return (
                 <Card key={team.teamId} className="bg-card/50 border-border">
                   <CardContent className="p-5">
@@ -295,7 +297,7 @@ export default function TournamentHub() {
                         <div>
                           <h3 className="font-bold text-lg leading-none">{team.teamName}</h3>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">{team.playersBought} Players</span>
+                            <span className="text-xs text-muted-foreground">{team.playersBought} players</span>
                             <span className="text-xs text-muted-foreground">·</span>
                             <span className="text-xs font-mono text-muted-foreground">{team.shortCode}</span>
                           </div>
@@ -303,13 +305,13 @@ export default function TournamentHub() {
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Remaining</p>
-                        <p className="font-mono font-bold text-primary">{formatShortIndianRupee(team.purseRemaining)}</p>
+                        <p className="font-mono font-bold text-primary">{formatShort(team.purseRemaining)}</p>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{formatShortIndianRupee(team.purseUsed)} Used</span>
-                        <span>{formatShortIndianRupee(team.purse)} Total</span>
+                        <span>{formatShort(team.purseUsed)} spent</span>
+                        <span>{formatShort(team.purse)} budget</span>
                       </div>
                       <Progress value={usedPercentage} className="h-2" />
                     </div>
@@ -319,6 +321,7 @@ export default function TournamentHub() {
             })}
           </div>
         </div>
+        )}
       </div>
     </AppLayout>
   );

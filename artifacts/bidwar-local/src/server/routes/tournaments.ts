@@ -8,6 +8,7 @@ import {
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { validateAndSerializeSponsorLogos } from "@workspace/api-base/sponsor-priority";
+import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
@@ -27,6 +28,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   id: t.id, name: t.name, sport: t.sport, venue: t.venue, auctionDate: t.auctionDate,
   organizerName: t.organizerName, organizerMobile: t.organizerMobile, organizerEmail: t.organizerEmail,
   logoUrl: resolveOfflineUrl(t.logoUrl), sponsorLogos: resolveOfflineSponsorLogos(t.sponsorLogos),
+  auctionUnit: normalizeAuctionUnit(t.auctionUnit),
   basePurse: t.basePurse, minBid: t.minBid,
   bidIncrement: t.bidIncrement, bidTier1UpTo: t.bidTier1UpTo, bidTier1Increment: t.bidTier1Increment,
   bidTier2UpTo: t.bidTier2UpTo, bidTier2Increment: t.bidTier2Increment,
@@ -95,6 +97,7 @@ export function createTournamentsRouter(db: LocalDb) {
       organizerMobile: z.string().max(20).nullable().optional(),
       logoUrl: localMediaUrlSchema,
       sponsorLogos: z.string().nullable().optional(),
+      auctionUnit: z.enum(["rupee", "points"]).optional(),
       basePurse: z.number().int().min(0).optional(),
       minBid: z.number().int().min(0).optional(),
       bidIncrement: z.number().int().min(0).optional(),
@@ -167,6 +170,7 @@ export function createTournamentsRouter(db: LocalDb) {
     if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
     if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
     if (d.sponsorLogos !== undefined) updates.sponsorLogos = d.sponsorLogos;
+    if (d.auctionUnit !== undefined) updates.auctionUnit = d.auctionUnit;
     if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
     if (d.minBid !== undefined) updates.minBid = d.minBid;
     if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;

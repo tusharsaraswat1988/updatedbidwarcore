@@ -24,6 +24,7 @@ import {
   LED_STAGE_FONT_CLASS,
   LED_SUBHEAD_CLASS,
 } from "@/lib/led-display-typography";
+import { normalizeAuctionUnit, formatAuctionAmount } from "@workspace/api-base/auction-unit";
 import { cldUrl } from "@/lib/cloudinary";
 
 function LedPoweredByFooter({ text }: { text?: string }) {
@@ -56,8 +57,14 @@ function LedPoweredByFooter({ text }: { text?: string }) {
  *   teamWise          → compact broadcast team rows (purse + squad stats)
  * Purse booster overlay renders as a top broadcast panel for ~10 seconds.
  */
-function BoosterOverlaySlot({ overlay }: { overlay: LedView["purseBoosterOverlay"] }) {
-  return <PurseBoosterLedOverlay overlay={overlay} />;
+function BoosterOverlaySlot({
+  overlay,
+  unit,
+}: {
+  overlay: LedView["purseBoosterOverlay"];
+  unit: ReturnType<typeof normalizeAuctionUnit>;
+}) {
+  return <PurseBoosterLedOverlay overlay={overlay} unit={unit} />;
 }
 
 export const EffectsLayer = memo(function EffectsLayer({
@@ -90,6 +97,7 @@ export const EffectsLayer = memo(function EffectsLayer({
     remaining,
   } = view;
   const teams = state.teams;
+  const auctionUnit = normalizeAuctionUnit(tournament.auctionUnit);
 
 
   // ---------- SOLD ----------
@@ -101,7 +109,7 @@ export const EffectsLayer = memo(function EffectsLayer({
     const photo = lastOutcome?.photoUrl ?? currentPlayer?.portrait ?? "";
     const playerName = lastOutcome?.playerName ?? currentPlayer?.name ?? "";
     const amount = lastOutcome?.amount
-      ? `₹${lastOutcome.amount.toLocaleString("en-IN")}`
+      ? formatAuctionAmount(lastOutcome.amount, auctionUnit)
       : currentBidLabel;
 
     return (
@@ -161,7 +169,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             </div>
           )}
         </div>
-        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
       </div>
     );
   }
@@ -199,7 +207,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             </p>
           </div>
         </div>
-        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
       </div>
     );
   }
@@ -488,7 +496,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             />
           </div>
           <ChyronStrip view={view} />
-          <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+          <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
         </div>
       );
     }
@@ -527,7 +535,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         {/* Powered by — ticker hidden while banner is shown */}
         <LedPoweredByFooter />
 
-        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
       </div>
     );
   }
@@ -583,6 +591,7 @@ export const EffectsLayer = memo(function EffectsLayer({
                 team={team}
                 minimumBid={minimumBid}
                 type={type}
+                unit={auctionUnit}
               />
             ))
           )}
@@ -595,10 +604,11 @@ export const EffectsLayer = memo(function EffectsLayer({
           totalPurseLeft={totalPurseLeft}
           labelSize={type.label}
           metaSize={type.meta}
+          unit={auctionUnit}
         />
 
         <LedPoweredByFooter />
-        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
       </div>
     );
   }
@@ -674,7 +684,9 @@ export const EffectsLayer = memo(function EffectsLayer({
                     className="font-['Bebas_Neue'] tabular-nums text-sm"
                     style={{ color: statusColor }}
                   >
-                    ₹{Math.round(p.basePrice / 1000)}K
+                    {auctionUnit === "points"
+                      ? `${Math.round(p.basePrice / 1000)}K Pt.`
+                      : `₹${Math.round(p.basePrice / 1000)}K`}
                   </p>
                 </div>
               );
@@ -686,7 +698,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             ) : null}
           </div>
         </div>
-        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
       </div>
     );
   }
@@ -737,6 +749,7 @@ export const EffectsLayer = memo(function EffectsLayer({
                   max={max}
                   index={i}
                   animKey={animKey}
+                  unit={auctionUnit}
                 />
               ))
             )}
@@ -751,14 +764,14 @@ export const EffectsLayer = memo(function EffectsLayer({
           </div>
 
         </div>
-        <BoosterOverlaySlot overlay={purseBoosterOverlay} />
+        <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />
       </div>
     );
   }
 
 
   // ---------- transient cards over normal stage ----------
-  return <BoosterOverlaySlot overlay={purseBoosterOverlay} />;
+  return <BoosterOverlaySlot overlay={purseBoosterOverlay} unit={auctionUnit} />;
 });
 
 
@@ -772,12 +785,14 @@ function TeamWiseSummaryBar({
   totalPurseLeft,
   labelSize,
   metaSize,
+  unit,
 }: {
   totalSold: number;
   playerTotal: number;
   totalPurseLeft: number;
   labelSize: string;
   metaSize: string;
+  unit: ReturnType<typeof normalizeAuctionUnit>;
 }) {
   return (
     <div className="relative flex items-center justify-end gap-[2%] px-[1.5%] py-[0.55%] bg-[#080d1e] border-t border-white/[0.08]">
@@ -798,7 +813,7 @@ function TeamWiseSummaryBar({
           className="font-['Barlow_Condensed'] font-bold tabular-nums text-amber-300 leading-none"
           style={{ fontSize: labelSize }}
         >
-          {formatTeamWiseMoney(totalPurseLeft)}
+          {formatTeamWiseMoney(totalPurseLeft, unit)}
         </span>
       </div>
     </div>
@@ -809,10 +824,12 @@ function TeamWiseBroadcastPanel({
   team,
   minimumBid,
   type,
+  unit,
 }: {
   team: LedTeam;
   minimumBid: number;
   type: TeamWiseTypography;
+  unit: ReturnType<typeof normalizeAuctionUnit>;
 }) {
   const status = getTeamWiseStatus(team, minimumBid);
   const squadCap = Math.max(team.maximumSquadSize, team.playersBought, 1);
@@ -861,7 +878,7 @@ function TeamWiseBroadcastPanel({
             </p>
             <p className="font-['Barlow_Condensed'] font-bold tabular-nums leading-tight text-amber-300 mt-[0.14em]"
               style={{ fontSize: type.purse }}>
-              {formatTeamWiseMoneyShort(team.purse)}
+              {formatTeamWiseMoneyShort(team.purse, unit)}
             </p>
           </div>
           {/* Max Spendable */}
@@ -871,7 +888,7 @@ function TeamWiseBroadcastPanel({
             </p>
             <p className="font-['Barlow_Condensed'] font-bold tabular-nums leading-tight text-emerald-300 mt-[0.14em]"
               style={{ fontSize: type.purse }}>
-              {formatTeamWiseMoneyShort(team.maxBidAllowed)}
+              {formatTeamWiseMoneyShort(team.maxBidAllowed, unit)}
             </p>
             <p className="font-mono uppercase tracking-[0.06em] text-white/32 leading-none mt-[0.06em]" style={{ fontSize: type.meta }}>
               On 1 Player
@@ -884,7 +901,7 @@ function TeamWiseBroadcastPanel({
             </p>
             <p className="font-['Barlow_Condensed'] font-bold tabular-nums leading-tight text-white/80 mt-[0.14em]"
               style={{ fontSize: type.money }}>
-              {formatTeamWiseMoneyShort(team.reservedAmount)}
+              {formatTeamWiseMoneyShort(team.reservedAmount, unit)}
             </p>
           </div>
         </div>
@@ -944,7 +961,7 @@ function TeamWiseBroadcastPanel({
               </p>
               <p className="font-['Barlow_Condensed'] font-bold tabular-nums text-white/65 shrink-0 leading-none"
                 style={{ fontSize: type.money }}>
-                {formatTeamWiseMoneyShort(team.lastPurchase.amount)}
+                {formatTeamWiseMoneyShort(team.lastPurchase.amount, unit)}
               </p>
             </div>
           ) : (
@@ -965,12 +982,14 @@ function TopSoldRow({
   max,
   index,
   animKey,
+  unit,
 }: {
   rank: number;
   player: TopSoldPlayer;
   max: number;
   index: number;
   animKey: string;
+  unit: ReturnType<typeof normalizeAuctionUnit>;
 }) {
   const accent = player.team?.color ?? "var(--accent)";
   const targetPct = Math.max(8, (player.soldPrice / max) * 100);
@@ -1003,7 +1022,7 @@ function TopSoldRow({
 
   const currentAmount = Math.round(player.soldPrice * progress);
   const widthPct = targetPct * progress;
-  const formatted = `₹${currentAmount.toLocaleString("en-IN")}`;
+  const formatted = formatAuctionAmount(currentAmount, unit);
 
   return (
     <div className="flex items-center gap-[1.5vw]">

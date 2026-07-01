@@ -68,6 +68,8 @@ import {
   Coffee, PlusCircle, ChevronDown, Volume2, VolumeX,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { useAuctionUnit } from "@/hooks/use-auction-unit";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import {
   tournamentToReadinessInput,
@@ -287,6 +289,7 @@ export default function AuctionOperator() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { formatAmount, formatShort, symbol: unitSymbol } = useAuctionUnit(tournament);
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -631,7 +634,7 @@ export default function AuctionOperator() {
       if (tournamentMinBid > 0 && parsed < tournamentMinBid) {
         toast({
           title: "Amount too low",
-          description: `Fixed starting bid must be at least ${formatIndianRupee(tournamentMinBid)} (tournament minimum).`,
+          description: `Fixed starting bid must be at least ${formatAmount(tournamentMinBid)} (tournament minimum).`,
           variant: "destructive",
         });
         return;
@@ -1379,22 +1382,22 @@ export default function AuctionOperator() {
                           {/* Contextual second line */}
                           {isSold && (
                             <p className="text-[10px] leading-tight mt-0.5 truncate">
-                              <span className="text-green-400 font-mono font-bold">{formatShortIndianRupee(player.soldPrice || player.basePrice)}</span>
+                              <span className="text-green-400 font-mono font-bold">{formatShort(player.soldPrice || player.basePrice)}</span>
                               {team && <><span className="text-white/30 mx-1">→</span><span className="text-white/45">{team.name}</span></>}
                             </p>
                           )}
                           {isRetained && (
                             <p className="text-[10px] leading-tight mt-0.5 truncate">
-                              <span className="text-purple-400 font-mono font-bold">{formatShortIndianRupee((player as any).retainedPrice || player.basePrice)}</span>
+                              <span className="text-purple-400 font-mono font-bold">{formatShort((player as any).retainedPrice || player.basePrice)}</span>
                               {team && <><span className="text-white/30 mx-1">→</span><span className="font-semibold" style={{ color: team.color || "#a78bfa" }}>{team.name}</span></>}
                               {!team && <span className="text-white/40 ml-1">No team assigned</span>}
                             </p>
                           )}
                           {isUnsold && (
-                            <p className="text-[10px] text-red-400/60 leading-tight mt-0.5">Unsold · base {formatShortIndianRupee(player.basePrice)}</p>
+                            <p className="text-[10px] text-red-400/60 leading-tight mt-0.5">Unsold · base {formatShort(player.basePrice)}</p>
                           )}
                           {(isAvail || isNowOn) && !isSold && !isRetained && !isUnsold && (
-                            <p className="text-[10px] text-white/28 leading-tight mt-0.5">base {formatShortIndianRupee(player.basePrice)}</p>
+                            <p className="text-[10px] text-white/28 leading-tight mt-0.5">base {formatShort(player.basePrice)}</p>
                           )}
                         </div>
                       </div>
@@ -1637,7 +1640,7 @@ export default function AuctionOperator() {
                       className="text-4xl font-display font-black text-yellow-400 leading-none mb-2"
                       style={{ textShadow: "0 0 28px rgba(250,204,21,0.35)" }}
                     >
-                      {formatIndianRupee(state?.currentBid || 0)}
+                      {formatAmount(state?.currentBid || 0)}
                     </motion.div>
                     {hasBid ? (
                       <div className="flex items-center gap-2 justify-center">
@@ -1649,7 +1652,7 @@ export default function AuctionOperator() {
                     ) : hasPlayer ? (
                       <p className="text-xs text-white/25">No bid yet</p>
                     ) : null}
-                    <p className="text-[10px] text-white/20 mt-1.5">Base {formatIndianRupee(state?.currentPlayer?.basePrice || 0)} · +{formatShortIndianRupee(increment)}/raise</p>
+                    <p className="text-[10px] text-white/20 mt-1.5">Base {formatAmount(state?.currentPlayer?.basePrice || 0)} · +{formatShort(increment)}/raise</p>
                   </div>
                 </div>
 
@@ -1766,7 +1769,7 @@ export default function AuctionOperator() {
                 {teams && teams.length > 0 && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">
-                      Quick Bid · Next: <span className="text-yellow-400 font-mono">{formatShortIndianRupee(nextBidAmount)}</span>
+                      Quick Bid · Next: <span className="text-yellow-400 font-mono">{formatShort(nextBidAmount)}</span>
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {teams.map(team => {
@@ -1812,9 +1815,9 @@ export default function AuctionOperator() {
                               <span className="text-xs font-bold truncate text-white/80">{team.shortCode || team.name}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <p className="text-[10px] text-white/40">{formatShortIndianRupee(spendable)} spendable</p>
+                              <p className="text-[10px] text-white/40">{formatShort(spendable)} spendable</p>
                               {reserved > 0 && (
-                                <span title={`${formatShortIndianRupee(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0">
+                                <span title={`${formatShort(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0">
                                   <ShieldAlert className="w-2.5 h-2.5 text-amber-400/70" />
                                 </span>
                               )}
@@ -1906,7 +1909,7 @@ export default function AuctionOperator() {
                           <div className="flex items-baseline justify-between gap-3">
                             <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Max Bid</span>
                             <span className={`text-base font-mono font-bold tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
-                              {maxReached ? "SQUAD FULL" : formatShortIndianRupee(spendable)}
+                              {maxReached ? "SQUAD FULL" : formatShort(spendable)}
                             </span>
                           </div>
 
@@ -1916,7 +1919,7 @@ export default function AuctionOperator() {
                               {bought}
                               {maxSquad > 0 ? ` / ${maxSquad}` : ""} players
                               <span className="text-white/35 mx-1">·</span>
-                              <span className="text-white/75">{formatShortIndianRupee(spent)} spent</span>
+                              <span className="text-white/75">{formatShort(spent)} spent</span>
                             </span>
                           </div>
 
@@ -1925,7 +1928,7 @@ export default function AuctionOperator() {
                             <span className="text-sm font-mono font-semibold text-amber-400/90 tabular-nums text-right">
                               {reserved > 0 ? (
                                 <>
-                                  {formatShortIndianRupee(reserved)}
+                                  {formatShort(reserved)}
                                   {slotsNeeded > 0 ? (
                                     <span className="text-amber-300/70 font-sans font-medium">
                                       {" "}
@@ -1947,7 +1950,7 @@ export default function AuctionOperator() {
                           />
                         </div>
                         <p className="mt-1 text-[10px] text-white/30 tabular-nums">
-                          {formatShortIndianRupee(spent)} of {formatShortIndianRupee(capacity)} used
+                          {formatShort(spent)} of {formatShort(capacity)} used
                         </p>
                       </div>
                     );
@@ -1965,7 +1968,7 @@ export default function AuctionOperator() {
               {bids && bids.length > 0 && (
                 <div className="px-3 py-1.5 bg-yellow-400/5 border-b border-yellow-400/10 flex-shrink-0">
                   <p className="text-xs text-yellow-300/70 font-medium truncate">
-                    {bids[0]?.teamName ? `${bids[0].teamName} bid ${formatShortIndianRupee(bids[0].amount)}` : "Latest bid"}
+                    {bids[0]?.teamName ? `${bids[0].teamName} bid ${formatShort(bids[0].amount)}` : "Latest bid"}
                   </p>
                 </div>
               )}
@@ -1982,7 +1985,7 @@ export default function AuctionOperator() {
                             <p className="text-[11px] text-white/30 truncate">{bid.teamName || t?.name || "—"}</p>
                           </div>
                         </div>
-                        <span className="text-sm font-mono font-semibold text-yellow-400/80 flex-shrink-0">{formatShortIndianRupee(bid.amount)}</span>
+                        <span className="text-sm font-mono font-semibold text-yellow-400/80 flex-shrink-0">{formatShort(bid.amount)}</span>
                       </div>
                     );
                   })
@@ -2056,6 +2059,7 @@ export default function AuctionOperator() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Amount (₹)</Label>
                 <Input type="number" value={manualAmount} onChange={e => setManualAmount(e.target.value)} placeholder="e.g. 500000" />
+                <IndianAmountHint value={manualAmount} className="text-[10px]" />
               </div>
               {showAdvancedReason && (
                 <AuditReasonField value={manualSellReason} onChange={setManualSellReason} label="Audit reason (optional)" />
@@ -2208,7 +2212,7 @@ export default function AuctionOperator() {
                   <div className="text-left">
                     <p className="font-semibold text-sm">Continue from current state</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Keep {state?.currentBidTeamName ?? "current bid"} at {formatIndianRupee(state?.currentBid ?? 0)} and restart the timer.
+                      Keep {state?.currentBidTeamName ?? "current bid"} at {formatAmount(state?.currentBid ?? 0)} and restart the timer.
                     </p>
                   </div>
                 </Button>
@@ -2221,7 +2225,7 @@ export default function AuctionOperator() {
                   <div className="text-left">
                     <p className="font-semibold text-sm">Restart this player auction</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Reset to {formatIndianRupee(state?.currentPlayer?.basePrice ?? 0)} with no leading bidder.
+                      Reset to {formatAmount(state?.currentPlayer?.basePrice ?? 0)} with no leading bidder.
                     </p>
                   </div>
                 </Button>
@@ -2352,9 +2356,10 @@ export default function AuctionOperator() {
                           value={reAuctionFixedAmount}
                           onChange={(e) => setReAuctionFixedAmount(e.target.value)}
                         />
+                        <IndianAmountHint value={reAuctionFixedAmount} className="text-[10px]" />
                         {tournament?.minBid ? (
                           <p className="text-[10px] text-muted-foreground">
-                            Minimum {formatIndianRupee(tournament.minBid)} (tournament minimum bid)
+                            Minimum {formatAmount(tournament.minBid)} (tournament minimum bid)
                           </p>
                         ) : null}
                       </div>

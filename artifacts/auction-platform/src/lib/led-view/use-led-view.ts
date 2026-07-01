@@ -43,6 +43,7 @@ import {
 import { resolvePlayerSpecifications, specGroupLabelsForRole } from "@/lib/player-spec-display";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { resolvePlayerPortraitGender } from "./player-gender";
+import { resolveAuctionUnit } from "@/hooks/use-auction-unit";
 
 function mapPlayerStatus(
   status: Player["status"],
@@ -391,6 +392,7 @@ export function useLedView(
     }
 
     const outcome = stateExt?.outcome;
+    const auctionUnit = resolveAuctionUnit(tournament);
     const minBid = tournament.minBid ?? 0;
     const minSquadSize = tournament.minimumSquadSize ?? 0;
     const teamsBase = (teamPurses ?? []).map((t) => toLedTeam(t, minBid, minSquadSize));
@@ -514,7 +516,7 @@ export function useLedView(
 
     const ladder = log.map((l) => {
       const team = teams.find((t) => t.id === l.teamId) ?? teams[0];
-      return { team, amount: l.amount, amountLabel: formatINR(l.amount), id: l.id };
+      return { team, amount: l.amount, amountLabel: formatINR(l.amount, auctionUnit), id: l.id };
     });
     const uniqueBidders = new Set(
       playerBids.map((b) => String(b.teamId)),
@@ -630,15 +632,15 @@ export function useLedView(
           roleRaw: p.roleRaw,
           portrait: p.portrait,
           soldPrice: p.soldPrice ?? p.basePrice,
-          soldPriceLabel: formatINR(p.soldPrice ?? p.basePrice),
+          soldPriceLabel: formatINR(p.soldPrice ?? p.basePrice, auctionUnit),
         }));
       const spent = team.totalPurse - team.purse;
       return {
         team,
         players: teamPlayers,
         spent,
-        spentLabel: formatINR(spent),
-        remainingLabel: formatINR(team.purse),
+        spentLabel: formatINR(spent, auctionUnit),
+        remainingLabel: formatINR(team.purse, auctionUnit),
       };
     });
 
@@ -664,7 +666,7 @@ export function useLedView(
           roleRaw: p.roleRaw,
           portrait: p.portrait,
           soldPrice: p.soldPrice ?? 0,
-          soldPriceLabel: formatINR(p.soldPrice ?? 0),
+          soldPriceLabel: formatINR(p.soldPrice ?? 0, auctionUnit),
           team: tm,
         };
       });
@@ -726,10 +728,10 @@ export function useLedView(
       remaining: state?.remainingPlayersCount ?? 0,
       totalPlayers: players.length || (state?.soldPlayersCount ?? 0) + (state?.remainingPlayersCount ?? 0),
       derivedState,
-      currentBidLabel: formatINRFull(bidBase),
-      basePriceLabel: formatINR(currentPlayer?.basePrice ?? 0),
-      nextMinLabel: formatINR(nextMin),
-      incrementLabel: `+${formatINR(inc)}`,
+      currentBidLabel: formatINRFull(bidBase, auctionUnit),
+      basePriceLabel: formatINR(currentPlayer?.basePrice ?? 0, auctionUnit),
+      nextMinLabel: formatINR(nextMin, auctionUnit),
+      incrementLabel: `+${formatINR(inc, auctionUnit)}`,
       ladder,
       uniqueBidders,
       tournament: {
@@ -738,6 +740,7 @@ export function useLedView(
         venue: tournament.venue ?? "",
         date: tournament.auctionDate ?? "",
         logoUrl: tournament.logoUrl ?? null,
+        auctionUnit,
       },
       roleLabel: currentPlayer?.roleRaw ?? "",
       sponsors,

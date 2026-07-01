@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
-import { cldUrl } from "@/lib/cloudinary";
+import { formatAuctionAmount, normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 
 /**
  * Side-panel overlays — sold / unsold on player panel only.
@@ -20,7 +20,9 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
     currentPlayer,
     basePriceLabel,
     lastOutcome,
+    tournament,
   } = view;
+  const auctionUnit = normalizeAuctionUnit(tournament.auctionUnit);
 
   if (panel === "sponsors") {
     return null;
@@ -33,7 +35,7 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
     const photo = lastOutcome?.photoUrl ?? currentPlayer?.portrait ?? "";
     const playerName = lastOutcome?.playerName ?? currentPlayer?.name ?? "";
     const amount = lastOutcome?.amount
-      ? `₹${lastOutcome.amount.toLocaleString("en-IN")}`
+      ? formatAuctionAmount(lastOutcome.amount, auctionUnit)
       : currentBidLabel;
 
     return (

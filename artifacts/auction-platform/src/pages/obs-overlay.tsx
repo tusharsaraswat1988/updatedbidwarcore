@@ -10,6 +10,7 @@ import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state"
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatIndianRupee } from "@/lib/format";
+import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { BroadcastOverlayTopBar } from "@/components/display/broadcast-overlay-top-bar";
 import { SponsorTicker, SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
@@ -361,6 +362,7 @@ export default function ObsOverlay() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { formatAmount } = useAuctionUnit(tournament);
 
   const [soldSnap, setSoldSnap] = useState<SoldSnap | null>(null);
   const [showSold, setShowSold] = useState(false);
@@ -702,7 +704,7 @@ export default function ObsOverlay() {
                   <div style={{ width: 5, height: 5, borderRadius: "50%", background: panelAccent }} />
                   <span style={{ fontSize: OBS_BID_PANEL.labelFont, color: panelAccent, fontWeight: 700, letterSpacing: "0.15em" }}>BASE VALUE</span>
                   <span style={{ fontSize: OBS_BID_PANEL.valueFont, color: "#fff", fontWeight: 800, fontFamily: "monospace" }}>
-                    {formatIndianRupee(state?.currentPlayer?.basePrice ?? 0)}
+                    {formatAmount(state?.currentPlayer?.basePrice ?? 0)}
                   </span>
                 </div>
               </div>
@@ -717,7 +719,7 @@ export default function ObsOverlay() {
                     <div>
                       <div style={{ fontSize: OBS_BID_PANEL.labelFont, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: OBS_BID_PANEL.bidLabelMb }}>LEADING BID</div>
                       <div style={{ fontSize: OBS_BID_PANEL.bidFont, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
-                        {formatIndianRupee(state?.currentBid ?? 0)}
+                        {formatAmount(state?.currentBid ?? 0)}
                       </div>
                       <div style={{ marginTop: OBS_BID_PANEL.bidTeamMt, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                         {state?.currentBidTeamLogoUrl && (
@@ -735,7 +737,7 @@ export default function ObsOverlay() {
                   >
                     <div style={{ fontSize: OBS_BID_PANEL.labelFont, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: OBS_BID_PANEL.bidLabelMb }}>LEADING BID</div>
                     <div style={{ fontSize: OBS_BID_PANEL.bidFont, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
-                      {formatIndianRupee(state?.currentBid ?? 0)}
+                      {formatAmount(state?.currentBid ?? 0)}
                     </div>
                     <div style={{ marginTop: OBS_BID_PANEL.bidTeamMt, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                       {state?.currentBidTeamLogoUrl && (
@@ -749,7 +751,7 @@ export default function ObsOverlay() {
                   <div>
                     <div style={{ fontSize: OBS_BID_PANEL.labelFont, color: "rgba(255,255,255,0.95)", letterSpacing: "0.15em", marginBottom: OBS_BID_PANEL.bidLabelMb }}>OPENING BID</div>
                     <div style={{ fontSize: OBS_BID_PANEL.bidFont, fontWeight: 900, color: "rgba(255,255,255,0.95)", lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)" }}>
-                      {formatIndianRupee(state?.currentBid ?? 0)}
+                      {formatAmount(state?.currentBid ?? 0)}
                     </div>
                     <div style={{ fontSize: OBS_BID_PANEL.hintFont, color: "rgba(255,255,255,0.80)", marginTop: OBS_BID_PANEL.bidTeamMt }}>Waiting for first bid...</div>
                   </div>

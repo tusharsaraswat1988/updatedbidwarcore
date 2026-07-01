@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { cldUrl } from "@/lib/cloudinary";
 import {
   buildCsvTemplateExampleRow,
@@ -1055,6 +1056,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                 ))}
               </SelectContent>
             </Select>
+            <IndianAmountHint value={form.selectedBidValue} className="text-[10px]" />
           </div>
         ) : showPlayerBidSelector && !bidValueEditable ? (
           <div className="space-y-2 col-span-2">
@@ -1073,6 +1075,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }}
               required
             />
+            <IndianAmountHint value={form.basePrice} className="text-[10px]" />
             <p className="text-[10px] text-muted-foreground">
               Uses tournament minimum bid ({formatIndianRupee(tournament?.minBid ?? 100000)}).
             </p>
@@ -1269,6 +1272,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <div className="space-y-2">
               <Label>Retained Price (₹) <span className="text-destructive">*</span></Label>
               <Input type="number" value={form.retainedPrice} onChange={e => f("retainedPrice", e.target.value)} placeholder="e.g. 1000000" />
+              <IndianAmountHint value={form.retainedPrice} className="text-[10px]" />
             </div>
           )}
         </div>

@@ -9,6 +9,17 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * Auction value unit for bids, purse, and all display surfaces
+ */
+export type TournamentAuctionUnit =
+  (typeof TournamentAuctionUnit)[keyof typeof TournamentAuctionUnit];
+
+export const TournamentAuctionUnit = {
+  rupee: "rupee",
+  points: "points",
+} as const;
+
 export type TournamentPlayerSelectionMode =
   (typeof TournamentPlayerSelectionMode)[keyof typeof TournamentPlayerSelectionMode];
 
@@ -120,6 +131,8 @@ export interface Tournament {
   logoUrl?: string | null;
   /** @nullable */
   sponsorLogos?: string | null;
+  /** Auction value unit for bids, purse, and all display surfaces */
+  auctionUnit?: TournamentAuctionUnit;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
@@ -242,6 +255,14 @@ export interface CheerInput {
   reactionId: number;
 }
 
+export type TournamentInputAuctionUnit =
+  (typeof TournamentInputAuctionUnit)[keyof typeof TournamentInputAuctionUnit];
+
+export const TournamentInputAuctionUnit = {
+  rupee: "rupee",
+  points: "points",
+} as const;
+
 export type TournamentInputPlayerSelectionMode =
   (typeof TournamentInputPlayerSelectionMode)[keyof typeof TournamentInputPlayerSelectionMode];
 
@@ -268,6 +289,7 @@ export interface TournamentInput {
   organizerMobile?: string;
   logoUrl?: string;
   sponsorLogos?: string;
+  auctionUnit?: TournamentInputAuctionUnit;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
@@ -299,6 +321,14 @@ export interface TournamentInput {
   /** Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19' */
   matchDates?: string;
 }
+
+export type TournamentUpdateAuctionUnit =
+  (typeof TournamentUpdateAuctionUnit)[keyof typeof TournamentUpdateAuctionUnit];
+
+export const TournamentUpdateAuctionUnit = {
+  rupee: "rupee",
+  points: "points",
+} as const;
 
 export type TournamentUpdatePlayerSelectionMode =
   (typeof TournamentUpdatePlayerSelectionMode)[keyof typeof TournamentUpdatePlayerSelectionMode];
@@ -366,6 +396,7 @@ export interface TournamentUpdate {
   organizerMobile?: string;
   logoUrl?: string;
   sponsorLogos?: string;
+  auctionUnit?: TournamentUpdateAuctionUnit;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
@@ -1211,6 +1242,36 @@ export interface LastPurseBooster {
 
 export interface LedPurseToast {
   teamName: string;
+  expiresAt?: string;
+}
+
+export type LedPurseBoosterOverlayTarget =
+  (typeof LedPurseBoosterOverlayTarget)[keyof typeof LedPurseBoosterOverlayTarget];
+
+export const LedPurseBoosterOverlayTarget = {
+  single: "single",
+  all: "all",
+} as const;
+
+export interface LedPurseBoosterTeamLine {
+  teamId: number;
+  teamName: string;
+  shortCode: string;
+  color: string;
+  logoUrl?: string | null;
+  previousCapacity: number;
+  boosterAmount: number;
+  newCapacity: number;
+}
+
+export interface LedPurseBoosterOverlay {
+  batchId: string;
+  replayKey: number;
+  expiresAt: string;
+  durationMs: number;
+  target: LedPurseBoosterOverlayTarget;
+  boosterAmount: number;
+  teams: LedPurseBoosterTeamLine[];
 }
 
 export interface TeamPurse {
@@ -1317,6 +1378,7 @@ export interface AuctionState {
   displayCountdown?: DisplayCountdown | null;
   lastPurseBooster?: LastPurseBooster | null;
   ledPurseToast?: LedPurseToast | null;
+  ledPurseBoosterOverlay?: LedPurseBoosterOverlay | null;
   /** Live team purse snapshot embedded for realtime sync without separate HTTP refetch */
   teamPurses?: TeamPurse[];
 }
@@ -2148,6 +2210,12 @@ export const ListPurseBoostersStatus = {
   active: "active",
   cancelled: "cancelled",
 } as const;
+
+export type ReplayPurseBoosterLed200 = {
+  ok: boolean;
+  replayKey: number;
+  expiresAt: string;
+};
 
 export type SearchGlobalPlayersParams = {
   /**

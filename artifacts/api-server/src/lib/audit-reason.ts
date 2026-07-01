@@ -30,6 +30,7 @@ export function parseAuditReason(
 /** Tournament fields that require a reason when changed. */
 export const TOURNAMENT_CONFIG_FIELDS = new Set([
   "basePurse",
+  "auctionUnit",
   "minBid",
   "bidIncrement",
   "bidTier1UpTo",

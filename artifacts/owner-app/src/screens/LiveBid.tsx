@@ -10,7 +10,7 @@ import { useTimerExpired } from "@/hooks/useTimerExpired";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/haptics";
-import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -174,9 +174,10 @@ function TimerBar({
   );
 }
 
-function PlayerCard({ player, teamColor }: {
+function PlayerCard({ player, teamColor, unit }: {
   player: NonNullable<AuctionState["currentPlayer"]>;
   teamColor: string;
+  unit: ReturnType<typeof resolveAuctionUnit>;
 }) {
   return (
     <motion.div
@@ -207,7 +208,7 @@ function PlayerCard({ player, teamColor }: {
         </div>
         {player.basePrice != null && (
           <p className="text-sm text-[#71717a] mt-2">
-            Base <span className="text-white font-bold text-base">{formatIndianRupee(player.basePrice)}</span>
+            Base <span className="text-white font-bold text-base">{formatIndianRupee(player.basePrice, unit)}</span>
           </p>
         )}
       </div>
@@ -215,11 +216,12 @@ function PlayerCard({ player, teamColor }: {
   );
 }
 
-function BidAmount({ amount, isLeading, teamColor, leadingTeam }: {
+function BidAmount({ amount, isLeading, teamColor, leadingTeam, unit }: {
   amount: number;
   isLeading: boolean;
   teamColor: string;
   leadingTeam?: string | null;
+  unit: ReturnType<typeof resolveAuctionUnit>;
 }) {
   return (
     <div className="text-center py-2">
@@ -233,7 +235,7 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam }: {
         className="font-display font-black text-6xl leading-none"
         style={{ color: isLeading ? teamColor : "#ffffff" }}
       >
-        {formatIndianRupee(amount || 0)}
+        {formatIndianRupee(amount || 0, unit)}
       </motion.p>
       {!isLeading && leadingTeam && (
         <p className="text-base text-[#71717a] mt-2">
@@ -263,6 +265,7 @@ function getBidDisabledHint(params: {
   nextBidAmount: number;
   reservePurse: number;
   slotsRequired: number;
+  unit: ReturnType<typeof resolveAuctionUnit>;
 }): BidDisabledHint {
   if (params.isPaused) {
     return { headline: "Auction paused", subline: "The operator has paused bidding" };
@@ -291,13 +294,13 @@ function getBidDisabledHint(params: {
     const shortfall = params.nextBidAmount - params.spendablePurse;
     if (params.reservePurse > 0) {
       return {
-        headline: `${formatShortIndianRupee(shortfall)} short for this bid`,
-        subline: `${formatShortIndianRupee(params.spendablePurse)} spendable · ${formatShortIndianRupee(params.reservePurse)} held for ${params.slotsRequired} open slot${params.slotsRequired !== 1 ? "s" : ""}`,
+        headline: `${formatShortIndianRupee(shortfall, params.unit)} short for this bid`,
+        subline: `${formatShortIndianRupee(params.spendablePurse, params.unit)} spendable · ${formatShortIndianRupee(params.reservePurse, params.unit)} held for ${params.slotsRequired} open slot${params.slotsRequired !== 1 ? "s" : ""}`,
       };
     }
     return {
-      headline: `${formatShortIndianRupee(shortfall)} short for this bid`,
-      subline: `${formatShortIndianRupee(params.spendablePurse)} spendable · bid needs ${formatShortIndianRupee(params.nextBidAmount)}`,
+      headline: `${formatShortIndianRupee(shortfall, params.unit)} short for this bid`,
+      subline: `${formatShortIndianRupee(params.spendablePurse, params.unit)} spendable · bid needs ${formatShortIndianRupee(params.nextBidAmount, params.unit)}`,
     };
   }
   return { headline: "Bid unavailable", subline: "Try refreshing or wait a moment" };
@@ -318,7 +321,7 @@ function BidDisabledMessage({ hint, compact }: { hint: BidDisabledHint; compact?
 
 function BidButton({
   canBid, isLeading, timerExpired, hasPlayer, isActive, isPaused, isIdle,
-  bidding, bidFeedback, nextBidAmount, teamColor, onBid, landscape,
+  bidding, bidFeedback, nextBidAmount, teamColor, onBid, landscape, unit,
 }: {
   canBid: boolean;
   isLeading: boolean;
@@ -333,6 +336,7 @@ function BidButton({
   teamColor: string;
   onBid: () => void;
   landscape: boolean;
+  unit: ReturnType<typeof resolveAuctionUnit>;
 }) {
   const buttonH = landscape ? "min-h-[40vh] h-full" : "h-full min-h-[18vh]";
 
@@ -414,7 +418,7 @@ function BidButton({
         <div className="flex flex-col items-center leading-none gap-2">
           <span>BID</span>
           <span style={{ fontSize: "0.42em", fontWeight: 700, opacity: 0.85 }}>
-            {formatIndianRupee(nextBidAmount)}
+            {formatIndianRupee(nextBidAmount, unit)}
           </span>
         </div>
       )}
@@ -455,10 +459,11 @@ function UnsoldPlayerCard({ name, photoUrl }: { name: string; photoUrl?: string 
 }
 
 // ── Last sold player card ─────────────────────────────────────────────────────
-function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
+function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
   player: NonNullable<AuctionState["lastSoldPlayer"]>;
   teamColor: string;
   wonByThisTeam: boolean;
+  unit: ReturnType<typeof resolveAuctionUnit>;
 }) {
   const soldColor = wonByThisTeam ? teamColor : "#22c55e";
   return (
@@ -492,7 +497,7 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
       {player.soldAmount != null && (
         <div className="text-right flex-shrink-0">
           <p className="font-display font-black text-xl" style={{ color: soldColor }}>
-            {formatIndianRupee(player.soldAmount)}
+            {formatIndianRupee(player.soldAmount, unit)}
           </p>
           <div
             className="inline-flex items-center px-2 py-1 rounded-lg mt-1 border text-xs font-black uppercase tracking-wider"
@@ -547,6 +552,9 @@ export function LiveBid({
   const syncAttempted = useRef(false);
 
   const teamColor = team.color || "#F59E0B";
+  const unit = resolveAuctionUnit(tournament?.auctionUnit);
+  const fmt = (amount: number | null | undefined) => formatIndianRupee(amount, unit);
+  const fmtShort = (amount: number | null | undefined) => formatShortIndianRupee(amount, unit);
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive  = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
@@ -634,6 +642,7 @@ export function LiveBid({
           nextBidAmount,
           reservePurse,
           slotsRequired,
+          unit,
         })
       : null;
 
@@ -872,7 +881,7 @@ export function LiveBid({
           {/* Player card or last sold */}
           <AnimatePresence mode="wait">
             {hasPlayer ? (
-              <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
+              <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} unit={unit} />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
                 key="last-unsold"
@@ -885,6 +894,7 @@ export function LiveBid({
                 player={state!.lastSoldPlayer!}
                 teamColor={teamColor}
                 wonByThisTeam={state!.lastSoldPlayer!.soldToTeamId === teamId}
+                unit={unit}
               />
             ) : (
               <motion.div
@@ -907,6 +917,7 @@ export function LiveBid({
             isLeading={isLeading}
             teamColor={teamColor}
             leadingTeam={state?.currentBidTeamName}
+            unit={unit}
           />
 
           {/* Reserve / squad banners */}
@@ -914,7 +925,7 @@ export function LiveBid({
             <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-500/25 bg-amber-500/8">
               <ShieldAlert className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-400 font-semibold">
-                {formatShortIndianRupee(reservePurse)} reserved — {slotsRequired} slot{slotsRequired !== 1 ? "s" : ""} needed
+                {fmtShort(reservePurse)} reserved — {slotsRequired} slot{slotsRequired !== 1 ? "s" : ""} needed
               </p>
             </div>
           )}
@@ -949,6 +960,7 @@ export function LiveBid({
                   teamColor={teamColor}
                   onBid={handleBidTap}
                   landscape={false}
+                  unit={unit}
                 />
               </AnimatePresence>
             </div>
@@ -961,8 +973,8 @@ export function LiveBid({
             {/* Purse strip */}
             <div className="grid grid-cols-3 gap-2 pt-1">
               {[
-                { label: "Spendable", value: formatShortIndianRupee(spendablePurse), accent: teamColor },
-                { label: "Spent",     value: formatShortIndianRupee(teamPurse?.purseUsed ?? (team.purseUsed || 0)) },
+                { label: "Spendable", value: fmtShort(spendablePurse), accent: teamColor },
+                { label: "Spent",     value: fmtShort(teamPurse?.purseUsed ?? (team.purseUsed || 0)) },
                 { label: "Players",   value: String(playersBought) },
               ].map(({ label, value, accent }) => (
                 <div key={label} className="text-center">
@@ -1025,7 +1037,7 @@ export function LiveBid({
                 <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
                 <p className="text-2xl font-bold text-white mt-3">{wonBanner.name}</p>
                 {wonBanner.soldAmount != null && (
-                  <p className="text-xl text-[#a1a1aa] mt-2">{formatIndianRupee(wonBanner.soldAmount)}</p>
+                  <p className="text-xl text-[#a1a1aa] mt-2">{fmt(wonBanner.soldAmount)}</p>
                 )}
               </div>
             </motion.div>
@@ -1047,11 +1059,11 @@ export function LiveBid({
             >
               <div className="text-center">
                 <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
-                <p className="text-3xl font-bold text-white mt-4">{formatIndianRupee(purseBoosterBanner.amount)}</p>
+                <p className="text-3xl font-bold text-white mt-4">{fmt(purseBoosterBanner.amount)}</p>
                 <p className="text-base text-[#a1a1aa] mt-4">Previous Capacity</p>
-                <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
+                <p className="text-xl font-mono text-white">{fmt(purseBoosterBanner.previousCapacity)}</p>
                 <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
-                <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
+                <p className="text-xl font-mono text-emerald-300">{fmt(purseBoosterBanner.newCapacity)}</p>
                 <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
               </div>
             </motion.div>
@@ -1187,7 +1199,7 @@ export function LiveBid({
           )}
           <AnimatePresence mode="wait">
             {hasPlayer ? (
-              <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
+              <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} unit={unit} />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
                 key="last-unsold-ls"
@@ -1200,6 +1212,7 @@ export function LiveBid({
                 player={state!.lastSoldPlayer!}
                 teamColor={teamColor}
                 wonByThisTeam={state!.lastSoldPlayer!.soldToTeamId === teamId}
+                unit={unit}
               />
             ) : (
               <motion.div
@@ -1217,6 +1230,7 @@ export function LiveBid({
             isLeading={isLeading}
             teamColor={teamColor}
             leadingTeam={state?.currentBidTeamName}
+            unit={unit}
           />
         </div>
 
@@ -1224,8 +1238,8 @@ export function LiveBid({
         <div className="px-4 py-3 border-t border-[#27272a] flex-shrink-0">
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: "Spendable", value: formatShortIndianRupee(spendablePurse), accent: teamColor },
-              { label: "Spent",     value: formatShortIndianRupee(teamPurse?.purseUsed ?? (team.purseUsed || 0)) },
+              { label: "Spendable", value: fmtShort(spendablePurse), accent: teamColor },
+              { label: "Spent",     value: fmtShort(teamPurse?.purseUsed ?? (team.purseUsed || 0)) },
               { label: "Players",   value: String(playersBought) },
             ].map(({ label, value, accent }) => (
               <div key={label} className="text-center">
@@ -1256,6 +1270,7 @@ export function LiveBid({
               teamColor={teamColor}
               onBid={handleBidTap}
               landscape={true}
+              unit={unit}
             />
           </AnimatePresence>
         </div>
@@ -1306,7 +1321,7 @@ export function LiveBid({
             <div className="text-center">
               <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
               <p className="text-2xl font-bold text-white mt-2">{wonBanner.name}</p>
-              {wonBanner.soldAmount != null && <p className="text-xl text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>}
+              {wonBanner.soldAmount != null && <p className="text-xl text-[#a1a1aa] mt-1">{fmt(wonBanner.soldAmount)}</p>}
             </div>
           </motion.div>
         )}
@@ -1325,11 +1340,11 @@ export function LiveBid({
           >
             <div className="text-center">
               <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
-              <p className="text-3xl font-bold text-white mt-4">{formatIndianRupee(purseBoosterBanner.amount)}</p>
+              <p className="text-3xl font-bold text-white mt-4">{fmt(purseBoosterBanner.amount)}</p>
               <p className="text-base text-[#a1a1aa] mt-4">Previous Capacity</p>
-              <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
+              <p className="text-xl font-mono text-white">{fmt(purseBoosterBanner.previousCapacity)}</p>
               <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
-              <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
+              <p className="text-xl font-mono text-emerald-300">{fmt(purseBoosterBanner.newCapacity)}</p>
               <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
             </div>
           </motion.div>

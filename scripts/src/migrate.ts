@@ -321,6 +321,7 @@ const migrations: Array<{ label: string; sql: string }> = [
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_expires_at timestamptz;
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_synced_at timestamptz;
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_last_mirror_at timestamptz;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auction_unit text NOT NULL DEFAULT 'rupee';
 
       ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent boolean NOT NULL DEFAULT false;
       ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_at timestamptz;

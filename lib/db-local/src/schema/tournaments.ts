@@ -11,6 +11,7 @@ export const tournamentsTable = sqliteTable("tournaments", {
   organizerEmail: text("organizer_email"),
   logoUrl: text("logo_url"),
   sponsorLogos: text("sponsor_logos"),
+  auctionUnit: text("auction_unit").notNull().default("rupee"),
   basePurse: integer("base_purse").notNull().default(10000000),
   minBid: integer("min_bid").notNull().default(100000),
   bidIncrement: integer("bid_increment").notNull().default(100000),

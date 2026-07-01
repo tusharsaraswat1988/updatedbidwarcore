@@ -1,4 +1,5 @@
 import { parseBidValueOptions } from "@workspace/api-base/bid-value";
+import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { parseRegistrationFieldsConfig } from "@workspace/api-base/registration-fields";
 import {
   resolveBroadcastAudioUrl,
@@ -32,6 +33,7 @@ export function publicTournamentSerializer(
     organizerName: t.organizerName,
     logoUrl: t.logoUrl,
     sponsorLogos: t.sponsorLogos,
+    auctionUnit: normalizeAuctionUnit(t.auctionUnit),
     basePurse: t.basePurse,
     minBid: t.minBid,
     bidIncrement: t.bidIncrement,

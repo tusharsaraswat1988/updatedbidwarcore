@@ -15,10 +15,13 @@ import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useToast } from "@/hooks/use-toast";
 import { SportSelect } from "@/components/sport-select";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
+import { AUCTION_UNIT_OPTIONS, budgetFieldLabel, minValueFieldLabel, bidIncrementFieldLabel, normalizeAuctionUnit } from "@/lib/format";
 
 const formSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   sport: z.string().min(1, "Select a sport"),
+  auctionUnit: z.enum(["rupee", "points"]).default("rupee"),
   venue: z.string().optional(),
   auctionDate: z.string().optional(),
   auctionTime: z.string().optional(),
@@ -77,6 +80,7 @@ export default function NewTournament() {
       auctionDate: "",
       auctionTime: "",
       organizerName: "",
+      auctionUnit: "rupee" as const,
       basePurse: 10000000,
       minBid: 10000,
       bidIncrement: 5000,
@@ -244,16 +248,37 @@ export default function NewTournament() {
 
                 <div className="space-y-4 pt-4 border-t border-border">
                   <h3 className="text-lg font-medium">Financial Rules</h3>
+                  <FormField
+                    control={form.control}
+                    name="auctionUnit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Units</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {AUCTION_UNIT_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="basePurse"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Total Points Per Team (₹)</FormLabel>
+                          <FormLabel>{budgetFieldLabel(normalizeAuctionUnit(form.watch("auctionUnit")))}</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
+                          <IndianAmountHint value={field.value} unit={normalizeAuctionUnit(form.watch("auctionUnit"))} />
                           <FormMessage />
                         </FormItem>
                       )}
@@ -276,10 +301,11 @@ export default function NewTournament() {
                       name="minBid"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Min Value of a Player (₹)</FormLabel>
+                          <FormLabel>{minValueFieldLabel(normalizeAuctionUnit(form.watch("auctionUnit")))}</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
+                          <IndianAmountHint value={field.value} />
                           <FormMessage />
                         </FormItem>
                       )}
@@ -289,10 +315,11 @@ export default function NewTournament() {
                       name="bidIncrement"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Default Bid Increment (₹)</FormLabel>
+                          <FormLabel>{bidIncrementFieldLabel(normalizeAuctionUnit(form.watch("auctionUnit")))}</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
+                          <IndianAmountHint value={field.value} />
                           <FormMessage />
                         </FormItem>
                       )}

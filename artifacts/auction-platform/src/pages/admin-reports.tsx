@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { ADMIN_FLEX_SCROLL_CLASS } from "@/components/admin/admin-scroll-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -598,6 +599,7 @@ function FilterBar({
               onChange={e => setFilters(p => ({ ...p, minPrice: e.target.value ? Number(e.target.value) : undefined }))}
               className="h-8 text-sm" placeholder="e.g. 100000"
             />
+            <IndianAmountHint value={filters.minPrice} className="text-[10px]" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Max sold price (₹)</Label>
@@ -606,6 +608,7 @@ function FilterBar({
               onChange={e => setFilters(p => ({ ...p, maxPrice: e.target.value ? Number(e.target.value) : undefined }))}
               className="h-8 text-sm" placeholder="e.g. 5000000"
             />
+            <IndianAmountHint value={filters.maxPrice} className="text-[10px]" />
           </div>
         </div>
       )}

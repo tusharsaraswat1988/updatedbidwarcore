@@ -118,6 +118,7 @@ import { SportSelect } from "@/components/sport-select";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Switch } from "@/components/ui/switch";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -307,6 +308,7 @@ export function CreateTournamentModal({
                   value={form.basePurse}
                   onChange={f("basePurse")}
                 />
+                <IndianAmountHint value={form.basePurse} />
               </div>
             </div>
 
@@ -1037,6 +1039,7 @@ function DetailPanel({
                         }))
                       }
                     />
+                    <IndianAmountHint value={editForm.basePurse as string | number} className="text-[10px]" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">
@@ -1050,6 +1053,7 @@ function DetailPanel({
                         setEditForm((f) => ({ ...f, minBid: e.target.value }))
                       }
                     />
+                    <IndianAmountHint value={editForm.minBid as string | number} className="text-[10px]" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground flex items-center gap-1">
@@ -2915,13 +2919,6 @@ function DisplayAuctionForm({
     await onSaved();
   }
 
-  const purseNum = Number(form.purse) || 0;
-  const purseLabel = purseNum >= 10000000
-    ? `₹${(purseNum / 10000000).toFixed(1)} Cr`
-    : purseNum >= 100000
-    ? `₹${(purseNum / 100000).toFixed(0)} Lakh`
-    : `₹${purseNum.toLocaleString("en-IN")}`;
-
   return (
     <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl dark max-h-[90vh]">
@@ -2992,7 +2989,7 @@ function DisplayAuctionForm({
               <div className="space-y-1">
                 <Label className="text-xs">Team Purse (₹ in rupees)</Label>
                 <Input type="number" className="h-8 text-xs" value={form.purse} onChange={e => f("purse", e.target.value)} placeholder="3000000" />
-                <p className="text-[10px] text-muted-foreground">{purseLabel} per team</p>
+                <IndianAmountHint value={form.purse} className="text-[10px]" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Number of Teams</Label>

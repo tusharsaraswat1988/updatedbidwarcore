@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Pencil, Trash2, Tag, Filter } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
@@ -144,6 +145,7 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
           onChange={e => setF("minBid", e.target.value)}
           placeholder="Leave blank to use tournament default"
         />
+        <IndianAmountHint value={form.minBid} />
         <p className="text-xs text-muted-foreground">
           If left blank, the tournament's default min value applies. Category will act as a filter/grouping label only unless min value or increment is set.
         </p>
@@ -189,6 +191,7 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
               onChange={e => setF("flatIncrement", e.target.value)}
               placeholder="e.g. 20000"
             />
+            <IndianAmountHint value={form.flatIncrement} />
             <p className="text-xs text-muted-foreground">Fixed amount added per bid step for players in this category.</p>
           </div>
         )}
@@ -200,25 +203,30 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Tier 1 — bid up to (₹)</Label>
                 <Input type="number" value={form.tier1UpTo} onChange={e => setF("tier1UpTo", parseInt(e.target.value) || 0)} />
+                <IndianAmountHint value={form.tier1UpTo} className="text-[10px]" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Tier 1 increment (₹)</Label>
                 <Input type="number" value={form.tier1Inc} onChange={e => setF("tier1Inc", parseInt(e.target.value) || 0)} />
+                <IndianAmountHint value={form.tier1Inc} className="text-[10px]" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Tier 2 — bid up to (₹)</Label>
                 <Input type="number" value={form.tier2UpTo} onChange={e => setF("tier2UpTo", parseInt(e.target.value) || 0)} />
+                <IndianAmountHint value={form.tier2UpTo} className="text-[10px]" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Tier 2 increment (₹)</Label>
                 <Input type="number" value={form.tier2Inc} onChange={e => setF("tier2Inc", parseInt(e.target.value) || 0)} />
+                <IndianAmountHint value={form.tier2Inc} className="text-[10px]" />
               </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Final tier increment (₹)</Label>
               <Input type="number" value={form.tier3Inc} onChange={e => setF("tier3Inc", parseInt(e.target.value) || 0)} />
+              <IndianAmountHint value={form.tier3Inc} className="text-[10px]" />
             </div>
           </div>
         )}
