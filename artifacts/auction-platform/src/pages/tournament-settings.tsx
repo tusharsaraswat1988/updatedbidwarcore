@@ -269,22 +269,6 @@ export default function TournamentSettings() {
     return highlight || pulse;
   }
 
-  function applyCricketPreset() {
-    setActiveSection("auction");
-    const increment = Number(editForm.minBid) > 0 ? Math.max(5000, Math.round(Number(editForm.minBid) / 2)) : 5000;
-    setEditForm(f => ({
-      ...f,
-      timerSeconds: "30",
-      bidTimerSeconds: "15",
-      playerSelectionMode: "random",
-      minimumSquadSize: Number(f.minimumSquadSize) > 0 ? f.minimumSquadSize : "11",
-      maximumSquadSize: Number(f.maximumSquadSize) > 0 ? f.maximumSquadSize : "15",
-      minBid: Number(f.minBid) > 0 ? f.minBid : "10000",
-    }));
-    setBidTiers([{ increment }]);
-    toast({ title: "Cricket preset applied", description: "Changes will save automatically." });
-  }
-
   function closeBannerEditor() {
     if (bannerEditorInitial?.startsWith("blob:")) {
       URL.revokeObjectURL(bannerEditorInitial);
@@ -1232,13 +1216,6 @@ export default function TournamentSettings() {
         {/* ── AUCTION RULES ── */}
         {activeSection === "auction" && (
           <SettingsTabPanel className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 bg-[hsl(240,10%,9%)] px-3 py-2">
-              <p className="text-xs text-muted-foreground">Set these before your auction starts.</p>
-              <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={applyCricketPreset}>
-                Use standard cricket settings
-              </Button>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SettingsCard
                 title="Budget & Pricing"
