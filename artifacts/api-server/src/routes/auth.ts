@@ -1908,6 +1908,10 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
   }
 });
 
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string }).code === "23505";
+}
+
 router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {
   const pending = req.oauthState.pendingGoogleProfile;
   const mobile = req.oauthState.pendingGoogleMobile;
@@ -1920,36 +1924,77 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "OTP must be 6 digits" }); return; }
 
-  const result = await bulkSmsOtpVerify(mobile, parsed.data.otp, "complete_profile");
-  if (!result.success) {
-    res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
+  try {
+    const result = await bulkSmsOtpVerify(mobile, parsed.data.otp, "complete_profile");
+    if (!result.success) {
+      res.status(400).json({ error: result.error ?? "Invalid or expired OTP" });
+      return;
+    }
+
+    if (await organizerNormalizedMobileTaken(mobile)) {
+      res.status(409).json({
+        error: "This mobile number is already registered. Sign in with your existing account or use a different number.",
+      });
+      return;
+    }
+
+    let organizer = (
+      await db.select().from(organizersTable).where(eq(organizersTable.googleId, pending.googleId))
+    )[0];
+
+    if (!organizer) {
+      const [existingByEmail] = await db
+        .select()
+        .from(organizersTable)
+        .where(eq(organizersTable.email, pending.email));
+      if (existingByEmail) {
+        const [linked] = await db.update(organizersTable)
+          .set({
+            googleId: pending.googleId,
+            googleEmail: pending.googleEmail,
+            mobile,
+          })
+          .where(eq(organizersTable.id, existingByEmail.id))
+          .returning();
+        organizer = linked;
+      } else {
+        try {
+          [organizer] = await db.insert(organizersTable).values({
+            name: pending.name,
+            email: pending.email,
+            mobile,
+            googleId: pending.googleId,
+            googleEmail: pending.googleEmail,
+            licenseStatus: "active",
+            maxTournaments: 1,
+          }).returning();
+          triggerOrganiserRegisteredNotification(organizer);
+        } catch (insertErr) {
+          if (isUniqueViolation(insertErr)) {
+            res.status(409).json({
+              error: "An account with this email or mobile already exists. Please sign in instead.",
+            });
+            return;
+          }
+          throw insertErr;
+        }
+      }
+    }
+
+    if (!organizer) {
+      res.status(500).json({ error: "Failed to create your account. Please try again." });
+      return;
+    }
+
+    clearOAuthCookie(res);
+    await issueOrganizerAuthCookie(req, res, organizer.id);
+    res.json({ success: true, organizer: organizerToJson(organizer) });
+  } catch (err) {
+    req.log.error({ err, email: pending.email, mobile }, "complete-profile verify error");
+    res.status(503).json({
+      error: "Could not complete registration. Your code may already be verified — tap Verify again or use Resend.",
+    });
   }
-
-  if (await organizerNormalizedMobileTaken(mobile)) {
-    res.status(409).json({ error: "Mobile number already registered to another account" });
-    return;
-  }
-
-  let organizer = (
-    await db.select().from(organizersTable).where(eq(organizersTable.googleId, pending.googleId))
-  )[0];
-
-  if (!organizer) {
-    [organizer] = await db.insert(organizersTable).values({
-      name: pending.name,
-      email: pending.email,
-      mobile,
-      googleId: pending.googleId,
-      googleEmail: pending.googleEmail,
-      licenseStatus: "active",
-      maxTournaments: 1,
-    }).returning();
-    triggerOrganiserRegisteredNotification(organizer);
-  }
-
-  clearOAuthCookie(res);
-  await issueOrganizerAuthCookie(req, res, organizer.id);
-  res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
 // Dev-only: allows Google OAuth users to skip mobile verification (BYPASS_OTP=true required)

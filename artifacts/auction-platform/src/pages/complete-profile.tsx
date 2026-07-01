@@ -14,7 +14,7 @@ type SessionState =
   | { status: "expired" }
   | { status: "ready"; email: string; step: "mobile" | "otp"; mobile: string | null };
 
-function readApiError(data: unknown, status: number): string {
+function readApiError(data: unknown, status: number, context: "send" | "verify"): string {
   if (data && typeof data === "object" && "error" in data) {
     const msg = (data as { error?: unknown }).error;
     if (typeof msg === "string" && msg.trim()) return msg;
@@ -22,7 +22,20 @@ function readApiError(data: unknown, status: number): string {
   if (status === 0) return "Unable to reach the server. Check your connection and try again.";
   if (status === 401) return "Your sign-in session expired. Please sign in with Google again.";
   if (status === 429) return "Too many OTP requests. Please wait a few minutes and try again.";
-  if (status === 503) return "SMS service is temporarily unavailable. Please try again shortly.";
+  if (status === 409) {
+    return context === "verify"
+      ? "This mobile or email is already registered. Sign in with your existing account instead."
+      : "This mobile number is already registered to another account.";
+  }
+  if (status === 503) {
+    return context === "verify"
+      ? "Server is temporarily unavailable. Your code may already be verified — tap Verify again or use Resend."
+      : "SMS service is temporarily unavailable. Please try again shortly.";
+  }
+  if (context === "verify") {
+    if (status === 400) return "Invalid or expired verification code. Check the SMS or tap Resend.";
+    return "Could not verify your code. Please try again.";
+  }
   return "Unable to send the verification code. Please try again.";
 }
 
@@ -126,7 +139,7 @@ export default function CompleteProfile() {
     });
     setLoading(false);
     if (!ok) {
-      setError(readApiError(data, status));
+      setError(readApiError(data, status, "send"));
       if (status === 401) setSession({ status: "expired" });
       return;
     }
@@ -142,7 +155,7 @@ export default function CompleteProfile() {
     const { ok, status, data } = await postJson("/auth/google/complete-profile/verify", { otp });
     setLoading(false);
     if (!ok) {
-      setError(readApiError(data, status));
+      setError(readApiError(data, status, "verify"));
       if (status === 401) setSession({ status: "expired" });
       return;
     }
@@ -158,7 +171,7 @@ export default function CompleteProfile() {
     const { ok, status, data } = await postJson("/auth/google/complete-profile", { mobile });
     setResending(false);
     if (!ok) {
-      setError(readApiError(data, status));
+      setError(readApiError(data, status, "send"));
       if (status === 401) setSession({ status: "expired" });
       return;
     }
