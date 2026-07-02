@@ -7,7 +7,7 @@ import {
   canEditPlayerBidValue,
   shouldShowPlayerBidValueSelector,
   getOrganizerBidOptions,
-} from "../bid-value.ts";
+} from "../bid-value";
 
 describe("parseBidValueOptions", () => {
   it("parses JSON array of integers", () => {

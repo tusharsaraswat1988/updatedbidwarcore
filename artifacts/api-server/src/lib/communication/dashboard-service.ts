@@ -293,7 +293,7 @@ export async function resolveBulkRecipients(
         email: tournament.organizerEmail!.trim(),
         role: "organiser",
         entityType: "organizer",
-        entityId: tournament.organizerId,
+        entityId: tournament.organizerId ?? undefined,
         tournamentId: tournament.id,
       });
     }
@@ -312,7 +312,7 @@ export async function resolveBulkRecipients(
         email: tournament.organizerEmail!.trim(),
         role: "organiser",
         entityType: "organizer",
-        entityId: tournament.organizerId,
+        entityId: tournament.organizerId ?? undefined,
         tournamentId: tournament.id,
       });
     }

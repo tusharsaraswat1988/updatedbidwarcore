@@ -47,26 +47,30 @@ export const AuctionFeedIndicator = memo(function AuctionFeedIndicator({
     : AUCTION_FEED_UI[feedState].title;
 
   if (feedState === "live") {
-    return <Wifi className={`${className} text-green-400`} title={title} aria-label={title} />;
+    return (
+      <span title={title} aria-label={title} className="inline-flex">
+        <Wifi className={`${className} text-green-400`} aria-hidden />
+      </span>
+    );
   }
   if (feedState === "awaiting_operator_response") {
-    return <Clock className={`${className} text-yellow-400`} title={title} aria-label={title} />;
+    return (
+      <span title={title} aria-label={title} className="inline-flex">
+        <Clock className={`${className} text-yellow-400`} aria-hidden />
+      </span>
+    );
   }
   if (feedState === "reconnecting") {
     return (
-      <RefreshCw
-        className={`${className} text-orange-400 animate-spin`}
-        title={title}
-        aria-label={title}
-      />
+      <span title={title} aria-label={title} className="inline-flex">
+        <RefreshCw className={`${className} text-orange-400 animate-spin`} aria-hidden />
+      </span>
     );
   }
   return (
-    <WifiOff
-      className={`${className} text-red-400 animate-pulse`}
-      title={title}
-      aria-label={title}
-    />
+    <span title={title} aria-label={title} className="inline-flex">
+      <WifiOff className={`${className} text-red-400 animate-pulse`} aria-hidden />
+    </span>
   );
 });
 

@@ -171,7 +171,7 @@ export function SponsorLogosEditor({
 
       <p className="text-[11px] text-muted-foreground leading-relaxed">
         Title Sponsor and Co Sponsor are optional. At most one Title Sponsor and three Co Sponsors per tournament.
-        {validation.error === SPONSOR_VALIDATION_ERRORS.mutualExclusivity
+        {!validation.ok && validation.error === SPONSOR_VALIDATION_ERRORS.mutualExclusivity
           ? " A sponsor cannot hold both roles."
           : null}
       </p>

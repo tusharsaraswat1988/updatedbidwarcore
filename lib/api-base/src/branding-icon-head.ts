@@ -1,4 +1,4 @@
-import { BRANDING_ICON_PATHS } from "./branding-assets.ts";
+import { BRANDING_ICON_PATHS } from "./branding-assets";
 
 const BRANDING_ICONS_RE = /<!-- BRANDING_ICONS_START -->[\s\S]*?<!-- BRANDING_ICONS_END -->/;
 

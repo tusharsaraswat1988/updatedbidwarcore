@@ -267,7 +267,7 @@ export function mergeLegacyAssetFields<T extends Record<string, unknown>>(
   settings: T,
   assets: Partial<Record<BrandingAssetType, BrandingAssetRecord>>,
 ): T {
-  const merged = { ...settings };
+  const merged: Record<string, unknown> = { ...settings };
 
   const primary = assets.PRIMARY_LOGO?.fileUrl;
   const reverse = assets.REVERSE_LOGO?.fileUrl;
@@ -282,7 +282,7 @@ export function mergeLegacyAssetFields<T extends Record<string, unknown>>(
   if (splash) merged.splashScreenUrl = splash;
   if (favicon || pwa) merged.appIconUrl = favicon ?? pwa;
 
-  return merged;
+  return merged as T;
 }
 
 function publicAssetsPayload(

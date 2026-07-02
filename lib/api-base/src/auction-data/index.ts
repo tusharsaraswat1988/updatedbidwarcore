@@ -1,2 +1,2 @@
-export * from "./field-registry.ts";
-export * from "./import-export.ts";
+export * from "./field-registry";
+export * from "./import-export";

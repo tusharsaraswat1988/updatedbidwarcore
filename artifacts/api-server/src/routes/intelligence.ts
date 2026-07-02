@@ -899,7 +899,7 @@ adminIntel.get("/players/:playerId", async (req, res) => {
   const pid = parseInt(req.params.playerId);
   if (isNaN(pid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const [linked] = await pool.query(
+  const linked = await pool.query(
     `SELECT global_player_id FROM auction_player_events
      WHERE player_id = $1 AND global_player_id IS NOT NULL
      LIMIT 1`,

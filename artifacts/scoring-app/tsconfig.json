@@ -1,7 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": ["src/**/*", "../auction-platform/src/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "**/*.test.ts",
+    "../auction-platform/src/**/*.test.ts",
+    "../auction-platform/src/**/__tests__/**"
+  ],
   "compilerOptions": {
     "noEmit": true,
     "jsx": "preserve",

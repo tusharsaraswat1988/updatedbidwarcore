@@ -15,9 +15,6 @@
     },
     {
       "path": "../../lib/scoring-core"
-    },
-    {
-      "path": "../../lib/buzz-studio-render"
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { validateWorkbook } from "../workbook-validator.ts";
-import type { ParsedWorkbook } from "../types.ts";
+import { validateWorkbook } from "../workbook-validator";
+import type { ParsedWorkbook } from "../types";
 
 describe("validateWorkbook ref names", () => {
   it("accepts categories added on 02_Categories before they exist in DB", () => {

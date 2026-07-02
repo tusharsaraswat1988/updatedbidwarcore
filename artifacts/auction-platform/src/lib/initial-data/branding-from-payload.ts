@@ -14,7 +14,7 @@ function resolveAsset(
 
 /** Map public /api/branding JSON into BrandingSettings for cache + UI. */
 export function brandingPayloadToSettings(payload: Record<string, unknown>): BrandingSettings {
-  const merged = { ...BRANDING_DEFAULTS, ...(payload as BrandingSettings) };
+  const merged = { ...BRANDING_DEFAULTS, ...(payload as unknown as BrandingSettings) };
   const assets = merged.assets as Partial<Record<BrandingAssetType, string>> | undefined;
 
   return {

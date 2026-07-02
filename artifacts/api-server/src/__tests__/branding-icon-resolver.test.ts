@@ -5,10 +5,10 @@ import {
 } from "@workspace/api-base/branding-assets";
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
 
-const getAssetMock = vi.fn<() => Promise<BrandingAssetRecord | null>>();
+const getAssetMock = vi.fn<(type: string) => Promise<BrandingAssetRecord | null>>();
 
 vi.mock("../lib/branding-service.js", () => ({
-  getAsset: (...args: unknown[]) => getAssetMock(...args),
+  getAsset: (type: string) => getAssetMock(type),
 }));
 
 vi.mock("../lib/pdf-branding.js", () => ({

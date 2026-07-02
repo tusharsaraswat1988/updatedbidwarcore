@@ -1,5 +1,5 @@
-import type { WorkbookSheetDefinition } from "./types.ts";
-import { BMW_MANIFEST_SHEET } from "./manifest.ts";
+import type { WorkbookSheetDefinition } from "./types";
+import { BMW_MANIFEST_SHEET } from "./manifest";
 
 export const PLAYER_STATUS_VALUES = [
   "available",

@@ -87,6 +87,7 @@ import { OptionalEmailField } from "@/components/optional-email-field";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { JerseySizeSelect } from "@/components/jersey-size-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
+import { normalizeJerseySize } from "@workspace/api-base/jersey-size";
 import { useToast } from "@/hooks/use-toast";
 import {
   applySpecificationsToSelections,
@@ -758,7 +759,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           : { basePrice: parseInt(String(form.basePrice)) || tournament?.minBid || 100000 }
         : {}),
       jerseyNumber: form.jerseyNumber || undefined,
-      jerseySize: form.jerseySize || undefined,
+      jerseySize: normalizeJerseySize(form.jerseySize) ?? undefined,
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
       email: emailResult.email || undefined,

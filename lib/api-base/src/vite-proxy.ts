@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT, DEFAULT_SCORING_DEV_PORT } from "./index.ts";
+import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT, DEFAULT_SCORING_DEV_PORT } from "./index";
 
 export type ViteApiProxyOptions = {
   target: string;

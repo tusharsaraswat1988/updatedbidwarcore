@@ -1,14 +1,14 @@
-export * from "./types.ts";
-export * from "./manifest.ts";
-export * from "./sport-registry.ts";
-export * from "./sheet-definitions.ts";
-export * from "./identity-resolver.ts";
-export * from "./workbook-parser.ts";
-export * from "./workbook-validator.ts";
-export * from "./health-score.ts";
-export * from "./field-diff.ts";
-export * from "./mapping-profiles.ts";
-export * from "./ai-suggestions.ts";
+export * from "./types";
+export * from "./manifest";
+export * from "./sport-registry";
+export * from "./sheet-definitions";
+export * from "./identity-resolver";
+export * from "./workbook-parser";
+export * from "./workbook-validator";
+export * from "./health-score";
+export * from "./field-diff";
+export * from "./mapping-profiles";
+export * from "./ai-suggestions";
 
 /** BidWar Master Workbook (BMW) — official data exchange standard */
 export const BMW_MODULE_NAME = "bidwar_master_workbook";

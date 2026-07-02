@@ -24,6 +24,7 @@ interface AuctionState {
   licenseStatus?: string;
   currentPlayer?: {
     id?: number;
+    serialNo?: number | null;
     name?: string;
     role?: string | null;
     photoUrl?: string | null;
@@ -92,6 +93,7 @@ interface Team {
 
 interface Tournament {
   name?: string;
+  auctionUnit?: string | null;
 }
 
 interface TeamPurse {

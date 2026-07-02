@@ -1,4 +1,4 @@
-import type PDFDocument from "pdfkit";
+import PDFDocument from "pdfkit";
 
 export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
@@ -18,7 +18,10 @@ export interface PdfWatermarkDrawInput {
 }
 
 /** Draw a centered page watermark: image when available, otherwise rotated text. */
-export function drawPdfPageWatermark(doc: PDFDocument, branding: PdfWatermarkDrawInput): void {
+export function drawPdfPageWatermark(
+  doc: InstanceType<typeof PDFDocument>,
+  branding: PdfWatermarkDrawInput,
+): void {
   const w = doc.page.width;
   const h = doc.page.height;
 

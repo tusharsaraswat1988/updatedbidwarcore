@@ -31,7 +31,7 @@ import "../lib/scoring-adapters/register";
 function stableBadmintonState(state: BadmintonMatchState): BadmintonMatchState {
   return {
     ...state,
-    startedAt: state.startedAt ? "REPLAY_TS" : null,
+    startedAt: state.startedAt ? "REPLAY_TS" : undefined,
     games: state.games.map((game) => ({
       ...game,
       startedAt: game.startedAt ? "REPLAY_TS" : undefined,
@@ -43,7 +43,11 @@ function stableBadmintonState(state: BadmintonMatchState): BadmintonMatchState {
 function assertGoldenReplay(meta: BadmintonMatchMeta, events: BadmintonEventEnvelope[]) {
   const direct = stableBadmintonState(replayBadmintonEvents(meta, events));
   const viaPlatform = stableBadmintonState(
-    replayScoringMatchState<BadmintonMatchState>("badminton", meta, events),
+    replayScoringMatchState<BadmintonMatchState>(
+      "badminton",
+      meta,
+      events as unknown as Parameters<typeof replayScoringMatchState<BadmintonMatchState>>[2],
+    ),
   );
   expect(viaPlatform).toEqual(direct);
 }

@@ -1,6 +1,6 @@
 import type { Plugin } from "vite";
-import { injectBrandingIconsIntoHtml } from "./branding-icon-head.ts";
-import { getDevApiProxyTarget } from "./vite-proxy.ts";
+import { injectBrandingIconsIntoHtml } from "./branding-icon-head";
+import { getDevApiProxyTarget } from "./vite-proxy";
 
 async function fetchBrandingIconVersion(): Promise<number> {
   try {

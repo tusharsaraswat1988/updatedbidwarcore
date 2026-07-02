@@ -396,7 +396,7 @@ describe("db.transaction() is invoked for auction mutations", () => {
     expect(typeof (db as { transaction: unknown }).transaction).toBe("function");
 
     // Pure assertion: the function assigned is mockTransaction
-    expect((db as { transaction: typeof mockTransaction }).transaction).toBe(mockTransaction);
+    expect((db as unknown as { transaction: typeof mockTransaction }).transaction).toBe(mockTransaction);
   });
 
   it("bid-amount module still validates correctly after Phase 1 changes", async () => {

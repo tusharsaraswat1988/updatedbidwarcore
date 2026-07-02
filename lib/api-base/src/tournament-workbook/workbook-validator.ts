@@ -3,34 +3,34 @@ import type {
   WorkbookImportMode,
   WorkbookIssue,
   ParsedWorkbook,
-} from "./types.ts";
+} from "./types";
 import {
   buildRegistrationCode,
   buildFieldLabelMap,
   getRegistrationCodeFromRow,
-} from "./sheet-definitions.ts";
+} from "./sheet-definitions";
 import {
   resolvePlayerIdentity,
   detectDuplicateIdentities,
   detectDuplicateMobiles,
   type ExistingPlayerRecord,
-} from "./identity-resolver.ts";
+} from "./identity-resolver";
 import {
   normalizeBooleanInput,
   normalizeStatusInput,
-} from "../auction-data/field-registry.ts";
-import { getWorkbookSport } from "./workbook-parser.ts";
-import { isValidRoleForSport, getRoleLabelsForSport, normalizeSportId } from "./sport-registry.ts";
-import { computeHealthScore } from "./health-score.ts";
-import { buildFieldDiffs, getActionableDiffs } from "./field-diff.ts";
-import { generateImportSuggestions } from "./ai-suggestions.ts";
-import { parseWorkbookGenderLabel } from "../player-gender.ts";
+} from "../auction-data/field-registry";
+import { getWorkbookSport } from "./workbook-parser";
+import { isValidRoleForSport, getRoleLabelsForSport, normalizeSportId } from "./sport-registry";
+import { computeHealthScore } from "./health-score";
+import { buildFieldDiffs, getActionableDiffs } from "./field-diff";
+import { generateImportSuggestions } from "./ai-suggestions";
+import { parseWorkbookGenderLabel } from "../player-gender";
 import {
   BMW_CATEGORY_NAME_HEADER,
   BMW_CATEGORY_SHEET,
   BMW_TEAM_NAME_HEADER,
   BMW_TEAM_SHEET,
-} from "./sheet-definitions.ts";
+} from "./sheet-definitions";
 
 export type ValidationContext = {
   tournamentId: number;

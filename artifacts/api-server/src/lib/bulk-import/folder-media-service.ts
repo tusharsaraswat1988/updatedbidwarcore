@@ -3,7 +3,7 @@
  */
 
 import { normalizeMobile, getRegistrationCodeFromRow } from "@workspace/api-base/tournament-workbook";
-import { importPhotoFromUrl, isPhotoUrl, resolvePhotoDownloadUrl } from "./photo-import-service.ts";
+import { importPhotoFromUrl, isPhotoUrl, resolvePhotoDownloadUrl } from "./photo-import-service";
 import { readFile } from "node:fs/promises";
 
 export type FolderMediaFile = {
@@ -98,7 +98,7 @@ export async function importFolderMediaMatches(
     try {
       if (match.file.localPath) {
         const buffer = await readFile(match.file.localPath);
-        const { uploadBufferToCloudinary } = await import("../cloudinary-media-service.ts");
+        const { uploadBufferToCloudinary } = await import("../cloudinary-media-service.js");
         const uploaded = await uploadBufferToCloudinary(buffer, { folder, resourceType: "image" });
         results.push({ match, storedUrl: uploaded.url });
       } else if (match.file.url && isPhotoUrl(match.file.url)) {

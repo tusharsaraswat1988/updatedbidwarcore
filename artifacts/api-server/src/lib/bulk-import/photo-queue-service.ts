@@ -21,10 +21,10 @@ import {
   DEFAULT_PHOTO_IMPORT_MODE,
   type PhotoImportMode,
   type PhotoValidationStatus,
-} from "./photo-import-service.ts";
-import { getPhotoSourceAdapter } from "./photo-source-adapter.ts";
-import { findCachedPhotoBySourceKey } from "./photo-source-cache.ts";
-import { writeEntityAuditLogs } from "./entity-audit-service.ts";
+} from "./photo-import-service";
+import { getPhotoSourceAdapter } from "./photo-source-adapter";
+import { findCachedPhotoBySourceKey } from "./photo-source-cache";
+import { writeEntityAuditLogs } from "./entity-audit-service";
 
 export type PhotoQueueItemInput = {
   playerId?: number | null;
@@ -352,6 +352,7 @@ async function processPhotoItem(
   const globalCache = await findCachedPhotoBySourceKey(item.sourceKey);
   if (globalCache && globalCache.processingVersion === PHOTO_PROCESSING_VERSION) {
     const result = {
+      originalUrl: item.sourceUrl,
       storedUrl: globalCache.standardUrl,
       publicId: globalCache.standardPublicId,
       originalStoredUrl: globalCache.originalUrl,
@@ -387,6 +388,7 @@ async function processPhotoItem(
       .update(bulkImportPhotoItemsTable)
       .set({
         ...buildUploadedItemUpdate(item, {
+          originalUrl: item.sourceUrl,
           storedUrl: reusable.storedUrl,
           publicId: reusable.publicId,
           originalStoredUrl: reusable.originalStoredUrl,

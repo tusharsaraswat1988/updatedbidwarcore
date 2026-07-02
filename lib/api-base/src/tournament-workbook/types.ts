@@ -8,7 +8,7 @@ export {
   BMW_GENERATOR_VERSION,
   BMW_TEMPLATE_VERSION,
   TMW_VERSION,
-} from "./manifest.ts";
+} from "./manifest";
 
 export type WorkbookImportMode =
   | "create_tournament"

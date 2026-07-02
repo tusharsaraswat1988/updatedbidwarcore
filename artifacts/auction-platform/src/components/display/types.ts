@@ -48,6 +48,7 @@ export type PurseRow = {
 export type PlayerLite = {
   id: number;
   name: string;
+  serialNo?: number | null;
   city?: string | null;
   role?: string | null;
   photoUrl?: string | null;

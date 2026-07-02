@@ -137,6 +137,7 @@ const tournamentInputSchema = z.object({
   breakEndMusicUrl: z.string().optional(),
   breakEndMusicVolume: z.number().int().min(0).max(100).optional(),
   matchDates: z.string().nullable().optional(),
+  auctionUnit: z.string().optional(),
 });
 
 router.post("/tournaments", async (req, res) => {

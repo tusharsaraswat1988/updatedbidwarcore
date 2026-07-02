@@ -31,7 +31,9 @@ function useResilientBrandLogo(order: Array<"main" | "mainReverse" | "mini" | "a
 
 export function PoweredByBidWarLink({ className, variant = "default" }: PoweredByBidWarLinkProps) {
   const { brandName, poweredByText } = useBranding();
-  const headerLogo = useResilientBrandLogo(registrationHeaderPreset.logoOrder);
+  const headerLogo = useResilientBrandLogo(
+    registrationHeaderPreset.logoOrder as Array<"main" | "mainReverse" | "mini" | "appIcon">,
+  );
   const defaultLogo = useResilientBrandLogo(["mainReverse", "main", "mini", "appIcon"]);
   const logoAlt = getBrandLogoAlt(brandName);
   const label = poweredByText?.trim() || "Powered by BidWar";

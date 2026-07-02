@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { parseWorkbookFromRaw, type ParsedWorkbook } from "@workspace/api-base/tournament-workbook";
-import { parseExcelBufferToRawWorkbook } from "./google-sheet-workbook-reader.ts";
+import { parseExcelBufferToRawWorkbook } from "./google-sheet-workbook-reader";
 
 const WORKBOOK_NAMES = ["workbook.xlsx", "bidwar-workbook.xlsx", "tournament.xlsx", "master-workbook.xlsx"];
 const MEDIA_FOLDERS = ["Photos", "photos", "Logos", "logos", "Videos", "videos", "Documents", "documents", "Media", "media"];

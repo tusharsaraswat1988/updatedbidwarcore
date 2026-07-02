@@ -195,7 +195,7 @@ export default function BadmintonMatchesPage() {
         <HubFilterTabs
           tabs={["all", "live", "scheduled", "completed"] as const}
           active={filter}
-          onChange={setFilter}
+          onChange={(tab) => setFilter(tab as typeof filter)}
           counts={counts}
           liveTab="live"
         />
@@ -587,13 +587,10 @@ function MatchFormModal({
     fixturePrefillId,
   ]);
 
-  type StringFormField = Exclude<
-    keyof typeof form,
-    "leftPlayer1" | "leftPlayer2" | "rightPlayer1" | "rightPlayer2"
-  >;
+  type StringFormField = "fixtureId" | "matchType" | "courtNumber" | "matchLabel" | "scorerPin" | "umpireName";
 
   const f = (field: StringFormField) => ({
-    value: form[field],
+    value: form[field] ?? "",
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((prev) => ({ ...prev, [field]: e.target.value })),
   });

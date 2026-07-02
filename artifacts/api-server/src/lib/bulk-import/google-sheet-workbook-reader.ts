@@ -4,7 +4,7 @@
  */
 
 import ExcelJS from "exceljs";
-import { getValidAccessToken } from "../google-sheets-service.ts";
+import { getValidAccessToken } from "../google-sheets-service";
 import type { RawWorkbookInput } from "@workspace/api-base/tournament-workbook";
 
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -32,7 +32,10 @@ async function fetchPublicXlsxExport(spreadsheetId: string): Promise<Buffer | nu
 
 export async function parseExcelBufferToRawWorkbook(buffer: Buffer): Promise<RawWorkbookInput> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
+  const loadXlsx = workbook.xlsx.load.bind(workbook.xlsx) as (
+    input: Buffer | Uint8Array | ArrayBuffer,
+  ) => Promise<ExcelJS.Workbook>;
+  await loadXlsx(buffer);
 
   const sheets = workbook.worksheets.map((ws) => {
     const headers: string[] = [];

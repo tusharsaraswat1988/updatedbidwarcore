@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
 import { formatAuctionAmount, normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
+import { cldUrl } from "@/lib/cloudinary";
 
 /**
  * Side-panel overlays — sold / unsold on player panel only.

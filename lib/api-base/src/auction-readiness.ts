@@ -52,7 +52,7 @@ export type TournamentReadinessSource = {
   minimumSquadSize?: number | null;
 };
 
-import { MIN_AUCTION_TIMER_SECONDS } from "./auction-timer.ts";
+import { MIN_AUCTION_TIMER_SECONDS } from "./auction-timer";
 
 /** Default bid tiers JSON for newly created tournaments — one open-ended tier, blank raise-by. */
 export const DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON = JSON.stringify([{ increment: 0 }]);

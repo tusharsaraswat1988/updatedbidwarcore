@@ -288,11 +288,11 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
         heading: `${size} (${groups.get(size)!.length})`,
         columns: [
           { key: "name", label: "Name", width: 1.6 },
-          { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
-          { key: "jerseySize", label: "Size", width: 0.7, format: v => fmtText(v) },
-          { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
-          { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
-          { key: "mobileNumber", label: "Mobile", width: 1.2, format: v => fmtText(v) },
+          { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: (v: unknown) => fmtText(v) },
+          { key: "jerseySize", label: "Size", width: 0.7, format: (v: unknown) => fmtText(v) },
+          { key: "role", label: "Role", width: 1, format: (v: unknown) => fmtText(v).replace(/_/g, " ") },
+          { key: "city", label: "City", width: 1.1, format: (v: unknown) => fmtText(v) },
+          { key: "mobileNumber", label: "Mobile", width: 1.2, format: (v: unknown) => fmtText(v) },
         ],
         rows: groups.get(size)! as unknown as Record<string, unknown>[],
       }));

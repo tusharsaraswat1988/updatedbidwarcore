@@ -200,14 +200,12 @@ function CourtFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const f = (key: keyof typeof form) => ({
-    value: form[key] as string | number | boolean,
+  const f = (key: "name" | "shortName" | "location" | "streamUrl" | "sortOrder") => ({
+    value: key === "sortOrder" ? form.sortOrder : form[key],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const val = e.target.type === "checkbox"
-        ? (e.target as HTMLInputElement).checked
-        : e.target.type === "number"
-          ? parseInt(e.target.value, 10) || 0
-          : e.target.value;
+      const val = e.target.type === "number"
+        ? parseInt(e.target.value, 10) || 0
+        : e.target.value;
       setForm((prev) => ({ ...prev, [key]: val }));
     },
   });

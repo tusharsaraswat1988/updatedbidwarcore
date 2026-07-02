@@ -64,7 +64,9 @@ export default function BuzzStudioDevPage() {
     [enabledTemplates, selectedId],
   );
 
-  const contract = selectedEntry ? getSandboxDemoData(selectedEntry.id) : undefined;
+  const contract = selectedEntry
+    ? (getSandboxDemoData(selectedEntry.id) as Record<string, unknown> | undefined)
+    : undefined;
 
   if (isLoading || !isLoggedIn) return null;
 

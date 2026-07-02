@@ -3,7 +3,7 @@ import {
   formatPlayerGenderForWorkbook,
   parseWorkbookGenderLabel,
   WORKBOOK_GENDER_LABELS,
-} from "../player-gender.ts";
+} from "../player-gender";
 
 describe("workbook gender helpers", () => {
   it("exports website-aligned labels", () => {

@@ -18,5 +18,8 @@ export function scoringAppPublicUrl(origin: string, path: string): string {
 }
 
 export function openScoringApp(tournamentId: number): void {
-  window.open(scoringAppHomePath(tournamentId), "_blank", "noopener,noreferrer");
+  const browserWindow = globalThis as typeof globalThis & {
+    open?: (url: string, target?: string, features?: string) => void;
+  };
+  browserWindow.open?.(scoringAppHomePath(tournamentId), "_blank", "noopener,noreferrer");
 }

@@ -127,7 +127,7 @@ describe("verify-access guard — team-wide lockout", () => {
 
 describe("isTournamentOrganizer — reset-access-lockout auth", () => {
   it("denies public user", () => {
-    expect(isTournamentOrganizer({ jwtUser: undefined } as Request, TOURNAMENT_ID, ORGANIZER_ACCOUNT_ID)).toBe(false);
+    expect(isTournamentOrganizer({ jwtUser: undefined } as unknown as Request, TOURNAMENT_ID, ORGANIZER_ACCOUNT_ID)).toBe(false);
   });
 
   it("denies team owner JWT (no organizer scope)", () => {

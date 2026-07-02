@@ -28,8 +28,9 @@ export interface BuzzTemplateRenderProps {
   featuredFrameLayout?: boolean;
 }
 
-export interface BuzzRenderContext extends Required<BuzzTemplateRenderProps> {
+export interface BuzzRenderContext extends Required<Omit<BuzzTemplateRenderProps, "featuredFrameLayout" | "aspectRatio">> {
   aspectRatio: BuzzAspectRatio;
+  featuredFrameLayout: boolean;
 }
 
 export function isBuzzAspectRatio(value: string): value is BuzzAspectRatio {
@@ -46,6 +47,7 @@ export function resolveBuzzExportDimensions(aspectRatio: string): BuzzRenderCont
     aspectRatio,
     renderWidth: size.width,
     renderHeight: size.height,
+    featuredFrameLayout: false,
   };
 }
 
@@ -91,5 +93,6 @@ export function pickRenderContext(props: BuzzTemplateRenderProps): BuzzRenderCon
     aspectRatio: props.aspectRatio,
     renderWidth: props.renderWidth,
     renderHeight: props.renderHeight,
+    featuredFrameLayout: props.featuredFrameLayout ?? false,
   };
 }

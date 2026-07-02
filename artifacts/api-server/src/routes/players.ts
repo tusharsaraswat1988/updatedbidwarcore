@@ -202,7 +202,24 @@ async function rejectInvalidCategory(
 
 /** Profile-only fields players may update via public self-registration when mobile already exists. */
 function buildPublicRegistrationProfileUpdates(
-  d: z.infer<typeof playerInputSchema>,
+  d: {
+    name: string;
+    city?: string | null;
+    role?: string | null;
+    battingStyle?: string | null;
+    bowlingStyle?: string | null;
+    specialization?: string | null;
+    age?: number | null;
+    gender?: string | null;
+    photoUrl?: string | null;
+    photoPublicId?: string | null;
+    jerseyNumber?: string | null;
+    jerseySize?: string | null;
+    achievements?: string | null;
+    cricheroUrl?: string | null;
+    availabilityDates?: string | null;
+    whatsappConsent?: boolean | null;
+  },
   email: string | null,
   paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
   paymentFields: ReturnType<typeof buildPaymentInsertFields>,
@@ -259,9 +276,9 @@ async function fetchTournamentPaymentConfig(tid: number) {
 function buildPaymentInsertFields(
   paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
   input: {
-    utrNumber?: string;
-    paymentScreenshotUrl?: string;
-    paymentScreenshotPublicId?: string;
+    utrNumber?: string | null;
+    paymentScreenshotUrl?: string | null;
+    paymentScreenshotPublicId?: string | null;
     markPaymentCompleted?: boolean;
   },
   mode: "organizer" | "public",
@@ -1284,7 +1301,14 @@ router.post("/tournaments/:tournamentId/players/:playerId/withdraw", async (req,
     return;
   }
 
-  const reasonResult = resolveAuditReasonWithDefault(parsed.data.reason, defaultPlayerPatchReason);
+  const reasonResult = resolveAuditReasonWithDefault(
+    parsed.data.reason,
+    defaultPlayerPatchReason({}, existing),
+  );
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
+    return;
+  }
   auditLog(req, {
     category: "player",
     action: "player.withdrawn",
@@ -1332,7 +1356,14 @@ router.post("/tournaments/:tournamentId/players/:playerId/reinstate", async (req
     return;
   }
 
-  const reasonResult = resolveAuditReasonWithDefault(parsed.data.reason, defaultPlayerPatchReason);
+  const reasonResult = resolveAuditReasonWithDefault(
+    parsed.data.reason,
+    defaultPlayerPatchReason({}, existing),
+  );
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
+    return;
+  }
   auditLog(req, {
     category: "player",
     action: "player.reinstated",

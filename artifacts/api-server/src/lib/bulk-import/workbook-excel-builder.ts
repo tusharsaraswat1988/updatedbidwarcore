@@ -829,8 +829,8 @@ function populateDataSheet(
     for (const asset of assetRows) {
       const excelRow = ws.addRow([]);
       sheetDef.fields.forEach((field, i) => {
-        const val = asset[field.label] ?? "";
-        setCellValue(excelRow.getCell(i + 1), val, field);
+        const val = asset[field.label];
+        setCellValue(excelRow.getCell(i + 1), val == null || val === "" ? "" : String(val), field);
       });
     }
   } else if (["06_Auction_Settings", "07_Match_Settings", "08_Organizers"].includes(sheetDef.name)) {

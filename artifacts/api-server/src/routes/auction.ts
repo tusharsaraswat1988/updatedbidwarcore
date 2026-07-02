@@ -1850,11 +1850,12 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     .where(eq(playersTable.id, session.currentPlayerId));
 
   // Atomic: player status and session cleared together — no partial state.
+  const currentPlayerId = session.currentPlayerId;
   await db.transaction(async (tx) => {
     await tx
       .update(playersTable)
       .set({ status: "unsold" })
-      .where(eq(playersTable.id, session.currentPlayerId));
+      .where(eq(playersTable.id, currentPlayerId));
 
     await tx
       .update(auctionSessionsTable)

@@ -28,10 +28,10 @@ import {
 
 describe("player specification pure functions", () => {
   const groups = [
-    { id: 10, groupName: "Playing Hand", displayOrder: 1 },
-    { id: 11, groupName: "Playing Style", displayOrder: 2 },
-    { id: 12, groupName: "Experience", displayOrder: 3 },
-    { id: 13, groupName: "Court Preference", displayOrder: 4 },
+    { id: 10, groupName: "Playing Hand", displayOrder: 1, optional: true },
+    { id: 11, groupName: "Playing Style", displayOrder: 2, optional: true },
+    { id: 12, groupName: "Experience", displayOrder: 3, optional: true },
+    { id: 13, groupName: "Court Preference", displayOrder: 4, optional: true },
   ];
 
   it("maps legacy fields to specifications by display order", () => {
@@ -63,9 +63,9 @@ describe("player specification pure functions", () => {
 
   it("supports cricket legacy triple", () => {
     const cricketGroups = [
-      { id: 1, groupName: "Batting Style", displayOrder: 1 },
-      { id: 2, groupName: "Bowling Style", displayOrder: 2 },
-      { id: 3, groupName: "Specialization", displayOrder: 3 },
+      { id: 1, groupName: "Batting Style", displayOrder: 1, optional: true },
+      { id: 2, groupName: "Bowling Style", displayOrder: 2, optional: true },
+      { id: 3, groupName: "Specialization", displayOrder: 3, optional: true },
     ];
     const specs = specificationsFromLegacyFields(cricketGroups, {
       battingStyle: "Right Hand Batsman",
@@ -115,9 +115,9 @@ describe("buildSpecificationsForSave — persistence payload sizes", () => {
 describe("backfill mapping", () => {
   it("cricket player legacy triple maps to three groups", () => {
     const cricketGroups = [
-      { id: 1, groupName: "Batting Style", displayOrder: 1 },
-      { id: 2, groupName: "Bowling Style", displayOrder: 2 },
-      { id: 3, groupName: "Specialization", displayOrder: 3 },
+      { id: 1, groupName: "Batting Style", displayOrder: 1, optional: true },
+      { id: 2, groupName: "Bowling Style", displayOrder: 2, optional: true },
+      { id: 3, groupName: "Specialization", displayOrder: 3, optional: true },
     ];
     const specs = specificationsFromLegacyFields(cricketGroups, {
       battingStyle: "Left Hand",
@@ -129,10 +129,10 @@ describe("backfill mapping", () => {
 
   it("badminton player maps first three legacy slots; fourth requires normalized input", () => {
     const badmintonGroups = [
-      { id: 42, groupName: "Playing Hand", displayOrder: 1 },
-      { id: 43, groupName: "Playing Style", displayOrder: 2 },
-      { id: 44, groupName: "Experience", displayOrder: 3 },
-      { id: 45, groupName: "Court Preference", displayOrder: 4 },
+      { id: 42, groupName: "Playing Hand", displayOrder: 1, optional: false },
+      { id: 43, groupName: "Playing Style", displayOrder: 2, optional: true },
+      { id: 44, groupName: "Experience", displayOrder: 3, optional: true },
+      { id: 45, groupName: "Court Preference", displayOrder: 4, optional: true },
     ];
     const fromLegacy = specificationsFromLegacyFields(badmintonGroups, {
       battingStyle: "Right Hand",

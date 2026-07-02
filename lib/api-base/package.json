@@ -29,6 +29,8 @@
     "./re-auction-strategy": "./src/re-auction-strategy.ts",
     "./platform-audio": "./src/platform-audio.ts",
     "./auction-connection-state": "./src/auction-connection-state.ts",
+    "./auction-timer": "./src/auction-timer.ts",
+    "./scoring-urls": "./src/scoring-urls.ts",
     "./tournament-features": "./src/tournament-features.ts",
     "./sponsor-priority": "./src/sponsor-priority.ts",
     "./registration-url": "./src/registration-url.ts",

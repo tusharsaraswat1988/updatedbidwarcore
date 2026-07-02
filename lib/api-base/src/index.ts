@@ -9,13 +9,13 @@ export {
   computeNextBidAmount,
   validateBidAmount,
   type BidAmountInput,
-} from "./auction-bid.ts";
+} from "./auction-bid";
 
 export {
   computeEffectiveCapacity,
   computePurseRemaining,
   assertCapacityNotBelowUsed,
-} from "./purse-capacity.ts";
+} from "./purse-capacity";
 
 export {
   PURSE_BOOSTER_LED_DURATION_MS,
@@ -24,9 +24,9 @@ export {
   parseLedPurseBoosterOverlay,
   type LedPurseBoosterOverlay,
   type LedPurseBoosterTeamLine,
-} from "./purse-booster-led.ts";
+} from "./purse-booster-led";
 
-export { parseOptionalEmail } from "./email.ts";
+export { parseOptionalEmail } from "./email";
 
 export {
   type BidValueMode,
@@ -39,7 +39,7 @@ export {
   bidValueSourceLabel,
   resolvePlayerBidFields,
   canEditPlayerBidValue,
-} from "./bid-value.ts";
+} from "./bid-value";
 
 export {
   type ReAuctionStrategy,
@@ -50,7 +50,7 @@ export {
   resolveOpeningBid,
   validateFixedReAuctionAmount,
   parseReAuctionStrategyFromRequest,
-} from "./re-auction-strategy.ts";
+} from "./re-auction-strategy";
 
 export {
   buildPlayerExportRows,
@@ -58,18 +58,18 @@ export {
   playerExportRowsToSheetValues,
   type ExportCategoryMap,
   type ExportTeamMap,
-} from "./export-players-rows.ts";
+} from "./export-players-rows";
 
-export { formatPlayerGender, formatPlayerGenderForWorkbook, parseWorkbookGenderLabel, WORKBOOK_GENDER_LABELS } from "./player-gender.ts";
-export { playerTagLabel } from "./player-tag-label.ts";
+export { formatPlayerGender, formatPlayerGenderForWorkbook, parseWorkbookGenderLabel, WORKBOOK_GENDER_LABELS } from "./player-gender";
+export { playerTagLabel } from "./player-tag-label";
 export {
   collectSpecColumnLabels,
   resolvePlayerSpecifications,
   type PlayerSpecSource,
-} from "./player-spec-export.ts";
+} from "./player-spec-export";
 
-export { isPlayerSpecsV2Enabled } from "./player-specs-v2.ts";
-export { isPlayerSportProfilesEnabled } from "./player-sport-profiles.ts";
+export { isPlayerSpecsV2Enabled } from "./player-specs-v2";
+export { isPlayerSportProfilesEnabled } from "./player-sport-profiles";
 
 export {
   getIstTodayDateString,
@@ -77,7 +77,7 @@ export {
   parseAuctionDateString,
   AUCTION_DATE_PAST_ERROR,
   type AuctionDateValidationResult,
-} from "./auction-date.ts";
+} from "./auction-date";
 
 export {
   SCORING_APP_BASE,
@@ -85,7 +85,7 @@ export {
   scoringAppHomePath,
   scoringAppPublicUrl,
   openScoringApp,
-} from "./scoring-urls.ts";
+} from "./scoring-urls";
 
 export {
   OWNER_APP_BASE,
@@ -93,14 +93,14 @@ export {
   ownerJoinAppPath,
   ownerDashboardAppPath,
   ownerJoinPublicUrl,
-} from "./owner-urls.ts";
+} from "./owner-urls";
 
 export {
   VENUE_MIRROR_TTL_MS,
   evaluateVenueAuctionGuard,
   type VenueAuctionGuardInput,
   type VenueAuctionGuardResult,
-} from "./venue-auction-guard.ts";
+} from "./venue-auction-guard";
 
 export const API_PREFIX = "/api";
 

@@ -61,7 +61,7 @@ async function loadPlayerSpotlightData(
   const contractsById = new Map<string, Record<string, unknown>>(
     contracts.map((contract) => [
       itemKey(contract.playerId, contract.playerName),
-      contract as Record<string, unknown>,
+      contract as unknown as Record<string, unknown>,
     ]),
   );
 
@@ -89,7 +89,7 @@ async function loadSoldPlayerData(
   const contractsById = new Map<string, Record<string, unknown>>(
     contracts.map((contract) => [
       itemKey(contract.playerId, contract.playerName),
-      contract as Record<string, unknown>,
+      contract as unknown as Record<string, unknown>,
     ]),
   );
 
@@ -111,7 +111,7 @@ async function loadTopBuysData(
     emptyMessage: "No sold players yet",
     items: [],
     contractsById: new Map(),
-    directContract: contract as Record<string, unknown>,
+    directContract: contract as unknown as Record<string, unknown>,
   };
 }
 
@@ -132,7 +132,7 @@ async function loadTeamRevealData(
   const contractsById = new Map<string, Record<string, unknown>>(
     contracts.map((contract) => [
       itemKey(contract.teamId, contract.teamName ?? "team"),
-      contract as Record<string, unknown>,
+      contract as unknown as Record<string, unknown>,
     ]),
   );
 

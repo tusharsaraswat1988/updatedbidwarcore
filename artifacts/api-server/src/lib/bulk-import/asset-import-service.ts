@@ -3,7 +3,7 @@
  */
 
 import type { ParsedWorkbook } from "@workspace/api-base/tournament-workbook";
-import { importPhotoFromUrl, isPhotoUrl, isStableCloudinaryPhotoUrl } from "./photo-import-service.ts";
+import { importPhotoFromUrl, isPhotoUrl, isStableCloudinaryPhotoUrl } from "./photo-import-service";
 import { readFile } from "node:fs/promises";
 
 export type AssetImportResult = {
@@ -69,7 +69,7 @@ export async function importAssetsFromWorkbook(
       if (url.startsWith("local://")) {
         const localPath = url.replace("local://", "");
         const buffer = await readFile(localPath);
-        const { uploadBufferToCloudinary } = await import("../cloudinary-media-service.ts");
+        const { uploadBufferToCloudinary } = await import("../cloudinary-media-service.js");
         const uploaded = await uploadBufferToCloudinary(buffer, {
           folder,
           resourceType: mediaType === "Video" ? "video" : "image",

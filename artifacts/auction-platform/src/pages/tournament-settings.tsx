@@ -6,6 +6,7 @@ import {
   useListPlayers,
   getGetTournamentQueryKey,
   getGetRegistrationStatusQueryKey,
+  getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -112,7 +113,7 @@ export default function TournamentSettings() {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: players = [] } = useListPlayers(tournamentId, {
-    query: { enabled: !!tournamentId, staleTime: 30_000 },
+    query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 30_000 },
   });
   const updateTournament = useUpdateTournament();
   const sportLocked = players.length > 0;
@@ -448,8 +449,8 @@ export default function TournamentSettings() {
     return null;
   }, [editForm.minimumSquadSize, editForm.maximumSquadSize]);
 
-  const openingTimerParsed = parseAuctionTimerSeconds(editForm.timerSeconds);
-  const bidTimerParsed = parseAuctionTimerSeconds(editForm.bidTimerSeconds);
+  const openingTimerParsed = parseAuctionTimerSeconds(String(editForm.timerSeconds));
+  const bidTimerParsed = parseAuctionTimerSeconds(String(editForm.bidTimerSeconds));
   const openingTimerError = validateAuctionTimerSeconds(openingTimerParsed, "Opening Timer");
   const bidTimerError = validateAuctionTimerSeconds(bidTimerParsed, "Bid Timer");
 

@@ -1,14 +1,13 @@
 import { count, eq, sql } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "@workspace/db";
 import {
   auctionBidEventsTable,
   auctionPlayerEventsTable,
   auctionTimerEventsTable,
+  db,
   intelligenceArchivesTable,
 } from "@workspace/db";
 
-type DbTx = Parameters<Parameters<NodePgDatabase<typeof schema>["transaction"]>[0]>[0];
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface TournamentArchiveMeta {
   id: number;

@@ -15,7 +15,7 @@ import {
   SinglesPreMatchSetup,
   isDoublesMatchType,
 } from "@/components/badminton/doubles-pre-match-setup";
-import { useBadmintonMatch, useBadmintonScorer } from "@/hooks/use-badminton-match";
+import { useBadmintonMatch, useBadmintonDirector, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { verifyBadmintonScorerPin } from "@/lib/badminton-api";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
@@ -74,6 +74,7 @@ export default function BadmintonScorerPage() {
   );
 
   const scorer = useBadmintonScorer(tournamentId, matchId, pinInput);
+  const director = useBadmintonDirector(tournamentId, matchId);
   const { data: branding } = useBadmintonBranding(tournamentId);
 
   const tournamentName =
@@ -217,8 +218,8 @@ export default function BadmintonScorerPage() {
               onUndo={scorer.undo}
               onStartTimeout={scorer.startTimeout}
               onEndTimeout={scorer.endTimeout}
-              onRetirement={scorer.retirement}
-              onWalkover={scorer.walkover}
+              onRetirement={director.retirement}
+              onWalkover={director.walkover}
               scoringBlocked={scoringBlocked}
             />
           )}

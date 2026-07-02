@@ -4,6 +4,7 @@
  */
 
 import { parseIndianMobile } from "@workspace/api-base/mobile";
+import { normalizeJerseySize, type JerseySize } from "@workspace/api-base/jersey-size";
 
 export type SpecGroupDef = {
   id: number;
@@ -158,7 +159,7 @@ export type ParsedBulkPlayer = {
   age?: number;
   gender?: "M" | "F";
   jerseyNumber?: string;
-  jerseySize?: string;
+  jerseySize?: JerseySize;
   achievements?: string;
   mobileNumber?: string;
   email?: string;
@@ -241,7 +242,7 @@ export function parsePlayerCsv(
       age: row["age"] ? parseInt(row["age"], 10) : undefined,
       gender: genderRaw === "M" || genderRaw === "F" ? genderRaw : undefined,
       jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
-      jerseySize: row["jerseysize"] || row["jersey_size"] || undefined,
+      jerseySize: normalizeJerseySize(row["jerseysize"] || row["jersey_size"]) ?? undefined,
       achievements: row["achievements"] || undefined,
       mobileNumber:
         mobileParsed?.ok ? mobileParsed.normalized : mobileRaw || undefined,

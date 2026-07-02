@@ -958,8 +958,8 @@ export default function LiveViewerPage() {
   });
 
   const lastActivityAt =
-    typeof (state as { lastAuctionActivityAt?: string | null } | undefined)?.lastAuctionActivityAt === "string"
-      ? (state as { lastAuctionActivityAt: string }).lastAuctionActivityAt
+    typeof state?.lastAuctionActivityAt === "string"
+      ? state.lastAuctionActivityAt
       : null;
   const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
   const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";

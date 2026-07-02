@@ -903,20 +903,20 @@ export async function buildSideJsonFromBadmintonPlayer(
     return buildSideJsonFromMasterPlayer(masterPlayerId, tournamentId, badmintonPlayerId);
   }
 
-  const withInitials = await ensureTournamentInitials(bp);
-  const displayName = withInitials.displayName ?? `${withInitials.firstName} ${withInitials.lastName}`.trim();
+  const initials = await ensureTournamentInitials(bp);
+  const displayName = bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim();
 
   return {
     label: displayName,
-    shortLabel: withInitials.shortName ?? displayName.slice(0, 3).toUpperCase(),
-    countryCode: withInitials.countryCode ?? undefined,
-    countryName: withInitials.countryName ?? undefined,
-    photoUrl: withInitials.photoUrl ?? undefined,
-    flagUrl: withInitials.flagUrl ?? undefined,
-    franchiseName: withInitials.academyName ?? undefined,
-    teamName: withInitials.academyName ?? undefined,
-    masterPlayerId: `bp:${withInitials.id}`,
-    playerIds: [withInitials.id],
+    shortLabel: initials || bp.shortName || displayName.slice(0, 3).toUpperCase(),
+    countryCode: bp.countryCode ?? undefined,
+    countryName: bp.countryName ?? undefined,
+    photoUrl: bp.photoUrl ?? undefined,
+    flagUrl: bp.flagUrl ?? undefined,
+    franchiseName: bp.academyName ?? undefined,
+    teamName: bp.academyName ?? undefined,
+    masterPlayerId: `bp:${bp.id}`,
+    playerIds: [bp.id],
   };
 }
 

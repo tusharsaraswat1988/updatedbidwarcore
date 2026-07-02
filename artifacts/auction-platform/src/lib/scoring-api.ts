@@ -309,7 +309,20 @@ export async function getTournamentTeamProfile(
   return r.json();
 }
 
-export async function getGlobalCricketPlayerProfile(globalPlayerId: string) {
+export type GlobalCricketPlayerProfile = {
+  globalPlayer: {
+    id: string;
+    name: string;
+    city?: string | null;
+  };
+  careerStats: Record<string, number>;
+  manOfTheMatchCount: number;
+  tournaments: Array<{ id: number; name: string }>;
+};
+
+export async function getGlobalCricketPlayerProfile(
+  globalPlayerId: string,
+): Promise<GlobalCricketPlayerProfile> {
   const r = await apiFetch(`/global-players/${globalPlayerId}/cricket-profile`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();

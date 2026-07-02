@@ -36,7 +36,7 @@ function applyOptimisticCommandEvents(
       eventType: event.eventType,
       eventVersion: 1,
       sequence: seq,
-      actorType: "scorer",
+      actorType: "scorer_pin",
       payload: event.payload,
     });
   }

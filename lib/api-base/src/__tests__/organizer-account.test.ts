@@ -3,7 +3,7 @@ import {
   isOrganizerAccountActive,
   isOrganizerAccountLocked,
   organizerAccessLabel,
-} from "../organizer-account.ts";
+} from "../organizer-account";
 
 describe("organizer account access", () => {
   it("treats suspended as locked", () => {

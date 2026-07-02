@@ -241,6 +241,17 @@ export interface Tournament {
    * @nullable
    */
   scoringPin?: string | null;
+  /** Per-tournament module feature flags — resolved from features_json */
+  features?: {
+    buzzStudio?: boolean;
+    allowCreativeDownloads?: boolean;
+    allowPlayerDownloads?: boolean;
+    watermarkRequired?: boolean;
+    ownerApp?: boolean;
+    scoring?: boolean;
+    sponsorshipHub?: boolean;
+    analytics?: boolean;
+  } | null;
   createdAt: string;
 }
 
@@ -707,6 +718,7 @@ export const PlayerStatus = {
   sold: "sold",
   unsold: "unsold",
   retained: "retained",
+  withdrawn: "withdrawn",
 } as const;
 
 /**
@@ -1381,6 +1393,11 @@ export interface AuctionState {
   ledPurseBoosterOverlay?: LedPurseBoosterOverlay | null;
   /** Live team purse snapshot embedded for realtime sync without separate HTTP refetch */
   teamPurses?: TeamPurse[];
+  /**
+   * ISO timestamp of last auction activity — used for connection staleness detection
+   * @nullable
+   */
+  lastAuctionActivityAt?: string | null;
 }
 
 export type ApplyPurseBoosterRequestTarget =

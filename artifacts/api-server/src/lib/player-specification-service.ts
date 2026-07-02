@@ -26,6 +26,7 @@ type RoleSpecGroupRow = {
   id: number;
   groupName: string;
   displayOrder: number;
+  optional: boolean;
 };
 
 function normalizeInputs(specifications: PlayerSpecificationInput[]): PlayerSpecificationInput[] {
@@ -230,6 +231,7 @@ async function loadGroupsForRole(roleId: number, executor: DbExecutor): Promise<
       id: roleSpecGroupsTable.id,
       groupName: roleSpecGroupsTable.groupName,
       displayOrder: roleSpecGroupsTable.displayOrder,
+      optional: roleSpecGroupsTable.optional,
     })
     .from(roleSpecGroupsTable)
     .where(and(eq(roleSpecGroupsTable.roleId, roleId), eq(roleSpecGroupsTable.active, true)))

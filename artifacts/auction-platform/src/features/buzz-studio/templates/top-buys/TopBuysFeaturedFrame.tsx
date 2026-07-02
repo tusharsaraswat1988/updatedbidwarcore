@@ -115,6 +115,7 @@ export function TopBuysFeaturedFrameLegacy({
     aspectRatio: "4:5",
     renderWidth: 1080,
     renderHeight: 1350,
+    featuredFrameLayout: false,
   };
   return (
     <TopBuysFeaturedFrame

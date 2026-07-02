@@ -62,6 +62,7 @@ interface GlobalPlayerLookup {
   jerseySize?: string | null;
   achievements?: string | null;
   cricheroUrl?: string | null;
+  availabilityDates?: string | null;
   appearanceCount?: number;
 }
 

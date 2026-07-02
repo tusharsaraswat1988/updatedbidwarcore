@@ -30,17 +30,17 @@ import { normalizeBooleanInput } from "@workspace/api-base/auction-data";
 import { getOrganizerBidOptions } from "@workspace/api-base/bid-value";
 import { parseWorkbookGenderLabel } from "@workspace/api-base/player-gender";
 import type { SponsorLogo } from "@workspace/api-base/sponsor-priority";
-import { buildTournamentWorkbookExcel } from "./workbook-excel-builder.ts";
+import { buildTournamentWorkbookExcel } from "./workbook-excel-builder";
 import {
   parseExcelBufferToRawWorkbook,
   readWorkbookFromGoogleSheetUrl,
-} from "./google-sheet-workbook-reader.ts";
+} from "./google-sheet-workbook-reader";
 import {
   isPhotoUrl,
   validatePhotoLinks,
   type PhotoValidationSummary,
   type PhotoLinkValidation,
-} from "./photo-import-service.ts";
+} from "./photo-import-service";
 import {
   applyImmediateCloudinaryPhotos,
   getPhotoImportSummary,
@@ -54,16 +54,16 @@ import {
   type PhotoImportMode,
   type PhotoImportSummary,
   type PhotoJobProgress,
-} from "./photo-queue-service.ts";
+} from "./photo-queue-service";
 import {
   commitAuctionImport,
   validateAuctionImport,
   parseExcelBuffer as parseLegacyExcelBuffer,
-} from "./auction-data-service.ts";
-import { parseWorkbookFromZip, applyLocalMediaToPlayers, cleanupZipExtract } from "./zip-import-service.ts";
-import { importAssetsFromWorkbook, applyAssetResultsToWorkbook } from "./asset-import-service.ts";
-import { writeEntityAuditLogs } from "./entity-audit-service.ts";
-export { buildWorkbookExportFilename } from "./workbook-export-filename.ts";
+} from "./auction-data-service";
+import { parseWorkbookFromZip, applyLocalMediaToPlayers, cleanupZipExtract } from "./zip-import-service";
+import { importAssetsFromWorkbook, applyAssetResultsToWorkbook } from "./asset-import-service";
+import { writeEntityAuditLogs } from "./entity-audit-service";
+export { buildWorkbookExportFilename } from "./workbook-export-filename";
 
 export async function loadTournamentExportContext(tournamentId: number) {
   const [tournament] = await db
@@ -575,7 +575,7 @@ export {
   type PhotoImportSummary,
   type PhotoJobProgress,
 };
-export type { PhotoValidationSummary, PhotoLinkValidation } from "./photo-import-service.ts";
+export type { PhotoValidationSummary, PhotoLinkValidation } from "./photo-import-service";
 
 /** @deprecated Use bmwPlayerRowToLegacyAuctionRow */
 export { bmwPlayerRowToLegacyAuctionRow as tmwPlayerRowToLegacyAuctionRow };

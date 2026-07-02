@@ -44,10 +44,11 @@ export function getCourtQuadrantPlayers(state: BadmintonMatchState): {
   bottomLeft: { side: BadmintonSide; playerIndex: 0 | 1; label: string; isServer: boolean; isReceiver: boolean };
   bottomRight: { side: BadmintonSide; playerIndex: 0 | 1; label: string; isServer: boolean; isReceiver: boolean };
 } | null {
-  const serveState = state.doublesServe;
-  if (!serveState) return null;
+  const ds = state.doublesServe;
+  if (!ds) return null;
 
   function quadrant(
+    serveState: DoublesServeState,
     side: BadmintonSide,
     court: "left" | "right",
   ) {
@@ -64,10 +65,10 @@ export function getCourtQuadrantPlayers(state: BadmintonMatchState): {
   }
 
   return {
-    topLeft: quadrant("left", "left"),
-    topRight: quadrant("left", "right"),
-    bottomLeft: quadrant("right", "left"),
-    bottomRight: quadrant("right", "right"),
+    topLeft: quadrant(ds, "left", "left"),
+    topRight: quadrant(ds, "left", "right"),
+    bottomLeft: quadrant(ds, "right", "left"),
+    bottomRight: quadrant(ds, "right", "right"),
   };
 }
 

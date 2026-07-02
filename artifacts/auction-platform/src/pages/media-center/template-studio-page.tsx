@@ -27,6 +27,7 @@ import {
   getTemplateById,
   templateExists,
   type BuzzTemplateRegistryEntry,
+  type TopBuysListContract,
   BUZZ_EXPORT_DIMENSIONS,
 } from "@/features/buzz-studio";
 import { BuzzTemplateType } from "@/features/buzz-studio/registry/template-types";
@@ -315,7 +316,7 @@ export default function TemplateStudioPage() {
       const contract = data.directContract;
       if (
         templateId === BuzzTemplateType.TOP_BUYS &&
-        isTopBuysEmpty(contract as { entries: unknown[] })
+        isTopBuysEmpty(contract as unknown as TopBuysListContract)
       ) {
         return undefined;
       }

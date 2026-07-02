@@ -1,5 +1,5 @@
-import type { PlayerIdentityMatch } from "./types.ts";
-import { buildRegistrationCode, normalizeMobile, getRegistrationCodeFromRow } from "./sheet-definitions.ts";
+import type { PlayerIdentityMatch } from "./types";
+import { buildRegistrationCode, normalizeMobile, getRegistrationCodeFromRow } from "./sheet-definitions";
 
 export type ExistingPlayerRecord = {
   id: number;

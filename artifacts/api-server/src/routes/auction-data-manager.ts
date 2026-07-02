@@ -3,8 +3,8 @@ import multer from "multer";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { bulkImportJobsTable, tournamentsTable } from "@workspace/db";
-import { requireMasterAdmin } from "../middleware/require-admin.ts";
-import { auditLog } from "../lib/audit-service.ts";
+import { requireMasterAdmin } from "../middleware/require-admin";
+import { auditLog } from "../lib/audit-service";
 import {
   exportAuctionDataExcel,
   parseExcelBuffer,
@@ -12,11 +12,11 @@ import {
   commitAuctionImport,
   listImportHistory,
   buildErrorReportCsv,
-} from "../lib/bulk-import/auction-data-service.ts";
+} from "../lib/bulk-import/auction-data-service";
 import {
   rollbackBulkImportJob,
   getImportJobDetail,
-} from "../lib/bulk-import/rollback-service.ts";
+} from "../lib/bulk-import/rollback-service";
 
 const router = Router({ mergeParams: true });
 

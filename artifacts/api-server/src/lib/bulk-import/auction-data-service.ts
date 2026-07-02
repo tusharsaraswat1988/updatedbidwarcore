@@ -21,16 +21,17 @@ import { getOrganizerBidOptions } from "@workspace/api-base/bid-value";
 import {
   changeKey,
   serializeValue,
-} from "./engine.ts";
+} from "./engine";
+import type { EntityAuditInput } from "./entity-audit-service";
 
 export async function exportAuctionDataExcel(tournamentId: number): Promise<Buffer> {
   // Backward compat: delegate to full TMW export (superset of legacy auction sheet)
-  const { exportTournamentWorkbook } = await import("./workbook-service.ts");
+  const { exportTournamentWorkbook } = await import("./workbook-service.js");
   return exportTournamentWorkbook(tournamentId);
 }
 
 export async function parseExcelBuffer(buffer: Buffer): Promise<Record<string, unknown>[]> {
-  const { parseWorkbookBuffer } = await import("./workbook-service.ts");
+  const { parseWorkbookBuffer } = await import("./workbook-service.js");
   const { extractLegacyAuctionRows } = await import("@workspace/api-base/tournament-workbook");
   const wb = await parseWorkbookBuffer(buffer);
   return extractLegacyAuctionRows(wb);
@@ -152,7 +153,7 @@ export async function commitAuctionImport(
       newValue: string | null;
       status: string;
     }> = [];
-    const auditEntries: Parameters<typeof writeEntityAuditLogs>[0] = [];
+    const auditEntries: EntityAuditInput[] = [];
 
     let jobId = meta.existingJobId;
     if (jobId) {
@@ -285,7 +286,7 @@ export async function commitAuctionImport(
       const batchSize = 500;
       for (let i = 0; i < auditEntries.length; i += batchSize) {
         await tx.insert(entityAuditLogsTable).values(
-          auditEntries.slice(i, i + batchSize).map((e) => ({
+          auditEntries.slice(i, i + batchSize).map((e: EntityAuditInput) => ({
             entityType: e.entityType,
             entityId: e.entityId,
             fieldName: e.fieldName,

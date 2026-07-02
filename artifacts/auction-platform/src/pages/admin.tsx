@@ -5,6 +5,7 @@ import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { SportsPanel } from "@/components/admin/sports-panel";
 import {
   listAdminTournaments,
   lockTournament,
@@ -2871,6 +2872,16 @@ export function BuildTriggerPanel() {
 
 // ─── Display Auction Form Modal ───────────────────────────────────────────────
 
+function formatDisplayAuctionPurse(raw: string | number): string {
+  const p = typeof raw === "string" ? Number(raw) : raw;
+  if (!Number.isFinite(p)) return "—";
+  return p >= 10_000_000
+    ? `₹${(p / 10_000_000).toFixed(1)}Cr`
+    : p >= 100_000
+      ? `₹${(p / 100_000).toFixed(0)}L`
+      : `₹${p.toLocaleString("en-IN")}`;
+}
+
 function DisplayAuctionForm({
   initial,
   onClose,
@@ -3036,7 +3047,7 @@ function DisplayAuctionForm({
                 </div>
               </div>
               <div className="text-right text-[10px] text-muted-foreground flex-shrink-0">
-                <div className="font-semibold text-white/80">{purseLabel}</div>
+                <div className="font-semibold text-white/80">{formatDisplayAuctionPurse(form.purse)}</div>
                 <div>{form.teamsCount} Teams · {form.playersPerTeam} Players</div>
               </div>
             </div>

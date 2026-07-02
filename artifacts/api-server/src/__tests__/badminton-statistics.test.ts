@@ -68,6 +68,8 @@ function baseState(
     matchKind: "singles",
     format: STANDARD_FORMAT,
     matchStatus: "completed",
+    isPaused: false,
+    matchNotes: [],
     leftSide: { label: "Left", shortLabel: "L", playerIds: [] },
     rightSide: { label: "Right", shortLabel: "R", playerIds: [] },
     gamesLeft: 2,

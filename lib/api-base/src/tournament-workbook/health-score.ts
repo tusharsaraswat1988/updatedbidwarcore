@@ -2,7 +2,7 @@
  * BMW Workbook Health Score — overall data quality metric (0–100%).
  */
 
-import type { WorkbookIssue, WorkbookPreviewSummary } from "./types.ts";
+import type { WorkbookIssue, WorkbookPreviewSummary } from "./types";
 
 export type HealthCategory =
   | "duplicates"

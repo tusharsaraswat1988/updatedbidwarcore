@@ -46,6 +46,14 @@ function LedStandby({ message }: { message: string }) {
   );
 }
 
+type BadmintonMatchDetailMeta = {
+  courtNumber?: string;
+  matchNumber?: string;
+  roundName?: string;
+  matchLabel?: string;
+  matchType?: string;
+};
+
 export default function BadmintonDisplayPage() {
   const [, params] = useRoute("/badminton/:matchId/display");
   const search = useSearch();
@@ -57,6 +65,7 @@ export default function BadmintonDisplayPage() {
 
   const { data, isLoading } = useBadmintonMatch(tournamentId, matchId);
   const { data: branding } = useBadmintonBranding(tournamentId);
+  const matchDetail = data?.detail as BadmintonMatchDetailMeta | null | undefined;
 
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
@@ -93,10 +102,10 @@ export default function BadmintonDisplayPage() {
                 state={data.state as BadmintonMatchState}
                 tournamentName={tournamentName}
                 tournamentLogoUrl={branding?.logoUrl ?? undefined}
-                courtNumber={courtNumber ?? (data.detail?.courtNumber as string | undefined)}
-                matchNumber={data.detail?.matchNumber as string | undefined}
-                roundName={data.detail?.roundName as string | undefined}
-                matchLabel={data.detail?.matchLabel as string | undefined}
+                courtNumber={courtNumber ?? matchDetail?.courtNumber}
+                matchNumber={matchDetail?.matchNumber}
+                roundName={matchDetail?.roundName}
+                matchLabel={matchDetail?.matchLabel}
                 sponsorLogos={sponsorLogosFromBranding(branding)}
                 scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
               />

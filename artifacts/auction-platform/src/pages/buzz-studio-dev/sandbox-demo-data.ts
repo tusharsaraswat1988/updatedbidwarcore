@@ -14,9 +14,7 @@ import { demoFullData } from "@/features/buzz-studio/templates/sold-player/demo-
 import { demoTop5 } from "@/features/buzz-studio/templates/top-buys/demo-data";
 import { demoFullCricket } from "@/features/buzz-studio/templates/team-reveal/demo-data";
 
-const SANDBOX_DEMO_DATA: Readonly<
-  Partial<Record<BuzzTemplateType, Record<string, unknown>>>
-> = {
+const SANDBOX_DEMO_DATA: Readonly<Partial<Record<BuzzTemplateType, unknown>>> = {
   [BuzzTemplateType.PLAYER_SPOTLIGHT]: DEMO_FULL_IMAGES,
   [BuzzTemplateType.SOLD_PLAYER]: demoFullData,
   [BuzzTemplateType.TOP_BUYS]: demoTop5,
@@ -25,6 +23,6 @@ const SANDBOX_DEMO_DATA: Readonly<
 
 export function getSandboxDemoData(
   templateId: BuzzTemplateType,
-): Record<string, unknown> | undefined {
+): unknown {
   return SANDBOX_DEMO_DATA[templateId];
 }

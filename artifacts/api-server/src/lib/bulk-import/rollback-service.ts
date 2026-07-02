@@ -8,7 +8,7 @@ import {
   tournamentPlayerProfilesTable,
 } from "@workspace/db";
 import { AUCTION_EDITABLE_FIELDS } from "@workspace/api-base/auction-data";
-import { writeEntityAuditLogs } from "./entity-audit-service.ts";
+import { writeEntityAuditLogs } from "./entity-audit-service";
 
 function parseStoredValue(
   field: (typeof AUCTION_EDITABLE_FIELDS)[number],

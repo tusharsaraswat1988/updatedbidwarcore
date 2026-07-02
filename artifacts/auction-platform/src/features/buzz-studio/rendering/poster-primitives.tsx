@@ -12,7 +12,36 @@ import { monogramFor } from "../asset-engine/monogram-generator";
 import type { AssetKind } from "../asset-engine/asset-types";
 import type { BuzzRenderContext } from "./buzz-render-context";
 import { canvasH } from "./buzz-render-context";
-import type { PosterZoneStackSpec } from "./template-layout-schema";
+import type { PosterZoneSpec, PosterZoneStackSpec } from "./template-layout-schema";
+import { isZoneRect } from "./template-layout-schema";
+
+function resolveStackLayout(spec?: PosterZoneSpec): {
+  flex?: number;
+  minHeight?: number;
+  alignItems: React.CSSProperties["alignItems"];
+  justifyContent: React.CSSProperties["justifyContent"];
+} {
+  if (!spec) {
+    return { alignItems: "center", justifyContent: "center" };
+  }
+  if (isZoneRect(spec)) {
+    const alignItems =
+      spec.align === "left" ? "flex-start"
+      : spec.align === "right" ? "flex-end"
+      : "center";
+    const justifyContent =
+      spec.valign === "top" ? "flex-start"
+      : spec.valign === "bottom" ? "flex-end"
+      : "center";
+    return { flex: 0, alignItems, justifyContent };
+  }
+  const stack = spec as PosterZoneStackSpec;
+  return {
+    flex: stack.flex ?? 0,
+    alignItems: stack.align ?? "center",
+    justifyContent: stack.justify ?? "center",
+  };
+}
 
 /** Typography tokens — content layer only, no surfaces. */
 export const POSTER_TOKENS = {
@@ -31,25 +60,26 @@ export function PosterZoneStack({
   ctx,
   children,
 }: {
-  spec?: PosterZoneStackSpec;
+  spec?: PosterZoneSpec;
   ctx?: BuzzRenderContext;
   children: React.ReactNode;
 }) {
+  const layout = resolveStackLayout(spec);
   const minHeight =
-    spec?.minHeightRatio && ctx
+    spec && !isZoneRect(spec) && spec.minHeightRatio && ctx
       ? canvasH(ctx.renderHeight, spec.minHeightRatio, 48, 200)
       : undefined;
 
   return (
     <div
       style={{
-        flex: spec?.flex ?? 0,
-        flexShrink: spec?.flex === 0 ? 0 : undefined,
+        flex: layout.flex ?? 0,
+        flexShrink: layout.flex === 0 ? 0 : undefined,
         minHeight,
         display: "flex",
         flexDirection: "column",
-        alignItems: spec?.align ?? "center",
-        justifyContent: spec?.justify ?? "center",
+        alignItems: layout.alignItems,
+        justifyContent: layout.justifyContent,
         width: "100%",
         minWidth: 0,
       }}

@@ -9,7 +9,7 @@ import {
   normalizeStatusInput,
   normalizeTagInput,
   type AuctionFieldDefinition,
-} from "./field-registry.ts";
+} from "./field-registry";
 
 export type AuctionExportRow = Record<string, string | number>;
 

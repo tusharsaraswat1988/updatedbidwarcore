@@ -254,6 +254,7 @@ export function TopBuys(props: TopBuysProps) {
             aspectRatio: "1:1",
             renderWidth: 1080,
             renderHeight: 1080,
+            featuredFrameLayout: false,
           }} />
         ))}
       </div>

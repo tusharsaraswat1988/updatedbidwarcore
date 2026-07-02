@@ -14,9 +14,13 @@ import { insightsLimiter } from "../lib/rate-limiters";
 
 const router = Router();
 
+function tournamentIdParam(value: string | string[]): number {
+  return parseInt(Array.isArray(value) ? value[0] ?? "" : value, 10);
+}
+
 // GET tournament summary
 router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
+  const tid = tournamentIdParam(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const players = await db
@@ -168,7 +172,7 @@ router.get(
   "/tournaments/:tournamentId/analytics/insights",
   insightsLimiter,
   async (req, res) => {
-    const tid = parseInt(req.params.tournamentId);
+    const tid = tournamentIdParam(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const payload = await getTournamentInsights(tid);

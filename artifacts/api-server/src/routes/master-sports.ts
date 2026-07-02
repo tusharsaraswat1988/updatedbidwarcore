@@ -256,7 +256,19 @@ router.patch("/branding", async (req, res) => {
   }
 
   try {
-    const branding = await updateBadmintonBranding(tournamentId, parsed.data, req.log);
+    const brandingInput = {
+      ...parsed.data,
+      scoreBoardSponsor:
+        parsed.data.scoreBoardSponsor == null
+          ? parsed.data.scoreBoardSponsor
+          : {
+              logoUrl: parsed.data.scoreBoardSponsor.logoUrl ?? null,
+              logoPublicId: parsed.data.scoreBoardSponsor.logoPublicId ?? null,
+              name: parsed.data.scoreBoardSponsor.name ?? null,
+              title: parsed.data.scoreBoardSponsor.title ?? null,
+            },
+    };
+    const branding = await updateBadmintonBranding(tournamentId, brandingInput, req.log);
     res.json(branding);
   } catch (e) {
     res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });

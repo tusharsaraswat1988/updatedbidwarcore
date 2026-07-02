@@ -1766,9 +1766,11 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
 
   let updated!: typeof organizersTable.$inferSelect;
   const persistOrganizerUpdate = async () => {
+    const organizerAccountId = req.jwtUser?.organizerAccountId;
+    if (organizerAccountId == null) throw new Error("ORGANIZER_NOT_FOUND");
     const [row] = await db.update(organizersTable)
       .set(updates)
-      .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
+      .where(eq(organizersTable.id, organizerAccountId))
       .returning();
     if (!row) throw new Error("ORGANIZER_NOT_FOUND");
     updated = row;

@@ -6,15 +6,15 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { parseCloudinaryPublicIdFromUrl } from "@workspace/api-base/cloudinary-media";
-import { uploadBufferToCloudinary } from "../cloudinary-media-service.ts";
+import { uploadBufferToCloudinary } from "../cloudinary-media-service";
 import {
   extractDriveFileId,
   extractOriginalFileName,
   getPhotoSourceAdapter,
   photoSourceKey,
   resolvePhotoDownloadUrl,
-} from "./photo-source-adapter.ts";
-import type { CachedPhotoAsset } from "./photo-source-cache.ts";
+} from "./photo-source-adapter";
+import type { CachedPhotoAsset } from "./photo-source-cache";
 
 const PHOTO_IMPORT_CONCURRENCY = 5;
 const PHOTO_VALIDATION_CONCURRENCY = 10;
@@ -513,7 +513,7 @@ export async function importPhotoFromUrl(
   const adapter = getPhotoSourceAdapter(trimmed);
   const sourceKey = adapter.sourceKey(trimmed);
 
-  const cacheModule = await import("./photo-source-cache.ts");
+  const cacheModule = await import("./photo-source-cache.js");
   const cachedByKey = await cacheModule.findCachedPhotoBySourceKey(sourceKey);
   if (cachedByKey && isPhotoCacheCurrent(cachedByKey)) {
     return {

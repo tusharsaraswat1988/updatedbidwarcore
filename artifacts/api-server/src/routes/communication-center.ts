@@ -54,7 +54,7 @@ function clientIp(req: Request): string | undefined {
 router.get("/auth/admin/communication-center/dashboard", async (req, res) => {
   const tournamentId = req.query.tournamentId ? Number(req.query.tournamentId) : undefined;
   const stats = await getDashboardStats(tournamentId);
-  res.json(stats);
+  return res.json(stats);
 });
 
 // ─── Templates ───────────────────────────────────────────────────────────────
@@ -64,13 +64,13 @@ router.get("/auth/admin/communication-center/templates", async (req, res) => {
   const includeArchived = req.query.includeArchived === "true";
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const templates = await listTemplates({ includeDrafts, includeArchived, search });
-  res.json({ templates });
+  return res.json({ templates });
 });
 
 router.get("/auth/admin/communication-center/templates/:id", async (req, res) => {
   const template = await getTemplateById(req.params.id);
   if (!template) return res.status(404).json({ error: "Template not found" });
-  res.json({ template });
+  return res.json({ template });
 });
 
 const templateSchema = z.object({
@@ -129,7 +129,7 @@ router.post("/auth/admin/communication-center/templates", async (req, res) => {
     ipAddress: clientIp(req),
   });
 
-  res.status(201).json({ template: created });
+  return res.status(201).json({ template: created });
 });
 
 router.put("/auth/admin/communication-center/templates/:id", async (req, res) => {
@@ -173,7 +173,7 @@ router.put("/auth/admin/communication-center/templates/:id", async (req, res) =>
     ipAddress: clientIp(req),
   });
 
-  res.json({ template: updated });
+  return res.json({ template: updated });
 });
 
 router.post("/auth/admin/communication-center/templates/:id/duplicate", async (req, res) => {
@@ -199,7 +199,7 @@ router.post("/auth/admin/communication-center/templates/:id/duplicate", async (r
     })
     .returning();
 
-  res.status(201).json({ template: copy });
+  return res.status(201).json({ template: copy });
 });
 
 router.post("/auth/admin/communication-center/templates/:id/archive", async (req, res) => {
@@ -210,7 +210,7 @@ router.post("/auth/admin/communication-center/templates/:id/archive", async (req
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Template not found" });
-  res.json({ template: updated });
+  return res.json({ template: updated });
 });
 
 router.post("/auth/admin/communication-center/templates/:id/test", async (req, res) => {
@@ -229,7 +229,7 @@ router.post("/auth/admin/communication-center/templates/:id/test", async (req, r
   );
 
   const result = await sendEmail({ to: email, subject: `[TEST] ${subject}`, html });
-  res.json({ success: result.success, messageId: result.messageId, error: result.error });
+  return res.json({ success: result.success, messageId: result.messageId, error: result.error });
 });
 
 router.post("/auth/admin/communication-center/templates/:id/preview", async (req, res) => {
@@ -244,7 +244,7 @@ router.post("/auth/admin/communication-center/templates/:id/preview", async (req
       (template.signatureHtml ? renderMergeTemplate(template.signatureHtml, mergeData) : ""),
   );
 
-  res.json({
+  return res.json({
     subject,
     html,
     unknownVariables: findUnknownVariables(template.htmlBody + template.subject),
@@ -263,13 +263,13 @@ router.get("/auth/admin/communication-center/jobs", async (req, res) => {
   const offset = req.query.offset ? Number(req.query.offset) : 0;
 
   const jobs = await listJobs({ status, statuses, pendingReason, tournamentId, search, limit, offset });
-  res.json({ jobs, total: jobs.length });
+  return res.json({ jobs, total: jobs.length });
 });
 
 router.get("/auth/admin/communication-center/jobs/:id", async (req, res) => {
   const job = await getJobById(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
-  res.json({ job });
+  return res.json({ job });
 });
 
 router.post("/auth/admin/communication-center/jobs/:id/send", async (req, res) => {
@@ -287,7 +287,7 @@ router.post("/auth/admin/communication-center/jobs/:id/send", async (req, res) =
     triggeredBy: "admin_manual",
   });
 
-  res.json({ success: queued });
+  return res.json({ success: queued });
 });
 
 router.post("/auth/admin/communication-center/jobs/bulk-send", async (req, res) => {
@@ -305,7 +305,7 @@ router.post("/auth/admin/communication-center/jobs/bulk-send", async (req, res) 
     if (await queueJob(id)) queued++;
   }
 
-  res.json({ queued, total: ids.length });
+  return res.json({ queued, total: ids.length });
 });
 
 router.post("/auth/admin/communication-center/jobs/retry-failed", async (req, res) => {
@@ -315,12 +315,12 @@ router.post("/auth/admin/communication-center/jobs/retry-failed", async (req, re
     await revalidateAndRefreshJob(job.id);
     if (await queueJob(job.id)) retried++;
   }
-  res.json({ retried });
+  return res.json({ retried });
 });
 
 router.post("/auth/admin/communication-center/jobs/:id/cancel", async (req, res) => {
   const ok = await cancelJob(req.params.id, { createdBy: adminLabel(req), ipAddress: clientIp(req) });
-  res.json({ success: ok });
+  return res.json({ success: ok });
 });
 
 router.post("/auth/admin/communication-center/jobs/:id/resend", async (req, res) => {
@@ -331,7 +331,7 @@ router.post("/auth/admin/communication-center/jobs/:id/resend", async (req, res)
   if (!newJobId) {
     return res.status(400).json({ error: "Cannot resend — recipient email missing or job not found" });
   }
-  res.json({ success: true, newJobId });
+  return res.json({ success: true, newJobId });
 });
 
 router.patch("/auth/admin/communication-center/jobs/:id/recipient", async (req, res) => {
@@ -347,7 +347,7 @@ router.patch("/auth/admin/communication-center/jobs/:id/recipient", async (req, 
     { createdBy: adminLabel(req), ipAddress: clientIp(req) },
   );
 
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 // ─── Bulk ────────────────────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ router.get("/auth/admin/communication-center/bulk/targets", async (req, res) => 
     return res.status(400).json({ error: "tournamentId required" });
   }
   const targets = await getBulkTargets(tournamentId);
-  res.json(targets);
+  return res.json(targets);
 });
 
 router.post("/auth/admin/communication-center/bulk/preview-recipients", async (req, res) => {
@@ -382,7 +382,7 @@ router.post("/auth/admin/communication-center/bulk/preview-recipients", async (r
     });
   }
 
-  res.json({ recipients, count: recipients.length });
+  return res.json({ recipients, count: recipients.length });
 });
 
 router.post("/auth/admin/communication-center/bulk/preview-email", async (req, res) => {
@@ -428,7 +428,7 @@ router.post("/auth/admin/communication-center/bulk/preview-email", async (req, r
       (template.signatureHtml ? renderMergeTemplate(template.signatureHtml, mergeData) : ""),
   );
 
-  res.json({
+  return res.json({
     subject,
     html,
     unknownVariables: findUnknownVariables(template.htmlBody + template.subject),
@@ -455,14 +455,14 @@ router.post("/auth/admin/communication-center/bulk/queue", async (req, res) => {
     sendImmediately: sendImmediately ?? true,
   });
 
-  res.json(result);
+  return res.json(result);
 });
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
 router.get("/auth/admin/communication-center/assets", async (_req, res) => {
   const assets = await db.select().from(communicationAssetsTable).orderBy(communicationAssetsTable.name);
-  res.json({ assets });
+  return res.json({ assets });
 });
 
 router.post("/auth/admin/communication-center/assets", async (req, res) => {
@@ -479,7 +479,7 @@ router.post("/auth/admin/communication-center/assets", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   const [asset] = await db.insert(communicationAssetsTable).values(parsed.data).returning();
-  res.status(201).json({ asset });
+  return res.status(201).json({ asset });
 });
 
 router.put("/auth/admin/communication-center/assets/:id", async (req, res) => {
@@ -490,7 +490,7 @@ router.put("/auth/admin/communication-center/assets/:id", async (req, res) => {
     .returning();
 
   if (!asset) return res.status(404).json({ error: "Asset not found" });
-  res.json({ asset });
+  return res.json({ asset });
 });
 
 // ─── Logs ────────────────────────────────────────────────────────────────────
@@ -519,14 +519,14 @@ router.get("/auth/admin/communication-center/logs", async (req, res) => {
     .orderBy(desc(communicationLogsTable.createdAt))
     .limit(limit);
 
-  res.json({ logs });
+  return res.json({ logs });
 });
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 router.get("/auth/admin/communication-center/settings", async (_req, res) => {
   const settings = await getSettings();
-  res.json({ settings });
+  return res.json({ settings });
 });
 
 router.put("/auth/admin/communication-center/settings", async (req, res) => {
@@ -534,7 +534,7 @@ router.put("/auth/admin/communication-center/settings", async (req, res) => {
   if (!key || !value) return res.status(400).json({ error: "key and value required" });
 
   await updateSetting(key, value, adminLabel(req));
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 // ─── Entity history ──────────────────────────────────────────────────────────
@@ -544,7 +544,7 @@ router.get("/auth/admin/communication-center/history/:entityType/:entityId", asy
   if (!Number.isFinite(entityId)) return res.status(400).json({ error: "Invalid entity ID" });
 
   const history = await getEntityCommunicationHistory(req.params.entityType, entityId);
-  res.json({ history });
+  return res.json({ history });
 });
 
 export default router;

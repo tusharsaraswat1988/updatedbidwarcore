@@ -1,16 +1,16 @@
-import type { ParsedWorkbook, WorkbookSheetData, WorkbookSourceType } from "./types.ts";
+import type { ParsedWorkbook, WorkbookSheetData, WorkbookSourceType } from "./types";
 import {
   BMW_SHEETS,
   INSTRUCTIONS_SHEET,
   isHiddenSheet,
-} from "./sheet-definitions.ts";
+} from "./sheet-definitions";
 import {
   BMW_VERSION,
   BMW_MANIFEST_SHEET,
   parseManifestFromRows,
   validateManifestOrLegacy,
   type BmwManifest,
-} from "./manifest.ts";
+} from "./manifest";
 
 const KNOWN_SHEETS = new Set(BMW_SHEETS.map((s) => s.name));
 

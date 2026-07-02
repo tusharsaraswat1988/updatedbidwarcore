@@ -120,7 +120,6 @@ export {
 } from "./templates/player-spotlight/PlayerSpotlight.utils";
 
 export { SoldPlayer } from "./templates/sold-player/SoldPlayer";
-export type { SoldPlayerContract } from "./templates/sold-player/SoldPlayer.types";
 export { formatSoldPrice, formatBidCount } from "./templates/sold-player/SoldPlayer.utils";
 
 export { TopBuys } from "./templates/top-buys/TopBuys";

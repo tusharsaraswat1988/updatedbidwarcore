@@ -10,6 +10,12 @@ import { publicTeamSerializer, privateTeamSerializer } from "../lib/serializers/
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import {
+  globalPlayersTable,
+  playersTable,
+  teamsTable,
+  tournamentsTable,
+} from "@workspace/db";
+import {
   checkVerifyAccessAllowed,
   recordVerifyAccessFailure,
   VERIFY_ACCESS_FAILURE_THRESHOLD,
@@ -35,7 +41,7 @@ function mockReq(ip = "203.0.113.10", jwtUser?: Record<string, unknown>): Reques
     ip,
     socket: { remoteAddress: ip },
     jwtUser,
-  } as Request;
+  } as unknown as Request;
 }
 
 const samplePlayer = {
@@ -171,20 +177,20 @@ const sampleTournament = {
 
 describe("security serializers", () => {
   it("public player serializer omits mobile and email", () => {
-    const pub = publicPlayerSerializer(samplePlayer);
+    const pub = publicPlayerSerializer(samplePlayer as unknown as typeof playersTable.$inferSelect);
     expect(pub).not.toHaveProperty("mobileNumber");
     expect(pub).not.toHaveProperty("email");
     expect(pub.name).toBe("Test Player");
   });
 
   it("private player serializer includes mobile and email", () => {
-    const priv = privatePlayerSerializer(samplePlayer);
+    const priv = privatePlayerSerializer(samplePlayer as unknown as typeof playersTable.$inferSelect);
     expect(priv.mobileNumber).toBe("919876543210");
     expect(priv.email).toBe("test@example.com");
   });
 
   it("public team serializer omits owner PII", () => {
-    const pub = publicTeamSerializer(sampleTeam);
+    const pub = publicTeamSerializer(sampleTeam as unknown as typeof teamsTable.$inferSelect);
     expect(pub).not.toHaveProperty("ownerName");
     expect(pub).not.toHaveProperty("ownerMobile");
     expect(pub).not.toHaveProperty("ownerEmail");
@@ -193,7 +199,7 @@ describe("security serializers", () => {
   });
 
   it("public tournament serializer omits organiser contact and secrets", () => {
-    const pub = publicTournamentSerializer(sampleTournament);
+    const pub = publicTournamentSerializer(sampleTournament as unknown as typeof tournamentsTable.$inferSelect);
     expect(pub).not.toHaveProperty("organizerMobile");
     expect(pub).not.toHaveProperty("organizerEmail");
     expect(pub).not.toHaveProperty("organizerId");
@@ -204,7 +210,10 @@ describe("security serializers", () => {
   });
 
   it("private tournament serializer includes organiser fields", () => {
-    const priv = privateTournamentSerializer(sampleTournament, { includeScoringPin: true });
+    const priv = privateTournamentSerializer(
+      sampleTournament as unknown as typeof tournamentsTable.$inferSelect,
+      { includeScoringPin: true },
+    );
     expect(priv.organizerMobile).toBe("918888888888");
     expect(priv.upiId).toBe("secret@upi");
     expect(priv.scoringPin).toBe("1234");
@@ -225,9 +234,9 @@ describe("security serializers", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    const pub = publicGlobalPlayerSerializer(gp);
+    const pub = publicGlobalPlayerSerializer(gp as unknown as typeof globalPlayersTable.$inferSelect);
     expect(pub).not.toHaveProperty("mobileNumber");
-    expect(privateGlobalPlayerSerializer(gp).mobileNumber).toBe("919876543210");
+    expect(privateGlobalPlayerSerializer(gp as unknown as typeof globalPlayersTable.$inferSelect).mobileNumber).toBe("919876543210");
   });
 
   it("global search public serializer omits mobile", () => {

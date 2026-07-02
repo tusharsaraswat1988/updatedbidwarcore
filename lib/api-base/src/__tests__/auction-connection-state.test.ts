@@ -9,7 +9,7 @@ import {
   nextConnectionBannerPulseDelayMs,
   recordAuctionActivity,
   resolveAuctionFeedState,
-} from "../auction-connection-state.ts";
+} from "../auction-connection-state";
 
 describe("resolveAuctionFeedState", () => {
   const now = 1_000_000;

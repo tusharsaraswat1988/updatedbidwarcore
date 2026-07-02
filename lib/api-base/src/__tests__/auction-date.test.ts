@@ -3,7 +3,7 @@ import {
   getIstTodayDateString,
   validateAuctionDate,
   AUCTION_DATE_PAST_ERROR,
-} from "../auction-date.ts";
+} from "../auction-date";
 
 describe("getIstTodayDateString", () => {
   afterEach(() => {

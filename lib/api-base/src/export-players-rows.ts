@@ -1,11 +1,11 @@
-import { bidValueSourceLabel } from "./bid-value.ts";
-import { formatPlayerGender } from "./player-gender.ts";
-import { playerTagLabel } from "./player-tag-label.ts";
+import { bidValueSourceLabel } from "./bid-value";
+import { formatPlayerGender } from "./player-gender";
+import { playerTagLabel } from "./player-tag-label";
 import {
   collectSpecColumnLabels,
   resolvePlayerSpecifications,
   type PlayerSpecSource,
-} from "./player-spec-export.ts";
+} from "./player-spec-export";
 
 export type ExportCategoryMap = Record<number, { name: string; colorCode?: string | null }>;
 export type ExportTeamMap = Record<number, { name: string; color?: string | null }>;
