@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, hydrate, type DehydratedState } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBranding } from "@/hooks/use-branding";
@@ -11,6 +11,13 @@ import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { RedirectToScoringApp } from "@/components/redirect-to-scoring-app";
+import {
+  InitialDataProvider,
+  homePageInitialData,
+  seedHomepageQueryCache,
+} from "@/lib/initial-data/initial-data-provider";
+import type { PageInitialData } from "@/lib/initial-data/types";
+import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 
 import Landing from "@/pages/landing";
 
@@ -76,14 +83,61 @@ const BlogCategory = lazy(() => import("@/pages/blog/category"));
 const BlogTag      = lazy(() => import("@/pages/blog/tag"));
 const BlogAuthor   = lazy(() => import("@/pages/blog/author"));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 5000,
+
+function makeBrowserQueryClient(
+  dehydratedState?: DehydratedState,
+  pageData?: PageInitialData | null,
+) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        staleTime: 5000,
+      },
     },
-  },
-});
+  });
+
+  if (dehydratedState) {
+    hydrate(client, dehydratedState);
+  } else if (pageData?.home) {
+    seedHomepageQueryCache(client, pageData.home);
+  }
+
+  return client;
+}
+
+let browserQueryClient: QueryClient | undefined;
+
+function getBrowserQueryClient(
+  dehydratedState?: DehydratedState,
+  pageData?: PageInitialData | null,
+) {
+  if (typeof window === "undefined") {
+    return makeBrowserQueryClient(dehydratedState, pageData);
+  }
+  if (!browserQueryClient) {
+    browserQueryClient = makeBrowserQueryClient(dehydratedState, pageData);
+  }
+  return browserQueryClient;
+}
+
+export type AppProps = {
+  pageData?: PageInitialData | null;
+  dehydratedState?: DehydratedState;
+  /** Server render only — matches wouter SSR path for `/`. */
+  ssrPath?: string;
+};
+
+function resolveClientBootstrapProps(): Pick<AppProps, "pageData" | "dehydratedState"> {
+  const initialWire = readWindowInitialData();
+  if (!initialWire) {
+    return { pageData: null, dehydratedState: readWindowDehydratedState() };
+  }
+  return {
+    pageData: homePageInitialData(normalizeHomeInitialData(initialWire)),
+    dehydratedState: readWindowDehydratedState(),
+  };
+}
 
 function BrandingEffects() {
   const { logos, brandName, iconVersion } = useBranding();
@@ -410,22 +464,39 @@ function Router() {
   );
 }
 
-function App() {
+function App(props: AppProps = {}) {
+  const bootstrap = props.pageData === undefined && props.dehydratedState === undefined
+    ? resolveClientBootstrapProps()
+    : { pageData: props.pageData ?? null, dehydratedState: props.dehydratedState };
+
+  const [client] = useState(() =>
+    typeof window === "undefined"
+      ? makeBrowserQueryClient(bootstrap.dehydratedState, bootstrap.pageData)
+      : getBrowserQueryClient(bootstrap.dehydratedState, bootstrap.pageData),
+  );
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <BrandingEffects />
-          <LocalOperatorPinEffects />
-          <PageTracking />
-          <LocalVenueGate>
-            <Router />
-          </LocalVenueGate>
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+    <QueryClientProvider client={client}>
+      <InitialDataProvider pageData={bootstrap.pageData} queryClient={client}>
+        <TooltipProvider>
+          <WouterRouter
+            base={import.meta.env.BASE_URL.replace(/\/$/, "")}
+            ssrPath={props.ssrPath}
+          >
+            <BrandingEffects />
+            <LocalOperatorPinEffects />
+            <PageTracking />
+            <LocalVenueGate>
+              <Router />
+            </LocalVenueGate>
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </InitialDataProvider>
     </QueryClientProvider>
   );
 }
+
+export { homePageInitialData };
 
 export default App;

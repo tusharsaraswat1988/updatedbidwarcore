@@ -8,18 +8,9 @@ import {
 } from "@workspace/api-base/branding-assets";
 import { brandingService } from "../lib/branding-service.js";
 import { refreshBrandingIconCache, getBrandingIconCacheVersion } from "../lib/branding-asset-resolver.js";
+import { invalidateHomepagePageCache } from "../lib/homepage-data.js";
 
 const router = Router();
-
-function publicAssetsPayload(
-  assets: Partial<Record<BrandingAssetType, { fileUrl: string }>>,
-) {
-  const urls: Partial<Record<BrandingAssetType, string>> = {};
-  for (const [type, asset] of Object.entries(assets)) {
-    if (asset?.fileUrl) urls[type as BrandingAssetType] = asset.fileUrl;
-  }
-  return urls;
-}
 
 // ─── Public: read-only branding settings ──────────────────────────────────────
 
@@ -31,25 +22,8 @@ router.get("/branding/icon-version", async (_req, res) => {
 
 router.get("/branding", async (_req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-
-  const [row] = await db.select().from(brandingSettingsTable).limit(1);
-  const assetsMap = await brandingService.getAssetsMap();
-
-  if (!row) {
-    res.json({
-      ...brandingService.mergeLegacyAssetFields({}, assetsMap),
-      assets: publicAssetsPayload(assetsMap),
-      iconVersion: await getBrandingIconCacheVersion(),
-    });
-    return;
-  }
-
-  const merged = brandingService.mergeLegacyAssetFields(row, assetsMap);
-  res.json({
-    ...merged,
-    assets: publicAssetsPayload(assetsMap),
-    iconVersion: await getBrandingIconCacheVersion(),
-  });
+  const payload = await brandingService.getPublicBrandingPayload();
+  res.json(payload);
 });
 
 // ─── Admin: read settings ──────────────────────────────────────────────────────
@@ -130,6 +104,7 @@ router.put("/auth/admin/branding/assets/:assetType", async (req, res) => {
     });
     await brandingService.refreshPlatformBrandingCache();
     await refreshBrandingIconCache();
+    invalidateHomepagePageCache();
     res.json(result);
   } catch (err) {
     req.log.error({ err }, "branding asset upsert failed");
@@ -152,6 +127,7 @@ router.delete("/auth/admin/branding/assets/:assetType", async (req, res) => {
     await brandingService.removeAsset(assetType);
     await brandingService.refreshPlatformBrandingCache();
     await refreshBrandingIconCache();
+    invalidateHomepagePageCache();
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "branding asset remove failed");
@@ -193,6 +169,7 @@ router.put("/auth/admin/branding", async (req, res) => {
     }
 
     const assetsMap = await brandingService.getAssetsMap();
+    invalidateHomepagePageCache();
     res.json({
       ...brandingService.mergeLegacyAssetFields(row, assetsMap),
       assets: assetsMap,

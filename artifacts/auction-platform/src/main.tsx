@@ -1,8 +1,11 @@
+import { hydrateRoot } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import App from "./App";
 import "./index.css";
 import "./styles/display-tv-mode.css";
+import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
+import { homePageInitialData } from "@/lib/initial-data/initial-data-provider";
 
 const root = document.getElementById("root")!;
 
@@ -19,5 +22,19 @@ if (window.location.pathname.startsWith(SCORING_APP_BASE)) {
     '<button type="button" style="color:#fbbf24;background:none;border:none;cursor:pointer;text-decoration:underline;font-size:14px" onclick="location.reload()">Retry</button>' +
     "</main></div>";
 } else {
-  createRoot(root).render(<App />);
+  const initialWire = readWindowInitialData();
+  const dehydratedState = readWindowDehydratedState();
+  const hasSsrPayload = Boolean(initialWire || dehydratedState);
+
+  if (hasSsrPayload && root.hasChildNodes()) {
+    hydrateRoot(
+      root,
+      <App
+        pageData={initialWire ? homePageInitialData(normalizeHomeInitialData(initialWire)) : null}
+        dehydratedState={dehydratedState}
+      />,
+    );
+  } else {
+    createRoot(root).render(<App />);
+  }
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { useBranding } from "@/hooks/use-branding";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
@@ -11,12 +11,23 @@ import {
 } from "lucide-react";
 import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
-import type { DisplayAuction } from "@/lib/auth";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
 import { PublicNavbar } from "@/components/public-navbar";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
+import { useIsHydrated } from "@/lib/initial-data/use-is-hydrated";
+import { displayAuctionKeys, showcaseKeys } from "@/lib/initial-data/query-keys";
+import {
+  fetchDisplayAuctions,
+  mapDisplayAuctionsToUpcoming,
+} from "@/lib/initial-data/homepage-queries";
+import type { ShowcaseEventRecord } from "@/lib/initial-data/types";
+import { ProductShowcase } from "@/components/product-showcase";
+import { Testimonials } from "@/components/testimonials";
+import { DemoRequest } from "@/components/demo-request";
+import { PaymentModal } from "@/components/payment-modal";
 
 const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
@@ -100,10 +111,12 @@ const RESOURCE_SLUGS = [
   "cloud-vs-local-auction-software-sports-events",
 ];
 
-const ProductShowcase = lazy(() => import("@/components/product-showcase").then(m => ({ default: m.ProductShowcase })));
-const Testimonials = lazy(() => import("@/components/testimonials").then(m => ({ default: m.Testimonials })));
-const DemoRequest = lazy(() => import("@/components/demo-request").then(m => ({ default: m.DemoRequest })));
-const PaymentModal = lazy(() => import("@/components/payment-modal").then(m => ({ default: m.PaymentModal })));
+async function fetchShowcaseEvents(): Promise<ShowcaseEventRecord[]> {
+  const response = await fetch("/api/showcase-events", { cache: "no-store" });
+  if (!response.ok) return [];
+  const data: unknown = await response.json();
+  return Array.isArray(data) ? (data as ShowcaseEventRecord[]) : [];
+}
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -430,16 +443,10 @@ function GalleryCard({
   );
 }
 
-function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
+function FaqItem({ q, a, index, animate }: { q: string; a: string; index: number; animate: boolean }) {
   const [open, setOpen] = useState(false);
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.05 }}
-      className="border border-border rounded-2xl overflow-hidden"
-    >
+  const item = (
+    <div className="border border-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-card/50 transition-colors"
@@ -468,6 +475,19 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+
+  if (!animate) return item;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.05 }}
+    >
+      {item}
     </motion.div>
   );
 }
@@ -485,23 +505,28 @@ interface ShowcaseItem {
 
 export default function Landing() {
   const [, navigate] = useLocation();
-  const { logos, brandName, loading: brandingLoading } = useBranding();
+  const isHydrated = useIsHydrated();
+  const { logos, brandName, loading: brandingLoading } = usePublicBranding();
   const logoAlt = getBrandLogoAlt(brandName);
   const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
-  const [displayAuctions, setDisplayAuctions] = useState<UpcomingTournament[]>([]);
-  const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[] | null>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const carouselTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    fetch("/api/showcase-events")
-      .then((r) => r.json())
-      .then((data: ShowcaseItem[]) => { if (Array.isArray(data)) setShowcaseItems(data); })
-      .catch(() => {});
-  }, []);
+  const { data: displayAuctions = [] } = useQuery({
+    queryKey: displayAuctionKeys.landing,
+    queryFn: fetchDisplayAuctions,
+    select: mapDisplayAuctionsToUpcoming,
+    staleTime: 20_000,
+  });
+
+  const { data: showcaseItems } = useQuery({
+    queryKey: showcaseKeys.active,
+    queryFn: fetchShowcaseEvents,
+    staleTime: 20_000,
+  });
 
   const activeGallery: Array<{ img: string; caption: string; tag: string; alt: string; description?: string | null }> =
-    showcaseItems !== null && showcaseItems.length > 0
+    showcaseItems && showcaseItems.length > 0
       ? showcaseItems.map((s) => ({
           img: s.imageUrl,
           caption: s.tournamentName,
@@ -533,29 +558,8 @@ export default function Landing() {
     carouselTimer.current = setInterval(advanceCarousel, 4000);
   }
 
-  useEffect(() => {
-    fetch("/api/display-auctions")
-      .then(r => r.json())
-      .then((data: DisplayAuction[]) => {
-        setDisplayAuctions(data.map(d => ({
-          id: d.id,
-          name: d.name,
-          code: d.code || d.name.split(" ").map(w => w[0]).join("").slice(0, 4).toUpperCase(),
-          sport: d.sport as Sport,
-          city: d.city + (d.state ? `, ${d.state}` : ""),
-          date: d.scheduledDate,
-          time: d.scheduledTime,
-          purse: d.purse,
-          playersPerTeam: d.playersPerTeam,
-          teams: d.teamsCount,
-          primary: d.primaryColor,
-          accent: d.accentColor,
-        })));
-      })
-      .catch(() => {});
-  }, []);
-
   return (
+    <MotionConfig isStatic={!isHydrated}>
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
 
       {/* ── Schema Markup ───────────────────────────────────────────── */}
@@ -1168,7 +1172,7 @@ export default function Landing() {
           </div>
           <div className="space-y-3">
             {faqs.map((item, i) => (
-              <FaqItem key={i} q={item.q} a={item.a} index={i} />
+              <FaqItem key={i} q={item.q} a={item.a} index={i} animate={isHydrated} />
             ))}
           </div>
         </div>
@@ -1663,5 +1667,6 @@ export default function Landing() {
         <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
       </Suspense>
     </div>
+    </MotionConfig>
   );
 }

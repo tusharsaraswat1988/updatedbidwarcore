@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "reac
 import { useLocation } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, ChevronDown, Menu, X } from "lucide-react";
-import { useBranding } from "@/hooks/use-branding";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
+import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 
@@ -15,7 +15,7 @@ const NAV_BLOG_POSTS = [...BLOG_POSTS_META]
 
 export function PublicNavbar() {
   const [path, navigate] = useLocation();
-  const { logos, colors, brandName, loading: brandingLoading } = useBranding();
+  const { logos, colors, brandName, loading: brandingLoading } = usePublicBranding();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const headerLogoSrc = getBrandLogoSrc(logos, landingHeaderPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);

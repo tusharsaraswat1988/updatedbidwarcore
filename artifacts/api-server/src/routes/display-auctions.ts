@@ -2,6 +2,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { db } from "@workspace/db";
 import { displayAuctionsTable, tournamentsTable } from "@workspace/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
+import { displayAuctionService } from "../lib/display-auction-service.js";
+import { invalidateHomepagePageCache } from "../lib/homepage-data.js";
 
 const router = Router();
 
@@ -16,11 +18,7 @@ function requireMasterAdmin(req: Request, res: Response, next: NextFunction): vo
 
 router.get("/display-auctions", async (req, res) => {
   try {
-    const rows = await db
-      .select()
-      .from(displayAuctionsTable)
-      .where(eq(displayAuctionsTable.showOnLanding, true))
-      .orderBy(asc(displayAuctionsTable.scheduledDate), asc(displayAuctionsTable.scheduledTime));
+    const rows = await displayAuctionService.listForLanding();
     res.json(rows);
   } catch (err) {
     req.log.error({ err }, "display-auctions list failed");
@@ -72,6 +70,7 @@ router.post("/auth/admin/display-auctions", requireMasterAdmin, async (req, res)
       showOnLanding: showOnLanding === false ? false : true,
       tournamentId: tournamentId ? Number(tournamentId) : null,
     }).returning();
+    invalidateHomepagePageCache();
     res.status(201).json(row);
   } catch (err) {
     req.log.error({ err }, "admin display-auctions create failed");
@@ -106,6 +105,7 @@ router.put("/auth/admin/display-auctions/:id", requireMasterAdmin, async (req, r
       ...(showOnLanding !== undefined && { showOnLanding: Boolean(showOnLanding) }),
     }).where(eq(displayAuctionsTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    invalidateHomepagePageCache();
     res.json(row);
   } catch (err) {
     req.log.error({ err }, "admin display-auctions update failed");
@@ -120,6 +120,7 @@ router.delete("/auth/admin/display-auctions/:id", requireMasterAdmin, async (req
   if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
   try {
     await db.delete(displayAuctionsTable).where(eq(displayAuctionsTable.id, id));
+    invalidateHomepagePageCache();
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "admin display-auctions delete failed");
@@ -195,6 +196,7 @@ router.post("/auth/admin/display-auctions/seed", requireMasterAdmin, async (req,
       await db.insert(displayAuctionsTable).values(allToInsert);
     }
 
+    invalidateHomepagePageCache();
     res.json({ seeded: allToInsert.length, static: staticToInsert.length, real: realToInsert.length });
   } catch (err) {
     req.log.error({ err }, "display-auctions seed failed");

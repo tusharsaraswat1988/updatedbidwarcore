@@ -6,6 +6,8 @@ import { z } from "zod";
 import { commitBatchCloudinaryImageWrites, destroyCloudinaryAssetSafe } from "../lib/cloudinary-media-service";
 import { queueImageFieldChange, type ImageFieldChange } from "../lib/cloudinary-image-fields";
 import { resolveCloudinaryPublicId } from "@workspace/api-base/cloudinary-media";
+import { showcaseService } from "../lib/showcase-service.js";
+import { invalidateHomepagePageCache } from "../lib/homepage-data.js";
 
 const router = Router();
 
@@ -32,11 +34,7 @@ const reorderSchema = z.object({
 });
 
 router.get("/showcase-events", async (_req, res) => {
-  const rows = await db
-    .select()
-    .from(showcaseEventsTable)
-    .where(eq(showcaseEventsTable.active, true))
-    .orderBy(asc(showcaseEventsTable.displayOrder), asc(showcaseEventsTable.createdAt));
+  const rows = await showcaseService.listActive();
   res.json(rows);
 });
 
@@ -58,6 +56,7 @@ router.post("/auth/admin/showcase-events", requireMasterAdmin, async (req, res) 
     ...parsed.data,
     imagePublicId: parsed.data.imagePublicId ?? null,
   }).returning();
+  invalidateHomepagePageCache();
   res.status(201).json(row);
 });
 
@@ -72,6 +71,7 @@ router.post("/auth/admin/showcase-events/reorder", requireMasterAdmin, async (re
         .where(eq(showcaseEventsTable.id, id)),
     ),
   );
+  invalidateHomepagePageCache();
   res.json({ ok: true });
 });
 
@@ -127,6 +127,7 @@ router.patch("/auth/admin/showcase-events/:id", requireMasterAdmin, async (req, 
   } else {
     await persistShowcaseUpdate();
   }
+  invalidateHomepagePageCache();
   res.json(row);
 });
 
@@ -151,6 +152,7 @@ router.delete("/auth/admin/showcase-events/:id", requireMasterAdmin, async (req,
   }
 
   await db.delete(showcaseEventsTable).where(eq(showcaseEventsTable.id, id));
+  invalidateHomepagePageCache();
   res.status(204).end();
 });
 

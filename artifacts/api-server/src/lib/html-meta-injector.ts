@@ -127,6 +127,35 @@ export function sendSpaIndexHtml(res: { setHeader: (k: string, v: string) => voi
   return true;
 }
 
+const ROOT_EMPTY_RE = /<div id="root"><\/div>/;
+
+function serializeForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+/** Inject SSR markup and hydration payloads into the built index.html shell. */
+export function injectSsrHomepageDocument(
+  shellHtml: string,
+  rootMarkup: string,
+  initialData: unknown,
+  dehydratedState: unknown,
+): string {
+  const initialScript = `<script>window.__BIDWAR_INITIAL_DATA__=${serializeForScript(initialData)}</script>`;
+  const queryScript = `<script>window.__REACT_QUERY_DEHYDRATED__=${serializeForScript(dehydratedState)}</script>`;
+
+  let html = shellHtml;
+  if (ROOT_EMPTY_RE.test(html)) {
+    html = html.replace(ROOT_EMPTY_RE, `<div id="root">${rootMarkup}</div>`);
+  } else {
+    html = html.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root">${rootMarkup}</div>`);
+  }
+
+  return html.replace(
+    '<script type="module"',
+    `${initialScript}\n    ${queryScript}\n    <script type="module"`,
+  );
+}
+
 export function injectPageMeta(meta: PageMeta): string | null {
   if (!cachedHtml) return null;
 

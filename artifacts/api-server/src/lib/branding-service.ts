@@ -12,6 +12,7 @@ import {
 import { fetchImageBuffer } from "./pdf-branding.js";
 import { commitCloudinaryImageWrite, destroyCloudinaryAssetSafe } from "./cloudinary-media-service";
 import { resolveCloudinaryPublicId } from "@workspace/api-base/cloudinary-media";
+import { getBrandingIconCacheVersion } from "./branding-asset-resolver.js";
 
 /** In-memory cache for SSR-critical branding (refreshed at startup + on asset changes). */
 let cachedOpenGraphImageUrl: string | null = null;
@@ -284,6 +285,37 @@ export function mergeLegacyAssetFields<T extends Record<string, unknown>>(
   return merged;
 }
 
+function publicAssetsPayload(
+  assets: Partial<Record<BrandingAssetType, BrandingAssetRecord>>,
+): Partial<Record<BrandingAssetType, string>> {
+  const urls: Partial<Record<BrandingAssetType, string>> = {};
+  for (const [type, asset] of Object.entries(assets)) {
+    if (asset?.fileUrl) urls[type as BrandingAssetType] = asset.fileUrl;
+  }
+  return urls;
+}
+
+/** Public read payload — same shape as GET /api/branding. */
+export async function getPublicBrandingPayload(): Promise<Record<string, unknown>> {
+  const [row] = await db.select().from(brandingSettingsTable).limit(1);
+  const assetsMap = await getAssetsMap();
+  const iconVersion = await getBrandingIconCacheVersion();
+
+  if (!row) {
+    return {
+      ...mergeLegacyAssetFields({}, assetsMap),
+      assets: publicAssetsPayload(assetsMap),
+      iconVersion,
+    };
+  }
+
+  return {
+    ...mergeLegacyAssetFields(row, assetsMap),
+    assets: publicAssetsPayload(assetsMap),
+    iconVersion,
+  };
+}
+
 /** Refresh in-memory platform branding cache (SSR OG image). */
 export async function refreshPlatformBrandingCache(): Promise<void> {
   const og = await getAsset("OPEN_GRAPH_IMAGE");
@@ -340,6 +372,7 @@ export const brandingService = {
   removeAsset,
   migrateLegacyBrandingAssets,
   mergeLegacyAssetFields,
+  getPublicBrandingPayload,
   refreshPlatformBrandingCache,
   getPlatformOpenGraphImageUrl,
   resolveEmailLogoAssetUrl,

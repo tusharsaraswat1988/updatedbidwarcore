@@ -26,6 +26,7 @@ import {
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { loadIndexHtml, injectPageMeta, sendSpaIndexHtml } from "./lib/html-meta-injector.js";
 import { registerOgImageRoutes } from "./routes/og-images.js";
+import { trySendHomepageSsr } from "./lib/homepage-ssr.js";
 import { registerBrandingIconRoutes } from "./lib/branding-asset-resolver.js";
 import {
   buildAuctionPlatformManifest,
@@ -203,6 +204,11 @@ if (serveStatic) {
 
     registerOgImageRoutes(app);
 
+    // ── Homepage SSR (exact GET / only) — fail-open to SPA shell on error ─────
+    app.get("/", async (_req: express.Request, res: express.Response) => {
+      await trySendHomepageSsr(res);
+    });
+
     // ── Server-side meta injection for marketing pages ────────────────────────
     // For every known public marketing URL, we replace the PAGE_META_START/END
     // and PAGE_SCHEMA_START/END blocks in index.html with route-specific
@@ -211,6 +217,7 @@ if (serveStatic) {
     // correct metadata for each page.
     app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       if (req.method !== "GET") return next();
+      if (req.path === "/") return next();
 
       let meta = getPageMeta(req.path);
       if (!meta && isCricketPublicPath(req.path)) {

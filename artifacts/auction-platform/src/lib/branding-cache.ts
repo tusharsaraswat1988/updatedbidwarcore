@@ -3,6 +3,7 @@ import type { BrandingSettings } from "@/hooks/use-branding";
 const CACHE_KEY = "bidwar:branding:v1";
 
 export function readBrandingCache(): BrandingSettings | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
@@ -14,6 +15,7 @@ export function readBrandingCache(): BrandingSettings | null {
 }
 
 export function writeBrandingCache(settings: BrandingSettings): void {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(settings));
   } catch {
