@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { motion, AnimatePresence, MotionConfig } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
@@ -17,7 +17,7 @@ import { PublicNavbar } from "@/components/public-navbar";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
-import { useIsHydrated } from "@/lib/initial-data/use-is-hydrated";
+import { enterInitial, useIsHydrated } from "@/lib/initial-data/use-is-hydrated";
 import { displayAuctionKeys, showcaseKeys } from "@/lib/initial-data/query-keys";
 import {
   fetchDisplayAuctions,
@@ -559,7 +559,6 @@ export default function Landing() {
   }
 
   return (
-    <MotionConfig isStatic={!isHydrated}>
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
 
       {/* ── Schema Markup ───────────────────────────────────────────── */}
@@ -575,7 +574,7 @@ export default function Landing() {
         </div>
         <div className="relative max-w-4xl mx-auto text-center space-y-8">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={enterInitial(isHydrated, { opacity: 0, y: 20 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="space-y-6"
@@ -597,7 +596,7 @@ export default function Landing() {
             </p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={enterInitial(isHydrated, { opacity: 0, y: 16 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
@@ -617,7 +616,7 @@ export default function Landing() {
             </button>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={enterInitial(isHydrated, { opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
             className="flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground"
@@ -631,7 +630,7 @@ export default function Landing() {
 
         {/* Hero visual */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={enterInitial(isHydrated, { opacity: 0, y: 40 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.25 }}
           className="max-w-5xl mx-auto mt-16 rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(234,179,8,0.1)]"
@@ -793,7 +792,7 @@ export default function Landing() {
             {features.map((f, i) => (
               <motion.div
                 key={f.title}
-                initial={{ opacity: 0, y: 20 }}
+                initial={enterInitial(isHydrated, { opacity: 0, y: 20 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
@@ -824,7 +823,7 @@ export default function Landing() {
             {useCases.map((u, i) => (
               <motion.div
                 key={u.title}
-                initial={{ opacity: 0, y: 20 }}
+                initial={enterInitial(isHydrated, { opacity: 0, y: 20 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
@@ -859,7 +858,7 @@ export default function Landing() {
                 {whyPoints.map((w, i) => (
                   <motion.div
                     key={w.title}
-                    initial={{ opacity: 0, x: -16 }}
+                    initial={enterInitial(isHydrated, { opacity: 0, x: -16 })}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1 }}
@@ -878,7 +877,7 @@ export default function Landing() {
             </div>
             {/* Reuse hero visual */}
             <motion.div
-              initial={{ opacity: 0, x: 24 }}
+              initial={enterInitial(isHydrated, { opacity: 0, x: 24 })}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
@@ -992,7 +991,7 @@ export default function Landing() {
             {steps.map((s, i) => (
               <motion.div
                 key={s.n}
-                initial={{ opacity: 0, y: 16 }}
+                initial={enterInitial(isHydrated, { opacity: 0, y: 16 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
@@ -1055,7 +1054,7 @@ export default function Landing() {
                 key={p.label}
                 role="button"
                 tabIndex={0}
-                initial={{ opacity: 0, y: 20 }}
+                initial={enterInitial(isHydrated, { opacity: 0, y: 20 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.06 }}
@@ -1120,7 +1119,7 @@ export default function Landing() {
 
           {/* Billing Details */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={enterInitial(isHydrated, { opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="mt-10 p-6 rounded-2xl border border-border bg-card/20"
@@ -1489,7 +1488,7 @@ export default function Landing() {
         className="fixed bottom-6 right-6 z-50 group flex items-center gap-3"
       >
         <motion.span
-          initial={{ opacity: 0, x: 12 }}
+          initial={enterInitial(isHydrated, { opacity: 0, x: 12 })}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 2, duration: 0.4 }}
           className="hidden sm:block bg-[#111113] border border-border text-xs font-semibold text-white px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap"
@@ -1497,7 +1496,7 @@ export default function Landing() {
           Chat with us on WhatsApp
         </motion.span>
         <motion.div
-          initial={{ scale: 0, opacity: 0 }}
+          initial={enterInitial(isHydrated, { scale: 0, opacity: 0 })}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 1.5, type: "spring", stiffness: 260, damping: 20 }}
           className="w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_24px_rgba(37,211,102,0.4)] hover:shadow-[0_4px_32px_rgba(37,211,102,0.6)] transition-all hover:scale-110"
@@ -1667,6 +1666,5 @@ export default function Landing() {
         <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
       </Suspense>
     </div>
-    </MotionConfig>
   );
 }
