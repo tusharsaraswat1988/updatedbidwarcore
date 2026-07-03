@@ -38,6 +38,7 @@ export const ROBOTS_ALLOW_PATHS = [
   "/contact",
   "/auction-tips",
   "/legal/",
+  "/legal/disclaimer",
   "/blog",
   "/blog/",
   "/academy",

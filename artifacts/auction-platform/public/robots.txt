@@ -20,6 +20,7 @@ Allow: /upcoming-auctions
 Allow: /contact
 Allow: /auction-tips
 Allow: /legal/
+Allow: /legal/disclaimer
 Allow: /blog
 Allow: /blog/
 
