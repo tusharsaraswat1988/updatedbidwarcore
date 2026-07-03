@@ -106,6 +106,41 @@ export async function fetchAcademyLesson(slug: string): Promise<PublicAcademyLes
   }
 }
 
+export function deriveCategoriesFromLessons(
+  lessons: PublicAcademyLessonSummary[],
+): PublicAcademyCategory[] {
+  const bySlug = new Map<
+    string,
+    PublicAcademyCategory & { minDisplayOrder: number }
+  >();
+
+  for (const lesson of lessons) {
+    if (!lesson.categorySlug || !lesson.categoryName || lesson.categoryId == null) continue;
+
+    const existing = bySlug.get(lesson.categorySlug);
+    if (existing) {
+      existing.lessonCount += 1;
+      existing.minDisplayOrder = Math.min(existing.minDisplayOrder, lesson.displayOrder);
+    } else {
+      bySlug.set(lesson.categorySlug, {
+        id: lesson.categoryId,
+        name: lesson.categoryName,
+        slug: lesson.categorySlug,
+        displayOrder: lesson.displayOrder,
+        lessonCount: 1,
+        minDisplayOrder: lesson.displayOrder,
+      });
+    }
+  }
+
+  return [...bySlug.values()]
+    .map(({ minDisplayOrder, ...category }) => ({
+      ...category,
+      displayOrder: minDisplayOrder,
+    }))
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+}
+
 export function filterLessonsClientSide(
   lessons: PublicAcademyLessonSummary[],
   search: string,

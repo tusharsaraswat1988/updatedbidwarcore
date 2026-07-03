@@ -58,7 +58,7 @@ function lessonCardHtml(
 
 function featuredHeroHtml(lesson: PublicAcademyLessonSummary): string {
   const card = lessonCardHtml(lesson, "hero");
-  return `<section class="academy-ssr-featured"><h2>Featured Episode</h2>${card}</section>`;
+  return `<section class="academy-ssr-featured"><h2>Featured Tutorial</h2>${card}</section>`;
 }
 
 export function buildAcademyIndexMarkup(data: PublicAcademyIndexData): string {
@@ -79,8 +79,8 @@ export function buildAcademyIndexMarkup(data: PublicAcademyIndexData): string {
   </header>
   ${data.categories.length ? `<section><h2>Categories</h2><ul>${categories}</ul></section>` : ""}
   ${featured ? featured : ""}
-  ${data.latestLessons.length ? `<section><h2>Latest Lessons</h2><div class="academy-ssr-grid">${latest}</div></section>` : ""}
-  ${data.lessons.length ? `<section><h2>All Lessons</h2><div class="academy-ssr-grid">${all}</div></section>` : ""}
+  ${data.latestLessons.length ? `<section><h2>Latest Tutorials</h2><div class="academy-ssr-grid">${latest}</div></section>` : ""}
+  ${data.lessons.length ? `<section><h2>All Tutorials</h2><div class="academy-ssr-grid">${all}</div></section>` : ""}
 </main>`;
 }
 

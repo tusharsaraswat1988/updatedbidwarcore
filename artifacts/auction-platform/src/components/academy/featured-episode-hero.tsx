@@ -58,7 +58,7 @@ export const FeaturedEpisodeHero = memo(function FeaturedEpisodeHero({
         <div className="flex flex-col justify-center p-8 md:p-10">
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary">
             <Sparkles className="h-4 w-4" />
-            Featured Episode
+            Featured Tutorial
           </div>
           <p className="text-xs font-semibold text-muted-foreground">Episode {lesson.episodeNumber}</p>
           <h2 className="mt-2 text-2xl md:text-3xl font-black leading-tight text-foreground">
