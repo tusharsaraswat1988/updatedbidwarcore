@@ -98,6 +98,10 @@ describe("seo-route-policy", () => {
     expect(robots.match(/^Sitemap:/gm)).toHaveLength(1);
     expect(robots).toContain("Disallow: /admin");
     expect(robots).toContain("Allow: /auction-tips");
+    expect(robots).toContain("Allow: /legal/disclaimer");
+    expect(robots.indexOf("Allow: /legal/disclaimer")).toBeGreaterThan(
+      robots.indexOf("Disallow: /live/"),
+    );
   });
 
   it("buildSitemapIndex lists all sub-sitemaps", () => {
