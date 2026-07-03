@@ -129,6 +129,7 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
   const brandingIconProxy: ViteApiProxyOptions = manifestProxy;
   return {
     "/site.webmanifest": manifestProxy,
+    "/admin.webmanifest": manifestProxy,
     "/owner-app/manifest.webmanifest": manifestProxy,
     "/favicon.ico": brandingIconProxy,
     "/favicon.svg": brandingIconProxy,

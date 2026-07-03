@@ -29,6 +29,7 @@ import { registerOgImageRoutes } from "./routes/og-images.js";
 import { trySendHomepageSsr } from "./lib/homepage-ssr.js";
 import { registerBrandingIconRoutes } from "./lib/branding-asset-resolver.js";
 import {
+  buildAdminAppManifest,
   buildAuctionPlatformManifest,
   buildOwnerAppManifest,
 } from "./lib/branding-manifest.js";
@@ -159,6 +160,18 @@ app.get("/owner-app/manifest.webmanifest", async (_req, res) => {
     res.json(manifest);
   } catch (err) {
     logger.error({ err }, "Failed to build owner-app manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
+
+app.get("/admin.webmanifest", async (_req, res) => {
+  try {
+    const manifest = await buildAdminAppManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build admin manifest");
     res.status(500).json({ error: "Manifest unavailable" });
   }
 });

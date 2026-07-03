@@ -1,5 +1,12 @@
 import { BRANDING_ICON_PATHS } from "@workspace/api-base/branding-assets";
 
+/** PWA manifest for Super Admin install (Add to Home Screen). */
+export const ADMIN_MANIFEST_HREF = "/admin.webmanifest";
+
+export function isAdminPwaRoute(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
 type BrandLogos = {
   main?: string | null;
   mini?: string | null;

@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { PageTracking } from "@/components/page-tracking";
-import { applyPwaHeadBranding } from "@/lib/branding-pwa";
+import { applyPwaHeadBranding, ADMIN_MANIFEST_HREF, isAdminPwaRoute } from "@/lib/branding-pwa";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
@@ -142,16 +142,18 @@ function resolveClientBootstrapProps(): Pick<AppProps, "pageData" | "dehydratedS
 }
 
 function BrandingEffects() {
+  const [location] = useLocation();
   const { logos, brandName, iconVersion } = useBranding();
   const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
+  const manifestHref = isAdminPwaRoute(location) ? ADMIN_MANIFEST_HREF : "/site.webmanifest";
 
   useEffect(() => {
-    applyPwaHeadBranding(logos, "/site.webmanifest", iconVersion);
+    applyPwaHeadBranding(logos, manifestHref, iconVersion);
 
     if (brandName && brandName !== "BidWar") {
       document.title = document.title.replace(/BidWar/g, brandName);
     }
-  }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, brandName, iconVersion]);
+  }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, brandName, iconVersion, manifestHref]);
 
   useEffect(() => {
     const ogImage = logos.openGraph;

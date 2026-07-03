@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { AdminPwaInstallHint } from "@/components/admin/admin-pwa-install-hint";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 
@@ -61,6 +62,8 @@ export default function AdminLogin() {
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+            <AdminPwaInstallHint />
+
             <div className="flex items-center gap-2 text-sm text-muted-foreground border-b border-border pb-4">
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <span>Full access to all tournaments and settings</span>
