@@ -35,7 +35,7 @@ let staticPublicRoot: string | null = null;
 function resolveStaticPublicRoot(): string | null {
   if (staticPublicRoot) return staticPublicRoot;
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const dist = path.resolve(moduleDir, "../../../auction-platform/dist/public");
+  const dist = path.resolve(moduleDir, "../../auction-platform/dist/public");
   return existsSync(dist) ? dist : null;
 }
 

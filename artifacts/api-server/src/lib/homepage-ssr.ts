@@ -39,7 +39,8 @@ let renderHomePageFn: RenderHomePageFn | null | undefined;
 
 function ssrBundlePath(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(here, "../../../auction-platform/dist/server/entry-server.js");
+  // Bundled into dist/index.mjs — two levels up reaches artifacts/ (see app.ts).
+  return path.resolve(here, "../../auction-platform/dist/server/entry-server.js");
 }
 
 async function loadRenderHomePage(): Promise<RenderHomePageFn | null> {
