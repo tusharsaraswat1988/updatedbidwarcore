@@ -28,6 +28,8 @@ import { ProductShowcase } from "@/components/product-showcase";
 import { Testimonials } from "@/components/testimonials";
 import { DemoRequest } from "@/components/demo-request";
 import { PaymentModal } from "@/components/payment-modal";
+import { AuctionLicenseInfo } from "@/components/auction-license-info";
+import { AUCTION_LICENSE_FAQ, AUCTION_LICENSE_PRICING_NOTE } from "@/data/auction-license";
 
 const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
@@ -395,6 +397,7 @@ const faqs = [
     q: "Does BidWar support YouTube or Facebook Live streaming?",
     a: "Yes. BidWar includes a browser-source Broadcast Overlay (OBS, vMix, Wirecast, and more) that shows the player photo, live bid amount, team ticker, and bid bar directly in your YouTube or Facebook Live broadcast — giving your event a professional production quality.",
   },
+  AUCTION_LICENSE_FAQ,
 ];
 
 // ─── FAQ Item Component ────────────────────────────────────────────────────────
@@ -1015,6 +1018,7 @@ export default function Landing() {
             <div className="text-primary text-xs font-bold uppercase tracking-widest">Pricing</div>
             <h2 className="text-4xl md:text-5xl font-display font-black">One-time per-tournament pricing</h2>
             <p className="text-muted-foreground text-lg">Pay once per event. No monthly fees. No recurring charges.</p>
+            <p className="text-sm text-muted-foreground/90 max-w-2xl mx-auto">{AUCTION_LICENSE_PRICING_NOTE}</p>
           </div>
           {/* ── 10% Discount Banner ──────────────────────────────── */}
           <div className="relative mb-8 rounded-2xl overflow-hidden border border-primary/25">
@@ -1094,6 +1098,9 @@ export default function Landing() {
                     <Trophy className="w-4 h-4 text-primary flex-shrink-0" />
                     <span className="font-semibold text-sm">{p.teams}</span>
                   </div>
+                  <p className="text-[10px] text-muted-foreground/80 leading-snug">
+                    {p.label === "Trial" ? "Trial Auction License" : "Auction License · Auction Module only"}
+                  </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">{p.desc}</p>
                 </div>
                 <div className="mt-auto w-full py-2 rounded-xl text-sm font-bold text-center transition-all duration-200 border border-border text-foreground group-hover:bg-primary group-hover:text-black group-hover:border-primary [.group:active_&]:bg-primary [.group:active_&]:text-black [.group:active_&]:border-primary">
@@ -1104,11 +1111,15 @@ export default function Landing() {
             })}
           </div>
 
+          <AuctionLicenseInfo className="mt-10" />
+
           {/* Notes row */}
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5" />
-              License activated after payment. Contact us on WhatsApp for instant activation.
+              License activated after payment.{" "}
+              <a href="/legal/licensing" className="text-primary hover:underline">Auction License details</a>
+              {" · "}Contact us on WhatsApp for instant activation.
             </span>
             <span className="hidden sm:block text-border">|</span>
             <span className="flex items-center gap-1.5 text-primary/80">
@@ -1620,6 +1631,7 @@ export default function Landing() {
                 {[
                   { label: "Legal Hub", href: "/legal" },
                   { label: "Terms & Conditions", href: "/legal/terms" },
+                  { label: "Licensing Policy", href: "/legal/licensing" },
                   { label: "Privacy Policy", href: "/legal/privacy" },
                   { label: "Acceptable Use", href: "/legal/acceptable-use" },
                   { label: "Disclaimer", href: "/legal/disclaimer" },

@@ -34,6 +34,11 @@
     <priority>0.3</priority>
   </url>
   <url>
+    <loc>https://bidwar.in/legal/licensing</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
     <loc>https://bidwar.in/legal/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>

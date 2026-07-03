@@ -1,8 +1,19 @@
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { PublicNavbar } from "@/components/public-navbar";
+import {
+  AUCTION_LICENSE_CLARIFICATION,
+  AUCTION_LICENSE_CLARIFICATION_FOOTNOTE,
+  AUCTION_LICENSE_CLARIFICATION_INTRO,
+  AUCTION_LICENSE_CONSUMPTION,
+  AUCTION_LICENSE_EXCLUSIONS,
+  AUCTION_LICENSE_EXCLUSIONS_FOOTNOTE,
+  AUCTION_LICENSE_INCLUDES,
+  AUCTION_LICENSE_INTRO,
+  AUCTION_LICENSE_USAGE_RESTRICTION,
+} from "@/data/auction-license";
 
-type PolicySlug = "terms" | "privacy" | "acceptable-use" | "disclaimer" | "refund";
+type PolicySlug = "terms" | "licensing" | "privacy" | "acceptable-use" | "disclaimer" | "refund";
 
 type Section = { heading: string; body: string };
 
@@ -49,6 +60,42 @@ const POLICIES: Record<PolicySlug, Policy> = {
       {
         heading: "Payments & Billing",
         body: "Payments may be processed through UPI, Razorpay, bank transfer, subscriptions, manual billing, or other approved payment mechanisms under CWP Detailers & Motors.",
+      },
+      {
+        heading: "Auction License Definition",
+        body: [
+          AUCTION_LICENSE_INTRO,
+          "",
+          "Each Auction License includes:",
+          "",
+          ...AUCTION_LICENSE_INCLUDES.map((item) => `• ${item}`),
+          "",
+          AUCTION_LICENSE_USAGE_RESTRICTION,
+          "",
+          AUCTION_LICENSE_CONSUMPTION,
+        ].join("\n"),
+      },
+      {
+        heading: "Exclusions",
+        body: [
+          "The Auction License does NOT include:",
+          "",
+          ...AUCTION_LICENSE_EXCLUSIONS.map((item) => `• ${item}`),
+          "",
+          AUCTION_LICENSE_EXCLUSIONS_FOOTNOTE,
+        ].join("\n"),
+      },
+      {
+        heading: "Licensing Clarification",
+        body: [
+          AUCTION_LICENSE_CLARIFICATION_INTRO,
+          "",
+          ...AUCTION_LICENSE_CLARIFICATION.map(
+            (item, index) => `${index + 1}. ${item.title}\n   - ${item.description}`,
+          ),
+          "",
+          AUCTION_LICENSE_CLARIFICATION_FOOTNOTE,
+        ].join("\n"),
       },
       {
         heading: "Refunds",
@@ -218,6 +265,58 @@ const POLICIES: Record<PolicySlug, Policy> = {
     ],
   },
 
+  licensing: {
+    title: "Licensing Policy",
+    subtitle: "What an Auction License includes, excludes, and how BidWar product licenses work",
+    sections: [
+      {
+        heading: "Introduction",
+        body: "This Licensing Policy defines the scope of BidWar product licenses. It applies to all pricing plans, checkout transactions, and tournament activations on the BidWar platform.",
+      },
+      {
+        heading: "Auction License Definition",
+        body: [
+          AUCTION_LICENSE_INTRO,
+          "",
+          "Each Auction License includes:",
+          "",
+          ...AUCTION_LICENSE_INCLUDES.map((item) => `• ${item}`),
+          "",
+          AUCTION_LICENSE_USAGE_RESTRICTION,
+          "",
+          AUCTION_LICENSE_CONSUMPTION,
+        ].join("\n"),
+      },
+      {
+        heading: "Exclusions",
+        body: [
+          "The Auction License does NOT include:",
+          "",
+          ...AUCTION_LICENSE_EXCLUSIONS.map((item) => `• ${item}`),
+          "",
+          AUCTION_LICENSE_EXCLUSIONS_FOOTNOTE,
+        ].join("\n"),
+      },
+      {
+        heading: "Licensing Clarification",
+        body: [
+          AUCTION_LICENSE_CLARIFICATION_INTRO,
+          "",
+          ...AUCTION_LICENSE_CLARIFICATION.map(
+            (item, index) => `${index + 1}. ${item.title}\n   - ${item.description}`,
+          ),
+          "",
+          AUCTION_LICENSE_CLARIFICATION_FOOTNOTE,
+        ].join("\n"),
+      },
+      {
+        heading: "Plan Application",
+        body: "All one-time per-tournament pricing plans listed on bidwar.in are Auction Licenses unless explicitly stated otherwise at the time of purchase. The team limit shown on each plan is the primary usage restriction for that license.",
+      },
+      { heading: "Contact Information", body: CONTACT_BLOCK },
+    ],
+  },
+
   refund: {
     title: "Refund and Cancellation Policy",
     subtitle: "Governing all payments, subscriptions, and service transactions",
@@ -253,6 +352,7 @@ const POLICIES: Record<PolicySlug, Policy> = {
 
 const NAV_LINKS: { slug: PolicySlug; label: string }[] = [
   { slug: "terms", label: "Terms & Conditions" },
+  { slug: "licensing", label: "Licensing Policy" },
   { slug: "privacy", label: "Privacy Policy" },
   { slug: "acceptable-use", label: "Acceptable Use" },
   { slug: "disclaimer", label: "Disclaimer" },

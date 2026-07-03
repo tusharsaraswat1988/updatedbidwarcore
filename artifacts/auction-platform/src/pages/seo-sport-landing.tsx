@@ -13,6 +13,8 @@ import { PublicNavbar } from "@/components/public-navbar";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { AuctionLicenseInfo } from "@/components/auction-license-info";
+import { AUCTION_LICENSE_FAQ, AUCTION_LICENSE_PRICING_NOTE } from "@/data/auction-license";
 
 const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
@@ -782,13 +784,13 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
 
     faqs: [
       { q: "Can BidWar run a badminton franchise auction?", a: "Yes. BidWar supports franchise-style badminton player auctions with discipline categories (Men's Singles, Women's Singles, Men's Doubles, Mixed Doubles), team purse limits, mobile owner bidding panels, and a broadcast LED display. Setup takes under 15 minutes. The free trial supports 2-team auctions at zero cost." },
-      { q: "Does BidWar have a built-in badminton scoring system?", a: "Yes. BidWar includes an integrated real-time badminton scoring module. Score live matches point-by-point on any smartphone or tablet. The system handles automatic deuce detection (20-20: first to 2 points wins), game-winning confirmation, and match result logging. A live scoreboard displays on the broadcast screen in real time. This is the same platform used for the auction — player data flows automatically between the two modules." },
-      { q: "How does the auction-to-scoring integration work?", a: "When you run a badminton franchise auction on BidWar, all player data (names, disciplines, team assignments) is automatically available in the scoring module. You don't need to re-enter any information. Create your match schedule in the tournament management section and you're ready to score. The auction phase and the league phase are managed from the same account with the same data." },
+      { q: "Does BidWar have a built-in badminton scoring system?", a: "Yes. BidWar offers a Sports Scoring module for badminton tournaments, licensed separately from the Auction License. With a Sports Scoring License, you can score live matches point-by-point on any smartphone or tablet, with automatic deuce detection, game-winning confirmation, and match result logging. A live scoreboard displays on the broadcast screen in real time." },
+      { q: "How does the auction-to-scoring integration work?", a: "When you run a badminton franchise auction on BidWar under an Auction License, all player data (names, disciplines, team assignments) is available for use in the Sports Scoring module when you also hold a Sports Scoring License for the same tournament. You don't need to re-enter player information. Create your match schedule and score from the same account — the auction and scoring phases share tournament data when both licenses are active." },
       { q: "What badminton disciplines does BidWar support?", a: "BidWar supports Men's Singles, Women's Singles, Men's Doubles, Women's Doubles, and Mixed Doubles. You can use any subset of these disciplines for your tournament format. Category names are customizable — if your league uses different terminology, you can rename them. Squad quotas per discipline are also configurable." },
       { q: "Can multiple team owners bid simultaneously in a badminton auction?", a: "Yes. Each franchise owner gets a private Owner Panel link that opens on any smartphone browser. All owners see the current player's discipline and stats, the live bid amount, and a BID button. Multiple owners can bid simultaneously — the system handles all bids in real time with no race conditions or conflicts." },
       { q: "Is BidWar suitable for college and club badminton leagues?", a: "Absolutely. BidWar's free trial is available at zero cost, and most college and club badminton franchise events fit the Starter (₹5,000 for 4 teams) or Pro (₹6,000 for 8 teams) plan. The platform runs in any browser with no software installation — no IT support needed for setup." },
-      { q: "How much does BidWar cost for a badminton tournament?", a: "BidWar uses one-time per-tournament pricing. Free trial (2 teams), Starter (4 teams: ₹5,000), Pro (8 teams: ₹6,000), Advanced (12 teams: ₹8,000), Elite (16 teams: ₹10,000). These prices cover both the auction module and the scoring module for the same tournament — no separate fee for live scoring." },
-      { q: "Can I score my badminton matches without having run an auction first?", a: "Yes. The badminton scoring module is available independently. If you want to score a tournament without a franchise auction, you can create teams manually and score matches directly. However, if you run an auction, players and teams are already set up for scoring automatically." },
+      { q: "How much does BidWar cost for a badminton tournament?", a: "BidWar uses one-time per-tournament pricing for Auction Licenses. Free trial (2 teams), Starter (4 teams: ₹5,000), Pro (8 teams: ₹6,000), Advanced (12 teams: ₹8,000), Elite (16 teams: ₹10,000). These prices cover the BidWar Auction Module only. Sports Scoring requires a separate Sports Scoring License unless explicitly included in your purchased plan." },
+      { q: "Can I score my badminton matches without having run an auction first?", a: "Yes. The badminton Sports Scoring module is available under a Sports Scoring License, independently of an Auction License. If you want to score a tournament without a franchise auction, you can create teams manually and score matches directly. If you run an auction under an Auction License, player and team data can carry forward when you also activate Sports Scoring for the same tournament." },
     ],
 
     relatedPages: [
@@ -1256,6 +1258,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
               <div className="text-primary text-xs font-bold uppercase tracking-widest">Pricing</div>
               <h2 className="text-3xl md:text-4xl font-black">One-time per-tournament fee</h2>
               <p className="text-muted-foreground text-sm">No monthly subscription. No recurring charges. Pay once, run your auction.</p>
+              <p className="text-xs text-muted-foreground/90 max-w-xl mx-auto">{AUCTION_LICENSE_PRICING_NOTE}</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[
@@ -1278,10 +1281,14 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{p.label}</p>
                   <p className="font-black text-xl text-white">{p.price}</p>
                   <p className="text-xs text-muted-foreground mt-1">{p.teams}</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">
+                    {p.price === "Free" ? "Trial Auction License" : "Auction License"}
+                  </p>
                   {p.price !== "Free" && <p className="text-[10px] text-muted-foreground/60 mt-0.5">+ GST per auction</p>}
                 </div>
               ))}
             </div>
+            <AuctionLicenseInfo variant="compact" className="mt-6 max-w-2xl mx-auto" />
             <div className="mt-6 text-center">
               <button
                 onClick={() => navigate("/organizer?tab=signup")}
@@ -1306,7 +1313,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
               <p className="text-muted-foreground text-sm">Everything you need to know before running your first auction with BidWar.</p>
             </div>
             <div className="space-y-3">
-              {config.faqs.map((f, i) => (
+              {[...config.faqs, AUCTION_LICENSE_FAQ].map((f, i) => (
                 <FaqItem key={i} q={f.q} a={f.a} index={i} />
               ))}
             </div>
@@ -1411,6 +1418,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
                 {[
                   ["Legal Hub", "/legal"],
                   ["Terms of Service", "/legal/terms"],
+                  ["Licensing Policy", "/legal/licensing"],
                   ["Privacy Policy", "/legal/privacy"],
                   ["Acceptable Use", "/legal/acceptable-use"],
                   ["Disclaimer", "/legal/disclaimer"],

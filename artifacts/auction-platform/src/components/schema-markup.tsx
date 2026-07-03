@@ -169,7 +169,15 @@ const FAQ_SCHEMA = {
       "name": "How much does BidWar cost?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "BidWar uses one-time per-tournament pricing — no monthly fees. Plans start free (2 teams), then ₹5,000 for Starter (4 teams), ₹6,000 for Pro (8 teams), ₹8,000 for Advanced (12 teams), and ₹10,000 for Elite (16 teams). All prices are per auction event.",
+        "text": "BidWar uses one-time per-tournament pricing — no monthly fees. Plans start free (2 teams), then ₹5,000 for Starter (4 teams), ₹6,000 for Pro (8 teams), ₹8,000 for Advanced (12 teams), and ₹10,000 for Elite (16 teams). All prices are per auction event and activate an Auction License for the BidWar Auction Module only.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "What is included in a BidWar Auction License?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An Auction License covers the BidWar Auction Module for one tournament — including one auction purse, unlimited player categories and registrations, and complete auction management up to your plan's team limit. It does not include Sports Scoring, match management, fixtures, live scoring, points tables, statistics, or live streaming. Those require a separate Sports Scoring License.",
       },
     },
     {

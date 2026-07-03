@@ -67,6 +67,7 @@ export function BlogLayout({ children }: BlogLayoutProps) {
               {[
                 ["Legal Hub", "/legal"],
                 ["Terms of Service", "/legal/terms"],
+                ["Licensing Policy", "/legal/licensing"],
                 ["Privacy Policy", "/legal/privacy"],
                 ["Acceptable Use", "/legal/acceptable-use"],
                 ["Disclaimer", "/legal/disclaimer"],

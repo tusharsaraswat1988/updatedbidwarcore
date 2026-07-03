@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, QrCode, MessageCircle, Smartphone, Copy, Check } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { AuctionLicenseInfo } from "@/components/auction-license-info";
 
 export interface PaymentPlan {
   label: string;
@@ -151,6 +152,8 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
 
               {/* Body */}
               <div className="px-6 py-5 space-y-3 max-h-[70vh] overflow-y-auto">
+
+                <AuctionLicenseInfo variant="checkout" />
 
                 {/* Pay via UPI — primary CTA */}
                 <a

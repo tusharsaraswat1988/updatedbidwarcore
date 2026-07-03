@@ -121,7 +121,8 @@ const HOME_FAQ_SCHEMA = {
     { "@type": "Question", "name": "Does BidWar support projector and LED screens?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. BidWar includes a dedicated full-screen LED Display Mode for large projectors and smart TVs. It features animated player cards, live bid counters, a SOLD stamp animation, team purse strips, and sponsor logo rotation — all in broadcast-quality resolution." } },
     { "@type": "Question", "name": "Is BidWar cloud-based?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. BidWar is fully cloud-based. The operator dashboard, team owner panels, and LED display all run in a browser — no downloads or installations required. All bid data syncs in real time across all connected devices from any location." } },
     { "@type": "Question", "name": "Is BidWar suitable for local tournaments?", "acceptedAnswer": { "@type": "Answer", "text": "Absolutely. BidWar scales from 2-team club auctions to 16-team state-level franchise leagues. The free trial plan supports 2 teams at no cost, making it ideal for first-time organizers and small community tournaments." } },
-    { "@type": "Question", "name": "How much does BidWar cost?", "acceptedAnswer": { "@type": "Answer", "text": "BidWar uses one-time per-tournament pricing — no monthly fees. Plans start free (2 teams), then ₹5,000 for Starter (4 teams), ₹6,000 for Pro (8 teams), ₹8,000 for Advanced (12 teams), and ₹10,000 for Elite (16 teams). All prices are per auction event." } },
+    { "@type": "Question", "name": "How much does BidWar cost?", "acceptedAnswer": { "@type": "Answer", "text": "BidWar uses one-time per-tournament pricing — no monthly fees. Plans start free (2 teams), then ₹5,000 for Starter (4 teams), ₹6,000 for Pro (8 teams), ₹8,000 for Advanced (12 teams), and ₹10,000 for Elite (16 teams). All prices are per auction event and activate an Auction License for the BidWar Auction Module only." } },
+    { "@type": "Question", "name": "What is included in a BidWar Auction License?", "acceptedAnswer": { "@type": "Answer", "text": "An Auction License covers the BidWar Auction Module for one tournament — including one auction purse, unlimited player categories and registrations, and complete auction management up to your plan's team limit. It does not include Sports Scoring, match management, fixtures, live scoring, points tables, statistics, or live streaming. Those require a separate Sports Scoring License." } },
     { "@type": "Question", "name": "Which sports does BidWar support?", "acceptedAnswer": { "@type": "Answer", "text": "BidWar supports all franchise-style sports including cricket, football, kabaddi, basketball, volleyball, badminton, esports, and business/corporate leagues. Any sport where players are auctioned to teams with a budget can be run on BidWar." } },
   ],
 };
@@ -278,8 +279,16 @@ const STATIC_PAGES: Record<string, PageMeta> = {
 
   "/legal/terms": {
     title: "Terms of Service | BidWar Sports Auction Platform",
-    description: "BidWar Terms of Service — the legal agreement governing your use of BidWar auction software and platform services.",
+    description: "BidWar Terms of Service — the legal agreement governing your use of BidWar auction software and platform services, including Auction License scope and exclusions.",
     canonical: `${BASE_URL}/legal/terms`,
+    robots: "index, follow",
+    schemas: [],
+  },
+
+  "/legal/licensing": {
+    title: "Licensing Policy | BidWar Auction & Sports Scoring Licenses",
+    description: "BidWar Licensing Policy — what an Auction License includes and excludes, team limits, and how Auction Licenses differ from Sports Scoring Licenses.",
+    canonical: `${BASE_URL}/legal/licensing`,
     robots: "index, follow",
     schemas: [],
   },
@@ -465,7 +474,8 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
       breadcrumb("Badminton Auction Platform", `${BASE_URL}/badminton-auction-platform`),
       sportFaq([
         { q: "Can BidWar run a badminton franchise auction?", a: "Yes. BidWar supports franchise-style badminton player auctions with categories (Men's Singles, Women's Singles, Doubles, Mixed Doubles), team budgets, mobile owner bidding panels, and a broadcast LED display. Setup takes under 15 minutes." },
-        { q: "Does BidWar have a built-in badminton scoring system?", a: "Yes. BidWar includes an integrated real-time badminton scoring module. You can score live matches in your tournament — point-by-point, with automatic deuce and game-winning detection — on the same platform you used for the auction." },
+        { q: "Does BidWar have a built-in badminton scoring system?", a: "Yes. BidWar offers a Sports Scoring module for badminton, licensed separately from the Auction License. With a Sports Scoring License, you can score live matches point-by-point with automatic deuce and game-winning detection on the same platform used for your auction data." },
+        { q: "What is included in a BidWar Auction License?", a: "An Auction License covers the BidWar Auction Module for one tournament — including one auction purse, unlimited player categories and registrations, and complete auction management up to your plan's team limit. Sports Scoring requires a separate Sports Scoring License." },
         { q: "Is BidWar suitable for college and club badminton leagues?", a: "Absolutely. BidWar's free trial supports 2-team auctions at no cost. College and club badminton tournaments typically fit the Starter or Pro plan. Setup is simple — no technical knowledge required." },
       ]),
     )],
