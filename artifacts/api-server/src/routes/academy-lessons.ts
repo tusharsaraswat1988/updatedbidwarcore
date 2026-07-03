@@ -67,6 +67,20 @@ async function resolveCategoryId(categoryId: number | null | undefined): Promise
   return cat?.id ?? null;
 }
 
+function handleAcademyDbError(res: Response, err: unknown, fallback: string): void {
+  const code = (err as { code?: string }).code;
+  if (code === "42P01") {
+    res.status(503).json({ error: "Academy database tables are not initialized. Restart the API server." });
+    return;
+  }
+  if (code === "23505") {
+    res.status(409).json({ error: "A category with this slug already exists" });
+    return;
+  }
+  const message = err instanceof Error ? err.message : fallback;
+  res.status(500).json({ error: message || fallback });
+}
+
 async function buildLessonInsertValues(parsed: z.infer<typeof lessonCreateSchema>) {
   const baseSlug = parsed.slug ?? slugifyAcademyText(parsed.title);
   const slug = await ensureUniqueLessonSlug(baseSlug);
@@ -97,11 +111,15 @@ async function buildLessonInsertValues(parsed: z.infer<typeof lessonCreateSchema
 // ─── Categories ───────────────────────────────────────────────────────────────
 
 router.get("/auth/admin/knowledge-center/academy/categories", requireAdmin, async (_req, res) => {
-  const rows = await db
-    .select()
-    .from(academyCategoriesTable)
-    .orderBy(asc(academyCategoriesTable.displayOrder), asc(academyCategoriesTable.name));
-  res.json(rows);
+  try {
+    const rows = await db
+      .select()
+      .from(academyCategoriesTable)
+      .orderBy(asc(academyCategoriesTable.displayOrder), asc(academyCategoriesTable.name));
+    res.json(rows);
+  } catch (err) {
+    handleAcademyDbError(res, err, "Failed to list categories");
+  }
 });
 
 router.post("/auth/admin/knowledge-center/academy/categories", requireAdmin, async (req, res) => {
@@ -111,20 +129,29 @@ router.post("/auth/admin/knowledge-center/academy/categories", requireAdmin, asy
     return;
   }
 
-  const baseSlug = parsed.data.slug ?? slugifyAcademyText(parsed.data.name);
-  const slug = await ensureUniqueCategorySlug(baseSlug);
+  try {
+    const baseSlug = parsed.data.slug ?? slugifyAcademyText(parsed.data.name);
+    const slug = await ensureUniqueCategorySlug(baseSlug);
 
-  const [row] = await db
-    .insert(academyCategoriesTable)
-    .values({
-      name: parsed.data.name,
-      slug,
-      displayOrder: parsed.data.displayOrder ?? 0,
-      active: parsed.data.active ?? true,
-    })
-    .returning();
+    const [row] = await db
+      .insert(academyCategoriesTable)
+      .values({
+        name: parsed.data.name,
+        slug,
+        displayOrder: parsed.data.displayOrder ?? 0,
+        active: parsed.data.active ?? true,
+      })
+      .returning();
 
-  res.status(201).json(row);
+    if (!row) {
+      res.status(500).json({ error: "Failed to create category" });
+      return;
+    }
+
+    res.status(201).json(row);
+  } catch (err) {
+    handleAcademyDbError(res, err, "Failed to create category");
+  }
 });
 
 router.patch("/auth/admin/knowledge-center/academy/categories/:id", requireAdmin, async (req, res) => {
@@ -140,30 +167,73 @@ router.patch("/auth/admin/knowledge-center/academy/categories/:id", requireAdmin
     return;
   }
 
-  const [existing] = await db
-    .select()
-    .from(academyCategoriesTable)
-    .where(eq(academyCategoriesTable.id, id));
-  if (!existing) {
-    res.status(404).json({ error: "Category not found" });
+  try {
+    const [existing] = await db
+      .select()
+      .from(academyCategoriesTable)
+      .where(eq(academyCategoriesTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "Category not found" });
+      return;
+    }
+
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.displayOrder !== undefined) updates.displayOrder = parsed.data.displayOrder;
+    if (parsed.data.active !== undefined) updates.active = parsed.data.active;
+    if (parsed.data.slug !== undefined) {
+      updates.slug = await ensureUniqueCategorySlug(parsed.data.slug, id);
+    }
+
+    const [row] = await db
+      .update(academyCategoriesTable)
+      .set(updates)
+      .where(eq(academyCategoriesTable.id, id))
+      .returning();
+
+    if (!row) {
+      res.status(500).json({ error: "Failed to update category" });
+      return;
+    }
+
+    res.json(row);
+  } catch (err) {
+    handleAcademyDbError(res, err, "Failed to update category");
+  }
+});
+
+router.delete("/auth/admin/knowledge-center/academy/categories/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
     return;
   }
 
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.data.name !== undefined) updates.name = parsed.data.name;
-  if (parsed.data.displayOrder !== undefined) updates.displayOrder = parsed.data.displayOrder;
-  if (parsed.data.active !== undefined) updates.active = parsed.data.active;
-  if (parsed.data.slug !== undefined) {
-    updates.slug = await ensureUniqueCategorySlug(parsed.data.slug, id);
+  try {
+    const [existing] = await db
+      .select({ id: academyCategoriesTable.id })
+      .from(academyCategoriesTable)
+      .where(eq(academyCategoriesTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "Category not found" });
+      return;
+    }
+
+    const [lessonRef] = await db
+      .select({ id: academyLessonsTable.id })
+      .from(academyLessonsTable)
+      .where(eq(academyLessonsTable.categoryId, id))
+      .limit(1);
+    if (lessonRef) {
+      res.status(409).json({ error: "Cannot delete a category that has lessons assigned" });
+      return;
+    }
+
+    await db.delete(academyCategoriesTable).where(eq(academyCategoriesTable.id, id));
+    res.status(204).end();
+  } catch (err) {
+    handleAcademyDbError(res, err, "Failed to delete category");
   }
-
-  const [row] = await db
-    .update(academyCategoriesTable)
-    .set(updates)
-    .where(eq(academyCategoriesTable.id, id))
-    .returning();
-
-  res.json(row);
 });
 
 // ─── Lessons ──────────────────────────────────────────────────────────────────
