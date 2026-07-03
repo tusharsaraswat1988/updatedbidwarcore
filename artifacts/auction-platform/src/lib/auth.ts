@@ -663,6 +663,35 @@ export async function seedDisplayAuctions(): Promise<{ seeded: number; static: n
 
 // ─── Knowledge Center → Academy ───────────────────────────────────────────────
 
+type ApiErrorBody = { error?: string; message?: string };
+
+async function readApiErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const text = await res.text();
+    if (!text.trim()) {
+      return res.statusText ? `${fallback} (${res.status} ${res.statusText})` : fallback;
+    }
+    try {
+      const data = JSON.parse(text) as ApiErrorBody;
+      return data.error || data.message || fallback;
+    } catch {
+      return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+    }
+  } catch {
+    return fallback;
+  }
+}
+
+async function readApiJsonBody<T>(res: Response): Promise<T | null> {
+  try {
+    const text = await res.text();
+    if (!text.trim()) return null;
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
 export type AcademyCategoryRow = {
   id: number;
   name: string;
@@ -712,7 +741,8 @@ export async function listAcademyCategories(): Promise<AcademyCategoryRow[]> {
   try {
     const r = await apiFetch("/auth/admin/knowledge-center/academy/categories");
     if (!r.ok) return [];
-    return r.json();
+    const data = await readApiJsonBody<AcademyCategoryRow[]>(r);
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
@@ -726,14 +756,17 @@ export async function createAcademyCategory(data: {
   try {
     const r = await apiFetch("/auth/admin/knowledge-center/academy/categories", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      json: data,
     });
-    const d = await r.json();
-    if (!r.ok) return { success: false, error: d.error || "Create failed" };
-    return { success: true, row: d };
-  } catch {
-    return { success: false, error: "Network error" };
+    if (!r.ok) {
+      return { success: false, error: await readApiErrorMessage(r, "Create failed") };
+    }
+    const row = await readApiJsonBody<AcademyCategoryRow>(r);
+    if (!row) return { success: false, error: "Invalid response from server" };
+    return { success: true, row };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Network error";
+    return { success: false, error: message };
   }
 }
 
@@ -744,14 +777,34 @@ export async function updateAcademyCategory(
   try {
     const r = await apiFetch(`/auth/admin/knowledge-center/academy/categories/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      json: data,
     });
-    const d = await r.json();
-    if (!r.ok) return { success: false, error: d.error || "Update failed" };
-    return { success: true, row: d };
-  } catch {
-    return { success: false, error: "Network error" };
+    if (!r.ok) {
+      return { success: false, error: await readApiErrorMessage(r, "Update failed") };
+    }
+    const row = await readApiJsonBody<AcademyCategoryRow>(r);
+    if (!row) return { success: false, error: "Invalid response from server" };
+    return { success: true, row };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Network error";
+    return { success: false, error: message };
+  }
+}
+
+export async function deleteAcademyCategory(
+  id: number,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/categories/${id}`, {
+      method: "DELETE",
+    });
+    if (!r.ok) {
+      return { success: false, error: await readApiErrorMessage(r, "Delete failed") };
+    }
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Network error";
+    return { success: false, error: message };
   }
 }
 

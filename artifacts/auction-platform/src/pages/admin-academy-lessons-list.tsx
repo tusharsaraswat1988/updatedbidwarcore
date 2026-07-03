@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Archive, Copy, ExternalLink, Eye, FolderOpen, Plus, RefreshCw, Search } from "lucide-react";
+import { Archive, Copy, ExternalLink, Eye, FolderOpen, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import {
@@ -32,6 +32,7 @@ import {
   AcademyLessonRow,
   archiveAcademyLesson,
   createAcademyCategory,
+  deleteAcademyCategory,
   duplicateAcademyLesson,
   listAcademyCategories,
   listAcademyLessons,
@@ -67,6 +68,7 @@ export default function AdminAcademyLessonsListPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categorySaving, setCategorySaving] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categoryDeletingId, setCategoryDeletingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,7 +151,25 @@ export default function AdminAcademyLessonsListPage() {
   }
 
   async function handleToggleCategory(cat: AcademyCategoryRow) {
-    await updateAcademyCategory(cat.id, { active: !cat.active });
+    setCategoryError(null);
+    const result = await updateAcademyCategory(cat.id, { active: !cat.active });
+    if (!result.success) {
+      setCategoryError(result.error ?? "Failed to update category");
+      return;
+    }
+    await load();
+  }
+
+  async function handleDeleteCategory(cat: AcademyCategoryRow) {
+    if (!confirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
+    setCategoryDeletingId(cat.id);
+    setCategoryError(null);
+    const result = await deleteAcademyCategory(cat.id);
+    setCategoryDeletingId(null);
+    if (!result.success) {
+      setCategoryError(result.error ?? "Failed to delete category");
+      return;
+    }
     await load();
   }
 
@@ -336,21 +356,37 @@ export default function AdminAcademyLessonsListPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={categoriesOpen} onOpenChange={setCategoriesOpen}>
+      <Dialog
+        open={categoriesOpen}
+        onOpenChange={(open) => {
+          setCategoriesOpen(open);
+          if (!open) {
+            setCategoryError(null);
+            setNewCategoryName("");
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Academy Categories</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
+                onChange={(e) => {
+                  setNewCategoryName(e.target.value);
+                  if (categoryError) setCategoryError(null);
+                }}
                 placeholder="New category name"
                 onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
               />
-              <Button onClick={handleAddCategory} disabled={categorySaving || !newCategoryName.trim()}>
-                Add
+              <Button
+                className="shrink-0"
+                onClick={handleAddCategory}
+                disabled={categorySaving || !newCategoryName.trim()}
+              >
+                {categorySaving ? "Adding…" : "Add"}
               </Button>
             </div>
             {categoryError && <p className="text-sm text-destructive">{categoryError}</p>}
@@ -361,21 +397,33 @@ export default function AdminAcademyLessonsListPage() {
                 categories.map((cat) => (
                   <div
                     key={cat.id}
-                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
                   >
-                    <div>
-                      <div className="text-sm font-medium">{cat.name}</div>
-                      <div className="text-xs text-muted-foreground">{cat.slug}</div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{cat.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{cat.slug}</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`cat-${cat.id}`} className="text-xs text-muted-foreground">
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Label htmlFor={`cat-${cat.id}`} className="sr-only sm:not-sr-only sm:text-xs sm:text-muted-foreground">
                         Active
                       </Label>
                       <Switch
                         id={`cat-${cat.id}`}
                         checked={cat.active}
                         onCheckedChange={() => handleToggleCategory(cat)}
+                        disabled={categoryDeletingId === cat.id}
                       />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        title={`Delete ${cat.name}`}
+                        aria-label={`Delete ${cat.name}`}
+                        onClick={() => handleDeleteCategory(cat)}
+                        disabled={categoryDeletingId === cat.id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))
