@@ -3,7 +3,7 @@
  * Route: /badminton/:matchId/display?tid=YYY
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
 import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
@@ -15,6 +15,7 @@ import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";
 import { DevThemePicker } from "@/components/display/v1/DevThemePicker";
 import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { loadDisplayFonts } from "@/lib/load-display-fonts";
 
 function LedStandby({ message }: { message: string }) {
   return (
@@ -62,6 +63,10 @@ export default function BadmintonDisplayPage() {
   const matchId = parseInt(params?.matchId ?? "0");
   const tournamentId = parseInt(searchParams.get("tid") ?? "0");
   const courtNumber = searchParams.get("court") ?? undefined;
+
+  useEffect(() => {
+    loadDisplayFonts();
+  }, []);
 
   const { data, isLoading } = useBadmintonMatch(tournamentId, matchId);
   const { data: branding } = useBadmintonBranding(tournamentId);

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   useGetAuctionState,
   useGetTournament,
@@ -23,6 +23,7 @@ import {
 import type { AudioSettings } from "@/lib/audio-manager";
 import { resolveBroadcastAudioUrls } from "@workspace/api-base/platform-audio";
 import type { PlatformAudioDefaults } from "@workspace/api-base/platform-audio";
+import { loadDisplayFonts } from "@/lib/load-display-fonts";
 
 /**
  * Side LED display shell — same realtime API as main display,
@@ -37,6 +38,10 @@ export function SideDisplayShell({
   theme?: DisplayTheme;
   panel: SideLedPanelMode;
 }) {
+  useEffect(() => {
+    loadDisplayFonts();
+  }, []);
+
   const { connectionStatus } = useAuctionSocket(tournamentId);
   const view = useSideLedView(tournamentId, connectionStatus);
 

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   useGetAuctionState,
   useGetTournament,
@@ -20,6 +20,7 @@ import { LedStageContent, StageThemeProvider } from "./v1";
 import type { AudioSettings } from "@/lib/audio-manager";
 import { resolveBroadcastAudioUrls } from "@workspace/api-base/platform-audio";
 import type { PlatformAudioDefaults } from "@workspace/api-base/platform-audio";
+import { loadDisplayFonts } from "@/lib/load-display-fonts";
 
 /**
  * DisplayShell — single owner of realtime auction state for the LED broadcast screen.
@@ -32,6 +33,10 @@ export function DisplayShell({
   tournamentId: number;
   theme?: DisplayTheme;
 }) {
+  useEffect(() => {
+    loadDisplayFonts();
+  }, []);
+
   const { connectionStatus } = useAuctionSocket(tournamentId);
   const view = useLedView(tournamentId, connectionStatus);
 

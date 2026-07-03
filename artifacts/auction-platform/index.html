@@ -37,7 +37,7 @@
     <!-- Critical CSS: dark shell + boot splash (inline so first paint is styled before Tailwind loads) -->
     <style>
       *,*::before,*::after{box-sizing:border-box}
-      html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter','Inter Fallback',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
       #root{min-height:100vh;background:#09090b}
       @keyframes bidwar-boot-spin{to{transform:rotate(360deg)}}
       #bidwar-boot-splash{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;background:#09090b}
@@ -45,14 +45,10 @@
       #bidwar-boot-splash .bidwar-boot-spinner{width:32px;height:32px;border:2px solid rgba(251,191,36,.35);border-top-color:#fbbf24;border-radius:50%;animation:bidwar-boot-spin .7s linear infinite}
     </style>
 
-    <!-- Fonts: non-render-blocking (preconnect + preload + print-swap).
-         Both Inter and Space Grotesk loaded here — no @import url() in CSS.
-         Space Grotesk: only weights 600;700 used for headings (was 300-700). -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" media="print" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" /></noscript>
+    <!-- Critical fonts: self-hosted WOFF2 + metric-matched fallbacks (no Google Fonts round-trip). -->
+    <link rel="preload" href="/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts-critical.css" />
 
     <!-- PAGE_SCHEMA_START -->
     <!-- Structured Data: SoftwareApplication -->
