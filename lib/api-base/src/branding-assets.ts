@@ -36,6 +36,31 @@ export interface BrandingAssetMeta {
   accept: string;
 }
 
+export type FaviconPipelineStatus = "pending" | "processing" | "completed" | "failed";
+
+export interface FaviconGeneratedVariant {
+  url: string;
+  publicId: string;
+  width: number;
+  height: number;
+}
+
+export interface FaviconPipelineMetadata {
+  status: FaviconPipelineStatus;
+  error?: string | null;
+  sourceVersion: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  generated?: {
+    "16"?: FaviconGeneratedVariant;
+    "32"?: FaviconGeneratedVariant;
+    "48"?: FaviconGeneratedVariant;
+    ico?: FaviconGeneratedVariant;
+  };
+}
+
+export const FAVICON_GENERATED_SIZE_KEYS = [16, 32, 48] as const;
+
 export interface BrandingAssetRecord {
   id: number;
   assetType: BrandingAssetType;
@@ -48,6 +73,7 @@ export interface BrandingAssetRecord {
   fileSize: number | null;
   version: number;
   isActive: boolean;
+  metadataJson?: FaviconPipelineMetadata | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -205,21 +231,44 @@ export function isBrandingAssetType(value: string): value is BrandingAssetType {
   return (BRANDING_ASSET_TYPES as readonly string[]).includes(value);
 }
 
+export function isFaviconPipelineComplete(
+  pipeline: FaviconPipelineMetadata | null | undefined,
+  assetVersion?: number | null,
+): boolean {
+  if (!pipeline || pipeline.status !== "completed") return false;
+  if (assetVersion != null && pipeline.sourceVersion !== assetVersion) return false;
+  const g = pipeline.generated;
+  return Boolean(g?.["16"] && g?.["32"] && g?.["48"] && g?.ico);
+}
+
 export function validateBrandingAssetUpload(
   assetType: BrandingAssetType,
   meta: Pick<BrandingAssetRecord, "width" | "height" | "mimeType">,
+  pipeline?: FaviconPipelineMetadata | null,
 ): BrandingAssetValidationWarning[] {
   const spec = BRANDING_ASSET_META[assetType];
   const warnings: BrandingAssetValidationWarning[] = [];
   const { width, height, mimeType } = meta;
 
-  if (assetType === "FAVICON" && width && height) {
-    const maxDim = Math.max(width, height);
-    if (maxDim > 64) {
+  if (assetType === "FAVICON") {
+    if (pipeline?.status === "processing" || pipeline?.status === "pending") {
       warnings.push({
-        code: "favicon_oversized",
-        message: `Recommended favicon size is 32×32 px. Uploaded: ${width}×${height} px.`,
+        code: "favicon_pipeline_pending",
+        message: "Favicon sizes are being generated from your upload.",
       });
+    } else if (pipeline?.status === "failed") {
+      warnings.push({
+        code: "favicon_pipeline_failed",
+        message: pipeline.error ?? "Favicon generation failed. Try re-uploading the source image.",
+      });
+    } else if (!isFaviconPipelineComplete(pipeline) && width && height) {
+      const maxDim = Math.max(width, height);
+      if (maxDim > 64) {
+        warnings.push({
+          code: "favicon_oversized",
+          message: `Recommended favicon size is 32×32 px. Uploaded: ${width}×${height} px.`,
+        });
+      }
     }
   }
 

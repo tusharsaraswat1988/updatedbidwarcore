@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const brandingAssetsTable = pgTable(
@@ -22,6 +23,7 @@ export const brandingAssetsTable = pgTable(
     fileSize: integer("file_size"),
     version: integer("version").notNull().default(1),
     isActive: boolean("is_active").notNull().default(true),
+    metadataJson: jsonb("metadata_json").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -23,12 +23,14 @@ import {
 import {
   ASSET_ENGINE_CONNECTED,
   ASSET_USAGE_LOCATIONS,
-  FAVICON_GENERATED_SIZES,
   computeHealthSummary,
   formatAssetDate,
+  formatFaviconPipelineStatus,
   formatFileSize,
   formatWarningMessage,
+  faviconGeneratedSizeLabels,
   getAssetWarnings,
+  getFaviconPipeline,
   inferAssetStatus,
   loadSectionExpandedState,
   mimeToFormat,
@@ -36,6 +38,7 @@ import {
   sourceFileLabel,
   type AssetStatus,
 } from "./branding-assets-ui";
+import { isFaviconPipelineComplete } from "@workspace/api-base/branding-assets";
 
 function readImageMeta(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -98,13 +101,23 @@ function WarningBanner({
 }
 
 function FaviconPipelineNote({ asset }: { asset: BrandingAssetRecord | null }) {
+  const pipeline = getFaviconPipeline(asset);
+  const statusLabel = formatFaviconPipelineStatus(pipeline);
+  const complete = isFaviconPipelineComplete(pipeline, asset?.version);
+  const failed = pipeline?.status === "failed";
+  const processing = pipeline?.status === "processing" || pipeline?.status === "pending";
+
   return (
     <div className="rounded-lg border border-border/40 bg-muted/10 p-3 space-y-2">
       <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1">
         <Clock className="w-3 h-3" /> Favicon Pipeline
       </p>
       <p className="text-[11px] text-muted-foreground">
-        Future favicon generation support ready.
+        {complete
+          ? "Browser-ready favicon sizes generated from your upload."
+          : failed
+            ? "Favicon generation failed. Re-upload the source image or check server logs."
+            : "Generating optimized favicon sizes from your upload."}
       </p>
       <dl className="text-[11px] space-y-1">
         <div className="flex gap-2">
@@ -113,12 +126,37 @@ function FaviconPipelineNote({ asset }: { asset: BrandingAssetRecord | null }) {
         </div>
         <div className="flex gap-2">
           <dt className="text-muted-foreground/70 shrink-0">Generated sizes:</dt>
-          <dd>{FAVICON_GENERATED_SIZES.join(" · ")}</dd>
+          <dd>{faviconGeneratedSizeLabels(pipeline, asset?.version)}</dd>
         </div>
+        {complete && pipeline?.completedAt && (
+          <div className="flex gap-2">
+            <dt className="text-muted-foreground/70 shrink-0">Completed:</dt>
+            <dd>{formatAssetDate(pipeline.completedAt)}</dd>
+          </div>
+        )}
+        {failed && pipeline?.error && (
+          <div className="flex gap-2">
+            <dt className="text-muted-foreground/70 shrink-0">Error:</dt>
+            <dd className="text-red-400">{pipeline.error}</dd>
+          </div>
+        )}
         <div className="flex gap-2 items-center">
           <dt className="text-muted-foreground/70 shrink-0">Status:</dt>
-          <dd className="text-amber-400 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Pending Generation
+          <dd className={`flex items-center gap-1 ${
+            complete
+              ? "text-green-400"
+              : failed
+                ? "text-red-400"
+                : "text-amber-400"
+          }`}>
+            {complete
+              ? <CheckCircle2 className="w-3 h-3" />
+              : processing
+                ? <RefreshCw className="w-3 h-3 animate-spin" />
+                : failed
+                  ? <AlertTriangle className="w-3 h-3" />
+                  : <Clock className="w-3 h-3" />}
+            {statusLabel}
           </dd>
         </div>
       </dl>
@@ -344,8 +382,17 @@ function AssetCard({
     }
   }
 
-  const previewUrl = asset?.fileUrl;
-  const dimLabel = asset?.width && asset?.height ? `${asset.width}×${asset.height}` : "—";
+  const pipeline = assetType === "FAVICON" ? getFaviconPipeline(asset) : null;
+  const previewUrl =
+    assetType === "FAVICON" && isFaviconPipelineComplete(pipeline, asset?.version)
+      ? pipeline!.generated!["32"]?.url ?? asset?.fileUrl
+      : asset?.fileUrl;
+  const dimLabel =
+    assetType === "FAVICON" && isFaviconPipelineComplete(pipeline, asset?.version)
+      ? `${pipeline!.generated!["32"]!.width}×${pipeline!.generated!["32"]!.height} (gen.)`
+      : asset?.width && asset?.height
+        ? `${asset.width}×${asset.height}`
+        : "—";
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/30 overflow-hidden flex flex-col">

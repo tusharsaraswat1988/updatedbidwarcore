@@ -5,6 +5,8 @@ import {
   type BrandingAssetRecord,
   type BrandingAssetType,
   type BrandingAssetValidationWarning,
+  type FaviconPipelineMetadata,
+  isFaviconPipelineComplete,
 } from "@workspace/api-base/branding-assets";
 
 export type AssetStatus = "configured" | "legacy" | "missing";
@@ -53,7 +55,43 @@ export function getAssetWarnings(
     width: asset.width,
     height: asset.height,
     mimeType: asset.mimeType,
-  });
+  }, asset.metadataJson ?? null);
+}
+
+export function getFaviconPipeline(asset: BrandingAssetRecord | null | undefined): FaviconPipelineMetadata | null {
+  return asset?.metadataJson ?? null;
+}
+
+export function formatFaviconPipelineStatus(pipeline: FaviconPipelineMetadata | null): string {
+  if (!pipeline) return "Pending Generation";
+  switch (pipeline.status) {
+    case "pending":
+      return "Pending Generation";
+    case "processing":
+      return "Processing";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+    default:
+      return "Pending Generation";
+  }
+}
+
+export function faviconGeneratedSizeLabels(
+  pipeline: FaviconPipelineMetadata | null,
+  assetVersion?: number | null,
+): string {
+  if (!isFaviconPipelineComplete(pipeline, assetVersion)) {
+    return FAVICON_GENERATED_SIZES.join(" · ");
+  }
+  const g = pipeline!.generated!;
+  return [
+    g["16"] ? "16×16" : null,
+    g["32"] ? "32×32" : null,
+    g["48"] ? "48×48" : null,
+    g.ico ? "favicon.ico" : null,
+  ].filter(Boolean).join(" · ");
 }
 
 export function formatWarningMessage(
@@ -67,6 +105,10 @@ export function formatWarningMessage(
   switch (warning.code) {
     case "favicon_oversized":
       return `Recommended favicon size is 32×32. ${dims}`;
+    case "favicon_pipeline_pending":
+      return "Generating optimized favicon sizes (16×16, 32×32, 48×48, favicon.ico) from your upload.";
+    case "favicon_pipeline_failed":
+      return warning.message;
     case "og_square_format":
       return `Open Graph image should be 1200×630. Current image ratio may be cropped on social platforms. ${dims}`;
     case "og_ratio":

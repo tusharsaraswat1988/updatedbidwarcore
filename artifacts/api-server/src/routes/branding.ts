@@ -57,7 +57,16 @@ router.get("/auth/admin/branding", async (req, res) => {
 router.get("/auth/admin/branding/assets", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
 
-  const assetsMap = await brandingService.getAssetsMap();
+  const before = await brandingService.getAssetsMap();
+  const assetsMap = await brandingService.getAdminAssetsMap();
+  const faviconRepaired =
+    before.FAVICON?.metadataJson?.status !== assetsMap.FAVICON?.metadataJson?.status
+    || before.FAVICON?.version !== assetsMap.FAVICON?.metadataJson?.sourceVersion;
+
+  if (faviconRepaired && assetsMap.FAVICON?.metadataJson?.status === "completed") {
+    await refreshBrandingIconCache();
+  }
+
   res.json({
     assets: assetsMap,
     categories: BRANDING_ASSET_CATEGORIES,
