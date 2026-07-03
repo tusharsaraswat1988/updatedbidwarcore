@@ -41,7 +41,7 @@ import { type SponsorLogo, normalizeSponsorLogos, validateSponsorList } from "@/
 import { SettingsCard, SettingsInsetBlock, SettingsTabPanel } from "@/components/settings/settings-card";
 import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
-import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
+import { SponsorLogosEditor, SponsorLogosToolbar } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
@@ -312,26 +312,57 @@ export default function TournamentSettings() {
     setBannerEditorOpen(true);
   }
 
-  async function handleSponsorLogoUpload(file: File, idx: number | "new") {
-    if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5 MB"); return; }
+  async function handleSponsorLogoUpload(file: File | File[], idx: number | "new") {
+    const files = Array.isArray(file) ? file : [file];
+    if (idx !== "new" && files.length !== 1) return;
+
+    for (const f of files) {
+      if (f.size > 5 * 1024 * 1024) {
+        alert("Each image must be under 5 MB");
+        return;
+      }
+      if (!f.type.startsWith("image/")) {
+        alert("Please choose JPG, PNG, or WEBP images");
+        return;
+      }
+    }
+
     setSponsorUploadingIdx(idx);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!r.ok) throw new Error("Upload failed");
-      const data = await r.json() as { url?: string; publicId?: string };
-      if (data.url) {
-        const url = data.url as string;
-        const publicId = data.publicId ?? undefined;
-        if (idx === "new") {
-          setSponsorLogos(prev => [...prev, { url, publicId, name: "", type: "" }]);
-        } else {
-          setSponsorLogos(prev => prev.map((l, i) => i === idx ? { ...l, url, publicId } : l));
+      const uploadOne = async (f: File) => {
+        const fd = new FormData();
+        fd.append("file", f);
+        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        if (!r.ok) throw new Error("Upload failed");
+        const data = await r.json() as { url?: string; publicId?: string };
+        if (!data.url) throw new Error("Upload failed");
+        return { url: data.url, publicId: data.publicId, name: "", type: "" };
+      };
+
+      if (idx === "new") {
+        const results = await Promise.allSettled(files.map(uploadOne));
+        const uploaded = results
+          .filter((r): r is PromiseFulfilledResult<{ url: string; publicId?: string; name: string; type: string }> => r.status === "fulfilled")
+          .map(r => r.value);
+        if (uploaded.length > 0) {
+          setSponsorLogos(prev => [...prev, ...uploaded]);
         }
+        if (uploaded.length < files.length) {
+          alert(
+            uploaded.length === 0
+              ? "Sponsor logo upload failed. Please try again."
+              : `${uploaded.length} of ${files.length} logos uploaded. Some files failed — check size/format and retry.`,
+          );
+        }
+      } else {
+        const uploaded = await uploadOne(files[0]);
+        setSponsorLogos(prev => prev.map((l, i) => i === idx ? { ...l, ...uploaded } : l));
       }
-    } catch { alert("Sponsor logo upload failed. Please try again."); }
-    finally { setSponsorUploadingIdx(null); }
+    } catch {
+      alert("Sponsor logo upload failed. Please try again.");
+    } finally {
+      setSponsorUploadingIdx(null);
+    }
   }
 
   async function handleAudioUpload(
@@ -1460,10 +1491,23 @@ export default function TournamentSettings() {
           <SettingsTabPanel>
             <SettingsCard
               title="Sponsor Logos"
-              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 4 seconds on the big screen."
+              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 4 seconds on the big screen. (Logo required; name and type optional. Up to 5 logos at once.)"
               icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
+              headerAction={
+                <SponsorLogosToolbar
+                  logos={sponsorLogos}
+                  onUploadFile={handleSponsorLogoUpload}
+                  uploadingIdx={sponsorUploadingIdx}
+                />
+              }
             >
-              <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
+              <SponsorLogosEditor
+                logos={sponsorLogos}
+                onChange={setSponsorLogos}
+                onUploadFile={handleSponsorLogoUpload}
+                uploadingIdx={sponsorUploadingIdx}
+                showToolbar={false}
+              />
             </SettingsCard>
           </SettingsTabPanel>
         )}

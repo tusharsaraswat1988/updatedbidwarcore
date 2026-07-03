@@ -247,24 +247,51 @@ export default function BadmintonBrandingPage() {
     };
   }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, persistBranding]);
 
-  async function handleSponsorUpload(file: File, idx: number | "new") {
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5 MB");
-      return;
+  async function handleSponsorUpload(file: File | File[], idx: number | "new") {
+    const files = Array.isArray(file) ? file : [file];
+    if (idx !== "new" && files.length !== 1) return;
+
+    for (const f of files) {
+      if (f.size > 5 * 1024 * 1024) {
+        alert("Each image must be under 5 MB");
+        return;
+      }
+      if (!f.type.startsWith("image/")) {
+        alert("Please choose JPG, PNG, or WEBP images");
+        return;
+      }
     }
+
     setSponsorUploadIdx(idx);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!r.ok) throw new Error("Upload failed");
-      const data = (await r.json()) as { url?: string };
-      if (data.url) {
-        if (idx === "new") {
-          setSponsorLogos((prev) => [...prev, { url: data.url!, name: "", type: "" }]);
-        } else {
-          setSponsorLogos((prev) => prev.map((l, i) => (i === idx ? { ...l, url: data.url! } : l)));
+      const uploadOne = async (f: File) => {
+        const fd = new FormData();
+        fd.append("file", f);
+        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        if (!r.ok) throw new Error("Upload failed");
+        const data = (await r.json()) as { url?: string };
+        if (!data.url) throw new Error("Upload failed");
+        return { url: data.url, name: "", type: "" };
+      };
+
+      if (idx === "new") {
+        const results = await Promise.allSettled(files.map(uploadOne));
+        const uploaded = results
+          .filter((r): r is PromiseFulfilledResult<{ url: string; name: string; type: string }> => r.status === "fulfilled")
+          .map(r => r.value);
+        if (uploaded.length > 0) {
+          setSponsorLogos(prev => [...prev, ...uploaded]);
         }
+        if (uploaded.length < files.length) {
+          alert(
+            uploaded.length === 0
+              ? "Sponsor logo upload failed"
+              : `${uploaded.length} of ${files.length} logos uploaded. Some files failed.`,
+          );
+        }
+      } else {
+        const uploaded = await uploadOne(files[0]);
+        setSponsorLogos(prev => prev.map((l, i) => (i === idx ? { ...l, url: uploaded.url } : l)));
       }
     } catch {
       alert("Sponsor logo upload failed");

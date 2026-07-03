@@ -10,6 +10,7 @@ type SettingsCardProps = {
   title?: string;
   description?: string;
   icon?: ReactNode;
+  headerAction?: ReactNode;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
@@ -20,6 +21,7 @@ export function SettingsCard({
   title,
   description,
   icon,
+  headerAction,
   children,
   className,
   contentClassName,
@@ -34,9 +36,16 @@ export function SettingsCard({
             headerClassName,
           )}
         >
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            {icon}
-            {title}
+          <CardTitle className="text-sm font-semibold flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <span className="flex items-center gap-2 min-w-0">
+              {icon}
+              {title}
+            </span>
+            {headerAction ? (
+              <span className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0 ml-auto">
+                {headerAction}
+              </span>
+            ) : null}
           </CardTitle>
           {description ? (
             <CardDescription className="text-xs leading-relaxed text-muted-foreground/90">

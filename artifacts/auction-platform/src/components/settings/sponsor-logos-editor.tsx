@@ -54,11 +54,12 @@ function countPriorityFlags(logos: SponsorLogo[]) {
   return { titleCount, coCount };
 }
 
-function SponsorCountSummary({ logos }: { logos: SponsorLogo[] }) {
+function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[]; compact?: boolean }) {
   const total = logos.length;
   const { titleCount, coCount } = countPriorityFlags(logos);
 
   if (total === 0) {
+    if (compact) return null;
     return (
       <p className="text-xs text-muted-foreground">
         No sponsors yet — add logos to rotate on the LED display.
@@ -68,7 +69,7 @@ function SponsorCountSummary({ logos }: { logos: SponsorLogo[] }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="font-semibold text-foreground tabular-nums">
+      <span className="font-semibold text-foreground tabular-nums whitespace-nowrap">
         {total} sponsor{total === 1 ? "" : "s"} total
       </span>
       {titleCount > 0 ? (
@@ -81,7 +82,7 @@ function SponsorCountSummary({ logos }: { logos: SponsorLogo[] }) {
           {coCount} co
         </Badge>
       ) : null}
-      {titleCount === 0 && coCount === 0 ? (
+      {titleCount === 0 && coCount === 0 && !compact ? (
         <span className="text-muted-foreground">No title or co sponsor assigned</span>
       ) : null}
     </div>
@@ -130,16 +131,88 @@ function SponsorLogoPreviewDialog({
   );
 }
 
+const SPONSOR_LOGO_BULK_UPLOAD_MAX = 5;
+
+function SponsorAddLogoButton({
+  onUploadFile,
+  uploadingIdx,
+  className,
+}: {
+  onUploadFile: (file: File | File[], idx: number | "new") => void;
+  uploadingIdx: number | "new" | null;
+  className?: string;
+}) {
+  return (
+    <label className={className ?? "cursor-pointer shrink-0"} title={`Select up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} images at once`}>
+      <div
+        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed text-xs transition-colors whitespace-nowrap ${
+          uploadingIdx === "new"
+            ? "border-border/50 text-muted-foreground cursor-wait"
+            : "border-yellow-500/50 bg-yellow-500/5 text-yellow-400 hover:bg-yellow-500/10 hover:border-yellow-500/70 hover:text-yellow-300 cursor-pointer"
+        }`}
+      >
+        {uploadingIdx === "new" ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="w-3.5 h-3.5" /> Add Sponsor Logo
+          </>
+        )}
+      </div>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        className="hidden"
+        onChange={e => {
+          const picked = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          if (picked.length === 0) return;
+          if (picked.length > SPONSOR_LOGO_BULK_UPLOAD_MAX) {
+            window.alert(
+              `You can upload up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} sponsor logos at once. Only the first ${SPONSOR_LOGO_BULK_UPLOAD_MAX} will be added.`,
+            );
+          }
+          const files = picked.slice(0, SPONSOR_LOGO_BULK_UPLOAD_MAX);
+          onUploadFile(files.length === 1 ? files[0] : files, "new");
+        }}
+        disabled={uploadingIdx !== null}
+      />
+    </label>
+  );
+}
+
+export function SponsorLogosToolbar({
+  logos,
+  onUploadFile,
+  uploadingIdx,
+}: {
+  logos: SponsorLogo[];
+  onUploadFile: (file: File | File[], idx: number | "new") => void;
+  uploadingIdx: number | "new" | null;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
+      <SponsorCountSummary logos={logos} compact />
+    </div>
+  );
+}
+
 export function SponsorLogosEditor({
   logos,
   onChange,
   onUploadFile,
   uploadingIdx,
+  showToolbar = true,
 }: {
   logos: SponsorLogo[];
   onChange: (logos: SponsorLogo[]) => void;
-  onUploadFile: (file: File, idx: number | "new") => void;
+  onUploadFile: (file: File | File[], idx: number | "new") => void;
   uploadingIdx: number | "new" | null;
+  showToolbar?: boolean;
 }) {
   const validation = validateSponsorList(logos);
   const { titleCount, coCount } = countPriorityFlags(logos);
@@ -148,12 +221,17 @@ export function SponsorLogosEditor({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <SponsorCountSummary logos={logos} />
-        <span className="text-[11px] text-muted-foreground shrink-0">
-          Logo required; name and type optional
-        </span>
-      </div>
+      {showToolbar ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SponsorLogosToolbar logos={logos} onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
+        </div>
+      ) : null}
+
+      {logos.length === 0 && !showToolbar ? (
+        <p className="text-xs text-muted-foreground">
+          No sponsors yet — add logos to rotate on the LED display.
+        </p>
+      ) : null}
 
       {logos.length > 0 ? (
         <div className="space-y-2 max-h-[calc(100dvh-16rem)] overflow-y-auto pr-1">
@@ -271,37 +349,6 @@ export function SponsorLogosEditor({
       {!validation.ok && (
         <p className="text-xs text-destructive">{validation.error}</p>
       )}
-
-      <label className="cursor-pointer block">
-        <div
-          className={`flex items-center gap-1.5 h-9 px-3 rounded-md border border-dashed text-xs transition-colors ${
-            uploadingIdx === "new"
-              ? "border-border/50 text-muted-foreground cursor-wait"
-              : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
-          }`}
-        >
-          {uploadingIdx === "new" ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
-            </>
-          ) : (
-            <>
-              <Upload className="w-3.5 h-3.5" /> Add Sponsor Logo
-            </>
-          )}
-        </div>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={e => {
-            const f = e.target.files?.[0];
-            if (f) onUploadFile(f, "new");
-            e.target.value = "";
-          }}
-          disabled={uploadingIdx !== null}
-        />
-      </label>
 
       <p className="text-[11px] text-muted-foreground leading-relaxed">
         Title Sponsor and Co Sponsor are optional. At most one Title Sponsor and three Co Sponsors per tournament.
