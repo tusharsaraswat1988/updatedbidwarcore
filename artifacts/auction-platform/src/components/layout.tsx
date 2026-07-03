@@ -13,7 +13,7 @@ import {
   mediaCenterTournamentPath,
 } from "@/lib/tournament-navigation";
 import { openScoringApp } from "@workspace/api-base/scoring-urls";
-import { getSportConfig } from "@workspace/api-base/tournament-workbook/sport-registry";
+import { getScoringNavLabel } from "@/lib/sport-label";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
@@ -83,7 +83,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const scoringPlatform = useScoringPlatformEnabled();
   const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
   const localVenue = isBidWarLocalHost();
-  const scoringNavLabel = `${getSportConfig(tournament?.sport).label} Scoring`;
+  const scoringNavLabel = getScoringNavLabel(tournament?.sport);
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
