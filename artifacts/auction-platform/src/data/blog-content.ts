@@ -16,6 +16,10 @@ import {
   getAuthorBySlug,
   getTagBySlug,
   getRelatedPosts,
+  getPostDatePublished,
+  getPostDateModified,
+  getPostSitemapLastmod,
+  auditPostDates,
 } from "@workspace/blog-data";
 
 // re-export everything from the shared package so pages only import from here
@@ -26,6 +30,8 @@ export {
   getCategoryBySlug,
   getAuthorBySlug,
   getTagBySlug,
+  getPostDatePublished,
+  getPostDateModified,
 };
 export type { BlogPost };
 

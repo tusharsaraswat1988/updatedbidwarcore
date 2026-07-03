@@ -14,6 +14,7 @@ import {
   getCategoryBySlug,
   getAuthorBySlug,
   getTagBySlug,
+  getPostDatePublished,
 } from "../../data/blog-content.ts";
 
 interface ArticlePageProps {
@@ -87,7 +88,7 @@ export default function ArticlePage({ slug }: ArticlePageProps) {
               {author && <AuthorCard author={author} compact />}
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
-                {formatDate(post.publishedAt)}
+                {formatDate(getPostDatePublished(post))}
               </span>
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />

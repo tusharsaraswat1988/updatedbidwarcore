@@ -71,16 +71,25 @@ function buildMetaBlock(meta: PageMeta): string {
     <meta property="og:image:height" content="630" />
     <meta name="twitter:image" content="${ogImage}" />`
     : "";
+  const ogType = meta.ogType ?? "website";
+  const articleTags =
+    ogType === "article" && meta.articlePublishedTime
+      ? `\n    <meta property="article:published_time" content="${esc(meta.articlePublishedTime)}" />${
+          meta.articleModifiedTime
+            ? `\n    <meta property="article:modified_time" content="${esc(meta.articleModifiedTime)}" />`
+            : ""
+        }`
+      : "";
 
   return `<!-- PAGE_META_START -->
     <title>${title}</title>
     <meta name="description" content="${desc}" />${keywords}
     <meta name="robots" content="${robots}" />
     <meta name="author" content="BidWar" />${canonicalTags}
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content="${ogType}" />
     <meta property="og:site_name" content="BidWar" />
     <meta property="og:title" content="${ogTitle}" />
-    <meta property="og:description" content="${ogDesc}" />${ogUrlTag}${ogImageTags}
+    <meta property="og:description" content="${ogDesc}" />${ogUrlTag}${ogImageTags}${articleTags}
     <meta property="og:locale" content="en_IN" />
     <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}" />
     <meta name="twitter:site" content="@bidwar_in" />

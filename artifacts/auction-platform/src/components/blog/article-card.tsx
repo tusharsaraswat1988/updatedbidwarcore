@@ -4,6 +4,7 @@ import {
   type BlogPost,
   getCategoryBySlug,
   getAuthorBySlug,
+  getPostDatePublished,
 } from "../../data/blog-content.ts";
 
 interface ArticleCardProps {
@@ -67,7 +68,7 @@ export function ArticleCard({ post, featured = false }: ArticleCardProps) {
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {formatDate(post.publishedAt)}
+                {formatDate(getPostDatePublished(post))}
               </span>
             </div>
           </div>

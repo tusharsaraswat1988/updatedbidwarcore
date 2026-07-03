@@ -17,31 +17,24 @@ import {
   getRuntimeConfig,
   isCorsOriginAllowed,
 } from "./lib/runtime-env";
-import { getPageMeta, getAllBlogUrls } from "./lib/page-meta.js";
+import { getPageMeta } from "./lib/page-meta.js";
 import { isCricketPublicPath, resolveCricketPageMeta } from "./lib/cricket-page-meta.js";
 import {
   isRegistrationPublicPath,
   resolveRegistrationPageMeta,
 } from "./lib/registration-page-meta.js";
-import { BLOG_POSTS_META } from "@workspace/blog-data";
 import {
   loadIndexHtml,
   injectPageMeta,
   sendInjectedHtml,
 } from "./lib/html-meta-injector.js";
 import {
-  buildLegacySitemapXml,
-  buildRobotsTxt,
-  buildSitemapBlog,
-  buildSitemapImages,
-  buildSitemapIndex,
-  buildSitemapPages,
-  buildSitemapTaxonomy,
   classifyRoute,
   expectsPublicMeta,
   getNotFoundPageMeta,
   getPrivatePageMeta,
 } from "./lib/seo-route-policy.js";
+import { isSeoAssetPath, registerSeoRoutes } from "./lib/register-seo-routes.js";
 import { registerOgImageRoutes } from "./routes/og-images.js";
 import { trySendHomepageSsr } from "./lib/homepage-ssr.js";
 import { registerBrandingIconRoutes } from "./lib/branding-asset-resolver.js";
@@ -153,6 +146,9 @@ app.use(globalLimiter);
 
 app.use("/api", router);
 
+// ── Crawl assets (robots.txt + sitemaps) — always registered ───────────────
+registerSeoRoutes(app, CANONICAL_HOST);
+
 // ── Dynamic branding icons (Google-canonical favicon URLs → DB assets) ────────
 registerBrandingIconRoutes(app);
 
@@ -257,6 +253,7 @@ if (serveStatic) {
     app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       if (req.method !== "GET") return next();
       if (req.path === "/") return next();
+      if (isSeoAssetPath(req.path)) return next();
 
       let meta = getPageMeta(req.path);
       if (!meta && isCricketPublicPath(req.path)) {
@@ -288,32 +285,6 @@ if (serveStatic) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       return res.send(html);
     });
-
-    // Dynamic robots.txt
-    // Served as an explicit Express route BEFORE the static file middleware so
-    // it always returns correct content regardless of build state. Cache-Control
-    // is 1 hour — short enough for Googlebot to pick up changes quickly, long
-    // enough to avoid hammering the server on every crawl.
-    app.get("/robots.txt", (_req: express.Request, res: express.Response) => {
-      res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-      res.send(buildRobotsTxt(CANONICAL_HOST));
-    });
-
-    const sendSitemapXml = (res: express.Response, body: string) => {
-      res.setHeader("Content-Type", "application/xml; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=3600");
-      res.send(body);
-    };
-
-    app.get("/sitemap-index.xml", (_req, res) => sendSitemapXml(res, buildSitemapIndex()));
-    app.get("/sitemap-pages.xml", (_req, res) => sendSitemapXml(res, buildSitemapPages()));
-    app.get("/sitemap-blog.xml", (_req, res) => sendSitemapXml(res, buildSitemapBlog()));
-    app.get("/sitemap-taxonomy.xml", (_req, res) => sendSitemapXml(res, buildSitemapTaxonomy()));
-    app.get("/sitemap-images.xml", (_req, res) => sendSitemapXml(res, buildSitemapImages()));
-
-    // Legacy monolithic sitemap — retained for existing Search Console submissions.
-    app.get("/sitemap.xml", (_req, res) => sendSitemapXml(res, buildLegacySitemapXml()));
 
     // Legacy owner URLs → canonical onboarding entry (full page loads only).
     app.get("/tournament/:tournamentId/owner/:teamId", (req, res) => {

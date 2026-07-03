@@ -1,4 +1,4 @@
-import { BLOG_POSTS_META, getAllBlogUrls } from "@workspace/blog-data";
+import { BLOG_POSTS_META, getAllBlogUrls, getPostSitemapLastmod } from "@workspace/blog-data";
 import { ALL_PUBLIC_PATHS, BASE_URL, type PageMeta } from "./page-meta.js";
 import { buildCanonical, safeLastmod } from "./seo-canonical.js";
 import { isCricketPublicPath } from "./cricket-page-meta.js";
@@ -241,6 +241,7 @@ export function buildRobotsTxt(host: string = "bidwar.in"): string {
     "# Core marketing pages",
     ...ROBOTS_ALLOW_PATHS.map((path) => `Allow: ${path}`),
     "",
+    `# Submit only this URL in Google Search Console`,
     `Sitemap: https://${host}/sitemap-index.xml`,
   ];
   return lines.join("\n");
@@ -372,7 +373,7 @@ export function buildSitemapBlog(): string {
   const urls: SitemapEntry[] = [
     entry(`${BASE_URL}/blog`, "weekly", "0.8", today),
     ...BLOG_POSTS_META.map((p) =>
-      entry(p.canonical, "monthly", "0.7", p.updatedAt ?? p.publishedAt),
+      entry(p.canonical, "monthly", "0.7", getPostSitemapLastmod(p)),
     ),
   ];
 
@@ -417,46 +418,123 @@ export function buildSitemapIndex(): string {
   ]);
 }
 
-/** Legacy monolithic sitemap — kept for backwards compatibility. */
-export function buildLegacySitemapXml(): string {
-  const today = safeLastmod(new Date())!;
+/** Child sitemap filenames referenced by the index. */
+export const SITEMAP_CHILD_FILES = [
+  "sitemap-pages.xml",
+  "sitemap-blog.xml",
+  "sitemap-taxonomy.xml",
+  "sitemap-images.xml",
+] as const;
 
-  const combined: SitemapEntry[] = [
-    entry(`${BASE_URL}/`, "weekly", "1.0", today),
-    entry(`${BASE_URL}/upcoming-auctions`, "daily", "0.8", today),
-    entry(`${BASE_URL}/contact`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/auction-tips`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/legal/terms`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/licensing`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/privacy`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/acceptable-use`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/disclaimer`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/refund`, "yearly", "0.3"),
-    entry(`${BASE_URL}/sports-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/cricket-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/badminton-scoring-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/franchise-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/player-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/sports-league-management-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/football-player-auction`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/kabaddi-auction-platform`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/tournament-auction-platform`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/basketball-auction-software`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/badminton-auction-platform`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/volleyball-player-auction`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/esports-auction-system`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/business-league-auction`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/live-player-bidding`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/blog`, "weekly", "0.8", today),
-    ...BLOG_POSTS_META.map((p) =>
-      entry(p.canonical, "monthly", "0.7", p.updatedAt ?? p.publishedAt),
-    ),
-    ...getAllBlogUrls()
-      .filter((u) => u.includes("/blog/category/") || u.includes("/blog/author/"))
-      .map((u) => entry(u, "weekly", "0.6", today)),
+/** All page URLs discoverable via sitemap-index.xml (pages + blog + taxonomy). */
+export function getDiscoverablePageLocs(): string[] {
+  return [
+    ...extractSitemapLocs(buildSitemapPages()),
+    ...extractSitemapLocs(buildSitemapBlog()),
+    ...extractSitemapLocs(buildSitemapTaxonomy()),
+  ];
+}
+
+/** Extract all <loc> values from a sitemap urlset XML string. */
+export function extractSitemapLocs(xml: string): string[] {
+  return [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
+}
+
+function findDuplicateLocs(locs: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const loc of locs) {
+    if (seen.has(loc)) duplicates.add(loc);
+    seen.add(loc);
+  }
+  return [...duplicates];
+}
+
+export interface SitemapDiscoveryAudit {
+  combinedUrlCount: number;
+  blogUrlCount: number;
+  taxonomyUrlCount: number;
+  pagesUrlCount: number;
+  indexChildCount: number;
+  orphanChildSitemaps: string[];
+  duplicateLocs: string[];
+  missingBlogArticles: string[];
+  canonicalMismatches: string[];
+  includesHomepage: boolean;
+  includesBlogIndex: boolean;
+  includesAllArticles: boolean;
+  includesCategoryPages: boolean;
+  includesAuthorPages: boolean;
+  includesLandingPages: boolean;
+  exampleArticlePresent: boolean;
+  validXml: boolean;
+}
+
+/**
+ * Audit sitemap discovery readiness — index references every child sitemap,
+ * all public URLs are reachable through the index chain, no duplicates.
+ */
+export function auditSitemapDiscovery(
+  exampleArticleSlug = "franchise-league-software-features-matter-most",
+): SitemapDiscoveryAudit {
+  const blogXml = buildSitemapBlog();
+  const taxonomyXml = buildSitemapTaxonomy();
+  const pagesXml = buildSitemapPages();
+  const imagesXml = buildSitemapImages();
+  const indexXml = buildSitemapIndex();
+
+  const combinedLocs = getDiscoverablePageLocs();
+  const blogLocs = extractSitemapLocs(blogXml);
+  const taxonomyLocs = extractSitemapLocs(taxonomyXml);
+  const pagesLocs = extractSitemapLocs(pagesXml);
+  const indexChildLocs = extractSitemapLocs(indexXml);
+
+  const expectedChildLocs = SITEMAP_CHILD_FILES.map((file) => `${BASE_URL}/${file}`);
+  const orphanChildSitemaps = expectedChildLocs.filter((loc) => !indexChildLocs.includes(loc));
+
+  const duplicateLocs = [
+    ...findDuplicateLocs(combinedLocs),
+    ...findDuplicateLocs(blogLocs),
+    ...findDuplicateLocs(taxonomyLocs),
+    ...findDuplicateLocs(pagesLocs),
   ];
 
-  return renderUrlset(combined);
+  const articleCanonicals = BLOG_POSTS_META.map((p) => p.canonical);
+  const missingBlogArticles = articleCanonicals.filter((url) => !combinedLocs.includes(url));
+
+  const canonicalMismatches = BLOG_POSTS_META
+    .filter((p) => p.canonical !== `${BASE_URL}/blog/${p.slug}`)
+    .map((p) => `${p.slug}: ${p.canonical}`);
+
+  const exampleUrl = `${BASE_URL}/blog/${exampleArticleSlug}`;
+
+  const validXml =
+    pagesXml.startsWith("<?xml") &&
+    blogXml.includes("urlset") &&
+    taxonomyXml.includes("urlset") &&
+    imagesXml.includes("urlset") &&
+    indexXml.includes("sitemapindex") &&
+    !pagesXml.includes("&amp;amp;");
+
+  return {
+    combinedUrlCount: combinedLocs.length,
+    blogUrlCount: blogLocs.length,
+    taxonomyUrlCount: taxonomyLocs.length,
+    pagesUrlCount: pagesLocs.length,
+    indexChildCount: indexChildLocs.length,
+    orphanChildSitemaps,
+    duplicateLocs: [...new Set(duplicateLocs)],
+    missingBlogArticles,
+    canonicalMismatches,
+    includesHomepage: combinedLocs.includes(`${BASE_URL}/`),
+    includesBlogIndex: blogLocs.includes(`${BASE_URL}/blog`),
+    includesAllArticles: missingBlogArticles.length === 0,
+    includesCategoryPages: taxonomyLocs.some((u) => u.includes("/blog/category/")),
+    includesAuthorPages: taxonomyLocs.some((u) => u.includes("/blog/author/")),
+    includesLandingPages: pagesLocs.includes(`${BASE_URL}/sports-auction-software`),
+    exampleArticlePresent: combinedLocs.includes(exampleUrl) && blogLocs.includes(exampleUrl),
+    validXml,
+  };
 }
 
 export { buildCanonical };

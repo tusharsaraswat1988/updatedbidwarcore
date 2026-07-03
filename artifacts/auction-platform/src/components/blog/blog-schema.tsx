@@ -1,4 +1,4 @@
-import { type BlogPost, getAuthorBySlug, getCategoryBySlug } from "../../data/blog-content.ts";
+import { type BlogPost, getAuthorBySlug, getCategoryBySlug, getPostDatePublished, getPostDateModified } from "../../data/blog-content.ts";
 import { useBranding } from "@/hooks/use-branding";
 import { getOrganizationLogoUrl } from "@/lib/brand-assets";
 
@@ -19,8 +19,8 @@ export function ArticleSchema({ post }: ArticleSchemaProps) {
     headline: post.title,
     description: post.description,
     url: post.canonical,
-    datePublished: post.publishedAt,
-    ...(post.updatedAt ? { dateModified: post.updatedAt } : { dateModified: post.publishedAt }),
+    datePublished: getPostDatePublished(post),
+    dateModified: getPostDateModified(post),
     author: author
       ? {
           "@type": "Person",
@@ -104,7 +104,7 @@ export function BlogListingSchema({
       "@type": "BlogPosting",
       headline: p.title,
       url: p.canonical,
-      datePublished: p.publishedAt,
+      datePublished: getPostDatePublished(p),
     })),
   };
 

@@ -24,6 +24,9 @@ import {
   getCategoryBySlug,
   getAuthorBySlug,
   getAllBlogUrls,
+  getPostDatePublished,
+  getPostDateModified,
+  toIsoDateTime,
 } from "@workspace/blog-data";
 import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
 
@@ -194,6 +197,12 @@ export interface PageMeta {
   ogImage?: string;
   twitterTitle?: string;
   twitterDescription?: string;
+  /** Open Graph type — defaults to "website". Use "article" for blog posts. */
+  ogType?: "website" | "article";
+  /** ISO-8601 datetime for og:article:published_time */
+  articlePublishedTime?: string;
+  /** ISO-8601 datetime for og:article:modified_time */
+  articleModifiedTime?: string;
   schemas?: object[];
   /** Present only for /register/:code pages — not emitted into HTML directly. */
   registration?: RegistrationMetaFields;
@@ -653,12 +662,17 @@ export function getPageMeta(pathname: string): PageMeta | null {
     const post = getPostMetaBySlug(slug);
     if (post) {
       const category = getCategoryBySlug(post.category);
+      const datePublished = getPostDatePublished(post);
+      const dateModified = getPostDateModified(post);
       return withPlatformOgImage({
         title: `${post.title} — BidWar Blog`,
         description: post.description,
         canonical: post.canonical,
         ogTitle: post.title,
         ogDescription: post.description,
+        ogType: "article",
+        articlePublishedTime: toIsoDateTime(datePublished),
+        articleModifiedTime: toIsoDateTime(dateModified),
         ...(post.heroImage ? { ogImage: post.heroImage } : {}),
         schemas: [
           {
@@ -669,8 +683,8 @@ export function getPageMeta(pathname: string): PageMeta | null {
                 headline: post.title,
                 description: post.description,
                 url: post.canonical,
-                datePublished: post.publishedAt,
-                dateModified: post.updatedAt ?? post.publishedAt,
+                datePublished,
+                dateModified,
                 inLanguage: "en-IN",
                 publisher: { "@type": "Organization", name: "BidWar", url: BASE_URL },
                 isPartOf: { "@type": "Blog", name: "BidWar Blog", url: `${BASE_URL}/blog` },

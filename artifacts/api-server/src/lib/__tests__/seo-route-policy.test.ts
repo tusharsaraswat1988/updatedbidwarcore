@@ -77,9 +77,11 @@ describe("seo-route-policy", () => {
     expect(meta.title).toContain("Admin");
   });
 
-  it("buildRobotsTxt references sitemap-index and blocks private paths", () => {
+  it("buildRobotsTxt references sitemap-index only and blocks private paths", () => {
     const robots = buildRobotsTxt();
     expect(robots).toContain("Sitemap: https://bidwar.in/sitemap-index.xml");
+    expect(robots).not.toContain("Sitemap: https://bidwar.in/sitemap.xml");
+    expect(robots.match(/^Sitemap:/gm)).toHaveLength(1);
     expect(robots).toContain("Disallow: /admin");
     expect(robots).toContain("Allow: /auction-tips");
   });
