@@ -64,7 +64,7 @@ export function buildSampleMergeData(): Record<string, string> {
   const year = String(new Date().getFullYear());
   const appUrl = "https://bidwar.in";
   const bidwarLogo =
-    `<img src="${appUrl}/favicon-32.png" width="140" height="48" alt="BidWar" style="display:block;border:0;outline:none;text-decoration:none;max-width:140px;height:auto;" />`;
+    `<img src="${appUrl}/bidwar-primary-logo.png" width="140" height="48" alt="BidWar" style="display:block;border:0;outline:none;text-decoration:none;max-width:140px;height:auto;" />`;
   const tournamentLogo =
     `<img src="${appUrl}/logo.png" width="72" height="72" alt="Premier Cricket League 2026" style="display:block;border:0;outline:none;text-decoration:none;max-width:72px;height:auto;" />`;
 

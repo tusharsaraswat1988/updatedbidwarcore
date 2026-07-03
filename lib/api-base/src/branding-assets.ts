@@ -308,9 +308,23 @@ export const ALL_BRANDING_LOGO_PATHS: readonly BrandingLogoPath[] = Object.value
 
 /** Static fallbacks bundled with auction-platform when DB branding is unset. */
 export const BRANDING_LOGO_STATIC_FALLBACKS: Record<BrandingLogoPath, string> = {
-  [BRANDING_LOGO_PATHS.primary]: "/assets/broadcast/bidwar-reverse-logo-official.png",
-  [BRANDING_LOGO_PATHS.reverse]: "/assets/broadcast/bidwar-reverse-logo-official.png",
+  [BRANDING_LOGO_PATHS.primary]: "/assets/branding/bidwar-reverse-logo-official.png",
+  [BRANDING_LOGO_PATHS.reverse]: "/assets/branding/bidwar-reverse-logo-official.png",
 };
+
+/** Static icon fallbacks (official BidWar app icon) when DB branding is unset. */
+export const BRANDING_ICON_STATIC_FALLBACKS: Record<BrandingIconPath, string> = {
+  [BRANDING_ICON_PATHS.faviconIco]: "/assets/branding/favicon.ico",
+  [BRANDING_ICON_PATHS.faviconSvg]: "/assets/branding/favicon.svg",
+  [BRANDING_ICON_PATHS.favicon32]: "/assets/branding/favicon-32.png",
+  [BRANDING_ICON_PATHS.favicon32x32]: "/assets/branding/favicon-32x32.png",
+  [BRANDING_ICON_PATHS.appleTouchIcon]: "/assets/branding/apple-touch-icon.png",
+  [BRANDING_ICON_PATHS.pwaIcon192]: "/assets/branding/pwa-icon-192.png",
+  [BRANDING_ICON_PATHS.pwaIcon512]: "/assets/branding/pwa-icon-512.png",
+};
+
+/** Boot splash preload target — matches canonical favicon.svg resolver path. */
+export const BRANDING_BOOT_SPLASH_ICON_PATH = BRANDING_ICON_PATHS.faviconSvg;
 
 export const PLATFORM_BASE_URL = "https://bidwar.in";
 

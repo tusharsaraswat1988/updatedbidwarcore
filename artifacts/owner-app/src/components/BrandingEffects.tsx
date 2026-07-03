@@ -4,11 +4,11 @@ import { applyPwaHeadBranding } from "@/lib/brand-assets";
 
 /** Sync favicon, apple-touch-icon, and manifest from BrandingService assets. */
 export function BrandingEffects() {
-  const { logos } = useBranding();
+  const { logos, iconVersion } = useBranding();
 
   useEffect(() => {
-    applyPwaHeadBranding(logos);
-  }, [logos.favicon, logos.pwaIcon, logos.appleTouchIcon, logos.appIcon]);
+    applyPwaHeadBranding(logos, "/owner-app/manifest.webmanifest", iconVersion);
+  }, [logos.favicon, logos.pwaIcon, logos.appleTouchIcon, logos.appIcon, iconVersion]);
 
   return null;
 }

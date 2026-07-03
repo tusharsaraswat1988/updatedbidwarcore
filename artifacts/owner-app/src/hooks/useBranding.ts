@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 
 export interface BrandingSettings {
@@ -14,6 +14,7 @@ export interface BrandingSettings {
   primaryColor: string;
   showPoweredByOwnerApp: boolean;
   assets?: Partial<Record<BrandingAssetType, string>>;
+  iconVersion?: number;
 }
 
 export const BRANDING_DEFAULTS: BrandingSettings = {
@@ -38,24 +39,56 @@ function resolveAsset(
   return assets?.[type] ?? legacy ?? null;
 }
 
+const BRANDING_POLL_MS = 30_000;
+
 export function useBranding() {
   const [settings, setSettings] = useState<BrandingSettings>(BRANDING_DEFAULTS);
   const [loading, setLoading] = useState(true);
+  const iconVersionRef = useRef(settings.iconVersion ?? 0);
 
   useEffect(() => {
-    fetch("/api/branding")
-      .then(r => (r.ok ? r.json() : null))
-      .then((data: Partial<BrandingSettings> | null) => {
-        if (data) setSettings({ ...BRANDING_DEFAULTS, ...data });
-      })
+    let cancelled = false;
+
+    const fetchBranding = () =>
+      fetch("/api/branding", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: Partial<BrandingSettings> | null) => {
+          if (!data || cancelled) return;
+          setSettings({ ...BRANDING_DEFAULTS, ...data });
+          iconVersionRef.current = data.iconVersion ?? iconVersionRef.current;
+        });
+
+    void fetchBranding()
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    const poll = window.setInterval(() => {
+      fetch("/api/branding/icon-version", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((payload: { version?: number } | null) => {
+          if (cancelled || !payload) return;
+          const nextVersion = payload.version ?? 0;
+          if (nextVersion > iconVersionRef.current) {
+            iconVersionRef.current = nextVersion;
+            void fetchBranding();
+          }
+        })
+        .catch(() => {});
+    }, BRANDING_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, []);
 
   const assets = settings.assets;
 
   return {
     loading,
+    iconVersion: settings.iconVersion ?? 0,
     brandName: settings.brandName,
     poweredByText: settings.poweredByText,
     miniBrandText: settings.miniBrandText,

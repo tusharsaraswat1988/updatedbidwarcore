@@ -49,13 +49,15 @@ export function normalizeAppUrl(appUrl: string): string {
   return appUrl.replace(/\/$/, "");
 }
 
+import { resolvePlatformPrimaryLogoUrl } from "@workspace/api-base/branding-assets";
+
 /**
  * Resolve logo URL for email clients.
- * Prefer HTTPS CDN/branding URL; fall back to app-hosted PNG (Outlook-safe; WebP is unreliable in email).
+ * Prefer HTTPS CDN/branding URL; fall back to canonical platform wordmark.
  */
 export function resolveEmailLogoUrl(appUrl: string, miniLogoUrl?: string | null): string {
   if (miniLogoUrl?.startsWith("https://")) return miniLogoUrl;
-  return `${normalizeAppUrl(appUrl)}/favicon-32.png`;
+  return resolvePlatformPrimaryLogoUrl(normalizeAppUrl(appUrl));
 }
 
 export function resolveTournamentDashboardUrl(appUrl: string, tournamentId?: number | null): string {

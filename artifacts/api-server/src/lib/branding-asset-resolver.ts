@@ -14,6 +14,7 @@ import {
   BRANDING_ASSET_TYPES,
   BRANDING_ICON_PATHS,
   BRANDING_LOGO_PATHS,
+  BRANDING_ICON_STATIC_FALLBACKS,
   BRANDING_LOGO_STATIC_FALLBACKS,
   type BrandingIconPath,
   type BrandingLogoPath,
@@ -102,28 +103,48 @@ async function resolveFromChain(
   return null;
 }
 
-function loadStaticLogoFallback(logoPath: BrandingLogoPath): IconCacheEntry | null {
-  const publicRoot = resolveStaticPublicRoot();
-  if (!publicRoot) return null;
-  const relative = BRANDING_LOGO_STATIC_FALLBACKS[logoPath]?.replace(/^\//, "");
-  if (!relative) return null;
+function guessStaticMimeType(relativePath: string): string {
+  const lower = relativePath.toLowerCase();
+  if (lower.endsWith(".svg")) return "image/svg+xml";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".ico")) return "image/x-icon";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  return "image/png";
+}
 
+function loadStaticAssetFallback(
+  cacheKey: string,
+  relativePath: string | undefined,
+  mimeType?: string,
+): IconCacheEntry | null {
+  const publicRoot = resolveStaticPublicRoot();
+  if (!publicRoot || !relativePath) return null;
+
+  const relative = relativePath.replace(/^\//, "");
   const absolute = path.join(publicRoot, relative);
   if (!existsSync(absolute)) return null;
 
   try {
     const buffer = readFileSync(absolute);
-    const key = `static:${logoPath}`;
+    const key = `static:${cacheKey}`;
     const entry: IconCacheEntry = {
       buffer,
       etag: `"${key}"`,
-      mimeType: "image/png",
+      mimeType: mimeType ?? guessStaticMimeType(relative),
     };
     bufferCache.set(key, entry);
     return entry;
   } catch {
     return null;
   }
+}
+
+function loadStaticLogoFallback(logoPath: BrandingLogoPath): IconCacheEntry | null {
+  return loadStaticAssetFallback(logoPath, BRANDING_LOGO_STATIC_FALLBACKS[logoPath]);
+}
+
+function loadStaticIconFallback(iconPath: BrandingIconPath): IconCacheEntry | null {
+  return loadStaticAssetFallback(iconPath, BRANDING_ICON_STATIC_FALLBACKS[iconPath]);
 }
 
 export async function resolveBrandingIconForPath(
@@ -209,9 +230,19 @@ async function serveBrandingAsset(
     contentType = contentTypeForPath(assetPath as BrandingIconPath, resolved);
   }
 
-  if (!entry && (assetPath === BRANDING_LOGO_PATHS.primary || assetPath === BRANDING_LOGO_PATHS.reverse)) {
-    entry = loadStaticLogoFallback(assetPath);
-    contentType = "image/png";
+  if (!entry && assetPath in BRANDING_LOGO_PATHS) {
+    entry = loadStaticLogoFallback(assetPath as BrandingLogoPath);
+    contentType = entry?.mimeType ?? "image/png";
+  }
+
+  if (!entry && assetPath in BRANDING_ICON_PATHS) {
+    entry = loadStaticIconFallback(assetPath as BrandingIconPath);
+    if (entry) {
+      contentType = entry.mimeType;
+      if (assetPath === BRANDING_ICON_PATHS.faviconIco && !contentType.includes("svg")) {
+        contentType = "image/png";
+      }
+    }
   }
 
   if (!entry) {
