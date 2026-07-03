@@ -13,6 +13,7 @@ import {
   mediaCenterTournamentPath,
 } from "@/lib/tournament-navigation";
 import { openScoringApp } from "@workspace/api-base/scoring-urls";
+import { getSportConfig } from "@workspace/api-base/tournament-workbook/sport-registry";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
@@ -82,6 +83,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const scoringPlatform = useScoringPlatformEnabled();
   const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
   const localVenue = isBidWarLocalHost();
+  const scoringNavLabel = `${getSportConfig(tournament?.sport).label} Scoring`;
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -227,13 +229,13 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <button
                     type="button"
                     onClick={() => openScoringApp(tournamentId)}
-                    title="Open All Sports Scoring in a new tab"
+                    title={`Open ${scoringNavLabel} in a new tab`}
                     className={`flex items-center rounded-md transition-colors font-medium ${
                       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
                     } text-muted-foreground hover:bg-accent hover:text-foreground border border-primary/20`}
                   >
                     <CircleDot className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span>All Sports Scoring</span>}
+                    {!collapsed && <span>{scoringNavLabel}</span>}
                   </button>
                 ) : null}
                 {tournament?.status === "completed" ? (

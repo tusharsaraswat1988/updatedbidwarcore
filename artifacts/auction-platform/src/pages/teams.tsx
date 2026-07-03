@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen, Zap, MessageCircle } from "lucide-react";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
@@ -548,6 +548,18 @@ export default function Teams() {
     return `${location.origin}/owner-app/join?tournamentId=${tournamentId}&teamId=${teamId}`;
   }
 
+  function getOwnerWhatsAppHref(team: { id: number; name: string; ownerName?: string | null; ownerMobile?: string | null; accessCode?: string | null }) {
+    const ownerLink = getOwnerLink(team.id);
+    const shareLines = [
+      `${tournament?.name ?? "Auction"} — ${team.name}`,
+      team.ownerName ? `Owner: ${team.ownerName}` : null,
+      team.accessCode ? `Access code: ${team.accessCode}` : null,
+      `Bidding link: ${ownerLink}`,
+    ].filter(Boolean);
+    const mobile = team.ownerMobile?.replace(/\D/g, "") ?? "";
+    return `https://wa.me/${mobile}?text=${encodeURIComponent(shareLines.join("\n"))}`;
+  }
+
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-8">
@@ -865,6 +877,17 @@ export default function Teams() {
                           <p className="text-xs font-mono text-muted-foreground truncate">{ownerLink}</p>
                         </div>
                         <CopyButton text={ownerLink} />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-green-400 flex-shrink-0"
+                          title="Send via WhatsApp"
+                          asChild
+                        >
+                          <a href={getOwnerWhatsAppHref(team)} target="_blank" rel="noopener noreferrer">
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </a>
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
