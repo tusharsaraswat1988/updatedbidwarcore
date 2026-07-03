@@ -7,7 +7,7 @@ import {
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
   Globe, Cloud, Building2, GraduationCap, ChevronDown,
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle, Instagram, Facebook, Youtube,
-  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen,
+  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen, Play,
 } from "lucide-react";
 import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
@@ -672,6 +672,46 @@ export default function Landing() {
             </div>
           </div>
         </motion.div>
+      </section>
+
+      {/* ── BidWar Academy CTA ──────────────────────────────────────── */}
+      <section className="py-10 md:py-12 px-6" aria-label="BidWar Academy">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={enterInitial(isHydrated, { opacity: 0, y: 16 })}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card/30 to-card/10"
+          >
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.1),transparent_55%)]" />
+            <div className="relative flex flex-col md:flex-row md:items-center gap-6 md:gap-8 p-6 md:p-8 lg:p-10">
+              <div className="flex-shrink-0 flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-primary/10 border border-primary/25 shadow-[0_0_24px_rgba(234,179,8,0.12)]">
+                <GraduationCap className="w-7 h-7 md:w-8 md:h-8 text-primary" aria-hidden />
+              </div>
+
+              <div className="flex-1 min-w-0 space-y-2 md:space-y-2.5">
+                <h2 className="text-xl md:text-2xl font-display font-black text-foreground leading-tight">
+                  📚 New to BidWar?
+                </h2>
+                <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-3xl">
+                  Learn how to create tournaments, conduct live player auctions, manage teams, configure settings,
+                  and master every BidWar feature with our step-by-step Academy tutorials.
+                </p>
+              </div>
+
+              <div className="flex-shrink-0 w-full md:w-auto">
+                <a
+                  href="/academy"
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-black font-display font-black text-sm md:text-base hover:bg-primary/90 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.35)]"
+                >
+                  <Play className="w-4 h-4 fill-current" aria-hidden />
+                  Explore BidWar Academy
+                  <ArrowRight className="w-4 h-4" aria-hidden />
+                </a>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </section>
 
       {/* ── Upcoming Auctions Strip ──────────────────────────────── */}
