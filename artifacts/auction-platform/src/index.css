@@ -29,6 +29,14 @@
   will-change: transform;
 }
 
+/* Live Viewer — mobile-only teams scroll clearance for sticky CHEER LIVE */
+@media (max-width: 767px) {
+  .liveviewer-mobile-teams-scroll {
+    padding-bottom: var(--teams-scroll-pad, 7.5rem);
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @import "tailwindcss";
 
 @utility animate-accordion-down {

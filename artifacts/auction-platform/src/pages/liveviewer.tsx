@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -39,6 +39,8 @@ import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 
 const TEAMS_PREVIEW = 6;
 const MOBILE_CHEER_VISIBLE_LIMIT = 8;
+/** Clearance above sponsor ribbon for the fixed CHEER LIVE pill (mobile). */
+const MOBILE_CHEER_BUTTON_CLEARANCE_PX = 52;
 
 type CheerEntry = { id: string; supporterLabel: string; message: string; teamColor: string | null; teamId: number; timestamp: number };
 
@@ -677,17 +679,17 @@ function CompletedScreen({
 
 function IdleHoldingScreen({ tournament }: { tournament?: Tournament }) {
   return (
-    <div className="py-14 px-6 rounded-2xl bg-card/20 border border-dashed border-border/40 flex flex-col items-center gap-5">
+    <div className="py-10 px-5 md:py-14 md:px-6 rounded-2xl bg-card/20 border border-dashed border-border/40 flex flex-col items-center gap-4 md:gap-5">
       {tournament?.logoUrl ? (
         <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" className="w-20 h-20 object-contain opacity-75 rounded-xl" />
       ) : (
         <Radio className="w-14 h-14 text-primary/35" />
       )}
-      <div className="text-center space-y-1.5">
-        <p className="font-display font-bold text-xl text-foreground">
+      <div className="text-center space-y-2 md:space-y-1.5">
+        <p className="font-display font-bold text-[22px] md:text-xl text-foreground leading-tight">
           {tournament?.name || "Live Auction"}
         </p>
-        <p className="text-sm text-muted-foreground">Waiting for the auction to start</p>
+        <p className="text-[15px] md:text-sm text-muted-foreground">Waiting for the auction to start</p>
       </div>
     </div>
   );
@@ -1031,6 +1033,11 @@ export default function LiveViewerPage() {
 
   // ── Cheer logic ────────────────────────────────────────────────────────────
   const cheerEnabled = tournament?.cheerMessagesEnabled !== false;
+  const mobileTeamsScrollPadding = cheerEnabled
+    ? cheerBottomOffset + MOBILE_CHEER_BUTTON_CLEARANCE_PX
+    : hasSponsorRibbon
+      ? SPONSOR_RIBBON_TOTAL_HEIGHT_PX + 12
+      : 16;
   const cheerCooldownSeconds = (tournament as { cheerCooldownSeconds?: number } | undefined)?.cheerCooldownSeconds ?? 2;
   const heatMeterEnabled = (tournament as { cheerHeatMeterEnabled?: boolean } | undefined)?.cheerHeatMeterEnabled ?? false;
   const fanBattleEnabled = (tournament as { cheerFanBattleEnabled?: boolean } | undefined)?.cheerFanBattleEnabled ?? false;
@@ -1304,8 +1311,8 @@ export default function LiveViewerPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10">
-        <div className="px-3 sm:px-4 py-2 sm:py-2.5">
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className="px-4 py-3 md:px-4 md:py-2.5">
+          <div className="flex items-center gap-2.5 md:gap-3">
             <div className="flex items-center flex-shrink-0">
               <img src={logos.mini || miniLogoSrc} alt={logoAlt} className={viewerHeaderPreset.sizeClass} />
             </div>
@@ -1314,31 +1321,31 @@ export default function LiveViewerPage() {
                 <SponsorCarousel logos={sponsorLogos} compact />
               </div>
             )}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-auto md:ml-0">
-              <span className={`inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border ${statusRing}`}>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-auto md:ml-0">
+              <span className={`inline-flex items-center gap-1.5 text-xs md:text-xs font-bold px-2.5 md:px-3 py-1.5 rounded-full border ${statusRing}`}>
                 {(isActive || isSold) && (
-                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="w-2 h-2 md:w-2 rounded-full bg-green-500 animate-pulse" />
                 )}
                 {statusLabel}
               </span>
               <button
                 onClick={() => setSoundSettingsOpen(true)}
-                className="p-2 sm:p-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 md:p-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
                 title="Sound settings"
               >
                 {anySound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </button>
             </div>
           </div>
-          <div className="mt-1.5 sm:mt-2 flex items-center gap-2 min-w-0">
+          <div className="mt-2 md:mt-2 flex items-center gap-2.5 md:gap-2 min-w-0">
             {tournament?.logoUrl && (
               <img
                 src={cldUrl(tournament.logoUrl, "headerLogo")}
                 alt=""
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain flex-shrink-0 bg-white/5"
+                className="w-9 h-9 md:w-8 md:h-8 rounded-lg object-contain flex-shrink-0 bg-white/5"
               />
             )}
-            <h1 className="flex-1 min-w-0 font-display font-black text-[15px] sm:text-lg leading-tight text-white line-clamp-2">
+            <h1 className="flex-1 min-w-0 font-display font-black text-[19px] md:text-lg leading-tight text-white line-clamp-2">
               {tournament?.name || "Live Auction"}
             </h1>
             {sponsorLogos.length > 0 && (
@@ -1347,20 +1354,20 @@ export default function LiveViewerPage() {
               </div>
             )}
           </div>
-          <div className="mt-1 flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs font-semibold tabular-nums">
+          <div className="mt-2 md:mt-1 flex items-center gap-3 md:gap-3 text-[14px] md:text-xs font-semibold tabular-nums">
             <span className="text-green-400">
               <span className="font-display font-black">{soldCount}</span>
-              <span className="text-muted-foreground font-normal ml-1">sold</span>
+              <span className="text-muted-foreground font-normal ml-1.5 md:ml-1">sold</span>
             </span>
             <span className="text-white/20">·</span>
             <span className="text-amber-400">
               <span className="font-display font-black">{remainingCount}</span>
-              <span className="text-muted-foreground font-normal ml-1">left</span>
+              <span className="text-muted-foreground font-normal ml-1.5 md:ml-1">left</span>
             </span>
             <span className="text-white/20">·</span>
             <span className="text-red-400">
               <span className="font-display font-black">{unsoldCount}</span>
-              <span className="text-muted-foreground font-normal ml-1">unsold</span>
+              <span className="text-muted-foreground font-normal ml-1.5 md:ml-1">unsold</span>
             </span>
           </div>
         </div>
@@ -1410,10 +1417,10 @@ export default function LiveViewerPage() {
       {/* ── Main content — fixed viewport, no page scroll ──────────────── */}
       <div className={`relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full transition-opacity duration-300 ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/20" : ""}`}>
 
-        {/* Player + teams fill remaining height */}
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-1">
-        {/* ── Player section — always full prominence (live auction player) ── */}
-        <div className="relative flex-shrink-0 mb-2 sm:mb-3">
+        {/* Player + teams fill remaining height — mobile: only teams scroll */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-4 md:px-4 max-md:pb-0 pb-1">
+        {/* ── Player section — fixed prominence, does not scroll on mobile ── */}
+        <div className="relative flex-shrink-0 mb-3 md:mb-3">
           {displayMode.overlayMode === "paused" && (
             <AuctionStatusOverlay
               mode="paused"
@@ -1646,7 +1653,7 @@ export default function LiveViewerPage() {
                   age: lastResult!.age,
                 }}
               />
-              <p className="text-center text-xs text-muted-foreground/35 mt-4 tracking-wide uppercase">
+              <p className="text-center text-[15px] md:text-xs text-muted-foreground/35 mt-3 md:mt-4 tracking-wide uppercase">
                 Waiting for next player
               </p>
             </motion.div>
@@ -1664,18 +1671,18 @@ export default function LiveViewerPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="mb-5 py-12 px-6 rounded-2xl bg-card/30 border border-dashed border-border/40 flex flex-col items-center justify-center text-center gap-3"
+              className="mb-4 md:mb-5 py-8 md:py-12 px-5 md:px-6 rounded-2xl bg-card/30 border border-dashed border-border/40 flex flex-col items-center justify-center text-center gap-3"
             >
-              <Gavel className="w-10 h-10 text-muted-foreground/25" />
+              <Gavel className="w-11 h-11 md:w-10 md:h-10 text-muted-foreground/25" />
               {isPaused && !displayMode.overlayMode ? (
                 <>
-                  <p className="font-display font-bold text-lg text-amber-400">Auction Paused</p>
-                  <p className="text-sm text-muted-foreground">The operator has paused the auction.</p>
+                  <p className="font-display font-bold text-[22px] md:text-lg text-amber-400 leading-tight">Auction Paused</p>
+                  <p className="text-[15px] md:text-sm text-muted-foreground">The operator has paused the auction.</p>
                 </>
               ) : (
                 <>
-                  <p className="font-display font-bold text-lg text-muted-foreground">Waiting for next player</p>
-                  <p className="text-sm text-muted-foreground">The auction will begin shortly.</p>
+                  <p className="font-display font-bold text-[22px] md:text-lg text-muted-foreground leading-tight">Waiting for next player</p>
+                  <p className="text-[15px] md:text-sm text-muted-foreground">The auction will begin shortly.</p>
                 </>
               )}
             </motion.div>
@@ -1684,23 +1691,26 @@ export default function LiveViewerPage() {
           </div>
         </div>
 
-        {/* ── Team grid — logo + name only; tap for purse/squad details ── */}
+        {/* ── Team grid — mobile: 2-col scrollable; desktop: 3-col static ── */}
         {previewTeams.length > 0 && (
-          <div className="flex-shrink-0 flex flex-col gap-2 pb-1">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Teams</p>
+          <div
+            className="flex-1 min-h-0 flex flex-col gap-2.5 md:gap-2 md:flex-shrink-0 md:flex-none max-md:overflow-y-auto max-md:overscroll-contain max-md:scroll-smooth liveviewer-mobile-teams-scroll"
+            style={{ "--teams-scroll-pad": `${mobileTeamsScrollPadding}px` } as CSSProperties}
+          >
+            <div className="flex items-center justify-between gap-2 flex-shrink-0">
+              <p className="text-[11px] md:text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Teams</p>
               {extraTeamCount > 0 && (
                 <button
                   type="button"
                   onClick={() => setAllTeamsOpen(true)}
-                  className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                  className="inline-flex items-center gap-0.5 text-xs md:text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
                 >
                   View More (+{extraTeamCount})
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-2 pb-1 md:pb-1">
               {previewTeams.map((team) => {
                 const isLeading = state?.currentBidTeamId === team.teamId;
                 const tc = team.color || "#F59E0B";
@@ -1710,7 +1720,7 @@ export default function LiveViewerPage() {
                     type="button"
                     onClick={() => setSelectedTeamId(team.teamId)}
                     whileTap={{ scale: 0.95 }}
-                    className="flex flex-col items-center gap-1.5 p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer relative"
+                    className="flex flex-col items-center gap-2 md:gap-1.5 p-3.5 md:p-3 rounded-xl border transition-all cursor-pointer relative"
                     style={{
                       backgroundColor: isLeading ? `${tc}10` : "transparent",
                       borderColor: isLeading ? `${tc}88` : "rgba(var(--border), 0.5)",
@@ -1718,19 +1728,19 @@ export default function LiveViewerPage() {
                     }}
                   >
                     {isLeading && (
-                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="absolute top-2 right-2 md:top-1.5 md:right-1.5 w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-green-500 animate-pulse" />
                     )}
                     {team.logoUrl ? (
-                      <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0" />
+                      <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-14 h-14 md:w-10 md:h-10 rounded-full object-cover flex-shrink-0" />
                     ) : (
                       <div
-                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-display font-black text-[10px] sm:text-xs flex-shrink-0"
+                        className="w-14 h-14 md:w-10 md:h-10 rounded-full flex items-center justify-center font-display font-black text-sm md:text-xs flex-shrink-0"
                         style={{ backgroundColor: `${tc}22`, color: tc }}
                       >
                         {(team.shortCode || team.teamName).slice(0, 2).toUpperCase()}
                       </div>
                     )}
-                    <span className="text-[10px] sm:text-xs font-semibold text-center leading-tight line-clamp-2 w-full" style={{ color: tc }}>
+                    <span className="text-[15px] md:text-xs font-semibold text-center leading-tight line-clamp-2 w-full" style={{ color: tc }}>
                       {team.teamName}
                     </span>
                   </motion.button>
@@ -1802,10 +1812,10 @@ export default function LiveViewerPage() {
               }
             }}
             whileTap={{ scale: 0.92 }}
-            className="flex items-center gap-2 px-7 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-sm tracking-wider shadow-lg"
+            className="flex items-center gap-2 px-8 py-3.5 md:px-7 md:py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-base md:text-sm tracking-wider shadow-lg"
             style={{ boxShadow: "0 0 30px rgba(245,158,11,0.45), 0 4px 18px rgba(0,0,0,0.55)" }}
           >
-            <Flame className="w-4 h-4" />
+            <Flame className="w-5 h-5 md:w-4 md:h-4" />
             CHEER LIVE
           </motion.button>
         </div>
