@@ -34,8 +34,8 @@ function toDto(row: typeof adminNotificationsTable.$inferSelect): AdminNotificat
 }
 
 const updateSettingsSchema = z.object({
-  adminName: z.string().trim().min(1).max(120).optional(),
-  adminEmail: z.string().trim().email().max(160).optional(),
+  adminName: z.string().trim().max(120).optional(),
+  adminEmail: z.union([z.literal(""), z.string().trim().email().max(160)]).optional(),
   adminMobile: z.string().trim().max(32).nullable().optional(),
   emailNotificationsEnabled: z.boolean().optional(),
   inAppNotificationsEnabled: z.boolean().optional(),
@@ -55,21 +55,22 @@ router.patch("/auth/admin/settings/admin-notifications", requireMasterAdmin, asy
   }
 
   const data = parsed.data;
-  if (
-    data.emailNotificationsEnabled === true &&
-    data.adminEmail !== undefined &&
-    !isValidAdminEmail(data.adminEmail)
-  ) {
-    res.status(400).json({ error: "A valid admin email is required when email notifications are enabled" });
+  const current = await getAdminNotificationSettings();
+  const nextEmail = data.adminEmail ?? current.adminEmail;
+  const enablingEmailNotifications =
+    data.emailNotificationsEnabled === true && !current.emailNotificationsEnabled;
+
+  if (enablingEmailNotifications && !isValidAdminEmail(nextEmail)) {
+    res.status(400).json({ error: "Configure a valid admin email before enabling email notifications" });
     return;
   }
 
-  const current = await getAdminNotificationSettings();
-  const nextEmail = data.adminEmail ?? current.adminEmail;
-  const nextEmailEnabled = data.emailNotificationsEnabled ?? current.emailNotificationsEnabled;
-
-  if (nextEmailEnabled && !isValidAdminEmail(nextEmail)) {
-    res.status(400).json({ error: "Configure a valid admin email before enabling email notifications" });
+  if (
+    data.adminEmail !== undefined &&
+    data.adminEmail !== "" &&
+    !isValidAdminEmail(data.adminEmail)
+  ) {
+    res.status(400).json({ error: "A valid admin email is required when email notifications are enabled" });
     return;
   }
 

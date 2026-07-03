@@ -10,6 +10,19 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AdminNotificationSettings } from "@/lib/admin-notifications";
+import { normalizeAdminNotificationSettings } from "@/lib/admin-notifications";
+
+function settingsPayload(settings: AdminNotificationSettings) {
+  return {
+    adminName: settings.adminName,
+    adminEmail: settings.adminEmail,
+    adminMobile: settings.adminMobile,
+    emailNotificationsEnabled: settings.emailNotificationsEnabled,
+    inAppNotificationsEnabled: settings.inAppNotificationsEnabled,
+    liveNotificationsEnabled: settings.liveNotificationsEnabled,
+    notificationSoundEnabled: settings.notificationSoundEnabled,
+  };
+}
 
 export default function AdminAdminNotificationSettings() {
   const { isLoggedIn, isLoading } = useAdminPageGuard();
@@ -24,12 +37,21 @@ export default function AdminAdminNotificationSettings() {
   useEffect(() => {
     if (!isLoggedIn) return;
     fetch("/api/auth/admin/settings/admin-notifications", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d: AdminNotificationSettings) => {
-        setSettings(d);
+      .then(async (r) => {
+        if (!r.ok) {
+          const d = (await r.json().catch(() => ({}))) as { error?: string };
+          throw new Error(d.error ?? "Failed to load settings");
+        }
+        return r.json() as Promise<Partial<AdminNotificationSettings>>;
+      })
+      .then((d) => {
+        setSettings(normalizeAdminNotificationSettings(d));
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Failed to load settings");
+        setLoading(false);
+      });
   }, [isLoggedIn]);
 
   async function handleSave() {
@@ -42,13 +64,15 @@ export default function AdminAdminNotificationSettings() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(settingsPayload(settings)),
       });
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
         throw new Error(d.error ?? "Save failed");
       }
-      const updated = (await res.json()) as AdminNotificationSettings;
+      const updated = normalizeAdminNotificationSettings(
+        (await res.json()) as Partial<AdminNotificationSettings>,
+      );
       setSettings(updated);
       await liveNotifications?.refreshRecent();
       setSaved(true);

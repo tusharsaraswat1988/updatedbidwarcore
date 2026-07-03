@@ -45,6 +45,21 @@ export type AdminNotificationSettings = {
   updatedAt: string | null;
 };
 
+export function normalizeAdminNotificationSettings(
+  raw: Partial<AdminNotificationSettings>,
+): AdminNotificationSettings {
+  return {
+    adminName: raw.adminName ?? "",
+    adminEmail: raw.adminEmail ?? "",
+    adminMobile: raw.adminMobile ?? null,
+    emailNotificationsEnabled: raw.emailNotificationsEnabled ?? true,
+    inAppNotificationsEnabled: raw.inAppNotificationsEnabled ?? true,
+    liveNotificationsEnabled: raw.liveNotificationsEnabled ?? true,
+    notificationSoundEnabled: raw.notificationSoundEnabled ?? false,
+    updatedAt: raw.updatedAt ?? null,
+  };
+}
+
 export const ADMIN_NOTIFICATION_DROPDOWN_LIMIT = 8;
 
 export function priorityBadgeClass(priority: AdminNotificationPriority): string {

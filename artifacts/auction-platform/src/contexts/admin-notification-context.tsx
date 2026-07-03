@@ -18,6 +18,7 @@ import {
   priorityToastEmoji,
   type AdminNotificationItem,
   type AdminNotificationSettings,
+  normalizeAdminNotificationSettings,
 } from "@/lib/admin-notifications";
 import { playAdminNotificationSound } from "@/lib/admin-notification-sound";
 
@@ -175,7 +176,9 @@ export function AdminNotificationProvider({
       }
 
       if (settingsRes.ok) {
-        const nextSettings = (await settingsRes.json()) as AdminNotificationSettings;
+        const nextSettings = normalizeAdminNotificationSettings(
+          (await settingsRes.json()) as Partial<AdminNotificationSettings>,
+        );
         setSettings(nextSettings);
         settingsRef.current = nextSettings;
       }
