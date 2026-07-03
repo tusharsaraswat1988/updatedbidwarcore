@@ -11,6 +11,7 @@ import {
   scoringAppDevProxyPlugin,
 } from "../../lib/api-base/src/vite-proxy.ts";
 import { brandingIconsDevPlugin } from "../../lib/api-base/src/vite-branding-icons-plugin.ts";
+import { bootSplashHtmlPlugin } from "../../lib/api-base/src/vite-boot-splash-html-plugin.ts";
 import { stripUseClientDirective } from "../../lib/api-base/src/vite-strip-use-client.ts";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
@@ -60,6 +61,7 @@ export default defineConfig({
   base: basePath,
   plugins: [
     stripUseClientDirective(),
+    bootSplashHtmlPlugin(),
     brandingIconsDevPlugin(),
     react(),
     tailwindcss(),
