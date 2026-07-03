@@ -14,6 +14,7 @@ const BLOCKED_PREFIXES = [
   "/organizer",
   "/wa-consent/",
   "/complete-profile",
+  "/academy",
 ];
 
 let trackingLoaded = false;

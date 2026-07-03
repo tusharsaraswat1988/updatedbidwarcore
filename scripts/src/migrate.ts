@@ -431,6 +431,47 @@ const migrations: Array<{ label: string; sql: string }> = [
         ON intelligence_archive_timer_events (archive_id);
     `,
   },
+  {
+    label: "create_academy_categories_and_lessons",
+    sql: `
+      CREATE TABLE IF NOT EXISTS academy_categories (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_academy_categories_slug ON academy_categories (slug);
+      CREATE INDEX IF NOT EXISTS ix_academy_categories_active ON academy_categories (active);
+      CREATE INDEX IF NOT EXISTS ix_academy_categories_display_order ON academy_categories (display_order);
+
+      CREATE TABLE IF NOT EXISTS academy_lessons (
+        id SERIAL PRIMARY KEY,
+        episode_number INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        short_description TEXT,
+        content TEXT,
+        content_format TEXT NOT NULL DEFAULT 'plain',
+        youtube_url TEXT,
+        youtube_video_id TEXT,
+        category_id INTEGER REFERENCES academy_categories(id),
+        seo_title TEXT,
+        seo_description TEXT,
+        status TEXT NOT NULL DEFAULT 'draft',
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_academy_lessons_slug ON academy_lessons (slug);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_academy_lessons_episode_number ON academy_lessons (episode_number);
+      CREATE INDEX IF NOT EXISTS ix_academy_lessons_status ON academy_lessons (status);
+      CREATE INDEX IF NOT EXISTS ix_academy_lessons_category_id ON academy_lessons (category_id);
+      CREATE INDEX IF NOT EXISTS ix_academy_lessons_display_order ON academy_lessons (display_order);
+    `,
+  },
 ];
 
 for (const m of migrations) {

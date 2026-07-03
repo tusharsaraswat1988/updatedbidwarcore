@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useLocation } from "wouter";
-import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, ChevronDown, Menu, X } from "lucide-react";
-import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -10,9 +8,7 @@ import { BrandLogoImage } from "@/components/brand-logo-image";
 
 const landingHeaderPreset = getBrandSurfacePreset("landing-header");
 
-const NAV_BLOG_POSTS = [...BLOG_POSTS_META]
-  .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-  .slice(0, 9);
+type NavBlogPost = { slug: string; title: string; publishedAt: string };
 
 export function PublicNavbar() {
   const [path, navigate] = useLocation();
@@ -26,6 +22,8 @@ export function PublicNavbar() {
   const isUpcomingPath = useMemo(() => path === "/upcoming-auctions", [path]);
   const isContactPath = useMemo(() => path === "/contact", [path]);
   const isAuctionTipsPath = useMemo(() => path === "/auction-tips", [path]);
+  const isAcademyPath = useMemo(() => path === "/academy" || path.startsWith("/academy/"), [path]);
+  const [navBlogPosts, setNavBlogPosts] = useState<NavBlogPost[]>([]);
   const isMorePath = useMemo(
     () => isUpcomingPath || isContactPath || isAuctionTipsPath || path.startsWith("/legal/"),
     [isUpcomingPath, isContactPath, isAuctionTipsPath, path],
@@ -45,6 +43,22 @@ export function PublicNavbar() {
     },
     [isHome, closeMobileMenu],
   );
+
+  useEffect(() => {
+    if (isAcademyPath || navBlogPosts.length > 0) return;
+    let cancelled = false;
+    void import("@workspace/blog-data").then((mod) => {
+      if (cancelled) return;
+      setNavBlogPosts(
+        [...mod.BLOG_POSTS_META]
+          .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+          .slice(0, 9),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAcademyPath, navBlogPosts.length]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -85,10 +99,11 @@ export function PublicNavbar() {
               <a href="/blog" className={`inline-flex items-center gap-1 transition-colors ${isBlogPath ? "text-slate-950" : "hover:text-slate-950"}`}>
                 <BookOpen className="w-3.5 h-3.5" /> Blog <ChevronDown className="w-3.5 h-3.5" />
               </a>
+              {!isAcademyPath && navBlogPosts.length > 0 ? (
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[360px] rounded-xl border border-slate-200 bg-white shadow-xl p-2 opacity-0 invisible translate-y-2 transition-all duration-200 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0">
                 <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-slate-500">Top Blog Pages</div>
                 <div className="space-y-0.5">
-                  {NAV_BLOG_POSTS.map((post) => (
+                  {navBlogPosts.map((post) => (
                     <a
                       key={post.slug}
                       href={`/blog/${post.slug}`}
@@ -104,6 +119,7 @@ export function PublicNavbar() {
                   </a>
                 </div>
               </div>
+              ) : null}
             </div>
             <div className="relative group">
               <button className={`inline-flex items-center gap-1 transition-colors ${isMorePath ? "text-slate-950" : "hover:text-slate-950"}`} type="button" aria-label="Open more navigation links">
@@ -146,25 +162,15 @@ export function PublicNavbar() {
         </div>
       </nav>
 
-      <AnimatePresence>
-        {mobileMenuOpen && (
+      {mobileMenuOpen ? (
           <>
-            <motion.button
+            <button
               type="button"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
               onClick={closeMobileMenu}
-              className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+              className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200"
               aria-label="Close mobile navigation"
             />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="lg:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-white shadow-2xl border-l border-slate-200 p-6 pt-20 overflow-y-auto"
-            >
+            <div className="lg:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-white shadow-2xl border-l border-slate-200 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200">
               <div className="space-y-2">
                 {[
                   { label: "Features", href: "/#features", action: () => { if (isHome) document.getElementById("features")?.scrollIntoView({ behavior: "smooth" }); } },
@@ -213,10 +219,9 @@ export function PublicNavbar() {
                   Get Started
                 </button>
               </div>
-            </motion.div>
+            </div>
           </>
-        )}
-      </AnimatePresence>
+      ) : null}
     </>
   );
 }

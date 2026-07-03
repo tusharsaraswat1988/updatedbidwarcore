@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { logger } from "./logger.js";
 import {
   buildRobotsTxt,
+  buildSitemapAcademy,
   buildSitemapBlog,
   buildSitemapImages,
   buildSitemapIndex,
@@ -15,6 +16,7 @@ export const SEO_ASSET_PATHS = new Set([
   "/sitemap.xml",
   "/sitemap-index.xml",
   "/sitemap-pages.xml",
+  "/sitemap-academy.xml",
   "/sitemap-blog.xml",
   "/sitemap-taxonomy.xml",
   "/sitemap-images.xml",
@@ -34,10 +36,16 @@ function sendSitemapXml(res: Response, body: string) {
 function sendSitemapOrError(
   res: Response,
   label: string,
-  build: () => string,
+  build: () => string | Promise<string>,
 ) {
   try {
-    sendSitemapXml(res, build());
+    Promise.resolve(build())
+      .then((body) => sendSitemapXml(res, body))
+      .catch((err) => {
+        logger.error({ err, label }, "Failed to generate sitemap");
+        res.status(500).setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.send("Sitemap temporarily unavailable");
+      });
   } catch (err) {
     logger.error({ err, label }, "Failed to generate sitemap");
     res.status(500).setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -62,6 +70,9 @@ export function registerSeoRoutes(app: Express, host = "bidwar.in"): void {
   );
   app.get("/sitemap-pages.xml", (_req, res) =>
     sendSitemapOrError(res, "sitemap-pages", buildSitemapPages),
+  );
+  app.get("/sitemap-academy.xml", (_req, res) =>
+    sendSitemapOrError(res, "sitemap-academy", buildSitemapAcademy),
   );
   app.get("/sitemap-blog.xml", (_req, res) =>
     sendSitemapOrError(res, "sitemap-blog", buildSitemapBlog),

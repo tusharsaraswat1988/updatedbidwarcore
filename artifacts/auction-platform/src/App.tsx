@@ -19,9 +19,10 @@ import {
 } from "@/lib/initial-data/initial-data-provider";
 import type { PageInitialData } from "@/lib/initial-data/types";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
+import { readWindowAcademyData } from "@/lib/academy-public";
 
 import { BootSplash } from "@/components/boot-splash";
-import Landing from "@/pages/landing";
+const Landing = lazy(() => import("@/pages/landing"));
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const NewTournament = lazy(() => import("@/pages/tournament-new"));
@@ -65,6 +66,10 @@ const AdminAdminNotifications = lazy(() => import("@/pages/admin-admin-notificat
 const AdminAdminNotificationSettings = lazy(() => import("@/pages/admin-admin-notification-settings"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
 const AdminCreativeAssets = lazy(() => import("@/pages/admin-creative-assets"));
+const AdminAcademyLessonsList = lazy(() => import("@/pages/admin-academy-lessons-list"));
+const AdminAcademyLessonForm = lazy(() => import("@/pages/admin-academy-lesson-form"));
+const AcademyIndex = lazy(() => import("@/pages/academy/index"));
+const AcademyLesson = lazy(() => import("@/pages/academy/lesson"));
 const BuzzStudioDevPage = lazy(() => import("@/pages/buzz-studio-dev/BuzzStudioDevPage"));
 const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
@@ -197,6 +202,13 @@ function BrandingEffects() {
 }
 
 function RouteSuspenseFallback() {
+  if (
+    readWindowAcademyData() &&
+    (document.getElementById("academy-ssr-content") ||
+      document.getElementById("academy-ssr-fallback"))
+  ) {
+    return null;
+  }
   return <BootSplash />;
 }
 
@@ -290,6 +302,9 @@ function Router() {
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
         <Route path="/admin/creative-assets" component={AdminCreativeAssets} />
+        <Route path="/admin/knowledge-center/academy/new" component={AdminAcademyLessonForm} />
+        <Route path="/admin/knowledge-center/academy/:id" component={AdminAcademyLessonForm} />
+        <Route path="/admin/knowledge-center/academy" component={AdminAcademyLessonsList} />
         <Route path="/admin/settings/system/audit-logs" component={AdminSystemPage} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
         <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />
@@ -325,6 +340,12 @@ function Router() {
         </Route>
         <Route path="/blog/:slug">
           {(params) => <BlogArticle slug={params?.slug ?? ""} />}
+        </Route>
+
+        {/* Academy */}
+        <Route path="/academy" component={AcademyIndex} />
+        <Route path="/academy/:slug">
+          {(params) => <AcademyLesson slug={params?.slug ?? ""} />}
         </Route>
 
         {/* SEO landing pages */}

@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { compression } from "vite-plugin-compression2";
+import { visualizer } from "rollup-plugin-visualizer";
 import {
   createViteDevProxies,
   ownerAppDevProxyPlugin,
@@ -53,6 +54,7 @@ const rawPort =
   process.env.FRONTEND_PORT ?? process.env.WEB_PORT ?? process.env.PORT ?? "3000";
 const port = Number(rawPort);
 const basePath = process.env.BASE_PATH ?? "/";
+const analyzeBundle = process.env.ANALYZE === "true";
 
 export default defineConfig({
   base: basePath,
@@ -76,6 +78,16 @@ export default defineConfig({
       include: /\.(js|css|html|svg|json|woff2?)$/,
       threshold: 1024,
     }),
+    ...(analyzeBundle
+      ? [
+          visualizer({
+            filename: "dist/bundle-stats.html",
+            gzipSize: true,
+            brotliSize: true,
+            open: false,
+          }),
+        ]
+      : []),
   ],
   optimizeDeps: {
     include: ["html2canvas-pro", "jspdf", "xlsx"],
@@ -101,7 +113,7 @@ export default defineConfig({
           if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/") || id.includes("/node_modules/scheduler/")) {
             return "vendor-react";
           }
-          if (id.includes("/node_modules/framer-motion/")) {
+          if (id.includes("/node_modules/framer-motion/") || id.includes("/node_modules/motion-dom/")) {
             return "vendor-motion";
           }
           if (id.includes("/node_modules/@tanstack/")) {
@@ -112,6 +124,21 @@ export default defineConfig({
           }
           if (id.includes("/node_modules/@radix-ui/")) {
             return "vendor-radix";
+          }
+          if (id.includes("/node_modules/lucide-react/")) {
+            return "vendor-lucide";
+          }
+          if (id.includes("/node_modules/wouter/")) {
+            return "vendor-router";
+          }
+          if (id.includes("/components/academy/lesson-content")) {
+            return "academy-content";
+          }
+          if (id.includes("/components/academy/academy-search")) {
+            return "academy-search";
+          }
+          if (id.includes("/components/academy/")) {
+            return "academy-shared";
           }
         },
       },

@@ -7,11 +7,20 @@ interface SeoHeadProps {
   ogTitle?: string;
   ogDescription?: string;
   ogImage?: string;
+  ogType?: string;
 }
 
 const DEFAULT_TITLE = "BidWar — Live Sports Auction Software | Cricket, Football & Franchise Auctions India";
 
-export function SeoHead({ title, description, canonical, ogTitle, ogDescription, ogImage }: SeoHeadProps) {
+export function SeoHead({
+  title,
+  description,
+  canonical,
+  ogTitle,
+  ogDescription,
+  ogImage,
+  ogType = "website",
+}: SeoHeadProps) {
   useEffect(() => {
     document.title = title;
 
@@ -37,18 +46,24 @@ export function SeoHead({ title, description, canonical, ogTitle, ogDescription,
     }
 
     setMeta('meta[name="description"]', "name=description", description);
+    setMeta('meta[name="robots"]', "name=robots", "index, follow");
+    setMeta('meta[property="og:type"]', "property=og:type", ogType);
     setMeta('meta[property="og:title"]', "property=og:title", ogTitle || title);
     setMeta('meta[property="og:description"]', "property=og:description", ogDescription || description);
     setMeta('meta[property="og:url"]', "property=og:url", canonical);
-    if (ogImage) setMeta('meta[property="og:image"]', "property=og:image", ogImage);
+    setMeta('meta[name="twitter:card"]', "name=twitter:card", ogImage ? "summary_large_image" : "summary");
     setMeta('meta[name="twitter:title"]', "name=twitter:title", ogTitle || title);
     setMeta('meta[name="twitter:description"]', "name=twitter:description", ogDescription || description);
+    if (ogImage) {
+      setMeta('meta[property="og:image"]', "property=og:image", ogImage);
+      setMeta('meta[name="twitter:image"]', "name=twitter:image", ogImage);
+    }
     setCanonical(canonical);
 
     return () => {
       document.title = DEFAULT_TITLE;
     };
-  }, [title, description, canonical, ogTitle, ogDescription, ogImage]);
+  }, [title, description, canonical, ogTitle, ogDescription, ogImage, ogType]);
 
   return null;
 }

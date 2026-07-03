@@ -12,6 +12,20 @@ vi.mock("../registration-page-meta.js", () => ({
   isRegistrationPublicPath: () => false,
 }));
 
+vi.mock("../academy-public-service.js", () => ({
+  listPublishedAcademySitemapEntries: async () => [],
+}));
+
+vi.mock("../academy-page-meta.js", () => ({
+  isAcademyPublicPath: (pathname: string) =>
+    pathname === "/academy" || /^\/academy\/[a-z0-9-]+$/.test(pathname),
+  parseAcademyLessonSlug: (pathname: string) => {
+    const match = pathname.match(/^\/academy\/([a-z0-9-]+)$/);
+    return match?.[1] ?? null;
+  },
+  resolveAcademyPageMeta: async () => null,
+}));
+
 import { buildCanonical, safeLastmod } from "../seo-canonical.js";
 import {
   buildRobotsTxt,
@@ -89,6 +103,7 @@ describe("seo-route-policy", () => {
   it("buildSitemapIndex lists all sub-sitemaps", () => {
     const xml = buildSitemapIndex();
     expect(xml).toContain("sitemap-pages.xml");
+    expect(xml).toContain("sitemap-academy.xml");
     expect(xml).toContain("sitemap-blog.xml");
     expect(xml).toContain("sitemap-taxonomy.xml");
     expect(xml).toContain("sitemap-images.xml");
@@ -116,6 +131,12 @@ describe("seo-route-policy", () => {
   it("getPageMeta includes auction-tips", () => {
     const meta = getPageMeta("/auction-tips");
     expect(meta?.canonical).toBe("https://bidwar.in/auction-tips");
+    expect(meta?.robots ?? "index, follow").toBe("index, follow");
+  });
+
+  it("getPageMeta includes academy index", () => {
+    const meta = getPageMeta("/academy");
+    expect(meta?.canonical).toBe("https://bidwar.in/academy");
     expect(meta?.robots ?? "index, follow").toBe("index, follow");
   });
 

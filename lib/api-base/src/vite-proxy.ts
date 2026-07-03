@@ -343,10 +343,27 @@ function scoringAppProxyUnavailableHtml(target: string): string {
 
 /** Combined dev proxies for apps that host owner-app behind the same origin. */
 export function createViteDevProxies(): Record<string, ViteApiProxyOptions> {
+  const target = getDevApiProxyTarget();
+  const apiProxy: ViteApiProxyOptions = {
+    target,
+    changeOrigin: true,
+    secure: false,
+    ws: false,
+  };
+
   return {
     ...createViteApiProxy(),
     ...createViteOwnerAppProxy(),
     ...createViteScoringAppProxy(),
+    "/robots.txt": apiProxy,
+    "/sitemap.xml": apiProxy,
+    "/sitemap-index.xml": apiProxy,
+    "/sitemap-pages.xml": apiProxy,
+    "/sitemap-academy.xml": apiProxy,
+    "/sitemap-blog.xml": apiProxy,
+    "/sitemap-taxonomy.xml": apiProxy,
+    "/sitemap-images.xml": apiProxy,
+    "/academy": apiProxy,
   };
 }
 
@@ -508,6 +525,17 @@ export function ownerAppDevProxyPlugin(): Plugin {
         }
 
         next();
+      });
+
+      // /academy/:slug is not matched by the "/academy" Vite proxy prefix alone.
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const pathname = raw.split("?")[0] ?? "/";
+        if (!/^\/academy\/[a-z0-9-]+$/.test(pathname)) {
+          next();
+          return;
+        }
+        forwardHttp(req, res, new URL(getDevApiProxyTarget()), next);
       });
 
       server.middlewares.use((req, res, next) => {

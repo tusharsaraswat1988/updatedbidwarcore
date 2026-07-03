@@ -37,6 +37,8 @@ import contactRouter from "./contact";
 import communicationCenterRouter from "./communication-center";
 import adminNotificationsRouter from "./admin-notifications";
 import googleSheetsRouter from "./google-sheets";
+import academyLessonsRouter from "./academy-lessons";
+import academyPublicRouter from "./academy-public";
 
 const router: IRouter = Router();
 
@@ -64,6 +66,8 @@ router.use(sportsRouter);
 router.use(settingsRouter);
 router.use(displayAuctionsRouter);
 router.use(showcaseRouter);
+router.use(academyLessonsRouter);
+router.use(academyPublicRouter);
 router.use(teamReportsRouter);
 router.use(ownerOnboardingRouter);
 router.use(notificationsRouter);

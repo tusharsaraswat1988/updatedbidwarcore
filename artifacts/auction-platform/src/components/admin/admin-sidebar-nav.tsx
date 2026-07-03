@@ -5,6 +5,7 @@ import {
   Building2,
   Gauge,
   Gavel,
+  GraduationCap,
   Image,
   LifeBuoy,
   Mail,
@@ -28,6 +29,10 @@ const tournamentItems: NavItem[] = [
 
 const creativeItems: NavItem[] = [
   { label: "Creative Assets", href: "/admin/creative-assets", icon: Image },
+];
+
+const knowledgeCenterItems: NavItem[] = [
+  { label: "Academy", href: "/admin/knowledge-center/academy", icon: GraduationCap },
 ];
 
 const communicationItems: NavItem[] = [
@@ -121,6 +126,7 @@ export function AdminSidebarNav({
       />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Buzz Studio" items={creativeItems} location={location} onNavigate={onNavigate} />
+      <NavSection label="Knowledge Center" items={knowledgeCenterItems} location={location} onNavigate={onNavigate} />
       {isMaster && (
         <NavSection label="Platform" items={communicationItems} location={location} onNavigate={onNavigate} />
       )}

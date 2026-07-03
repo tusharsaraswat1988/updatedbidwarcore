@@ -19,13 +19,17 @@ import {
 } from "./lib/runtime-env";
 import { getPageMeta } from "./lib/page-meta.js";
 import { isCricketPublicPath, resolveCricketPageMeta } from "./lib/cricket-page-meta.js";
+import { isAcademyPublicPath, resolveAcademyPageMeta } from "./lib/academy-page-meta.js";
+import { trySendAcademyPage } from "./lib/academy-ssr.js";
 import {
   isRegistrationPublicPath,
   resolveRegistrationPageMeta,
 } from "./lib/registration-page-meta.js";
 import {
-  loadIndexHtml,
+  initSpaIndexShell,
   injectPageMeta,
+  isIndexHtmlLoaded,
+  loadIndexHtml,
   sendInjectedHtml,
 } from "./lib/html-meta-injector.js";
 import {
@@ -47,6 +51,33 @@ import {
 const app: Express = express();
 
 const { isProduction: isProd, serveStatic } = getRuntimeConfig();
+
+const auctionDist = path.resolve(__dirname, "../../auction-platform/dist/public");
+const auctionIndexSource = path.resolve(__dirname, "../../auction-platform/index.html");
+
+let academyHtmlRoutesRegistered = false;
+
+function registerAcademyHtmlRoutes(target: Express): void {
+  if (academyHtmlRoutesRegistered) return;
+  if (!isIndexHtmlLoaded()) {
+    logger.warn("Academy HTML routes skipped — SPA index shell not loaded");
+    return;
+  }
+
+  academyHtmlRoutesRegistered = true;
+
+  target.get("/academy", async (_req: express.Request, res: express.Response) => {
+    if (await trySendAcademyPage(res, "/academy")) return;
+    res.status(500).send("Academy page unavailable");
+  });
+
+  target.get("/academy/:slug", async (req: express.Request, res: express.Response) => {
+    if (await trySendAcademyPage(res, req.path)) return;
+    res.status(404).send("Not Found");
+  });
+
+  logger.info("Academy HTML routes registered (/academy, /academy/:slug)");
+}
 
 // Most production setups run behind a reverse proxy.
 // This tells Express to trust the X-Forwarded-For header so that
@@ -149,6 +180,14 @@ app.use("/api", router);
 // ── Crawl assets (robots.txt + sitemaps) — always registered ───────────────
 registerSeoRoutes(app, CANONICAL_HOST);
 
+// SPA shell for meta/SSR injection (built dist, or Vite source index in dev).
+initSpaIndexShell({
+  distDir: auctionDist,
+  sourceIndexPath: auctionIndexSource,
+  preferSource: process.env.SERVE_STATIC !== "true",
+});
+registerAcademyHtmlRoutes(app);
+
 // ── Dynamic branding icons (Google-canonical favicon URLs → DB assets) ────────
 registerBrandingIconRoutes(app);
 
@@ -197,7 +236,6 @@ app.get("/admin.webmanifest", async (_req, res) => {
 if (serveStatic) {
   // __dirname is set by the esbuild banner to the dist/ directory of the bundle.
   // Two levels up from dist/ reaches the artifacts/ root.
-  const auctionDist = path.resolve(__dirname, "../../auction-platform/dist/public");
   const ownerDist   = path.resolve(__dirname, "../../owner-app/dist/public");
   const scoringDist = path.resolve(__dirname, "../../scoring-app/dist/public");
 
@@ -219,6 +257,7 @@ if (serveStatic) {
             "sitemap.xml",
             "sitemap-index.xml",
             "sitemap-pages.xml",
+            "sitemap-academy.xml",
             "sitemap-blog.xml",
             "sitemap-taxonomy.xml",
             "sitemap-images.xml",
@@ -233,8 +272,11 @@ if (serveStatic) {
       },
     };
 
-    // Load the built index.html into memory once for meta injection.
-    loadIndexHtml(auctionDist);
+    // Prefer production build shell when serving static assets.
+    if (!isIndexHtmlLoaded()) {
+      loadIndexHtml(auctionDist);
+    }
+    registerAcademyHtmlRoutes(app);
     logger.info("SEO: page-meta injector loaded");
 
     registerOgImageRoutes(app);
@@ -266,6 +308,13 @@ if (serveStatic) {
       if (!meta && isRegistrationPublicPath(req.path)) {
         try {
           meta = await resolveRegistrationPageMeta(req.path);
+        } catch {
+          meta = null;
+        }
+      }
+      if (!meta && isAcademyPublicPath(req.path)) {
+        try {
+          meta = await resolveAcademyPageMeta(req.path);
         } catch {
           meta = null;
         }

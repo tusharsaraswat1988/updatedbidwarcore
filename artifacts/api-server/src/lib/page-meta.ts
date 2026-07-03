@@ -271,6 +271,25 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     })],
   },
 
+  "/academy": {
+    title: "BidWar Academy — Sports Auction Tutorials & Platform Guides",
+    description:
+      "Free video tutorials and step-by-step guides for running franchise league player auctions with BidWar. Learn auction setup, live bidding, and organiser workflows.",
+    canonical: `${BASE_URL}/academy`,
+    keywords: "sports auction tutorial, cricket auction guide, BidWar academy, player auction training, franchise league auction video",
+    ogTitle: "BidWar Academy — Sports Auction Tutorials",
+    ogDescription:
+      "Video tutorials and guides for franchise league organisers using BidWar's live auction platform.",
+    schemas: [graph(ORGANIZATION_SCHEMA, {
+      "@type": "CollectionPage",
+      "name": "BidWar Academy",
+      "url": `${BASE_URL}/academy`,
+      "description": "Sports auction tutorials and platform walkthroughs for franchise leagues.",
+      "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+      "breadcrumb": breadcrumb("Academy", `${BASE_URL}/academy`),
+    })],
+  },
+
   "/legal": {
     title: "Legal Policies | BidWar Sports Auction Platform",
     description: "Read BidWar legal documents including Terms & Conditions, Privacy Policy, Acceptable Use, Disclaimer, and Refund Policy.",

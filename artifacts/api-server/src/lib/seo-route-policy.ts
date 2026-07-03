@@ -2,7 +2,9 @@ import { BLOG_POSTS_META, getAllBlogUrls, getPostSitemapLastmod } from "@workspa
 import { ALL_PUBLIC_PATHS, BASE_URL, type PageMeta } from "./page-meta.js";
 import { buildCanonical, safeLastmod } from "./seo-canonical.js";
 import { isCricketPublicPath } from "./cricket-page-meta.js";
+import { isAcademyPublicPath } from "./academy-page-meta.js";
 import { isRegistrationPublicPath } from "./registration-page-meta.js";
+import { listPublishedAcademySitemapEntries } from "./academy-public-service.js";
 
 export type RouteDisposition = "indexable" | "noindex-app" | "not-found";
 
@@ -38,6 +40,8 @@ export const ROBOTS_ALLOW_PATHS = [
   "/legal/",
   "/blog",
   "/blog/",
+  "/academy",
+  "/academy/",
   "/sports-auction-software",
   "/cricket-auction-software",
   "/badminton-scoring-software",
@@ -88,6 +92,7 @@ function isPublicContentPath(pathname: string): boolean {
   if (pathname === "/legal") return true;
   if (/^\/legal\/[a-z-]+$/.test(pathname)) return true;
   if (/^\/blog(?:\/|$)/.test(pathname)) return true;
+  if (pathname === "/academy" || /^\/academy\/[a-z0-9-]+$/.test(pathname)) return true;
   return false;
 }
 
@@ -109,6 +114,7 @@ function isKnownNoindexSpaRoute(pathname: string): boolean {
 export function expectsPublicMeta(pathname: string): boolean {
   if (isRegistrationPublicPath(pathname)) return true;
   if (isCricketPublicPath(pathname)) return true;
+  if (isAcademyPublicPath(pathname)) return true;
   return isPublicContentPath(pathname);
 }
 
@@ -367,6 +373,21 @@ export function buildSitemapPages(): string {
   return renderUrlset(urls);
 }
 
+export async function buildSitemapAcademy(): Promise<string> {
+  const today = safeLastmod(new Date())!;
+  let lessonEntries: Awaited<ReturnType<typeof listPublishedAcademySitemapEntries>> = [];
+  try {
+    lessonEntries = await listPublishedAcademySitemapEntries();
+  } catch {
+    // DB unavailable or academy tables not migrated — still emit /academy index URL.
+  }
+  const urls: SitemapEntry[] = [
+    entry(`${BASE_URL}/academy`, "weekly", "0.85", today),
+    ...lessonEntries.map((e) => entry(e.loc, "monthly", "0.75", e.lastmod)),
+  ];
+  return renderUrlset(urls);
+}
+
 export function buildSitemapBlog(): string {
   const today = safeLastmod(new Date())!;
 
@@ -412,6 +433,7 @@ export function buildSitemapIndex(): string {
 
   return renderSitemapIndex([
     { loc: `${BASE_URL}/sitemap-pages.xml`, lastmod: today },
+    { loc: `${BASE_URL}/sitemap-academy.xml`, lastmod: today },
     { loc: `${BASE_URL}/sitemap-blog.xml`, lastmod: today },
     { loc: `${BASE_URL}/sitemap-taxonomy.xml`, lastmod: today },
     { loc: `${BASE_URL}/sitemap-images.xml`, lastmod: today },
@@ -421,15 +443,18 @@ export function buildSitemapIndex(): string {
 /** Child sitemap filenames referenced by the index. */
 export const SITEMAP_CHILD_FILES = [
   "sitemap-pages.xml",
+  "sitemap-academy.xml",
   "sitemap-blog.xml",
   "sitemap-taxonomy.xml",
   "sitemap-images.xml",
 ] as const;
 
-/** All page URLs discoverable via sitemap-index.xml (pages + blog + taxonomy). */
-export function getDiscoverablePageLocs(): string[] {
+/** All page URLs discoverable via sitemap-index.xml (pages + academy + blog + taxonomy). */
+export async function getDiscoverablePageLocs(): Promise<string[]> {
+  const academyLocs = extractSitemapLocs(await buildSitemapAcademy());
   return [
     ...extractSitemapLocs(buildSitemapPages()),
+    ...academyLocs,
     ...extractSitemapLocs(buildSitemapBlog()),
     ...extractSitemapLocs(buildSitemapTaxonomy()),
   ];
@@ -474,19 +499,21 @@ export interface SitemapDiscoveryAudit {
  * Audit sitemap discovery readiness — index references every child sitemap,
  * all public URLs are reachable through the index chain, no duplicates.
  */
-export function auditSitemapDiscovery(
+export async function auditSitemapDiscovery(
   exampleArticleSlug = "franchise-league-software-features-matter-most",
-): SitemapDiscoveryAudit {
+): Promise<SitemapDiscoveryAudit> {
   const blogXml = buildSitemapBlog();
   const taxonomyXml = buildSitemapTaxonomy();
   const pagesXml = buildSitemapPages();
+  const academyXml = await buildSitemapAcademy();
   const imagesXml = buildSitemapImages();
   const indexXml = buildSitemapIndex();
 
-  const combinedLocs = getDiscoverablePageLocs();
+  const combinedLocs = await getDiscoverablePageLocs();
   const blogLocs = extractSitemapLocs(blogXml);
   const taxonomyLocs = extractSitemapLocs(taxonomyXml);
   const pagesLocs = extractSitemapLocs(pagesXml);
+  const academyLocs = extractSitemapLocs(academyXml);
   const indexChildLocs = extractSitemapLocs(indexXml);
 
   const expectedChildLocs = SITEMAP_CHILD_FILES.map((file) => `${BASE_URL}/${file}`);
@@ -497,6 +524,7 @@ export function auditSitemapDiscovery(
     ...findDuplicateLocs(blogLocs),
     ...findDuplicateLocs(taxonomyLocs),
     ...findDuplicateLocs(pagesLocs),
+    ...findDuplicateLocs(academyLocs),
   ];
 
   const articleCanonicals = BLOG_POSTS_META.map((p) => p.canonical);
@@ -511,6 +539,7 @@ export function auditSitemapDiscovery(
   const validXml =
     pagesXml.startsWith("<?xml") &&
     blogXml.includes("urlset") &&
+    academyXml.includes("urlset") &&
     taxonomyXml.includes("urlset") &&
     imagesXml.includes("urlset") &&
     indexXml.includes("sitemapindex") &&

@@ -16,7 +16,7 @@
  *   <!-- PAGE_SCHEMA_START --> ... <!-- PAGE_SCHEMA_END -->
  */
 
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { injectBrandingIconsIntoHtml } from "@workspace/api-base/branding-icon-head";
 import type { PageMeta } from "./page-meta.js";
@@ -36,11 +36,37 @@ function esc(str: string): string {
 // ─── Load / cache the built index.html ───────────────────────────────────────
 
 export function loadIndexHtml(distDir: string): void {
+  loadIndexHtmlFile(path.join(distDir, "index.html"));
+}
+
+export function loadIndexHtmlFile(filePath: string): void {
   try {
-    cachedHtml = readFileSync(path.join(distDir, "index.html"), "utf-8");
+    cachedHtml = readFileSync(filePath, "utf-8");
   } catch {
     cachedHtml = null;
   }
+}
+
+/** Load built index.html when available; fall back to Vite source index in dev. */
+export function initSpaIndexShell(options: {
+  distDir: string;
+  sourceIndexPath?: string;
+  /** In dev (Vite), prefer source index so module paths match the dev server. */
+  preferSource?: boolean;
+}): boolean {
+  if (options.preferSource && options.sourceIndexPath && existsSync(options.sourceIndexPath)) {
+    loadIndexHtmlFile(options.sourceIndexPath);
+    return cachedHtml !== null;
+  }
+  const builtIndex = path.join(options.distDir, "index.html");
+  if (existsSync(builtIndex)) {
+    loadIndexHtmlFile(builtIndex);
+    return cachedHtml !== null;
+  }
+  if (options.sourceIndexPath && existsSync(options.sourceIndexPath)) {
+    loadIndexHtmlFile(options.sourceIndexPath);
+  }
+  return cachedHtml !== null;
 }
 
 export function isIndexHtmlLoaded(): boolean {
@@ -191,6 +217,42 @@ export function injectSsrHomepageDocument(
   return html.replace(
     '<script type="module"',
     `${initialScript}\n    ${queryScript}\n    <script type="module"`,
+  );
+}
+
+/** Academy pages ship inline SSR styles — defer the full app stylesheet so LCP is not blocked. */
+function deferStylesheetLinks(html: string): string {
+  return html.replace(
+    /<link rel="stylesheet" crossorigin href="(\/assets\/[^"]+\.css)">/g,
+    '<link rel="preload" as="style" href="$1" crossorigin onload="this.onload=null;this.rel=\'stylesheet\'"><noscript><link rel="stylesheet" crossorigin href="$1"></noscript>',
+  );
+}
+
+/** Inject crawlable academy markup + hydration payload for /academy routes. */
+export function injectAcademySsrDocument(
+  shellHtml: string,
+  rootMarkup: string,
+  academyData: unknown,
+  headHints = "",
+): string {
+  const academyScript = `<script>window.__BIDWAR_ACADEMY_DATA__=${serializeForScript(academyData)}</script>`;
+  const ssrStyles = `<style>#root:empty{display:none}#academy-ssr-fallback+#root{position:absolute;inset:0;background:#09090b}.academy-ssr{font-family:system-ui,sans-serif;color:#fafafa;background:#09090b;padding:2rem;max-width:72rem;margin:0 auto;line-height:1.6}.academy-ssr a{color:#facc15}.academy-ssr-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}.academy-ssr-card{border:1px solid #27272a;border-radius:.75rem;padding:1rem}.academy-ssr-card img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:.5rem;height:auto}.academy-ssr-featured img{width:100%;max-height:420px;object-fit:cover;border-radius:.75rem}.academy-ssr-ep{font-size:.75rem;color:#a1a1aa}.academy-ssr-cat{font-size:.875rem;color:#d4d4d8}.academy-ssr-meta{font-size:.75rem;color:#a1a1aa}.academy-ssr-desc{font-size:.875rem;color:#a1a1aa}</style>`;
+
+  let html = deferStylesheetLinks(shellHtml);
+  if (headHints) {
+    html = html.replace("</head>", `    ${headHints}\n  </head>`);
+  }
+  if (ROOT_BEFORE_BODY_RE.test(html)) {
+    // Keep SSR outside #root so createRoot() does not wipe the LCP hero before React mounts.
+    html = html.replace(
+      ROOT_BEFORE_BODY_RE,
+      `<div id="academy-ssr-fallback">${ssrStyles}${rootMarkup}</div>\n    <div id="root"></div>`,
+    );
+  }
+
+  return html.replace(
+    '<script type="module"',
+    `${academyScript}\n    <script type="module"`,
   );
 }
 

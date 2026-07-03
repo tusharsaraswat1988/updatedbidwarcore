@@ -660,3 +660,193 @@ export async function seedDisplayAuctions(): Promise<{ seeded: number; static: n
     return r.json();
   } catch { return null; }
 }
+
+// ─── Knowledge Center → Academy ───────────────────────────────────────────────
+
+export type AcademyCategoryRow = {
+  id: number;
+  name: string;
+  slug: string;
+  displayOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademyLessonRow = {
+  id: number;
+  episodeNumber: number;
+  title: string;
+  slug: string;
+  shortDescription: string | null;
+  content: string | null;
+  contentFormat: "plain" | "markdown" | "html";
+  youtubeUrl: string | null;
+  youtubeVideoId: string | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  status: "draft" | "published" | "archived";
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademyLessonInput = {
+  episodeNumber: number;
+  title: string;
+  slug?: string;
+  shortDescription?: string | null;
+  content?: string | null;
+  contentFormat?: "plain" | "markdown" | "html";
+  youtubeUrl?: string | null;
+  categoryId?: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  status?: "draft" | "published" | "archived";
+  displayOrder?: number;
+};
+
+export async function listAcademyCategories(): Promise<AcademyCategoryRow[]> {
+  try {
+    const r = await apiFetch("/auth/admin/knowledge-center/academy/categories");
+    if (!r.ok) return [];
+    return r.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createAcademyCategory(data: {
+  name: string;
+  slug?: string;
+  displayOrder?: number;
+}): Promise<{ success: boolean; row?: AcademyCategoryRow; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/admin/knowledge-center/academy/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Create failed" };
+    return { success: true, row: d };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function updateAcademyCategory(
+  id: number,
+  data: Partial<{ name: string; slug: string; displayOrder: number; active: boolean }>,
+): Promise<{ success: boolean; row?: AcademyCategoryRow; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/categories/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Update failed" };
+    return { success: true, row: d };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function listAcademyLessons(includeArchived = false): Promise<AcademyLessonRow[]> {
+  try {
+    const q = includeArchived ? "?includeArchived=true" : "";
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/lessons${q}`);
+    if (!r.ok) return [];
+    return r.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function getAcademyLesson(id: number): Promise<AcademyLessonRow | null> {
+  try {
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/lessons/${id}`);
+    if (!r.ok) return null;
+    return r.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getNextAcademyEpisodeNumber(): Promise<number> {
+  try {
+    const r = await apiFetch("/auth/admin/knowledge-center/academy/lessons-meta/next-episode");
+    if (!r.ok) return 1;
+    const d = await r.json();
+    return d.nextEpisodeNumber ?? 1;
+  } catch {
+    return 1;
+  }
+}
+
+export async function createAcademyLesson(
+  data: AcademyLessonInput,
+): Promise<{ success: boolean; row?: AcademyLessonRow; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/admin/knowledge-center/academy/lessons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Create failed" };
+    return { success: true, row: d };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function updateAcademyLesson(
+  id: number,
+  data: Partial<AcademyLessonInput>,
+): Promise<{ success: boolean; row?: AcademyLessonRow; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/lessons/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Update failed" };
+    return { success: true, row: d };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+/** Soft-delete: archives the lesson (status → archived). */
+export async function archiveAcademyLesson(id: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/lessons/${id}`, { method: "DELETE" });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      return { success: false, error: d.error || "Archive failed" };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function duplicateAcademyLesson(
+  id: number,
+): Promise<{ success: boolean; row?: AcademyLessonRow; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/knowledge-center/academy/lessons/${id}/duplicate`, {
+      method: "POST",
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return { success: false, error: d.error || "Duplicate failed" };
+    return { success: true, row: d as AcademyLessonRow };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}

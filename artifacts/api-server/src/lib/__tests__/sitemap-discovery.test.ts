@@ -12,6 +12,10 @@ vi.mock("../registration-page-meta.js", () => ({
   isRegistrationPublicPath: () => false,
 }));
 
+vi.mock("../academy-public-service.js", () => ({
+  listPublishedAcademySitemapEntries: async () => [],
+}));
+
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { BASE_URL, getPageMeta } from "../page-meta.js";
 import {
@@ -40,8 +44,8 @@ describe("sitemap discovery audit", () => {
     expect(robots).not.toMatch(/Sitemap: \/sitemap/);
   });
 
-  it("auditSitemapDiscovery passes for the full site", () => {
-    const audit = auditSitemapDiscovery();
+  it("auditSitemapDiscovery passes for the full site", async () => {
+    const audit = await auditSitemapDiscovery();
 
     expect(audit.validXml).toBe(true);
     expect(audit.includesHomepage).toBe(true);
@@ -73,8 +77,8 @@ describe("sitemap discovery audit", () => {
     expect(new Set(blogArticleLocs).size).toBe(BLOG_POSTS_META.length);
   });
 
-  it("sitemap URLs match page canonical and og:url for blog articles", () => {
-    const combined = getDiscoverablePageLocs();
+  it("sitemap URLs match page canonical and og:url for blog articles", async () => {
+    const combined = await getDiscoverablePageLocs();
     for (const post of BLOG_POSTS_META) {
       const meta = getPageMeta(`/blog/${post.slug}`);
       expect(meta?.canonical).toBe(post.canonical);
@@ -91,9 +95,9 @@ describe("sitemap discovery audit", () => {
     expect(extractSitemapLocs(index)).toHaveLength(SITEMAP_CHILD_FILES.length);
   });
 
-  it("franchise-league example article is reachable through the index chain", () => {
+  it("franchise-league example article is reachable through the index chain", async () => {
     const url = `${BASE_URL}/blog/franchise-league-software-features-matter-most`;
-    const combined = getDiscoverablePageLocs();
+    const combined = await getDiscoverablePageLocs();
     expect(combined.filter((l) => l === url)).toHaveLength(1);
   });
 });
