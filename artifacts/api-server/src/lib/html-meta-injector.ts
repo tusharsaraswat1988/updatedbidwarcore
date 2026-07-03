@@ -20,8 +20,12 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { injectBrandingIconsIntoHtml } from "@workspace/api-base/branding-icon-head";
 import type { PageMeta } from "./page-meta.js";
+import { logger } from "./logger.js";
 
 let cachedHtml: string | null = null;
+let loadedIndexPath: string | null = null;
+
+export type SpaIndexMode = "production" | "development";
 
 // ─── HTML escape helper ───────────────────────────────────────────────────────
 
@@ -42,31 +46,73 @@ export function loadIndexHtml(distDir: string): void {
 export function loadIndexHtmlFile(filePath: string): void {
   try {
     cachedHtml = readFileSync(filePath, "utf-8");
+    loadedIndexPath = filePath;
   } catch {
     cachedHtml = null;
+    loadedIndexPath = null;
   }
 }
 
-/** Load built index.html when available; fall back to Vite source index in dev. */
+function loadIndexHtmlFileOrThrow(filePath: string): void {
+  if (!existsSync(filePath)) {
+    throw new Error(`SPA index shell not found at:\n  ${filePath}`);
+  }
+  let html: string;
+  try {
+    html = readFileSync(filePath, "utf-8");
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to read SPA index shell at:\n  ${filePath}\n${detail}`);
+  }
+  if (!html.trim()) {
+    throw new Error(`SPA index shell at ${filePath} is empty`);
+  }
+  cachedHtml = html;
+  loadedIndexPath = filePath;
+}
+
+function logSpaIndexMode(mode: SpaIndexMode, indexPath: string): void {
+  const label =
+    mode === "production"
+      ? "SPA Mode: Production (Built Index)"
+      : "SPA Mode: Development (Source Index)";
+  logger.info({ mode, indexPath }, label);
+}
+
+/**
+ * Bootstrap the SPA HTML shell used for meta/SSR injection.
+ *
+ * Two explicit modes — no hybrid fallback:
+ * - Production (`serveStatic`): built dist/public/index.html only
+ * - Development (!`serveStatic`): Vite source index.html only (Vite dev server serves assets)
+ */
 export function initSpaIndexShell(options: {
   distDir: string;
-  sourceIndexPath?: string;
-  /** In dev (Vite), prefer source index so module paths match the dev server. */
-  preferSource?: boolean;
-}): boolean {
-  if (options.preferSource && options.sourceIndexPath && existsSync(options.sourceIndexPath)) {
-    loadIndexHtmlFile(options.sourceIndexPath);
-    return cachedHtml !== null;
-  }
+  sourceIndexPath: string;
+  /** Resolved runtime flag: true when this process serves pre-built static assets. */
+  serveStatic: boolean;
+}): void {
   const builtIndex = path.join(options.distDir, "index.html");
-  if (existsSync(builtIndex)) {
-    loadIndexHtmlFile(builtIndex);
-    return cachedHtml !== null;
+
+  if (options.serveStatic) {
+    loadIndexHtmlFileOrThrow(builtIndex);
+    logSpaIndexMode("production", builtIndex);
+    return;
   }
-  if (options.sourceIndexPath && existsSync(options.sourceIndexPath)) {
-    loadIndexHtmlFile(options.sourceIndexPath);
-  }
-  return cachedHtml !== null;
+
+  loadIndexHtmlFileOrThrow(options.sourceIndexPath);
+  logSpaIndexMode("development", options.sourceIndexPath);
+}
+
+/** Absolute path to the index.html shell loaded at startup. */
+export function getSpaIndexShellPath(): string | null {
+  return loadedIndexPath;
+}
+
+/** Test hook: reset cached SPA shell between tests. */
+export function resetSpaIndexShellForTests(): void {
+  cachedHtml = null;
+  loadedIndexPath = null;
 }
 
 export function isIndexHtmlLoaded(): boolean {
