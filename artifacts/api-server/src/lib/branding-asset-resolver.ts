@@ -16,11 +16,13 @@ import {
   BRANDING_LOGO_PATHS,
   BRANDING_ICON_STATIC_FALLBACKS,
   BRANDING_LOGO_STATIC_FALLBACKS,
+  isFaviconPipelineComplete,
   type BrandingIconPath,
   type BrandingLogoPath,
 } from "@workspace/api-base/branding-assets";
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
 import { getAsset } from "./branding-service.js";
+import { coerceFaviconPipelineMetadata } from "./favicon-pipeline.js";
 import { fetchImageBuffer } from "./pdf-branding.js";
 import { patchBrandingIconsInCachedHtml } from "./html-meta-injector.js";
 import { logger } from "./logger.js";
@@ -147,9 +149,48 @@ function loadStaticIconFallback(iconPath: BrandingIconPath): IconCacheEntry | nu
   return loadStaticAssetFallback(iconPath, BRANDING_ICON_STATIC_FALLBACKS[iconPath]);
 }
 
+async function resolveFaviconGeneratedUrl(
+  pathname: string,
+): Promise<ResolvedBrandingIcon | null> {
+  const favicon = await getAsset("FAVICON");
+  if (!favicon?.fileUrl) return null;
+
+  const pipeline = coerceFaviconPipelineMetadata(favicon.metadataJson);
+  if (!isFaviconPipelineComplete(pipeline, favicon.version)) return null;
+
+  const generated = pipeline!.generated!;
+  let variant: { url: string; width: number; height: number } | undefined;
+  let mimeType = "image/png";
+
+  switch (pathname) {
+    case BRANDING_ICON_PATHS.favicon32:
+    case BRANDING_ICON_PATHS.favicon32x32:
+      variant = generated["32"];
+      break;
+    case BRANDING_ICON_PATHS.faviconIco:
+      variant = generated.ico;
+      mimeType = "image/x-icon";
+      break;
+    default:
+      return null;
+  }
+
+  if (!variant?.url) return null;
+
+  return {
+    assetType: "FAVICON",
+    fileUrl: variant.url,
+    mimeType,
+    version: favicon.version,
+  };
+}
+
 export async function resolveBrandingIconForPath(
   pathname: string,
 ): Promise<ResolvedBrandingIcon | null> {
+  const generatedFavicon = await resolveFaviconGeneratedUrl(pathname);
+  if (generatedFavicon) return generatedFavicon;
+
   switch (pathname) {
     case BRANDING_ICON_PATHS.faviconIco:
     case BRANDING_ICON_PATHS.favicon32:

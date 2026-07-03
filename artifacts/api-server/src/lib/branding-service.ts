@@ -4,6 +4,7 @@ import { brandingAssetsTable, brandingSettingsTable } from "@workspace/db/schema
 import {
   type BrandingAssetRecord,
   type BrandingAssetType,
+  type FaviconPipelineMetadata,
   ASSET_TYPE_TO_LEGACY_COLUMN,
   LEGACY_ASSET_COLUMN_MAP,
   isBrandingAssetType,
@@ -13,6 +14,12 @@ import { fetchImageBuffer } from "./pdf-branding.js";
 import { commitCloudinaryImageWrite, destroyCloudinaryAssetSafe } from "./cloudinary-media-service";
 import { resolveCloudinaryPublicId } from "@workspace/api-base/cloudinary-media";
 import { getBrandingIconCacheVersion } from "./branding-asset-resolver.js";
+import {
+  coerceFaviconPipelineMetadata,
+  initialFaviconPipelineMetadata,
+  needsFaviconPipelineRun,
+  runFaviconPipeline,
+} from "./favicon-pipeline.js";
 
 /** In-memory cache for SSR-critical branding (refreshed at startup + on asset changes). */
 let cachedOpenGraphImageUrl: string | null = null;
@@ -51,9 +58,39 @@ function toRecord(row: typeof brandingAssetsTable.$inferSelect): BrandingAssetRe
     fileSize: row.fileSize,
     version: row.version,
     isActive: row.isActive,
+    metadataJson: coerceFaviconPipelineMetadata(row.metadataJson),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+async function persistFaviconPipelineMetadata(
+  assetId: number,
+  metadata: FaviconPipelineMetadata,
+): Promise<void> {
+  await db
+    .update(brandingAssetsTable)
+    .set({
+      metadataJson: metadata,
+      updatedAt: new Date(),
+    })
+    .where(eq(brandingAssetsTable.id, assetId));
+}
+
+async function runFaviconPipelineForRow(
+  row: typeof brandingAssetsTable.$inferSelect,
+): Promise<FaviconPipelineMetadata> {
+  const previous = coerceFaviconPipelineMetadata(row.metadataJson);
+  const pending = initialFaviconPipelineMetadata(row.version);
+  await persistFaviconPipelineMetadata(row.id, pending);
+
+  const result = await runFaviconPipeline({
+    sourceUrl: row.fileUrl,
+    sourceVersion: row.version,
+    previousMetadata: previous,
+  });
+  await persistFaviconPipelineMetadata(row.id, result);
+  return result;
 }
 
 /** Sync a single asset URL back to legacy branding_settings columns. */
@@ -105,6 +142,38 @@ export async function getAllAssets(): Promise<BrandingAssetRecord[]> {
   return rows.map(toRecord);
 }
 
+/**
+ * Backfill favicon generation for uploads saved before the pipeline existed.
+ * Safe to call repeatedly — skips assets that already completed for their version.
+ */
+export async function repairFaviconPipelineIfNeeded(
+  asset: BrandingAssetRecord,
+): Promise<BrandingAssetRecord> {
+  if (asset.assetType !== "FAVICON" || !asset.fileUrl || !asset.isActive) {
+    return asset;
+  }
+
+  const metadata = coerceFaviconPipelineMetadata(asset.metadataJson);
+  if (!needsFaviconPipelineRun(asset.version, metadata)) {
+    return asset;
+  }
+
+  const [row] = await db
+    .select()
+    .from(brandingAssetsTable)
+    .where(eq(brandingAssetsTable.id, asset.id))
+    .limit(1);
+
+  if (!row?.fileUrl) return asset;
+
+  const result = await runFaviconPipelineForRow(row);
+  return {
+    ...asset,
+    metadataJson: result,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export async function getAssetsMap(): Promise<Partial<Record<BrandingAssetType, BrandingAssetRecord>>> {
   const assets = await getAllAssets();
   const map: Partial<Record<BrandingAssetType, BrandingAssetRecord>> = {};
@@ -114,16 +183,20 @@ export async function getAssetsMap(): Promise<Partial<Record<BrandingAssetType, 
   return map;
 }
 
+export async function getAdminAssetsMap(): Promise<Partial<Record<BrandingAssetType, BrandingAssetRecord>>> {
+  const map = await getAssetsMap();
+  const favicon = map.FAVICON;
+  if (favicon) {
+    map.FAVICON = await repairFaviconPipelineIfNeeded(favicon);
+  }
+  return map;
+}
+
 export async function upsertAsset(input: UpsertAssetInput): Promise<{
   asset: BrandingAssetRecord;
   warnings: ReturnType<typeof validateBrandingAssetUpload>;
 }> {
   const now = new Date();
-  const warnings = validateBrandingAssetUpload(input.assetType, {
-    width: input.width ?? null,
-    height: input.height ?? null,
-    mimeType: input.mimeType ?? null,
-  });
 
   const [existing] = await db
     .select()
@@ -143,6 +216,11 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
       publicId: input.filePublicId ?? null,
     },
     persist: async () => {
+      const pipelineSeed =
+        input.assetType === "FAVICON"
+          ? initialFaviconPipelineMetadata((existing?.version ?? 0) + 1)
+          : null;
+
       if (existing) {
         [row] = await db
           .update(brandingAssetsTable)
@@ -156,6 +234,7 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
             fileSize: input.fileSize ?? null,
             version: existing.version + 1,
             isActive: true,
+            metadataJson: input.assetType === "FAVICON" ? pipelineSeed : existing.metadataJson,
             updatedAt: now,
           })
           .where(eq(brandingAssetsTable.id, existing.id))
@@ -174,6 +253,7 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
             fileSize: input.fileSize ?? null,
             version: 1,
             isActive: true,
+            metadataJson: pipelineSeed,
             updatedAt: now,
           })
           .returning();
@@ -181,6 +261,25 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
     },
     context: { route: "branding.upsertAsset", assetType: input.assetType },
   });
+
+  let pipelineMetadata: FaviconPipelineMetadata | null =
+    input.assetType === "FAVICON" ? coerceFaviconPipelineMetadata(row.metadataJson) : null;
+
+  if (input.assetType === "FAVICON") {
+    pipelineMetadata = await runFaviconPipelineForRow(row);
+    const [fresh] = await db
+      .select()
+      .from(brandingAssetsTable)
+      .where(eq(brandingAssetsTable.id, row.id))
+      .limit(1);
+    if (fresh) row = fresh;
+  }
+
+  const warnings = validateBrandingAssetUpload(input.assetType, {
+    width: input.width ?? null,
+    height: input.height ?? null,
+    mimeType: input.mimeType ?? null,
+  }, pipelineMetadata);
 
   if (ASSET_TYPE_TO_LEGACY_COLUMN[input.assetType]) {
     await syncLegacyColumn(input.assetType, input.fileUrl);
@@ -218,6 +317,7 @@ export async function removeAsset(assetType: BrandingAssetType): Promise<void> {
       isActive: false,
       fileUrl: "",
       filePublicId: null,
+      metadataJson: null,
       updatedAt: new Date(),
     })
     .where(eq(brandingAssetsTable.id, existing.id));
@@ -368,9 +468,11 @@ export const brandingService = {
   getAsset,
   getAllAssets,
   getAssetsMap,
+  getAdminAssetsMap,
   upsertAsset,
   removeAsset,
   migrateLegacyBrandingAssets,
+  repairFaviconPipelineIfNeeded,
   mergeLegacyAssetFields,
   getPublicBrandingPayload,
   refreshPlatformBrandingCache,

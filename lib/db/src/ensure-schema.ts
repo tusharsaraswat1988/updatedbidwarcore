@@ -285,6 +285,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE badminton_players ADD COLUMN IF NOT EXISTS photo_public_id text;
     ALTER TABLE badminton_players ADD COLUMN IF NOT EXISTS flag_public_id text;
     ALTER TABLE branding_assets ADD COLUMN IF NOT EXISTS file_public_id text;
+    ALTER TABLE branding_assets ADD COLUMN IF NOT EXISTS metadata_json jsonb;
     ALTER TABLE showcase_events ADD COLUMN IF NOT EXISTS image_public_id text;
     ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS photo_override_public_id text;
     ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS sub_category text;
