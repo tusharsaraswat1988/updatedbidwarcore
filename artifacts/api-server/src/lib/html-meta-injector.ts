@@ -52,7 +52,6 @@ export function isIndexHtmlLoaded(): boolean {
 function buildMetaBlock(meta: PageMeta): string {
   const title = esc(meta.title);
   const desc = esc(meta.description);
-  const canonical = esc(meta.canonical);
   const ogTitle = esc(meta.ogTitle ?? meta.title);
   const ogDesc = esc(meta.ogDescription ?? meta.description);
   const ogImage = meta.ogImage ? esc(meta.ogImage) : null;
@@ -60,6 +59,12 @@ function buildMetaBlock(meta: PageMeta): string {
   const twitterDesc = esc(meta.twitterDescription ?? meta.ogDescription ?? meta.description);
   const robots = esc(meta.robots ?? "index, follow");
   const keywords = meta.keywords ? `\n    <meta name="keywords" content="${esc(meta.keywords)}" />` : "";
+  const canonicalTags = meta.omitCanonical || !meta.canonical
+    ? ""
+    : `\n    <link rel="canonical" href="${esc(meta.canonical)}" />`;
+  const ogUrlTag = meta.omitCanonical || !meta.canonical
+    ? ""
+    : `\n    <meta property="og:url" content="${esc(meta.canonical)}" />`;
   const ogImageTags = ogImage
     ? `\n    <meta property="og:image" content="${ogImage}" />
     <meta property="og:image:width" content="1200" />
@@ -71,13 +76,11 @@ function buildMetaBlock(meta: PageMeta): string {
     <title>${title}</title>
     <meta name="description" content="${desc}" />${keywords}
     <meta name="robots" content="${robots}" />
-    <meta name="author" content="BidWar" />
-    <link rel="canonical" href="${canonical}" />
+    <meta name="author" content="BidWar" />${canonicalTags}
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="BidWar" />
     <meta property="og:title" content="${ogTitle}" />
-    <meta property="og:description" content="${ogDesc}" />
-    <meta property="og:url" content="${canonical}" />${ogImageTags}
+    <meta property="og:description" content="${ogDesc}" />${ogUrlTag}${ogImageTags}
     <meta property="og:locale" content="en_IN" />
     <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}" />
     <meta name="twitter:site" content="@bidwar_in" />
@@ -118,9 +121,37 @@ export function getSpaIndexHtml(): string | null {
   return cachedHtml;
 }
 
-export function sendSpaIndexHtml(res: { setHeader: (k: string, v: string) => void; send: (body: string) => void }): boolean {
+export function sendSpaIndexHtml(res: {
+  status?: (code: number) => typeof res;
+  setHeader: (k: string, v: string) => void;
+  send: (body: string) => void;
+}): boolean {
   const html = getSpaIndexHtml();
   if (!html) return false;
+  if (typeof res.status === "function") {
+    res.status(200);
+  }
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.send(html);
+  return true;
+}
+
+type HtmlResponse = {
+  status: (code: number) => HtmlResponse;
+  setHeader: (key: string, value: string) => void;
+  send: (body: string) => void;
+};
+
+/** Send HTML with injected page meta and an explicit HTTP status code. */
+export function sendInjectedHtml(
+  res: HtmlResponse,
+  meta: PageMeta,
+  statusCode = 200,
+): boolean {
+  const html = injectPageMeta(meta);
+  if (!html) return false;
+  res.status(statusCode);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.send(html);

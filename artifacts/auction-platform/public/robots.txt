@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# ── Block authenticated/private app pages ───────────────────────────────────
+# Block authenticated/private app pages
 Disallow: /tournament/
 Disallow: /admin/
 Disallow: /admin
@@ -11,15 +11,19 @@ Disallow: /complete-profile
 Disallow: /wa-consent/
 Disallow: /api/
 Disallow: /live/
+Disallow: /dashboard
+Disallow: /owner-app/
+Disallow: /scoring-app/
 
-# ── Core marketing pages ──────────────────────────────────────────────────────
+# Core marketing pages
 Allow: /upcoming-auctions
 Allow: /contact
+Allow: /auction-tips
 Allow: /legal/
 Allow: /blog
 Allow: /blog/
 
-# ── Commercial SEO landing pages ──────────────────────────────────────────────
+# Commercial SEO landing pages
 Allow: /sports-auction-software
 Allow: /cricket-auction-software
 Allow: /badminton-scoring-software
@@ -36,4 +40,4 @@ Allow: /esports-auction-system
 Allow: /business-league-auction
 Allow: /live-player-bidding
 
-Sitemap: https://bidwar.in/sitemap.xml
+Sitemap: https://bidwar.in/sitemap-index.xml

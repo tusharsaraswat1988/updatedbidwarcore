@@ -182,7 +182,10 @@ export interface RegistrationMetaFields {
 export interface PageMeta {
   title: string;
   description: string;
-  canonical: string;
+  /** When omitted and omitCanonical is not set, canonical is still emitted from this value. */
+  canonical?: string;
+  /** When true, no <link rel="canonical"> is emitted (404 and private app pages). */
+  omitCanonical?: boolean;
   robots?: string;
   keywords?: string;
   ogTitle?: string;
@@ -238,6 +241,23 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       "url": `${BASE_URL}/contact`,
       "description": "Contact the BidWar team for sports auction software support, demos, and pricing.",
       "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+    })],
+  },
+
+  "/auction-tips": {
+    title: "Sports Auction Tips & Best Practices | BidWar",
+    description: "Expert tips for running successful IPL-style sports player auctions — purse planning, category setup, LED display, owner panels, and auction-day checklist.",
+    canonical: `${BASE_URL}/auction-tips`,
+    keywords: "sports auction tips, cricket auction guide, player auction best practices, franchise auction checklist, auction day tips India",
+    ogTitle: "Sports Auction Tips & Best Practices | BidWar",
+    ogDescription: "Practical auction tips for organizers running franchise player auctions with BidWar.",
+    schemas: [graph(ORGANIZATION_SCHEMA, {
+      "@type": "WebPage",
+      "name": "Sports Auction Tips",
+      "url": `${BASE_URL}/auction-tips`,
+      "description": "Tips and best practices for running live sports player auctions.",
+      "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+      "breadcrumb": breadcrumb("Auction Tips", `${BASE_URL}/auction-tips`),
     })],
   },
 
@@ -573,15 +593,13 @@ export function getPageMeta(pathname: string): PageMeta | null {
   const seoMatch = SEO_LANDING_PAGES[pathname];
   if (seoMatch) return withPlatformOgImage(seoMatch);
 
-  // Pattern match for /legal/:slug
-  if (/^\/legal\/[a-z-]+$/.test(pathname)) {
-    return withPlatformOgImage({
-      title: "Legal | BidWar Sports Auction Platform",
-      description: "BidWar legal policies and terms governing use of the auction platform.",
-      canonical: `${BASE_URL}${pathname}`,
-      robots: "noindex, follow",
-      schemas: [],
-    });
+  // Pattern match for /legal/:slug — unknown slugs return null (404)
+  const legalMatch = pathname.match(/^\/legal\/([a-z-]+)$/);
+  if (legalMatch) {
+    const slug = legalMatch[1]!;
+    const knownLegal = STATIC_PAGES[`/legal/${slug}`];
+    if (knownLegal) return withPlatformOgImage(knownLegal);
+    return null;
   }
 
   // ── Blog pages ──────────────────────────────────────────────────────────────

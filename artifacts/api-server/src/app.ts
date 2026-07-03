@@ -24,7 +24,24 @@ import {
   resolveRegistrationPageMeta,
 } from "./lib/registration-page-meta.js";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
-import { loadIndexHtml, injectPageMeta, sendSpaIndexHtml } from "./lib/html-meta-injector.js";
+import {
+  loadIndexHtml,
+  injectPageMeta,
+  sendInjectedHtml,
+} from "./lib/html-meta-injector.js";
+import {
+  buildLegacySitemapXml,
+  buildRobotsTxt,
+  buildSitemapBlog,
+  buildSitemapImages,
+  buildSitemapIndex,
+  buildSitemapPages,
+  buildSitemapTaxonomy,
+  classifyRoute,
+  expectsPublicMeta,
+  getNotFoundPageMeta,
+  getPrivatePageMeta,
+} from "./lib/seo-route-policy.js";
 import { registerOgImageRoutes } from "./routes/og-images.js";
 import { trySendHomepageSsr } from "./lib/homepage-ssr.js";
 import { registerBrandingIconRoutes } from "./lib/branding-asset-resolver.js";
@@ -200,7 +217,16 @@ if (serveStatic) {
           // Never apply immutable cache to files that are not content-hashed.
           // robots.txt, sitemap.xml, site.webmanifest, and index.html must
           // always be re-fetched so crawlers pick up changes promptly.
-          const noCacheFiles = new Set(["index.html", "robots.txt", "sitemap.xml"]);
+          const noCacheFiles = new Set([
+            "index.html",
+            "robots.txt",
+            "sitemap.xml",
+            "sitemap-index.xml",
+            "sitemap-pages.xml",
+            "sitemap-blog.xml",
+            "sitemap-taxonomy.xml",
+            "sitemap-images.xml",
+          ]);
           if (noCacheFiles.has(base) || base.endsWith(".webmanifest")) {
             res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
           } else {
@@ -247,11 +273,17 @@ if (serveStatic) {
           meta = null;
         }
       }
+
+      if (!meta && expectsPublicMeta(req.path)) {
+        return sendInjectedHtml(res, getNotFoundPageMeta(), 404) || next();
+      }
+
       if (!meta) return next();
 
       const html = injectPageMeta(meta);
       if (!html) return next();
 
+      res.status(200);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       return res.send(html);
@@ -264,111 +296,24 @@ if (serveStatic) {
     // enough to avoid hammering the server on every crawl.
     app.get("/robots.txt", (_req: express.Request, res: express.Response) => {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      // Keep robots unambiguous for crawlers:
-      // - no-store avoids stale intermediary cache responses during re-crawls
-      // - must-revalidate forces fresh validation at each fetch
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-      res.send([
-        "User-agent: *",
-        "Allow: /",
-        "",
-        "# Block authenticated/private app pages",
-        "Disallow: /tournament/",
-        "Disallow: /admin/",
-        "Disallow: /admin",
-        "Disallow: /organizer",
-        "Disallow: /organizer/",
-        "Disallow: /complete-profile",
-        "Disallow: /wa-consent/",
-        "Disallow: /api/",
-        "Disallow: /live/",
-        "",
-        "# Core marketing pages",
-        "Allow: /upcoming-auctions",
-        "Allow: /contact",
-        "Allow: /legal/",
-        "Allow: /blog",
-        "Allow: /blog/",
-        "",
-        "# Commercial SEO landing pages",
-        "Allow: /sports-auction-software",
-        "Allow: /cricket-auction-software",
-        "Allow: /badminton-scoring-software",
-        "Allow: /franchise-auction-software",
-        "Allow: /player-auction-software",
-        "Allow: /sports-league-management-software",
-        "Allow: /football-player-auction",
-        "Allow: /kabaddi-auction-platform",
-        "Allow: /tournament-auction-platform",
-        "Allow: /basketball-auction-software",
-        "Allow: /badminton-auction-platform",
-        "Allow: /volleyball-player-auction",
-        "Allow: /esports-auction-system",
-        "Allow: /business-league-auction",
-        "Allow: /live-player-bidding",
-        "",
-        `Sitemap: https://${CANONICAL_HOST}/sitemap.xml`,
-      ].join("\n"));
+      res.send(buildRobotsTxt(CANONICAL_HOST));
     });
 
-    // ── Dynamic sitemap ───────────────────────────────────────────────────────
-    // Dynamically generated XML sitemap that includes marketing pages AND all
-    // blog posts, category pages, and author pages from @workspace/blog-data.
-    app.get("/sitemap.xml", (_req: express.Request, res: express.Response) => {
-      const today = new Date().toISOString().slice(0, 10);
-
-      type SitemapEntry = { loc: string; changefreq: string; priority: string; lastmod?: string };
-
-      const urls: SitemapEntry[] = [
-        // ── Core marketing pages
-        { loc: "https://bidwar.in/",                   changefreq: "weekly",  priority: "1.0", lastmod: today },
-        { loc: "https://bidwar.in/upcoming-auctions",  changefreq: "daily",   priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/contact",            changefreq: "monthly", priority: "0.7", lastmod: today },
-        { loc: "https://bidwar.in/legal/terms",        changefreq: "yearly",  priority: "0.3" },
-        { loc: "https://bidwar.in/legal/privacy",      changefreq: "yearly",  priority: "0.3" },
-        { loc: "https://bidwar.in/legal/acceptable-use", changefreq: "yearly", priority: "0.3" },
-        // ── SEO landing pages — primary commercial pages (highest priority)
-        { loc: "https://bidwar.in/sports-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://bidwar.in/cricket-auction-software",     changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://bidwar.in/badminton-scoring-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://bidwar.in/franchise-auction-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://bidwar.in/player-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://bidwar.in/sports-league-management-software", changefreq: "monthly", priority: "0.9", lastmod: today },
-        // ── SEO landing pages — secondary sport-specific pages
-        { loc: "https://bidwar.in/football-player-auction",      changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/kabaddi-auction-platform",     changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/tournament-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/basketball-auction-software",  changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/badminton-auction-platform",   changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/volleyball-player-auction",    changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://bidwar.in/esports-auction-system",       changefreq: "monthly", priority: "0.7", lastmod: today },
-        { loc: "https://bidwar.in/business-league-auction",      changefreq: "monthly", priority: "0.7", lastmod: today },
-        { loc: "https://bidwar.in/live-player-bidding",          changefreq: "monthly", priority: "0.7", lastmod: today },
-        // ── Blog index
-        { loc: "https://bidwar.in/blog", changefreq: "weekly", priority: "0.8", lastmod: today },
-        // ── Blog posts — use actual publishedAt / updatedAt for accuracy
-        ...BLOG_POSTS_META.map((p) => ({
-          loc: p.canonical,
-          changefreq: "monthly",
-          priority: "0.7",
-          lastmod: p.updatedAt ?? p.publishedAt,
-        })),
-        // ── Blog category pages
-        ...getAllBlogUrls()
-          .filter((u) => u.includes("/blog/category/") || u.includes("/blog/author/"))
-          .map((u) => ({ loc: u, changefreq: "weekly" as const, priority: "0.6", lastmod: today })),
-      ];
-
-      const urlXml = urls.map((u) =>
-        `  <url>\n    <loc>${u.loc}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ""}\n  </url>`
-      ).join("\n");
-
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n${urlXml}\n\n</urlset>`;
-
+    const sendSitemapXml = (res: express.Response, body: string) => {
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.setHeader("Cache-Control", "public, max-age=3600");
-      res.send(xml);
-    });
+      res.send(body);
+    };
+
+    app.get("/sitemap-index.xml", (_req, res) => sendSitemapXml(res, buildSitemapIndex()));
+    app.get("/sitemap-pages.xml", (_req, res) => sendSitemapXml(res, buildSitemapPages()));
+    app.get("/sitemap-blog.xml", (_req, res) => sendSitemapXml(res, buildSitemapBlog()));
+    app.get("/sitemap-taxonomy.xml", (_req, res) => sendSitemapXml(res, buildSitemapTaxonomy()));
+    app.get("/sitemap-images.xml", (_req, res) => sendSitemapXml(res, buildSitemapImages()));
+
+    // Legacy monolithic sitemap — retained for existing Search Console submissions.
+    app.get("/sitemap.xml", (_req, res) => sendSitemapXml(res, buildLegacySitemapXml()));
 
     // Legacy owner URLs → canonical onboarding entry (full page loads only).
     app.get("/tournament/:tournamentId/owner/:teamId", (req, res) => {
@@ -409,12 +354,24 @@ if (serveStatic) {
       res.redirect(301, `/${qs}`);
     });
 
-    // Auction platform catch-all at /
+    // Auction platform catch-all — route-aware HTML responses (404 / private / SPA)
     app.use("/", expressStaticGzip(auctionDist, staticOpts));
-    app.use((_req: express.Request, res: express.Response) => {
-      if (sendSpaIndexHtml(res)) return;
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(path.join(auctionDist, "index.html"));
+    app.use((req: express.Request, res: express.Response) => {
+      if (req.method !== "GET") {
+        res.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      const disposition = classifyRoute(req.path, false);
+
+      if (disposition === "noindex-app") {
+        if (sendInjectedHtml(res, getPrivatePageMeta(req.path), 200)) return;
+      }
+
+      if (sendInjectedHtml(res, getNotFoundPageMeta(), 404)) return;
+
+      res.status(404).setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.send("Not Found");
     });
   logger.info({ path: auctionDist }, "Static: auction-platform at /");
 }
