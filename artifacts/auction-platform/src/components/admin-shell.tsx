@@ -16,6 +16,7 @@ import { getBrandSurfacePreset } from "@/lib/brand-usage";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
+import { AdminPwaInstallHint } from "@/components/admin/admin-pwa-install-hint";
 import { AdminNotificationBell } from "@/components/admin/admin-notification-bell";
 import { AdminNotificationProvider } from "@/contexts/admin-notification-context";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
@@ -148,6 +149,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
             <UserCircle className="h-5 w-5" />
             <span>{adminLevel === "master" ? "Master" : "Data Entry"}</span>
           </div>
+          <AdminPwaInstallHint variant="compact" />
           <AdminNotificationBell />
           <button
             type="button"

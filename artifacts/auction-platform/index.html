@@ -34,8 +34,16 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#09090b" />
 
-    <!-- Critical CSS: prevents white flash before React + full stylesheet load -->
-    <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}#root{min-height:100vh;background:#09090b}</style>
+    <!-- Critical CSS: dark shell + boot splash (inline so first paint is styled before Tailwind loads) -->
+    <style>
+      *,*::before,*::after{box-sizing:border-box}
+      html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      #root{min-height:100vh;background:#09090b}
+      @keyframes bidwar-boot-spin{to{transform:rotate(360deg)}}
+      #bidwar-boot-splash{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;background:#09090b}
+      #bidwar-boot-splash img{width:64px;height:64px}
+      #bidwar-boot-splash .bidwar-boot-spinner{width:32px;height:32px;border:2px solid rgba(251,191,36,.35);border-top-color:#fbbf24;border-radius:50%;animation:bidwar-boot-spin .7s linear infinite}
+    </style>
 
     <!-- Fonts: non-render-blocking (preconnect + preload + print-swap).
          Both Inter and Space Grotesk loaded here — no @import url() in CSS.
@@ -203,7 +211,12 @@
     <!-- PAGE_SCHEMA_END -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="bidwar-boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Loading BidWar">
+        <img src="/favicon.svg" alt="" width="64" height="64" decoding="async" />
+        <div class="bidwar-boot-spinner" aria-hidden="true"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

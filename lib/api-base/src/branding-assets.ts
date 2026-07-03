@@ -288,6 +288,8 @@ export const BRANDING_ICON_PATHS = {
   favicon32: "/favicon-32.png",
   favicon32x32: "/favicon-32x32.png",
   appleTouchIcon: "/apple-touch-icon.png",
+  pwaIcon192: "/pwa-icon-192.png",
+  pwaIcon512: "/pwa-icon-512.png",
 } as const;
 
 export type BrandingIconPath = (typeof BRANDING_ICON_PATHS)[keyof typeof BRANDING_ICON_PATHS];

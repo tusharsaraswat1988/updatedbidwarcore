@@ -26,6 +26,7 @@ import { logger } from "./logger.js";
 
 const FAVICON_CHAIN: BrandingAssetType[] = ["FAVICON", "PWA_ICON", "SYMBOL_LOGO", "PRIMARY_LOGO"];
 const APPLE_CHAIN: BrandingAssetType[] = ["APPLE_TOUCH_ICON", "PWA_ICON", "FAVICON", "SYMBOL_LOGO"];
+const PWA_ICON_CHAIN: BrandingAssetType[] = ["PWA_ICON", "APPLE_TOUCH_ICON", "FAVICON", "SYMBOL_LOGO"];
 const SVG_CHAIN: BrandingAssetType[] = ["FAVICON", "SYMBOL_LOGO", "PRIMARY_LOGO", "PWA_ICON"];
 const PRIMARY_LOGO_CHAIN: BrandingAssetType[] = ["PRIMARY_LOGO", "SYMBOL_LOGO", "PWA_ICON"];
 const REVERSE_LOGO_CHAIN: BrandingAssetType[] = ["REVERSE_LOGO", "PRIMARY_LOGO", "SYMBOL_LOGO"];
@@ -140,6 +141,9 @@ export async function resolveBrandingIconForPath(
       );
     case BRANDING_ICON_PATHS.appleTouchIcon:
       return resolveFromChain(APPLE_CHAIN);
+    case BRANDING_ICON_PATHS.pwaIcon192:
+    case BRANDING_ICON_PATHS.pwaIcon512:
+      return resolveFromChain(PWA_ICON_CHAIN);
     case BRANDING_LOGO_PATHS.primary:
       return resolveFromChain(PRIMARY_LOGO_CHAIN);
     case BRANDING_LOGO_PATHS.reverse:

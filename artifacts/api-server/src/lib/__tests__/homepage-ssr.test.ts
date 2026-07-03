@@ -40,6 +40,20 @@ describe("homepage SSR", () => {
     loadIndexHtml(auctionDist);
   });
 
+  it("injectSsrHomepageDocument replaces boot splash inside #root", () => {
+    const shell =
+      '<html><body><div id="root"><div id="bidwar-boot-splash"><div class="bidwar-boot-spinner"></div></div></div></body></html>';
+    const html = injectSsrHomepageDocument(
+      shell,
+      "<main>Home</main>",
+      { auctions: [], showcaseEvents: [], branding: {}, generatedAt: "2026-01-01T00:00:00.000Z" },
+      { mutations: [], queries: [] },
+    );
+
+    expect(html).toContain('<div id="root"><main>Home</main></div>');
+    expect(html).not.toContain("bidwar-boot-splash");
+  });
+
   it("injectSsrHomepageDocument embeds root markup and hydration payloads", () => {
     const shell = '<html><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>';
     const html = injectSsrHomepageDocument(

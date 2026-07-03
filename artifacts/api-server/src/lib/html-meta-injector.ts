@@ -158,7 +158,7 @@ export function sendInjectedHtml(
   return true;
 }
 
-const ROOT_EMPTY_RE = /<div id="root"><\/div>/;
+const ROOT_BEFORE_BODY_RE = /<div id="root">[\s\S]*<\/div>(?=\s*(?:<script|<\/body>))/;
 
 function serializeForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
@@ -175,10 +175,8 @@ export function injectSsrHomepageDocument(
   const queryScript = `<script>window.__REACT_QUERY_DEHYDRATED__=${serializeForScript(dehydratedState)}</script>`;
 
   let html = shellHtml;
-  if (ROOT_EMPTY_RE.test(html)) {
-    html = html.replace(ROOT_EMPTY_RE, `<div id="root">${rootMarkup}</div>`);
-  } else {
-    html = html.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root">${rootMarkup}</div>`);
+  if (ROOT_BEFORE_BODY_RE.test(html)) {
+    html = html.replace(ROOT_BEFORE_BODY_RE, `<div id="root">${rootMarkup}</div>`);
   }
 
   return html.replace(

@@ -38,10 +38,13 @@ describe("buildAdminAppManifest", () => {
     expect(manifest.short_name).toBe("BidWar Admin");
     expect(manifest.start_url).toBe("/admin/login");
     expect(manifest.scope).toBe("/admin");
+    expect(manifest.id).toBe("/admin/");
     expect(manifest.display).toBe("standalone");
     expect(manifest.orientation).toBe("any");
     expect(Array.isArray(manifest.icons)).toBe(true);
-    expect((manifest.icons as { src: string }[])[0]?.src).toContain("?v=42");
+    const icons = manifest.icons as { src: string; sizes: string }[];
+    expect(icons[0]?.src).toBe("/pwa-icon-192.png?v=42");
+    expect(icons[1]?.src).toBe("/pwa-icon-512.png?v=42");
   });
 
   it("falls back to default brand name when settings row is missing", async () => {

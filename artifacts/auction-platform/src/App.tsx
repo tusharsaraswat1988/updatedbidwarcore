@@ -7,6 +7,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { PageTracking } from "@/components/page-tracking";
 import { applyPwaHeadBranding, ADMIN_MANIFEST_HREF, isAdminPwaRoute } from "@/lib/branding-pwa";
+import { AdminPwaProvider } from "@/contexts/admin-pwa-context";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
@@ -19,6 +20,7 @@ import {
 import type { PageInitialData } from "@/lib/initial-data/types";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 
+import { BootSplash } from "@/components/boot-splash";
 import Landing from "@/pages/landing";
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
@@ -195,7 +197,7 @@ function BrandingEffects() {
 }
 
 function RouteSuspenseFallback() {
-  return <div className="min-h-screen bg-background" aria-busy="true" />;
+  return <BootSplash />;
 }
 
 function Router() {
@@ -490,11 +492,13 @@ function App(props: AppProps = {}) {
             ssrPath={props.ssrPath}
           >
             <BrandingEffects />
-            <LocalOperatorPinEffects />
-            <PageTracking />
-            <LocalVenueGate>
-              <Router />
-            </LocalVenueGate>
+            <AdminPwaProvider>
+              <LocalOperatorPinEffects />
+              <PageTracking />
+              <LocalVenueGate>
+                <Router />
+              </LocalVenueGate>
+            </AdminPwaProvider>
           </WouterRouter>
           <Toaster />
         </TooltipProvider>

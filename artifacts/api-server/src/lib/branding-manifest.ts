@@ -15,6 +15,13 @@ async function canonicalManifestIconUrl(
   return `${baseUrl}${path}${suffix}`;
 }
 
+/** Same-origin icon path for PWA manifests (works on cloud and LAN). */
+async function relativeManifestIconUrl(path: string): Promise<string> {
+  const version = await getBrandingIconCacheVersion();
+  const suffix = version > 0 ? `?v=${version}` : "";
+  return `${path}${suffix}`;
+}
+
 export async function buildAuctionPlatformManifest(): Promise<Record<string, unknown>> {
   const [settings] = await db.select().from(brandingSettingsTable).limit(1);
   const iconUrl = await canonicalManifestIconUrl(BRANDING_ICON_PATHS.favicon32);
@@ -39,24 +46,28 @@ export async function buildAuctionPlatformManifest(): Promise<Record<string, unk
 
 export async function buildAdminAppManifest(): Promise<Record<string, unknown>> {
   const [settings] = await db.select().from(brandingSettingsTable).limit(1);
-  const iconUrl = await canonicalManifestIconUrl(BRANDING_ICON_PATHS.favicon32);
+  const icon192 = await relativeManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon192);
+  const icon512 = await relativeManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon512);
   const brandName = settings?.brandName?.trim() || "BidWar";
   const themeColor = settings?.backgroundColor?.trim() || "#09090b";
 
   return {
+    id: "/admin/",
     name: `${brandName} Admin`,
     short_name: `${brandName} Admin`,
     description: "Super Admin panel for tournament and platform management",
     theme_color: themeColor,
     background_color: themeColor,
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     orientation: "any",
     scope: "/admin",
     start_url: "/admin/login",
+    prefer_related_applications: false,
     icons: [
-      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" },
-      { src: iconUrl, sizes: "any", type: "image/png", purpose: "any" },
+      { src: icon192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: icon512, sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      { src: icon192, sizes: "192x192", type: "image/png", purpose: "maskable" },
     ],
   };
 }
