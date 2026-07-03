@@ -49,7 +49,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       // Disabled in dev: SW caching causes blank pages when owner-app is proxied via auction-platform.
       devOptions: { enabled: false },
-      includeAssets: ["pwa-icon.svg", "pwa-icon-192.png", "pwa-icon-512.png"],
+      includeAssets: [],
       manifest: {
         name:             "BidWar Owner",
         short_name:       "BidWar",
@@ -62,19 +62,19 @@ export default defineConfig({
         start_url:        basePath,
         icons: [
           {
-            src:     "pwa-icon-192.png",
+            src:     "/pwa-icon-192.png",
             sizes:   "192x192",
             type:    "image/png",
             purpose: "any",
           },
           {
-            src:     "pwa-icon-512.png",
+            src:     "/pwa-icon-512.png",
             sizes:   "512x512",
             type:    "image/png",
             purpose: "any maskable",
           },
           {
-            src:     "pwa-icon.svg",
+            src:     "/favicon.svg",
             sizes:   "any",
             type:    "image/svg+xml",
             purpose: "any",

@@ -5,6 +5,7 @@ import {
   teamsTable,
   tournamentsTable,
 } from "@workspace/db";
+import { resolvePlatformPrimaryLogoUrl } from "@workspace/api-base/branding-assets";
 import { eq } from "drizzle-orm";
 import { brandingService } from "../branding-service.js";
 import { buildPublicUrl, getPublicOrigin } from "../runtime-env.js";
@@ -117,7 +118,7 @@ export async function buildPlayerRegistrationMergeData(
   const bidwarLogoAssetUrl = await brandingService.resolveEmailLogoAssetUrl();
   const bidwarLogoUrl =
     resolveLogoUrl(baseUrl, bidwarLogoAssetUrl) ??
-    `${baseUrl.replace(/\/$/, "")}/favicon-32.png`;
+    resolvePlatformPrimaryLogoUrl(baseUrl.replace(/\/$/, ""));
 
   const tournamentLogoUrl = resolveLogoUrl(baseUrl, tournament?.logoUrl ?? null);
 

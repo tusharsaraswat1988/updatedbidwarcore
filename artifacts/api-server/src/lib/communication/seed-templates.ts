@@ -160,7 +160,7 @@ const DEFAULT_ASSETS = [
     name: "BidWar Logo",
     assetKey: "bidwar_logo",
     assetType: "logo",
-    content: "https://bidwar.in/logo.png",
+    content: "https://bidwar.in/bidwar-primary-logo.png",
     description: "Default BidWar logo for email headers",
   },
   {

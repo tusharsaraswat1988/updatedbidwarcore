@@ -18,7 +18,8 @@
     "migrate:prod": "cross-env NODE_ENV=production pnpm --filter @workspace/scripts run migrate",
     "db:setup:prod": "pnpm run db:push:prod && pnpm run migrate:prod",
     "verify:local": "pnpm --filter @workspace/scripts run verify:local",
-    "verify:production": "pnpm --filter @workspace/scripts run verify:production"
+    "verify:production": "pnpm --filter @workspace/scripts run verify:production",
+    "branding:generate": "node scripts/generate-branding-static-assets.mjs"
   },
   "private": true,
   "devDependencies": {

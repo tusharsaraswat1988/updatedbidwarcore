@@ -23,8 +23,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon:  "/owner-app/pwa-icon-192.png",
-      badge: "/owner-app/pwa-icon-192.png",
+      icon:  "/pwa-icon-192.png",
+      badge: "/pwa-icon-192.png",
       data: { url },
     } as NotificationOptions),
   );
