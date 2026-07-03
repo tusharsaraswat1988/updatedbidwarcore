@@ -29,7 +29,6 @@ import {
   initSpaIndexShell,
   injectPageMeta,
   isIndexHtmlLoaded,
-  loadIndexHtml,
   sendInjectedHtml,
 } from "./lib/html-meta-injector.js";
 import {
@@ -180,11 +179,11 @@ app.use("/api", router);
 // ── Crawl assets (robots.txt + sitemaps) — always registered ───────────────
 registerSeoRoutes(app, CANONICAL_HOST);
 
-// SPA shell for meta/SSR injection (built dist, or Vite source index in dev).
+// SPA shell for meta/SSR injection — production uses built index only; dev uses Vite source.
 initSpaIndexShell({
   distDir: auctionDist,
   sourceIndexPath: auctionIndexSource,
-  preferSource: process.env.SERVE_STATIC !== "true",
+  serveStatic,
 });
 registerAcademyHtmlRoutes(app);
 
@@ -272,10 +271,6 @@ if (serveStatic) {
       },
     };
 
-    // Prefer production build shell when serving static assets.
-    if (!isIndexHtmlLoaded()) {
-      loadIndexHtml(auctionDist);
-    }
     registerAcademyHtmlRoutes(app);
     logger.info("SEO: page-meta injector loaded");
 

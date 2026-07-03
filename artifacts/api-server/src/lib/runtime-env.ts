@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import path from "node:path";
 import {
   isCorsOriginAllowed as checkCorsOrigin,
   mergeDevCorsOrigins,
@@ -329,6 +330,15 @@ export function assertServeStaticBuild(auctionDistPath: string): void {
       `SERVE_STATIC is enabled but the auction-platform build was not found at:\n` +
         `  ${auctionDistPath}\n` +
         `Run "pnpm run build" from the repository root, then start the server again.`,
+    );
+  }
+
+  const builtIndex = path.join(auctionDistPath, "index.html");
+  if (!existsSync(builtIndex)) {
+    throw new Error(
+      `SERVE_STATIC is enabled but the built SPA index was not found at:\n` +
+        `  ${builtIndex}\n` +
+        `Run "pnpm run build:deploy" from the repository root, then start the server again.`,
     );
   }
 }
