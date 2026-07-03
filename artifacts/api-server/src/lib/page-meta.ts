@@ -15,6 +15,7 @@
  *
  * Blog pages (/blog/*) are handled dynamically via getPageMeta() below.
  */
+import { resolvePlatformPrimaryLogoUrl } from "@workspace/api-base/branding-assets";
 import {
   BLOG_POSTS_META,
   BLOG_CATEGORIES,
@@ -27,7 +28,7 @@ import {
 import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
 
 export const BASE_URL = "https://bidwar.in";
-export const DEFAULT_OG_IMAGE_URL = `${BASE_URL}/bidwar-screenshot.png`;
+export const DEFAULT_OG_IMAGE_URL = resolvePlatformPrimaryLogoUrl(BASE_URL);
 const PHONE = "+91-8707488250";
 
 // ─── Shared schema fragments ──────────────────────────────────────────────────
@@ -36,7 +37,7 @@ const ORGANIZATION_SCHEMA = {
   "@type": "Organization",
   "name": "BidWar",
   "url": BASE_URL,
-  "logo": `${BASE_URL}/favicon-32.png`,
+  "logo": resolvePlatformPrimaryLogoUrl(BASE_URL),
   "description": "India's live sports auction platform for cricket, football, kabaddi and franchise leagues.",
   "foundingLocation": {
     "@type": "Place",

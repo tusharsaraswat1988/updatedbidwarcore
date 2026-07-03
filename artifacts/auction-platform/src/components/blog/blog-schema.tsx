@@ -1,6 +1,6 @@
 import { type BlogPost, getAuthorBySlug, getCategoryBySlug } from "../../data/blog-content.ts";
 import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoSrc } from "@/lib/brand-assets";
+import { getOrganizationLogoUrl } from "@/lib/brand-assets";
 
 interface ArticleSchemaProps {
   post: BlogPost;
@@ -8,8 +8,8 @@ interface ArticleSchemaProps {
 
 /** Injects JSON-LD BlogPosting + BreadcrumbList schemas for article pages. */
 export function ArticleSchema({ post }: ArticleSchemaProps) {
-  const { logos } = useBranding();
-  const brandLogoUrl = getBrandLogoSrc(logos, ["main", "mini", "appIcon"]);
+  const { iconVersion } = useBranding();
+  const brandLogoUrl = getOrganizationLogoUrl(iconVersion);
   const author   = getAuthorBySlug(post.author);
   const category = getCategoryBySlug(post.category);
 

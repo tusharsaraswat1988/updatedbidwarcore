@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   BRANDING_ICON_PATHS,
+  BRANDING_LOGO_PATHS,
   type BrandingAssetRecord,
 } from "@workspace/api-base/branding-assets";
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
@@ -82,6 +83,27 @@ describe("branding-asset-resolver", () => {
 
     const resolved = await resolveBrandingIconForPath(BRANDING_ICON_PATHS.appleTouchIcon);
     expect(resolved?.assetType).toBe("APPLE_TOUCH_ICON");
+  });
+
+  it("maps /bidwar-primary-logo.png to PRIMARY_LOGO chain", async () => {
+    getAssetMock.mockImplementation(async (type: string) => {
+      if (type === "PRIMARY_LOGO") return asset("PRIMARY_LOGO", "https://cdn.example/primary.png", 4);
+      return null;
+    });
+
+    const resolved = await resolveBrandingIconForPath(BRANDING_LOGO_PATHS.primary);
+    expect(resolved?.assetType).toBe("PRIMARY_LOGO");
+    expect(resolved?.fileUrl).toBe("https://cdn.example/primary.png");
+  });
+
+  it("maps /bidwar-reverse-logo.png to REVERSE_LOGO chain", async () => {
+    getAssetMock.mockImplementation(async (type: string) => {
+      if (type === "REVERSE_LOGO") return asset("REVERSE_LOGO", "https://cdn.example/reverse.png", 6);
+      return null;
+    });
+
+    const resolved = await resolveBrandingIconForPath(BRANDING_LOGO_PATHS.reverse);
+    expect(resolved?.assetType).toBe("REVERSE_LOGO");
   });
 
   it("builds versioned canonical head links", () => {

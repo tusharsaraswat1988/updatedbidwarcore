@@ -13,6 +13,7 @@ export function usePublicBranding() {
       loading: false,
       brandName: settings.brandName,
       logos: brandingSettingsToLogos(settings),
+      iconVersion: settings.iconVersion ?? 0,
       colors: {
         primary: settings.primaryColor,
         secondary: settings.secondaryColor,
@@ -28,6 +29,7 @@ export function usePublicBranding() {
     loading: branding.loading,
     brandName: branding.brandName,
     logos: branding.logos,
+    iconVersion: branding.iconVersion,
     colors: branding.colors,
   };
 }

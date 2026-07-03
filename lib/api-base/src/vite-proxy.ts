@@ -136,6 +136,8 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
     "/favicon-32.png": brandingIconProxy,
     "/favicon-32x32.png": brandingIconProxy,
     "/apple-touch-icon.png": brandingIconProxy,
+    "/bidwar-primary-logo.png": brandingIconProxy,
+    "/bidwar-reverse-logo.png": brandingIconProxy,
     [API_PREFIX]: {
       target,
       changeOrigin: true,

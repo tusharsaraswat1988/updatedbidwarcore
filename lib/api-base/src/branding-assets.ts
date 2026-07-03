@@ -293,3 +293,68 @@ export const BRANDING_ICON_PATHS = {
 export type BrandingIconPath = (typeof BRANDING_ICON_PATHS)[keyof typeof BRANDING_ICON_PATHS];
 
 export const ALL_BRANDING_ICON_PATHS: readonly BrandingIconPath[] = Object.values(BRANDING_ICON_PATHS);
+
+/** Production platform wordmark paths — stable URLs for SSR, CSR, schema, and crawlers. */
+export const BRANDING_LOGO_PATHS = {
+  primary: "/bidwar-primary-logo.png",
+  reverse: "/bidwar-reverse-logo.png",
+} as const;
+
+export type BrandingLogoPath = (typeof BRANDING_LOGO_PATHS)[keyof typeof BRANDING_LOGO_PATHS];
+
+export const ALL_BRANDING_LOGO_PATHS: readonly BrandingLogoPath[] = Object.values(BRANDING_LOGO_PATHS);
+
+/** Static fallbacks bundled with auction-platform when DB branding is unset. */
+export const BRANDING_LOGO_STATIC_FALLBACKS: Record<BrandingLogoPath, string> = {
+  [BRANDING_LOGO_PATHS.primary]: "/assets/broadcast/bidwar-reverse-logo-official.png",
+  [BRANDING_LOGO_PATHS.reverse]: "/assets/broadcast/bidwar-reverse-logo-official.png",
+};
+
+export const PLATFORM_BASE_URL = "https://bidwar.in";
+
+export function withBrandingAssetVersion(path: string, version?: number | null): string {
+  if (!version || version <= 0) return path;
+  const joiner = path.includes("?") ? "&" : "?";
+  return `${path}${joiner}v=${version}`;
+}
+
+export function resolvePlatformPrimaryLogoPath(version?: number | null): string {
+  return withBrandingAssetVersion(BRANDING_LOGO_PATHS.primary, version);
+}
+
+export function resolvePlatformReverseLogoPath(version?: number | null): string {
+  return withBrandingAssetVersion(BRANDING_LOGO_PATHS.reverse, version);
+}
+
+export function resolvePlatformPrimaryLogoUrl(
+  baseUrl = PLATFORM_BASE_URL,
+  version?: number | null,
+): string {
+  return `${baseUrl.replace(/\/+$/, "")}${resolvePlatformPrimaryLogoPath(version)}`;
+}
+
+export function resolvePlatformReverseLogoUrl(
+  baseUrl = PLATFORM_BASE_URL,
+  version?: number | null,
+): string {
+  return `${baseUrl.replace(/\/+$/, "")}${resolvePlatformReverseLogoPath(version)}`;
+}
+
+/** Pick the canonical platform logo path from a logo resolution order. */
+export function resolvePlatformLogoPathForOrder(
+  order: readonly string[],
+  version?: number | null,
+): string {
+  const preferReverse = order[0] === "mainReverse";
+  return preferReverse
+    ? resolvePlatformReverseLogoPath(version)
+    : resolvePlatformPrimaryLogoPath(version);
+}
+
+export function resolvePlatformLogoUrlForOrder(
+  order: readonly string[],
+  baseUrl = PLATFORM_BASE_URL,
+  version?: number | null,
+): string {
+  return `${baseUrl.replace(/\/+$/, "")}${resolvePlatformLogoPathForOrder(order, version)}`;
+}

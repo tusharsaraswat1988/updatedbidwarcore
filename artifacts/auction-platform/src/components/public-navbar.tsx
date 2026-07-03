@@ -4,8 +4,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, ChevronDown, Menu, X } from "lucide-react";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { BrandLogoImage } from "@/components/brand-logo-image";
 
 const landingHeaderPreset = getBrandSurfacePreset("landing-header");
 
@@ -15,9 +16,9 @@ const NAV_BLOG_POSTS = [...BLOG_POSTS_META]
 
 export function PublicNavbar() {
   const [path, navigate] = useLocation();
-  const { logos, colors, brandName, loading: brandingLoading } = usePublicBranding();
+  const { colors, brandName, iconVersion } = usePublicBranding();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const headerLogoSrc = getBrandLogoSrc(logos, landingHeaderPreset.logoOrder);
+  const headerLogoSrc = getPublicBrandLogoSrc(landingHeaderPreset.logoOrder, iconVersion);
   const logoAlt = getBrandLogoAlt(brandName);
 
   const isHome = useMemo(() => path === "/", [path]);
@@ -66,17 +67,14 @@ export function PublicNavbar() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
         <div className="h-16 w-full px-3 sm:px-6 lg:px-8 flex items-center gap-3">
           <a href="/" className="h-full flex items-center flex-shrink-0 pr-1">
-            {brandingLoading ? (
-              <div className="h-10 w-40" aria-hidden />
-            ) : (
-              <img
-                src={headerLogoSrc}
-                alt={logoAlt}
-                className={`block max-w-none translate-y-[2px] ${landingHeaderPreset.sizeClass}`}
-                loading="eager"
-                decoding="async"
-              />
-            )}
+            <BrandLogoImage
+              src={headerLogoSrc}
+              alt={logoAlt}
+              className={`block max-w-none translate-y-[2px] ${landingHeaderPreset.sizeClass}`}
+              width={168}
+              height={40}
+              loading="eager"
+            />
           </a>
 
           <div className="hidden lg:flex flex-1 items-center justify-center gap-6 text-sm text-slate-600">

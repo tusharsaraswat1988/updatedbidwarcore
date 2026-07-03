@@ -3,13 +3,20 @@
  * Keeps paths like /favicon.ico and /favicon-32x32.png stable while content
  * updates when admins upload new branding in the admin panel.
  */
+import { readFileSync, existsSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import type { Express, Request, Response } from "express";
 import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 import {
   ALL_BRANDING_ICON_PATHS,
+  ALL_BRANDING_LOGO_PATHS,
   BRANDING_ASSET_TYPES,
   BRANDING_ICON_PATHS,
+  BRANDING_LOGO_PATHS,
+  BRANDING_LOGO_STATIC_FALLBACKS,
   type BrandingIconPath,
+  type BrandingLogoPath,
 } from "@workspace/api-base/branding-assets";
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
 import { getAsset } from "./branding-service.js";
@@ -20,6 +27,17 @@ import { logger } from "./logger.js";
 const FAVICON_CHAIN: BrandingAssetType[] = ["FAVICON", "PWA_ICON", "SYMBOL_LOGO", "PRIMARY_LOGO"];
 const APPLE_CHAIN: BrandingAssetType[] = ["APPLE_TOUCH_ICON", "PWA_ICON", "FAVICON", "SYMBOL_LOGO"];
 const SVG_CHAIN: BrandingAssetType[] = ["FAVICON", "SYMBOL_LOGO", "PRIMARY_LOGO", "PWA_ICON"];
+const PRIMARY_LOGO_CHAIN: BrandingAssetType[] = ["PRIMARY_LOGO", "SYMBOL_LOGO", "PWA_ICON"];
+const REVERSE_LOGO_CHAIN: BrandingAssetType[] = ["REVERSE_LOGO", "PRIMARY_LOGO", "SYMBOL_LOGO"];
+
+let staticPublicRoot: string | null = null;
+
+function resolveStaticPublicRoot(): string | null {
+  if (staticPublicRoot) return staticPublicRoot;
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const dist = path.resolve(moduleDir, "../../../auction-platform/dist/public");
+  return existsSync(dist) ? dist : null;
+}
 
 export interface ResolvedBrandingIcon {
   assetType: BrandingAssetType;
@@ -83,6 +101,30 @@ async function resolveFromChain(
   return null;
 }
 
+function loadStaticLogoFallback(logoPath: BrandingLogoPath): IconCacheEntry | null {
+  const publicRoot = resolveStaticPublicRoot();
+  if (!publicRoot) return null;
+  const relative = BRANDING_LOGO_STATIC_FALLBACKS[logoPath]?.replace(/^\//, "");
+  if (!relative) return null;
+
+  const absolute = path.join(publicRoot, relative);
+  if (!existsSync(absolute)) return null;
+
+  try {
+    const buffer = readFileSync(absolute);
+    const key = `static:${logoPath}`;
+    const entry: IconCacheEntry = {
+      buffer,
+      etag: `"${key}"`,
+      mimeType: "image/png",
+    };
+    bufferCache.set(key, entry);
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveBrandingIconForPath(
   pathname: string,
 ): Promise<ResolvedBrandingIcon | null> {
@@ -98,6 +140,10 @@ export async function resolveBrandingIconForPath(
       );
     case BRANDING_ICON_PATHS.appleTouchIcon:
       return resolveFromChain(APPLE_CHAIN);
+    case BRANDING_LOGO_PATHS.primary:
+      return resolveFromChain(PRIMARY_LOGO_CHAIN);
+    case BRANDING_LOGO_PATHS.reverse:
+      return resolveFromChain(REVERSE_LOGO_CHAIN);
     default:
       return null;
   }
@@ -146,20 +192,30 @@ async function loadIconBuffer(resolved: ResolvedBrandingIcon): Promise<IconCache
   return entry;
 }
 
-async function serveBrandingIcon(req: Request, res: Response, path: BrandingIconPath): Promise<void> {
-  const resolved = await resolveBrandingIconForPath(path);
-  if (!resolved) {
-    res.status(404).end();
-    return;
+async function serveBrandingAsset(
+  req: Request,
+  res: Response,
+  assetPath: BrandingIconPath | BrandingLogoPath,
+): Promise<void> {
+  const resolved = await resolveBrandingIconForPath(assetPath);
+  let entry = resolved ? await loadIconBuffer(resolved) : null;
+  let contentType = resolved?.mimeType ?? "image/png";
+
+  if (resolved && assetPath in BRANDING_ICON_PATHS) {
+    contentType = contentTypeForPath(assetPath as BrandingIconPath, resolved);
   }
 
-  const entry = await loadIconBuffer(resolved);
+  if (!entry && (assetPath === BRANDING_LOGO_PATHS.primary || assetPath === BRANDING_LOGO_PATHS.reverse)) {
+    entry = loadStaticLogoFallback(assetPath);
+    contentType = "image/png";
+  }
+
   if (!entry) {
-    res.status(502).end();
+    res.status(resolved ? 502 : 404).end();
     return;
   }
 
-  res.setHeader("Content-Type", contentTypeForPath(path, resolved));
+  res.setHeader("Content-Type", contentType);
   res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
   res.setHeader("ETag", entry.etag);
 
@@ -171,10 +227,16 @@ async function serveBrandingIcon(req: Request, res: Response, path: BrandingIcon
   res.send(entry.buffer);
 }
 
-export function registerBrandingIconRoutes(app: Express): void {
-  for (const path of ALL_BRANDING_ICON_PATHS) {
-    app.get(path, (req, res) => {
-      void serveBrandingIcon(req, res, path);
+export function registerBrandingIconRoutes(app: Express, publicRoot?: string): void {
+  staticPublicRoot = publicRoot ?? staticPublicRoot;
+  for (const assetPath of ALL_BRANDING_ICON_PATHS) {
+    app.get(assetPath, (req, res) => {
+      void serveBrandingAsset(req, res, assetPath);
+    });
+  }
+  for (const assetPath of ALL_BRANDING_LOGO_PATHS) {
+    app.get(assetPath, (req, res) => {
+      void serveBrandingAsset(req, res, assetPath);
     });
   }
 }

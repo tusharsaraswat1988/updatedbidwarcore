@@ -1,5 +1,5 @@
 import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoSrc } from "@/lib/brand-assets";
+import { getOrganizationLogoUrl } from "@/lib/brand-assets";
 const SOFTWARE_APPLICATION_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -235,8 +235,8 @@ function JsonLd({ data }: { data: object }) {
 }
 
 export function HomeSchemaMarkup() {
-  const { logos } = useBranding();
-  const logoUrl = getBrandLogoSrc(logos, ["main", "mini", "appIcon"]);
+  const { iconVersion } = useBranding();
+  const logoUrl = getOrganizationLogoUrl(iconVersion);
   const organizationSchema = {
     ...ORGANIZATION_SCHEMA_BASE,
     logo: logoUrl,
@@ -264,8 +264,8 @@ export function SportLandingSchemaMarkup({
   description: string;
   faqs: Array<{ q: string; a: string }>;
 }) {
-  const { logos } = useBranding();
-  const logoUrl = getBrandLogoSrc(logos, ["main", "mini", "appIcon"]);
+  const { iconVersion } = useBranding();
+  const logoUrl = getOrganizationLogoUrl(iconVersion);
   const organizationSchema = {
     ...ORGANIZATION_SCHEMA_BASE,
     logo: logoUrl,
