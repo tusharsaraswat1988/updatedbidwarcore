@@ -36,6 +36,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import { AppLayout } from "@/components/layout";
+import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -2622,13 +2623,16 @@ export default function Players() {
             </div>
           </div>
         )}
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight">Players</h1>
-          <p className="text-muted-foreground mt-2">
-            {players?.length || 0} players registered
-            {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
-          </p>
-        </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title="Players"
+          description={
+            <>
+              {players?.length || 0} players registered
+              {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
+            </>
+          }
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <button
@@ -2754,9 +2758,10 @@ export default function Players() {
             onPointerDownOutside={e => e.preventDefault()}
             onEscapeKeyDown={e => e.preventDefault()}
           >
-            <DialogHeader>
-              <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
-            </DialogHeader>
+            <OrganizerFormDialogHeader
+              tournament={tournament}
+              title={editing ? "Edit Player" : "Add Player"}
+            />
             <PlayerForm
               key={editing?.id ?? "new"}
               tournamentId={tournamentId}
@@ -3229,11 +3234,10 @@ export default function Players() {
       {/* Bulk Upload Dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent className="max-w-xl dark">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" /> Bulk Player Upload
-            </DialogTitle>
-          </DialogHeader>
+          <OrganizerFormDialogHeader
+            tournament={tournament}
+            title={<span className="flex items-center gap-2"><Upload className="w-5 h-5" /> Bulk Player Upload</span>}
+          />
           <BulkUploadDialog
             tournamentId={tournamentId}
             sportSlug={tournament?.sport ?? "cricket"}
@@ -3246,11 +3250,10 @@ export default function Players() {
       {/* Import Players Dialog */}
       <Dialog open={importOpen} onOpenChange={v => { setImportOpen(v); }}>
         <DialogContent className="max-w-2xl dark max-h-[92vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" /> Import Players from Other Tournaments
-            </DialogTitle>
-          </DialogHeader>
+          <OrganizerFormDialogHeader
+            tournament={tournament}
+            title={<span className="flex items-center gap-2"><Upload className="w-5 h-5" /> Import Players from Other Tournaments</span>}
+          />
           <TournamentImportDialog
             tournamentId={tournamentId}
             onClose={() => setImportOpen(false)}

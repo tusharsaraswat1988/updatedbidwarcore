@@ -6,16 +6,19 @@ import {
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
+  useGetTournament,
   getListCategoriesQueryKey,
   getListPlayersQueryKey,
+  getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
+import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Pencil, Trash2, Tag, Filter } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
@@ -290,6 +293,9 @@ export default function Categories() {
   const { data: categories, isLoading } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+  });
   const { data: players } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -332,16 +338,14 @@ export default function Categories() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-4xl font-bold tracking-tight">Categories</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted/60 text-muted-foreground border border-border/50 tracking-wide">OPTIONAL</span>
-            </div>
-            <p className="text-muted-foreground mt-2">
-              Group players into tiers (e.g. Platinum, Gold, Silver) and set different minimum values or bid increments per tier. Skip this section if all players have the same rules.
-            </p>
-          </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title="Categories"
+          titleExtra={
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted/60 text-muted-foreground border border-border/50 tracking-wide">OPTIONAL</span>
+          }
+          description="Group players into tiers (e.g. Platinum, Gold, Silver) and set different minimum values or bid increments per tier. Skip this section if all players have the same rules."
+          actions={
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
               <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
@@ -349,13 +353,15 @@ export default function Categories() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg dark">
-              <DialogHeader>
-                <DialogTitle>{editing ? "Edit Category" : "Add Category"}</DialogTitle>
-              </DialogHeader>
+              <OrganizerFormDialogHeader
+                tournament={tournament}
+                title={editing ? "Edit Category" : "Add Category"}
+              />
               <CategoryForm tournamentId={tournamentId} category={editing} onClose={() => { setOpen(false); setEditing(null); }} />
             </DialogContent>
           </Dialog>
-        </div>
+          }
+        />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

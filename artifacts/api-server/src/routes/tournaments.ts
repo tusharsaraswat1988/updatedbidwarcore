@@ -28,6 +28,7 @@ import { broadcastToTournament } from "../lib/broadcast";
 import { validateExportToken } from "../lib/export-token";
 import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
 import { notifyAsync } from "../lib/notifications";
+import { notifyAdminTournamentCreated } from "../lib/admin-notifications/triggers.js";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament } from "../lib/audit-snapshots";
@@ -230,6 +231,7 @@ router.post("/tournaments", async (req, res) => {
     organizerMobile: tournament.organizerMobile,
     organizerId: tournament.organizerId,
   });
+  notifyAdminTournamentCreated(tournament);
 
   res.status(201).json(tournamentToJson(tournament));
 });

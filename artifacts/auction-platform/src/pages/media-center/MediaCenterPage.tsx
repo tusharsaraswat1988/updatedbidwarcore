@@ -7,6 +7,7 @@ import {
   getGetTournamentSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { BuzzStudioFeatureGuard } from "@/components/buzz-studio-feature-guard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,21 +60,19 @@ export default function MediaCenterPage() {
       <BuzzStudioFeatureGuard tournamentId={tournamentId}>
         <div className="space-y-8">
           {/* ── Header ──────────────────────────────────────────────────── */}
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-display font-black text-white tracking-tight">
-                  BidWar Media Center
-                </h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Create professional tournament creatives powered by BidWar.
-                </p>
-              </div>
-            </div>
-          </div>
+          <OrganizerSectionHeader
+            tournament={tournament}
+            title={
+              <span className="flex items-center gap-3">
+                <span className="rounded-lg bg-primary/10 p-2.5">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </span>
+                BidWar Media Center
+              </span>
+            }
+            titleClassName="text-2xl font-display font-black text-white tracking-tight"
+            description="Create professional tournament creatives powered by BidWar."
+          />
 
           {/* ── Section 1: Available Templates ──────────────────────────── */}
           <section>

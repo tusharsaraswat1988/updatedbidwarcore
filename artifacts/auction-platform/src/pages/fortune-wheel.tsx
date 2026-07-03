@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute } from "wouter";
 import {
   useListTeams,
+  useGetTournament,
   getListTeamsQueryKey,
+  getGetTournamentQueryKey,
   useSyncFortuneWheel,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +30,9 @@ export default function FortuneWheel() {
 
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
   const syncMut = useSyncFortuneWheel();
@@ -152,15 +158,11 @@ export default function FortuneWheel() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
-              <Dices className="w-8 h-8 text-primary" /> Fortune Wheel
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Server picks a random winner — operator cannot influence the result.
-            </p>
-          </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title={<span className="flex items-center gap-3"><Dices className="w-8 h-8 text-primary" /> Fortune Wheel</span>}
+          description="Server picks a random winner — operator cannot influence the result."
+          actions={
           <Button
             variant={broadcasting ? "default" : "outline"}
             size="sm"
@@ -170,7 +172,8 @@ export default function FortuneWheel() {
             <Radio className="w-4 h-4" />
             {broadcasting ? "Broadcasting to LED" : "Not Broadcasting"}
           </Button>
-        </div>
+          }
+        />
 
         <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
           <p>

@@ -3,6 +3,7 @@ import { useRoute, useLocation, useSearch } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,20 +71,17 @@ export default function AuctionReset() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6 max-w-3xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display font-black text-3xl md:text-4xl tracking-tight text-foreground flex items-center gap-3">
-              <RefreshCw className="w-7 h-7 text-red-400" />
-              Clear Practice Data
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              Remove practice bids and return players to the pool. Teams and player list stay safe.
-            </p>
-          </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title={<><RefreshCw className="w-7 h-7 text-red-400 inline-block mr-3 align-middle" />Clear Practice Data</>}
+          titleClassName="font-display font-black text-3xl md:text-4xl tracking-tight text-foreground flex items-center gap-3"
+          description="Remove practice bids and return players to the pool. Teams and player list stay safe."
+          actions={
           <Button variant="ghost" className="gap-2" onClick={goBack}>
             <ArrowLeft className="w-4 h-4" /> {backLabel}
           </Button>
-        </div>
+          }
+        />
 
         <Card className="border border-red-500/30 bg-red-500/5">
           <CardContent className="p-5 flex items-start gap-4">

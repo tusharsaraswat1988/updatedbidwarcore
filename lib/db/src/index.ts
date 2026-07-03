@@ -929,4 +929,47 @@ void pool
     console.error("[db] failed to ensure google_sheet_syncs table:", err);
   });
 
+/** Admin in-app notification inbox and delivery settings. */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS admin_notification_settings (
+      id SERIAL PRIMARY KEY,
+      admin_name TEXT NOT NULL DEFAULT '',
+      admin_email TEXT NOT NULL DEFAULT '',
+      admin_mobile TEXT,
+      email_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      in_app_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      live_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      notification_sound_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_notifications (
+      id SERIAL PRIMARY KEY,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      priority TEXT NOT NULL DEFAULT 'info',
+      category TEXT NOT NULL DEFAULT 'System',
+      entity_type TEXT,
+      entity_id INTEGER,
+      action_url TEXT,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      read_at TIMESTAMPTZ,
+      metadata JSONB
+    );
+    CREATE INDEX IF NOT EXISTS ix_admin_notifications_is_read ON admin_notifications (is_read);
+    CREATE INDEX IF NOT EXISTS ix_admin_notifications_priority ON admin_notifications (priority);
+    CREATE INDEX IF NOT EXISTS ix_admin_notifications_type ON admin_notifications (type);
+    CREATE INDEX IF NOT EXISTS ix_admin_notifications_created_at ON admin_notifications (created_at DESC);
+
+    ALTER TABLE admin_notification_settings ADD COLUMN IF NOT EXISTS live_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE admin_notification_settings ADD COLUMN IF NOT EXISTS notification_sound_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE admin_notifications ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'System';
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure admin notification tables:", err);
+  });
+
 export * from "./schema";

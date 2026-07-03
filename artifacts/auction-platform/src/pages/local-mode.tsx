@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import {
   useGetTournament, getGetTournamentQueryKey,
   useGetAuctionState, getGetAuctionStateQueryKey,
@@ -303,15 +304,12 @@ export default function LocalModePage() {
     return (
       <AppLayout tournamentId={tournamentId}>
         <div className="max-w-2xl space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <MonitorDown className="w-6 h-6 text-amber-400" />
-              BidWar Local Setup
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Run your auction at the venue without needing a constant internet connection.
-            </p>
-          </div>
+          <OrganizerSectionHeader
+            tournament={tournament}
+            title={<span className="flex items-center gap-2"><MonitorDown className="w-6 h-6 text-amber-400" /> BidWar Local Setup</span>}
+            titleClassName="text-2xl font-bold tracking-tight"
+            description="Run your auction at the venue without needing a constant internet connection."
+          />
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -330,21 +328,22 @@ export default function LocalModePage() {
     <AppLayout tournamentId={tournamentId}>
       <div className="max-w-2xl space-y-6">
 
-        {/* Header */}
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title={
+            <span className="flex items-center gap-2 flex-wrap">
               <MonitorDown className="w-6 h-6 text-amber-400" />
               BidWar Local Setup
-            </h1>
+            </span>
+          }
+          titleClassName="text-2xl font-bold tracking-tight"
+          titleExtra={
             <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1">
               <Circle className="w-2 h-2 fill-current" /> Local Mode On
             </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Follow each step below to get ready. Tick a step when you have completed it.
-          </p>
-        </div>
+          }
+          description="Follow each step below to get ready. Tick a step when you have completed it."
+        />
 
         {/* Progress bar */}
         <div className="flex items-center gap-3">

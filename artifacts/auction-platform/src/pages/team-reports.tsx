@@ -9,6 +9,7 @@ import {
   getGetTeamReportQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
+import { TournamentContextLabel } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -579,6 +580,7 @@ export default function TeamReportsPage() {
           {/* Left panel: team list + column selector */}
           <aside className="w-72 flex-shrink-0 border-r border-border bg-card flex flex-col h-full overflow-hidden print-hide">
             <div className="p-4 border-b border-border">
+              <TournamentContextLabel tournament={tournament} className="mb-1.5" />
               <h1 className="font-bold text-base flex items-center gap-2">
                 <FileText className="w-4 h-4 text-primary" />
                 Pre-Auction Reports

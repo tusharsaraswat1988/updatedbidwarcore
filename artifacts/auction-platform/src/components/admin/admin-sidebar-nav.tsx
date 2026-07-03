@@ -36,9 +36,10 @@ const communicationItems: NavItem[] = [
 
 const settingItems: NavItem[] = [
   { label: "Branding", href: "/admin/settings/branding", icon: Settings },
+  { label: "Admin Notifications", href: "/admin/settings/admin-notifications", icon: Bell },
   { label: "AI & Intelligence", href: "/admin/settings/intelligence", icon: Activity },
   { label: "SMS / WhatsApp", href: "/admin/settings/communication", icon: LifeBuoy },
-  { label: "Notifications (Legacy)", href: "/admin/settings/notifications", icon: Bell },
+  { label: "Email Logs (Legacy)", href: "/admin/settings/notifications", icon: Mail },
   { label: "System", href: "/admin/settings/system/sms", icon: Monitor },
 ];
 

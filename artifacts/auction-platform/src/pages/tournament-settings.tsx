@@ -1457,16 +1457,12 @@ export default function TournamentSettings() {
 
         {/* ── SPONSORS ── */}
         {activeSection === "sponsors" && (
-          <SettingsTabPanel className="max-w-3xl">
+          <SettingsTabPanel>
             <SettingsCard
               title="Sponsor Logos"
               description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 4 seconds on the big screen."
               icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
             >
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Logo required; name and type optional.</span>
-                <span>{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
-              </div>
               <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
             </SettingsCard>
           </SettingsTabPanel>

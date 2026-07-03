@@ -59,6 +59,8 @@ const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicationCenter = lazy(() => import("@/pages/admin-communication-center"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
 const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
+const AdminAdminNotifications = lazy(() => import("@/pages/admin-admin-notifications"));
+const AdminAdminNotificationSettings = lazy(() => import("@/pages/admin-admin-notification-settings"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
 const AdminCreativeAssets = lazy(() => import("@/pages/admin-creative-assets"));
 const BuzzStudioDevPage = lazy(() => import("@/pages/buzz-studio-dev/BuzzStudioDevPage"));
@@ -278,6 +280,8 @@ function Router() {
         <Route path="/admin/settings/communication/logs" component={AdminCommunicate} />
         <Route path="/admin/settings/communication/:tab" component={AdminCommunicate} />
         <Route path="/admin/settings/communication" component={AdminCommunicate} />
+        <Route path="/admin/notifications" component={AdminAdminNotifications} />
+        <Route path="/admin/settings/admin-notifications" component={AdminAdminNotificationSettings} />
         <Route path="/admin/settings/notifications" component={AdminNotificationCenter} />
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />

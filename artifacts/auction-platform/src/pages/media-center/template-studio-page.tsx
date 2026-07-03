@@ -18,6 +18,8 @@ import {
   Sun,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout";
+import { TournamentContextLabel } from "@/components/organizer-page-chrome";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { BuzzStudioFeatureGuard } from "@/components/buzz-studio-feature-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -241,6 +243,9 @@ export default function TemplateStudioPage() {
     tournamentId,
     templateId ?? BuzzTemplateType.PLAYER_SPOTLIGHT,
   );
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: tournamentId > 0 },
+  });
 
   const creativeJobsQueryKey = ["buzz-studio", "creative-jobs", tournamentId] as const;
 
@@ -407,6 +412,7 @@ export default function TemplateStudioPage() {
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Media Center
               </Link>
+              <TournamentContextLabel tournament={tournament} />
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-primary/10 p-2">
                   <Sparkles className="h-5 w-5 text-primary" />

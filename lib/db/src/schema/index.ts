@@ -22,6 +22,7 @@ export * from "./sms-settings";
 export * from "./display-auctions";
 export * from "./showcase";
 export * from "./notifications";
+export * from "./admin_notifications";
 export * from "./platform_audit";
 export * from "./purse_boosters";
 export * from "./scoring_fixtures";

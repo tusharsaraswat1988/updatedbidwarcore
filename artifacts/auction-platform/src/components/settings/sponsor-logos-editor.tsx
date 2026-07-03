@@ -1,7 +1,15 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Eye, Loader2, Trash2, Upload } from "lucide-react";
 import {
   type SponsorLogo,
   validateSponsorList,
@@ -46,6 +54,82 @@ function countPriorityFlags(logos: SponsorLogo[]) {
   return { titleCount, coCount };
 }
 
+function SponsorCountSummary({ logos }: { logos: SponsorLogo[] }) {
+  const total = logos.length;
+  const { titleCount, coCount } = countPriorityFlags(logos);
+
+  if (total === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No sponsors yet — add logos to rotate on the LED display.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="font-semibold text-foreground tabular-nums">
+        {total} sponsor{total === 1 ? "" : "s"} total
+      </span>
+      {titleCount > 0 ? (
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-amber-500/40 text-amber-300/90">
+          {titleCount} title
+        </Badge>
+      ) : null}
+      {coCount > 0 ? (
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-violet-500/40 text-violet-300/90">
+          {coCount} co
+        </Badge>
+      ) : null}
+      {titleCount === 0 && coCount === 0 ? (
+        <span className="text-muted-foreground">No title or co sponsor assigned</span>
+      ) : null}
+    </div>
+  );
+}
+
+function SponsorLogoPreviewDialog({
+  logo,
+  open,
+  onOpenChange,
+}: {
+  logo: SponsorLogo | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!logo?.url) return null;
+
+  const label = logo.name?.trim() || logo.type?.trim() || "Sponsor logo";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl dark">
+        <DialogHeader>
+          <DialogTitle className="truncate">{label}</DialogTitle>
+        </DialogHeader>
+        <div className="rounded-xl border border-border/60 bg-muted/10 p-4 sm:p-6 flex items-center justify-center min-h-[200px] max-h-[min(70vh,520px)]">
+          <img
+            src={logo.url}
+            alt={label}
+            className="max-w-full max-h-[min(65vh,480px)] object-contain"
+          />
+        </div>
+        {(logo.type || logo.isTitleSponsor || logo.isCoSponsor) && (
+          <p className="text-xs text-muted-foreground text-center">
+            {[
+              logo.type?.trim(),
+              logo.isTitleSponsor ? "Title Sponsor" : null,
+              logo.isCoSponsor ? "Co Sponsor" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function SponsorLogosEditor({
   logos,
   onChange,
@@ -59,23 +143,36 @@ export function SponsorLogosEditor({
 }) {
   const validation = validateSponsorList(logos);
   const { titleCount, coCount } = countPriorityFlags(logos);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const previewLogo = previewIndex !== null ? logos[previewIndex] ?? null : null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SponsorCountSummary logos={logos} />
+        <span className="text-[11px] text-muted-foreground shrink-0">
+          Logo required; name and type optional
+        </span>
+      </div>
+
       {logos.length > 0 ? (
-        <div className="max-h-[360px] overflow-y-auto space-y-2 pr-0.5">
+        <div className="space-y-2 max-h-[calc(100dvh-16rem)] overflow-y-auto pr-1">
           {logos.map((logo, i) => (
             <div
               key={i}
-              className="rounded-lg border border-border/50 bg-muted/5 p-2 space-y-2"
+              className="rounded-lg border border-border/50 bg-muted/5 p-2.5 sm:p-3"
             >
-              <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 items-center">
-                <label className="cursor-pointer" title="Click to replace logo image">
-                  <div className="w-14 h-10 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
+              <div className="grid grid-cols-1 xl:grid-cols-[5rem_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1.35fr)_auto] gap-2 xl:gap-3 xl:items-center">
+                <label className="cursor-pointer justify-self-start" title="Click to replace logo image">
+                  <div className="w-[4.5rem] h-11 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
                     {uploadingIdx === i ? (
                       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                     ) : logo.url ? (
-                      <img src={logo.url} alt={logo.name || logo.type || "logo"} className="w-full h-full object-contain" />
+                      <img
+                        src={logo.url}
+                        alt={logo.name || logo.type || "logo"}
+                        className="w-full h-full object-contain"
+                      />
                     ) : (
                       <Upload className="w-3.5 h-3.5 text-muted-foreground" />
                     )}
@@ -84,87 +181,124 @@ export function SponsorLogosEditor({
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFile(f, i); e.target.value = ""; }}
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) onUploadFile(f, i);
+                      e.target.value = "";
+                    }}
                     disabled={uploadingIdx !== null}
                   />
                 </label>
+
                 <Input
-                  className="h-8 text-sm"
+                  className="h-9 text-sm"
                   value={logo.name ?? ""}
-                  onChange={e => { const next = [...logos]; next[i] = { ...next[i], name: e.target.value }; onChange(next); }}
+                  onChange={e => {
+                    const next = [...logos];
+                    next[i] = { ...next[i], name: e.target.value };
+                    onChange(next);
+                  }}
                   placeholder="Sponsor name"
                 />
                 <Input
-                  className="h-8 text-sm"
+                  className="h-9 text-sm"
                   value={logo.type ?? ""}
-                  onChange={e => { const next = [...logos]; next[i] = { ...next[i], type: e.target.value }; onChange(next); }}
+                  onChange={e => {
+                    const next = [...logos];
+                    next[i] = { ...next[i], type: e.target.value };
+                    onChange(next);
+                  }}
                   placeholder="Sponsor type (optional)"
                 />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => onChange(logos.filter((_, j) => j !== i))}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-[calc(3.5rem+0.5rem)]">
-                <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="rounded border-border"
-                    checked={logo.isTitleSponsor === true}
-                    disabled={!logo.isTitleSponsor && titleCount >= 1}
-                    onChange={e =>
-                      onChange(setSponsorPriorityFlags(logos, i, { isTitleSponsor: e.target.checked }))
-                    }
-                  />
-                  <span>Title Sponsor</span>
-                  <FieldTooltip text={TITLE_SPONSOR_INFO} />
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="rounded border-border"
-                    checked={logo.isCoSponsor === true}
-                    disabled={!logo.isCoSponsor && coCount >= 3}
-                    onChange={e =>
-                      onChange(setSponsorPriorityFlags(logos, i, { isCoSponsor: e.target.checked }))
-                    }
-                  />
-                  <span>Co Sponsor</span>
-                  <FieldTooltip text={CO_SPONSOR_INFO} />
-                </label>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 xl:justify-start">
+                  <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border"
+                      checked={logo.isTitleSponsor === true}
+                      disabled={!logo.isTitleSponsor && titleCount >= 1}
+                      onChange={e =>
+                        onChange(setSponsorPriorityFlags(logos, i, { isTitleSponsor: e.target.checked }))
+                      }
+                    />
+                    <span>Title Sponsor</span>
+                    <FieldTooltip text={TITLE_SPONSOR_INFO} />
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border"
+                      checked={logo.isCoSponsor === true}
+                      disabled={!logo.isCoSponsor && coCount >= 3}
+                      onChange={e =>
+                        onChange(setSponsorPriorityFlags(logos, i, { isCoSponsor: e.target.checked }))
+                      }
+                    />
+                    <span>Co Sponsor</span>
+                    <FieldTooltip text={CO_SPONSOR_INFO} />
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-1 justify-end xl:justify-start">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                    disabled={!logo.url}
+                    title={logo.url ? "View logo" : "Upload a logo to preview"}
+                    onClick={() => setPreviewIndex(i)}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    onClick={() => onChange(logos.filter((_, j) => j !== i))}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground py-2">No sponsor logos yet. Add logos to rotate on the LED display.</p>
-      )}
+      ) : null}
 
       {!validation.ok && (
         <p className="text-xs text-destructive">{validation.error}</p>
       )}
 
       <label className="cursor-pointer block">
-        <div className={`flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed text-xs transition-colors ${
-          uploadingIdx === "new"
-            ? "border-border/50 text-muted-foreground cursor-wait"
-            : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
-        }`}>
-          {uploadingIdx === "new"
-            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</>
-            : <><Upload className="w-3.5 h-3.5" /> Add Sponsor Logo</>
-          }
+        <div
+          className={`flex items-center gap-1.5 h-9 px-3 rounded-md border border-dashed text-xs transition-colors ${
+            uploadingIdx === "new"
+              ? "border-border/50 text-muted-foreground cursor-wait"
+              : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+          }`}
+        >
+          {uploadingIdx === "new" ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+            </>
+          ) : (
+            <>
+              <Upload className="w-3.5 h-3.5" /> Add Sponsor Logo
+            </>
+          )}
         </div>
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
           className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFile(f, "new"); e.target.value = ""; }}
+          onChange={e => {
+            const f = e.target.files?.[0];
+            if (f) onUploadFile(f, "new");
+            e.target.value = "";
+          }}
           disabled={uploadingIdx !== null}
         />
       </label>
@@ -175,6 +309,14 @@ export function SponsorLogosEditor({
           ? " A sponsor cannot hold both roles."
           : null}
       </p>
+
+      <SponsorLogoPreviewDialog
+        logo={previewLogo}
+        open={previewIndex !== null && !!previewLogo?.url}
+        onOpenChange={open => {
+          if (!open) setPreviewIndex(null);
+        }}
+      />
     </div>
   );
 }

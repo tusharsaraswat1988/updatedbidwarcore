@@ -1,15 +1,18 @@
 import { useRoute } from "wouter";
 import {
   useGetTournamentSummary,
+  useGetTournament,
   useGetTeamPurses,
   useGetTopBids,
   useGetCategoryBreakdown,
   getGetTournamentSummaryQueryKey,
+  getGetTournamentQueryKey,
   getGetTeamPursesQueryKey,
   getGetTopBidsQueryKey,
   getGetCategoryBreakdownQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -27,6 +30,9 @@ export default function Reports() {
 
   const { data: summary, isLoading: loadingSummary } = useGetTournamentSummary(tournamentId, {
     query: { queryKey: getGetTournamentSummaryQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teamPurses, isLoading: loadingPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
@@ -52,13 +58,11 @@ export default function Reports() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-primary" />
-            Reports & Analytics
-          </h1>
-          <p className="text-muted-foreground mt-2">Auction performance overview and statistics.</p>
-        </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title={<span className="flex items-center gap-3"><BarChart3 className="w-8 h-8 text-primary" /> Reports & Analytics</span>}
+          description="Auction performance overview and statistics."
+        />
 
         {/* Summary Stats */}
         {loadingSummary ? (

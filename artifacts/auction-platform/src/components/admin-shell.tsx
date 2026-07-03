@@ -16,6 +16,8 @@ import { getBrandSurfacePreset } from "@/lib/brand-usage";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
+import { AdminNotificationBell } from "@/components/admin/admin-notification-bell";
+import { AdminNotificationProvider } from "@/contexts/admin-notification-context";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   AlertDialog,
@@ -107,6 +109,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
+    <AdminNotificationProvider enabled={isLoggedIn}>
     <div className="dark flex h-screen overflow-hidden bg-background text-foreground">
       <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-border bg-card/80 md:flex">
         <ShellBrand loading={loading} logos={logos} brandName={brandName} />
@@ -145,6 +148,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
             <UserCircle className="h-5 w-5" />
             <span>{adminLevel === "master" ? "Master" : "Data Entry"}</span>
           </div>
+          <AdminNotificationBell />
           <button
             type="button"
             onClick={() => setLogoutOpen(true)}
@@ -200,5 +204,6 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
         />
       )}
     </div>
+    </AdminNotificationProvider>
   );
 }

@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { ownerJoinPublicUrl } from "@workspace/api-base/owner-urls";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
@@ -156,14 +157,11 @@ export default function LinksPage() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-8 max-w-3xl">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
-            <Link2 className="w-8 h-8 text-primary" /> Links
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Share links for auction day — LED screen, streaming, and team owners.
-          </p>
-        </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title={<span className="flex items-center gap-3"><Link2 className="w-8 h-8 text-primary" /> Links</span>}
+          description="Share links for auction day — LED screen, streaming, and team owners."
+        />
 
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-6">

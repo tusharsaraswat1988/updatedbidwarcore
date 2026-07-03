@@ -32,6 +32,7 @@ import { resetOwnerAccessLockout } from "@workspace/api-base/owner-auth";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 
 function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -573,15 +574,15 @@ export default function Teams() {
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">Franchise Teams</h1>
-            <p className="text-muted-foreground mt-2">
-              {(teams?.length || 0) >= 2
-                ? `${teams?.length} teams added — ready for players`
-                : `Teams: ${teams?.length || 0} of 2 minimum`}
-            </p>
-          </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title="Franchise Teams"
+          description={
+            (teams?.length || 0) >= 2
+              ? `${teams?.length} teams added — ready for players`
+              : `Teams: ${teams?.length || 0} of 2 minimum`
+          }
+          actions={
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
               <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
@@ -593,9 +594,10 @@ export default function Teams() {
               onPointerDownOutside={e => e.preventDefault()}
               onEscapeKeyDown={e => e.preventDefault()}
             >
-              <DialogHeader>
-                <DialogTitle>{editing ? "Edit Team" : "Add New Team"}</DialogTitle>
-              </DialogHeader>
+              <OrganizerFormDialogHeader
+                tournament={tournament}
+                title={editing ? "Edit Team" : "Add New Team"}
+              />
               <TeamForm
                 key={editing?.id ?? "new"}
                 tournamentId={tournamentId}
@@ -610,7 +612,8 @@ export default function Teams() {
               />
             </DialogContent>
           </Dialog>
-        </div>
+          }
+        />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

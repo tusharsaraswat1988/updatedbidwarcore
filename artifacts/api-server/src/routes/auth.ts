@@ -28,6 +28,10 @@ import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { notifyAsync } from "../lib/notifications";
+import {
+  notifyAdminOrganiserRegistered,
+  notifyAdminTournamentCreated,
+} from "../lib/admin-notifications/triggers.js";
 import { commitCloudinaryImageWrite } from "../lib/cloudinary-media-service";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
@@ -48,6 +52,7 @@ function triggerOrganiserRegisteredNotification(organizer: Organizer): void {
     email: organizer.email,
     mobile: organizer.mobile,
   });
+  notifyAdminOrganiserRegistered(organizer);
 }
 
 async function organizerNormalizedMobileTaken(normalized: string, excludeId?: number): Promise<boolean> {
@@ -469,6 +474,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     organizerMobile: t.organizerMobile,
     organizerId: t.organizerId,
   });
+  notifyAdminTournamentCreated(t);
 
   res.json({ success: true, id: t.id });
 });
@@ -1373,6 +1379,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerMobile: tournament.organizerMobile,
     organizerId: tournament.organizerId,
   });
+  notifyAdminTournamentCreated(tournament);
 
   const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [String(tournament.id)]: true as const };
   setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });

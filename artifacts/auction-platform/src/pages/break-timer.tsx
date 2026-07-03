@@ -8,6 +8,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
+import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Coffee, Play, StopCircle, PlusCircle, ShieldAlert, Volume2, VolumeX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -121,15 +122,15 @@ export default function BreakTimerPage() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="max-w-lg mx-auto space-y-6 pt-2">
-        <div>
-          <h1 className="text-2xl font-display font-black text-foreground">Pre Auction & Break Timer</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Put a countdown on the big screen before the auction starts or during breaks.
-          </p>
-          <div className="mt-3 rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
-            <p><strong className="text-foreground">How it works:</strong> Set a duration and a label (e.g. &quot;Pre Auction&quot; or &quot;Lunch Break — 15 min&quot;), then press Start. The countdown appears on all displays. When time is up, screens switch back automatically.</p>
-            <p>You can extend the timer or cancel it at any time from this page.</p>
-          </div>
+        <OrganizerSectionHeader
+          tournament={tournament}
+          title="Pre Auction & Break Timer"
+          titleClassName="text-2xl font-display font-black text-foreground"
+          description="Put a countdown on the big screen before the auction starts or during breaks."
+        />
+        <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
+          <p><strong className="text-foreground">How it works:</strong> Set a duration and a label (e.g. &quot;Pre Auction&quot; or &quot;Lunch Break — 15 min&quot;), then press Start. The countdown appears on all displays. When time is up, screens switch back automatically.</p>
+          <p>You can extend the timer or cancel it at any time from this page.</p>
         </div>
 
         {error && (
