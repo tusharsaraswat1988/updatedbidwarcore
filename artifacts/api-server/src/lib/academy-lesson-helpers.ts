@@ -59,3 +59,54 @@ export function escapeHtml(str: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
+
+export type AcademyLessonCategorySource = {
+  categoryId: number | null;
+  categoryName: string | null;
+  categorySlug: string | null;
+  displayOrder: number;
+};
+
+export type DerivedAcademyCategory = {
+  id: number;
+  name: string;
+  slug: string;
+  displayOrder: number;
+  lessonCount: number;
+};
+
+/** Build browse-by-category chips from published lessons (no hardcoded category list). */
+export function deriveCategoriesFromLessons(
+  lessons: AcademyLessonCategorySource[],
+): DerivedAcademyCategory[] {
+  const bySlug = new Map<
+    string,
+    DerivedAcademyCategory & { minDisplayOrder: number }
+  >();
+
+  for (const lesson of lessons) {
+    if (!lesson.categorySlug || !lesson.categoryName || lesson.categoryId == null) continue;
+
+    const existing = bySlug.get(lesson.categorySlug);
+    if (existing) {
+      existing.lessonCount += 1;
+      existing.minDisplayOrder = Math.min(existing.minDisplayOrder, lesson.displayOrder);
+    } else {
+      bySlug.set(lesson.categorySlug, {
+        id: lesson.categoryId,
+        name: lesson.categoryName,
+        slug: lesson.categorySlug,
+        displayOrder: lesson.displayOrder,
+        lessonCount: 1,
+        minDisplayOrder: lesson.displayOrder,
+      });
+    }
+  }
+
+  return [...bySlug.values()]
+    .map(({ minDisplayOrder, ...category }) => ({
+      ...category,
+      displayOrder: minDisplayOrder,
+    }))
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+}

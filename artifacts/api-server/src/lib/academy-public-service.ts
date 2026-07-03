@@ -6,6 +6,7 @@ import {
   extractTopicsFromContent,
   stripContentForDescription,
   youtubeThumbnailUrl,
+  deriveCategoriesFromLessons,
   type AcademyContentFormat,
 } from "./academy-lesson-helpers.js";
 
@@ -165,29 +166,8 @@ export async function listPublishedAcademyLessons(search?: string, categorySlug?
 }
 
 export async function listPublishedAcademyCategories(): Promise<PublicAcademyCategory[]> {
-  const rows = await db
-    .select({
-      id: academyCategoriesTable.id,
-      name: academyCategoriesTable.name,
-      slug: academyCategoriesTable.slug,
-      displayOrder: academyCategoriesTable.displayOrder,
-      lessonCount: sql<number>`count(${academyLessonsTable.id})::int`,
-    })
-    .from(academyCategoriesTable)
-    .leftJoin(
-      academyLessonsTable,
-      and(eq(academyLessonsTable.categoryId, academyCategoriesTable.id), PUBLISHED),
-    )
-    .where(eq(academyCategoriesTable.active, true))
-    .groupBy(
-      academyCategoriesTable.id,
-      academyCategoriesTable.name,
-      academyCategoriesTable.slug,
-      academyCategoriesTable.displayOrder,
-    )
-    .orderBy(asc(academyCategoriesTable.displayOrder), asc(academyCategoriesTable.name));
-
-  return rows.filter((r) => r.lessonCount > 0);
+  const lessons = await listPublishedAcademyLessons();
+  return deriveCategoriesFromLessons(lessons);
 }
 
 async function listPublishedNavLessons(): Promise<Array<{ id: number; slug: string; title: string; episodeNumber: number; categoryId: number | null }>> {
@@ -245,10 +225,8 @@ export async function getPublishedAcademyLessonBySlug(slug: string): Promise<Pub
 }
 
 export async function fetchAcademyIndexPageData(): Promise<PublicAcademyIndexData> {
-  const [lessons, categories] = await Promise.all([
-    listPublishedAcademyLessons(),
-    listPublishedAcademyCategories(),
-  ]);
+  const lessons = await listPublishedAcademyLessons();
+  const categories = deriveCategoriesFromLessons(lessons);
 
   const featuredLessons = [...lessons]
     .sort((a, b) => a.displayOrder - b.displayOrder || a.episodeNumber - b.episodeNumber)
