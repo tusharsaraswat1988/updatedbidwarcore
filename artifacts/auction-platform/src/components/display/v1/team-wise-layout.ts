@@ -60,56 +60,64 @@ export function getTeamWiseTypography(rows: number) {
     heroPurse: `clamp(1.15rem, ${2.95 * s + 0.92}vw, 3.1rem)`,
     name:      `clamp(1.08rem, ${3.25 * s + 0.98}vw, 3.65rem)`,
     purse:     `clamp(0.95rem, ${2.4 * s + 0.75}vw, 2.6rem)`,
-    spendable: `clamp(0.82rem, ${2.0 * s + 0.62}vw, 2.15rem)`,
+    spendable: `clamp(0.86rem, ${2.08 * s + 0.66}vw, 2.24rem)`,
     money:     `clamp(0.68rem, ${1.45 * s + 0.52}vw, 1.72rem)`,
     squad:     `clamp(1rem,   ${2.55 * s + 0.82}vw, 2.85rem)`,
-    label:     `clamp(0.66rem, ${0.78 * s + 0.56}vw, 0.92rem)`,
-    meta:      `clamp(0.64rem, ${0.76 * s + 0.52}vw, 0.9rem)`,
+    label:     `clamp(0.61rem, ${0.72 * s + 0.51}vw, 0.85rem)`,
+    meta:      `clamp(0.59rem, ${0.7 * s + 0.47}vw, 0.83rem)`,
     badge:     `clamp(0.72rem, ${0.88 * s + 0.62}vw, 1.02rem)`,
     /** ~20% larger franchise badge */
     logo:      `clamp(2.1rem,  ${5.04 * s + 1.62}vw, 6rem)`,
   };
 }
 
-/** Elevated glass card shell — layered charcoal with team-tinted border glow. */
+/** Broadcast card shell — radial depth, team-tinted edge, floating shadow (body only). */
 export function getTeamWisePanelShellStyle(teamColor: string, isActive = false) {
-  const accentMix = `color-mix(in srgb, ${teamColor} ${isActive ? "38%" : "24%"}, rgba(212,175,55,0.18))`;
+  const edgeTint = `color-mix(in srgb, ${teamColor} ${isActive ? "20%" : "13%"}, rgba(255,255,255,0.05))`;
+  const ambientSpread = isActive ? "36px" : "24px";
+  const ambientAlpha = isActive ? "0.11" : "0.07";
+
   return {
     ["--tw-panel-color" as string]: teamColor,
     background: [
-      `linear-gradient(172deg, color-mix(in srgb, ${teamColor} 16%, rgba(14,17,26,0.98)) 0%, rgba(8,10,16,0.99) 45%, rgba(4,6,11,1) 100%)`,
+      `radial-gradient(ellipse 92% 68% at 50% 36%, color-mix(in srgb, ${teamColor} 11%, rgba(20,24,34,0.97)) 0%, rgba(10,12,18,0.99) 52%, rgba(5,7,11,1) 100%)`,
+      `linear-gradient(180deg, rgba(255,255,255,0.022) 0%, transparent 14%, rgba(0,0,0,0.2) 100%)`,
     ].join(", "),
-    borderColor: accentMix,
-    boxShadow: isActive
-      ? [
-          "0 18px 48px rgba(0,0,0,0.68)",
-          "inset 0 1px 0 rgba(255,255,255,0.1)",
-          "inset 0 -2px 12px rgba(0,0,0,0.5)",
-          `0 0 0 1px ${accentMix}`,
-          `0 0 56px color-mix(in srgb, ${teamColor} 26%, transparent)`,
-        ].join(", ")
-      : [
-          "0 12px 36px rgba(0,0,0,0.58)",
-          "inset 0 1px 0 rgba(255,255,255,0.07)",
-          "inset 0 -2px 10px rgba(0,0,0,0.42)",
-          `0 0 0 1px color-mix(in srgb, ${teamColor} 18%, rgba(255,255,255,0.06))`,
-          `0 0 28px color-mix(in srgb, ${teamColor} 10%, transparent)`,
-        ].join(", "),
+    borderTopColor: `color-mix(in srgb, ${teamColor} 10%, rgba(255,255,255,0.11))`,
+    borderBottomColor: `color-mix(in srgb, ${teamColor} 16%, rgba(0,0,0,0.72))`,
+    borderLeftColor: edgeTint,
+    borderRightColor: edgeTint,
+    boxShadow: [
+      "0 16px 40px rgba(0,0,0,0.52)",
+      "0 6px 18px rgba(0,0,0,0.32)",
+      "inset 0 1px 0 rgba(255,255,255,0.07)",
+      "inset 0 -2px 10px rgba(0,0,0,0.42)",
+      "inset 0 0 28px rgba(0,0,0,0.28)",
+      `0 0 ${ambientSpread} color-mix(in srgb, ${teamColor} ${ambientAlpha}, transparent)`,
+    ].join(", "),
   };
 }
 
-/** Metallic franchise banner — layered gradient, gold edge, depth. */
+/** Extremely soft team-colored spill — separation via light, not spacing. */
+export function getTeamWiseAmbientGlowStyle(teamColor: string, isActive = false) {
+  const mix = isActive ? "24%" : "11%";
+  return {
+    background: `radial-gradient(ellipse 82% 70% at 50% 44%, color-mix(in srgb, ${teamColor} ${mix}, transparent) 0%, transparent 72%)`,
+  };
+}
+
+/** Metallic franchise banner — layered gradient, inner depth (header only). */
 export function getTeamWiseHeaderBandStyle(teamColor: string) {
   return {
     ["--tw-header-color" as string]: teamColor,
     background: [
-      `linear-gradient(128deg, color-mix(in srgb, ${teamColor} 82%, #ffffff 10%) 0%, color-mix(in srgb, ${teamColor} 95%, #000000 12%) 38%, color-mix(in srgb, ${teamColor} 72%, #0a0e18 28%) 72%, color-mix(in srgb, ${teamColor} 48%, #050810 52%) 100%)`,
+      `linear-gradient(168deg, color-mix(in srgb, ${teamColor} 76%, #ffffff 12%) 0%, color-mix(in srgb, ${teamColor} 90%, #000000 10%) 26%, color-mix(in srgb, ${teamColor} 84%, #000000 14%) 48%, color-mix(in srgb, ${teamColor} 70%, #0a0e18 24%) 74%, color-mix(in srgb, ${teamColor} 54%, #050810 46%) 100%)`,
     ].join(", "),
     boxShadow: [
-      `0 8px 24px color-mix(in srgb, ${teamColor} 32%, transparent)`,
-      "inset 0 2px 0 rgba(255,255,255,0.32)",
-      "inset 0 -4px 12px rgba(0,0,0,0.42)",
-      "inset 0 0 0 1px rgba(212,175,55,0.28)",
+      "inset 0 2px 0 rgba(255,255,255,0.26)",
+      "inset 0 -1px 0 rgba(0,0,0,0.32)",
+      "inset 0 -5px 12px rgba(0,0,0,0.4)",
+      "inset 0 10px 22px rgba(0,0,0,0.12)",
     ].join(", "),
   };
 }
@@ -193,4 +201,35 @@ export function formatTeamWiseMoney(value: number, unit: AuctionUnit = "rupee") 
 /** Short form for stat blocks — ₹4.60Cr / ₹12.50L or points equivalent */
 export function formatTeamWiseMoneyShort(value: number, unit: AuctionUnit = "rupee") {
   return formatShortAuctionAmount(value, unit);
+}
+
+/** Highest purse ticker — single leader vs tied teams at the max purse. */
+export type HighestPurseTickerDisplay =
+  | { mode: "single"; primary: string; teamColor: string }
+  | { mode: "tied"; primary: string; secondary: string };
+
+export function getHighestPurseTickerDisplay(
+  teams: readonly LedTeam[],
+  unit: AuctionUnit = "rupee",
+): HighestPurseTickerDisplay | null {
+  if (teams.length === 0) return null;
+
+  const maxPurse = Math.max(...teams.map((t) => t.purse));
+  const tiedTeams = teams.filter((t) => t.purse === maxPurse);
+  const amount = formatTeamWiseMoneyShort(maxPurse, unit);
+
+  if (tiedTeams.length === 1) {
+    const team = tiedTeams[0]!;
+    return {
+      mode: "single",
+      primary: `${team.short} · ${amount}`,
+      teamColor: team.color,
+    };
+  }
+
+  return {
+    mode: "tied",
+    primary: amount,
+    secondary: `Shared by ${tiedTeams.length} Teams`,
+  };
 }
