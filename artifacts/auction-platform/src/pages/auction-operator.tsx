@@ -427,10 +427,22 @@ export default function AuctionOperator() {
     if (controlsLocked || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
     setPlayerFilterStatus(opt);
     setPlayerFilterStatusPicked(true);
-    const teamRequired = (teams?.length ?? 0) > 0;
-    if (!teamRequired || playerFilterTeamPicked || playerLedActive) {
-      await pushPlayerFilterToLed(opt, playerFilterTeamId);
+
+    // Available players are not team-assigned — show pool total only, no team filter.
+    if (opt === "available") {
+      setPlayerFilterTeamId(null);
+      setPlayerFilterTeamPicked(true);
+      await pushPlayerFilterToLed(opt, null);
+      return;
     }
+
+    const hasTeams = (teams?.length ?? 0) > 0;
+    if (hasTeams && !playerLedActive) {
+      setPlayerFilterTeamPicked(false);
+      return;
+    }
+
+    await pushPlayerFilterToLed(opt, playerFilterTeamId);
   }
 
   async function handlePlayerFilterTeam(teamId: number | null) {
@@ -1175,7 +1187,7 @@ export default function AuctionOperator() {
                     </button>
                     {playerFilterOpen && (
                       <div className="absolute top-full right-0 mt-1 w-56 rounded-xl border border-white/15 bg-[#1a1f2e] shadow-2xl z-50 p-3 space-y-3">
-                        {!active && (teams?.length ?? 0) > 0 && (!playerFilterStatusPicked || !playerFilterTeamPicked) && (
+                        {!active && (teams?.length ?? 0) > 0 && playerFilterStatus !== "available" && (!playerFilterStatusPicked || !playerFilterTeamPicked) && (
                           <p className="text-[10px] text-white/45 leading-snug">
                             Pick one status and one team to show the player list on the LED screen.
                           </p>
@@ -1183,6 +1195,11 @@ export default function AuctionOperator() {
                         {!active && !(teams?.length ?? 0) && !playerFilterStatusPicked && (
                           <p className="text-[10px] text-white/45 leading-snug">
                             Pick a status to show the player list on the LED screen.
+                          </p>
+                        )}
+                        {!active && playerFilterStatus === "available" && !playerFilterStatusPicked && (
+                          <p className="text-[10px] text-white/45 leading-snug">
+                            Available shows the full unassigned player pool on the LED screen.
                           </p>
                         )}
                         <div className="space-y-1.5">
@@ -1203,7 +1220,7 @@ export default function AuctionOperator() {
                             ))}
                           </div>
                         </div>
-                        {teams && teams.length > 0 && (
+                        {teams && teams.length > 0 && playerFilterStatus !== "available" && (
                           <div className="space-y-1.5">
                             <p className="text-[9px] font-bold uppercase tracking-wider text-white/30">Team</p>
                             <div className="flex flex-wrap gap-1">

@@ -17,7 +17,7 @@ import { getScoringNavLabel } from "@/lib/sport-label";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
-import { logoutOrganizerAccount } from "@/lib/auth";
+import { logoutOrganizerAccount, checkOrganizerAccountAuth } from "@/lib/auth";
 import { useScoringPlatformEnabled } from "@/hooks/use-platform-features";
 import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
@@ -34,7 +34,47 @@ interface LayoutProps {
   noPadding?: boolean;
 }
 
-function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOnly?: boolean }) {
+function SidebarAccountFooter({ tournamentId, collapsed }: { tournamentId: number; collapsed: boolean }) {
+  const [accountLabel, setAccountLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void checkOrganizerAccountAuth().then((me) => {
+      if (cancelled || !me.loggedIn || !me.organizer) return;
+      const email = me.organizer.email?.trim();
+      setAccountLabel(email || me.organizer.mobile?.trim() || me.organizer.name?.trim() || null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tournamentId]);
+
+  return (
+    <div className="border-t border-border p-3 flex-shrink-0 space-y-2">
+      {!collapsed && accountLabel && (
+        <div className="px-3 min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Signed in as
+          </p>
+          <p className="text-xs text-muted-foreground truncate" title={accountLabel}>
+            {accountLabel}
+          </p>
+        </div>
+      )}
+      <LogoutButton tournamentId={tournamentId} iconOnly={collapsed} accountLabel={accountLabel} />
+    </div>
+  );
+}
+
+function LogoutButton({
+  tournamentId,
+  iconOnly,
+  accountLabel,
+}: {
+  tournamentId: number;
+  iconOnly?: boolean;
+  accountLabel?: string | null;
+}) {
   const { logout } = useOrganizerAuth(tournamentId);
   const [, navigate] = useLocation();
 
@@ -50,7 +90,7 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
     return (
       <button
         onClick={handleLogout}
-        title="Sign Out"
+        title={accountLabel ? `Signed in as ${accountLabel}. Sign out.` : "Sign Out"}
         className="flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors mx-auto"
       >
         <LogOut className="w-4 h-4" />
@@ -351,9 +391,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
 
         {/* Sign out — cloud only; local uses auto venue session */}
         {tournamentId && !localVenue && (
-          <div className="border-t border-border p-3 flex-shrink-0">
-            <LogoutButton tournamentId={tournamentId} iconOnly={collapsed} />
-          </div>
+          <SidebarAccountFooter tournamentId={tournamentId} collapsed={collapsed} />
         )}
       </aside>
 

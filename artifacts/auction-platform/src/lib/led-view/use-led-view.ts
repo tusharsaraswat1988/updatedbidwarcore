@@ -667,7 +667,9 @@ export function useLedView(
         if (filter.status === "queue" && p.status !== "queue" && p.status !== "live") return false;
         else if (filter.status !== "queue" && p.status !== filter.status) return false;
       }
-      if (filter?.teamId != null && String(p.soldToTeamId ?? "") !== String(filter.teamId)) return false;
+      if (filter?.teamId != null && filter.status !== "queue" && filter.status !== "available") {
+        if (String(p.soldToTeamId ?? "") !== String(filter.teamId)) return false;
+      }
       return true;
     });
     const playerFilterLabel = formatLedPlayerFilterLabel(

@@ -123,7 +123,7 @@ function getStatusTheme(status: LedPlayer["status"]): StatusTheme {
 
 const PLAYER_STATUS_LABELS: Record<LedPlayer["status"], string> = {
   queue: "Available",
-  live: "Live",
+  live: "Currently on Bidding Table",
   sold: "Sold",
   unsold: "Unsold",
   retained: "Retained",
@@ -228,6 +228,7 @@ export const PlayerDirectoryOverlay = memo(function PlayerDirectoryOverlay({
   purseBoosterOverlay,
 }: PlayerDirectoryOverlayProps) {
   const gridAreaRef = useRef<HTMLDivElement>(null);
+  const pinnedLivePlayerIdRef = useRef<string | null>(null);
   const [layout, setLayout] = useState(() => computeGridLayout(480));
   const [pageIndex, setPageIndex] = useState(0);
 
@@ -267,21 +268,27 @@ export const PlayerDirectoryOverlay = memo(function PlayerDirectoryOverlay({
   }, [totalPages, layout.pageSize, clampPage]);
 
   useEffect(() => {
+    if (!currentPlayerId) {
+      pinnedLivePlayerIdRef.current = null;
+      return;
+    }
     if (activePlayerPage == null) return;
+    if (pinnedLivePlayerIdRef.current === currentPlayerId) return;
+    pinnedLivePlayerIdRef.current = currentPlayerId;
     setPageIndex(activePlayerPage);
   }, [activePlayerPage, currentPlayerId]);
 
   const isPaused = purseBoosterOverlay != null;
 
   useEffect(() => {
-    if (isPaused || totalPages <= 1 || activePlayerPage != null) return;
+    if (isPaused || totalPages <= 1) return;
 
     const id = window.setInterval(() => {
       setPageIndex((prev) => (prev + 1) % totalPages);
     }, PAGE_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [isPaused, totalPages, pageIndex, activePlayerPage]);
+  }, [isPaused, totalPages]);
 
   const pagePlayers = useMemo(() => {
     const start = pageIndex * layout.pageSize;
@@ -296,6 +303,7 @@ export const PlayerDirectoryOverlay = memo(function PlayerDirectoryOverlay({
   );
 
   useEffect(() => {
+    pinnedLivePlayerIdRef.current = null;
     setPageIndex(0);
   }, [playerFilterLabel, displayPlayerFilter?.status, displayPlayerFilter?.teamId, displayPlayerFilter?.categoryId]);
 

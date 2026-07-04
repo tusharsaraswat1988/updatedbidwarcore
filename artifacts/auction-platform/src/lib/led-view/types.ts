@@ -299,7 +299,7 @@ export function formatLedPlayerFilterLabel(
   if (filter.status && filter.status !== "all") {
     parts.push(getLedPlayerFilterStatusLabel(filter.status) ?? filter.status);
   }
-  if (filter.teamId) {
+  if (filter.teamId && filter.status !== "queue" && filter.status !== "available") {
     const team = teams.find((t) => String(t.id) === String(filter.teamId));
     parts.push(team?.name ?? team?.short ?? "Selected Team");
   }
