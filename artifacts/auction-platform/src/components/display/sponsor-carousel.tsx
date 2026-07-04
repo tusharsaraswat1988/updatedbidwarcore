@@ -11,22 +11,48 @@ import {
 
 import {
   BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH,
-  BROADCAST_OVERLAY_TOP_LOGO_HEIGHT,
+  BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT,
+  BROADCAST_OVERLAY_SPONSOR_LOGO_MAX_WIDTH,
 } from "@/lib/broadcast-overlay";
 
 /** Time each sponsor logo stays visible before rotating. */
 export const SPONSOR_CAROUSEL_ROTATE_MS = 4000;
 const SPONSOR_CAROUSEL_FADE_MS = 350;
 
-const overlayLogoStyle = (height: number, tier: ReturnType<typeof sponsorBroadcastTier>): CSSProperties => ({
+const overlayLogoStyle = (
+  height: number,
+  tier: ReturnType<typeof sponsorBroadcastTier>,
+  maxWidth = BROADCAST_OVERLAY_SPONSOR_LOGO_MAX_WIDTH,
+): CSSProperties => ({
   display: "block",
   height,
-  maxWidth: 200,
+  maxWidth,
   width: "auto",
   objectFit: "contain",
   objectPosition: "right center",
   borderRadius: 12,
   filter: getSponsorLogoFilter(tier),
+});
+
+/** Caption block under overlay sponsor logo — dark panel sized to text only. */
+const overlayCaptionPanelStyle = (): CSSProperties => ({
+  marginTop: 4,
+  width: "fit-content",
+  maxWidth: BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH,
+  marginLeft: "auto",
+  textAlign: "right",
+  pointerEvents: "none",
+  backgroundColor: "rgba(0, 0, 0, 0.88)",
+  padding: "4px 8px",
+  borderRadius: 8,
+  boxSizing: "border-box",
+});
+
+const overlayCaptionTextStyle = (): CSSProperties => ({
+  margin: 0,
+  textAlign: "right",
+  lineHeight: 1.3,
+  textShadow: "0 1px 6px rgba(0,0,0,0.65)",
 });
 
 /** Long sponsor names/types wrap on word boundaries — wide caption area, logo unchanged. */
@@ -90,7 +116,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
 
   const nameLabel = current.name?.trim() || "";
   const imgAlt = nameLabel || typeLabel || "Sponsor";
-  const logoH = BROADCAST_OVERLAY_TOP_LOGO_HEIGHT;
+  const logoH = BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT;
 
   if (overlay && overlayLogoRow) {
     const captionW = BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH;
@@ -121,18 +147,11 @@ export const SponsorCarousel = memo(function SponsorCarousel({
           />
         </div>
         {(nameLabel || typeLabel) ? (
-          <div
-            style={{
-              marginTop: 2,
-              width: "100%",
-              textAlign: "right",
-              pointerEvents: "none",
-            }}
-          >
+          <div style={overlayCaptionPanelStyle()}>
             {nameLabel ? (
               <p
                 style={{
-                  ...overlayCaptionWrapStyle(captionW),
+                  ...overlayCaptionTextStyle(),
                   ...getSponsorCaptionNameStyle(tier, true),
                 }}
               >
@@ -142,8 +161,9 @@ export const SponsorCarousel = memo(function SponsorCarousel({
             {typeLabel ? (
               <p
                 style={{
-                  ...overlayCaptionWrapStyle(captionW),
+                  ...overlayCaptionTextStyle(),
                   ...getSponsorCaptionTypeStyle(tier, true),
+                  marginTop: nameLabel ? 2 : 0,
                 }}
               >
                 {typeLabel}
@@ -211,7 +231,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
             }
             style={
               overlay
-                ? overlayLogoStyle(BROADCAST_OVERLAY_TOP_LOGO_HEIGHT, tier)
+                ? overlayLogoStyle(BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT, tier)
                 : { filter: getSponsorLogoFilter(tier) }
             }
             loading="eager"

@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { applyAuctionResetState } from "@/lib/sync-auction-sse";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
@@ -472,6 +474,7 @@ function DetailPanel({
   } | null>(null);
   const [resetReason, setResetReason] = useState("");
   const [configSaveReason, setConfigSaveReason] = useState("");
+  const qc = useQueryClient();
 
   function requestLicenseChange(
     label: string,
@@ -1699,6 +1702,7 @@ function DetailPanel({
                     );
                     setResetting(false);
                     if (r.success) {
+                      if (r.state) applyAuctionResetState(qc, tournamentId, r.state);
                       setConfirmReset(false);
                       setResetPassword("");
                       setResetReason("");

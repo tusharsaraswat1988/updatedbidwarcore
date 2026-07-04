@@ -23,10 +23,10 @@ import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
 import { OutcomeResultPanel } from "@/components/display/outcome-result-panel";
 import { cldUrl } from "@/lib/cloudinary";
+import { useSeamlessTicker } from "@/lib/chyron-ticker";
 import {
   BROADCAST_OVERLAY_WIDTH,
   BROADCAST_OVERLAY_HEIGHT,
-  BROADCAST_OVERLAY_CORNER_INSET_X,
   BROADCAST_OVERLAY_PANEL_PADDING_X,
 } from "@/lib/broadcast-overlay";
 
@@ -210,10 +210,24 @@ function TeamTickerItem({ t }: { t: TeamTickerRow }) {
 }
 
 // ─── Team squad ticker ────────────────────────────────────────────────────────
+const TEAM_TICKER_PX_PER_SEC = 50;
+
 function TeamTicker({ teams }: { teams: TeamTickerRow[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
   const [needsScroll, setNeedsScroll] = useState(false);
+
+  const contentKey = useMemo(
+    () =>
+      teams
+        .map((t) => `${t.shortCode}:${t.name}:${t.playersBought}:${t.playersDue ?? ""}`)
+        .join("|"),
+    [teams],
+  );
+
+  const { measureRef, trackRef, ready } = useSeamlessTicker(contentKey, {
+    enabled: needsScroll && teams.length > 0,
+    pxPerSec: TEAM_TICKER_PX_PER_SEC,
+  });
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -229,9 +243,7 @@ function TeamTicker({ teams }: { teams: TeamTickerRow[] }) {
     ro.observe(container);
     ro.observe(measure);
     return () => ro.disconnect();
-  }, [teams]);
-
-  const items = needsScroll ? [...teams, ...teams] : teams;
+  }, [teams, measureRef]);
 
   return (
     <div
@@ -245,44 +257,45 @@ function TeamTicker({ teams }: { teams: TeamTickerRow[] }) {
       }}
     >
       <div
-        ref={measureRef}
-        aria-hidden
-        style={{
-          position: "absolute",
-          visibility: "hidden",
-          pointerEvents: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          height: TEAM_TICKER_HEIGHT_PX,
-          whiteSpace: "nowrap",
-        }}
-      >
-        {teams.map((t, i) => <TeamTickerItem key={`measure-${i}`} t={t} />)}
-      </div>
-      <div
+        ref={trackRef}
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 0,
           height: "100%",
           width: needsScroll ? undefined : "100%",
           justifyContent: needsScroll ? undefined : "center",
-          animation: needsScroll ? `tickerScroll ${Math.max(teams.length * 6, 12)}s linear infinite` : undefined,
           whiteSpace: "nowrap",
+          opacity: needsScroll ? (ready ? 1 : 0) : 1,
+          willChange: needsScroll ? "transform" : undefined,
         }}
       >
-        {items.map((t, i) => (
-          <TeamTickerItem key={`${t.shortCode}-${i}`} t={t} />
-        ))}
+        <div
+          ref={measureRef}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          {teams.map((t, i) => (
+            <TeamTickerItem key={`copy-a-${i}`} t={t} />
+          ))}
+        </div>
+        {needsScroll ? (
+          <div
+            aria-hidden
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            {teams.map((t, i) => (
+              <TeamTickerItem key={`copy-b-${i}`} t={t} />
+            ))}
+          </div>
+        ) : null}
       </div>
-      {needsScroll && (
-        <style>{`
-          @keyframes tickerScroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-        `}</style>
-      )}
     </div>
   );
 }

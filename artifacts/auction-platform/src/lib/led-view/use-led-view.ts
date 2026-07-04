@@ -45,6 +45,7 @@ import { resolvePlayerSpecifications, specGroupLabelsForRole } from "@/lib/playe
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { resolvePlayerPortraitGender } from "./player-gender";
 import { resolveAuctionUnit } from "@/hooks/use-auction-unit";
+import { resolveSquadMetrics } from "./squad-metrics";
 
 function mapPlayerStatus(
   status: Player["status"],
@@ -92,19 +93,23 @@ function resolveLeadingTeam(
     reservedAmount: 0,
     maxBidAllowed: 0,
     slotsRemaining: 0,
+    minimumSquadSize: 0,
     maximumSquadSize: 0,
+    squadCap: 1,
     lastPurchase: null,
   };
 }
 
-function toLedTeam(t: TeamPurse, minBid: number, minSquadSize: number): LedTeam {
+function toLedTeam(t: TeamPurse, minBid: number, tournamentMinSquad: number): LedTeam {
   const playersBought = t.playersBought;
   const retainedCount = t.retainedCount ?? 0;
   const playersSold = Math.max(0, playersBought - retainedCount);
-  const maxSquad = t.maximumSquadSize ?? minSquadSize;
-  const remainingSlotsTotal = Math.max(0, maxSquad - playersBought);
-  const reservedAmount = t.reservePurse ?? remainingSlotsTotal * Math.max(0, minBid);
-  const reserveForOthers = Math.max(0, remainingSlotsTotal - 1) * Math.max(0, minBid);
+  const minSquad = (t.minimumSquadSize ?? 0) > 0 ? t.minimumSquadSize! : tournamentMinSquad;
+  const maxSquad = t.maximumSquadSize ?? 0;
+  const squad = resolveSquadMetrics(playersBought, minSquad, maxSquad);
+  const slotsForReserve = t.slotsRequired ?? squad.slotsRemaining;
+  const reservedAmount = t.reservePurse ?? slotsForReserve * Math.max(0, minBid);
+  const reserveForOthers = Math.max(0, slotsForReserve - 1) * Math.max(0, minBid);
   const maxBidAllowed =
     t.spendablePurse ?? Math.max(0, t.purseRemaining - reserveForOthers);
   return {
@@ -121,8 +126,10 @@ function toLedTeam(t: TeamPurse, minBid: number, minSquadSize: number): LedTeam 
     retainedCount,
     reservedAmount,
     maxBidAllowed,
-    slotsRemaining: remainingSlotsTotal,
-    maximumSquadSize: maxSquad,
+    slotsRemaining: squad.slotsRemaining,
+    minimumSquadSize: squad.minimumSquadSize,
+    maximumSquadSize: squad.maximumSquadSize,
+    squadCap: squad.squadCap,
     lastPurchase:
       t.topPlayerName && t.topPlayerAmount != null
         ? { playerName: t.topPlayerName, amount: t.topPlayerAmount }
@@ -444,6 +451,14 @@ export function useLedView(
     }
 
     const teams = teamsBase.map((team) => {
+      // Purse snapshot is authoritative — stale player lists must not resurrect
+      // pre-reset sold rosters or last-purchase rows after a trial reset.
+      if (team.playersBought === 0) {
+        return { ...team, lastPurchase: null };
+      }
+      if (team.playersSold === 0) {
+        return team;
+      }
       const last = lastSoldByTeam.get(team.id);
       if (!last) return team;
       return {

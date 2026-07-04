@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { applyAuctionResetState } from "@/lib/sync-auction-sse";
 import {
   CircleDot,
   MonitorDown,
@@ -55,6 +57,7 @@ export function LiveEmergencyPanel({
   showPicker?: boolean;
   afterDeleteHref?: string;
 }) {
+  const qc = useQueryClient();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -319,6 +322,7 @@ export function LiveEmergencyPanel({
                 const r = await resetTournamentAsAdmin(tournamentId, resetPassword, resetReason.trim());
                 setResetting(false);
                 if (r.success) {
+                  if (r.state) applyAuctionResetState(qc, tournamentId, r.state);
                   setConfirmReset(false);
                   setResetPassword("");
                   setResetReason("");

@@ -1,6 +1,45 @@
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { formatAuctionAmount, formatShortAuctionAmount } from "@workspace/api-base/auction-unit";
-import type { LedTeam } from "@/lib/led-view/types";
+import type { LedPlayer, LedTeam } from "@/lib/led-view/types";
+
+export type PlayerPoolCounts = {
+  available: number;
+  /** Pre-auction retained players only. */
+  retained: number;
+  /** Auction sold + retained — every player on a team roster. */
+  sold: number;
+  unsold: number;
+};
+
+/** Count players by auction roster status for the team-wise summary strip. */
+export function countPlayerPoolByStatus(players: readonly LedPlayer[]): PlayerPoolCounts {
+  let available = 0;
+  let retained = 0;
+  let soldAtAuction = 0;
+  let unsold = 0;
+  for (const p of players) {
+    switch (p.status) {
+      case "sold":
+        soldAtAuction++;
+        break;
+      case "retained":
+        retained++;
+        break;
+      case "unsold":
+        unsold++;
+        break;
+      default:
+        available++;
+        break;
+    }
+  }
+  return {
+    available,
+    retained,
+    sold: soldAtAuction + retained,
+    unsold,
+  };
+}
 
 export function computeTeamWiseGrid(teamCount: number) {
   const n = Math.max(teamCount, 1);
@@ -35,7 +74,7 @@ export type TeamWiseStatus = {
 };
 
 export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseStatus {
-  const isFull = team.maximumSquadSize > 0 && team.slotsRemaining === 0;
+  const isFull = team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize;
   if (isFull) {
     return {
       label: "FULL",
@@ -55,6 +94,17 @@ export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseSt
       label: "BUDGET LOW",
       dotClass: "bg-red-400",
       badgeClass: "border-red-400/35 bg-red-500/10 text-red-300",
+    };
+  }
+  if (
+    team.maximumSquadSize === 0 &&
+    team.minimumSquadSize > 0 &&
+    team.playersBought >= team.minimumSquadSize
+  ) {
+    return {
+      label: "MIN MET",
+      dotClass: "bg-emerald-400",
+      badgeClass: "border-emerald-400/35 bg-emerald-500/10 text-emerald-300",
     };
   }
   const slots = team.slotsRemaining;

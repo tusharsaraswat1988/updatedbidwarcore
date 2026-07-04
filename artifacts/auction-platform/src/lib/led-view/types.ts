@@ -31,7 +31,10 @@ export type LedTeam = {
   reservedAmount: number;
   maxBidAllowed: number;
   slotsRemaining: number;
+  minimumSquadSize: number;
   maximumSquadSize: number;
+  /** Denominator for squad progress (max if set, else min, else bought). */
+  squadCap: number;
   lastPurchase: LedTeamLastPurchase | null;
 };
 

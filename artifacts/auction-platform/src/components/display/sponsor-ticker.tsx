@@ -14,6 +14,7 @@ import {
   type SponsorBroadcastTier,
 } from "@/lib/sponsor-broadcast-priority-styles";
 import { BROADCAST_SAFE_X } from "@/lib/display-broadcast-layout";
+import { useSeamlessTicker } from "@/lib/chyron-ticker";
 
 /** Ribbon content height (px) — used by Broadcast Overlay stacking. */
 export const SPONSOR_RIBBON_HEIGHT_PX = 44;
@@ -24,6 +25,18 @@ export const SPONSOR_RIBBON_TOTAL_HEIGHT_PX = SPONSOR_RIBBON_HEIGHT_PX + SPONSOR
 export const SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX = SPONSOR_RIBBON_HEIGHT_PX;
 
 const GOLD_BORDER = "rgba(201, 162, 39, 0.45)";
+/** Bottom ribbon — slightly faster than LED chyron for readable sponsor names. */
+const SPONSOR_RIBBON_PX_PER_SEC = 72;
+
+function buildTickerContentKey(segments: TickerSegment[]): string {
+  return segments
+    .map((seg) =>
+      seg.kind === "bidwar"
+        ? `b:${seg.text}`
+        : `s:${seg.name}:${seg.typeLabel ?? ""}:${seg.tier}`,
+    )
+    .join("|");
+}
 
 export type TickerSegment =
   | { kind: "sponsor"; name: string; typeLabel?: string; tier: SponsorBroadcastTier }
@@ -129,11 +142,12 @@ export const SponsorTicker = memo(function SponsorTicker({
     () => buildTickerSegments(logos, includePoweredByBidWar),
     [logos, includePoweredByBidWar],
   );
+  const contentKey = useMemo(() => buildTickerContentKey(segments), [segments]);
+  const { measureRef, trackRef, ready } = useSeamlessTicker(contentKey, {
+    pxPerSec: SPONSOR_RIBBON_PX_PER_SEC,
+  });
 
   if (!segments.length) return null;
-
-  const baseDuration = Math.min(30, Math.max(25, 25 + segments.length));
-  const duration = (baseDuration * 0.9) / 1.3;
 
   return (
     <div
@@ -149,24 +163,23 @@ export const SponsorTicker = memo(function SponsorTicker({
         style={{ borderTop: `2px solid ${GOLD_BORDER}` }}
       >
         <div
-          className="flex items-center overflow-hidden"
+          className="relative flex items-center overflow-hidden"
           style={{ height: SPONSOR_RIBBON_HEIGHT_PX }}
         >
           <div
+            ref={trackRef}
             className="flex w-max will-change-transform"
-            style={{ animation: `sponsorTicker ${duration}s linear infinite` }}
+            style={{ opacity: ready ? 1 : 0 }}
           >
-            <TickerCopy segments={segments} overlay={overlay} />
-            <TickerCopy segments={segments} overlay={overlay} aria-hidden />
+            <div ref={measureRef} className="shrink-0">
+              <TickerCopy segments={segments} overlay={overlay} />
+            </div>
+            <div className="shrink-0" aria-hidden>
+              <TickerCopy segments={segments} overlay={overlay} />
+            </div>
           </div>
         </div>
       </div>
-      <style>{`
-        @keyframes sponsorTicker {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-      `}</style>
     </div>
   );
 });

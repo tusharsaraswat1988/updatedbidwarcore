@@ -6,6 +6,7 @@ import { TopStrip } from "./TopStrip";
 import { LedOverlayTopBar } from "./led-overlay-top-bar";
 import {
   computeTeamWiseGrid,
+  countPlayerPoolByStatus,
   formatTeamWiseMoney,
   formatTeamWiseMoneyShort,
   getTeamWiseStatus,
@@ -549,9 +550,7 @@ export const EffectsLayer = memo(function EffectsLayer({
     const n = Math.max(teams.length, 1);
     const { cols, rows } = computeTeamWiseGrid(n);
     const type = getTeamWiseTypography(rows);
-    const totalSold = teams.reduce((s, t) => s + t.playersBought, 0);
-    const totalPurseLeft = teams.reduce((s, t) => s + t.purse, 0);
-    const playerTotal = totalPlayers || (totalSold + remaining);
+    const poolCounts = countPlayerPoolByStatus(state.players);
 
     return (
       <div
@@ -601,12 +600,9 @@ export const EffectsLayer = memo(function EffectsLayer({
 
         {/* Bottom summary bar */}
         <TeamWiseSummaryBar
-          totalSold={totalSold}
-          playerTotal={playerTotal}
-          totalPurseLeft={totalPurseLeft}
+          poolCounts={poolCounts}
           labelSize={type.label}
           metaSize={type.meta}
-          unit={auctionUnit}
         />
 
         <LedPoweredByFooter />
@@ -711,42 +707,44 @@ type TopSoldPlayer = LedView["topSoldPlayers"][number];
 type TeamWiseTypography = ReturnType<typeof getTeamWiseTypography>;
 
 function TeamWiseSummaryBar({
-  totalSold,
-  playerTotal,
-  totalPurseLeft,
+  poolCounts,
   labelSize,
   metaSize,
-  unit,
 }: {
-  totalSold: number;
-  playerTotal: number;
-  totalPurseLeft: number;
+  poolCounts: ReturnType<typeof countPlayerPoolByStatus>;
   labelSize: string;
   metaSize: string;
-  unit: ReturnType<typeof normalizeAuctionUnit>;
 }) {
-  return (
-    <div className="relative flex items-center justify-end gap-[2%] px-[1.5%] py-[0.55%] bg-[#080d1e] border-t border-white/[0.08]">
-      <div className="flex items-center gap-[0.5em] shrink-0">
-        <span className="font-mono uppercase tracking-[0.08em] text-white/45 leading-none" style={{ fontSize: metaSize }}>
-          Total Players Sold
-        </span>
-        <span className={`${LED_HEADLINE_CLASS} text-white/90 leading-none`} style={{ fontSize: labelSize }}>
-          {totalSold} / {playerTotal || "—"}
-        </span>
-      </div>
+  const stats = [
+    { label: "Total Players Available", value: poolCounts.available, valueClass: "text-sky-300" },
+    { label: "Total Players Retained", value: poolCounts.retained, valueClass: "text-purple-300" },
+    { label: "Total Players Sold", value: poolCounts.sold, valueClass: "text-emerald-300" },
+    { label: "Total Players Unsold", value: poolCounts.unsold, valueClass: "text-amber-300" },
+  ] as const;
 
-      <div className="flex items-center gap-[0.5em] shrink-0 border-l border-white/[0.08] pl-[1.5%]">
-        <span className="font-mono uppercase tracking-[0.08em] text-white/45 leading-none" style={{ fontSize: metaSize }}>
-          Total Purse Left
-        </span>
-        <span
-          className="font-['Barlow_Condensed'] font-bold tabular-nums text-amber-300 leading-none"
-          style={{ fontSize: labelSize }}
+  return (
+    <div className="relative grid grid-cols-4 items-center gap-[1%] px-[2%] py-[0.65%] border-t border-white/10 bg-black/50">
+      {stats.map((stat, index) => (
+        <div
+          key={stat.label}
+          className={`flex items-center justify-center gap-[0.45em] min-w-0 ${
+            index > 0 ? "border-l border-white/[0.08] pl-[1%]" : ""
+          }`}
         >
-          {formatTeamWiseMoney(totalPurseLeft, unit)}
-        </span>
-      </div>
+          <span
+            className="font-mono uppercase tracking-[0.05em] text-white/45 leading-none text-center"
+            style={{ fontSize: metaSize }}
+          >
+            {stat.label}
+          </span>
+          <span
+            className={`${LED_HEADLINE_CLASS} tabular-nums leading-none shrink-0 ${stat.valueClass}`}
+            style={{ fontSize: labelSize }}
+          >
+            {stat.value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -763,11 +761,11 @@ function TeamWiseBroadcastPanel({
   unit: ReturnType<typeof normalizeAuctionUnit>;
 }) {
   const status = getTeamWiseStatus(team, minimumBid);
-  const squadCap = Math.max(team.maximumSquadSize, team.playersBought, 1);
+  const squadCap = team.squadCap;
   const progressPct = Math.min(100, (team.playersBought / squadCap) * 100);
 
   return (
-    <div className="relative flex flex-col bg-[#0d1220] border border-white/[0.09] rounded-xl overflow-hidden min-w-0 min-h-0 shadow-[0_8px_32px_rgba(0,0,0,0.75),0_4px_14px_rgba(0,0,0,0.55),0_0_0_1px_rgba(0,0,0,0.35)]">
+    <div className="relative flex flex-col bg-[#0d1220] border border-white/25 rounded-xl overflow-hidden min-w-0 min-h-0 shadow-[0_4px_16px_rgba(0,0,0,0.55),0_10px_32px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.08)]">
 
       {/* Colored header band — logo + name same row */}
       <div

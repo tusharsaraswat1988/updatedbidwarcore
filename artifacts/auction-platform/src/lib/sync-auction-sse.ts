@@ -111,7 +111,8 @@ function applyInvalidations(
     qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
   }
   if (invalidate.includes("players")) {
-    qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    void qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    void qc.refetchQueries({ queryKey: getListPlayersQueryKey(tournamentId), type: "active" });
   }
 }
 
@@ -255,6 +256,9 @@ export function applyAuctionSseMessage(
       stampVersion({ ...msg.state, lastAuctionActivityAt: activityAt ?? null }, msg.version),
     );
     syncTeamPurses(qc, tournamentId, teamPurses);
+    if ((msg.invalidate ?? []).includes("bids")) {
+      qc.setQueryData(getListBidsQueryKey(tournamentId), []);
+    }
     applyInvalidations(qc, tournamentId, msg.invalidate ?? [], teamPurses);
     bumpInsightsQueries(qc, tournamentId);
     return;
@@ -305,6 +309,27 @@ export function applyAuctionSseMessage(
     bumpInsightsQueries(qc, tournamentId);
     return;
   }
+}
+
+/**
+ * Apply the authoritative auction snapshot returned by reset-trial (or any full
+ * state write). Clears bid history, syncs purses, and eagerly refetches players
+ * so LED/operator views cannot show pre-reset sold rosters from stale caches.
+ */
+export function applyAuctionResetState(
+  qc: QueryClient,
+  tournamentId: number,
+  state: AuctionStateCache,
+): void {
+  qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), state);
+  syncTeamPurses(qc, tournamentId, state.teamPurses);
+  qc.setQueryData(getListBidsQueryKey(tournamentId), []);
+  void qc.invalidateQueries({ queryKey: getListBidsQueryKey(tournamentId) });
+  void qc.refetchQueries({ queryKey: getListPlayersQueryKey(tournamentId), type: "active" });
+  if (!state.teamPurses?.length) {
+    void qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
+  }
+  bumpInsightsQueries(qc, tournamentId);
 }
 
 /** Reset tracked version on reconnect recovery (full snapshot follows). */

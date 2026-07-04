@@ -101,7 +101,7 @@ export async function resetTournamentAsAdmin(
   tournamentId: number,
   password: string,
   reason: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; state?: Record<string, unknown> }> {
   try {
     const r = await apiFetch(`/tournaments/${tournamentId}/auction/reset-trial`, {
       method: "POST",
@@ -112,7 +112,8 @@ export async function resetTournamentAsAdmin(
       const d = await r.json().catch(() => ({}));
       return { success: false, error: d.error || "Reset failed" };
     }
-    return { success: true };
+    const state = await r.json().catch(() => null);
+    return { success: true, state: state ?? undefined };
   } catch { return { success: false, error: "Network error" }; }
 }
 

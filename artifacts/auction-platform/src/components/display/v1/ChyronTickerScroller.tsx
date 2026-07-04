@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
-import { chyronTickerContentKey, useChyronTickerDuration } from "@/lib/chyron-ticker";
+import { chyronTickerContentKey, useSeamlessTicker } from "@/lib/chyron-ticker";
 
-const TRACK_CLASS = "flex items-center gap-10 whitespace-nowrap";
+/** Inner loop unit — gap lives inside each copy, not between copies. */
+const LOOP_UNIT_CLASS = "flex items-center gap-10 whitespace-nowrap shrink-0";
+const TRACK_CLASS = "flex items-center whitespace-nowrap will-change-transform";
 
 /**
- * Seamless chyron loop: measure one copy, animate two copies at constant px/s.
+ * Seamless chyron loop: two flush loop units, constant px/s rAF scroll.
  */
 export function ChyronTickerScroller<T>({
   items,
@@ -16,25 +18,21 @@ export function ChyronTickerScroller<T>({
   const contentKey = chyronTickerContentKey(
     items as ReadonlyArray<{ name?: string | null; logoUrl?: string | null; url?: string | null; tier?: string | null; type?: string | null }>,
   );
-  const { measureRef, durationS } = useChyronTickerDuration(contentKey);
-  const loop = [...items, ...items];
+  const { measureRef, trackRef, ready } = useSeamlessTicker(contentKey);
 
   return (
-    <>
-      <div
-        ref={measureRef}
-        aria-hidden
-        className={`absolute invisible pointer-events-none h-full ${TRACK_CLASS}`}
-      >
+    <div
+      ref={trackRef}
+      className={TRACK_CLASS}
+      style={{ opacity: ready ? 1 : 0 }}
+      aria-hidden
+    >
+      <div ref={measureRef} className={LOOP_UNIT_CLASS}>
         {items.map((item, index) => renderItem(item, index))}
       </div>
-      <div
-        className={`${TRACK_CLASS} will-change-transform`}
-        style={{ animation: `auction-ticker-scroll ${durationS}s linear infinite` }}
-        aria-hidden
-      >
-        {loop.map((item, index) => renderItem(item, index))}
+      <div className={LOOP_UNIT_CLASS} aria-hidden>
+        {items.map((item, index) => renderItem(item, index))}
       </div>
-    </>
+    </div>
   );
 }

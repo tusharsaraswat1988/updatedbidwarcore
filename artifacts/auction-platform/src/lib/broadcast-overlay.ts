@@ -21,11 +21,29 @@ export const BROADCAST_OVERLAY_SAFE_INSET_Y = 54;
 /** Horizontal padding used by the lower-third bid panel. */
 export const BROADCAST_OVERLAY_PANEL_PADDING_X = 48;
 
-/** Horizontal inset for corner chrome (tournament logo, sponsors). */
+/** Horizontal inset for right-side sponsor chrome (px). */
 export const BROADCAST_OVERLAY_CORNER_INSET_X = 40;
-/** Shared height for tournament, BidWar, and sponsor logos in the top row (px). */
+/** Horizontal inset for top-left tournament logo — closer to the edge than sponsors. */
+export const BROADCAST_OVERLAY_TOURNAMENT_INSET_X = 16;
+/** Small gap between the top edge and the logo row (px). */
+export const BROADCAST_OVERLAY_TOP_INSET_Y = 10;
+/** Shared height for BidWar center mark and sponsor logos in the top row (px). */
 export const BROADCAST_OVERLAY_TOP_LOGO_HEIGHT = 56;
-export const BROADCAST_OVERLAY_TOP_ROW_HEIGHT = BROADCAST_OVERLAY_TOP_LOGO_HEIGHT;
+/** Tournament crest — 25% larger than the shared logo height. */
+export const BROADCAST_OVERLAY_TOURNAMENT_LOGO_HEIGHT = Math.round(
+  BROADCAST_OVERLAY_TOP_LOGO_HEIGHT * 1.25,
+);
+export const BROADCAST_OVERLAY_TOURNAMENT_LOGO_MAX_WIDTH = 250;
+/** Top-right sponsor crest — 20% larger than the shared logo height. */
+export const BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT = Math.round(
+  BROADCAST_OVERLAY_TOP_LOGO_HEIGHT * 1.2,
+);
+export const BROADCAST_OVERLAY_SPONSOR_LOGO_MAX_WIDTH = 240;
+export const BROADCAST_OVERLAY_TOP_ROW_HEIGHT = Math.max(
+  BROADCAST_OVERLAY_TOP_LOGO_HEIGHT,
+  BROADCAST_OVERLAY_TOURNAMENT_LOGO_HEIGHT,
+  BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT,
+);
 /** Gap between logo row and tournament title (px). */
 export const BROADCAST_OVERLAY_TOURNAMENT_NAME_GAP = 4;
 

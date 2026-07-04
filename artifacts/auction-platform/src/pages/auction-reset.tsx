@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { applyAuctionResetState } from "@/lib/sync-auction-sse";
 import { AppLayout } from "@/components/layout";
 import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
@@ -53,10 +54,11 @@ export default function AuctionReset() {
     }
     setError(null);
     try {
-      await resetMut.mutateAsync({
+      const state = await resetMut.mutateAsync({
         tournamentId,
         data: { password: "", reason: "", resetContext: "organizer" },
       });
+      applyAuctionResetState(qc, tournamentId, state);
       setSuccess(true);
       setConfirmText("");
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
