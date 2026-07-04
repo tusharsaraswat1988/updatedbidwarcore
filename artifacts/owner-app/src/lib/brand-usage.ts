@@ -7,8 +7,8 @@ export const OWNER_AUTH_LOGIN = {
 };
 
 export const OWNER_COMPACT_MARK = {
-  logoOrder: ["mainReverse", "mini", "appIcon"] as const,
-  sizeClass: "h-7 sm:h-8 w-auto object-contain opacity-60",
+  logoOrder: ["mainReverse", "main", "mini", "splash", "obsWatermark"] as const,
+  sizeClass: "h-12 w-auto max-w-[min(320px,78vw)] object-contain object-center",
   showBrandName: false,
 };
 

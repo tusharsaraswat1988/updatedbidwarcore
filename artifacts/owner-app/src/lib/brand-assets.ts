@@ -1,4 +1,5 @@
 import { BRANDING_ICON_PATHS, withBrandingAssetVersion } from "@workspace/api-base/branding-assets";
+import { cldUrl } from "@/lib/cloudinary";
 
 type BrandLogos = {
   main?: string | null;
@@ -9,7 +10,53 @@ type BrandLogos = {
   pwaIcon?: string | null;
   appleTouchIcon?: string | null;
   splash?: string | null;
+  obsWatermark?: string | null;
 };
+
+/** Same asset as OBS streaming overlay top-center (admin OBS_WATERMARK upload). */
+export const OBS_BROADCAST_LOGO_FALLBACK = "/assets/branding/bidwar-reverse-logo-official.png";
+
+/** Static wordmark for in-app header when admin logos are missing. */
+export const HEADER_BRAND_LOGO_FALLBACK = `${import.meta.env.BASE_URL}assets/branding/bidwar-reverse-logo-official.png`;
+
+function withVersion(url: string, iconVersion?: number | null): string {
+  return withBrandingAssetVersion(url, iconVersion) ?? url;
+}
+
+function trimWordmark(url: string): string {
+  return cldUrl(url, "brandWordmark") || url;
+}
+
+/**
+ * Header wordmark — NOT the OBS trapezoid badge (that asset has huge transparent margins).
+ * Prefer reverse/main wordmarks; OBS watermark only as trimmed last resort.
+ */
+export function resolveHeaderBrandLogoUrl(
+  logos: BrandLogos,
+  iconVersion?: number | null,
+): string {
+  for (const raw of [logos.mainReverse, logos.main, logos.mini, logos.splash]) {
+    if (raw) return withVersion(trimWordmark(raw), iconVersion);
+  }
+  const obs = logos.obsWatermark;
+  if (obs) {
+    const trimmed = cldUrl(obs, "obsBroadcastLogo") || obs;
+    return withVersion(trimmed, iconVersion);
+  }
+  return HEADER_BRAND_LOGO_FALLBACK;
+}
+
+export function resolveObsBroadcastLogoUrl(
+  logos: BrandLogos,
+  iconVersion?: number | null,
+): string {
+  const raw = logos.obsWatermark;
+  if (raw) {
+    const trimmed = cldUrl(raw, "obsBroadcastLogo") || raw;
+    return withVersion(trimmed, iconVersion);
+  }
+  return OBS_BROADCAST_LOGO_FALLBACK;
+}
 
 export function resolvePwaIconUrl(_logos?: BrandLogos, version?: number | null): string {
   return withBrandingAssetVersion(BRANDING_ICON_PATHS.favicon32, version);

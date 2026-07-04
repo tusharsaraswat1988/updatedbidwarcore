@@ -4,7 +4,7 @@ import {
   Trophy, User, LogOut, ShieldAlert,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser,
 } from "lucide-react";
-import { useOrientation } from "@/hooks/useOrientation";
+import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
@@ -16,7 +16,12 @@ import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Toast } from "@/components/Toast";
 import { AuctionConnectionBanner, AuctionFeedIndicator } from "@/components/AuctionConnectionBanner";
+import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
 import { isPlayerOnAuctionStage } from "@/lib/auction-stage";
+import { resolvePlayerSpecifications } from "@workspace/api-base/player-spec-export";
+import { formatPlayerGender } from "@workspace/api-base/player-gender";
+import { useRoleSpecGroups } from "@/hooks/useRoleSpecGroups";
+import { getListPlayersQueryKey, useListPlayers } from "@workspace/api-client-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AuctionState {
@@ -31,8 +36,15 @@ interface AuctionState {
     basePrice?: number | null;
     age?: number | null;
     city?: string | null;
+    gender?: string | null;
+    jerseyNumber?: string | number | null;
     battingStyle?: string | null;
     bowlingStyle?: string | null;
+    specialization?: string | null;
+    achievements?: string | null;
+    playerTag?: string | null;
+    isNonPlayingMember?: boolean;
+    specifications?: { specGroupId: number; groupName: string; value: string }[] | null;
   } | null;
   currentBid?: number | null;
   currentBidTeamId?: number | null;
@@ -93,19 +105,25 @@ interface Team {
 
 interface Tournament {
   name?: string;
+  sport?: string;
   auctionUnit?: string | null;
 }
 
 interface TeamPurse {
   teamId: number;
-  purseRemaining: number;
+  purseRemaining?: number;
   reservePurse?: number;
   spendablePurse: number;
   slotsRequired?: number;
   playersBought?: number;
+  retainedCount?: number;
   maximumSquadSize?: number;
   lowestBasePrice?: number;
   purseUsed?: number;
+  effectiveCapacity?: number;
+  purse?: number;
+  originalPurse?: number;
+  boosterTotal?: number;
 }
 
 interface Props {
@@ -176,20 +194,58 @@ function TimerBar({
   );
 }
 
-function PlayerCard({ player, teamColor, unit }: {
+const PLAYER_TAG_LABELS: Record<string, string> = {
+  captain: "Captain",
+  vice_captain: "Vice Captain",
+  owner: "Owner",
+  co_owner: "Co-Owner",
+  booster: "Booster",
+  icon: "Icon",
+  star_player: "Star Player",
+};
+
+function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
   player: NonNullable<AuctionState["currentPlayer"]>;
   teamColor: string;
   unit: ReturnType<typeof resolveAuctionUnit>;
+  categoryName?: string | null;
+  sport?: string | null;
+  tier: DeviceTier;
 }) {
+  const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player.role).map((g) => g.groupName);
+  const specs = useMemo(
+    () => resolvePlayerSpecifications(player, { specGroupLabels }).filter((s) => s.value.trim()),
+    [player, specGroupLabels],
+  );
+
+  const genderLabel = formatPlayerGender(player.gender);
+  const tagLabel = player.playerTag ? (PLAYER_TAG_LABELS[player.playerTag] ?? player.playerTag.replace(/_/g, " ")) : null;
+
+  const metaItems = [
+    player.role ? { label: "Role", value: player.role } : null,
+    player.age ? { label: "Age", value: String(player.age) } : null,
+    player.city ? { label: "City", value: player.city } : null,
+    genderLabel ? { label: "Gender", value: genderLabel } : null,
+    player.jerseyNumber ? { label: "Jersey", value: `#${player.jerseyNumber}` } : null,
+    categoryName ? { label: "Category", value: categoryName } : null,
+    tagLabel ? { label: "Tag", value: tagLabel } : null,
+    player.isNonPlayingMember ? { label: "Type", value: "Non-Playing" } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  const cardPad = tier === "mobile" ? "p-4 gap-4" : "p-5 gap-5";
+  const photoClass = tier === "mobile" ? "w-16 h-24" : tier === "tablet" ? "w-20 h-28" : "w-24 h-32";
+  const nameClass = tier === "mobile" ? "text-2xl" : "text-3xl";
+  const metaCols = tier === "mobile" ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3";
+
   return (
     <motion.div
       key={player.id}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
-      className="flex items-center gap-5 p-5 rounded-2xl border border-[#27272a] bg-[#18181b]"
+      className={`flex items-start rounded-2xl border border-[#27272a] bg-[#18181b] ${cardPad}`}
     >
-      <div className="w-20 h-28 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+      <div className={`${photoClass} rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center`}>
         {player.photoUrl ? (
           <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
         ) : (
@@ -199,17 +255,39 @@ function PlayerCard({ player, teamColor, unit }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="font-mono text-sm text-[#71717a] shrink-0">#{player.serialNo ?? player.id}</span>
-          <h2 className="font-display font-black text-3xl leading-tight text-white truncate">{player.name}</h2>
+          <h2 className={`font-display font-black leading-tight text-white truncate ${nameClass}`}>{player.name}</h2>
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-          {player.role && (
-            <span className="text-base text-[#a1a1aa] capitalize font-semibold">{player.role}</span>
-          )}
-          {player.age && <span className="text-sm text-[#71717a]">Age {player.age}</span>}
-          {player.city && <span className="text-sm text-[#71717a]">{player.city}</span>}
-        </div>
+
+        {metaItems.length > 0 && (
+          <div className={`grid ${metaCols} gap-x-4 gap-y-1.5 mt-3`}>
+            {metaItems.map(({ label, value }) => (
+              <div key={label} className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#52525b]">{label}</p>
+                <p className="text-sm text-[#d4d4d8] capitalize truncate">{value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {specs.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#27272a]">
+            {specs.map((spec) => (
+              <div key={`${spec.specGroupId ?? spec.label}-${spec.value}`} className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#52525b]">{spec.label}</p>
+                <p className="text-sm text-white font-semibold truncate">{spec.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {player.achievements?.trim() && (
+          <p className="text-sm text-[#a1a1aa] mt-3 pt-3 border-t border-[#27272a] line-clamp-2">
+            {player.achievements.trim()}
+          </p>
+        )}
+
         {player.basePrice != null && (
-          <p className="text-sm text-[#71717a] mt-2">
+          <p className="text-sm text-[#71717a] mt-3">
             Base <span className="text-white font-bold text-base">{formatIndianRupee(player.basePrice, unit)}</span>
           </p>
         )}
@@ -218,23 +296,258 @@ function PlayerCard({ player, teamColor, unit }: {
   );
 }
 
-function BidAmount({ amount, isLeading, teamColor, leadingTeam, unit }: {
+type SquadListCategory = "retained" | "bought";
+
+function TeamSquadSnapshot({
+  teamColor,
+  teamPurse,
+  tournamentId,
+  teamId,
+  unit,
+  tier,
+}: {
+  teamColor: string;
+  teamPurse: TeamPurse | null;
+  tournamentId: number;
+  teamId: number;
+  unit: ReturnType<typeof resolveAuctionUnit>;
+  tier: DeviceTier;
+}) {
+  const [expanded, setExpanded] = useState<SquadListCategory | null>(null);
+
+  const { data: allPlayers } = useListPlayers(tournamentId, {
+    query: {
+      queryKey: getListPlayersQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      staleTime: 15_000,
+    },
+  });
+
+  const { retainedPlayers, boughtPlayers } = useMemo(() => {
+    const mine = (allPlayers ?? []).filter(
+      (p) => p.teamId === teamId && !p.isNonPlayingMember,
+    );
+    return {
+      retainedPlayers: mine
+        .filter((p) => p.status === "retained")
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          amount: p.retainedPrice ?? p.soldPrice ?? 0,
+        })),
+      boughtPlayers: mine
+        .filter((p) => p.status === "sold")
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          amount: p.soldPrice ?? 0,
+        })),
+    };
+  }, [allPlayers, teamId]);
+
+  const maxSquad = teamPurse?.maximumSquadSize ?? 0;
+  const totalInSquad = teamPurse?.playersBought ?? retainedPlayers.length + boughtPlayers.length;
+  const retainedCount = teamPurse?.retainedCount ?? retainedPlayers.length;
+  const boughtCount = boughtPlayers.length;
+  const stillNeed = maxSquad > 0 ? Math.max(0, maxSquad - totalInSquad) : null;
+
+  const expandedPlayers = expanded === "retained" ? retainedPlayers : boughtPlayers;
+  const expandedTitle = expanded === "retained" ? "Retained Players" : "Bought Players";
+
+  const toggleCategory = (category: SquadListCategory) => {
+    setExpanded((prev) => (prev === category ? null : category));
+  };
+
+  const statValueClass = tier === "mobile" ? "text-xl" : tier === "tablet" ? "text-2xl" : "text-2xl";
+  const statLabelClass = tier === "mobile" ? "text-[10px]" : "text-[11px]";
+
+  return (
+    <div className="rounded-2xl border border-[#27272a] bg-[#18181b] overflow-hidden">
+      <div className="grid grid-cols-3 divide-x divide-[#27272a]">
+        <div className="px-3 py-3 text-center">
+          <p className={`font-display font-black leading-none text-white ${statValueClass}`}>
+            {maxSquad > 0 ? maxSquad : totalInSquad}
+          </p>
+          <p className={`font-bold uppercase tracking-wider text-[#52525b] mt-1.5 ${statLabelClass}`}>
+            Squad Target
+          </p>
+          <p className="text-[10px] text-[#71717a] mt-0.5">
+            {maxSquad > 0
+              ? stillNeed != null && stillNeed > 0
+                ? `${stillNeed} more needed`
+                : `${totalInSquad}/${maxSquad} filled`
+              : `${totalInSquad} in squad`}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => toggleCategory("retained")}
+          className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
+            expanded === "retained" ? "bg-[#27272a]" : "hover:bg-[#1f1f23]"
+          }`}
+        >
+          <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: teamColor }}>
+            {retainedCount}
+          </p>
+          <p className={`font-bold uppercase tracking-wider text-[#52525b] mt-1.5 ${statLabelClass}`}>
+            Retained
+          </p>
+          <p className="text-[10px] text-[#71717a] mt-0.5">Tap to view</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => toggleCategory("bought")}
+          className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
+            expanded === "bought" ? "bg-[#27272a]" : "hover:bg-[#1f1f23]"
+          }`}
+        >
+          <p className={`font-display font-black leading-none text-white ${statValueClass}`}>
+            {boughtCount}
+          </p>
+          <p className={`font-bold uppercase tracking-wider text-[#52525b] mt-1.5 ${statLabelClass}`}>
+            Bought
+          </p>
+          <p className="text-[10px] text-[#71717a] mt-0.5">Tap to view</p>
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            key={expanded}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-t border-[#27272a]"
+          >
+            <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#141416]">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">{expandedTitle}</p>
+              <button
+                type="button"
+                onClick={() => setExpanded(null)}
+                className="p-1 rounded-lg text-[#71717a] hover:text-white hover:bg-[#27272a] transition-colors"
+                aria-label="Close player list"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {expandedPlayers.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-[#52525b]">No players yet</p>
+            ) : (
+              <ul className={`overflow-y-auto overscroll-contain divide-y divide-[#27272a] [-webkit-overflow-scrolling:touch] ${
+                tier === "mobile" ? "max-h-36" : tier === "tablet" ? "max-h-44" : "max-h-52"
+              }`}>
+                {expandedPlayers.map((player) => (
+                  <li key={player.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    <span className="text-sm font-semibold text-white truncate">{player.name}</span>
+                    <span className="text-sm font-bold shrink-0" style={{ color: teamColor }}>
+                      {formatIndianRupee(player.amount, unit)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function TeamPurseFooter({
+  teamColor,
+  teamPurse,
+  team,
+  tournamentId,
+  teamId,
+  unit,
+  tier,
+}: {
+  teamColor: string;
+  teamPurse: TeamPurse | null;
+  team: Team;
+  tournamentId: number;
+  teamId: number;
+  unit: ReturnType<typeof resolveAuctionUnit>;
+  tier: DeviceTier;
+}) {
+  const { data: allPlayers } = useListPlayers(tournamentId, {
+    query: {
+      queryKey: getListPlayersQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      staleTime: 15_000,
+    },
+  });
+
+  const retainedSpend = useMemo(
+    () =>
+      (allPlayers ?? [])
+        .filter((p) => p.teamId === teamId && p.status === "retained")
+        .reduce((sum, p) => sum + (p.retainedPrice ?? p.soldPrice ?? 0), 0),
+    [allPlayers, teamId],
+  );
+
+  const totalPurse = teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
+  const totalSpent = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
+  const reserve = teamPurse?.reservePurse ?? 0;
+  const spendable = teamPurse?.spendablePurse ?? Math.max(0, totalPurse - totalSpent);
+  const slotsRequired = teamPurse?.slotsRequired ?? 0;
+  const maxBid = slotsRequired > 0 ? Math.floor(spendable / slotsRequired) : spendable;
+
+  const valueClass =
+    tier === "mobile" ? "text-base sm:text-lg" : tier === "tablet" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
+  const labelClass = tier === "mobile" ? "text-[11px] mt-1.5" : "text-xs mt-2";
+  const cellPad = tier === "mobile" ? "px-1 py-2" : "px-1.5 py-2.5";
+
+  const items = [
+    { label: "Total Purse", value: formatShortIndianRupee(totalPurse, unit), accent: teamColor },
+    { label: "Retained", value: formatShortIndianRupee(retainedSpend, unit), accent: "#e4e4e7" },
+    { label: "Total Spent", value: formatShortIndianRupee(totalSpent, unit), accent: "#ffffff" },
+    { label: "Reserve", value: formatShortIndianRupee(reserve, unit), accent: reserve > 0 ? "#fbbf24" : "#a1a1aa" },
+    { label: "Max Bid", value: formatShortIndianRupee(maxBid, unit), accent: teamColor },
+  ] as const;
+
+  return (
+    <div className="grid grid-cols-5 divide-x divide-[#27272a]">
+      {items.map(({ label, value, accent }) => (
+        <div key={label} className={`text-center min-w-0 ${cellPad}`}>
+          <p
+            className={`font-display font-black leading-none ${valueClass}`}
+            style={{ color: accent }}
+          >
+            {value}
+          </p>
+          <p className={`text-[#a1a1aa] font-bold uppercase tracking-wide leading-tight ${labelClass}`}>
+            {label}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BidAmount({ amount, isLeading, teamColor, leadingTeam, unit, tier }: {
   amount: number;
   isLeading: boolean;
   teamColor: string;
   leadingTeam?: string | null;
   unit: ReturnType<typeof resolveAuctionUnit>;
+  tier: DeviceTier;
 }) {
+  const amountClass = tier === "mobile" ? "text-5xl" : tier === "tablet" ? "text-6xl" : "text-7xl";
   return (
     <div className="text-center py-2">
-      <p className="text-sm font-bold text-[#71717a] uppercase tracking-widest mb-2">
+      <p className={`font-bold text-[#71717a] uppercase tracking-widest mb-2 ${tier === "mobile" ? "text-xs" : "text-sm"}`}>
         {isLeading ? "Your Bid — You Are Leading" : "Current Bid"}
       </p>
       <motion.p
         key={amount}
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="font-display font-black text-6xl leading-none"
+        className={`font-display font-black leading-none ${amountClass}`}
         style={{ color: isLeading ? teamColor : "#ffffff" }}
       >
         {formatIndianRupee(amount || 0, unit)}
@@ -323,7 +636,7 @@ function BidDisabledMessage({ hint, compact }: { hint: BidDisabledHint; compact?
 
 function BidButton({
   canBid, isLeading, timerExpired, hasPlayer, isActive, isPaused, isIdle,
-  bidding, bidFeedback, nextBidAmount, teamColor, onBid, landscape, unit,
+  bidding, bidFeedback, nextBidAmount, teamColor, onBid, layout, tier, unit, dock = false,
 }: {
   canBid: boolean;
   isLeading: boolean;
@@ -337,10 +650,32 @@ function BidButton({
   nextBidAmount: number;
   teamColor: string;
   onBid: () => void;
-  landscape: boolean;
+  layout: "stacked" | "split";
+  tier: DeviceTier;
   unit: ReturnType<typeof resolveAuctionUnit>;
+  dock?: boolean;
 }) {
-  const buttonH = landscape ? "min-h-[40vh] h-full" : "h-full min-h-[18vh]";
+  const isSplit = layout === "split";
+  const buttonH = dock
+    ? tier === "mobile" ? "h-28" : tier === "tablet" ? "h-32" : "h-36"
+    : isSplit ? "min-h-[40vh] h-full" : tier === "mobile" ? "h-full min-h-[22vh]" : "h-full min-h-[18vh]";
+  const dockIdleH = dock
+    ? tier === "mobile" ? "h-28" : tier === "tablet" ? "h-32" : "h-36"
+    : isSplit ? "h-16" : "h-14";
+  const dockStatusH = tier === "mobile" ? "h-28" : tier === "tablet" ? "h-32" : "h-36";
+  const bidFontSize = dock
+    ? tier === "mobile"
+      ? "clamp(1.75rem, 7vw, 2.5rem)"
+      : tier === "tablet"
+        ? "clamp(1.85rem, 4vw, 2.75rem)"
+        : "clamp(2rem, 3vw, 3rem)"
+    : isSplit
+      ? tier === "laptop"
+        ? "clamp(2.25rem, 4.5vw, 4rem)"
+        : "clamp(2rem, 5vw, 3.25rem)"
+      : tier === "mobile"
+        ? "clamp(2rem, 10vw, 3rem)"
+        : "clamp(2.25rem, 8vw, 3.5rem)";
 
   if (isLeading) {
     return (
@@ -348,13 +683,13 @@ function BidButton({
         key="leading"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border-4 flex flex-col items-center justify-center gap-4 px-6`}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-4 flex flex-col items-center justify-center gap-4 px-6`}
         style={{ borderColor: `${teamColor}80`, backgroundColor: `${teamColor}18` }}
       >
-        <Trophy className="w-16 h-16" style={{ color: teamColor }} />
+        <Trophy className={dock ? "w-10 h-10" : "w-16 h-16"} style={{ color: teamColor }} />
         <div className="text-center">
-          <p className="font-display font-black text-3xl" style={{ color: teamColor }}>HIGHEST BIDDER</p>
-          <p className="text-base text-[#71717a] mt-2">Waiting for other teams...</p>
+          <p className={`font-display font-black ${dock ? "text-xl" : "text-3xl"}`} style={{ color: teamColor }}>HIGHEST BIDDER</p>
+          {!dock && <p className="text-base text-[#71717a] mt-2">Waiting for other teams...</p>}
         </div>
       </motion.div>
     );
@@ -366,18 +701,36 @@ function BidButton({
         key="expired"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-4`}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-4`}
       >
-        <AlertTriangle className="w-14 h-14 text-red-400" />
+        <AlertTriangle className={`${dock ? "w-10 h-10" : "w-14 h-14"} text-red-400`} />
         <div className="text-center">
-          <p className="font-display font-black text-3xl text-red-400">BIDDING CLOSED</p>
-          <p className="text-base text-[#71717a] mt-2">Timer expired — awaiting operator</p>
+          <p className={`font-display font-black text-red-400 ${dock ? "text-xl" : "text-3xl"}`}>BIDDING CLOSED</p>
+          {!dock && <p className="text-base text-[#71717a] mt-2">Timer expired — awaiting operator</p>}
         </div>
       </motion.div>
     );
   }
 
   if (!isActive || !hasPlayer) {
+    if (dock) {
+      const idleMessage = isPaused
+        ? "Auction paused"
+        : isIdle
+          ? "Auction not started"
+          : "Waiting for player";
+      return (
+        <motion.div
+          key="waiting-dock"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-1 px-4`}
+        >
+          <p className="font-display font-black text-2xl text-[#52525b]">BID</p>
+          <p className="text-xs text-[#71717a] font-medium text-center">{idleMessage}</p>
+        </motion.div>
+      );
+    }
     return (
       <motion.div
         key="waiting"
@@ -404,12 +757,12 @@ function BidButton({
       disabled={!canBid || bidding}
       whileTap={canBid ? { scale: 0.95 } : {}}
       animate={bidFeedback === "success" ? { scale: [1, 1.04, 1] } : {}}
-      className={`w-full ${buttonH} rounded-3xl font-display font-black text-black disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none`}
+      className={`w-full ${buttonH} rounded-3xl font-display font-black text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all select-none`}
       style={{
         backgroundColor: canBid ? teamColor : "#374151",
         boxShadow: canBid ? `0 0 60px ${teamColor}50, 0 8px 32px rgba(0,0,0,0.5)` : "none",
         color: canBid ? "black" : "#6b7280",
-        fontSize: landscape ? "clamp(2rem, 5vw, 3.5rem)" : "clamp(2.5rem, 10vw, 4.5rem)",
+        fontSize: bidFontSize,
       }}
     >
       {bidding ? (
@@ -513,20 +866,267 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
   );
 }
 
-// ── Brand mini logo ───────────────────────────────────────────────────────────
-function BrandMini({ logos, brandName, miniBrandText }: {
-  logos: { mainReverse?: string | null; mini?: string | null };
+// ── Header brand logo (wordmark — not OBS trapezoid badge) ────────────────────
+function HeaderBrandLogo({
+  logos,
+  brandName,
+  layout,
+  tier,
+  iconVersion,
+}: {
+  logos: { obsWatermark?: string | null; main?: string | null; mainReverse?: string | null; mini?: string | null; splash?: string | null };
+  brandName: string;
+  layout: "stacked" | "split";
+  tier: DeviceTier;
+  iconVersion?: number;
+}) {
+  const src = resolveHeaderBrandLogoUrl(logos, iconVersion);
+  const sizeClass =
+    layout === "stacked"
+      ? tier === "mobile"
+        ? "h-12 w-auto max-w-[min(300px,82vw)]"
+        : tier === "tablet"
+          ? "h-[3.75rem] w-auto max-w-[min(360px,78vw)]"
+          : "h-16 w-auto max-w-[min(400px,70vw)]"
+      : tier === "mobile"
+        ? "h-9 w-auto max-w-[min(150px,34vw)]"
+        : tier === "tablet"
+          ? "h-10 w-auto max-w-[min(170px,28vw)]"
+          : "h-11 w-auto max-w-[min(190px,22vw)]";
+
+  return (
+    <img
+      src={src}
+      alt={brandName}
+      className={`object-contain object-center block ${sizeClass}`}
+      decoding="async"
+    />
+  );
+}
+
+function ReservePurseNotice({
+  reservePurse,
+  slotsRequired,
+  fmtShort,
+}: {
+  reservePurse: number;
+  slotsRequired: number;
+  fmtShort: (amount: number | null | undefined) => string;
+}) {
+  if (reservePurse <= 0) return null;
+  return (
+    <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-500/25 bg-amber-500/8">
+      <ShieldAlert className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
+      <p className="text-sm text-amber-400 font-semibold">
+        {fmtShort(reservePurse)} reserved — {slotsRequired} slot{slotsRequired !== 1 ? "s" : ""} needed
+      </p>
+    </div>
+  );
+}
+
+function MaxSquadNotice({ maxSquadReached }: { maxSquadReached: boolean }) {
+  if (!maxSquadReached) return null;
+  return (
+    <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-red-500/25 bg-red-500/8">
+      <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+      <p className="text-sm text-red-400 font-semibold">Maximum squad size reached — bidding blocked</p>
+    </div>
+  );
+}
+
+function HeaderActionButton({
+  onClick,
+  title,
+  label,
+  blocked = false,
+  compact = false,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  label: string;
+  blocked?: boolean;
+  compact?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={blocked ? undefined : onClick}
+      title={title}
+      aria-label={title}
+      aria-disabled={blocked}
+      disabled={blocked}
+      className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-xl border transition-all active:scale-95 ${
+        compact ? "min-w-[38px] px-1 py-1" : "min-w-[44px] px-1.5 py-1.5"
+      } ${
+        blocked
+          ? "border-[#27272a] bg-[#141416] text-[#52525b] opacity-50 cursor-not-allowed"
+          : "border-[#3f3f46] bg-[#18181b] text-[#d4d4d8] hover:text-white hover:border-[#52525b] hover:bg-[#27272a] shadow-sm"
+      }`}
+    >
+      {children}
+      <span className={`font-bold uppercase tracking-wide leading-none ${compact ? "text-[7px]" : "text-[8px]"}`}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function resolveHeaderToolbar(_team: Team, _teamColor: string, actionCompact: boolean) {
+  return {
+    teamLogoClass: actionCompact ? "w-9 h-9 rounded-lg" : "w-10 h-10 rounded-xl",
+    teamNameClass: actionCompact ? "text-sm" : "text-base",
+  };
+}
+
+function LiveBidHeader({
+  team,
+  teamColor,
+  tournament,
+  isActive,
+  isPaused,
+  statusLabel,
+  feed,
+  logos,
+  brandName,
+  miniBrandText: _miniBrandText,
+  navBlocked,
+  syncing,
+  onSync,
+  onViewSquad,
+  onViewScout,
+  onLeave,
+  layout,
+  tier,
+  iconVersion,
+}: {
+  team: Team;
+  teamColor: string;
+  tournament: Tournament | null;
+  isActive: boolean;
+  isPaused: boolean;
+  statusLabel: string;
+  feed: ReturnType<typeof useAuctionConnectionState>;
+  logos: { obsWatermark?: string | null; main?: string | null; mainReverse?: string | null; mini?: string | null; splash?: string | null };
   brandName: string;
   miniBrandText: string;
+  navBlocked: boolean;
+  syncing: boolean;
+  onSync: () => void;
+  onViewSquad: () => void;
+  onViewScout: () => void;
+  onLeave: () => void;
+  layout: "stacked" | "split";
+  tier: DeviceTier;
+  iconVersion?: number;
 }) {
-  const src = logos.mainReverse ?? logos.mini;
-  if (src) {
-    return <img src={src} alt={brandName} className="h-6 w-auto opacity-60" />;
+  const showTournamentLine = layout === "stacked" && tier !== "mobile";
+  const actionCompact = tier !== "laptop";
+  const { teamLogoClass, teamNameClass } = resolveHeaderToolbar(team, teamColor, actionCompact);
+
+  const teamBlock = (
+    <div className="flex items-center gap-2 min-w-0">
+      <TeamLogo
+        logoUrl={team.logoUrl}
+        shortCode={team.shortCode}
+        teamName={team.name}
+        teamColor={teamColor}
+        className={`${teamLogoClass} flex-shrink-0`}
+        textClassName={actionCompact ? "text-xs" : undefined}
+      />
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className={`font-display font-bold leading-none truncate ${teamNameClass}`} style={{ color: teamColor }}>
+            {team.name}
+          </p>
+          <span
+            className={`text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+              isActive
+                ? "bg-green-500/20 text-green-400"
+                : isPaused
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-[#27272a] text-[#71717a]"
+            }`}
+          >
+            {statusLabel}
+          </span>
+          <AuctionFeedIndicator
+            feedState={feed.state}
+            secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            className="w-4 h-4 flex-shrink-0"
+          />
+        </div>
+        {showTournamentLine && (
+          <p className="text-xs text-[#71717a] mt-0.5 truncate">{tournament?.name || "Auction"}</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const actionBlock = (
+    <div className={`flex items-center justify-end gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-2xl border border-[#27272a] bg-[#0c0c0e] min-w-0 shrink-0 ${actionCompact ? "rounded-xl" : ""}`}>
+      <HeaderActionButton onClick={onSync} title="Sync auction data" label="Sync" compact={actionCompact}>
+        <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+      </HeaderActionButton>
+      <HeaderActionButton
+        onClick={onViewSquad}
+        title={navBlocked ? "Unavailable during live player auction" : "View my squad"}
+        label="Squad"
+        blocked={navBlocked}
+        compact={actionCompact}
+      >
+        <ShieldUser className="w-4 h-4" strokeWidth={2.25} />
+      </HeaderActionButton>
+      <HeaderActionButton
+        onClick={onViewScout}
+        title={navBlocked ? "Unavailable during live player auction" : "Scout rival teams"}
+        label="Scout"
+        blocked={navBlocked}
+        compact={actionCompact}
+      >
+        <Radar className="w-4 h-4" strokeWidth={2.25} />
+      </HeaderActionButton>
+      <HeaderActionButton onClick={onLeave} title="Leave auction" label="Leave" compact={actionCompact}>
+        <LogOut className="w-4 h-4" />
+      </HeaderActionButton>
+    </div>
+  );
+
+  if (layout === "stacked") {
+    return (
+      <div className="border-b border-[#27272a] flex-shrink-0">
+        <div className="flex items-center justify-center px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0a0a0c] border-b border-[#27272a]/70">
+          <HeaderBrandLogo
+            logos={logos}
+            brandName={brandName}
+            layout={layout}
+            tier={tier}
+            iconVersion={iconVersion}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-2.5 min-h-[48px] sm:min-h-[52px]">
+          {teamBlock}
+          {actionBlock}
+        </div>
+      </div>
+    );
   }
+
   return (
-    <span className="font-display font-black text-sm text-amber-400/50 tracking-wide">
-      {miniBrandText}
-    </span>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-3 sm:px-4 py-2 border-b border-[#27272a] flex-shrink-0">
+      {teamBlock}
+      <div className="flex items-center justify-center px-1 sm:px-2 shrink-0">
+        <HeaderBrandLogo
+          logos={logos}
+          brandName={brandName}
+          layout={layout}
+          tier={tier}
+          iconVersion={iconVersion}
+        />
+      </div>
+      {actionBlock}
+    </div>
   );
 }
 
@@ -536,15 +1136,15 @@ export function LiveBid({
   connectionStatus, bidErrorMsg, onBid, onViewSquad, onViewScout,
   navToast, onNavToastDismiss, onSignOut, onSync, isSyncError,
 }: Props) {
-  const orientation = useOrientation();
-  const landscape   = orientation === "landscape";
+  const { layout, tier } = useLiveBidLayout();
+  const isSplit = layout === "split";
   const feed        = useAuctionConnectionState(
     connectionStatus,
     tournamentId,
     state?.lastAuctionActivityAt,
   );
   const mayTap      = useDebounce(600);
-  const { brandName, logos, poweredByText, miniBrandText, showPoweredBy } = useBranding();
+  const { brandName, logos, poweredByText, miniBrandText, showPoweredBy, iconVersion } = useBranding();
 
   const [bidding,            setBidding]            = useState(false);
   const [bidFeedback,        setBidFeedback]         = useState<"success" | "error" | "leading" | null>(null);
@@ -671,7 +1271,9 @@ export function LiveBid({
     newCapacity: number;
   } | null>(null);
   const lastOutcomeKeyRef = useRef<string | null>(null);
+  const outcomeHydratedRef = useRef(false);
   const prevBoosterRef = useRef<number | null>(null);
+  const boosterHydratedRef = useRef(false);
 
   const resolvedOutcome = (() => {
     const raw = state?.outcome;
@@ -725,29 +1327,53 @@ export function LiveBid({
   const purseBoosterBannerKey =
     state?.lastPurseBooster?.teamId === teamId ? state.lastPurseBooster.id : null;
 
+  // Only react to outcomes that arrive after mount — skip stale state from login/sync.
   useEffect(() => {
-    if (!outcomeBannerKey || outcomeBannerKey === lastOutcomeKeyRef.current) return;
+    if (!outcomeBannerKey) return;
+
+    if (!outcomeHydratedRef.current) {
+      outcomeHydratedRef.current = true;
+      lastOutcomeKeyRef.current = outcomeBannerKey;
+      return;
+    }
+
+    if (outcomeBannerKey === lastOutcomeKeyRef.current) return;
     lastOutcomeKeyRef.current = outcomeBannerKey;
 
     if (resolvedOutcome?.type === "unsold") {
-      const name = resolvedOutcome.playerName ?? "Player";
-      setUnsoldBanner({ name });
-      const t = setTimeout(() => setUnsoldBanner(null), 4000);
-      return () => clearTimeout(t);
+      setUnsoldBanner({ name: resolvedOutcome.playerName ?? "Player" });
+      return;
     }
 
     if (resolvedOutcome?.type === "sold" && resolvedOutcome.teamId === teamId) {
-      const name = resolvedOutcome.playerName ?? state?.lastSoldPlayer?.name ?? "Player";
-      setWonBanner({ name, soldAmount: resolvedOutcome.amount });
-      const t = setTimeout(() => setWonBanner(null), 5500);
-      return () => clearTimeout(t);
+      setWonBanner({
+        name: resolvedOutcome.playerName ?? state?.lastSoldPlayer?.name ?? "Player",
+        soldAmount: resolvedOutcome.amount,
+      });
     }
+  }, [outcomeBannerKey, teamId, resolvedOutcome, state?.lastSoldPlayer?.name]);
 
-    return undefined;
-  }, [outcomeBannerKey, teamId]);
+  useEffect(() => {
+    if (!wonBanner) return;
+    const t = setTimeout(() => setWonBanner(null), 5500);
+    return () => clearTimeout(t);
+  }, [wonBanner]);
+
+  useEffect(() => {
+    if (!unsoldBanner) return;
+    const t = setTimeout(() => setUnsoldBanner(null), 4000);
+    return () => clearTimeout(t);
+  }, [unsoldBanner]);
 
   useEffect(() => {
     if (purseBoosterBannerKey == null) return;
+
+    if (!boosterHydratedRef.current) {
+      boosterHydratedRef.current = true;
+      prevBoosterRef.current = purseBoosterBannerKey;
+      return;
+    }
+
     if (prevBoosterRef.current === purseBoosterBannerKey) return;
 
     const boost = state?.lastPurseBooster;
@@ -759,105 +1385,43 @@ export function LiveBid({
       previousCapacity: boost.previousCapacity,
       newCapacity: boost.newCapacity,
     });
+  }, [purseBoosterBannerKey, teamId, state?.lastPurseBooster]);
+
+  useEffect(() => {
+    if (!purseBoosterBanner) return;
     const t = setTimeout(() => setPurseBoosterBanner(null), 5500);
     return () => clearTimeout(t);
-  }, [purseBoosterBannerKey, teamId]);
+  }, [purseBoosterBanner]);
 
-  const navBtnClass = (blocked: boolean) =>
-    `p-2 transition-colors rounded-xl active:scale-90 ${
-      blocked
-        ? "text-[#52525b] opacity-40 cursor-not-allowed"
-        : "text-[#71717a] hover:text-white hover:bg-[#18181b]"
-    }`;
-
-  const navBtnClassLandscape = (blocked: boolean) =>
-    `p-1.5 transition-colors rounded-lg ${
-      blocked
-        ? "text-[#52525b] opacity-40 cursor-not-allowed"
-        : "text-[#71717a] hover:text-white hover:bg-[#18181b]"
-    }`;
-
-  // ── Portrait layout ─────────────────────────────────────────────────────────
-  if (!landscape) {
+  // ── Stacked layout (mobile portrait, narrow screens) ───────────────────────
+  if (!isSplit) {
     return (
       <div
         className="auction-surface relative h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
         style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-3 border-b border-[#27272a] flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Brand mini */}
-            <BrandMini logos={logos} brandName={brandName} miniBrandText={miniBrandText} />
-
-            {/* Divider */}
-            <div className="w-px h-5 bg-[#3f3f46]" />
-
-            {/* Team badge */}
-            <TeamLogo
-              logoUrl={team.logoUrl}
-              shortCode={team.shortCode}
-              teamName={team.name}
-              teamColor={teamColor}
-              className="w-11 h-11 rounded-xl"
-            />
-            <div className="min-w-0">
-              <p className="font-display font-bold text-lg leading-none truncate" style={{ color: teamColor }}>
-                {team.name}
-              </p>
-              <p className="text-xs text-[#71717a] mt-0.5 truncate">{tournament?.name || "Auction"}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <AuctionFeedIndicator
-              feedState={feed.state}
-              secondsSinceLastActivity={feed.secondsSinceLastActivity}
-            />
-            <span
-              className={`text-xs font-black px-2.5 py-1.5 rounded-full ${
-                isActive
-                  ? "bg-green-500/20 text-green-400"
-                  : isPaused
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "bg-[#27272a] text-[#71717a]"
-              }`}
-            >
-              {statusLabel}
-            </span>
-            <button
-              onClick={handleSyncTap}
-              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
-              title="Sync"
-            >
-              <RefreshCw className={`w-6 h-6 ${syncing ? "animate-spin" : ""}`} />
-            </button>
-            <button
-              onClick={onViewSquad}
-              className={navBtnClass(navBlocked)}
-              title={navBlocked ? "Unavailable during live player auction" : "My squad"}
-              aria-disabled={navBlocked}
-            >
-              <ShieldUser className="w-6 h-6" strokeWidth={2.25} />
-            </button>
-            <button
-              onClick={onViewScout}
-              className={navBtnClass(navBlocked)}
-              title={navBlocked ? "Unavailable during live player auction" : "Scout rivals"}
-              aria-disabled={navBlocked}
-            >
-              <Radar className="w-6 h-6" strokeWidth={2.25} />
-            </button>
-            <button
-              onClick={() => setShowSignOutConfirm(true)}
-              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
-              title="Leave"
-            >
-              <LogOut className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
+        <LiveBidHeader
+          team={team}
+          teamColor={teamColor}
+          tournament={tournament}
+          isActive={isActive}
+          isPaused={isPaused}
+          statusLabel={statusLabel}
+          feed={feed}
+          logos={logos}
+          brandName={brandName}
+          miniBrandText={miniBrandText}
+          navBlocked={navBlocked}
+          syncing={syncing}
+          onSync={handleSyncTap}
+          onViewSquad={onViewSquad}
+          onViewScout={onViewScout}
+          onLeave={() => setShowSignOutConfirm(true)}
+          layout="stacked"
+          tier={tier}
+          iconVersion={iconVersion}
+        />
 
         {/* Sync error banner */}
         {syncFailed && (
@@ -874,7 +1438,7 @@ export function LiveBid({
         )}
 
         {/* Scrollable top area */}
-        <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4 min-h-0">
+        <div className={`flex-1 overflow-y-auto px-3 sm:px-4 pt-3 sm:pt-4 space-y-3 sm:space-y-4 min-h-0 ${tier === "mobile" ? "pb-2" : "pb-3"}`}>
           {/* Timer */}
           {state?.timerEndsAt && (
             <TimerBar timerEndsAt={state.timerEndsAt} teamColor={teamColor} timerExpired={expired} />
@@ -883,7 +1447,15 @@ export function LiveBid({
           {/* Player card or last sold */}
           <AnimatePresence mode="wait">
             {hasPlayer ? (
-              <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} unit={unit} />
+              <PlayerCard
+                key={state?.currentPlayer?.id}
+                player={state!.currentPlayer!}
+                teamColor={teamColor}
+                unit={unit}
+                categoryName={state?.currentCategoryName}
+                sport={tournament?.sport}
+                tier={tier}
+              />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
                 key="last-unsold"
@@ -913,85 +1485,72 @@ export function LiveBid({
             )}
           </AnimatePresence>
 
-          {/* Bid amount */}
           <BidAmount
             amount={state?.currentBid || 0}
             isLeading={isLeading}
             teamColor={teamColor}
             leadingTeam={state?.currentBidTeamName}
             unit={unit}
+            tier={tier}
+          />
+
+          <TeamSquadSnapshot
+            teamColor={teamColor}
+            teamPurse={teamPurse}
+            tournamentId={tournamentId}
+            teamId={teamId}
+            unit={unit}
+            tier={tier}
           />
 
           {/* Reserve / squad banners */}
-          {reservePurse > 0 && (
-            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-500/25 bg-amber-500/8">
-              <ShieldAlert className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-400 font-semibold">
-                {fmtShort(reservePurse)} reserved — {slotsRequired} slot{slotsRequired !== 1 ? "s" : ""} needed
-              </p>
-            </div>
-          )}
-          {maxSquadReached && (
-            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-red-500/25 bg-red-500/8">
-              <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-400 font-semibold">Maximum squad size reached — bidding blocked</p>
-            </div>
-          )}
+          <ReservePurseNotice reservePurse={reservePurse} slotsRequired={slotsRequired} fmtShort={fmtShort} />
+          <MaxSquadNotice maxSquadReached={maxSquadReached} />
         </div>
 
-        {/* Sticky bid controls */}
-        <div
-          className="flex-shrink-0 px-4 pt-3 pb-4 border-t border-[#27272a] space-y-3"
-          style={{ minHeight: "max(28vh, 200px)" }}
-        >
-          <div className="flex-1 flex flex-col h-full gap-3">
-            <div className="flex-1">
-              <AnimatePresence mode="wait">
-                <BidButton
-                  key={`${isLeading}-${expired}-${isActive}-${hasPlayer}`}
-                  canBid={canBid}
-                  isLeading={isLeading}
-                  timerExpired={expired}
-                  hasPlayer={hasPlayer}
-                  isActive={isActive}
-                  isPaused={isPaused}
-                  isIdle={isIdle}
-                  bidding={bidding}
-                  bidFeedback={bidFeedback}
-                  nextBidAmount={nextBidAmount}
-                  teamColor={teamColor}
-                  onBid={handleBidTap}
-                  landscape={false}
-                  unit={unit}
-                />
-              </AnimatePresence>
-            </div>
+        {/* Bottom bid dock — always pinned visible */}
+        <div className={`sticky bottom-0 z-20 flex-shrink-0 px-3 sm:px-4 pt-2.5 sm:pt-3 pb-3 sm:pb-4 border-t border-[#27272a] space-y-2 safe-bottom bg-[#09090b] ${tier === "tablet" ? "pb-5" : ""}`}>
+          <TeamPurseFooter
+            teamColor={teamColor}
+            teamPurse={teamPurse}
+            team={team}
+            tournamentId={tournamentId}
+            teamId={teamId}
+            unit={unit}
+            tier={tier}
+          />
 
-            {bidFeedback === "error" && (
-              <p className="text-center text-red-400 text-base font-semibold">{bidErrorMsg || "Bid failed. Please try again."}</p>
-            )}
-            {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} />}
+          {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact={tier === "mobile"} />}
 
-            {/* Purse strip */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              {[
-                { label: "Spendable", value: fmtShort(spendablePurse), accent: teamColor },
-                { label: "Spent",     value: fmtShort(teamPurse?.purseUsed ?? (team.purseUsed || 0)) },
-                { label: "Players",   value: String(playersBought) },
-              ].map(({ label, value, accent }) => (
-                <div key={label} className="text-center">
-                  <p className="font-display font-black text-xl" style={accent ? { color: accent } : { color: "#fafafa" }}>
-                    {value}
-                  </p>
-                  <p className="text-xs text-[#52525b] uppercase tracking-wide mt-0.5">{label}</p>
-                </div>
-              ))}
-            </div>
+          <AnimatePresence mode="wait">
+            <BidButton
+              key={`${isLeading}-${expired}-${isActive}-${hasPlayer}`}
+              canBid={canBid}
+              isLeading={isLeading}
+              timerExpired={expired}
+              hasPlayer={hasPlayer}
+              isActive={isActive}
+              isPaused={isPaused}
+              isIdle={isIdle}
+              bidding={bidding}
+              bidFeedback={bidFeedback}
+              nextBidAmount={nextBidAmount}
+              teamColor={teamColor}
+              onBid={handleBidTap}
+              layout="stacked"
+              tier={tier}
+              unit={unit}
+              dock
+            />
+          </AnimatePresence>
 
-            {showPoweredBy && (
-              <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
-            )}
-          </div>
+          {bidFeedback === "error" && (
+            <p className="text-center text-red-400 text-sm font-semibold">{bidErrorMsg || "Bid failed. Please try again."}</p>
+          )}
+
+          {showPoweredBy && (
+            <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+          )}
         </div>
 
         {/* ── Break overlay ── */}
@@ -1145,63 +1704,65 @@ export function LiveBid({
     );
   }
 
-  // ── Landscape layout ─────────────────────────────────────────────────────────
+  // ── Split layout (tablet landscape + laptop) ─────────────────────────────────
   return (
     <div
       className="auction-surface relative h-full flex flex-row bg-[#09090b] overflow-hidden select-none"
       style={{ background: `radial-gradient(ellipse at center left, ${teamColor}12 0%, transparent 55%), #09090b` }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Left: player info */}
-      <div className="flex-1 flex flex-col overflow-hidden border-r border-[#27272a]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#27272a] flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <BrandMini logos={logos} brandName={brandName} miniBrandText={miniBrandText} />
-            <div className="w-px h-4 bg-[#3f3f46]" />
-            <TeamLogo
-              logoUrl={team.logoUrl}
-              shortCode={team.shortCode}
-              teamName={team.name}
-              teamColor={teamColor}
-              className="w-9 h-9 rounded-lg"
-              textClassName="text-xs"
-            />
-            <p className="font-display font-bold text-base truncate" style={{ color: teamColor }}>{team.name}</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <AuctionFeedIndicator
-              feedState={feed.state}
-              secondsSinceLastActivity={feed.secondsSinceLastActivity}
-            />
-            <span className={`text-xs font-black px-2 py-1 rounded-full ${
-              isActive ? "bg-green-500/20 text-green-400" : isPaused ? "bg-amber-500/20 text-amber-400" : "bg-[#27272a] text-[#71717a]"
-            }`}>
-              {statusLabel}
-            </span>
-            <button onClick={handleSyncTap} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="Sync">
-              <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
-            </button>
-            <button onClick={onViewSquad} className={navBtnClassLandscape(navBlocked)} title={navBlocked ? "Unavailable during live player auction" : "My squad"} aria-disabled={navBlocked}>
-              <ShieldUser className="w-5 h-5" strokeWidth={2.25} />
-            </button>
-            <button onClick={onViewScout} className={navBtnClassLandscape(navBlocked)} title={navBlocked ? "Unavailable during live player auction" : "Scout rivals"} aria-disabled={navBlocked}>
-              <Radar className="w-5 h-5" strokeWidth={2.25} />
-            </button>
-            <button onClick={() => setShowSignOutConfirm(true)} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]">
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+      {/* Left: player info — 60% */}
+      <div className="w-[60%] flex flex-col overflow-hidden border-r border-[#27272a] min-w-0">
+        <LiveBidHeader
+          team={team}
+          teamColor={teamColor}
+          tournament={tournament}
+          isActive={isActive}
+          isPaused={isPaused}
+          statusLabel={statusLabel}
+          feed={feed}
+          logos={logos}
+          brandName={brandName}
+          miniBrandText={miniBrandText}
+          navBlocked={navBlocked}
+          syncing={syncing}
+          onSync={handleSyncTap}
+          onViewSquad={onViewSquad}
+          onViewScout={onViewScout}
+          onLeave={() => setShowSignOutConfirm(true)}
+          layout="split"
+          tier={tier}
+          iconVersion={iconVersion}
+        />
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+        {syncFailed && (
+          <div className="flex-shrink-0 mx-4 mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30">
+            <p className="text-sm text-red-400 font-semibold">Sync failed — check your connection</p>
+          </div>
+        )}
+
+        {isPaused && (
+          <div className="flex-shrink-0 mx-4 mt-2 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/35 text-center">
+            <p className="text-sm font-bold text-amber-300 uppercase tracking-wide">Auction Paused</p>
+            <p className="text-xs text-amber-200/80 mt-0.5">Auction paused by operator. Bidding is disabled.</p>
+          </div>
+        )}
+
+        <div className={`flex-1 overflow-y-auto px-3 sm:px-4 py-3 space-y-3 min-h-0 ${tier === "laptop" ? "px-5 py-4 space-y-4" : ""}`}>
           {state?.timerEndsAt && (
             <TimerBar timerEndsAt={state.timerEndsAt} teamColor={teamColor} timerExpired={expired} />
           )}
           <AnimatePresence mode="wait">
             {hasPlayer ? (
-              <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} unit={unit} />
+              <PlayerCard
+                key={state?.currentPlayer?.id}
+                player={state!.currentPlayer!}
+                teamColor={teamColor}
+                unit={unit}
+                categoryName={state?.currentCategoryName}
+                sport={tournament?.sport}
+                tier={tier}
+              />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
                 key="last-unsold-ls"
@@ -1223,7 +1784,10 @@ export function LiveBid({
                 animate={{ opacity: 1 }}
                 className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
               >
-                <p className="text-base text-[#52525b]">Waiting for next player...</p>
+                <div className="text-center text-[#52525b]">
+                  <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-base">Waiting for next player...</p>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1233,32 +1797,39 @@ export function LiveBid({
             teamColor={teamColor}
             leadingTeam={state?.currentBidTeamName}
             unit={unit}
+            tier={tier}
           />
+          <TeamSquadSnapshot
+            teamColor={teamColor}
+            teamPurse={teamPurse}
+            tournamentId={tournamentId}
+            teamId={teamId}
+            unit={unit}
+            tier={tier}
+          />
+          <ReservePurseNotice reservePurse={reservePurse} slotsRequired={slotsRequired} fmtShort={fmtShort} />
+          <MaxSquadNotice maxSquadReached={maxSquadReached} />
         </div>
 
-        {/* Purse strip */}
-        <div className="px-4 py-3 border-t border-[#27272a] flex-shrink-0">
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: "Spendable", value: fmtShort(spendablePurse), accent: teamColor },
-              { label: "Spent",     value: fmtShort(teamPurse?.purseUsed ?? (team.purseUsed || 0)) },
-              { label: "Players",   value: String(playersBought) },
-            ].map(({ label, value, accent }) => (
-              <div key={label} className="text-center">
-                <p className="font-display font-black text-lg" style={accent ? { color: accent } : { color: "#fafafa" }}>{value}</p>
-                <p className="text-[10px] text-[#52525b] uppercase tracking-wide">{label}</p>
-              </div>
-            ))}
-          </div>
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-[#27272a] flex-shrink-0">
+          <TeamPurseFooter
+            teamColor={teamColor}
+            teamPurse={teamPurse}
+            team={team}
+            tournamentId={tournamentId}
+            teamId={teamId}
+            unit={unit}
+            tier={tier}
+          />
         </div>
       </div>
 
-      {/* Right: bid controls */}
-      <div className="w-[42%] flex flex-col px-4 py-4 gap-3" style={{ minWidth: 200 }}>
-        <div className="flex-1">
+      {/* Right: bid controls — 40% panel */}
+      <div className="w-[40%] flex flex-col px-3 sm:px-4 py-3 sm:py-4 gap-2 sm:gap-3 flex-shrink-0 min-w-[180px]">
+        <div className="flex-1 flex flex-col min-h-[40vh]">
           <AnimatePresence mode="wait">
             <BidButton
-              key={`ls-${isLeading}-${expired}-${isActive}-${hasPlayer}`}
+              key={`split-${isLeading}-${expired}-${isActive}-${hasPlayer}`}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}
@@ -1271,7 +1842,8 @@ export function LiveBid({
               nextBidAmount={nextBidAmount}
               teamColor={teamColor}
               onBid={handleBidTap}
-              landscape={true}
+              layout="split"
+              tier={tier}
               unit={unit}
             />
           </AnimatePresence>
@@ -1280,7 +1852,7 @@ export function LiveBid({
         {bidFeedback === "error" && (
           <p className="text-center text-red-400 text-sm font-semibold">{bidErrorMsg || "Bid failed. Try again."}</p>
         )}
-        {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact />}
+        {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact={tier !== "laptop"} />}
 
         {showPoweredBy && (
           <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest flex-shrink-0">
