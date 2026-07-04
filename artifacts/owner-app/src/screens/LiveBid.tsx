@@ -1,15 +1,15 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Trophy, User, LogOut, ShieldAlert,
-  AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser,
+  Trophy, User, LogOut,
+  AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser, Sparkles,
 } from "lucide-react";
 import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
-import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/haptics";
+import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
@@ -22,6 +22,8 @@ import { resolvePlayerSpecifications } from "@workspace/api-base/player-spec-exp
 import { formatPlayerGender } from "@workspace/api-base/player-gender";
 import { useRoleSpecGroups } from "@/hooks/useRoleSpecGroups";
 import { getListPlayersQueryKey, useListPlayers } from "@workspace/api-client-react";
+
+const BIDWAR_AMBER = "#F59E0B";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AuctionState {
@@ -465,6 +467,8 @@ function TeamPurseFooter({
   teamId,
   unit,
   tier,
+  highlightBoost = false,
+  purseOverride = null,
 }: {
   teamColor: string;
   teamPurse: TeamPurse | null;
@@ -473,6 +477,12 @@ function TeamPurseFooter({
   teamId: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
   tier: DeviceTier;
+  highlightBoost?: boolean;
+  purseOverride?: {
+    totalPurse: number;
+    boosterTotal: number;
+    spendablePurse: number;
+  } | null;
 }) {
   const { data: allPlayers } = useListPlayers(tournamentId, {
     query: {
@@ -490,36 +500,53 @@ function TeamPurseFooter({
     [allPlayers, teamId],
   );
 
-  const totalPurse = teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
+  const totalPurse = purseOverride?.totalPurse ?? teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
   const totalSpent = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
   const reserve = teamPurse?.reservePurse ?? 0;
-  const spendable = teamPurse?.spendablePurse ?? Math.max(0, totalPurse - totalSpent);
+  const boosterTotal = purseOverride?.boosterTotal ?? teamPurse?.boosterTotal ?? 0;
+  const spendable = purseOverride?.spendablePurse ?? teamPurse?.spendablePurse ?? Math.max(0, totalPurse - totalSpent);
   const slotsRequired = teamPurse?.slotsRequired ?? 0;
   const maxBid = slotsRequired > 0 ? Math.floor(spendable / slotsRequired) : spendable;
 
+  const syncBoostValues = highlightBoost && purseOverride != null;
+  const fmtFooter = (amount: number, synced = false) =>
+    synced && syncBoostValues
+      ? formatIndianRupee(amount, unit)
+      : formatShortIndianRupee(amount, unit);
+
   const valueClass =
-    tier === "mobile" ? "text-base sm:text-lg" : tier === "tablet" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
-  const labelClass = tier === "mobile" ? "text-[11px] mt-1.5" : "text-xs mt-2";
-  const cellPad = tier === "mobile" ? "px-1 py-2" : "px-1.5 py-2.5";
+    tier === "mobile" ? "text-sm sm:text-base" : tier === "tablet" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
+  const labelClass = tier === "mobile" ? "text-[9px] sm:text-[10px] mt-1" : "text-[10px] sm:text-xs mt-1.5";
+  const cellPad = tier === "mobile" ? "px-0.5 py-2" : "px-1 py-2.5";
 
   const items = [
-    { label: "Total Purse", value: formatShortIndianRupee(totalPurse, unit), accent: teamColor },
-    { label: "Retained", value: formatShortIndianRupee(retainedSpend, unit), accent: "#e4e4e7" },
-    { label: "Total Spent", value: formatShortIndianRupee(totalSpent, unit), accent: "#ffffff" },
-    { label: "Reserve", value: formatShortIndianRupee(reserve, unit), accent: reserve > 0 ? "#fbbf24" : "#a1a1aa" },
-    { label: "Max Bid", value: formatShortIndianRupee(maxBid, unit), accent: teamColor },
+    { label: tier === "mobile" ? "Purse" : "Total Purse", value: fmtFooter(totalPurse, true), accent: teamColor, synced: true },
+    { label: "Retained", value: fmtFooter(retainedSpend), accent: "#e4e4e7", synced: false },
+    { label: tier === "mobile" ? "Spent" : "Total Spent", value: fmtFooter(totalSpent), accent: "#ffffff", synced: false },
+    { label: "Reserve", value: fmtFooter(reserve), accent: reserve > 0 ? BIDWAR_AMBER : "#a1a1aa", synced: false },
+    { label: tier === "mobile" ? "Boosted" : "Total Boosted", value: fmtFooter(boosterTotal, true), accent: BIDWAR_AMBER, synced: true },
+    { label: "Max Bid", value: fmtFooter(maxBid, true), accent: teamColor, synced: true },
   ] as const;
 
   return (
-    <div className="grid grid-cols-5 divide-x divide-[#27272a]">
+    <div
+      className={`grid grid-cols-6 divide-x divide-[#27272a] transition-shadow duration-500 ${highlightBoost ? "rounded-xl ring-2 ring-amber-400/70" : ""}`}
+      style={highlightBoost ? { boxShadow: `0 0 24px ${BIDWAR_AMBER}40` } : undefined}
+    >
       {items.map(({ label, value, accent }) => (
         <div key={label} className={`text-center min-w-0 ${cellPad}`}>
-          <p
+          <motion.p
+            animate={
+              highlightBoost && (label.includes("Purse") || label.includes("Boosted") || label === "Max Bid")
+                ? { scale: [1, 1.12, 1] }
+                : { scale: 1 }
+            }
+            transition={{ duration: 0.55, repeat: highlightBoost ? 2 : 0 }}
             className={`font-display font-black leading-none ${valueClass}`}
             style={{ color: accent }}
           >
             {value}
-          </p>
+          </motion.p>
           <p className={`text-[#a1a1aa] font-bold uppercase tracking-wide leading-tight ${labelClass}`}>
             {label}
           </p>
@@ -657,22 +684,26 @@ function BidButton({
 }) {
   const isSplit = layout === "split";
   const buttonH = dock
-    ? tier === "mobile" ? "h-28" : tier === "tablet" ? "h-32" : "h-36"
-    : isSplit ? "min-h-[40vh] h-full" : tier === "mobile" ? "h-full min-h-[22vh]" : "h-full min-h-[18vh]";
+    ? tier === "mobile" ? "h-36" : tier === "tablet" ? "h-40" : "h-36"
+    : isSplit
+      ? tier === "mobile" ? "min-h-[42vh] h-full" : tier === "tablet" ? "min-h-[44vh] h-full" : "min-h-[40vh] h-full"
+      : tier === "mobile" ? "h-full min-h-[22vh]" : "h-full min-h-[18vh]";
   const dockIdleH = dock
-    ? tier === "mobile" ? "h-28" : tier === "tablet" ? "h-32" : "h-36"
+    ? tier === "mobile" ? "h-36" : tier === "tablet" ? "h-40" : "h-36"
     : isSplit ? "h-16" : "h-14";
-  const dockStatusH = tier === "mobile" ? "h-28" : tier === "tablet" ? "h-32" : "h-36";
+  const dockStatusH = tier === "mobile" ? "h-36" : tier === "tablet" ? "h-40" : "h-36";
   const bidFontSize = dock
     ? tier === "mobile"
-      ? "clamp(1.75rem, 7vw, 2.5rem)"
+      ? "clamp(2rem, 8.5vw, 3rem)"
       : tier === "tablet"
-        ? "clamp(1.85rem, 4vw, 2.75rem)"
+        ? "clamp(2.25rem, 5.5vw, 3.35rem)"
         : "clamp(2rem, 3vw, 3rem)"
     : isSplit
       ? tier === "laptop"
         ? "clamp(2.25rem, 4.5vw, 4rem)"
-        : "clamp(2rem, 5vw, 3.25rem)"
+        : tier === "tablet"
+          ? "clamp(2.15rem, 5.5vw, 3.5rem)"
+          : "clamp(2rem, 6vw, 3.25rem)"
       : tier === "mobile"
         ? "clamp(2rem, 10vw, 3rem)"
         : "clamp(2.25rem, 8vw, 3.5rem)";
@@ -726,7 +757,7 @@ function BidButton({
           animate={{ opacity: 1 }}
           className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-1 px-4`}
         >
-          <p className="font-display font-black text-2xl text-[#52525b]">BID</p>
+          <p className={`font-display font-black text-[#52525b] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
           <p className="text-xs text-[#71717a] font-medium text-center">{idleMessage}</p>
         </motion.div>
       );
@@ -904,24 +935,274 @@ function HeaderBrandLogo({
   );
 }
 
-function ReservePurseNotice({
-  reservePurse,
-  slotsRequired,
-  fmtShort,
+function PurseBoosterCelebration({
+  banner,
+  fmt,
+  tier,
+  accentColor,
+  onDismiss,
 }: {
-  reservePurse: number;
-  slotsRequired: number;
-  fmtShort: (amount: number | null | undefined) => string;
+  banner: {
+    variant: "own" | "peer";
+    teamName?: string;
+    amount: number;
+    previousCapacity: number;
+    newCapacity: number;
+  };
+  fmt: (amount: number | null | undefined) => string;
+  tier: DeviceTier;
+  accentColor: string;
+  onDismiss: () => void;
 }) {
-  if (reservePurse <= 0) return null;
+  const titleClass = tier === "mobile" ? "text-3xl" : "text-4xl";
+  const amountClass = tier === "mobile" ? "text-4xl" : "text-5xl";
+  const isPeer = banner.variant === "peer";
+
   return (
-    <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-500/25 bg-amber-500/8">
-      <ShieldAlert className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
-      <p className="text-sm text-amber-400 font-semibold">
-        {fmtShort(reservePurse)} reserved — {slotsRequired} slot{slotsRequired !== 1 ? "s" : ""} needed
-      </p>
-    </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="absolute inset-0 z-[45] flex items-center justify-center px-4 sm:px-8 cursor-pointer"
+      style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+      onClick={onDismiss}
+      role="button"
+      aria-label="Dismiss purse booster celebration"
+    >
+      <motion.div
+        initial={{ scale: 0.88, y: 16, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.94, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 320, damping: 24 }}
+        className="relative w-full max-w-md text-center pointer-events-none"
+      >
+        <motion.div
+          aria-hidden
+          className="absolute -inset-8 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, ${accentColor}45 0%, transparent 70%)` }}
+          animate={{ scale: [1, 1.06, 1], opacity: [0.65, 1, 0.65] }}
+          transition={{ duration: 0.9, repeat: 1, ease: "easeInOut" }}
+        />
+
+        <motion.div
+          animate={{ rotate: [0, -6, 6, 0], scale: [1, 1.06, 1] }}
+          transition={{ duration: 0.55, repeat: 1 }}
+          className="mx-auto mb-4 w-20 h-20 rounded-full flex items-center justify-center border-2"
+          style={{ backgroundColor: `${accentColor}18`, borderColor: `${accentColor}80` }}
+        >
+          <Sparkles className="w-10 h-10" style={{ color: accentColor }} />
+        </motion.div>
+
+        <p className={`font-display font-black uppercase tracking-wider ${titleClass}`} style={{ color: accentColor }}>
+          Purse Booster!
+        </p>
+        <p className="text-sm text-[#a1a1aa] mt-2">
+          {isPeer
+            ? (
+              <>
+                <span className="text-white font-semibold">{banner.teamName}</span>
+                {" received a budget boost"}
+              </>
+            )
+            : "Your team budget just increased"}
+        </p>
+        {isPeer ? (
+          <p className="text-[11px] text-[#71717a] mt-1">Purse bar below shows your team only</p>
+        ) : null}
+
+        <motion.p
+          animate={{ scale: [1, 1.08, 1] }}
+          transition={{ duration: 0.45, repeat: 2 }}
+          className={`font-display font-black text-white mt-5 ${amountClass}`}
+        >
+          +{fmt(banner.amount)}
+        </motion.p>
+
+        <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-2">
+          <div className="rounded-xl border border-[#27272a] bg-[#141416] px-3 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-[#71717a]">Before</p>
+            <p className="text-lg font-mono text-white mt-1">{fmt(banner.previousCapacity)}</p>
+          </div>
+          <span className="font-black text-xl" style={{ color: accentColor }}>→</span>
+          <div
+            className="rounded-xl border px-3 py-3"
+            style={{ borderColor: `${accentColor}55`, backgroundColor: `${accentColor}12` }}
+          >
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: `${accentColor}cc` }}>
+              {isPeer ? "New total" : "After"}
+            </p>
+            <p className="text-lg font-mono mt-1" style={{ color: accentColor }}>{fmt(banner.newCapacity)}</p>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
+}
+
+function usePurseBoosterCelebration(
+  teamId: number,
+  teamPurse: TeamPurse | null,
+  lastPurseBooster: AuctionState["lastPurseBooster"],
+  bidActivityKey: string,
+  originalPurse: number,
+) {
+  type BoosterBanner = {
+    variant: "own" | "peer";
+    teamName?: string;
+    amount: number;
+    previousCapacity: number;
+    newCapacity: number;
+  };
+
+  const [banner, setBanner] = useState<BoosterBanner | null>(null);
+  const [footerPulse, setFooterPulse] = useState(false);
+
+  const hydratedRef = useRef(false);
+  const lastBoosterIdRef = useRef<number | null>(null);
+  const prevCapacityRef = useRef<number | null>(null);
+  const prevBoosterTotalRef = useRef<number | null>(null);
+  const celebrationKeyRef = useRef<string | null>(null);
+  const bidActivityAtShowRef = useRef<string | null>(null);
+
+  const dismiss = useCallback(() => {
+    setBanner(null);
+    bidActivityAtShowRef.current = null;
+  }, []);
+  const showCelebration = useCallback((
+    data: BoosterBanner,
+    key: string,
+  ) => {
+    if (celebrationKeyRef.current === key) return;
+    celebrationKeyRef.current = key;
+    bidActivityAtShowRef.current = bidActivityKey;
+    setBanner(data);
+    if (data.variant === "own") {
+      setFooterPulse(true);
+      hapticBooster();
+    }
+  }, [bidActivityKey]);
+
+  useEffect(() => {
+    const capacity = teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? null;
+    const boosterTotal = teamPurse?.boosterTotal ?? 0;
+    const boost = lastPurseBooster;
+
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      lastBoosterIdRef.current = boost?.id ?? null;
+      prevCapacityRef.current = capacity;
+      prevBoosterTotalRef.current = boosterTotal;
+      return;
+    }
+
+    if (boost && boost.id !== lastBoosterIdRef.current) {
+      lastBoosterIdRef.current = boost.id;
+      const prevCapacity = prevCapacityRef.current;
+      const prevBoosterTotal = prevBoosterTotalRef.current ?? 0;
+      prevCapacityRef.current = capacity;
+      prevBoosterTotalRef.current = boosterTotal;
+
+      const ownPurseIncreased =
+        capacity != null &&
+        prevCapacity != null &&
+        (capacity > prevCapacity || boosterTotal > prevBoosterTotal);
+
+      if (boost.teamId === teamId || ownPurseIncreased) {
+        showCelebration(
+          {
+            variant: "own",
+            amount: boost.teamId === teamId
+              ? boost.amount
+              : capacity != null && prevCapacity != null
+                ? capacity - prevCapacity
+                : boost.amount,
+            previousCapacity: boost.teamId === teamId
+              ? boost.previousCapacity
+              : prevCapacity ?? boost.previousCapacity,
+            newCapacity: boost.teamId === teamId
+              ? boost.newCapacity
+              : capacity ?? boost.newCapacity,
+          },
+          `booster:${boost.id}:own`,
+        );
+        return;
+      }
+
+      showCelebration(
+        {
+          variant: "peer",
+          teamName: boost.teamName,
+          amount: boost.amount,
+          previousCapacity: boost.previousCapacity,
+          newCapacity: boost.newCapacity,
+        },
+        `booster:${boost.id}:peer`,
+      );
+      return;
+    }
+
+    if (capacity == null) return;
+
+    const prevCapacity = prevCapacityRef.current;
+    const prevBoosterTotal = prevBoosterTotalRef.current ?? 0;
+    prevCapacityRef.current = capacity;
+    prevBoosterTotalRef.current = boosterTotal;
+
+    if (prevCapacity == null) return;
+    if (boosterTotal <= prevBoosterTotal || capacity <= prevCapacity) return;
+
+    showCelebration(
+      {
+        variant: "own",
+        amount: capacity - prevCapacity,
+        previousCapacity: prevCapacity,
+        newCapacity: capacity,
+      },
+      `capacity:${prevCapacity}:${capacity}:${boosterTotal}`,
+    );
+  }, [
+    teamId,
+    lastPurseBooster,
+    teamPurse?.effectiveCapacity,
+    teamPurse?.purse,
+    teamPurse?.boosterTotal,
+    showCelebration,
+  ]);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(dismiss, 8000);
+    return () => clearTimeout(t);
+  }, [banner, dismiss]);
+
+  useEffect(() => {
+    if (!banner || bidActivityAtShowRef.current === null) return;
+    if (bidActivityKey !== bidActivityAtShowRef.current) {
+      dismiss();
+    }
+  }, [bidActivityKey, banner, dismiss]);
+
+  useEffect(() => {
+    if (!footerPulse) return;
+    const t = setTimeout(() => setFooterPulse(false), 2000);
+    return () => clearTimeout(t);
+  }, [footerPulse]);
+
+  const footerOverride = useMemo(() => {
+    if (!banner || banner.variant !== "own") return null;
+    const capacityDelta = banner.newCapacity - banner.previousCapacity;
+    const baseSpendable =
+      teamPurse?.spendablePurse ??
+      Math.max(0, banner.previousCapacity - (teamPurse?.purseUsed ?? 0));
+    return {
+      totalPurse: banner.newCapacity,
+      boosterTotal: banner.newCapacity - originalPurse,
+      spendablePurse: baseSpendable + capacityDelta,
+    };
+  }, [banner, originalPurse, teamPurse?.spendablePurse, teamPurse?.purseUsed]);
+
+  return { banner, footerPulse, dismiss, footerOverride };
 }
 
 function MaxSquadNotice({ maxSquadReached }: { maxSquadReached: boolean }) {
@@ -1065,7 +1346,7 @@ function LiveBidHeader({
   );
 
   const actionBlock = (
-    <div className={`flex items-center justify-end gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-2xl border border-[#27272a] bg-[#0c0c0e] min-w-0 shrink-0 ${actionCompact ? "rounded-xl" : ""}`}>
+    <div className="flex items-center justify-end gap-0.5 sm:gap-1 min-w-0 shrink-0">
       <HeaderActionButton onClick={onSync} title="Sync auction data" label="Sync" compact={actionCompact}>
         <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
       </HeaderActionButton>
@@ -1156,7 +1437,6 @@ export function LiveBid({
   const teamColor = team.color || "#F59E0B";
   const unit = resolveAuctionUnit(tournament?.auctionUnit);
   const fmt = (amount: number | null | undefined) => formatIndianRupee(amount, unit);
-  const fmtShort = (amount: number | null | undefined) => formatShortIndianRupee(amount, unit);
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive  = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
@@ -1265,15 +1545,8 @@ export function LiveBid({
   // ── Unified won/unsold notification ─────────────────────────────────────────
   const [wonBanner,    setWonBanner]    = useState<{ name: string; soldAmount?: number | null } | null>(null);
   const [unsoldBanner, setUnsoldBanner] = useState<{ name: string } | null>(null);
-  const [purseBoosterBanner, setPurseBoosterBanner] = useState<{
-    amount: number;
-    previousCapacity: number;
-    newCapacity: number;
-  } | null>(null);
   const lastOutcomeKeyRef = useRef<string | null>(null);
   const outcomeHydratedRef = useRef(false);
-  const prevBoosterRef = useRef<number | null>(null);
-  const boosterHydratedRef = useRef(false);
 
   const resolvedOutcome = (() => {
     const raw = state?.outcome;
@@ -1324,8 +1597,29 @@ export function LiveBid({
       : `unsold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.action}`;
   }, [resolvedOutcome]);
 
-  const purseBoosterBannerKey =
-    state?.lastPurseBooster?.teamId === teamId ? state.lastPurseBooster.id : null;
+  const bidActivityKey = useMemo(
+    () =>
+      [
+        state?.currentPlayer?.id ?? "none",
+        state?.currentBid ?? 0,
+        state?.currentBidTeamId ?? 0,
+        state?.timerEndsAt ?? "",
+        outcomeBannerKey ?? "",
+        state?.status ?? "",
+      ].join("|"),
+    [
+      state?.currentPlayer?.id,
+      state?.currentBid,
+      state?.currentBidTeamId,
+      state?.timerEndsAt,
+      outcomeBannerKey,
+      state?.status,
+    ],
+  );
+
+  const originalPurse = teamPurse?.originalPurse ?? team.purse;
+  const { banner: purseBoosterBanner, footerPulse: purseFooterPulse, dismiss: dismissPurseBooster, footerOverride: purseFooterOverride } =
+    usePurseBoosterCelebration(teamId, teamPurse, state?.lastPurseBooster ?? null, bidActivityKey, originalPurse);
 
   // Only react to outcomes that arrive after mount — skip stale state from login/sync.
   useEffect(() => {
@@ -1364,34 +1658,6 @@ export function LiveBid({
     const t = setTimeout(() => setUnsoldBanner(null), 4000);
     return () => clearTimeout(t);
   }, [unsoldBanner]);
-
-  useEffect(() => {
-    if (purseBoosterBannerKey == null) return;
-
-    if (!boosterHydratedRef.current) {
-      boosterHydratedRef.current = true;
-      prevBoosterRef.current = purseBoosterBannerKey;
-      return;
-    }
-
-    if (prevBoosterRef.current === purseBoosterBannerKey) return;
-
-    const boost = state?.lastPurseBooster;
-    if (!boost || boost.teamId !== teamId || boost.id !== purseBoosterBannerKey) return;
-
-    prevBoosterRef.current = purseBoosterBannerKey;
-    setPurseBoosterBanner({
-      amount: boost.amount,
-      previousCapacity: boost.previousCapacity,
-      newCapacity: boost.newCapacity,
-    });
-  }, [purseBoosterBannerKey, teamId, state?.lastPurseBooster]);
-
-  useEffect(() => {
-    if (!purseBoosterBanner) return;
-    const t = setTimeout(() => setPurseBoosterBanner(null), 5500);
-    return () => clearTimeout(t);
-  }, [purseBoosterBanner]);
 
   // ── Stacked layout (mobile portrait, narrow screens) ───────────────────────
   if (!isSplit) {
@@ -1504,7 +1770,6 @@ export function LiveBid({
           />
 
           {/* Reserve / squad banners */}
-          <ReservePurseNotice reservePurse={reservePurse} slotsRequired={slotsRequired} fmtShort={fmtShort} />
           <MaxSquadNotice maxSquadReached={maxSquadReached} />
         </div>
 
@@ -1518,6 +1783,8 @@ export function LiveBid({
             teamId={teamId}
             unit={unit}
             tier={tier}
+            highlightBoost={purseFooterPulse}
+            purseOverride={purseFooterOverride}
           />
 
           {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact={tier === "mobile"} />}
@@ -1605,29 +1872,15 @@ export function LiveBid({
           )}
         </AnimatePresence>
 
-        {/* ── Purse booster banner ── */}
         <AnimatePresence>
           {purseBoosterBanner && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 px-8 cursor-pointer"
-              style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
-              onClick={() => setPurseBoosterBanner(null)}
-              role="button"
-              aria-label="Dismiss purse update"
-            >
-              <div className="text-center">
-                <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
-                <p className="text-3xl font-bold text-white mt-4">{fmt(purseBoosterBanner.amount)}</p>
-                <p className="text-base text-[#a1a1aa] mt-4">Previous Capacity</p>
-                <p className="text-xl font-mono text-white">{fmt(purseBoosterBanner.previousCapacity)}</p>
-                <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
-                <p className="text-xl font-mono text-emerald-300">{fmt(purseBoosterBanner.newCapacity)}</p>
-                <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
-              </div>
-            </motion.div>
+            <PurseBoosterCelebration
+              banner={purseBoosterBanner}
+              fmt={fmt}
+              tier={tier}
+              accentColor={BIDWAR_AMBER}
+              onDismiss={dismissPurseBooster}
+            />
           )}
         </AnimatePresence>
 
@@ -1807,7 +2060,6 @@ export function LiveBid({
             unit={unit}
             tier={tier}
           />
-          <ReservePurseNotice reservePurse={reservePurse} slotsRequired={slotsRequired} fmtShort={fmtShort} />
           <MaxSquadNotice maxSquadReached={maxSquadReached} />
         </div>
 
@@ -1820,13 +2072,15 @@ export function LiveBid({
             teamId={teamId}
             unit={unit}
             tier={tier}
+            highlightBoost={purseFooterPulse}
+            purseOverride={purseFooterOverride}
           />
         </div>
       </div>
 
       {/* Right: bid controls — 40% panel */}
       <div className="w-[40%] flex flex-col px-3 sm:px-4 py-3 sm:py-4 gap-2 sm:gap-3 flex-shrink-0 min-w-[180px]">
-        <div className="flex-1 flex flex-col min-h-[40vh]">
+        <div className={`flex-1 flex flex-col ${tier === "mobile" ? "min-h-[42vh]" : tier === "tablet" ? "min-h-[44vh]" : "min-h-[40vh]"}`}>
           <AnimatePresence mode="wait">
             <BidButton
               key={`split-${isLeading}-${expired}-${isActive}-${hasPlayer}`}
@@ -1901,27 +2155,15 @@ export function LiveBid({
         )}
       </AnimatePresence>
 
-      {/* ── Purse booster banner ── */}
       <AnimatePresence>
         {purseBoosterBanner && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 cursor-pointer"
-            style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
-            onClick={() => setPurseBoosterBanner(null)}
-            role="button"
-            aria-label="Dismiss purse update"
-          >
-            <div className="text-center">
-              <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
-              <p className="text-3xl font-bold text-white mt-4">{fmt(purseBoosterBanner.amount)}</p>
-              <p className="text-base text-[#a1a1aa] mt-4">Previous Capacity</p>
-              <p className="text-xl font-mono text-white">{fmt(purseBoosterBanner.previousCapacity)}</p>
-              <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
-              <p className="text-xl font-mono text-emerald-300">{fmt(purseBoosterBanner.newCapacity)}</p>
-              <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
-            </div>
-          </motion.div>
+          <PurseBoosterCelebration
+            banner={purseBoosterBanner}
+            fmt={fmt}
+            tier={tier}
+            accentColor={BIDWAR_AMBER}
+            onDismiss={dismissPurseBooster}
+          />
         )}
       </AnimatePresence>
 

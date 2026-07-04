@@ -150,9 +150,10 @@ export function PurseBoosterDialog({
             <Input
               id="booster-amount"
               inputMode="numeric"
+              pattern="[0-9]*"
               placeholder="e.g. 500000"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
             />
             <IndianAmountHint value={amount} />
           </div>
