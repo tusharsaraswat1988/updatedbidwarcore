@@ -114,6 +114,7 @@ export function DisplayShell({
     status: displayMode.phase,
     timerEndsAt: state?.timerEndsAt,
     soldKey,
+    currentPlayerId: state?.currentPlayer?.id ?? null,
     settings: audioSettings,
     displayCountdownType,
     displayCountdownEndsAt,

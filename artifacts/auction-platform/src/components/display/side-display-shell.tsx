@@ -120,6 +120,7 @@ export function SideDisplayShell({
     status: view.derivedState === "sold" ? "sold" : view.derivedState === "unsold" ? "unsold" : displayMode.phase,
     timerEndsAt: state?.timerEndsAt,
     soldKey,
+    currentPlayerId: state?.currentPlayer?.id ?? null,
     settings: audioSettings,
     displayCountdownType,
     displayCountdownEndsAt,

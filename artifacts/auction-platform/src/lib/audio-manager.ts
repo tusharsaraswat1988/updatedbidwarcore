@@ -62,6 +62,11 @@ export class AuctionAudioManager {
   // Looping break music (HTMLAudioElement — supports long tracks + loop)
   private breakLoopEl: HTMLAudioElement | null = null;
 
+  // Active sold stinger — tracked so it can be cut when the next player loads
+  private soldPlaybackId = 0;
+  private soldHtmlElements: HTMLAudioElement[] = [];
+  private soldBufferSources: AudioBufferSourceNode[] = [];
+
   // Deduplication state
   private lastCountdownSec = -1;
   private soldKeyPlayed = "";
@@ -113,6 +118,7 @@ export class AuctionAudioManager {
   dispose(): void {
     this.stopPreviewPlayback();
     this.stopBreakMusic();
+    this.stopSoldSound();
     this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.masterGain = null;
@@ -318,17 +324,79 @@ export class AuctionAudioManager {
 
     // Stop countdown state so ticks don't fire during sold animation
     this.stopCountdown();
+    this.stopSoldSound();
+
+    const playId = this.soldPlaybackId;
 
     if (this.soldBuffer || this.soldAudio) {
-      this.playCustomSound(
-        this.soldBuffer,
-        this.soldAudio,
-        this.settings.soldSoundVolume,
-        () => this.synthSold(),
-      );
+      void this.unlock().then(async () => {
+        if (playId !== this.soldPlaybackId) return;
+        if (this.soldBuffer && this.playSoldBuffer(this.soldBuffer, this.settings.soldSoundVolume)) return;
+        if (this.soldAudio && await this.playSoldHtmlClone(this.soldAudio, this.settings.soldSoundVolume)) return;
+        if (playId !== this.soldPlaybackId) return;
+        this.synthSold();
+      });
       return;
     }
-    void this.unlock().then(() => this.synthSold());
+    void this.unlock().then(() => {
+      if (playId !== this.soldPlaybackId) return;
+      this.synthSold();
+    });
+  }
+
+  /** Stop any in-progress sold stinger (e.g. when the next player is loaded). */
+  stopSoldSound(): void {
+    this.soldPlaybackId += 1;
+
+    for (const el of this.soldHtmlElements) {
+      el.pause();
+      el.currentTime = 0;
+    }
+    this.soldHtmlElements = [];
+
+    for (const source of this.soldBufferSources) {
+      try {
+        source.stop();
+      } catch {
+        // Already stopped.
+      }
+    }
+    this.soldBufferSources = [];
+  }
+
+  private playSoldBuffer(buffer: AudioBuffer, soundVolume: number): boolean {
+    const ctx = this.ctx;
+    if (!ctx || !this.masterGain) return false;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = this.scaledVolume(soundVolume);
+    source.connect(gain);
+    gain.connect(this.masterGain);
+    source.onended = () => {
+      this.soldBufferSources = this.soldBufferSources.filter((item) => item !== source);
+    };
+    this.soldBufferSources.push(source);
+    source.start();
+    return true;
+  }
+
+  private async playSoldHtmlClone(el: HTMLAudioElement, soundVolume: number): Promise<boolean> {
+    const clone = el.cloneNode(true) as HTMLAudioElement;
+    if (el.crossOrigin) clone.crossOrigin = el.crossOrigin;
+    clone.volume = this.scaledVolume(soundVolume);
+    this.soldHtmlElements.push(clone);
+    clone.addEventListener("ended", () => {
+      this.soldHtmlElements = this.soldHtmlElements.filter((item) => item !== clone);
+    }, { once: true });
+    try {
+      await clone.play();
+      return true;
+    } catch {
+      this.soldHtmlElements = this.soldHtmlElements.filter((item) => item !== clone);
+      return false;
+    }
   }
 
   // ── Break music (loops for the duration of the break countdown) ───────

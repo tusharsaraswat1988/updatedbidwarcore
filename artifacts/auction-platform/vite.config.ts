@@ -152,6 +152,11 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     proxy: createViteDevProxies(),
+    // Windows: polling avoids chokidar/esbuild native watcher crashes (exit 0xC0000409).
+    watch:
+      process.platform === "win32"
+        ? { usePolling: true, interval: 1000, ignored: ["**/node_modules/**", "**/.git/**"] }
+        : undefined,
     fs: {
       strict: true,
     },

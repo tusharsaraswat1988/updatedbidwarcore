@@ -1145,6 +1145,14 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   const timerSecs = tournament?.timerSeconds ?? 30;
 
   const session = await getOrCreateSession(tid);
+  if (session.currentPlayerId) {
+    res.status(400).json({ error: "Finish the current player (Sold, Unsold, or Defer) before loading the next player" });
+    return;
+  }
+  if (session.timerEndsAt && new Date(session.timerEndsAt).getTime() > Date.now()) {
+    res.status(400).json({ error: "Stop bidding before loading the next player" });
+    return;
+  }
   // Capture revision for optimistic concurrency — prevents two simultaneous
   // next-player calls from both committing (last-writer-wins race).
   const nextPlayerRevision = session.revision ?? 0;
@@ -1931,6 +1939,11 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   if (rejectIfAuctionPaused(session, res)) return;
 
   const { playerId, startFromBase } = parsed.data;
+  if (session.currentPlayerId && session.currentPlayerId !== playerId) {
+    res.status(400).json({ error: "A player is currently on the block. Conclude or defer them before re-auctioning another player." });
+    return;
+  }
+
   const [player] = await db
     .select()
     .from(playersTable)
@@ -2289,7 +2302,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
-// POST defer current player — send to back of queue; auto-advance unless manual selection mode
+// POST defer current player — send to deferred queue; operator loads next via Next Player
 router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -2304,143 +2317,35 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
 
   const deferredId = session.currentPlayerId;
 
-  // Get deferred player name for lastAction log
   const [deferredPlayer] = await db
     .select({ name: playersTable.name })
     .from(playersTable)
     .where(eq(playersTable.id, deferredId));
 
-  // Add current player to deferred list (avoid duplicates)
   let deferredIds: number[] = [];
   try { if (session.deferredPlayerIds) deferredIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
   if (!deferredIds.includes(deferredId)) deferredIds.push(deferredId);
 
-  // Fetch tournament settings
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const timerSecs = tournament?.timerSeconds ?? 30;
-  const selMode = normalizePlayerSelectionMode(tournament?.playerSelectionMode);
-  const isTrialMode = tournament?.licenseStatus !== "active";
-
-  // Parse active category filter
-  let activeCatIds: number[] | null = null;
-  try { if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
-
-  // Trial mode: restrict pool to first 10 players by ID
-  let trialPlayerIds: number[] | null = null;
-  if (isTrialMode) {
-    const first10 = await db
-      .select({ id: playersTable.id })
-      .from(playersTable)
-      .where(eq(playersTable.tournamentId, tid))
-      .orderBy(asc(playersTable.id))
-      .limit(10);
-    trialPlayerIds = first10.map(p => p.id);
-  }
-
-  // Build available pool (excluding just-deferred player)
-  const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
-  if (activeCatIds && activeCatIds.length > 0) baseConditions.push(inArray(playersTable.categoryId, activeCatIds));
-  if (trialPlayerIds && trialPlayerIds.length > 0) baseConditions.push(inArray(playersTable.id, trialPlayerIds));
-
-  const allAvailable = await db.select().from(playersTable).where(and(...baseConditions));
-
-  // Manual mode: defer only — operator picks the next player via next-player + playerId
-  if (selMode === "manual") {
-    await db
-      .update(auctionSessionsTable)
-      .set({
-        status: "active",
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerSeconds: timerSecs,
-        timerEndsAt: null,
-        timerType: null,
-        pausedTimeRemaining: null,
-        deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
-        randomDrawQueue: null,
-        lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
-        lastOutcome: null,
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-
-    logPlayerAuctionEnd({
-      tournamentId: tid,
-      playerId: deferredId,
-      globalPlayerId: null,
-      categoryId: null,
-      sport: tournament?.sport ?? "cricket",
-      playerName: deferredPlayer?.name ?? "Player",
-      playerRole: null,
-      playerAge: null,
-      playerCity: null,
-      basePrice: null,
-      playerSnapshotJson: "{}",
-      outcome: "deferred",
-      finalAmount: null,
-      soldToTeamId: null,
-      soldToTeamName: null,
-    });
-
-    res.json(await broadcastState(tid, ["players"]));
-    return;
-  }
-
-  const nonDeferred = allAvailable.filter(p => !deferredIds.includes(p.id));
-  const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter(p => deferredIds.includes(p.id));
-
-  let selectedPlayerId: number | null = null;
-  let newDeferredIds = deferredIds;
-  let newRandomDrawQueue: string | null = session.randomDrawQueue ?? null;
-
-  if (pool.length > 0) {
-    const pick = selectPlayerFromPool(pool, selMode, session);
-    if (pick) {
-      selectedPlayerId = pick.playerId;
-      newRandomDrawQueue = pick.randomDrawQueue;
-      // If next player was from the deferred list, remove them
-      if (deferredIds.includes(pick.playerId)) {
-        newDeferredIds = deferredIds.filter(id => id !== pick.playerId);
-      }
-    }
-  }
-
-  if (!selectedPlayerId) {
-    await handleAvailablePoolExhausted(tid);
-    res.json(await broadcastState(tid, ["players"]));
-    return;
-  }
-
-  const [selectedPlayer] = await db
-    .select()
-    .from(playersTable)
-    .where(eq(playersTable.id, selectedPlayerId));
-
-  const openingBidDefer = await resolveOpeningBidForPlayer(
-    tid,
-    selectedPlayer,
-    session.reAuctionStrategyJson,
-  );
 
   await db
     .update(auctionSessionsTable)
     .set({
       status: "active",
-      currentPlayerId: selectedPlayerId,
-      currentBid: openingBidDefer,
+      currentPlayerId: null,
+      currentBid: null,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
       timerType: null,
       pausedTimeRemaining: null,
-      deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
-      randomDrawQueue: newRandomDrawQueue,
-      lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
+      deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
+      lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
       lastOutcome: null,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
-  // Log player auction as deferred + auction start for next player (fire-and-forget)
   logPlayerAuctionEnd({
     tournamentId: tid,
     playerId: deferredId,
@@ -2457,19 +2362,6 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
     finalAmount: null,
     soldToTeamId: null,
     soldToTeamName: null,
-  });
-  logPlayerAuctionStart({
-    tournamentId: tid,
-    playerId: selectedPlayer.id,
-    globalPlayerId: (selectedPlayer as any).globalPlayerId ?? null,
-    categoryId: selectedPlayer.categoryId,
-    sport: tournament?.sport ?? "cricket",
-    playerName: selectedPlayer.name,
-    playerRole: selectedPlayer.role,
-    playerAge: selectedPlayer.age,
-    playerCity: selectedPlayer.city,
-    basePrice: selectedPlayer.basePrice,
-    playerSnapshotJson: JSON.stringify(selectedPlayer),
   });
 
   res.json(await broadcastState(tid, ["players"]));

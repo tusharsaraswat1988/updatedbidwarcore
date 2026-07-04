@@ -544,6 +544,14 @@ export function createAuctionRouter(db: LocalDb) {
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
     const timerSecs = tournament?.timerSeconds ?? 30;
     const session = await getOrCreateSession(tid);
+    if (session.currentPlayerId) {
+      res.status(400).json({ error: "Finish the current player (Sold, Unsold, or Defer) before loading the next player" });
+      return;
+    }
+    if (session.timerEndsAt && new Date(session.timerEndsAt).getTime() > Date.now()) {
+      res.status(400).json({ error: "Stop bidding before loading the next player" });
+      return;
+    }
 
     let activeCatIds: number[] | null = null;
     try { if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
@@ -768,6 +776,10 @@ export function createAuctionRouter(db: LocalDb) {
     const { playerId, startFromBase } = parsed.data;
     const session = await getOrCreateSession(tid);
     if (rejectIfAuctionPaused(session, res)) return;
+    if (session.currentPlayerId && session.currentPlayerId !== playerId) {
+      res.status(400).json({ error: "A player is currently on the block. Conclude or defer them before re-auctioning another player." });
+      return;
+    }
     const [player] = await db.select().from(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
     if (!player) { res.status(404).json({ error: "Player not found" }); return; }
     if (player.status === "sold" && player.teamId && player.soldPrice) {
@@ -1429,7 +1441,7 @@ export function createAuctionRouter(db: LocalDb) {
     res.json({ ok: true });
   });
 
-  // POST defer current player — send to back of queue; auto-advance unless manual selection mode
+  // POST defer current player — send to deferred queue; operator loads next via Next Player
   router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1452,62 +1464,17 @@ export function createAuctionRouter(db: LocalDb) {
 
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
     const timerSecs = tournament?.timerSeconds ?? 30;
-    const selMode = normalizePlayerSelectionMode(tournament?.playerSelectionMode);
-
-    let activeCatIds: number[] | null = null;
-    try { if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
-
-    if (selMode === "manual") {
-      await db.update(auctionSessionsTable).set({
-        status: "active",
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerSeconds: timerSecs,
-        timerEndsAt: null,
-        pausedTimeRemaining: null,
-        deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
-        randomDrawQueue: null,
-        lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
-      }).where(eq(auctionSessionsTable.tournamentId, tid));
-      res.json(await broadcastState(tid, ["players"]));
-      return;
-    }
-
-    const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
-    const allAvailable = activeCatIds && activeCatIds.length > 0
-      ? await db.select().from(playersTable).where(and(...baseConditions, inArray(playersTable.categoryId as Parameters<typeof inArray>[0], activeCatIds)))
-      : await db.select().from(playersTable).where(and(...baseConditions));
-
-    const nonDeferred = allAvailable.filter((p) => !deferredIds.includes(p.id));
-    const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter((p) => deferredIds.includes(p.id));
-
-    const pick = selectPlayerFromPool(pool, selMode, session);
-    if (!pick) {
-      await handleAvailablePoolExhausted(tid);
-      res.json(await broadcastState(tid, ["players"]));
-      return;
-    }
-
-    let newDeferredIds = deferredIds;
-    if (deferredIds.includes(pick.playerId)) {
-      newDeferredIds = deferredIds.filter((id) => id !== pick.playerId);
-    }
-
-    const [selectedPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, pick.playerId));
-    const startingBid = await resolvePlayerOpeningBid(tid, selectedPlayer, session.reAuctionStrategyJson);
 
     await db.update(auctionSessionsTable).set({
       status: "active",
-      currentPlayerId: pick.playerId,
-      currentBid: startingBid,
+      currentPlayerId: null,
+      currentBid: null,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
       pausedTimeRemaining: null,
-      deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
-      randomDrawQueue: pick.randomDrawQueue,
-      lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
+      deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
+      lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid, ["players"]));
   });

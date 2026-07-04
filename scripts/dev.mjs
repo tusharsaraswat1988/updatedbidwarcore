@@ -96,23 +96,42 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-function run(label, command, args, env) {
-  const child = spawn(command, args, {
-    cwd: repoRoot,
-    env,
-    stdio: "inherit",
-    shell: isWin,
-  });
-  child.on("exit", (code, signal) => {
-    if (shuttingDown) return;
-    if (signal) return;
-    if (code !== 0 && code !== null) {
-      console.error(`\n[${label}] exited with code ${code}\n`);
-      shutdown(code);
-    }
-  });
-  children.push(child);
-  return child;
+function run(label, command, args, env, { restartOnCrash = false, maxRestarts = 10 } = {}) {
+  let restarts = 0;
+
+  const start = () => {
+    const child = spawn(command, args, {
+      cwd: repoRoot,
+      env,
+      stdio: "inherit",
+      shell: isWin,
+    });
+    child.on("exit", (code, signal) => {
+      if (shuttingDown) return;
+      if (signal) return;
+      if (code !== 0 && code !== null) {
+        if (restartOnCrash && restarts < maxRestarts) {
+          restarts += 1;
+          const hint =
+            isWin && code === 3221226505
+              ? " (Windows native crash — common with Node 24 + Vite; try Node 22 LTS if this repeats)"
+              : "";
+          console.warn(
+            `\n[${label}] crashed with exit code ${code}${hint}. ` +
+              `Auto-restarting in 2s (${restarts}/${maxRestarts})…\n`,
+          );
+          setTimeout(start, 2000);
+          return;
+        }
+        console.error(`\n[${label}] exited with code ${code}\n`);
+        shutdown(code);
+      }
+    });
+    children.push(child);
+    return child;
+  };
+
+  return start();
 }
 
 const devPorts = [...new Set([API_PORT, FRONTEND_PORT, OWNER_APP_PORT, SCORING_APP_PORT])];
@@ -228,6 +247,7 @@ if (startServers) {
     "pnpm",
     ["--filter", "@workspace/auction-platform", "run", "dev"],
     devEnv({ PORT: FRONTEND_PORT_STR }),
+    { restartOnCrash: true },
   );
 
   run(
@@ -235,6 +255,7 @@ if (startServers) {
     "pnpm",
     ["--filter", "@workspace/owner-app", "run", "dev"],
     devEnv({ OWNER_APP_PORT: OWNER_APP_PORT_STR, PORT: OWNER_APP_PORT_STR }),
+    { restartOnCrash: true },
   );
 
   run(
@@ -242,6 +263,7 @@ if (startServers) {
     "pnpm",
     ["--filter", "@workspace/scoring-app", "run", "dev"],
     devEnv({ SCORING_APP_PORT: SCORING_APP_PORT_STR, PORT: SCORING_APP_PORT_STR }),
+    { restartOnCrash: true },
   );
 
   console.log("All dev processes started. Press Ctrl+C to stop.\n");

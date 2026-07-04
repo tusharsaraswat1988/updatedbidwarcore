@@ -106,6 +106,10 @@ export default defineConfig({
     host:         "0.0.0.0",
     allowedHosts: true,
     proxy: createViteApiProxy(),
+    watch:
+      process.platform === "win32"
+        ? { usePolling: true, interval: 1000, ignored: ["**/node_modules/**", "**/.git/**"] }
+        : undefined,
     fs: { strict: true },
   },
   preview: {

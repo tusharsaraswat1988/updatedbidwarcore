@@ -34,6 +34,7 @@ export function useBroadcastAudio({
   status,
   timerEndsAt,
   soldKey,
+  currentPlayerId,
   settings,
   displayCountdownType,
   displayCountdownEndsAt,
@@ -47,6 +48,8 @@ export function useBroadcastAudio({
   timerEndsAt: string | null | undefined;
   /** Unique string that changes exactly once per sold event — used for dedup */
   soldKey: string;
+  /** Current player on the block — when this changes to a new player, sold music stops */
+  currentPlayerId: number | string | null | undefined;
   /** Live audio settings from the tournament record */
   settings: AudioSettings | null;
   /** displayCountdown.type from auction state */
@@ -62,6 +65,8 @@ export function useBroadcastAudio({
 }) {
   const managerRef = useRef<AuctionAudioManager | null>(null);
   const prevTimerEndsAtRef = useRef<string | null | undefined>(undefined);
+  const prevCurrentPlayerIdRef = useRef<number | string | null | undefined>(undefined);
+  const prevStatusRef = useRef<string | undefined>(undefined);
   const soldSoundArmedRef = useRef(false);
   const lastSoldKeyRef = useRef("");
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -128,6 +133,29 @@ export function useBroadcastAudio({
       }
     }
   }, [auctionStateReady, isAudioLeader, status, soldKey]);
+
+  // ── Stop sold music when the next player is loaded ────────────────────
+  useEffect(() => {
+    if (!auctionStateReady || !isAudioLeader) return;
+
+    const playerId = currentPlayerId ?? null;
+    const prevPlayerId = prevCurrentPlayerIdRef.current;
+    if (prevPlayerId !== undefined && playerId != null && playerId !== prevPlayerId) {
+      managerRef.current?.stopSoldSound();
+    }
+    prevCurrentPlayerIdRef.current = playerId;
+  }, [auctionStateReady, isAudioLeader, currentPlayerId]);
+
+  // Backup: sold overlay ended and live bidding resumed
+  useEffect(() => {
+    if (!auctionStateReady || !isAudioLeader) return;
+
+    const prevStatus = prevStatusRef.current;
+    if (prevStatus === "sold" && isLiveBiddingStatus(status)) {
+      managerRef.current?.stopSoldSound();
+    }
+    prevStatusRef.current = status;
+  }, [auctionStateReady, isAudioLeader, status]);
 
   // ── Reset countdown dedup when a new timer starts ─────────────────────
   useEffect(() => {

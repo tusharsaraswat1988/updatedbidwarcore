@@ -85,6 +85,10 @@ export default defineConfig({
         ? { clientPort: frontendDevPort, path: "/scoring-app/" }
         : undefined,
     proxy: createViteApiProxy(),
+    watch:
+      process.platform === "win32"
+        ? { usePolling: true, interval: 1000, ignored: ["**/node_modules/**", "**/.git/**"] }
+        : undefined,
     fs: {
       strict: false,
       allow: [
