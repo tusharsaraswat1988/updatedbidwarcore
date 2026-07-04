@@ -12,6 +12,8 @@ import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { RedirectToScoringApp } from "@/components/redirect-to-scoring-app";
+import TournamentSettings from "@/pages/tournament-settings";
+import AuctionOperator from "@/pages/auction-operator";
 import {
   InitialDataProvider,
   homePageInitialData,
@@ -30,7 +32,6 @@ const TournamentHub = lazy(() => import("@/pages/tournament-hub"));
 const Teams = lazy(() => import("@/pages/teams"));
 const Categories = lazy(() => import("@/pages/categories"));
 const Players = lazy(() => import("@/pages/players"));
-const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
 const AuctionReset = lazy(() => import("@/pages/auction-reset"));
 const DisplayView = lazy(() => import("@/pages/display"));
 const SideDisplayView = lazy(() => import("@/pages/side-display"));
@@ -76,7 +77,6 @@ const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
 const TeamReports = lazy(() => import("@/pages/team-reports"));
-const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
 const TemplateStudioPage = lazy(() => import("@/pages/media-center/template-studio-page"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
@@ -209,6 +209,37 @@ function RouteSuspenseFallback() {
   ) {
     return null;
   }
+
+  const path = typeof window !== "undefined" ? window.location.pathname : "";
+  if (/^\/tournament\/\d+\/auction\/?$/.test(path)) {
+    return (
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#0f1117] text-white"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading auction control"
+      >
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-amber-400" />
+        <p className="text-sm text-white/50">Loading auction control…</p>
+      </div>
+    );
+  }
+
+  if (/^\/tournament\/\d+\//.test(path)) {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center bg-background text-muted-foreground"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading tournament page"
+      >
+        <p className="text-sm">Loading…</p>
+      </div>
+    );
+  }
+
   return <BootSplash />;
 }
 

@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen, Zap, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, TrendingDown, LockOpen, Zap, MessageCircle } from "lucide-react";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
@@ -704,23 +704,9 @@ export default function Teams() {
                       const spendable = tp?.spendablePurse ?? purseRemaining;
                       const reserved = tp?.reservePurse ?? 0;
                       const bought = tp?.playersBought ?? 0;
-                      const retained = tp?.retainedCount ?? 0;
                       const slotsNeeded = tp?.slotsRequired ?? 0;
-                      const minSquad = tp?.minimumSquadSize ?? tournament?.minimumSquadSize ?? 0;
                       const maxSquad = tp?.maximumSquadSize ?? 0;
                       const maxReached = maxSquad > 0 && bought >= maxSquad;
-                      const canBuyMore = maxSquad > 0 ? maxSquad - bought : null;
-                      const topName = tp?.topPlayerName ?? null;
-                      const topAmt = tp?.topPlayerAmount ?? null;
-                      const squadLine = maxSquad <= 0
-                        ? `${bought} bought${retained > 0 ? ` (${retained} retained)` : ""}`
-                        : maxReached
-                        ? `${bought}/${maxSquad} · squad full`
-                        : slotsNeeded > 0
-                          ? `${bought}/${maxSquad} · need ${slotsNeeded} more (min ${minSquad})`
-                          : minSquad > 0
-                            ? `${bought}/${maxSquad} · min met${canBuyMore !== null ? ` · ${canBuyMore} left` : ""}`
-                            : `${bought}/${maxSquad}${canBuyMore !== null ? ` · ${canBuyMore} left` : ""}`;
                       return (
                         <div className="space-y-3 pt-3 border-t border-border">
                           <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -782,39 +768,6 @@ export default function Teams() {
                               </div>
                             )}
                           </div>
-
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                              <span className={`text-xs font-semibold ${maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : minSquad > 0 ? "text-green-400" : "text-foreground"}`}>
-                                {squadLine}
-                              </span>
-                            </div>
-                            {maxSquad > 0 && (
-                              <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${maxReached ? "bg-red-400" : slotsNeeded > 0 ? "bg-amber-400" : "bg-green-400"}`}
-                                  style={{ width: `${Math.min(100, (bought / maxSquad) * 100)}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Top player */}
-                          {topName && (
-                            <div className="flex items-center gap-2 bg-amber-500/6 border border-amber-500/20 rounded-lg px-3 py-2">
-                              <Star className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none mb-0.5">Top Buy</p>
-                                <p className="text-xs font-bold text-foreground truncate">{topName}</p>
-                              </div>
-                              {topAmt != null && (
-                                <p className="text-sm font-display font-black tabular-nums text-amber-400 flex-shrink-0">
-                                  {formatShort(topAmt)}
-                                </p>
-                              )}
-                            </div>
-                          )}
                         </div>
                       );
                     })()}

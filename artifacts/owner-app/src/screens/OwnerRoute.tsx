@@ -31,6 +31,7 @@ import { useMutationSync } from "@/hooks/use-mutation-sync";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { useBranding } from "@/hooks/useBranding";
 import { resolveSplashLogoUrl } from "@/lib/brand-assets";
+import { breakCountdownEndsAt, isAuctionPausedForBreak } from "@/lib/break-countdown";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -75,8 +76,19 @@ export function OwnerRoute() {
       queryKey:       getGetAuctionStateQueryKey(tournamentId),
       enabled:        !!tournamentId && screen !== "loading" && screen !== "gate",
       refetchInterval: (query) => {
-        const d = query.state.data;
+        const d = query.state.data as {
+          status?: string;
+          licenseStatus?: string;
+          displayCountdown?: unknown;
+          lastAction?: string | null;
+        } | undefined;
         if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
+
+        const breakActive = !!breakCountdownEndsAt(d?.displayCountdown);
+        const pausedForBreak = isAuctionPausedForBreak(d?.lastAction);
+        if (breakActive || d?.status === "paused" || pausedForBreak) {
+          return connectionStatus === "connected" ? 2000 : pollFallbackMs;
+        }
         return sseAwareRefetchInterval(connectionStatus, pollFallbackMs);
       },
     },

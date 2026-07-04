@@ -1,8 +1,11 @@
-import { useListPlayers, useListTeamPurseBoosters, getListPlayersQueryKey, getListTeamPurseBoostersQueryKey } from "@workspace/api-client-react";
+import { useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
 import { ChevronLeft, User, ShieldUser } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
+import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
 import { TeamLogo } from "@/components/TeamLogo";
+
+const BIDWAR_AMBER = "#F59E0B";
 
 interface Team {
   id: number;
@@ -35,19 +38,13 @@ interface Props {
 
 export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) {
   const teamColor = team.color || "#F59E0B";
-  const { poweredByText } = useBranding();
+  const { poweredByText, brandName, logos, iconVersion } = useBranding();
+  const brandLogoSrc = resolveHeaderBrandLogoUrl(logos, iconVersion);
 
   const { data: allPlayers, isLoading } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
       enabled: !!tournamentId,
-    },
-  });
-
-  const { data: boosterHistory } = useListTeamPurseBoosters(tournamentId, teamId, {
-    query: {
-      queryKey: getListTeamPurseBoostersQueryKey(tournamentId, teamId),
-      enabled: !!tournamentId && !!teamId,
     },
   });
 
@@ -64,47 +61,57 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
 
   return (
     <div
-      className="auction-surface h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
+      className="auction-surface h-full min-h-0 flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
       style={{ background: `radial-gradient(ellipse at top, ${teamColor}10 0%, transparent 50%), #09090b` }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Header */}
-      <div className="flex items-center gap-4 px-4 pt-4 pb-4 border-b border-[#27272a] flex-shrink-0">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1 text-[#71717a] hover:text-white transition-colors p-2 -ml-2 rounded-xl hover:bg-[#18181b] active:scale-95"
-          title="Back to bidding"
-        >
-          <ChevronLeft className="w-7 h-7" />
-        </button>
-        <TeamLogo
-          logoUrl={team.logoUrl}
-          shortCode={team.shortCode}
-          teamName={team.name}
-          teamColor={teamColor}
-          className="w-12 h-12 rounded-xl"
-          textClassName="text-base"
-        />
-        <div className="flex-1 min-w-0">
-          <p className="font-display font-bold text-xl leading-none truncate" style={{ color: teamColor }}>
-            {team.name}
-          </p>
-          <p className="text-sm text-[#71717a] mt-0.5">My Squad</p>
+      <div className="border-b border-[#27272a] flex-shrink-0">
+        <div className="flex items-center justify-center px-4 py-2.5 bg-[#0a0a0c] border-b border-[#27272a]/70">
+          <img
+            src={brandLogoSrc}
+            alt={brandName}
+            className="h-10 w-auto max-w-[min(280px,70vw)] object-contain object-center"
+            decoding="async"
+          />
         </div>
-        <ShieldUser className="w-7 h-7 flex-shrink-0" style={{ color: teamColor }} strokeWidth={2.25} />
+        <div className="flex items-center gap-4 px-4 pt-3 pb-3">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-[#71717a] hover:text-white transition-colors p-2 -ml-2 rounded-xl hover:bg-[#18181b] active:scale-95"
+            title="Back to bidding"
+          >
+            <ChevronLeft className="w-7 h-7" />
+          </button>
+          <TeamLogo
+            logoUrl={team.logoUrl}
+            shortCode={team.shortCode}
+            teamName={team.name}
+            teamColor={teamColor}
+            className="w-12 h-12 rounded-xl"
+            textClassName="text-base"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-bold text-xl leading-none truncate" style={{ color: teamColor }}>
+              {team.name}
+            </p>
+            <p className="text-sm text-[#71717a] mt-0.5">My Squad</p>
+          </div>
+          <ShieldUser className="w-7 h-7 flex-shrink-0" style={{ color: teamColor }} strokeWidth={2.25} />
+        </div>
       </div>
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 border-b border-[#27272a] flex-shrink-0">
         {[
-          { label: "Players", value: String(count), accent: true },
-          { label: "Spent",   value: formatShortIndianRupee(purseUsed), accent: false },
-          { label: "Left",    value: formatShortIndianRupee(spendable), accent: true },
-        ].map(({ label, value, accent }) => (
+          { label: "Players", value: String(count) },
+          { label: "Spent",   value: formatShortIndianRupee(purseUsed) },
+          { label: "Left",    value: formatShortIndianRupee(spendable) },
+        ].map(({ label, value }) => (
           <div key={label} className="text-center py-4 border-r border-[#27272a] last:border-r-0">
             <p
               className="font-display font-black text-3xl leading-none"
-              style={accent ? { color: teamColor } : { color: "#ffffff" }}
+              style={{ color: teamColor }}
             >
               {value}
             </p>
@@ -113,39 +120,25 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         ))}
       </div>
 
-      <div className="px-4 py-3 border-b border-[#27272a] grid grid-cols-3 gap-2 text-center flex-shrink-0">
-        <div>
-          <p className="text-[10px] text-[#52525b] uppercase">Original</p>
-          <p className="text-sm font-mono text-white">{formatShortIndianRupee(originalPurse)}</p>
-        </div>
-        <div>
-          <p className="text-[10px] text-[#52525b] uppercase">Boosters</p>
-          <p className="text-sm font-mono text-amber-400">+{formatShortIndianRupee(boosterTotal)}</p>
-        </div>
-        <div>
-          <p className="text-[10px] text-[#52525b] uppercase">Capacity</p>
-          <p className="text-sm font-mono text-emerald-400">{formatShortIndianRupee(capacity)}</p>
+      <div className="px-4 py-3 border-b border-[#27272a] flex-shrink-0">
+        <div className="rounded-xl border border-[#27272a] bg-[#18181b] p-4 grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p className="text-[10px] text-[#52525b] uppercase tracking-wider">Original</p>
+            <p className="text-sm font-mono font-semibold mt-1" style={{ color: teamColor }}>{formatShortIndianRupee(originalPurse)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#52525b] uppercase tracking-wider">Boosters</p>
+            <p className="text-sm font-mono font-semibold mt-1" style={{ color: BIDWAR_AMBER }}>+{formatShortIndianRupee(boosterTotal)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#52525b] uppercase tracking-wider">Total Purse</p>
+            <p className="text-sm font-mono font-semibold mt-1" style={{ color: teamColor }}>{formatShortIndianRupee(capacity)}</p>
+          </div>
         </div>
       </div>
 
-      {(boosterHistory?.length ?? 0) > 0 && (
-        <div className="px-4 py-3 border-b border-[#27272a] flex-shrink-0">
-          <p className="text-xs text-[#52525b] uppercase tracking-wider mb-2">Purse Updates</p>
-          <ul className="space-y-2 max-h-28 overflow-y-auto">
-            {(boosterHistory ?? []).filter(b => b.status === "active").map(b => (
-              <li key={b.id} className="flex items-center justify-between text-sm">
-                <span className="text-emerald-400 font-mono">+{formatShortIndianRupee(b.amount)}</span>
-                <span className="text-[#71717a] text-xs">
-                  {new Date(b.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Player list */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      {/* Player list — scrolls inside fixed header/footer when squad grows */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y">
         {isLoading ? (
           <div className="flex items-center justify-center h-48">
             <div
@@ -164,7 +157,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
             {myPlayers.map((player, idx) => (
               <li
                 key={player.id}
-                className="flex items-center gap-4 px-5 py-4 border-b border-[#18181b] active:bg-[#18181b] transition-colors"
+                className="squad-player-row flex items-center gap-4 px-5 py-4 border-b border-[#18181b] active:bg-[#18181b] transition-colors"
               >
                 {/* Rank */}
                 <div

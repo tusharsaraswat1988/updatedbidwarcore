@@ -110,7 +110,11 @@ export default function TournamentSettings() {
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      staleTime: 30_000,
+    },
   });
   const { data: players = [] } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 30_000 },
@@ -553,7 +557,7 @@ export default function TournamentSettings() {
 
     const filteredLogos = sponsorLogos.filter(l => l.url.trim());
     try {
-      await updateTournament.mutateAsync({
+      const saved = await updateTournament.mutateAsync({
         tournamentId,
         data: {
           reason: DEFAULT_SETTINGS_AUDIT_REASON,
@@ -621,7 +625,7 @@ export default function TournamentSettings() {
           mainBannerPublicId?: string | null;
         },
       });
-      qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+      qc.setQueryData(getGetTournamentQueryKey(tournamentId), saved);
       qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
       setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0), registrationFieldsHidden));
       if (options?.notify) {
@@ -690,7 +694,9 @@ export default function TournamentSettings() {
     { id: "recovery", label: "Reset", icon: ShieldAlert },
   ];
 
-  if (loadingTournament || !initialized) {
+  const showInitialLoading = !initialized || (loadingTournament && !tournament);
+
+  if (showInitialLoading) {
     return (
       <AppLayout tournamentId={tournamentId}>
         <div className="space-y-6">

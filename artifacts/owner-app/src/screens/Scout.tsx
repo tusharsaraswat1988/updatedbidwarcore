@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, AlertCircle, Radar } from "lucide-react";
+import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, Radar } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { TeamLogo } from "@/components/TeamLogo";
+import { useBranding } from "@/hooks/useBranding";
+import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
 
 interface Props {
   tournamentId: number;
@@ -50,7 +52,7 @@ function TeamRow({
     >
       <button
         className="w-full text-left px-4 py-3.5 flex items-center gap-3"
-        style={{ backgroundColor: isOwn ? `${color}10` : "#18181b" }}
+        style={{ backgroundColor: `${color}33` }}
         onClick={() => setExpanded((v) => !v)}
       >
         {/* Team badge */}
@@ -75,14 +77,21 @@ function TeamRow({
               </span>
             )}
           </div>
-          <p className="text-xs text-[#52525b] mt-0.5">{team.playersBought} bought{team.maximumSquadSize ? ` / ${team.maximumSquadSize} max` : ""}</p>
+          <p className="text-xs text-[#52525b] mt-0.5">
+            {team.playersBought} bought
+            {team.slotsRequired > 0
+              ? ` · ${team.slotsRequired} more to buy`
+              : team.maximumSquadSize
+                ? ` / ${team.maximumSquadSize} max`
+                : ""}
+          </p>
         </div>
 
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <p className="font-display font-black text-sm" style={{ color: isOwn ? color : "#e4e4e7" }}>
-            {formatShortIndianRupee(team.spendablePurse)}
+            {formatShortIndianRupee(team.maxBidCapacity)}
           </p>
-          <p className="text-[10px] text-[#52525b] uppercase tracking-wide">spendable</p>
+          <p className="text-[10px] text-[#52525b] uppercase tracking-wide">max bid per player</p>
         </div>
 
         <div className="ml-2 flex-shrink-0">
@@ -127,15 +136,6 @@ function TeamRow({
                 </p>
               </div>
 
-              {team.slotsRequired > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 bg-amber-500/10 border border-amber-500/25">
-                  <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <p className="text-xs text-amber-400 font-semibold">
-                    {team.slotsRequired} slot{team.slotsRequired !== 1 ? "s" : ""} still needed — {formatShortIndianRupee(team.reservePurse)} locked
-                  </p>
-                </div>
-              )}
-
               {/* Squad list */}
               {team.players.length === 0 ? (
                 <p className="text-xs text-[#3f3f46] text-center py-2">No players yet</p>
@@ -168,6 +168,8 @@ function TeamRow({
 
 export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted }: Props) {
   const [tab, setTab] = useState<Tab>("teams");
+  const { brandName, logos, iconVersion } = useBranding();
+  const brandLogoSrc = resolveHeaderBrandLogoUrl(logos, iconVersion);
 
   const { data, isLoading, isError, refetch } = useGetTeamScout(tournamentId, {
     query: {
@@ -199,7 +201,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
 
   return (
     <div
-      className="auction-surface h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
+      className="auction-surface h-full min-h-0 flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Auto-return banner */}
@@ -218,22 +220,32 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-3 pb-3 border-b border-[#27272a] flex-shrink-0">
-        <button
-          onClick={onBack}
-          className="p-2 -ml-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90 flex-shrink-0"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="font-display font-bold text-lg text-white leading-none">Scout</p>
-          <p className="text-xs text-[#52525b] mt-0.5">Rival intelligence</p>
+      <div className="border-b border-[#27272a] flex-shrink-0">
+        <div className="flex items-center justify-center px-4 py-2.5 bg-[#0a0a0c] border-b border-[#27272a]/70">
+          <img
+            src={brandLogoSrc}
+            alt={brandName}
+            className="h-10 w-auto max-w-[min(280px,70vw)] object-contain object-center"
+            decoding="async"
+          />
         </div>
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${teamColor}20`, color: teamColor, border: `2px solid ${teamColor}44` }}
-        >
-          <Radar className="w-4 h-4" strokeWidth={2.25} />
+        <div className="flex items-center gap-3 px-4 pt-3 pb-3">
+          <button
+            onClick={onBack}
+            className="p-2 -ml-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90 flex-shrink-0"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-bold text-lg text-white leading-none">Scout</p>
+            <p className="text-xs text-[#52525b] mt-0.5">Rival intelligence</p>
+          </div>
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${teamColor}20`, color: teamColor, border: `2px solid ${teamColor}44` }}
+          >
+            <Radar className="w-4 h-4" strokeWidth={2.25} />
+          </div>
         </div>
       </div>
 
@@ -264,7 +276,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y">
         {isLoading && (
           <div className="px-4 py-4 space-y-3">
             {[1, 2, 3, 4].map((i) => (
@@ -333,7 +345,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
                   {grp.players.map((pl) => (
                     <div
                       key={pl.id}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#18181b] border border-[#27272a]"
+                      className="scout-player-row flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#18181b] border border-[#27272a]"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[#e4e4e7] truncate">{pl.name}</p>
