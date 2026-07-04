@@ -361,7 +361,7 @@ export function createAuctionRouter(db: LocalDb) {
     }
 
     let outcome: {
-      type: "sold" | "unsold";
+      type: "sold" | "unsold" | "deferred";
       playerId?: number | null;
       playerName?: string | null;
       photoUrl?: string | null;
@@ -382,6 +382,16 @@ export function createAuctionRouter(db: LocalDb) {
       };
     } else if (action?.startsWith("SOLD")) {
       outcome = { type: "sold" };
+    } else if (action?.startsWith("Brought later:")) {
+      const playerName = action.replace(/^Brought later:\s*/, "").split(" — ")[0]?.trim() || "Player";
+      const deferredPlayer = allPlayers.find((p) => p.name === playerName);
+      outcome = {
+        type: "deferred",
+        playerId: deferredPlayer?.id ?? null,
+        playerName,
+        photoUrl: resolveOfflineUrl(deferredPlayer?.photoUrl ?? null),
+        amount: deferredPlayer?.basePrice ?? null,
+      };
     }
 
     return {
@@ -1464,7 +1474,12 @@ export function createAuctionRouter(db: LocalDb) {
 
     const deferredId = session.currentPlayerId;
     const [deferredPlayer] = await db
-      .select({ name: playersTable.name })
+      .select({
+        id: playersTable.id,
+        name: playersTable.name,
+        photoUrl: playersTable.photoUrl,
+        basePrice: playersTable.basePrice,
+      })
       .from(playersTable)
       .where(eq(playersTable.id, deferredId));
 

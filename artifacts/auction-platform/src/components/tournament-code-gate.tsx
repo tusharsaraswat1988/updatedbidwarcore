@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff, AlertTriangle, RefreshCw } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
+import { BootSplash } from "@/components/boot-splash";
 import { getBrandLogoAlt } from "@/lib/brand-assets";
 
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
@@ -115,11 +116,7 @@ export function TournamentCodeGate({
   }
 
   if (status === "loading") {
-    return (
-      <div className="dark min-h-screen flex items-center justify-center bg-[#09090b]">
-        <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <BootSplash />;
   }
 
   if (status === "unlocked") {

@@ -609,7 +609,7 @@ async function buildAuctionState(tournamentId: number) {
   // players so all displays render the correct card without parsing lastAction.
   let outcome:
     | {
-        type: "sold" | "unsold";
+        type: "sold" | "unsold" | "deferred";
         playerId: number | null;
         playerName: string;
         photoUrl: string | null;
@@ -624,7 +624,7 @@ async function buildAuctionState(tournamentId: number) {
   try {
     if (session.lastOutcome) {
       const parsed = JSON.parse(session.lastOutcome);
-      if (parsed && (parsed.type === "sold" || parsed.type === "unsold")) {
+      if (parsed && (parsed.type === "sold" || parsed.type === "unsold" || parsed.type === "deferred")) {
         outcome = parsed;
       }
     }
@@ -2318,7 +2318,12 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   const deferredId = session.currentPlayerId;
 
   const [deferredPlayer] = await db
-    .select({ name: playersTable.name })
+    .select({
+      id: playersTable.id,
+      name: playersTable.name,
+      photoUrl: playersTable.photoUrl,
+      basePrice: playersTable.basePrice,
+    })
     .from(playersTable)
     .where(eq(playersTable.id, deferredId));
 
@@ -2342,7 +2347,13 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
       pausedTimeRemaining: null,
       deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
       lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
-      lastOutcome: null,
+      lastOutcome: JSON.stringify({
+        type: "deferred",
+        playerId: deferredPlayer?.id ?? deferredId,
+        playerName: deferredPlayer?.name ?? "Player",
+        photoUrl: deferredPlayer?.photoUrl ?? null,
+        amount: deferredPlayer?.basePrice ?? null,
+      }),
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 

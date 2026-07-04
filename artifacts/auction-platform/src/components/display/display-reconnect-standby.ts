@@ -4,6 +4,7 @@ import type { DerivedState, LedView } from "@/lib/led-view/types";
 const OVERLAY_DERIVED_STATES = new Set<DerivedState>([
   "sold",
   "unsold",
+  "awaitingNext",
   "paused",
   "break",
   "preAuction",

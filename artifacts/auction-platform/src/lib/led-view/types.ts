@@ -64,6 +64,7 @@ export type DerivedState =
   | "bidding"
   | "sold"
   | "unsold"
+  | "awaitingNext"
   | "paused"
   | "break"
   | "preAuction"
@@ -115,7 +116,7 @@ export type LiveBrandingDTO = {
 };
 
 export type LiveLastOutcome = {
-  type: "sold" | "unsold";
+  type: "sold" | "unsold" | "deferred";
   playerId: number;
   playerName?: string;
   teamId?: number;
@@ -168,7 +169,7 @@ export type LivePlayerFilter = {
 
 export type LedAuctionStateSlice = {
   outcome?: {
-    type: "sold" | "unsold";
+    type: "sold" | "unsold" | "deferred";
     playerId?: number | null;
     playerName?: string;
     photoUrl?: string | null;

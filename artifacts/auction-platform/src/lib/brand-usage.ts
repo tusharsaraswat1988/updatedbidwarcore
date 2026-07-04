@@ -155,7 +155,7 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
   "led-chyron": {
     logoAsset: "SYMBOL_LOGO",
     logoOrder: ["mini", "appIcon"],
-    sizeClass: "h-8 w-8 object-contain",
+    sizeClass: "h-11 w-11 sm:h-12 sm:w-12 object-contain shrink-0",
     showBrandName: false,
     showPoweredBy: false,
     darkBackground: true,

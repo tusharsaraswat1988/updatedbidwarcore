@@ -36,6 +36,7 @@ export function deriveSideLedState(view: LedView): DerivedState {
   if (view.currentPlayer?.status === "unsold" || outcome?.type === "unsold") {
     return "unsold";
   }
+  if (view.derivedState === "awaitingNext") return "awaitingNext";
   if (view.state.isBidding) return "bidding";
 
   return "idle";

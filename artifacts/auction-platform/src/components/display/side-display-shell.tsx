@@ -24,6 +24,8 @@ import type { AudioSettings } from "@/lib/audio-manager";
 import { resolveBroadcastAudioUrls } from "@workspace/api-base/platform-audio";
 import type { PlatformAudioDefaults } from "@workspace/api-base/platform-audio";
 import { loadDisplayFonts } from "@/lib/load-display-fonts";
+import { BootSplash } from "@/components/boot-splash";
+import { resolveReconnectStandby } from "./display-reconnect-standby";
 
 /**
  * Side LED display shell — same realtime API as main display,
@@ -130,12 +132,17 @@ export function SideDisplayShell({
   });
 
   const showSoldOverlay = view.derivedState === "sold" || view.derivedState === "unsold";
+  const standby = resolveReconnectStandby(view, feed.state);
+
+  if (standby) {
+    return <BootSplash />;
+  }
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-black">
       <div className="relative h-full w-full">
         <StageThemeProvider initialTheme={resolvedTheme}>
-          <SideLedStageContent view={view} panel={panel} feedState={feed.state} tournamentId={tournamentId} />
+          <SideLedStageContent view={view} panel={panel} tournamentId={tournamentId} />
           <DevThemePicker anchor="stage" />
         </StageThemeProvider>
 

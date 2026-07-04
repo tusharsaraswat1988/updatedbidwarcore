@@ -17,6 +17,8 @@ import { AudioUnlockButton } from "./audio-unlock-button";
 import { DisplayConnectionBanner } from "./display-connection-banner";
 import { DisplayStageViewport } from "./display-stage-viewport";
 import { LedStageContent, StageThemeProvider } from "./v1";
+import { BootSplash } from "@/components/boot-splash";
+import { resolveReconnectStandby } from "./display-reconnect-standby";
 import type { AudioSettings } from "@/lib/audio-manager";
 import { resolveBroadcastAudioUrls } from "@workspace/api-base/platform-audio";
 import type { PlatformAudioDefaults } from "@workspace/api-base/platform-audio";
@@ -124,11 +126,16 @@ export function DisplayShell({
   });
 
   const showSoldOverlay = view.derivedState === "sold" || view.derivedState === "unsold";
+  const standby = resolveReconnectStandby(view, feed.state);
+
+  if (standby) {
+    return <BootSplash />;
+  }
 
   return (
     <DisplayStageViewport>
       <StageThemeProvider initialTheme={resolvedTheme}>
-        <LedStageContent view={view} feedState={feed.state} />
+        <LedStageContent view={view} />
       </StageThemeProvider>
 
       <DisplayConnectionBanner

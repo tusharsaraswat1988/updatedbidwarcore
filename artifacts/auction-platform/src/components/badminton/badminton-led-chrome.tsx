@@ -20,6 +20,8 @@ import {
   sponsorBroadcastTier,
 } from "@/lib/sponsor-broadcast-priority-styles";
 import { ChyronTickerScroller } from "@/components/display/v1/ChyronTickerScroller";
+import { LED_META_LABEL_CLASS } from "@/lib/led-display-typography";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { cn } from "@/lib/utils";
 
 /** Auction LED-style top strip — BIDWAR LIVE + tournament + court/match + status. */
@@ -176,6 +178,7 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   accentMode?: "theme" | "bidwar";
 }) {
   const { brandName, poweredByText, miniSrc, logoAlt } = useBadmintonBidWarTheme();
+  const chyronPreset = getBrandSurfacePreset("led-chyron");
   const accentBg = accentMode === "bidwar" ? BIDWAR_BROADCAST_YELLOW : "var(--accent)";
   const accentOn = accentMode === "bidwar" ? BIDWAR_BROADCAST_YELLOW_ON : "var(--accent-on)";
 
@@ -187,12 +190,17 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
       )}
     >
       <div
-        className="h-full px-4 grid place-items-center"
-        style={{ backgroundColor: accentBg, color: accentOn }}
+        className="relative h-full shrink-0 flex items-center px-4 md:px-5"
+        style={{
+          backgroundColor: accentBg,
+          color: accentOn,
+          clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%)",
+        }}
       >
-        <span className="font-['Bebas_Neue'] text-sm md:text-base font-bold tracking-[0.3em] uppercase">
-          Official Partners
-        </span>
+        <div className="flex flex-col leading-none gap-1" aria-label="Our Sponsors">
+          <span className={`${LED_META_LABEL_CLASS} opacity-70`}>Our</span>
+          <span className={`${LED_META_LABEL_CLASS} tracking-[0.22em]`}>Sponsors</span>
+        </div>
       </div>
 
       <div className="relative overflow-hidden h-full flex items-center min-w-0">
@@ -253,10 +261,10 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
 
       <div className="flex items-center pl-4 border-l border-white/10 shrink-0">
         {miniSrc ? (
-          <img src={miniSrc} alt={logoAlt} className="h-8 w-8 object-contain" />
+          <img src={miniSrc} alt={logoAlt} className={chyronPreset.sizeClass} />
         ) : (
           <div
-            className="h-8 w-8 grid place-items-center"
+            className={cn(chyronPreset.sizeClass, "grid place-items-center")}
             style={{ backgroundColor: accentBg, color: accentOn }}
           >
             <span className="font-['Bebas_Neue'] text-sm tracking-tighter italic">BW</span>

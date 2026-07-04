@@ -406,8 +406,19 @@ export function useLedView(
     const minSquadSize = tournament.minimumSquadSize ?? 0;
     const teamsBase = (teamPurses ?? []).map((t) => toLedTeam(t, minBid, minSquadSize));
 
+    const blockPlayerId = state?.currentPlayer?.id ?? null;
+    const awaitingNext =
+      state?.status === "active" &&
+      !blockPlayerId &&
+      outcome?.type === "deferred";
+
+    const currentPlayerIdResolved =
+      blockPlayerId ??
+      (outcome?.type === "sold" || outcome?.type === "unsold"
+        ? outcome?.playerId ?? null
+        : null);
+
     const playersSource = allPlayers ?? (state?.currentPlayer ? [state.currentPlayer] : []);
-    const currentPlayerIdResolved = state?.currentPlayer?.id ?? outcome?.playerId ?? null;
     const categoryNameById = new Map((categories ?? []).map((c) => [c.id, c.name]));
     const categoryNameFor = (p: Player) =>
       p.categoryId != null ? categoryNameById.get(p.categoryId) ?? null : null;
@@ -474,7 +485,25 @@ export function useLedView(
           categoryNameFor(state.currentPlayer),
           labelsFor(state.currentPlayer),
         )
-      : outcome?.playerId
+      : awaitingNext && outcome?.playerId
+        ? players.find((p) => p.id === String(outcome.playerId)) ?? {
+            id: String(outcome.playerId),
+            name: outcome.playerName ?? "Player",
+            roleRaw: "Player",
+            specs: [],
+            basePrice: outcome.amount ?? 0,
+            city: "",
+            age: 0,
+            serialNo: outcome.playerId ?? 0,
+            portrait: outcome.photoUrl ?? "",
+            gender: "male" as const,
+            status: "queue" as const,
+            soldToTeamId: null,
+            soldPrice: null,
+            achievements: "",
+            categoryName: null,
+          }
+      : outcome?.playerId && (outcome.type === "sold" || outcome.type === "unsold")
         ? players.find((p) => p.id === String(outcome.playerId)) ?? null
         : null;
 
@@ -588,6 +617,7 @@ export function useLedView(
     else if (currentPlayer?.status === "sold") derivedState = "sold";
     else if (currentPlayer?.status === "unsold" || outcome?.type === "unsold")
       derivedState = "unsold";
+    else if (awaitingNext) derivedState = "awaitingNext";
     else if (isBidding) derivedState = "bidding";
 
     const lastOutcome: LiveLastOutcome | null = outcome

@@ -10,6 +10,7 @@ import { DevThemePicker } from "./DevThemePicker";
 export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
   const { tournament, state, remaining, totalPlayers } = view;
   const paused = view.derivedState === "paused";
+  const awaitingNext = view.derivedState === "awaitingNext";
   const live = state.isBidding && !paused;
 
   return (
@@ -60,7 +61,7 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
         >
           {!live && !paused ? (
             <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/40">
-              Standby
+              {awaitingNext ? "Awaiting Next Player" : "Standby"}
             </span>
           ) : (
             <>

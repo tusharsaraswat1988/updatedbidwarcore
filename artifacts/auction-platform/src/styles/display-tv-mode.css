@@ -283,3 +283,478 @@
 .badminton-serve-side--flash {
   animation: badmintonServeSwitch 0.65s ease-out forwards;
 }
+
+/* ── Team Wise — IPL / broadcast squad status overlay ─────────────── */
+@keyframes team-wise-header-shimmer {
+  0%, 88% { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+  92% { opacity: 0.45; }
+  100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
+}
+
+@keyframes team-wise-active-pulse {
+  0%, 100% {
+    opacity: 0.45;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--tw-panel-color, #22c55e) 30%, transparent);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 36px color-mix(in srgb, var(--tw-panel-color, #22c55e) 42%, transparent);
+  }
+}
+
+@keyframes team-wise-particle-drift {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  8% { opacity: 0.22; }
+  92% { opacity: 0.08; }
+  100% { transform: translateY(-16vh) translateX(6px); opacity: 0; }
+}
+
+@keyframes team-wise-number-settle {
+  0% { opacity: 0.72; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.team-wise-scene {
+  background: #04060c;
+}
+
+.team-wise-scene-grid-glow {
+  background: radial-gradient(ellipse 70% 55% at 50% 48%, rgba(212,175,55,0.045) 0%, transparent 68%);
+}
+
+.team-wise-scene-vignette {
+  background:
+    radial-gradient(ellipse 90% 80% at 50% 45%, transparent 0%, rgba(0,0,0,0.48) 100%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.35) 100%);
+}
+
+.team-wise-scene-stadium {
+  background:
+    radial-gradient(ellipse 130% 55% at 50% -12%, rgba(255,248,220,0.09) 0%, transparent 52%),
+    radial-gradient(ellipse 90% 45% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 48%),
+    radial-gradient(ellipse 80% 50% at 10% 90%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 90% 90%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 50%);
+}
+
+.team-wise-scene-texture {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.028;
+  mix-blend-mode: overlay;
+}
+
+.team-wise-scene-particles {
+  background-image:
+    radial-gradient(circle, rgba(212,175,55,0.28) 0.45px, transparent 0.45px),
+    radial-gradient(circle, rgba(255,255,255,0.14) 0.45px, transparent 0.45px);
+  background-size: 140px 140px, 200px 200px;
+  background-position: 0 0, 70px 50px;
+  opacity: 0.18;
+  animation: team-wise-particle-drift 32s linear infinite;
+}
+
+.team-wise-panel {
+  border-width: 1px;
+  backdrop-filter: blur(3px);
+  transition: box-shadow 0.5s ease, filter 0.5s ease;
+}
+
+.team-wise-panel-glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(168deg, rgba(255,255,255,0.04) 0%, transparent 38%, rgba(0,0,0,0.12) 100%);
+  border-radius: inherit;
+}
+
+.team-wise-panel--active {
+  filter: brightness(1.05);
+}
+
+.team-wise-panel-active-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 2px solid color-mix(in srgb, var(--tw-panel-color, #22c55e) 55%, rgba(212,175,55,0.38));
+  animation: team-wise-active-pulse 3.6s ease-in-out infinite;
+  z-index: 2;
+}
+
+.team-wise-header {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.team-wise-header-metal {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.14;
+  background-image: repeating-linear-gradient(
+    -12deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(255,255,255,0.06) 2px,
+    rgba(255,255,255,0.06) 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+.team-wise-header-gold-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.55) 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.team-wise-header-bottom-edge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.45) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.team-wise-header-watermark {
+  position: absolute;
+  right: -4%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42%;
+  height: 140%;
+  max-width: none;
+  object-fit: contain;
+  opacity: 0.05;
+  filter: grayscale(1) blur(1.5px);
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+.team-wise-header-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 32%, transparent 58%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.team-wise-header-streak {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.team-wise-header-streak::after {
+  content: "";
+  position: absolute;
+  top: -24%;
+  left: 0;
+  width: 38%;
+  height: 148%;
+  background: linear-gradient(108deg, transparent 0%, rgba(255,255,255,0.26) 46%, transparent 100%);
+  animation: team-wise-header-shimmer 10s ease-in-out infinite;
+}
+
+.team-wise-panel--active .team-wise-header-streak::after {
+  animation-duration: 6s;
+}
+
+.team-wise-logo-badge {
+  position: relative;
+  z-index: 2;
+  border-radius: 0.5em;
+  background: linear-gradient(148deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.58) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.14),
+    0 6px 16px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(212,175,55,0.24);
+}
+
+.team-wise-franchise-name {
+  position: relative;
+  z-index: 2;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  text-shadow:
+    0 2px 14px rgba(0,0,0,0.72),
+    0 0 1px rgba(0,0,0,0.9),
+    0 1px 0 rgba(0,0,0,0.45);
+}
+
+.team-wise-label {
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.26);
+  line-height: 1;
+  font-weight: 500;
+}
+
+.team-wise-stat-hero {
+  font-family: "Bebas Neue", "Barlow Condensed", sans-serif;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  animation: team-wise-number-settle 0.45s ease-out;
+}
+
+.team-wise-stat-primary {
+  font-family: "Bebas Neue", "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.92;
+  letter-spacing: 0.015em;
+}
+
+.team-wise-stat-slots {
+  font-family: "Bebas Neue", "Barlow Condensed", sans-serif;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  color: rgba(255,255,255,0.94);
+}
+
+.team-wise-stat-spendable {
+  font-family: "Bebas Neue", "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+  color: rgba(110,231,183,0.92);
+}
+
+.team-wise-stat-secondary {
+  font-family: "Bebas Neue", "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.95;
+}
+
+.team-wise-stat-tertiary {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,0.68);
+}
+
+.team-wise-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.18) 50%, transparent 100%);
+  border: none;
+}
+
+.team-wise-progress-track {
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.team-wise-progress-fill {
+  position: relative;
+  border-radius: 9999px;
+  transition: width 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: width;
+}
+
+.team-wise-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 52% 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.28) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.team-wise-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38em;
+  border-radius: 9999px;
+  padding: 0.42em 0.62em;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.42) 100%) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(212,175,55,0.18) 50%, rgba(255,255,255,0.08) 100%) border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 3px 12px rgba(0,0,0,0.38);
+  backdrop-filter: blur(4px);
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  line-height: 1;
+  align-self: stretch;
+  transition: box-shadow 0.35s ease;
+}
+
+.team-wise-badge--ready {
+  color: #93c5fd;
+  border-color: rgba(147,197,253,0.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 14px rgba(59,130,246,0.18);
+}
+
+.team-wise-badge--slots {
+  color: #fcd34d;
+  border-color: rgba(252,211,77,0.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 14px rgba(245,158,11,0.16);
+}
+
+.team-wise-badge--alert {
+  color: #fca5a5;
+  border-color: rgba(248,113,113,0.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 14px rgba(239,68,68,0.18);
+}
+
+.team-wise-badge--full,
+.team-wise-badge--ok {
+  color: #6ee7b7;
+  border-color: rgba(110,231,183,0.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 14px rgba(16,185,129,0.16);
+}
+
+.team-wise-badge-dot {
+  width: 0.42em;
+  height: 0.42em;
+  min-width: 5px;
+  min-height: 5px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.team-wise-badge-dot--ready { background: #60a5fa; box-shadow: 0 0 6px rgba(96,165,250,0.65); }
+.team-wise-badge-dot--slots { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.65); }
+.team-wise-badge-dot--alert { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.65); }
+.team-wise-badge-dot--full,
+.team-wise-badge-dot--ok { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.65); }
+
+.team-wise-last-pick {
+  position: absolute;
+  top: 0.45em;
+  right: 0.45em;
+  z-index: 3;
+  border-radius: 0.35em;
+  padding: 0.28em 0.45em;
+  background: linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.88) 100%);
+  border: 1px solid rgba(212,175,55,0.35);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+}
+
+.team-wise-active-pill {
+  position: absolute;
+  bottom: -0.05em;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  border-radius: 9999px;
+  padding: 0.22em 0.65em;
+  font-family: ui-monospace, monospace;
+  font-size: 0.62em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ecfdf5;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tw-panel-color, #22c55e) 75%, #fff 8%) 0%, color-mix(in srgb, var(--tw-panel-color, #22c55e) 90%, #000 20%) 100%);
+  border: 1px solid rgba(255,255,255,0.22);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--tw-panel-color, #22c55e) 45%, transparent);
+}
+
+.team-wise-purchase-strip {
+  margin-top: 0.4em;
+  padding: 0.55em 0.65em;
+  border-radius: 0.45em;
+  background: linear-gradient(135deg, rgba(0,0,0,0.58) 0%, rgba(255,255,255,0.03) 48%, rgba(0,0,0,0.48) 100%);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 4px 14px rgba(0,0,0,0.32);
+}
+
+.team-wise-purchase-name {
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}
+
+.team-wise-ticker {
+  background: linear-gradient(180deg, rgba(14,16,26,0.94) 0%, rgba(5,7,12,0.98) 100%);
+  border-top: 1px solid rgba(212,175,55,0.32);
+  box-shadow:
+    0 -12px 40px rgba(0,0,0,0.52),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 8px 24px rgba(212,175,55,0.04);
+  backdrop-filter: blur(10px);
+}
+
+.team-wise-ticker-extra {
+  display: none;
+}
+
+@media (min-width: 1600px) {
+  .team-wise-ticker-extra {
+    display: flex;
+    align-items: center;
+    gap: 0.65em;
+    min-width: 0;
+    padding-right: 1%;
+    border-right: 1px solid rgba(212,175,55,0.22);
+    margin-right: 0.5%;
+  }
+}
+
+.team-wise-ticker-extra-block {
+  min-width: 0;
+  text-align: center;
+}
+
+.team-wise-ticker-extra-value {
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  color: rgba(255,255,255,0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10em;
+}
+
+.team-wise-ticker-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 1.6em;
+  background: linear-gradient(180deg, transparent 0%, rgba(212,175,55,0.45) 50%, transparent 100%);
+}
+
+.team-wise-ticker-stat-icon {
+  width: 0.85em;
+  height: 0.85em;
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.team-wise-ticker-value {
+  font-family: "Bebas Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  font-weight: 400;
+  text-shadow: 0 0 16px currentColor, 0 1px 2px rgba(0,0,0,0.5);
+  animation: team-wise-number-settle 0.4s ease-out;
+}

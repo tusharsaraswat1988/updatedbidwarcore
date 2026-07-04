@@ -16,12 +16,17 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
   return (
     <div className="border-t border-white/10 bg-black/50 h-full grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]">
       <div
-        className="h-full px-4 grid place-items-center"
-        style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
+        className="relative h-full shrink-0 flex items-center px-4 md:px-5"
+        style={{
+          backgroundColor: "var(--accent)",
+          color: "var(--accent-on)",
+          clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%)",
+        }}
       >
-        <span className="font-['Bebas_Neue'] text-base md:text-lg font-bold tracking-[0.3em] uppercase">
-          Official Partners
-        </span>
+        <div className="flex flex-col leading-none gap-1" aria-label="Our Sponsors">
+          <span className="text-[10px] font-mono uppercase tracking-[0.4em] opacity-70">Our</span>
+          <span className="text-[10px] font-mono uppercase tracking-[0.22em]">Sponsors</span>
+        </div>
       </div>
 
       <div className="relative overflow-hidden h-full flex items-center">
