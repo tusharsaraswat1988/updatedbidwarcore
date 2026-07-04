@@ -9456,7 +9456,7 @@ export const ApplyPurseBoosterBody = zod.object({
   target: zod.enum(["single", "all"]),
   teamId: zod.number().optional().describe("Required when target is single"),
   amount: zod.number().min(1),
-  reason: zod.string().min(applyPurseBoosterBodyReasonMin),
+  reason: zod.string().min(applyPurseBoosterBodyReasonMin).optional(),
   showOnLed: zod.boolean().default(applyPurseBoosterBodyShowOnLedDefault),
 });
 

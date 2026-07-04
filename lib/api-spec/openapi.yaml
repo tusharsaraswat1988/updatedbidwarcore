@@ -3488,7 +3488,7 @@ components:
 
     ApplyPurseBoosterRequest:
       type: object
-      required: [target, amount, reason]
+      required: [target, amount]
       properties:
         target:
           type: string
@@ -3502,6 +3502,7 @@ components:
         reason:
           type: string
           minLength: 10
+          description: Optional; auto-generated in audit log when omitted
         showOnLed:
           type: boolean
           default: true

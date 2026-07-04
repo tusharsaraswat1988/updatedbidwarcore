@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   useApplyPurseBooster,
+  useGetAuctionState,
   getGetTeamPursesQueryKey,
   getGetAuctionStateQueryKey,
 } from "@workspace/api-client-react";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import { AuditReasonField, isOptionalAuditReasonValid } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
 import { replayPurseBoosterLed } from "@/lib/replay-purse-booster-led";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
@@ -30,7 +31,10 @@ export function PurseBoosterDialog({
 }) {
   const queryClient = useQueryClient();
   const applyBooster = useApplyPurseBooster();
+  const { data: auctionState } = useGetAuctionState(tournamentId);
   const { toast } = useToast();
+
+  const canReplayOnLed = auctionState?.lastPurseBooster != null;
 
   const [target, setTarget] = useState<"single" | "all">("single");
   const [teamId, setTeamId] = useState<string>("");
@@ -41,7 +45,7 @@ export function PurseBoosterDialog({
 
   const parsedAmount = parseInt(amount.replace(/\D/g, ""), 10);
   const canSubmit =
-    isAuditReasonValid(reason) &&
+    isOptionalAuditReasonValid(reason) &&
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
     (target === "all" || !!teamId) &&
@@ -58,7 +62,7 @@ export function PurseBoosterDialog({
           target,
           teamId: target === "single" ? parseInt(teamId, 10) : undefined,
           amount: parsedAmount,
-          reason: reason.trim(),
+          ...(reason.trim() ? { reason: reason.trim() } : {}),
           showOnLed: true,
         },
       });
@@ -156,22 +160,24 @@ export function PurseBoosterDialog({
           <AuditReasonField
             value={reason}
             onChange={setReason}
-            label="Reason (required for audit)"
+            optional
             placeholder="e.g. Committee approval for sponsor top-up"
           />
 
           {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void handleReplayLed()}
-            disabled={applyBooster.isPending || replayingLed}
-          >
-            {replayingLed ? "Showing…" : "Show on LED again"}
-          </Button>
+        <DialogFooter className={`gap-2 ${canReplayOnLed ? "sm:justify-between" : "sm:justify-end"}`}>
+          {canReplayOnLed ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void handleReplayLed()}
+              disabled={applyBooster.isPending || replayingLed}
+            >
+              {replayingLed ? "Showing…" : "Show on LED again"}
+            </Button>
+          ) : null}
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={applyBooster.isPending}>
               Cancel

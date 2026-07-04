@@ -10,7 +10,11 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
-import { parseAuditReason } from "../lib/audit-reason";
+import {
+  defaultPurseBoosterApplyReason,
+  parseAuditReason,
+  resolveAuditReasonWithDefault,
+} from "../lib/audit-reason";
 import { auditLog, resolveActor } from "../lib/audit-service";
 import {
   computeEffectiveCapacity,
@@ -134,7 +138,7 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     target: z.enum(["single", "all"]),
     teamId: z.number().int().optional(),
     amount: z.number().int().positive("Amount must be greater than zero"),
-    reason: z.string(),
+    reason: z.string().optional(),
     showOnLed: z.boolean().optional().default(true),
   });
 
@@ -144,13 +148,17 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     return;
   }
 
-  const reasonResult = parseAuditReason(req.body, true);
+  const { target, amount, showOnLed } = parsed.data;
+
+  const reasonResult = resolveAuditReasonWithDefault(
+    req.body,
+    defaultPurseBoosterApplyReason(target),
+  );
   if (!reasonResult.ok) {
     res.status(400).json({ error: reasonResult.error });
     return;
   }
-
-  const { target, amount, showOnLed } = parsed.data;
+  const auditReason = reasonResult.reason;
   if (target === "single" && !parsed.data.teamId) {
     res.status(400).json({ error: "teamId is required when target is single" });
     return;
@@ -209,7 +217,7 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
         tournamentId: tid,
         teamId: team.id,
         amount,
-        reason: reasonResult.reason!,
+        reason: auditReason,
         status: "active",
         createdByType: actor.type,
         createdById: actor.id,
@@ -226,7 +234,7 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
       action: "finance.purse_booster_added",
       summary: `Purse booster +₹${amount.toLocaleString("en-IN")} applied to ${team.name}`,
       severity: "critical",
-      reason: reasonResult.reason,
+      reason: auditReason,
       tournamentId: tid,
       teamId: team.id,
       resource: { type: "purse_booster", id: inserted.id },

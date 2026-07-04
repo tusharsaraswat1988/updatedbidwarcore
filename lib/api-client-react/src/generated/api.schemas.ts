@@ -1415,7 +1415,7 @@ export interface ApplyPurseBoosterRequest {
   /** @minimum 1 */
   amount: number;
   /** @minLength 10 */
-  reason: string;
+  reason?: string;
   showOnLed?: boolean;
 }
 

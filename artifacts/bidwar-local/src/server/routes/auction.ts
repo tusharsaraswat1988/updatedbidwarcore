@@ -1224,7 +1224,7 @@ export function createAuctionRouter(db: LocalDb) {
       target: z.enum(["single", "all"]),
       teamId: z.number().int().optional(),
       amount: z.number().int().positive("Amount must be greater than zero"),
-      reason: z.string(),
+      reason: z.string().optional(),
       showOnLed: z.boolean().optional().default(true),
     });
     const parsed = schema.safeParse(req.body);
@@ -1232,13 +1232,23 @@ export function createAuctionRouter(db: LocalDb) {
       res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
       return;
     }
-    const reasonParsed = reasonSchema.safeParse(parsed.data.reason);
-    if (!reasonParsed.success) {
-      res.status(400).json({ error: reasonParsed.error.issues[0]?.message || "Invalid reason" });
-      return;
-    }
 
     const { target, amount, showOnLed } = parsed.data;
+    const rawReason = (req.body as { reason?: unknown })?.reason;
+    let auditReason: string;
+    if (rawReason === undefined || rawReason === null || rawReason === "") {
+      auditReason = target === "all"
+        ? "Auction operator: purse booster applied to all teams"
+        : "Auction operator: purse booster applied to team";
+    } else {
+      const reasonParsed = reasonSchema.safeParse(rawReason);
+      if (!reasonParsed.success) {
+        res.status(400).json({ error: reasonParsed.error.issues[0]?.message || "Invalid reason" });
+        return;
+      }
+      auditReason = reasonParsed.data;
+    }
+
     if (target === "single" && !parsed.data.teamId) {
       res.status(400).json({ error: "teamId is required when target is single" });
       return;
@@ -1288,7 +1298,7 @@ export function createAuctionRouter(db: LocalDb) {
         tournamentId: tid,
         teamId: team.id,
         amount,
-        reason: reasonParsed.data,
+        reason: auditReason,
         status: "active",
         createdByType: "tournament_organizer",
         createdByLabel: "Local Operator",

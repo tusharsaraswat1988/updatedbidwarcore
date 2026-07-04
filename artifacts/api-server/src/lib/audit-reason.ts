@@ -143,6 +143,13 @@ export function defaultTeamPatchReason(data: {
   return "Organizer dashboard: team profile updated";
 }
 
+/** Auto-generated audit reason when operator applies purse booster without typing one. */
+export function defaultPurseBoosterApplyReason(target: "single" | "all"): string {
+  return target === "all"
+    ? "Auction operator: purse booster applied to all teams"
+    : "Auction operator: purse booster applied to team";
+}
+
 /** Use explicit reason when provided; otherwise fall back to a predefined log message. */
 export function resolveAuditReasonWithDefault(
   body: unknown,

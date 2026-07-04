@@ -86,7 +86,6 @@ import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import { PurseBoosterDialog } from "@/components/purse-booster-dialog";
-import { replayPurseBoosterLed } from "@/lib/replay-purse-booster-led";
 import { AuditReasonField } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
 
@@ -271,7 +270,6 @@ export default function AuctionOperator() {
   // Pre Auction & Break Timer dialog
   const [showFortuneWheel, setShowFortuneWheel] = useState(false);
   const [showPurseBooster, setShowPurseBooster] = useState(false);
-  const [replayingBoosterLed, setReplayingBoosterLed] = useState(false);
   const syncFortuneWheel = useSyncFortuneWheel();
   const wheelResetOnMountRef = useRef(false);
   const [countdownDialogOpen, setCountdownDialogOpen] = useState(false);
@@ -693,23 +691,6 @@ export default function AuctionOperator() {
     } catch (err: unknown) {
       const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not cancel countdown.";
       toast({ title: "Cancel failed", description: msg, variant: "destructive" });
-    }
-  }
-
-  async function handleReplayBoosterLed() {
-    setReplayingBoosterLed(true);
-    try {
-      await replayPurseBoosterLed(tournamentId);
-      await qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
-      toast({
-        title: "LED animation replayed",
-        description: "The last purse booster panel is live on the LED screen for 10 seconds.",
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Could not replay booster on LED.";
-      toast({ title: "Replay failed", description: msg, variant: "destructive" });
-    } finally {
-      setReplayingBoosterLed(false);
     }
   }
 
@@ -1279,15 +1260,6 @@ export default function AuctionOperator() {
               title="Apply purse booster"
             >
               💰 Booster
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleReplayBoosterLed()}
-              disabled={replayingBoosterLed}
-              className="flex items-center justify-center h-7 w-7 rounded text-xs font-bold transition-all text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/10 border border-amber-500/15 disabled:opacity-40"
-              title="Show last purse booster on LED again"
-            >
-              📺
             </button>
           </div>
 
