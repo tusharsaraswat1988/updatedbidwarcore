@@ -2161,14 +2161,25 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   if (resetContext === "organizer") {
     if (authenticatedOrganizer) {
       resetActor = "operator";
-    } else if (!tournament.organizerPassword) {
-      res.status(400).json({ error: "No organizer password is set for this tournament. Contact platform support." });
+    } else if (submittedPw && tournament.organizerPassword) {
+      if (!isOperatorMatch) {
+        res.status(401).json({ error: "Incorrect organizer password" });
+        return;
+      }
+      resetActor = "operator";
+    } else if (req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[String(tid)]) {
+      // Signed-in organizer account or tournament session present but not authorized
+      // for this tournament (e.g. stale JWT or unlinked tournament).
+      res.status(403).json({ error: "You do not have permission to reset this tournament." });
       return;
-    } else if (!submittedPw || !isOperatorMatch) {
-      res.status(401).json({ error: "Incorrect organizer password" });
+    } else if (!tournament.organizerPassword) {
+      res.status(401).json({
+        error: "Organizer sign-in required. Open the organizer portal, sign in with your account, then try again.",
+      });
       return;
     } else {
-      resetActor = "operator";
+      res.status(401).json({ error: "Organizer password required to reset this tournament." });
+      return;
     }
   } else if (isMasterMatch) {
     resetActor = "super_admin";

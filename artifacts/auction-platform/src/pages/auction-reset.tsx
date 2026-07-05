@@ -64,8 +64,12 @@ export default function AuctionReset() {
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
       await refetchTournament();
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string }; status?: number }; message?: string };
-      setError(err?.response?.data?.error || err?.message || "Reset failed.");
+      const err = e as { data?: { error?: string } | null; message?: string };
+      const apiMessage =
+        err?.data && typeof err.data === "object" && "error" in err.data
+          ? (err.data as { error?: string }).error
+          : undefined;
+      setError(apiMessage || err?.message || "Reset failed.");
       setSuccess(false);
     }
   }
