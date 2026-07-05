@@ -42,6 +42,12 @@ export {
 } from "./bid-value";
 
 export {
+  resolveRetainedSpend,
+  resolveRetainedPriceForSave,
+  type RetainedSpendPlayer,
+} from "./retained-price";
+
+export {
   type ReAuctionStrategy,
   type ReAuctionStrategyMode,
   type OpeningBidInput,

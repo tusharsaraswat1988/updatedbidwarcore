@@ -11,8 +11,7 @@ import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state"
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
-import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
-import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
+import { computeNextBidAmount, resolveRetainedSpend } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Toast } from "@/components/Toast";

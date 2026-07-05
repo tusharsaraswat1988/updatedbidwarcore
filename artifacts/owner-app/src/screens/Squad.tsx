@@ -1,5 +1,5 @@
 import { useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
-import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
+import { resolveRetainedSpend } from "@workspace/api-base";
 import { ChevronLeft, User, ShieldUser } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
