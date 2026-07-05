@@ -45,6 +45,7 @@ import {
   resolvePlayerBidFields,
   serializeBidValueOptions,
 } from "@workspace/api-base/bid-value";
+import { resolveRetainedPriceForSave } from "@workspace/api-base/retained-price";
 import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
 import { loadTournamentByRegistrationCode } from "../lib/registration-context-service.js";
 import { publicTournamentSerializer } from "../lib/serializers/tournament";
@@ -444,6 +445,19 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
 
+  const playerStatus = (d.status ?? "available") as "available" | "sold" | "unsold" | "retained";
+  if (playerStatus === "retained" && !d.teamId) {
+    res.status(400).json({ error: "A retained player must be assigned to a team" });
+    return;
+  }
+  const retainedPrice = playerStatus === "retained"
+    ? resolveRetainedPriceForSave(d.retainedPrice, bidResolved.fields.basePrice)
+    : (d.retainedPrice ?? null);
+  if (playerStatus === "retained" && retainedPrice == null) {
+    res.status(400).json({ error: "A retained player must have a retained price or base price" });
+    return;
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -470,9 +484,9 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       email: emailParsed.email,
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
-      retainedPrice: d.retainedPrice ?? null,
+      retainedPrice,
       teamId: d.teamId ?? null,
-      status: (d.status ?? "available") as "available" | "sold" | "unsold" | "retained",
+      status: playerStatus,
       playerTag: (d.playerTag ?? null) as string | null,
       playerTagTeamId: d.playerTagTeamId ?? null,
       isNonPlayingMember: d.isNonPlayingMember ?? false,
@@ -1164,6 +1178,27 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.playerTag !== undefined) updates.playerTag = d.playerTag;
   if (d.playerTagTeamId !== undefined) updates.playerTagTeamId = d.playerTagTeamId;
   if (d.isNonPlayingMember !== undefined) updates.isNonPlayingMember = d.isNonPlayingMember;
+
+  const finalStatus = (updates.status as string | undefined) ?? existing.status;
+  const finalBasePrice = (updates.basePrice as number | undefined) ?? existing.basePrice;
+  if (finalStatus === "retained") {
+    const explicitRetained = d.retainedPrice !== undefined
+      ? d.retainedPrice
+      : existing.retainedPrice;
+    const becomingRetained = existing.status !== "retained";
+    const missingRetainedPrice = explicitRetained == null || explicitRetained <= 0;
+    if (becomingRetained || missingRetainedPrice || d.retainedPrice !== undefined) {
+      const resolvedRetained = resolveRetainedPriceForSave(
+        d.retainedPrice !== undefined ? d.retainedPrice : missingRetainedPrice ? undefined : explicitRetained,
+        finalBasePrice,
+      );
+      if (resolvedRetained == null) {
+        res.status(400).json({ error: "A retained player must have a retained price or base price" });
+        return;
+      }
+      updates.retainedPrice = resolvedRetained;
+    }
+  }
 
   if (d.registrationPaymentStatus !== undefined) {
     const paymentConfig = await fetchTournamentPaymentConfig(tid);

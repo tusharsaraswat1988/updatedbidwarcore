@@ -1,7 +1,18 @@
+import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { computeAllTeamPurseProtections } from "./purse-protection";
+
+function playerAcquisitionAmount(p: {
+  status: string;
+  soldPrice: number | null;
+  retainedPrice: number | null;
+  basePrice: number;
+}): number {
+  if (p.status === "retained") return resolveRetainedSpend(p);
+  return p.soldPrice ?? 0;
+}
 
 export type TeamPurseSnapshot = {
   teamId: number;
@@ -74,10 +85,8 @@ export async function buildTeamPurseSnapshot(tournamentId: number): Promise<Team
 
     const topPlayer = teamSoldRetained.reduce<(typeof rosterPlayers)[0] | null>(
       (best, p) => {
-        const pAmt = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
-        const bAmt = best
-          ? (best.status === "retained" ? (best.retainedPrice ?? 0) : (best.soldPrice ?? 0))
-          : -1;
+        const pAmt = playerAcquisitionAmount(p);
+        const bAmt = best ? playerAcquisitionAmount(best) : -1;
         return pAmt > bAmt ? p : best;
       },
       null,
@@ -110,9 +119,7 @@ export async function buildTeamPurseSnapshot(tournamentId: number): Promise<Team
       minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
       maximumSquadSize: p?.maximumSquadSize ?? 0,
       topPlayerName: topPlayer?.name ?? null,
-      topPlayerAmount: topPlayer
-        ? (topPlayer.status === "retained" ? (topPlayer.retainedPrice ?? null) : (topPlayer.soldPrice ?? null))
-        : null,
+      topPlayerAmount: topPlayer ? playerAcquisitionAmount(topPlayer) || null : null,
     };
   });
 }

@@ -1,4 +1,5 @@
 import { useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
+import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
 import { ChevronLeft, User, ShieldUser } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
@@ -6,6 +7,22 @@ import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
 import { TeamLogo } from "@/components/TeamLogo";
 
 const BIDWAR_AMBER = "#F59E0B";
+
+function playerAcquisitionAmount(player: {
+  status?: string | null;
+  soldPrice?: number | null;
+  retainedPrice?: number | null;
+  basePrice?: number | null;
+}): number {
+  if (player.status === "retained") {
+    return resolveRetainedSpend({
+      status: "retained",
+      retainedPrice: player.retainedPrice,
+      basePrice: player.basePrice,
+    });
+  }
+  return player.soldPrice ?? 0;
+}
 
 interface Team {
   id: number;
@@ -26,6 +43,7 @@ interface TeamPurse {
   spendablePurse: number;
   playersBought?: number;
   purseUsed?: number;
+  reservePurse?: number;
 }
 
 interface Props {
@@ -50,12 +68,13 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
 
   const myPlayers = (allPlayers ?? [])
     .filter(p => p.teamId === teamId && (p.status === "sold" || p.status === "retained"))
-    .sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0));
+    .sort((a, b) => playerAcquisitionAmount(b) - playerAcquisitionAmount(a));
 
   const purseUsed = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
   const capacity = teamPurse?.effectiveCapacity ?? team.purse;
   const boosterTotal = teamPurse?.boosterTotal ?? 0;
   const originalPurse = teamPurse?.originalPurse ?? team.purse;
+  const reserve = teamPurse?.reservePurse ?? 0;
   const spendable = teamPurse?.spendablePurse ?? (capacity - purseUsed);
   const count     = myPlayers.length;
 
@@ -106,7 +125,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         {[
           { label: "Players", value: String(count) },
           { label: "Spent",   value: formatShortIndianRupee(purseUsed) },
-          { label: "Left",    value: formatShortIndianRupee(spendable) },
+          { label: "Can Bid", value: formatShortIndianRupee(spendable) },
         ].map(({ label, value }) => (
           <div key={label} className="text-center py-4 border-r border-[#27272a] last:border-r-0">
             <p
@@ -135,6 +154,11 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
             <p className="text-sm font-mono font-semibold mt-1" style={{ color: teamColor }}>{formatShortIndianRupee(capacity)}</p>
           </div>
         </div>
+        {reserve > 0 && (
+          <p className="text-[10px] text-[#71717a] mt-2 text-center">
+            {formatShortIndianRupee(reserve)} reserved for minimum squad slots · {formatShortIndianRupee(spendable)} available to bid
+          </p>
+        )}
       </div>
 
       {/* Player list — scrolls inside fixed header/footer when squad grows */}
@@ -196,10 +220,10 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
                 </div>
 
                 {/* Price */}
-                {player.soldPrice != null && (
+                {playerAcquisitionAmount(player) > 0 && (
                   <div className="text-right flex-shrink-0">
                     <p className="text-lg font-black" style={{ color: teamColor }}>
-                      {formatIndianRupee(player.soldPrice)}
+                      {formatIndianRupee(playerAcquisitionAmount(player))}
                     </p>
                   </div>
                 )}

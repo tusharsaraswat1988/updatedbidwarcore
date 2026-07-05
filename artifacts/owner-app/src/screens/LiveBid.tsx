@@ -12,6 +12,7 @@ import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
+import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Toast } from "@/components/Toast";
@@ -336,7 +337,11 @@ function TeamSquadSnapshot({
         .map((p) => ({
           id: p.id,
           name: p.name,
-          amount: p.retainedPrice ?? p.soldPrice ?? 0,
+          amount: resolveRetainedSpend({
+            status: "retained",
+            retainedPrice: p.retainedPrice,
+            basePrice: p.basePrice,
+          }) || p.soldPrice || 0,
         })),
       boughtPlayers: mine
         .filter((p) => p.status === "sold")
@@ -497,7 +502,16 @@ function TeamPurseFooter({
     () =>
       (allPlayers ?? [])
         .filter((p) => p.teamId === teamId && p.status === "retained")
-        .reduce((sum, p) => sum + (p.retainedPrice ?? p.soldPrice ?? 0), 0),
+        .reduce(
+          (sum, p) =>
+            sum +
+            resolveRetainedSpend({
+              status: "retained",
+              retainedPrice: p.retainedPrice,
+              basePrice: p.basePrice,
+            }),
+          0,
+        ),
     [allPlayers, teamId],
   );
 
@@ -558,7 +572,7 @@ function TeamPurseFooter({
       },
       {
         key: "purse-left",
-        label: tier === "mobile" ? "Left" : "Purse Left",
+        label: "Can Bid",
         value: fmtFooter(spendable, true),
         accent: teamNum,
         pulseOnBoost: true,
