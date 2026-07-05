@@ -179,7 +179,7 @@ function TeamForm({
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
       logoPublicId: form.logoPublicId.trim() || undefined,
-      ...(team ? { purse: form.purse } : {}),
+      purse: form.purse,
     };
     try {
       if (team) {

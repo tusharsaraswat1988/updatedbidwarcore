@@ -231,6 +231,11 @@ function CircularTimer({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+function mutationErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+}
+
 export default function AuctionOperator() {
   const [, params] = useRoute("/tournament/:id/auction");
   const [, navigate] = useLocation();
@@ -485,15 +490,20 @@ export default function AuctionOperator() {
 
   async function handleSell() {
     if (controlsLocked || sellPlayer.isPending) return;
-    // Pass the bid state the operator currently sees so the server can detect
-    // a concurrent bid that arrived between the operator clicking SELL and the
-    // request reaching the server (Phase 3 sell-race prevention).
-    const result = await sellPlayer.mutateAsync({
-      tournamentId,
-      ...(state?.currentBidTeamId != null ? { expectedBidTeamId: state.currentBidTeamId as number } : {}),
-      ...(state?.currentBid != null ? { expectedBidAmount: state.currentBid as number } : {}),
-    });
-    applyMutationResult(result);
+    try {
+      const result = await sellPlayer.mutateAsync({
+        tournamentId,
+        ...(state?.currentBidTeamId != null ? { expectedBidTeamId: state.currentBidTeamId as number } : {}),
+        ...(state?.currentBid != null ? { expectedBidAmount: state.currentBid as number } : {}),
+      });
+      applyMutationResult(result);
+    } catch (err) {
+      toast({
+        title: "Could not mark sold",
+        description: mutationErrorMessage(err, "Sell failed"),
+        variant: "destructive",
+      });
+    }
   }
   async function handleUnsold() {
     if (controlsLocked || markUnsold.isPending) return;
@@ -501,7 +511,7 @@ export default function AuctionOperator() {
     applyMutationResult(result);
   }
   async function handleManualSell() {
-    if (!manualTeamId || !manualAmount || controlsLocked) return;
+    if (!manualTeamId || !manualAmount || controlsLocked || isPaused) return;
     try {
       const result = await manualSellMut.mutateAsync({
         tournamentId,
@@ -516,7 +526,21 @@ export default function AuctionOperator() {
       setManualAmount("");
       setManualSellReason("");
       applyMutationResult(result);
-    } catch { /* error shown in dialog */ }
+    } catch (err) {
+      toast({
+        title: "Manual sell failed",
+        description: mutationErrorMessage(err, "Could not sell player to the selected team."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  function openManualSellDialog() {
+    manualSellMut.reset();
+    setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0));
+    setManualTeamId("");
+    setManualSellReason("");
+    setManualSellOpen(true);
   }
 
   async function handleReAuction(playerId: number, startFromBase: boolean, reason?: string) {
@@ -890,7 +914,7 @@ export default function AuctionOperator() {
         case "s": if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell(); break;
         case "u": if (!timerActive && hasPlayer && isActive && !markUnsold.isPending) handleUnsold(); break;
         case "d": if (!timerActive && hasPlayer && isActive && !deferPlayerMut.isPending) handleDeferPlayer(); break;
-        case "m": if (!timerActive && hasPlayer) { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); } break;
+        case "m": if (!timerActive && hasPlayer && !isPaused) openManualSellDialog(); break;
         case "n": if (!timerActive && !hasPlayer && isActive && !nextPlayer.isPending) handleNextPlayer(selectionMode === "random" ? "random" : "sequential"); break;
         case "z": if (canReauctionLastSale && !reAuction.isPending) void handleInstantReauction(); break;
         case " ": e.preventDefault(); if (isActive && hasPlayer) { timerActive ? handleStopTimer() : handleStartBiddingClick(); } break;
@@ -1819,10 +1843,10 @@ export default function AuctionOperator() {
                     {
                       label: "MANUAL",
                       icon: Settings2,
-                      sub: timerActive ? "Pause bid first [M]" : "Set amount [M]",
-                      title: timerActive ? "Pause current bid first" : undefined,
-                      disabled: !hasPlayer || timerActive,
-                      onClick: () => { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); },
+                      sub: isPaused ? "Resume first [M]" : timerActive ? "Pause bid first [M]" : "Set amount [M]",
+                      title: isPaused ? "Resume auction before manual sell" : timerActive ? "Pause current bid first" : undefined,
+                      disabled: controlsLocked || isPaused || !hasPlayer || timerActive,
+                      onClick: openManualSellDialog,
                       bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", glow: "",
                     },
                   ].map(({ label, icon: Icon, sub, title, disabled, onClick, bg, border, text, glow }) => (
@@ -2162,7 +2186,7 @@ export default function AuctionOperator() {
             <div className="space-y-4 py-2">
               {manualSellMut.error && (
                 <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">
-                  {(manualSellMut.error as { message?: string })?.message || "Failed"}
+                  {mutationErrorMessage(manualSellMut.error, "Manual sell failed")}
                 </p>
               )}
               <div className="space-y-1.5">
@@ -2171,6 +2195,15 @@ export default function AuctionOperator() {
                   <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
                   <SelectContent>{(teams || []).map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}</SelectContent>
                 </Select>
+                {manualTeamId ? (() => {
+                  const purseData = teamPurses?.find(p => p.teamId === parseInt(manualTeamId, 10));
+                  const spendable = purseData?.spendablePurse ?? null;
+                  return spendable != null ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      Max spendable for this team: <span className="font-semibold text-foreground">{formatShort(spendable)}</span>
+                    </p>
+                  ) : null;
+                })() : null}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Amount (₹)</Label>
@@ -2189,7 +2222,7 @@ export default function AuctionOperator() {
               </button>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setManualSellOpen(false)}>Cancel</Button>
-                <Button className="flex-1" disabled={!manualTeamId || !manualAmount || manualSellMut.isPending} onClick={handleManualSell}>
+                <Button className="flex-1" disabled={!manualTeamId || !manualAmount || manualSellMut.isPending || controlsLocked || isPaused} onClick={handleManualSell}>
                   {manualSellMut.isPending ? "Selling…" : "Confirm Sell"}
                 </Button>
               </div>

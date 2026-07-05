@@ -78,7 +78,7 @@ import { parseLedPurseBoosterOverlay } from "@workspace/api-base";
 import { auditLog } from "../lib/audit-service";
 import { invalidateIntelCacheForTournament } from "../lib/intelligence-cache";
 import { invalidateTournamentInsightsCache } from "../lib/tournament-insights";
-import { parseAuditReason } from "../lib/audit-reason";
+import { parseAuditReason, defaultManualSellReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import {
   onAuctionPlayerSoldAsync,
   syncAllAuctionPlayersAsync,
@@ -1707,7 +1707,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const reasonResult = parseAuditReason(req.body, false);
+  const reasonResult = resolveAuditReasonWithDefault(req.body, defaultManualSellReason());
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const { teamId, amount } = parsed.data;

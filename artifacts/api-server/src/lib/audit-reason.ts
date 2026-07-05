@@ -150,6 +150,11 @@ export function defaultPurseBoosterApplyReason(target: "single" | "all"): string
     : "Auction operator: purse booster applied to team";
 }
 
+/** Auto-generated audit reason when operator manual-sells without typing one. */
+export function defaultManualSellReason(): string {
+  return "Auction operator: manual player sold";
+}
+
 /** Use explicit reason when provided; otherwise fall back to a predefined log message. */
 export function resolveAuditReasonWithDefault(
   body: unknown,

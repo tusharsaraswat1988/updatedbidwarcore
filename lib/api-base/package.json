@@ -12,6 +12,7 @@
     "./auction-player-selection": "./src/auction-player-selection.ts",
     "./auction-readiness": "./src/auction-readiness.ts",
     "./purse-capacity": "./src/purse-capacity.ts",
+    "./sync-team-purse": "./src/sync-team-purse.ts",
     "./purse-booster-led": "./src/purse-booster-led.ts",
     "./owner-auth": "./src/owner-auth.ts",
     "./owner-urls": "./src/owner-urls.ts",

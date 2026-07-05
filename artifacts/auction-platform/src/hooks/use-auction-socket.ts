@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetAuctionStateQueryKey } from "@workspace/api-client-react";
+import { getGetAuctionStateQueryKey, getGetTeamPursesQueryKey, getListTeamsQueryKey } from "@workspace/api-client-react";
 import {
   applyAuctionSseMessage,
   resetAuctionEventVersion,
@@ -71,6 +71,8 @@ export function useAuctionSocket(
 
         if (msg.type === "settings_changed") {
           qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+          qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+          qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
         }
 
         if (msg.type === "cheer_message" && onCheerRef.current) {

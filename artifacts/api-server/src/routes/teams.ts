@@ -110,6 +110,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
     logoPublicId: z.string().optional().nullable(),
+    purse: z.number().int().min(0).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" }); return; }
@@ -169,7 +170,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         color: d.color ?? "#3B82F6",
         logoUrl: d.logoUrl ?? null,
         logoPublicId: d.logoPublicId ?? null,
-        purse: tournament.basePurse,
+        purse: d.purse ?? tournament.basePurse,
         purseUsed: 0,
         isBiddingEnabled: true,
         accessCode: genAccessCode(),

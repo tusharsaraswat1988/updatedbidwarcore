@@ -6,7 +6,9 @@ import {
   useListPlayers,
   getGetTournamentQueryKey,
   getGetRegistrationStatusQueryKey,
+  getGetTeamPursesQueryKey,
   getListPlayersQueryKey,
+  getListTeamsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -627,6 +629,8 @@ export default function TournamentSettings() {
       });
       qc.setQueryData(getGetTournamentQueryKey(tournamentId), saved);
       qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
       setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0), registrationFieldsHidden));
       if (options?.notify) {
         toast({ title: "Settings saved", description: "Your auction rules have been updated." });

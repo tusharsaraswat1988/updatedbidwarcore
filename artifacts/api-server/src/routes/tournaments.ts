@@ -21,7 +21,7 @@ import {
   TOURNAMENT_LIFECYCLE_STATUSES,
 } from "../lib/tournament-lifecycle";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
@@ -38,6 +38,7 @@ import {
 } from "@workspace/api-base/registration-payment";
 import { validateTournamentPaymentSettings } from "../lib/registration-payment";
 import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
+import { teamIdsEligibleForBasePurseSync } from "@workspace/api-base/sync-team-purse";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 import { commitBatchCloudinaryImageWrites, destroyRemovedCloudinaryImages } from "../lib/cloudinary-media-service";
 import {
@@ -536,6 +537,27 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
       return;
     }
     throw err;
+  }
+
+  if (
+    d.basePurse !== undefined &&
+    beforeTournament &&
+    d.basePurse !== beforeTournament.basePurse
+  ) {
+    const tournamentTeams = await db
+      .select({ id: teamsTable.id, purse: teamsTable.purse, purseUsed: teamsTable.purseUsed })
+      .from(teamsTable)
+      .where(eq(teamsTable.tournamentId, id));
+    const teamIdsToSync = teamIdsEligibleForBasePurseSync(
+      tournamentTeams,
+      beforeTournament.basePurse,
+    );
+    if (teamIdsToSync.length > 0) {
+      await db
+        .update(teamsTable)
+        .set({ purse: d.basePurse })
+        .where(and(eq(teamsTable.tournamentId, id), inArray(teamsTable.id, teamIdsToSync)));
+    }
   }
 
   if (removedSponsorLogos.length > 0) {

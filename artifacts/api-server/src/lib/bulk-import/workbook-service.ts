@@ -252,6 +252,7 @@ async function commitWorkbookEntities(
     for (const row of workbook.sheets["04_Teams"] ?? []) {
       const name = String(row["Team Name"] ?? "").trim();
       if (!name) continue;
+      const budget = parseInt(String(row["Budget"] ?? "0"), 10);
       const [existing] = await tx.select().from(teamsTable)
         .where(and(eq(teamsTable.tournamentId, tournamentId), eq(teamsTable.name, name)))
         .limit(1);
@@ -265,8 +266,11 @@ async function commitWorkbookEntities(
           ownerEmail: String(row["Email"] ?? "") || null,
           color: String(row["Primary Color"] ?? "") || null,
           logoUrl: String(row["Logo URL"] ?? "") || null,
-          purse: parseInt(String(row["Budget"] ?? "0"), 10) || 10000000,
+          purse: budget > 0 ? budget : 10000000,
         });
+        created++;
+      } else if (budget > 0 && existing.purseUsed === 0 && existing.purse !== budget) {
+        await tx.update(teamsTable).set({ purse: budget }).where(eq(teamsTable.id, existing.id));
         created++;
       }
     }

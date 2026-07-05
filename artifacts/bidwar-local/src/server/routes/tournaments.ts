@@ -5,10 +5,11 @@ import {
   DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { validateAndSerializeSponsorLogos } from "@workspace/api-base/sponsor-priority";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
+import { teamIdsEligibleForBasePurseSync } from "@workspace/api-base/sync-team-purse";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
@@ -183,9 +184,36 @@ export function createTournamentsRouter(db: LocalDb) {
     if (d.status !== undefined) updates.status = d.status;
 
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+    const [beforeTournament] = d.basePurse !== undefined
+      ? await db.select({ basePurse: tournamentsTable.basePurse }).from(tournamentsTable).where(eq(tournamentsTable.id, id)).limit(1)
+      : [null];
+
     const [row] = await db.update(tournamentsTable).set({ ...updates, updatedAt: new Date().toISOString() })
       .where(eq(tournamentsTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
+
+    if (
+      d.basePurse !== undefined &&
+      beforeTournament &&
+      d.basePurse !== beforeTournament.basePurse
+    ) {
+      const tournamentTeams = await db
+        .select({ id: teamsTable.id, purse: teamsTable.purse, purseUsed: teamsTable.purseUsed })
+        .from(teamsTable)
+        .where(eq(teamsTable.tournamentId, id));
+      const teamIdsToSync = teamIdsEligibleForBasePurseSync(
+        tournamentTeams,
+        beforeTournament.basePurse,
+      );
+      if (teamIdsToSync.length > 0) {
+        await db
+          .update(teamsTable)
+          .set({ purse: d.basePurse, updatedAt: new Date().toISOString() })
+          .where(and(eq(teamsTable.tournamentId, id), inArray(teamsTable.id, teamIdsToSync)));
+      }
+    }
+
     res.json(tournamentToJson(row));
   });
 

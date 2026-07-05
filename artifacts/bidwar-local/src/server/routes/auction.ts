@@ -32,6 +32,7 @@ import {
   replayLedPurseBoosterOverlay,
   type LedPurseBoosterTeamLine,
 } from "@workspace/api-base";
+import { computeScoutPurseProtection } from "../lib/scout-purse.js";
 import { mirrorStateToCloud } from "../mirror.js";
 import { fetchCloudVenueGuard, releaseVenueAuctionOnCloud } from "../lib/venue-guard.js";
 
@@ -742,6 +743,38 @@ export function createAuctionRouter(db: LocalDb) {
       res.status(foreign ? 403 : 404).json({ error: foreign ? "Team does not belong to this tournament" : "Team not found" });
       return;
     }
+
+    if (amount > 0) {
+      const [tournament] = await db.select({
+        minimumSquadSize: tournamentsTable.minimumSquadSize,
+        maximumSquadSize: tournamentsTable.maximumSquadSize,
+        minBid: tournamentsTable.minBid,
+      }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+      const allPlayers = await db.select({
+        status: playersTable.status,
+        teamId: playersTable.teamId,
+      }).from(playersTable).where(eq(playersTable.tournamentId, tid));
+      const boosterTotal = await getActiveBoosterTotal(db, tid, teamId);
+      const protection = computeScoutPurseProtection(
+        teamRow,
+        boosterTotal,
+        allPlayers,
+        teamId,
+        {
+          minimumSquadSize: tournament?.minimumSquadSize ?? 0,
+          maximumSquadSize: tournament?.maximumSquadSize ?? 0,
+          minBid: tournament?.minBid ?? 0,
+        },
+      );
+      if (amount > protection.spendablePurse) {
+        const msg = protection.reservePurse > 0
+          ? `Insufficient purse — ₹${protection.reservePurse.toLocaleString("en-IN")} reserved for ${protection.slotsRequired} minimum squad slot${protection.slotsRequired !== 1 ? "s" : ""}`
+          : "Insufficient purse for this team";
+        res.status(400).json({ error: msg });
+        return;
+      }
+    }
+
     await db.update(playersTable).set({ status: "sold", teamId, soldPrice: amount }).where(eq(playersTable.id, playerId));
     const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     if (team && amount > 0) {

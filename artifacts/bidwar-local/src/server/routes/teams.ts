@@ -198,10 +198,11 @@ export function createTeamsRouter(db: LocalDb) {
         return;
       }
     }
+    const [tournament] = await db.select({ basePurse: tournamentsTable.basePurse }).from(tournamentsTable).where(eq(tournamentsTable.id, tid)).limit(1);
     const [row] = await db.insert(teamsTable).values({
       tournamentId: tid, name: d.name, shortCode: d.shortCode, ownerName: d.ownerName,
       ownerMobile, color: d.color ?? "#3B82F6",
-      logoUrl: d.logoUrl ?? null, purse: d.purse ?? 10000000, accessCode: d.accessCode ?? null,
+      logoUrl: d.logoUrl ?? null, purse: d.purse ?? tournament?.basePurse ?? 10000000, accessCode: d.accessCode ?? null,
     }).returning();
     res.status(201).json(teamToJson(row));
   });
