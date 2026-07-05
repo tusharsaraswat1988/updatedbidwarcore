@@ -797,13 +797,14 @@ function AuctionPauseBanner({
 }
 
 function BidButton({
-  canBid, isLeading, timerExpired, hasPlayer, isActive, isPaused, isIdle, isOnBreak,
+  canBid, isLeading, timerExpired, timerActive, hasPlayer, isActive, isPaused, isIdle, isOnBreak,
   hasLiveCountdown, breakMins, breakSecs, breakMessage, breakLabel,
   bidding, bidFeedback, nextBidAmount, teamColor, onBid, layout, tier, unit, dock = false,
 }: {
   canBid: boolean;
   isLeading: boolean;
   timerExpired: boolean;
+  timerActive: boolean;
   hasPlayer: boolean;
   isActive: boolean;
   isPaused: boolean;
@@ -900,6 +901,34 @@ function BidButton({
           <p className={`font-display font-black text-red-400 ${dock ? "text-xl" : "text-3xl"}`}>BIDDING CLOSED</p>
           {!dock && <p className="text-base text-[#71717a] mt-2">Timer expired — awaiting operator</p>}
         </div>
+      </motion.div>
+    );
+  }
+
+  if (isActive && hasPlayer && !timerActive && !isLeading && !isOnBreak) {
+    const idleMessage = "Waiting for operator to open bidding";
+    if (dock) {
+      return (
+        <motion.div
+          key="timer-waiting-dock"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-1 px-4`}
+        >
+          <p className={`font-display font-black text-[#52525b] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
+          <p className="text-xs text-[#71717a] font-medium text-center">{idleMessage}</p>
+        </motion.div>
+      );
+    }
+    return (
+      <motion.div
+        key="timer-waiting"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-3`}
+      >
+        <div className="w-10 h-10 border-2 border-[#3f3f46] border-t-[#71717a] rounded-full animate-spin" />
+        <p className="text-base text-[#71717a] font-semibold">{idleMessage}</p>
       </motion.div>
     );
   }
@@ -1625,7 +1654,8 @@ export function LiveBid({
   const teamColor = team.color || "#F59E0B";
   const unit = resolveAuctionUnit(tournament?.auctionUnit);
   const fmt = (amount: number | null | undefined) => formatIndianRupee(amount, unit);
-  const isLeading = state?.currentBidTeamId === teamId;
+  const currentBidTeamId = Number(state?.currentBidTeamId);
+  const isLeading = Number.isFinite(currentBidTeamId) && currentBidTeamId === teamId;
   const isActive  = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
   const navBlocked = isPlayerOnAuctionStage(state);
@@ -1692,13 +1722,16 @@ export function LiveBid({
     if (isOnBreak || !canBid || bidding || !mayTap()) return;
     hapticBid();
     setBidding(true);
-    const result = await onBid(nextBidAmount);
-    setBidding(false);
-    setBidFeedback(result);
-    if (result === "success")  hapticSuccess();
-    else if (result === "leading") hapticLeading();
-    else hapticError();
-    setTimeout(() => setBidFeedback(null), 1600);
+    try {
+      const result = await onBid(nextBidAmount);
+      setBidFeedback(result);
+      if (result === "success") hapticSuccess();
+      else if (result === "leading") hapticLeading();
+      else hapticError();
+      setTimeout(() => setBidFeedback(null), 1600);
+    } finally {
+      setBidding(false);
+    }
   }
 
   // ── Disable-reason ──────────────────────────────────────────────────────────
@@ -1984,10 +2017,11 @@ export function LiveBid({
 
           <AnimatePresence mode="wait">
             <BidButton
-              key={`${isOnBreak}-${isLeading}-${expired}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              key={`${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}
+              timerActive={timerActive}
               hasPlayer={hasPlayer}
               isActive={isActive}
               isPaused={isPaused}
@@ -2241,10 +2275,11 @@ export function LiveBid({
         <div className={`flex-1 flex flex-col ${tier === "mobile" ? "min-h-[42vh]" : tier === "tablet" ? "min-h-[44vh]" : "min-h-[40vh]"}`}>
           <AnimatePresence mode="wait">
             <BidButton
-              key={`split-${isOnBreak}-${isLeading}-${expired}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              key={`split-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}
+              timerActive={timerActive}
               hasPlayer={hasPlayer}
               isActive={isActive}
               isPaused={isPaused}

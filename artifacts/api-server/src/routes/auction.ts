@@ -822,8 +822,9 @@ async function broadcastState(tournamentId: number, invalidate: string[] = []) {
 
 async function broadcastBidDelta(tournamentId: number, delta: BidDeltaFields) {
   invalidateStateCache(tournamentId);
-  await emitBidEvent(tournamentId, delta);
-  return getCachedOrBuildState(tournamentId);
+  const eventVersion = await emitBidEvent(tournamentId, delta);
+  const state = await getCachedOrBuildState(tournamentId);
+  return { ...state, eventVersion };
 }
 
 async function broadcastSoldDelta(

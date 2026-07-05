@@ -6,6 +6,7 @@ import {
   type TeamPurse,
 } from "@workspace/api-client-react";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
+import { applyMutationAuctionState } from "@/lib/sync-auction-sse";
 
 /** Sync owner bid mutations without redundant invalidation when SSE is healthy. */
 export function useMutationSync(tournamentId: number, connectionStatus: ConnectionStatus) {
@@ -20,11 +21,10 @@ export function useMutationSync(tournamentId: number, connectionStatus: Connecti
   const applyMutationResult = useCallback(
     (result?: unknown) => {
       if (result != null) {
-        qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-        const purses = (result as { teamPurses?: TeamPurse[] }).teamPurses;
-        if (purses?.length) {
-          qc.setQueryData(getGetTeamPursesQueryKey(tournamentId), purses);
-        }
+        applyMutationAuctionState(qc, tournamentId, result as Record<string, unknown> & {
+          teamPurses?: TeamPurse[];
+          eventVersion?: number;
+        });
       }
       if (!sseConnected) {
         invalidateFallback();

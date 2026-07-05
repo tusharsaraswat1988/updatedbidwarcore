@@ -54,12 +54,13 @@ export async function emitAuctionStateEvent(
 export async function emitBidEvent(
   tournamentId: number,
   delta: BidDeltaFields,
-): Promise<void> {
-  await publishAuctionEvent(tournamentId, {
+): Promise<number> {
+  const envelope = await publishAuctionEvent(tournamentId, {
     type: "bid",
     ...delta,
     invalidate: [],
   });
+  return envelope.version;
 }
 
 export async function emitSoldEvent(

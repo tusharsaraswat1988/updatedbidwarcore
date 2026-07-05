@@ -240,8 +240,8 @@ export function OwnerRoute() {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
       const display = msg || "Bid failed. Please try again.";
       setLastBidError(display);
+      invalidateFallback();
       if (msg.includes("already the highest bidder")) {
-        invalidateFallback();
         return "leading";
       }
       return "error";

@@ -8,6 +8,7 @@ import {
   getListTeamsQueryKey,
   type TeamPurse,
 } from "@workspace/api-client-react";
+import { applyMutationAuctionState } from "@/lib/sync-auction-sse";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 
 /**
@@ -30,11 +31,10 @@ export function useMutationSync(tournamentId: number, connectionStatus: Connecti
   const applyMutationResult = useCallback(
     (result?: unknown) => {
       if (result != null) {
-        qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-        const purses = (result as { teamPurses?: TeamPurse[] }).teamPurses;
-        if (purses?.length) {
-          qc.setQueryData(getGetTeamPursesQueryKey(tournamentId), purses);
-        }
+        applyMutationAuctionState(qc, tournamentId, result as Record<string, unknown> & {
+          teamPurses?: TeamPurse[];
+          eventVersion?: number;
+        });
       }
       // SSE delivers auction_state + targeted invalidations when connected.
       // Refetch only when SSE is down and polling is the fallback transport.

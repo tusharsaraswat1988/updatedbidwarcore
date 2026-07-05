@@ -113,6 +113,31 @@ function syncTeamPurses(
   }
 }
 
+/** Reject out-of-order SSE bid deltas that would regress the live bid amount. */
+function shouldApplyBidDelta(
+  base: AuctionStateCache | undefined,
+  msg: SseAuctionMessage,
+): boolean {
+  const incomingBid = msg.currentBid;
+  if (incomingBid == null) return true;
+
+  const existingBid = base?.currentBid;
+  if (existingBid == null || typeof existingBid !== "number") return true;
+
+  if (incomingBid > existingBid) return true;
+
+  if (incomingBid === existingBid) {
+    const incomingTimer = msg.timerEndsAt;
+    const existingTimer = base?.timerEndsAt;
+    if (typeof incomingTimer === "string" && typeof existingTimer === "string") {
+      return new Date(incomingTimer).getTime() > new Date(existingTimer).getTime();
+    }
+    return typeof incomingTimer === "string" && !existingTimer;
+  }
+
+  return false;
+}
+
 function mergeBidDelta(
   prev: AuctionStateCache | undefined,
   msg: SseAuctionMessage,
@@ -193,6 +218,7 @@ export function applyAuctionSseMessage(
 
   if (msg.type === "bid") {
     const prev = qc.getQueryData<AuctionStateCache>(key);
+    if (!shouldApplyBidDelta(prev, msg)) return;
     qc.setQueryData(key, withActivityStamp(mergeBidDelta(prev, msg), activityIso));
     return;
   }
@@ -236,4 +262,24 @@ export function applyAuctionSseMessage(
 
 export function resetAuctionEventVersion(tournamentId: number): void {
   versionByTournament.delete(tournamentId);
+}
+
+/** Apply an HTTP mutation response and sync the SSE version tracker. */
+export function applyMutationAuctionState(
+  qc: QueryClient,
+  tournamentId: number,
+  result: AuctionStateCache,
+): void {
+  const key = getGetAuctionStateQueryKey(tournamentId);
+  const version = result.eventVersion;
+  const stamped = version != null ? stampVersion(result, version) : result;
+  qc.setQueryData(key, stamped);
+  if (version != null && version > 0) {
+    setCachedVersion(tournamentId, version);
+  }
+  syncTeamPurses(qc, tournamentId, result.teamPurses);
+}
+
+export function getAuctionEventVersion(tournamentId: number): number {
+  return getCachedVersion(tournamentId);
 }
