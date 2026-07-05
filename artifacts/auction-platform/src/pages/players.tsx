@@ -560,7 +560,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     availabilityDates: player
       ? (player.availabilityDates || "")
       : (tournament?.matchDates || ""),
-    retainedPrice: player?.retainedPrice ? String(player.retainedPrice) : "",
+    retainedPrice: player?.retainedPrice
+      ? String(player.retainedPrice)
+      : player?.status === "retained" && player?.basePrice
+        ? String(player.basePrice)
+        : "",
     retainedTeamId: player?.teamId && player?.status === "retained" ? String(player.teamId) : "",
     status: player?.status || "available",
     categoryId: player?.categoryId ? String(player.categoryId) : "",
@@ -766,7 +770,14 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       email: emailResult.email || undefined,
       cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
       availabilityDates: form.availabilityDates || undefined,
-      retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
+      retainedPrice: form.status === "retained"
+        ? parseInt(form.retainedPrice, 10)
+          || parseInt(form.selectedBidValue, 10)
+          || parseInt(String(form.basePrice), 10)
+          || undefined
+        : form.retainedPrice
+          ? parseInt(form.retainedPrice, 10)
+          : undefined,
       teamId: form.status === "retained" && form.retainedTeamId ? parseInt(form.retainedTeamId) : undefined,
       status: form.status,
       categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
@@ -1262,7 +1273,15 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Select value={form.status} onValueChange={v => f("status", v)}>
+            <Select value={form.status} onValueChange={v => {
+              f("status", v);
+              if (v === "retained") {
+                const defaultPrice = form.selectedBidValue || String(form.basePrice || "");
+                if (defaultPrice && !form.retainedPrice) {
+                  f("retainedPrice", defaultPrice);
+                }
+              }
+            }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent className="dark">
                 <SelectItem value="available">Available</SelectItem>
@@ -1275,6 +1294,9 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               <Label>Retained Price (₹) <span className="text-destructive">*</span></Label>
               <Input type="number" value={form.retainedPrice} onChange={e => f("retainedPrice", e.target.value)} placeholder="e.g. 1000000" />
               <IndianAmountHint value={form.retainedPrice} className="text-[10px]" />
+              <p className="text-[10px] text-muted-foreground">
+                Defaults to the player&apos;s base / selected bid value. This amount is deducted from the team purse.
+              </p>
             </div>
           )}
         </div>

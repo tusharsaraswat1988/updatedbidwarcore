@@ -26,6 +26,7 @@
     "./registration-payment": "./src/registration-payment.ts",
     "./registration-declaration": "./src/registration-declaration.ts",
     "./bid-value": "./src/bid-value.ts",
+    "./retained-price": "./src/retained-price.ts",
     "./re-auction-strategy": "./src/re-auction-strategy.ts",
     "./platform-audio": "./src/platform-audio.ts",
     "./auction-connection-state": "./src/auction-connection-state.ts",
