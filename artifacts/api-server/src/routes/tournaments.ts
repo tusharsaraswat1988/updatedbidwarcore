@@ -38,7 +38,7 @@ import {
 } from "@workspace/api-base/registration-payment";
 import { validateTournamentPaymentSettings } from "../lib/registration-payment";
 import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
-import { teamIdsEligibleForBasePurseSync } from "@workspace/api-base/sync-team-purse";
+import { resolveTeamIdsForBasePurseUpdate } from "@workspace/api-base/sync-team-purse";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 import { commitBatchCloudinaryImageWrites, destroyRemovedCloudinaryImages } from "../lib/cloudinary-media-service";
 import {
@@ -539,18 +539,15 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     throw err;
   }
 
-  if (
-    d.basePurse !== undefined &&
-    beforeTournament &&
-    d.basePurse !== beforeTournament.basePurse
-  ) {
+  if (d.basePurse !== undefined && beforeTournament) {
     const tournamentTeams = await db
       .select({ id: teamsTable.id, purse: teamsTable.purse, purseUsed: teamsTable.purseUsed })
       .from(teamsTable)
       .where(eq(teamsTable.tournamentId, id));
-    const teamIdsToSync = teamIdsEligibleForBasePurseSync(
+    const teamIdsToSync = resolveTeamIdsForBasePurseUpdate(
       tournamentTeams,
-      beforeTournament.basePurse,
+      d.basePurse,
+      d.basePurse !== beforeTournament.basePurse ? beforeTournament.basePurse : null,
     );
     if (teamIdsToSync.length > 0) {
       await db

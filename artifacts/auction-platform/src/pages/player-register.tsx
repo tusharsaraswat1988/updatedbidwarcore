@@ -38,7 +38,7 @@ import {
 import { formatIndianRupee } from "@/lib/format";
 import {
   applySpecificationsToSelections,
-  buildSpecificationsFromSelections,
+  buildSpecificationsPayload,
 } from "@/lib/player-specifications";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -250,7 +250,7 @@ export default function PlayerRegister() {
       }
       return next;
     });
-  }, [specs, foundProfile, existingRegistration]);
+  }, [specs, foundProfile, existingRegistration, form.role]);
 
   const canUpdateExisting = !!existingRegistration;
   const isClosed = status && !status.open && !canUpdateExisting;
@@ -420,10 +420,24 @@ export default function PlayerRegister() {
     }
 
     const sortedSpecs = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
-    const specifications = buildSpecificationsFromSelections(sortedSpecs, specSelections);
-    const battingStyle = sortedSpecs[0] ? (specSelections[sortedSpecs[0].id] || undefined) : (form.battingStyle || undefined);
-    const bowlingStyle = sortedSpecs[1] ? (specSelections[sortedSpecs[1].id] || undefined) : (form.bowlingStyle || undefined);
-    const specialization = sortedSpecs[2] ? (specSelections[sortedSpecs[2].id] || undefined) : (form.specialization || undefined);
+    const specifications = buildSpecificationsPayload(
+      sortedSpecs,
+      {
+        battingStyle: form.battingStyle,
+        bowlingStyle: form.bowlingStyle,
+        specialization: form.specialization,
+      },
+      specSelections,
+    );
+    const battingStyle = sortedSpecs[0]
+      ? (specSelections[sortedSpecs[0].id] || form.battingStyle || undefined)
+      : (form.battingStyle || undefined);
+    const bowlingStyle = sortedSpecs[1]
+      ? (specSelections[sortedSpecs[1].id] || form.bowlingStyle || undefined)
+      : (form.bowlingStyle || undefined);
+    const specialization = sortedSpecs[2]
+      ? (specSelections[sortedSpecs[2].id] || form.specialization || undefined)
+      : (form.specialization || undefined);
 
     if (paymentConfigured) {
       const needsUtr = verificationMethod === "utr" || verificationMethod === "utr_and_screenshot";
@@ -824,27 +838,36 @@ export default function PlayerRegister() {
                         </div>
 
                         {specs.length > 0 ? (
-                          specs.map(group => (
+                          [...specs].sort((a, b) => a.displayOrder - b.displayOrder).map(group => (
                             <div key={group.id} className="space-y-1.5">
                               <Label className="text-sm">
                                 {group.groupName}
                                 {!group.optional && <span className="text-destructive ml-0.5">*</span>}
                               </Label>
-                              <Select
-                                value={specSelections[group.id] ?? ""}
-                                onValueChange={v => setSpecSelections(prev => ({ ...prev, [group.id]: v }))}
-                              >
-                                <SelectTrigger className="h-11 sm:h-9">
-                                  <SelectValue placeholder={`Select ${group.groupName}`} />
-                                </SelectTrigger>
-                                <SelectContent className="dark max-h-[min(50dvh,320px)]">
-                                  {group.options.map(opt => (
-                                    <SelectItem key={opt.id} value={opt.optionName}>
-                                      {opt.optionName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              {group.options.length > 0 ? (
+                                <Select
+                                  value={specSelections[group.id] ?? ""}
+                                  onValueChange={v => setSpecSelections(prev => ({ ...prev, [group.id]: v }))}
+                                >
+                                  <SelectTrigger className="h-11 sm:h-9">
+                                    <SelectValue placeholder={`Select ${group.groupName}`} />
+                                  </SelectTrigger>
+                                  <SelectContent className="dark max-h-[min(50dvh,320px)]">
+                                    {group.options.map(opt => (
+                                      <SelectItem key={opt.id} value={opt.optionName}>
+                                        {opt.optionName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  value={specSelections[group.id] ?? ""}
+                                  onChange={e => setSpecSelections(prev => ({ ...prev, [group.id]: e.target.value }))}
+                                  placeholder={group.groupName}
+                                  className="h-11 sm:h-9"
+                                />
+                              )}
                             </div>
                           ))
                         ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (

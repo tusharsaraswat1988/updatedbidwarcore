@@ -85,7 +85,7 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
     .select()
     .from(teamsTable)
     .where(eq(teamsTable.tournamentId, tid))
-    .orderBy(teamsTable.createdAt);
+    .orderBy(teamsTable.name);
   res.json(
     teams.map((t) => {
       const base = serializer(t);
@@ -236,7 +236,7 @@ router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [teams, allPlayers, categories] = await Promise.all([
-    db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.createdAt),
+    db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.name),
     db.select({
       id: playersTable.id,
       name: playersTable.name,

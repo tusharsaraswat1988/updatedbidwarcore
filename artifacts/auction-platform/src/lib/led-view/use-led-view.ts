@@ -404,7 +404,9 @@ export function useLedView(
     const auctionUnit = resolveAuctionUnit(tournament);
     const minBid = tournament.minBid ?? 0;
     const minSquadSize = tournament.minimumSquadSize ?? 0;
-    const teamsBase = (teamPurses ?? []).map((t) => toLedTeam(t, minBid, minSquadSize));
+    const teamsBase = [...(teamPurses ?? [])]
+      .sort((a, b) => a.teamName.localeCompare(b.teamName, undefined, { sensitivity: "base" }))
+      .map((t) => toLedTeam(t, minBid, minSquadSize));
 
     const blockPlayerId = state?.currentPlayer?.id ?? null;
     const awaitingNext =

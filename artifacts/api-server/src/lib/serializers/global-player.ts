@@ -27,6 +27,12 @@ export function privateGlobalPlayerSerializer(gp: GlobalPlayerRow) {
   };
 }
 
+type GlobalPlayerSpecificationDto = {
+  specGroupId: number;
+  groupName: string;
+  value: string;
+};
+
 /** Public search result — identity fields only (Sprint 2 sport-neutral search). */
 export function publicGlobalPlayerIdentitySearchSerializer(row: {
   id: number;
@@ -40,6 +46,7 @@ export function publicGlobalPlayerIdentitySearchSerializer(row: {
   basePrice: number | null;
   appearanceCount: number;
   sport?: string | null;
+  specifications?: GlobalPlayerSpecificationDto[];
 }) {
   return {
     id: row.id,
@@ -53,6 +60,7 @@ export function publicGlobalPlayerIdentitySearchSerializer(row: {
     basePrice: row.basePrice,
     appearanceCount: row.appearanceCount,
     sport: row.sport ?? null,
+    ...(row.specifications?.length ? { specifications: row.specifications } : {}),
   };
 }
 
@@ -85,6 +93,7 @@ export function publicGlobalPlayerSearchSerializer(row: {
   globalPlayerId: string | null;
   basePrice: number | null;
   appearanceCount: number;
+  specifications?: GlobalPlayerSpecificationDto[];
 }) {
   return {
     id: row.id,
@@ -104,6 +113,7 @@ export function publicGlobalPlayerSearchSerializer(row: {
     globalPlayerId: row.globalPlayerId,
     basePrice: row.basePrice,
     appearanceCount: row.appearanceCount,
+    ...(row.specifications?.length ? { specifications: row.specifications } : {}),
   };
 }
 

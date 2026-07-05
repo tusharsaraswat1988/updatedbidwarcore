@@ -120,12 +120,12 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         </h1>
       </header>
 
-      <div className="relative min-h-0 flex-1 shrink">
+      <div className="relative flex-[45%] shrink-0">
         {showPhoto ? (
           <img
             src={cldUrl(player.portrait, "playerCard")}
             alt={player.name}
-            className="absolute inset-0 h-full w-full object-cover object-top"
+            className="absolute inset-0 h-full w-full object-cover object-center"
             loading="eager"
             decoding="async"
             fetchPriority="high"

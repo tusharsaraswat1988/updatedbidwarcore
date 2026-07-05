@@ -9,7 +9,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { validateAndSerializeSponsorLogos } from "@workspace/api-base/sponsor-priority";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
-import { teamIdsEligibleForBasePurseSync } from "@workspace/api-base/sync-team-purse";
+import { resolveTeamIdsForBasePurseUpdate } from "@workspace/api-base/sync-team-purse";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
@@ -193,18 +193,15 @@ export function createTournamentsRouter(db: LocalDb) {
       .where(eq(tournamentsTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
 
-    if (
-      d.basePurse !== undefined &&
-      beforeTournament &&
-      d.basePurse !== beforeTournament.basePurse
-    ) {
+    if (d.basePurse !== undefined && beforeTournament) {
       const tournamentTeams = await db
         .select({ id: teamsTable.id, purse: teamsTable.purse, purseUsed: teamsTable.purseUsed })
         .from(teamsTable)
         .where(eq(teamsTable.tournamentId, id));
-      const teamIdsToSync = teamIdsEligibleForBasePurseSync(
+      const teamIdsToSync = resolveTeamIdsForBasePurseUpdate(
         tournamentTeams,
-        beforeTournament.basePurse,
+        d.basePurse,
+        d.basePurse !== beforeTournament.basePurse ? beforeTournament.basePurse : null,
       );
       if (teamIdsToSync.length > 0) {
         await db

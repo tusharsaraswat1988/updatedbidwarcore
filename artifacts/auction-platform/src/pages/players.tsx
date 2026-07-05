@@ -626,6 +626,18 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   }, [form.role]);
 
   const sortedSpecGroups = [...specGroups].sort((a, b) => a.displayOrder - b.displayOrder);
+  const playerSpecSignature = useMemo(
+    () => JSON.stringify(
+      ((player as { specifications?: { specGroupId: number; value: string }[] } | undefined)
+        ?.specifications ?? [])
+        .map((s) => [s.specGroupId, s.value]),
+    ),
+    [player],
+  );
+  const sortedSpecGroupIds = useMemo(
+    () => sortedSpecGroups.map((g) => g.id).join(","),
+    [sortedSpecGroups],
+  );
 
   useEffect(() => {
     if (!player || sortedSpecGroups.length === 0) return;
@@ -647,8 +659,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       specialization: legacyForm.specialization ?? prev.specialization,
     }));
     setExtraSpecSelections(extraSelections);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [player?.id, sortedSpecGroups.length]);
+  }, [player, playerSpecSignature, sortedSpecGroupIds]);
 
   function findTournamentPlayerByMobile(mobile: string) {
     const parsed = parseIndianMobile(mobile);
