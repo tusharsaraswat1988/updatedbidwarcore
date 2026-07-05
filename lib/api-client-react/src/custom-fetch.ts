@@ -383,7 +383,16 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Cookie-authenticated web apps (organizer/admin sessions) must send credentials
+  // on every request. apiFetch already sets credentials: "include"; generated API
+  // clients use customFetch and must match so organizer sessions work for mutations
+  // like auction reset-trial.
+  const response = await fetch(input, {
+    ...init,
+    method,
+    headers,
+    credentials: init.credentials ?? "include",
+  });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
