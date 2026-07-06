@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTeamReportAuctionRules,
+  computeTeamReportPlanningRows,
   describeBidIncrementRules,
 } from "../team-report-rules";
 
@@ -41,5 +42,14 @@ describe("buildTeamReportAuctionRules", () => {
     expect(rules.maximumSquadSize).toBe(12);
     expect(rules.playersChooseBaseValue).toBe(true);
     expect(rules.categoryMinBids).toEqual([{ name: "Gold", minBid: 150000 }]);
+  });
+});
+
+describe("computeTeamReportPlanningRows", () => {
+  it("uses minimum squad size when maximum is unset", () => {
+    expect(computeTeamReportPlanningRows(1, 10, 0)).toEqual({
+      planningRows: 9,
+      slotsRemaining: 9,
+    });
   });
 });

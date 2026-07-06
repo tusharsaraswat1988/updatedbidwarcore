@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
 import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
-import { buildTeamReportAuctionRules } from "@workspace/api-base/team-report-rules";
+import { buildTeamReportAuctionRules, computeTeamReportPlanningRows } from "@workspace/api-base/team-report-rules";
 import { parseSponsorLogos, getSponsorsByPriority } from "@workspace/api-base/sponsor-priority";
 import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
@@ -129,10 +129,11 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
   const remainingPurse = team.purse - retainedSpend - preSoldSpend;
 
   const totalAcquired = retainedPlayers.length + preSoldPlayers.length;
-  const slotsRemaining = tournament.maximumSquadSize > 0
-    ? Math.max(0, tournament.maximumSquadSize - totalAcquired)
-    : 0;
-  const planningRows = Math.max(8, slotsRemaining);
+  const { planningRows, slotsRemaining } = computeTeamReportPlanningRows(
+    totalAcquired,
+    tournament.minimumSquadSize,
+    tournament.maximumSquadSize,
+  );
 
   const auctionRules = buildTeamReportAuctionRules({
     minBid: tournament.minBid,
@@ -250,8 +251,11 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const remainingPurse = team.purse - retainedSpend - preSoldSpend;
 
   const totalAcquired = allAcquired.length;
-  const slotsRemaining = tournament.maximumSquadSize > 0 ? Math.max(0, tournament.maximumSquadSize - totalAcquired) : 0;
-  const planningRows = Math.max(8, slotsRemaining);
+  const { planningRows, slotsRemaining } = computeTeamReportPlanningRows(
+    totalAcquired,
+    tournament.minimumSquadSize,
+    tournament.maximumSquadSize,
+  );
 
   const optionalCols = [
     { key: "age", label: "Age" },

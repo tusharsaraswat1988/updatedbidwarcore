@@ -49,6 +49,7 @@ export {
 
 export {
   buildTeamReportAuctionRules,
+  computeTeamReportPlanningRows,
   describeBidIncrementRules,
   type TeamReportAuctionRules,
 } from "./team-report-rules";

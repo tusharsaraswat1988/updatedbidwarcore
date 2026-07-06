@@ -65,6 +65,31 @@ export function describeBidIncrementRules(
   return lines;
 }
 
+/** Empty auction working-sheet rows still needed after retained / pre-sold players. */
+export function computeTeamReportPlanningRows(
+  totalAcquired: number,
+  minimumSquadSize: number,
+  maximumSquadSize: number,
+): { planningRows: number; slotsRemaining: number } {
+  const slotsToReachMin = minimumSquadSize > 0
+    ? Math.max(0, minimumSquadSize - totalAcquired)
+    : 0;
+  const slotsToReachMax = maximumSquadSize > 0
+    ? Math.max(0, maximumSquadSize - totalAcquired)
+    : 0;
+
+  const planningRows = Math.max(
+    slotsToReachMin,
+    slotsToReachMax,
+    slotsToReachMin === 0 && slotsToReachMax === 0 ? 8 : 0,
+  );
+
+  return {
+    planningRows,
+    slotsRemaining: slotsToReachMax > 0 ? slotsToReachMax : slotsToReachMin,
+  };
+}
+
 export function buildTeamReportAuctionRules(input: {
   minBid: number;
   auctionUnit?: string | null;

@@ -51,7 +51,8 @@ const PRESETS: Record<"basic" | "auction" | "detailed", ColKey[]> = {
 };
 
 const REPORT_TH =
-  "border border-gray-400 px-2 py-1.5 text-[10px] font-bold uppercase leading-tight whitespace-normal tracking-wide align-middle";
+  "border border-gray-400 px-2 py-1 text-[10px] font-bold uppercase leading-tight whitespace-normal tracking-wide align-middle";
+const REPORT_CELL = "border border-gray-400 px-2 py-1 align-middle text-xs";
 
 function loadCols(tid: number): Set<ColKey> {
   try {
@@ -144,6 +145,32 @@ type ReportData = {
   squadInfo: { totalAcquired: number; slotsRemaining: number; planningRows: number };
 };
 
+function PlayerNameCell({
+  name,
+  photoUrl,
+  showPhoto,
+  placeholder,
+}: {
+  name?: string;
+  photoUrl?: string | null;
+  showPhoto: boolean;
+  placeholder?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      {showPhoto ? (
+        placeholder ? (
+          <div className="h-7 w-7 flex-shrink-0" />
+        ) : (
+          <PlayerPhoto url={photoUrl ?? null} name={name ?? ""} small />
+        )
+      ) : null}
+      <span className={cn("min-w-0 leading-tight", name ? "font-semibold text-gray-900" : "")}>
+        {name ?? "\u00A0"}
+      </span>
+    </div>
+  );
+}
 function PlayerPhoto({ url, name, small }: { url: string | null; name: string; small?: boolean }) {
   const size = small ? "w-7 h-7" : "w-10 h-10";
   if (url) {
@@ -177,13 +204,12 @@ function PlayerTable({
   let balance = initialBalance;
 
   return (
-    <div className="mb-4 flex-shrink-0 print-section">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 px-1 print-section-heading">{sectionLabel}</h3>
+    <div className="mb-2 flex-shrink-0 print-section">
+      <h3 className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 print-section-heading">{sectionLabel}</h3>
       <table className="w-full table-fixed border-collapse border border-gray-400 text-sm">
         <thead>
           <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className={`w-12 ${REPORT_TH} text-left`}>Serial #</th>
-            {showPhoto && <th className="w-14 border border-gray-400 px-2 py-1.5" />}
+            <th className={`w-10 ${REPORT_TH} text-left`}>Serial #</th>
             <th className={`${REPORT_TH} text-left`}>Player Name</th>
             {cols.has("age") && <th className={`w-14 ${REPORT_TH} text-center`}>Age</th>}
             {cols.has("city") && <th className={`w-24 ${REPORT_TH} text-left`}>City</th>}
@@ -203,16 +229,13 @@ function PlayerTable({
             const price = playerAcquisitionAmount(p);
             balance -= price;
             const rowBalance = balance;
-            const cell = "border border-gray-400 px-3 py-2 align-top";
+            const cell = REPORT_CELL;
             return (
               <tr key={p.id} className={`print-row ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                <td className={`${cell} text-xs text-gray-500`}>{p.serialNo ?? p.id}</td>
-                {showPhoto && (
-                  <td className={`${cell} py-1`}>
-                    <PlayerPhoto url={p.photoUrl} name={p.name} small />
-                  </td>
-                )}
-                <td className={`${cell} font-semibold text-gray-900`}>{p.name}</td>
+                <td className={`${cell} text-gray-500`}>{p.serialNo ?? p.id}</td>
+                <td className={cell}>
+                  <PlayerNameCell name={p.name} photoUrl={p.photoUrl} showPhoto={showPhoto} />
+                </td>
                 {cols.has("age") && <td className={`${cell} text-center text-gray-600`}>{p.age ?? "-"}</td>}
                 {cols.has("city") && <td className={`${cell} text-gray-600`}>{p.city || "-"}</td>}
                 {cols.has("mobileNumber") && <td className={`${cell} font-mono text-xs text-gray-600`}>{p.mobileNumber || "-"}</td>}
@@ -263,20 +286,18 @@ function AuctionPlanningTable({
   className?: string;
 }) {
   const headCell = REPORT_TH;
-  const bodyCell = "border border-gray-400 px-3 py-2 align-top";
+  const bodyCell = REPORT_CELL;
 
   return (
-    <div className={cn("print-section flex min-h-0 flex-col", className)}>
-      <h3 className="mb-2 flex-shrink-0 px-1 text-xs font-bold uppercase tracking-widest text-gray-500">
+    <div className={cn("print-section", className)}>
+      <h3 className="mb-1.5 flex-shrink-0 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
         Auction Working Sheet — {planningRows} Slots
       </h3>
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-sm">
-          <thead>
-            <tr className="bg-slate-800 text-yellow-400 print-table-header">
-              <th className={`w-12 ${headCell} text-left`}>S.No</th>
-              {showPhoto && <th className="w-14 border border-gray-400 px-2 py-1.5" />}
-              <th className={`${headCell} text-left`}>Player Name</th>
+      <table className="w-full table-fixed border-collapse border border-gray-400 text-sm print-table">
+        <thead>
+          <tr className="bg-slate-800 text-yellow-400 print-table-header">
+            <th className={`w-10 ${headCell} text-left`}>S.No</th>
+            <th className={`${headCell} text-left`}>Player Name</th>
               {cols.has("age") && <th className={`w-14 ${headCell} text-center`}>Age</th>}
               {cols.has("city") && <th className={`w-24 ${headCell} text-left`}>City</th>}
               {cols.has("mobileNumber") && <th className={`w-28 ${headCell} text-left`}>Mobile</th>}
@@ -290,16 +311,16 @@ function AuctionPlanningTable({
               {cols.has("remainingBalance") && <th className={`w-24 ${headCell} text-right`}>Balance</th>}
             </tr>
           </thead>
-          <tbody className="h-full">
+          <tbody>
             {Array.from({ length: planningRows }, (_, i) => (
               <tr
                 key={i}
-                className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                style={{ height: `${100 / planningRows}%` }}
+                className={cn("print-row", i % 2 === 0 ? "bg-white" : "bg-gray-50")}
               >
-                <td className={`${bodyCell} text-xs text-gray-500`}>{startSno + i}</td>
-                {showPhoto && <td className={`${bodyCell} py-1`}>&nbsp;</td>}
-                <td className={bodyCell}>&nbsp;</td>
+                <td className={`${bodyCell} text-gray-500`}>{startSno + i}</td>
+                <td className={bodyCell}>
+                  <PlayerNameCell showPhoto={showPhoto} placeholder />
+                </td>
                 {cols.has("age") && <td className={bodyCell}>&nbsp;</td>}
                 {cols.has("city") && <td className={bodyCell}>&nbsp;</td>}
                 {cols.has("mobileNumber") && <td className={bodyCell}>&nbsp;</td>}
@@ -315,7 +336,6 @@ function AuctionPlanningTable({
             ))}
           </tbody>
         </table>
-      </div>
     </div>
   );
 }
@@ -335,8 +355,8 @@ function ReportPreview({
   const showPhoto = cols.has("photo");
   const allAcquired = retainedPlayers.length + preSoldPlayers.length;
   const isLicensed = report.isLicensed;
-  const brandLogoUrl = cldUrl(logos.main || logos.mainReverse || logos.mini, "brandWordmark") || logos.main || logos.mainReverse || logos.mini;
-  const platformLogoUrl = getPublicBrandLogoSrc(["main", "mainReverse", "mini"], iconVersion);
+  const brandLogoUrl = cldUrl(logos.mainReverse || logos.main || logos.mini, "brandWordmark") || logos.mainReverse || logos.main || logos.mini;
+  const platformLogoUrl = getPublicBrandLogoSrc(["mainReverse", "main", "mini"], iconVersion);
   const websiteUrl = report.platform?.websiteUrl ?? PLATFORM_BASE_URL;
   const auctionUnit = normalizeAuctionUnit(tournament.auctionUnit);
   const formatAmount = (amount: number) => formatShortIndianRupee(amount, auctionUnit);
@@ -347,8 +367,7 @@ function ReportPreview({
   return (
     <div
       id="print-report"
-      className="relative flex min-h-[297mm] flex-col bg-white text-gray-900"
-      style={{ height: "297mm", width: "210mm", maxWidth: "100%", margin: "0 auto" }}
+      className="report-sheet relative mx-auto flex w-[210mm] max-w-full flex-col bg-white text-gray-900"
     >
       {!isLicensed && (
         <div
@@ -377,29 +396,30 @@ function ReportPreview({
             <img
               src={platformLogoUrl}
               alt={logoAlt}
-              className="h-8 w-auto max-w-[140px] flex-shrink-0 object-contain"
+              className="h-9 w-auto max-w-[150px] flex-shrink-0 object-contain"
             />
             <div className="min-w-0">
               <p className="text-sm font-bold leading-none text-yellow-400">{websiteUrl.replace(/^https?:\/\//, "")}</p>
               <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-500">Pre-Auction Team Report</p>
             </div>
           </div>
-          <div className="flex min-w-0 items-center gap-2 text-right">
-            {tournament.logoUrl ? (
-              <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="h-7 w-7 flex-shrink-0 rounded object-contain" />
-            ) : null}
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold uppercase tracking-wide text-yellow-400">{tournament.name}</p>
-              <p className="text-[10px] text-slate-500">{tournament.sport}</p>
-            </div>
-            <p className="ml-1 flex-shrink-0 text-[10px] text-slate-500">
-              {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-            </p>
+          <p className="flex-shrink-0 text-[10px] text-slate-500">
+            {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+          </p>
+        </div>
+
+        <div className="flex items-start gap-2 border-b border-slate-700/60 px-4 py-1.5">
+          {tournament.logoUrl ? (
+            <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="mt-0.5 h-8 w-8 flex-shrink-0 rounded object-contain" />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase leading-snug text-yellow-400">{tournament.name}</p>
+            <p className="text-[10px] capitalize text-slate-500">{tournament.sport}</p>
           </div>
         </div>
 
         <div className={cn(
-          "grid gap-3 px-4 py-2.5",
+          "grid gap-3 px-4 py-2",
           hasNonPlayingMembers ? "grid-cols-3" : "grid-cols-2",
         )}>
           <div className="flex min-w-0 items-center gap-2.5">
@@ -466,21 +486,10 @@ function ReportPreview({
             </div>
           ) : null}
         </div>
-
-        {auctionRuleLines.length > 0 ? (
-          <div className="border-t border-slate-700/50 px-4 py-2">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Auction Rules</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-              {auctionRuleLines.map((line) => (
-                <p key={line} className="text-[10px] leading-snug text-slate-400">{line}</p>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {/* Tables */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-3">
+      <div className="flex flex-col px-4 py-2 print-tables">
         {retainedPlayers.length === 0 && preSoldPlayers.length === 0 && (
           <p className="mb-4 flex-shrink-0 text-sm italic text-gray-400">No retained or pre-sold players assigned to this team.</p>
         )}
@@ -506,12 +515,21 @@ function ReportPreview({
           startSno={allAcquired + 1}
           cols={cols}
           showPhoto={showPhoto}
-          className="min-h-0 flex-1"
         />
       </div>
 
       {/* Footer */}
-      <div className="print-footer mt-0 flex flex-shrink-0 flex-col bg-slate-900 text-white">
+      <div className="print-footer mt-auto flex flex-shrink-0 flex-col bg-slate-900 text-white">
+        {auctionRuleLines.length > 0 ? (
+          <div className="border-b border-slate-700/60 px-4 py-1.5">
+            <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Auction Rules</p>
+            <div className="space-y-0.5">
+              {auctionRuleLines.map((line) => (
+                <p key={line} className="text-[9px] leading-snug text-slate-400">{line}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {visibleSponsors.length > 0 ? (
           <div className="border-b border-slate-700/60 px-4 py-2 text-center">
             <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">Sponsors</p>
@@ -647,7 +665,7 @@ export default function TeamReportsPage() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          @page { size: A4 portrait; margin: 12mm; }
+          @page { size: A4 portrait; margin: 8mm; }
 
           html, body {
             margin: 0 !important;
@@ -657,7 +675,6 @@ export default function TeamReportsPage() {
             overflow: visible !important;
           }
 
-          /* Hide entire app chrome; show only the report sheet */
           body * {
             visibility: hidden !important;
           }
@@ -666,22 +683,34 @@ export default function TeamReportsPage() {
             visibility: visible !important;
           }
           #print-report {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 194mm !important;
+            max-width: 194mm !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             border: none !important;
             box-shadow: none !important;
             background: white !important;
-            overflow: hidden !important;
-            display: flex !important;
-            flex-direction: column !important;
-            width: 210mm !important;
-            max-width: 100% !important;
-            height: 297mm !important;
-            min-height: 297mm !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
             z-index: 2147483647 !important;
+            page-break-inside: avoid;
+          }
+
+          #print-report .print-row,
+          #print-report .print-section,
+          #print-report .print-table {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          #print-report .print-header,
+          #print-report .print-footer {
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
 
           .print-hide { display: none !important; }
