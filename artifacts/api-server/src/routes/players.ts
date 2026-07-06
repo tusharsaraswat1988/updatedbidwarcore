@@ -1622,6 +1622,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       jerseySize: p.jerseySize,
       achievements: p.achievements,
       mobileNumber: normalizedMobile,
+      email: p.email,
       cricheroUrl: p.cricheroUrl,
       availabilityDates: p.availabilityDates,
       globalPlayerId: p.globalPlayerId,

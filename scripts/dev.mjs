@@ -166,17 +166,14 @@ if (!forceStart) {
     startServers = false;
     process.exitCode = 0;
   } else if (stack.api || stack.web || stack.owner || stack.scoring) {
-    console.error(
-      "\n  Partial dev stack detected — owner/scoring links will not work until all services run.\n" +
+    console.warn(
+      "\n  Partial dev stack detected — restarting all services.\n" +
         `  API (${API_PORT}):           ${stack.api ? "running" : "NOT running"}\n` +
         `  Frontend (${FRONTEND_PORT}):      ${stack.web ? "running" : "NOT running"}\n` +
         `  Owner app (${OWNER_APP_PORT}):    ${stack.owner ? "running" : "NOT running"}\n` +
-        `  Scoring app (${SCORING_APP_PORT}): ${stack.scoring ? "running" : "NOT running"}\n\n` +
-        "  Run `pnpm dev:restart` to start API, auction-platform, owner-app, and scoring-app together.\n" +
-        "  Or use `pnpm dev -- --force` to replace whatever is on the dev ports.\n",
+        `  Scoring app (${SCORING_APP_PORT}): ${stack.scoring ? "running" : "NOT running"}\n`,
     );
-    startServers = false;
-    process.exitCode = 1;
+    // Continue below — freePorts will stop orphaned processes and start fresh.
   }
 }
 
@@ -192,9 +189,7 @@ if (startServers) {
       );
       process.exit(1);
     }
-    if (forceStart) {
-      console.log("  (--force) Replaced processes that were using dev ports.");
-    }
+    console.log("  Replaced processes that were using dev ports.");
   } else {
     console.log("  All dev ports are free.");
   }
@@ -224,6 +219,18 @@ if (startServers) {
     });
   } catch {
     shutdown(1);
+  }
+
+  // Re-free API port after build — a slow-starting API from a prior dev run can bind
+  // during the build window and cause the health check to pass before this process listens.
+  const apiRefree = freePorts([API_PORT], { verbose: false });
+  if (apiRefree.freed.length > 0) {
+    console.log("  Waiting for API port to release…");
+    const apiPortReady = await waitForPortsFree([API_PORT], 12000);
+    if (!apiPortReady) {
+      console.error("\n  Could not free API port. Run `pnpm dev:stop` and try again.\n");
+      process.exit(1);
+    }
   }
 
   run(
