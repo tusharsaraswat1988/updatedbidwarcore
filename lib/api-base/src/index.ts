@@ -48,6 +48,12 @@ export {
 } from "./retained-price";
 
 export {
+  buildTeamReportAuctionRules,
+  describeBidIncrementRules,
+  type TeamReportAuctionRules,
+} from "./team-report-rules";
+
+export {
   type ReAuctionStrategy,
   type ReAuctionStrategyMode,
   type OpeningBidInput,

@@ -21,8 +21,7 @@ import { exportElementToPdf } from "@/lib/export-element-pdf";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
-import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
-import type { TeamReportAuctionRules } from "@workspace/api-base/team-report-rules";
+import { resolveRetainedSpend, type TeamReportAuctionRules } from "@workspace/api-base";
 import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
 import { toast } from "@/hooks/use-toast";
 import {
