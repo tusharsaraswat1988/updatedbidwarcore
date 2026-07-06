@@ -46,7 +46,8 @@
     "./venue-auction-guard": "./src/venue-auction-guard.ts",
     "./cloudinary-media": "./src/cloudinary-media.ts",
     "./auction-data": "./src/auction-data/index.ts",
-    "./tournament-workbook": "./src/tournament-workbook/index.ts"
+    "./tournament-workbook": "./src/tournament-workbook/index.ts",
+    "./team-report-rules": "./src/team-report-rules.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

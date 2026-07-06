@@ -4,9 +4,23 @@ import { tournamentsTable, teamsTable, categoriesTable, playersTable } from "@wo
 import { eq, and } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
+import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
+import { buildTeamReportAuctionRules } from "@workspace/api-base/team-report-rules";
+import { parseSponsorLogos, getSponsorsByPriority } from "@workspace/api-base/sponsor-priority";
+import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { brandingService } from "../lib/branding-service.js";
 import { drawPdfPageWatermark, fetchImageBuffer } from "../lib/pdf-branding.js";
+
+function playerAcquisitionAmount(p: {
+  status: string;
+  soldPrice: number | null;
+  retainedPrice: number | null;
+  basePrice: number;
+}): number {
+  if (p.status === "retained") return resolveRetainedSpend(p);
+  return p.soldPrice ?? 0;
+}
 
 const router = Router();
 
@@ -99,6 +113,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
     categoryId: p.categoryId ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     categoryColor: p.categoryId ? (catMap.get(p.categoryId)?.colorCode ?? null) : null,
+    basePrice: p.basePrice,
     soldPrice: p.soldPrice ?? null,
     retainedPrice: p.retainedPrice ?? null,
     status: p.status,
@@ -109,8 +124,8 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
   const preSoldPlayers = allPlayers.filter(p => p.status === "sold" && !p.isNonPlayingMember).map(enrich);
   const nonPlayingMembers = allPlayers.filter(p => p.isNonPlayingMember).map(enrich);
 
-  const retainedSpend = retainedPlayers.reduce((s, p) => s + (p.retainedPrice ?? 0), 0);
-  const preSoldSpend = preSoldPlayers.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
+  const retainedSpend = retainedPlayers.reduce((s, p) => s + playerAcquisitionAmount(p), 0);
+  const preSoldSpend = preSoldPlayers.reduce((s, p) => s + playerAcquisitionAmount(p), 0);
   const remainingPurse = team.purse - retainedSpend - preSoldSpend;
 
   const totalAcquired = retainedPlayers.length + preSoldPlayers.length;
@@ -118,6 +133,26 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
     ? Math.max(0, tournament.maximumSquadSize - totalAcquired)
     : 0;
   const planningRows = Math.max(8, slotsRemaining);
+
+  const auctionRules = buildTeamReportAuctionRules({
+    minBid: tournament.minBid,
+    auctionUnit: tournament.auctionUnit,
+    bidValueMode: tournament.bidValueMode,
+    minimumSquadSize: tournament.minimumSquadSize,
+    maximumSquadSize: tournament.maximumSquadSize,
+    categories: categories.map((category) => ({
+      name: category.name,
+      minBid: category.minBid,
+    })),
+    tournament,
+  });
+
+  const sponsors = getSponsorsByPriority(parseSponsorLogos(tournament.sponsorLogos))
+    .map((sponsor) => ({
+      name: sponsor.name?.trim() || "Sponsor",
+      type: sponsor.type ?? null,
+    }))
+    .filter((sponsor) => sponsor.name.length > 0);
 
   res.json({
     isLicensed: tournament.licenseStatus === "active",
@@ -129,6 +164,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
       licenseStatus: tournament.licenseStatus,
       minimumSquadSize: tournament.minimumSquadSize,
       maximumSquadSize: tournament.maximumSquadSize,
+      auctionUnit: tournament.auctionUnit,
     },
     team: {
       id: team.id,
@@ -148,6 +184,12 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
       retainedSpend,
       preSoldSpend,
       remainingPurse,
+    },
+    auctionRules,
+    sponsors,
+    platform: {
+      brandName: "BidWar",
+      websiteUrl: PLATFORM_BASE_URL,
     },
     retainedPlayers,
     preSoldPlayers,
@@ -185,6 +227,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   type EnrichedPlayer = {
     id: number; serialNo: number; name: string; role: string | null; city: string | null; age: number | null;
     mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null; categoryName: string | null;
+    basePrice: number;
     soldPrice: number | null; retainedPrice: number | null; status: string; isNonPlayingMember: boolean;
   };
 
@@ -192,6 +235,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     id: p.id, serialNo: p.serialNo, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
     mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null, jerseySize: p.jerseySize ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
+    basePrice: p.basePrice,
     soldPrice: p.soldPrice ?? null, retainedPrice: p.retainedPrice ?? null,
     status: p.status, isNonPlayingMember: p.isNonPlayingMember,
   });
@@ -201,8 +245,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const nonPlaying = allPlayers.filter(p => p.isNonPlayingMember).map(enrich);
   const allAcquired = [...retained, ...preSold];
 
-  const retainedSpend = retained.reduce((s, p) => s + (p.retainedPrice ?? 0), 0);
-  const preSoldSpend = preSold.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
+  const retainedSpend = retained.reduce((s, p) => s + playerAcquisitionAmount(p), 0);
+  const preSoldSpend = preSold.reduce((s, p) => s + playerAcquisitionAmount(p), 0);
   const remainingPurse = team.purse - retainedSpend - preSoldSpend;
 
   const totalAcquired = allAcquired.length;
@@ -266,14 +310,13 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   doc.save();
   doc.fillColor("#0f172a").roundedRect(LEFT, hdrY, thirdW - 6, 80, 4).fill();
   doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(13).text(team.name, LEFT + 10, hdrY + 10, { width: thirdW - 20 });
-  doc.fillColor("#94a3b8").font("Helvetica").fontSize(9).text(team.shortCode, LEFT + 10, hdrY + 28);
-  const ownerTextX = ownerPhotoBuffer ? LEFT + 34 : LEFT + 10;
+  const ownerTextX = ownerPhotoBuffer ? LEFT + 42 : LEFT + 10;
   if (ownerPhotoBuffer) {
-    doc.image(ownerPhotoBuffer, LEFT + 10, hdrY + 40, { width: 18, height: 18 });
+    doc.image(ownerPhotoBuffer, LEFT + 10, hdrY + 36, { width: 28, height: 28 });
   }
-  doc.fillColor("#e2e8f0").font("Helvetica-Bold").fontSize(9).text("Owner: " + team.ownerName, ownerTextX, hdrY + 44, { width: thirdW - (ownerTextX - LEFT) - 10 });
+  doc.fillColor("#e2e8f0").font("Helvetica-Bold").fontSize(9).text(team.ownerName, ownerTextX, hdrY + 38, { width: thirdW - (ownerTextX - LEFT) - 10 });
   if (team.ownerMobile) {
-    doc.fillColor("#94a3b8").font("Helvetica").fontSize(8).text(team.ownerMobile, ownerTextX, hdrY + 58, { width: thirdW - (ownerTextX - LEFT) - 10 });
+    doc.fillColor("#94a3b8").font("Helvetica").fontSize(8).text(team.ownerMobile, ownerTextX, hdrY + 52, { width: thirdW - (ownerTextX - LEFT) - 10 });
   }
   doc.restore();
 
@@ -299,14 +342,12 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   });
   doc.restore();
 
-  // Right column — non-playing members
-  const rX = LEFT + thirdW * 2;
-  doc.save();
-  doc.fillColor("#0f172a").roundedRect(rX, hdrY, thirdW - 2, 80, 4).fill();
-  doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text("NON-PLAYING MEMBERS", rX + 10, hdrY + 8);
-  if (nonPlaying.length === 0) {
-    doc.fillColor("#475569").font("Helvetica-Oblique").fontSize(8).text("None listed", rX + 10, hdrY + 24);
-  } else {
+  // Right column — non-playing members (only when present)
+  if (nonPlaying.length > 0) {
+    const rX = LEFT + thirdW * 2;
+    doc.save();
+    doc.fillColor("#0f172a").roundedRect(rX, hdrY, thirdW - 2, 80, 4).fill();
+    doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text("NON-PLAYING MEMBERS", rX + 10, hdrY + 8);
     nonPlaying.slice(0, 5).forEach((m, i) => {
       doc.fillColor("#e2e8f0").font("Helvetica").fontSize(8).text(
         `${m.name}${m.role ? ` (${m.role})` : ""}`, rX + 10, hdrY + 24 + i * 11, { width: thirdW - 20, ellipsis: true, lineBreak: false }
@@ -315,8 +356,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     if (nonPlaying.length > 5) {
       doc.fillColor("#64748b").font("Helvetica").fontSize(7).text(`+${nonPlaying.length - 5} more`, rX + 10, hdrY + 24 + 5 * 11);
     }
+    doc.restore();
   }
-  doc.restore();
 
   doc.y = hdrY + 88;
 
@@ -327,7 +368,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const mandatoryCols: ColDef[] = [
     { label: "Serial #", width: 0.4, get: (p) => String(p.serialNo) },
     { label: "Player Name", width: 2.2, get: (p) => p.name },
-    { label: "Amount", width: 1.0, get: (p) => fmtShort(p.status === "retained" ? p.retainedPrice : p.soldPrice) },
+    { label: "Amount", width: 1.0, get: (p) => fmtShort(playerAcquisitionAmount(p)) },
   ];
 
   const colMap: Record<string, ColDef> = {
@@ -377,7 +418,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   let rowIdx = 0;
 
   function drawPlayerRow(p: EnrichedPlayer) {
-    const price = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
+    const price = playerAcquisitionAmount(p);
     balance -= price;
     ensureRoom(15);
     const rY = doc.y;

@@ -15,16 +15,19 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { formatIndianRupee, formatShortIndianRupee, normalizeAuctionUnit } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { exportElementToPdf } from "@/lib/export-element-pdf";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoAlt } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
+import { resolveRetainedSpend } from "@workspace/api-base/retained-price";
+import type { TeamReportAuctionRules } from "@workspace/api-base/team-report-rules";
+import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
 import { toast } from "@/hooks/use-toast";
 import {
   FileText, Printer, Download, Lock, Users, ChevronRight,
-  User, AlertTriangle, Loader2,
+  User, AlertTriangle, Loader2, Award,
 } from "lucide-react";
 
 const OPTIONAL_COLS = [
@@ -67,19 +70,74 @@ function saveCols(tid: number, cols: Set<ColKey>) {
   try { localStorage.setItem(`team_report_cols_${tid}`, JSON.stringify([...cols])); } catch { /* empty */ }
 }
 
+function loadShowSponsors(tid: number): boolean {
+  try {
+    return localStorage.getItem(`team_report_sponsors_${tid}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveShowSponsors(tid: number, show: boolean) {
+  try { localStorage.setItem(`team_report_sponsors_${tid}`, show ? "1" : "0"); } catch { /* empty */ }
+}
+
+function playerAcquisitionAmount(p: Pick<ReportPlayer, "status" | "retainedPrice" | "soldPrice" | "basePrice">): number {
+  if (p.status === "retained") {
+    return resolveRetainedSpend({
+      status: p.status,
+      retainedPrice: p.retainedPrice,
+      basePrice: p.basePrice,
+    });
+  }
+  return p.soldPrice ?? 0;
+}
+
+function buildAuctionRuleLines(
+  rules: TeamReportAuctionRules | undefined,
+  formatAmount: (amount: number) => string,
+): string[] {
+  if (!rules) return [];
+
+  const lines: string[] = [];
+  if (rules.minBid != null) {
+    lines.push(`Base value for all players: ${formatAmount(rules.minBid)}`);
+  }
+  if (rules.playersChooseBaseValue) {
+    lines.push("Players may have their own base value as listed at registration.");
+  }
+  rules.categoryMinBids.forEach((category) => {
+    lines.push(`${category.name} category base value: ${formatAmount(category.minBid)}`);
+  });
+  lines.push(...rules.bidIncrementLines);
+  if (rules.minimumSquadSize != null) {
+    lines.push(`Minimum players to acquire: ${rules.minimumSquadSize}`);
+  }
+  if (rules.maximumSquadSize != null) {
+    lines.push(`Maximum squad size: ${rules.maximumSquadSize}`);
+  }
+  return lines;
+}
+
 type ReportPlayer = {
   id: number; serialNo: number; name: string; role: string | null; city: string | null; age: number | null;
   photoUrl: string | null; mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null;
   categoryName: string | null; categoryColor: string | null;
+  basePrice: number;
   soldPrice: number | null; retainedPrice: number | null;
   status: string; isNonPlayingMember: boolean;
 };
 
+type ReportSponsor = { name: string; type?: string | null };
+
 type ReportData = {
   isLicensed: boolean;
-  tournament: { id: number; name: string; sport: string; logoUrl: string | null; licenseStatus: string; minimumSquadSize: number; maximumSquadSize: number };
+  tournament: { id: number; name: string; sport: string; logoUrl: string | null; licenseStatus: string; minimumSquadSize: number; maximumSquadSize: number; auctionUnit?: string };
   team: { id: number; name: string; shortCode: string; ownerName: string; ownerMobile: string; ownerEmail: string | null; ownerPhotoUrl: string | null; logoUrl: string | null; color: string | null; purse: number; purseUsed: number };
   purgeSummary: { totalPurse: number; retainedSpend: number; preSoldSpend: number; remainingPurse: number };
+  auctionRules?: TeamReportAuctionRules;
+  sponsors?: ReportSponsor[];
+  platform?: { brandName: string; websiteUrl: string };
   retainedPlayers: ReportPlayer[];
   preSoldPlayers: ReportPlayer[];
   nonPlayingMembers: ReportPlayer[];
@@ -143,7 +201,7 @@ function PlayerTable({
         </thead>
         <tbody>
           {players.map((p, i) => {
-            const price = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
+            const price = playerAcquisitionAmount(p);
             balance -= price;
             const rowBalance = balance;
             const cell = "border border-gray-400 px-3 py-2 align-top";
@@ -263,14 +321,29 @@ function AuctionPlanningTable({
   );
 }
 
-function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey> }) {
-  const { tournament, team, purgeSummary, retainedPlayers, preSoldPlayers, nonPlayingMembers, squadInfo } = report;
-  const { logos, brandName, poweredByText, miniBrandText, loading: brandingLoading, visibility } = useBranding();
+function ReportPreview({
+  report,
+  cols,
+  showSponsors,
+}: {
+  report: ReportData;
+  cols: Set<ColKey>;
+  showSponsors: boolean;
+}) {
+  const { tournament, team, purgeSummary, retainedPlayers, preSoldPlayers, nonPlayingMembers, squadInfo, auctionRules, sponsors = [] } = report;
+  const { logos, brandName, poweredByText, miniBrandText, loading: brandingLoading, visibility, iconVersion } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
   const showPhoto = cols.has("photo");
   const allAcquired = retainedPlayers.length + preSoldPlayers.length;
   const isLicensed = report.isLicensed;
-  const brandLogoUrl = cldUrl(logos.mini || logos.main, "headerLogo") || logos.mini || logos.main;
+  const brandLogoUrl = cldUrl(logos.main || logos.mainReverse || logos.mini, "brandWordmark") || logos.main || logos.mainReverse || logos.mini;
+  const platformLogoUrl = getPublicBrandLogoSrc(["main", "mainReverse", "mini"], iconVersion);
+  const websiteUrl = report.platform?.websiteUrl ?? PLATFORM_BASE_URL;
+  const auctionUnit = normalizeAuctionUnit(tournament.auctionUnit);
+  const formatAmount = (amount: number) => formatShortIndianRupee(amount, auctionUnit);
+  const auctionRuleLines = buildAuctionRuleLines(auctionRules, formatAmount);
+  const hasNonPlayingMembers = nonPlayingMembers.length > 0;
+  const visibleSponsors = showSponsors ? sponsors.filter((sponsor) => sponsor.name?.trim()) : [];
 
   return (
     <div
@@ -299,89 +372,112 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
       )}
 
       {/* Header */}
-      <div className="print-header flex-shrink-0 bg-slate-900 px-6 py-4 text-white">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            {tournament.logoUrl ? (
-              <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
-            ) : (
-              <div className="h-10 w-10 rounded bg-yellow-400 flex items-center justify-center">
-                <span className="text-slate-900 font-black text-xs">BW</span>
-              </div>
-            )}
-            <div>
-              <p className="text-yellow-400 font-black text-base uppercase tracking-wide">{tournament.name}</p>
-              <p className="text-slate-400 text-xs uppercase tracking-wider">{tournament.sport} · Pre-Auction Team Report</p>
+      <div className="print-header flex-shrink-0 bg-slate-900 text-white">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 px-4 py-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img
+              src={platformLogoUrl}
+              alt={logoAlt}
+              className="h-8 w-auto max-w-[140px] flex-shrink-0 object-contain"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-none text-yellow-400">{websiteUrl.replace(/^https?:\/\//, "")}</p>
+              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-500">Pre-Auction Team Report</p>
             </div>
           </div>
-          <p className="text-slate-400 text-xs">{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+          <div className="flex min-w-0 items-center gap-2 text-right">
+            {tournament.logoUrl ? (
+              <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="h-7 w-7 flex-shrink-0 rounded object-contain" />
+            ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold uppercase tracking-wide text-yellow-400">{tournament.name}</p>
+              <p className="text-[10px] text-slate-500">{tournament.sport}</p>
+            </div>
+            <p className="ml-1 flex-shrink-0 text-[10px] text-slate-500">
+              {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+            </p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          {/* Left: Team + Owner */}
-          <div className="flex items-start gap-3">
+        <div className={cn(
+          "grid gap-3 px-4 py-2.5",
+          hasNonPlayingMembers ? "grid-cols-3" : "grid-cols-2",
+        )}>
+          <div className="flex min-w-0 items-center gap-2.5">
             {team.logoUrl ? (
-              <img src={cldUrl(team.logoUrl, "teamLogo") || team.logoUrl} alt={team.name} className="h-12 w-12 object-contain rounded flex-shrink-0" />
+              <img src={cldUrl(team.logoUrl, "teamLogo") || team.logoUrl} alt={team.name} className="h-10 w-10 flex-shrink-0 rounded object-contain" />
             ) : (
-              <div className="h-12 w-12 rounded flex-shrink-0 flex items-center justify-center font-black text-sm" style={{ backgroundColor: (team.color || "#3B82F6") + "33", color: team.color || "#3B82F6" }}>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded text-xs font-black" style={{ backgroundColor: (team.color || "#3B82F6") + "33", color: team.color || "#3B82F6" }}>
                 {team.shortCode}
               </div>
             )}
-            <div>
-              <p className="font-black text-lg leading-tight" style={{ color: team.color || "#FBBF24" }}>{team.name}</p>
-              <p className="text-slate-400 text-xs">{team.shortCode}</p>
-              <div className="mt-1.5 flex items-center gap-1.5">
-                {team.ownerPhotoUrl && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-black leading-tight" style={{ color: team.color || "#FBBF24" }}>{team.name}</p>
+              <div className="mt-1 flex items-center gap-2">
+                {team.ownerPhotoUrl ? (
                   <img
                     src={cldUrl(team.ownerPhotoUrl, "playerCard") || team.ownerPhotoUrl}
                     alt={team.ownerName}
-                    className="h-6 w-6 flex-shrink-0 rounded-full border border-slate-600 object-cover"
+                    className="h-11 w-11 flex-shrink-0 rounded-full border border-slate-600 object-cover"
                   />
+                ) : (
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800">
+                    <User className="h-4 w-4 text-slate-500" />
+                  </div>
                 )}
-                <div>
-                  <p className="text-xs font-semibold text-slate-200">{team.ownerName}</p>
-                  {team.ownerMobile && <p className="font-mono text-xs text-slate-400">{team.ownerMobile}</p>}
-                  {team.ownerEmail && <p className="text-xs text-slate-400 break-all">{team.ownerEmail}</p>}
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-slate-200">{team.ownerName}</p>
+                  {team.ownerMobile ? <p className="font-mono text-[11px] text-slate-400">{team.ownerMobile}</p> : null}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Center: Purse Summary */}
           <div>
-            <p className="text-slate-400 text-xs uppercase tracking-wider mb-2">Purse Summary</p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Purse Summary</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
               {[
-                { label: "Total Purse", value: formatShortIndianRupee(purgeSummary.totalPurse), highlight: false },
-                { label: "Retained Spend", value: formatShortIndianRupee(purgeSummary.retainedSpend), highlight: false },
-                { label: "Pre-Sold Spend", value: formatShortIndianRupee(purgeSummary.preSoldSpend), highlight: false },
-                { label: "Remaining Purse", value: formatShortIndianRupee(purgeSummary.remainingPurse), highlight: true },
+                { label: "Total Purse", value: formatAmount(purgeSummary.totalPurse), highlight: false },
+                { label: "Retained Spend", value: formatAmount(purgeSummary.retainedSpend), highlight: false },
+                { label: "Pre-Sold Spend", value: formatAmount(purgeSummary.preSoldSpend), highlight: false },
+                { label: "Remaining Purse", value: formatAmount(purgeSummary.remainingPurse), highlight: true },
               ].map(item => (
                 <div key={item.label}>
-                  <p className="text-slate-500 text-xs">{item.label}</p>
-                  <p className={`font-bold text-sm ${item.highlight ? "text-yellow-400" : "text-slate-200"}`}>{item.value}</p>
+                  <p className="text-[10px] text-slate-500">{item.label}</p>
+                  <p className={cn("text-xs font-bold", item.highlight ? "text-yellow-400" : "text-slate-200")}>{item.value}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Right: Non-playing members */}
-          <div>
-            <p className="text-slate-400 text-xs uppercase tracking-wider mb-2">Non-Playing Members</p>
-            {nonPlayingMembers.length === 0 ? (
-              <p className="text-slate-600 text-xs italic">None listed</p>
-            ) : (
-              <div className="space-y-1">
-                {nonPlayingMembers.map(m => (
-                  <div key={m.id} className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600 flex-shrink-0" />
-                    <span className="text-slate-300 text-xs">{m.name}{m.role ? <span className="text-slate-500"> ({m.role.replace(/_/g, " ")})</span> : null}</span>
+          {hasNonPlayingMembers ? (
+            <div>
+              <p className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Non-Playing Members</p>
+              <div className="space-y-0.5">
+                {nonPlayingMembers.map(member => (
+                  <div key={member.id} className="flex items-center gap-1.5">
+                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-600" />
+                    <span className="truncate text-[11px] text-slate-300">
+                      {member.name}
+                      {member.role ? <span className="text-slate-500"> ({member.role.replace(/_/g, " ")})</span> : null}
+                    </span>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
+
+        {auctionRuleLines.length > 0 ? (
+          <div className="border-t border-slate-700/50 px-4 py-2">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Auction Rules</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+              {auctionRuleLines.map((line) => (
+                <p key={line} className="text-[10px] leading-snug text-slate-400">{line}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Tables */}
@@ -416,29 +512,41 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
       </div>
 
       {/* Footer */}
-      <div className="print-footer mt-0 flex flex-shrink-0 items-center justify-between bg-slate-900 px-6 py-3 text-white">
-        {visibility.showBrandingPdf ? (
-          <div className="flex items-center gap-2">
-            {!brandingLoading && brandLogoUrl ? (
-              <img
-                src={brandLogoUrl}
-                alt={logoAlt}
-                className="h-5 w-5 flex-shrink-0 rounded object-contain"
-              />
-            ) : (
-              <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-yellow-400">
-                <span className="text-xs font-black text-slate-900">{miniBrandText}</span>
-              </div>
-            )}
-            <span className="text-xs font-bold text-yellow-400">{poweredByText}</span>
+      <div className="print-footer mt-0 flex flex-shrink-0 flex-col bg-slate-900 text-white">
+        {visibleSponsors.length > 0 ? (
+          <div className="border-b border-slate-700/60 px-4 py-2 text-center">
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">Sponsors</p>
+            <p className="text-[10px] leading-relaxed text-slate-300">
+              {visibleSponsors.map((sponsor) => sponsor.name).join("  ·  ")}
+            </p>
           </div>
-        ) : (
-          <div />
-        )}
-        <span className="text-slate-500 text-xs">{team.name} — Pre-Auction Team Sheet — Confidential</span>
-        {!isLicensed && (
-          <span className="text-red-400 text-xs font-semibold">UNLICENSED COPY</span>
-        )}
+        ) : null}
+        <div className="flex items-center justify-between px-4 py-2.5">
+          {visibility.showBrandingPdf ? (
+            <div className="flex min-w-0 items-center gap-2">
+              {!brandingLoading && brandLogoUrl ? (
+                <img
+                  src={brandLogoUrl}
+                  alt={logoAlt}
+                  className="h-5 w-auto max-w-[72px] flex-shrink-0 rounded object-contain"
+                />
+              ) : (
+                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-yellow-400">
+                  <span className="text-xs font-black text-slate-900">{miniBrandText}</span>
+                </div>
+              )}
+              <span className="truncate text-[10px] font-bold text-yellow-400">{poweredByText}</span>
+            </div>
+          ) : (
+            <div />
+          )}
+          <span className="max-w-[45%] truncate text-center text-[10px] text-slate-500">{team.name} — Confidential</span>
+          {!isLicensed ? (
+            <span className="flex-shrink-0 text-[10px] font-semibold text-red-400">UNLICENSED COPY</span>
+          ) : (
+            <span className="flex-shrink-0 text-[10px] text-slate-500">{websiteUrl.replace(/^https?:\/\//, "")}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -450,6 +558,7 @@ export default function TeamReportsPage() {
 
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [cols, setCols] = useState<Set<ColKey>>(() => loadCols(tournamentId));
+  const [showSponsors, setShowSponsors] = useState(() => loadShowSponsors(tournamentId));
   const [exporting, setExporting] = useState(false);
 
   const { data: tournament } = useGetTournament(tournamentId, {
@@ -470,6 +579,11 @@ export default function TeamReportsPage() {
     else next.add(key);
     setCols(next);
     saveCols(tournamentId, next);
+  }
+
+  function toggleShowSponsors(checked: boolean) {
+    setShowSponsors(checked);
+    saveShowSponsors(tournamentId, checked);
   }
 
   function applyPreset(preset: keyof typeof PRESETS) {
@@ -657,6 +771,25 @@ export default function TeamReportsPage() {
                   </label>
                 ))}
               </div>
+
+              <Separator className="mx-3" />
+              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Footer</p>
+              <div className="px-3 pb-4">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <Checkbox
+                    checked={showSponsors}
+                    onCheckedChange={(checked) => toggleShowSponsors(checked === true)}
+                    className="flex-shrink-0"
+                  />
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                    <Award className="h-3.5 w-3.5" />
+                    Show Sponsors in Footer
+                  </span>
+                </label>
+                {showSponsors && !report?.sponsors?.length ? (
+                  <p className="mt-1.5 pl-6 text-[10px] italic text-muted-foreground">No sponsors configured for this tournament.</p>
+                ) : null}
+              </div>
             </div>
 
             {/* Actions */}
@@ -723,7 +856,7 @@ export default function TeamReportsPage() {
 
                 {/* Report preview card */}
                 <div className="border border-border rounded-lg overflow-hidden shadow-xl max-w-5xl mx-auto">
-                  <ReportPreview report={report} cols={cols} />
+                  <ReportPreview report={report} cols={cols} showSponsors={showSponsors} />
                 </div>
               </div>
             )}
