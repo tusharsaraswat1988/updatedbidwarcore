@@ -10,7 +10,7 @@ import {
   serializeReAuctionStrategy,
   validateFixedReAuctionAmount,
 } from "@workspace/api-base/re-auction-strategy";
-import { pickRandomPlayerFromPool } from "@workspace/api-base/auction-player-selection";
+import { pickRandomPlayerFromPool, pickSequentialPlayerFromPool } from "@workspace/api-base/auction-player-selection";
 import {
   tournamentToReadinessInput,
   validateAuctionReadiness,
@@ -68,7 +68,7 @@ function normalizePlayerSelectionMode(mode: string | null | undefined): PlayerSe
 }
 
 function selectPlayerFromPool(
-  pool: { id: number }[],
+  pool: { id: number; serialNo?: number | null }[],
   mode: PlayerSelectionMode | undefined,
   session: { randomDrawQueue?: string | null; currentPlayerId?: number | null },
 ): { playerId: number; randomDrawQueue: string | null } | null {
@@ -81,7 +81,7 @@ function selectPlayerFromPool(
     return { playerId: pick.playerId, randomDrawQueue: pick.queueJson };
   }
   return {
-    playerId: pool.reduce((a, b) => (a.id < b.id ? a : b)).id,
+    playerId: pickSequentialPlayerFromPool(pool),
     randomDrawQueue: null,
   };
 }

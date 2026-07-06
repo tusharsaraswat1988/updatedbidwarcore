@@ -22,6 +22,9 @@ import {
   buildFieldLabelMap,
   resolvePlayerIdentity,
   findPlayersMissingFromWorkbook,
+  assessReplaceIdentityCoverage,
+  getReplaceDataSafetyError,
+  resolvePlayerIdentity,
   computeHealthScore,
   getWorkbookSport,
   type ParsedWorkbook,
@@ -29,8 +32,9 @@ import {
   type WorkbookValidationResult,
 } from "@workspace/api-base/tournament-workbook";
 import { normalizeBooleanInput } from "@workspace/api-base/auction-data";
+import { normalizeMobile } from "@workspace/api-base/tournament-workbook";
 import { getOrganizerBidOptions } from "@workspace/api-base/bid-value";
-import { parseWorkbookGenderLabel } from "@workspace/api-base/player-gender";
+import { parseWorkbookGenderLabel, inferGenderFromCategoryName } from "@workspace/api-base/player-gender";
 import type { SponsorLogo } from "@workspace/api-base/sponsor-priority";
 import { buildTournamentWorkbookExcel } from "./workbook-excel-builder";
 import {
@@ -69,7 +73,98 @@ import {
   deletePlayerRegistrationData,
   validatePlayerDeletable,
 } from "../player-delete-guard";
+import { compactTournamentPlayerSerialNos, allocateNextPlayerSerialNo } from "../player-serial";
 export { buildWorkbookExportFilename } from "./workbook-export-filename";
+
+function getReplaceDataMissingPlayerIds(
+  workbook: ParsedWorkbook,
+  ctx: Awaited<ReturnType<typeof buildWorkbookValidationContext>>,
+): Set<number> {
+  if (ctx.mode !== "replace_data") return new Set();
+  const playerRows = workbook.sheets["03_Players"] ?? [];
+  if (playerRows.length === 0) return new Set();
+  return new Set(
+    findPlayersMissingFromWorkbook(playerRows, ctx.existingPlayers, ctx.auctionCode).map(
+      (player) => player.id,
+    ),
+  );
+}
+
+function buildLegacyAuctionRowsFromWorkbook(
+  playerRows: Record<string, unknown>[],
+  ctx: Awaited<ReturnType<typeof buildWorkbookValidationContext>>,
+): Record<string, unknown>[] {
+  const legacyRows: Record<string, unknown>[] = [];
+  for (const row of playerRows) {
+    const identity = resolvePlayerIdentity(row, ctx.existingPlayers, ctx.auctionCode);
+    if (!identity.isNew && identity.playerId) {
+      legacyRows.push(bmwPlayerRowToLegacyAuctionRow(row, identity.playerId));
+    }
+  }
+  return legacyRows;
+}
+
+async function commitWorkbookNewPlayers(
+  tournamentId: number,
+  playerRows: Record<string, unknown>[],
+  ctx: Awaited<ReturnType<typeof buildWorkbookValidationContext>>,
+): Promise<number> {
+  const [tournament] = await db
+    .select({ minBid: tournamentsTable.minBid })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+  const minBid = (tournament?.minBid as number | null) ?? 100000;
+
+  let created = 0;
+  for (const row of playerRows) {
+    const identity = resolvePlayerIdentity(row, ctx.existingPlayers, ctx.auctionCode);
+    if (!identity.isNew) continue;
+
+    const name = String(row["Player Name"] ?? "").trim();
+    if (!name) continue;
+
+    const mobile = normalizeMobile(row["Mobile"]);
+    const baseRaw = parseInt(String(row["Base Value"] ?? minBid), 10);
+    const basePrice = Number.isFinite(baseRaw) && baseRaw > 0 ? baseRaw : minBid;
+    let gender = parseWorkbookGenderLabel(row["Gender"]);
+    if (gender === undefined || gender === null) {
+      const categoryName = String(row["Category"] ?? "").trim();
+      const inferred = inferGenderFromCategoryName(categoryName);
+      if (inferred === "male") gender = "M";
+      else if (inferred === "female") gender = "F";
+    }
+
+    const [inserted] = await db
+      .insert(playersTable)
+      .values({
+        tournamentId,
+        serialNo: await allocateNextPlayerSerialNo(tournamentId),
+        name,
+        mobileNumber: mobile.length >= 10 ? mobile : "0000000000",
+        email: String(row["Email"] ?? "").trim() || null,
+        basePrice,
+        status: "available",
+        gender: gender ?? null,
+        role: String(row["Role"] ?? "").trim() || null,
+        city: String(row["City"] ?? "").trim() || null,
+      })
+      .returning();
+
+    if (!inserted) continue;
+
+    ctx.existingPlayers.push({
+      id: inserted.id,
+      name: inserted.name,
+      mobileNumber: inserted.mobileNumber ?? "",
+      email: inserted.email,
+      age: inserted.age,
+    });
+    created++;
+  }
+
+  return created;
+}
 
 export async function loadTournamentExportContext(tournamentId: number) {
   const [tournament] = await db
@@ -239,8 +334,12 @@ async function deletePlayersMissingFromWorkbook(
   );
   if (missingPlayers.length === 0) return 0;
 
-  let deleted = 0;
-  const auditEntries: Parameters<typeof writeEntityAuditLogs>[0] = [];
+  const playersToDelete: Array<{
+    id: number;
+    status: string;
+    teamId: number | null;
+    name: string;
+  }> = [];
 
   for (const summary of missingPlayers) {
     const [player] = await db
@@ -261,6 +360,13 @@ async function deletePlayersMissingFromWorkbook(
       throw new Error(`${guard.error} (${player.name})`);
     }
 
+    playersToDelete.push(player);
+  }
+
+  let deleted = 0;
+  const auditEntries: Parameters<typeof writeEntityAuditLogs>[0] = [];
+
+  for (const player of playersToDelete) {
     await deletePlayerRegistrationData(tournamentId, player.id, player.teamId);
     auditEntries.push({
       entityType: "player",
@@ -344,6 +450,28 @@ export async function validateTournamentWorkbook(
   result.valid = result.issues.filter((x) => x.severity === "error").length === 0 && result.summary.rowsTotal > 0;
   await validateReplaceDataPlayerDeletions(tournamentId, workbook, result, ctx);
   result.valid = result.issues.filter((x) => x.severity === "error").length === 0 && result.summary.rowsTotal > 0;
+
+  const legacyRows = buildLegacyAuctionRowsFromWorkbook(playerRows, ctx);
+  if (legacyRows.length > 0) {
+    const excludePlayerIds = getReplaceDataMissingPlayerIds(workbook, ctx);
+    const legacyPreview = await validateAuctionImport(tournamentId, legacyRows, {
+      excludePlayerIds: excludePlayerIds.size > 0 ? excludePlayerIds : undefined,
+    });
+    for (const issue of legacyPreview.issues) {
+      result.issues.push({
+        sheet: "03_Players",
+        row: issue.row,
+        column: issue.column,
+        identity: issue.playerId != null ? String(issue.playerId) : undefined,
+        severity: issue.severity,
+        message: issue.message,
+      });
+      if (issue.severity === "error") result.summary.errors++;
+      else result.summary.warnings++;
+    }
+    result.valid = result.issues.filter((x) => x.severity === "error").length === 0 && result.summary.rowsTotal > 0;
+  }
+
   result.health = computeHealthScore(
     result.issues,
     result.summary,
@@ -472,7 +600,13 @@ async function commitWorkbookEntities(
     for (const row of workbook.sheets["03_Players"] ?? []) {
       const identity = resolvePlayerIdentity(row, existingPlayers, tournament?.auctionCode);
       if (!identity.playerId) continue;
-      const gender = parseWorkbookGenderLabel(row["Gender"]);
+      let gender = parseWorkbookGenderLabel(row["Gender"]);
+      if (gender === undefined || gender === null) {
+        const categoryName = String(row["Category"] ?? "").trim();
+        const inferred = inferGenderFromCategoryName(categoryName);
+        if (inferred === "male") gender = "M";
+        else if (inferred === "female") gender = "F";
+      }
       if (gender === undefined) continue;
       await tx
         .update(playersTable)
@@ -516,34 +650,54 @@ export async function commitTournamentWorkbook(
     const start = Date.now();
     const entitiesCreated = await commitWorkbookEntities(tournamentId, workbook);
 
-    const valCtx = await buildWorkbookValidationContext(tournamentId, validation.mode);
-    const legacyRows: Record<string, unknown>[] = [];
-    for (const row of playerRows) {
-      const identity = resolvePlayerIdentity(row, valCtx.existingPlayers, valCtx.auctionCode);
-      if (!identity.isNew && identity.playerId) {
-        legacyRows.push(bmwPlayerRowToLegacyAuctionRow(row, identity.playerId));
-      }
+    let valCtx = await buildWorkbookValidationContext(tournamentId, validation.mode);
+    const playersCreated = await commitWorkbookNewPlayers(tournamentId, playerRows, valCtx);
+    if (playersCreated > 0) {
+      valCtx = await buildWorkbookValidationContext(tournamentId, validation.mode);
     }
+
+    const legacyRows = buildLegacyAuctionRowsFromWorkbook(playerRows, valCtx);
+    const excludePlayerIds = getReplaceDataMissingPlayerIds(workbook, valCtx);
 
     let playerUpdated = 0;
     let playersDeleted = 0;
+    let serialRenumbered = 0;
     let jobId = meta.existingJobId ?? 0;
 
-    if (legacyRows.length > 0) {
-      const legacyPreview = await validateAuctionImport(tournamentId, legacyRows);
-      if (legacyPreview.valid) {
-        const playerResult = await commitAuctionImport(tournamentId, legacyPreview.rows, {
-          performedBy: meta.performedBy,
-          fileName: meta.fileName,
-          ipAddress: meta.ipAddress,
-          userAgent: meta.userAgent,
-          preview: legacyPreview,
-          existingJobId: meta.existingJobId,
-        });
-        playerUpdated = playerResult.updatedRows;
-        jobId = playerResult.jobId;
+    const legacyPreview =
+      legacyRows.length > 0
+        ? await validateAuctionImport(tournamentId, legacyRows, {
+            excludePlayerIds: excludePlayerIds.size > 0 ? excludePlayerIds : undefined,
+          })
+        : null;
+
+    if (meta.importMode === "replace_data") {
+      const coverage = assessReplaceIdentityCoverage(playerRows, valCtx.existingPlayers, valCtx.auctionCode);
+      const safetyError = getReplaceDataSafetyError(coverage, valCtx.existingPlayers.length);
+      if (safetyError) {
+        throw new Error(safetyError);
       }
-    } else if (!jobId) {
+
+      playersDeleted = await deletePlayersMissingFromWorkbook(tournamentId, workbook, valCtx, {
+        performedBy: meta.performedBy,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        jobId: jobId || undefined,
+      });
+    }
+
+    if (legacyPreview?.valid) {
+      const playerResult = await commitAuctionImport(tournamentId, legacyPreview.rows, {
+        performedBy: meta.performedBy,
+        fileName: meta.fileName,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        preview: legacyPreview,
+        existingJobId: meta.existingJobId,
+      });
+      playerUpdated = playerResult.updatedRows;
+      jobId = playerResult.jobId;
+    } else if (!jobId && legacyRows.length === 0) {
       const [job] = await db.insert(bulkImportJobsTable).values({
         tournamentId,
         moduleType: "bidwar_master_workbook",
@@ -564,12 +718,7 @@ export async function commitTournamentWorkbook(
     }
 
     if (meta.importMode === "replace_data") {
-      playersDeleted = await deletePlayersMissingFromWorkbook(tournamentId, workbook, valCtx, {
-        performedBy: meta.performedBy,
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        jobId: jobId || undefined,
-      });
+      serialRenumbered = await compactTournamentPlayerSerialNos(tournamentId);
     }
 
     let photoQueued = 0;
@@ -643,7 +792,7 @@ export async function commitTournamentWorkbook(
         moduleType: "bidwar_master_workbook",
         importMode: meta.importMode,
         workbookVersionId: version?.id,
-        updatedRows: playerUpdated + entitiesCreated + playersDeleted,
+        updatedRows: playerUpdated + entitiesCreated + playersDeleted + serialRenumbered + playersCreated,
         processingTimeMs: Date.now() - start,
       }).where(eq(bulkImportJobsTable.id, jobId));
     }

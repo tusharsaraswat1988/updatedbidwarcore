@@ -131,6 +131,8 @@ export type ImportValidationContext = {
   profileIdToPlayerId: Map<number, number>;
   usedAuctionOrders: Map<number, number>;
   duplicateRowKeys: Set<string>;
+  /** Players omitted from auction-order conflict checks (e.g. replace-import deletions). */
+  excludePlayerIds?: ReadonlySet<number>;
 };
 
 export type ImportValidationResult = {

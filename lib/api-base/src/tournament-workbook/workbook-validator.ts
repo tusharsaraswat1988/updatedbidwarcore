@@ -13,7 +13,8 @@ import {
   resolvePlayerIdentity,
   detectDuplicateIdentities,
   detectDuplicateMobiles,
-  findPlayersMissingFromWorkbook,
+  assessReplaceIdentityCoverage,
+  getReplaceDataSafetyError,
   type ExistingPlayerRecord,
 } from "./identity-resolver";
 import {
@@ -433,7 +434,19 @@ export function validateWorkbook(
   const playerRemovalDiffs: import("./field-diff.ts").FieldDiff[] = [];
 
   if (ctx.mode === "replace_data" && playerRows.length > 0) {
-    const missingPlayers = findPlayersMissingFromWorkbook(playerRows, ctx.existingPlayers, ctx.auctionCode);
+    const coverage = assessReplaceIdentityCoverage(playerRows, ctx.existingPlayers, ctx.auctionCode);
+    const safetyError = getReplaceDataSafetyError(coverage, ctx.existingPlayers.length);
+    if (safetyError) {
+      issues.push({
+        sheet: "03_Players",
+        row: 0,
+        severity: "error",
+        message: safetyError,
+        code: "REPLACE_IDENTITY_COVERAGE_TOO_LOW",
+      });
+    }
+
+    const missingPlayers = coverage.missingExisting;
     deletes = missingPlayers.length;
 
     for (const player of missingPlayers) {
@@ -479,13 +492,15 @@ export function validateWorkbook(
     }
   }
 
+  const finalErrors = issues.filter((x) => x.severity === "error").length;
+
   const summary = {
     rowsTotal,
     creates,
     updates,
     skips,
     deletes,
-    errors,
+    errors: finalErrors,
     warnings,
     suggestions,
     changedFields: [...changedFields],
@@ -496,7 +511,7 @@ export function validateWorkbook(
   const diffs = [...buildPlayerDiffs(workbook, ctx), ...playerRemovalDiffs];
 
   return {
-    valid: errors === 0 && rowsTotal > 0,
+    valid: finalErrors === 0 && rowsTotal > 0,
     mode: ctx.mode,
     dryRun,
     issues,

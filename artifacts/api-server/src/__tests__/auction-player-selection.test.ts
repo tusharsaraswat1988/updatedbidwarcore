@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FAIR_RANDOM_POOL_THRESHOLD,
   pickRandomPlayerFromPool,
+  pickSequentialPlayerFromPool,
 } from "@workspace/api-base/auction-player-selection";
 
 describe("pickRandomPlayerFromPool", () => {
@@ -99,5 +100,25 @@ describe("pickRandomPlayerFromPool", () => {
     });
     expect([1, 3]).toContain(afterSold.playerId);
     expect(afterSold.queueJson).toMatch(/"pool"/);
+  });
+});
+
+describe("pickSequentialPlayerFromPool", () => {
+  it("prefers serialNo over db id", () => {
+    expect(
+      pickSequentialPlayerFromPool([
+        { id: 100, serialNo: 5 },
+        { id: 2, serialNo: 1 },
+      ]),
+    ).toBe(2);
+  });
+
+  it("falls back to id when serialNo is missing", () => {
+    expect(
+      pickSequentialPlayerFromPool([
+        { id: 5 },
+        { id: 2 },
+      ]),
+    ).toBe(2);
   });
 });

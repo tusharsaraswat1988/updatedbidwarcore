@@ -38,7 +38,7 @@ import {
 } from "../lib/registration-payment";
 import { notifyAsync } from "../lib/notifications";
 import { recoverJobsForPlayerEmailUpdate } from "../lib/communication/recovery.js";
-import { allocateNextPlayerSerialNo } from "../lib/player-serial";
+import { allocateNextPlayerSerialNo, compactTournamentPlayerSerialNos } from "../lib/player-serial";
 import {
   canEditPlayerBidValue,
   parseBidValueOptions,
@@ -1785,6 +1785,37 @@ router.post("/tournaments/:tournamentId/players/export/google-sheets", async (re
     req.log.error({ err, tournamentId: tid }, "Google Sheets export failed");
     const message = err instanceof Error ? err.message : "Failed to sync Google Spreadsheet";
     res.status(502).json({ error: message });
+  }
+});
+
+/** Renumber all tournament players to continuous auction order 1…n (preserves relative order). */
+router.post("/tournaments/:tournamentId/players/compact-serial-numbers", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  try {
+    const updated = await compactTournamentPlayerSerialNos(tid);
+    auditLog(req, {
+      category: "player",
+      action: "players.serial_renumbered",
+      summary: `Renumbered ${updated} player serial(s) for tournament ${tid}`,
+      tournamentId: tid,
+      metadata: { updated },
+    });
+    res.json({
+      updated,
+      message:
+        updated > 0
+          ? `Auction order updated for ${updated} player(s) — now continuous 1…n.`
+          : "Auction order is already continuous — no changes needed.",
+    });
+  } catch (err) {
+    req.log.error({ err, tournamentId: tid }, "compact-serial-numbers failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to renumber players" });
   }
 });
 

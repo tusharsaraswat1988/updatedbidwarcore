@@ -188,6 +188,9 @@ function buildRowForSheet(
           String(t.auctionCode ?? ""),
         );
         break;
+      case "playerId":
+        row[field.label] = (p.id as number) ?? "";
+        break;
       case "name":
         row[field.label] = String(p.name ?? t.name ?? "");
         break;
@@ -352,6 +355,10 @@ function applyEnterpriseSheetStyling(
         if (/^https?:\/\//i.test(str)) {
           setCellValue(cell, str, field);
         }
+      }
+
+      if (field.key === "mobile" || field.key === "registrationCode" || field.key === "playerId") {
+        cell.numFmt = "@";
       }
 
       const validation = validationFormula(field, refs);

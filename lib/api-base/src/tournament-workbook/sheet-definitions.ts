@@ -91,9 +91,10 @@ export const BMW_SHEETS: WorkbookSheetDefinition[] = [
     name: "03_Players",
     title: "Players",
     order: 3,
-    freezeColumns: 2,
+    freezeColumns: 3,
     fields: [
       { key: "registrationCode", label: "Registration Code", type: "string", editability: "auto", required: false, description: "Portable identity — recommended unique identifier (never a database ID)" },
+      { key: "playerId", label: "BidWar Player ID", type: "number", editability: "readonly", required: false, entity: "player", column: "id", description: "Stable database ID from export — do not edit. Used for round-trip Replace/Merge imports." },
       { key: "name", label: "Player Name", type: "string", editability: "editable", required: true, entity: "player", column: "name" },
       { key: "mobile", label: "Mobile", type: "string", editability: "editable", entity: "player", column: "mobileNumber" },
       { key: "email", label: "Email", type: "string", editability: "editable", entity: "player", column: "email" },
@@ -246,7 +247,31 @@ export function buildRegistrationCode(mobile: string | null | undefined, name: s
 export const buildRegistrationId = buildRegistrationCode;
 
 export function normalizeMobile(value: unknown): string {
-  return String(value ?? "").replace(/\D/g, "");
+  if (value == null || value === "") return "";
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  const raw = String(value).trim();
+  if (/e/i.test(raw)) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return String(Math.trunc(parsed));
+  }
+  return raw.replace(/\D/g, "");
+}
+
+export function normalizeRegistrationCode(code: string): string {
+  const trimmed = code.trim();
+  const asMobile = normalizeMobile(trimmed);
+  if (asMobile.length >= 10) return asMobile;
+  return trimmed.toLowerCase();
+}
+
+/** Read stable player id from BMW row (export round-trip). */
+export function getPlayerIdFromWorkbookRow(row: Record<string, unknown>): number | null {
+  const raw = row["BidWar Player ID"] ?? row["Player ID"] ?? row.playerId;
+  if (raw == null || raw === "") return null;
+  const n = typeof raw === "number" ? raw : parseInt(String(raw).trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /** Resolve registration code from row — supports legacy "Registration ID" header */

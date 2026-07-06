@@ -33,9 +33,34 @@ export function resolvePlayerPortraitGender(
 }
 
 export function formatPlayerGender(code: string | null | undefined): string {
-  if (code === "M") return "Male";
-  if (code === "F") return "Female";
+  const normalized = normalizeStoredGenderCode(code);
+  if (normalized === "M") return "Male";
+  if (normalized === "F") return "Female";
   return "";
+}
+
+/** Normalize DB / Excel values to M | F | null. */
+export function normalizeStoredGenderCode(
+  stored: string | null | undefined,
+): PlayerGenderCode | null {
+  if (!stored?.trim()) return null;
+  const g = stored.trim().toUpperCase();
+  if (g === "M" || g === "MALE") return "M";
+  if (g === "F" || g === "FEMALE") return "F";
+  return null;
+}
+
+/** Players page gender filter key — uses gender field, then category name (e.g. category "Male"). */
+export function resolvePlayerGenderFilterKey(
+  stored: string | null | undefined,
+  categoryName?: string | null,
+): PlayerGenderCode | "_unset" {
+  const code = normalizeStoredGenderCode(stored);
+  if (code === "M" || code === "F") return code;
+  const inferred = inferGenderFromCategoryName(categoryName);
+  if (inferred === "male") return "M";
+  if (inferred === "female") return "F";
+  return "_unset";
 }
 
 /** Labels shown in BMW Excel dropdowns — matches website PlayerGenderSelect. */

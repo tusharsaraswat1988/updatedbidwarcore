@@ -68,7 +68,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, ListOrdered } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { cldUrl } from "@/lib/cloudinary";
@@ -95,8 +95,9 @@ import {
   buildSpecificationsPayload,
 } from "@/lib/player-specifications";
 import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
-import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
+import { mapStoredGenderToPortrait, resolvePlayerGenderFilterKey } from "@workspace/api-base/player-gender";
 import { settingsPath } from "@/lib/settings-navigation";
+import { cn } from "@/lib/utils";
 import {
   bidValueSourceLabel,
   canEditPlayerBidValue,
@@ -106,6 +107,7 @@ import {
 import {
   reinstateTournamentPlayer,
   withdrawTournamentPlayer,
+  compactTournamentPlayerSerialNumbers,
 } from "@/lib/registration-api";
 import { exportPlayersToExcel } from "@/lib/export-players-excel";
 import { exportPlayersToCsv } from "@/lib/export-players-csv";
@@ -1645,7 +1647,8 @@ type PlayersFilterPersist = {
   sortDir: SortDir;
 };
 
-const FILTER_STORAGE_VERSION = "v3";
+const FILTER_STORAGE_VERSION = "v4";
+const VALID_GENDER_FILTER_KEYS = new Set(["M", "F", "_unset"]);
 function filterStorageKey(tournamentId: number) {
   return `players-filters:${FILTER_STORAGE_VERSION}:${tournamentId}`;
 }
@@ -1654,7 +1657,11 @@ function loadPersistedFilters(tournamentId: number): PlayersFilterPersist | null
   try {
     const raw = sessionStorage.getItem(filterStorageKey(tournamentId));
     if (!raw) return null;
-    return JSON.parse(raw) as PlayersFilterPersist;
+    const parsed = JSON.parse(raw) as PlayersFilterPersist;
+    return {
+      ...parsed,
+      genderFilters: (parsed.genderFilters ?? []).filter((g) => VALID_GENDER_FILTER_KEYS.has(g)),
+    };
   } catch {
     return null;
   }
@@ -1674,6 +1681,20 @@ const STATUS_SORT_ORDER: Record<string, number> = {
   sold: 2,
   unsold: 3,
 };
+
+function playersHaveSerialGaps(players: { serialNo?: number | null }[]): boolean {
+  const n = players.length;
+  if (n <= 1) return false;
+  const serials = players
+    .map((p) => p.serialNo)
+    .filter((s): s is number => typeof s === "number" && s > 0)
+    .sort((a, b) => a - b);
+  if (serials.length !== n) return true;
+  for (let i = 0; i < n; i++) {
+    if (serials[i] !== i + 1) return true;
+  }
+  return false;
+}
 
 function sortPlayers(
   list: any[],
@@ -1722,10 +1743,6 @@ function sortPlayers(
   });
 }
 
-function playerGenderFilterKey(gender: string | null | undefined): string {
-  return gender === "M" || gender === "F" ? gender : "_unset";
-}
-
 function playerPassesAdvancedFilters(
   player: any,
   opts: {
@@ -1734,6 +1751,7 @@ function playerPassesAdvancedFilters(
     tagFilters: Set<string>;
     genderFilters: Set<string>;
     teamFilterActive: boolean;
+    catMap: Record<number, { name: string }>;
   },
 ) {
   if (opts.categoryIds.size > 0 && (!player.categoryId || !opts.categoryIds.has(player.categoryId))) {
@@ -1745,8 +1763,10 @@ function playerPassesAdvancedFilters(
   if (opts.tagFilters.size > 0 && (!player.playerTag || !opts.tagFilters.has(player.playerTag))) {
     return false;
   }
-  if (opts.genderFilters.size > 0 && !opts.genderFilters.has(playerGenderFilterKey(player.gender))) {
-    return false;
+  if (opts.genderFilters.size > 0) {
+    const categoryName = player.categoryId ? opts.catMap[player.categoryId]?.name : null;
+    const genderKey = resolvePlayerGenderFilterKey(player.gender, categoryName);
+    if (!opts.genderFilters.has(genderKey)) return false;
   }
   return true;
 }
@@ -1767,16 +1787,29 @@ function MultiFilterPopover({
   disabled?: boolean;
 }) {
   const activeCount = selected.size;
+  const selectedLabels = options.filter((opt) => selected.has(opt.value)).map((opt) => opt.label);
+  const isActive = activeCount > 0;
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-xs" disabled={disabled}>
-          <Filter className="w-3 h-3 shrink-0" />
-          {label}
-          {activeCount > 0 && (
-            <Badge variant="secondary" className="h-5 min-w-5 px-1 text-[10px] font-bold">
-              {activeCount}
-            </Badge>
+        <Button
+          variant={isActive ? "secondary" : "outline"}
+          size="sm"
+          className={cn(
+            "h-8 gap-1.5 px-2.5 text-xs max-w-[220px]",
+            isActive && "border-primary/60 bg-primary/15 text-primary font-medium ring-1 ring-primary/30",
+          )}
+          disabled={disabled}
+          title={isActive ? `${label}: ${selectedLabels.join(", ")}` : label}
+        >
+          <Filter className={cn("w-3.5 h-3.5 shrink-0", isActive && "text-primary")} />
+          {isActive ? (
+            <span className="truncate">
+              <span className="font-semibold">{label}:</span>{" "}
+              {selectedLabels.join(", ")}
+            </span>
+          ) : (
+            label
           )}
         </Button>
       </PopoverTrigger>
@@ -2384,6 +2417,7 @@ export default function Players() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [drawerPlayer, setDrawerPlayer] = useState<any | null>(null);
   const [exportingTarget, setExportingTarget] = useState<"excel" | "csv" | null>(null);
+  const [renumberingSerial, setRenumberingSerial] = useState(false);
   const { toast } = useToast();
 
   const {
@@ -2565,6 +2599,16 @@ export default function Players() {
     }
   }, [categoriesFetched, hasCategories, categoryIds.size, sortKey]);
 
+  useEffect(() => {
+    if (!categoriesFetched || !filtersHydrated) return;
+    const validCategoryIds = new Set((categories || []).map((c) => c.id));
+    setCategoryIds((prev) => {
+      if (prev.size === 0) return prev;
+      const pruned = new Set([...prev].filter((id) => validCategoryIds.has(id)));
+      return pruned.size === prev.size ? prev : pruned;
+    });
+  }, [categories, categoriesFetched, filtersHydrated]);
+
   const hasAdvancedFilters =
     (hasCategories && categoryIds.size > 0)
     || (teamFilterEnabled && teamIds.size > 0)
@@ -2572,6 +2616,31 @@ export default function Players() {
     || genderFilters.size > 0;
 
   const paymentEnabled = tournament?.enableRegistrationPayment === true;
+
+  const serialGaps = useMemo(
+    () => playersHaveSerialGaps(players || []),
+    [players],
+  );
+
+  async function handleCompactSerialNumbers() {
+    setRenumberingSerial(true);
+    try {
+      const result = await compactTournamentPlayerSerialNumbers(tournamentId);
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      toast({
+        title: result.updated > 0 ? "Auction order fixed" : "Already in order",
+        description: result.message,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not renumber",
+        description: err instanceof Error ? err.message : "Try again in a moment.",
+        variant: "destructive",
+      });
+    } finally {
+      setRenumberingSerial(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     const list = (players || []).filter(p => {
@@ -2583,6 +2652,7 @@ export default function Players() {
         tagFilters,
         genderFilters,
         teamFilterActive: teamFilterEnabled,
+        catMap,
       });
     });
     return sortPlayers(list, sortKey, sortDir, catMap, teamMap);
@@ -2666,6 +2736,35 @@ export default function Players() {
             </>
           }
         />
+
+        {!isLoading && serialGaps && (players?.length ?? 0) > 0 ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <ListOrdered className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-sm text-amber-100">Auction order (#) has gaps</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  After players were removed, serial numbers may show as 1, 3, 7… Renumber to continuous 1, 2, 3… (same relative order).
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-amber-500/40 hover:bg-amber-500/15"
+              disabled={renumberingSerial}
+              onClick={() => void handleCompactSerialNumbers()}
+            >
+              {renumberingSerial ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <ListOrdered className="w-4 h-4 mr-2" />
+              )}
+              Fix serial numbers
+            </Button>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <button
@@ -2961,6 +3060,14 @@ export default function Players() {
           <div className="text-center py-16 text-muted-foreground">
             <User className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p>No players match your filters</p>
+            {(players?.length ?? 0) > 0 && (
+              <p className="text-xs mt-2 max-w-md mx-auto">
+                {players!.length} players are in this tournament
+                {hasAdvancedFilters
+                  ? " — try clearing Gender / Category filters (category name and gender field are separate)."
+                  : " — try a different status tab or search."}
+              </p>
+            )}
             {hasAdvancedFilters && (
               <Button variant="outline" size="sm" className="mt-4" onClick={clearAdvancedFilters}>
                 Clear filters

@@ -13,6 +13,29 @@ export const FAIR_QUEUE_PAYLOAD_VERSION = 1;
 
 export type PlayerPoolEntry = { id: number };
 
+export type PlayerPoolEntryWithOrder = { id: number; serialNo?: number | null };
+
+/** Compare by auction order (serialNo), falling back to player id for legacy rows. */
+export function compareAuctionOrder(
+  a: PlayerPoolEntryWithOrder,
+  b: PlayerPoolEntryWithOrder,
+): number {
+  const aOrder = a.serialNo ?? a.id;
+  const bOrder = b.serialNo ?? b.id;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return a.id - b.id;
+}
+
+/** Sequential mode: lowest auction order first, then lowest id as tie-breaker. */
+export function pickSequentialPlayerFromPool(pool: PlayerPoolEntryWithOrder[]): number {
+  if (pool.length === 0) {
+    throw new Error("Cannot pick from an empty player pool");
+  }
+  return pool.reduce((best, player) =>
+    compareAuctionOrder(player, best) < 0 ? player : best,
+  ).id;
+}
+
 export type FairRandomState = {
   queueJson: string | null | undefined;
   lastPlayerId: number | null | undefined;

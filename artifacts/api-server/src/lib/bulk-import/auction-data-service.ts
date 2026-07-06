@@ -37,7 +37,14 @@ export async function parseExcelBuffer(buffer: Buffer): Promise<Record<string, u
   return extractLegacyAuctionRows(wb);
 }
 
-export async function buildValidationContext(tournamentId: number): Promise<ImportValidationContext> {
+export type AuctionImportValidationOptions = {
+  excludePlayerIds?: ReadonlySet<number>;
+};
+
+export async function buildValidationContext(
+  tournamentId: number,
+  options?: AuctionImportValidationOptions,
+): Promise<ImportValidationContext> {
   const [tournament, playerRows, categoryRows, teamRows, profileRows] = await Promise.all([
     db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId)).limit(1).then((r) => r[0]),
     db.select().from(playersTable).where(eq(playersTable.tournamentId, tournamentId)),
@@ -62,8 +69,10 @@ export async function buildValidationContext(tournamentId: number): Promise<Impo
     if (player) profileIdToPlayerId.set(profile.id, player.id);
   }
 
+  const excludePlayerIds = options?.excludePlayerIds;
   const usedAuctionOrders = new Map<number, number>();
   for (const p of playerRows) {
+    if (excludePlayerIds?.has(p.id)) continue;
     if (p.serialNo != null) usedAuctionOrders.set(p.serialNo, p.id);
   }
 
@@ -79,14 +88,16 @@ export async function buildValidationContext(tournamentId: number): Promise<Impo
     profileIdToPlayerId,
     usedAuctionOrders,
     duplicateRowKeys: new Set(),
+    excludePlayerIds,
   };
 }
 
 export async function validateAuctionImport(
   tournamentId: number,
   rows: Record<string, unknown>[],
+  options?: AuctionImportValidationOptions,
 ): Promise<ImportValidationResult> {
-  const ctx = await buildValidationContext(tournamentId);
+  const ctx = await buildValidationContext(tournamentId, options);
   return validateImportRows(rows, ctx);
 }
 

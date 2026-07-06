@@ -33,3 +33,16 @@ export async function reinstateTournamentPlayer(
   }
   return res.json();
 }
+
+export async function compactTournamentPlayerSerialNumbers(tournamentId: number) {
+  const res = await apiFetch(`/tournaments/${tournamentId}/players/compact-serial-numbers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to renumber auction order");
+  }
+  return res.json() as Promise<{ updated: number; message: string }>;
+}

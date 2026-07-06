@@ -279,14 +279,14 @@ describe("validateBidAmount — Phase 1 regression (pure logic)", () => {
 // ── Player selection — pure logic ──────────────────────────────────────────
 
 describe("player selection — Phase 1 regression", () => {
-  it("sequential mode always picks the lowest id", async () => {
-    const { pickRandomPlayerFromPool } = await import("@workspace/api-base/auction-player-selection");
-    // When pool > FAIR_RANDOM_POOL_THRESHOLD, true random. Not testing sequential here
-    // because sequential is implemented in the route (not in the shared lib).
-    const pool = [{ id: 3 }, { id: 1 }, { id: 5 }];
-    // Verify the pool reduce used in the route: pool.reduce((a, b) => a.id < b.id ? a : b).id
-    const minId = pool.reduce((a, b) => (a.id < b.id ? a : b)).id;
-    expect(minId).toBe(1);
+  it("sequential mode picks the lowest auction order (serialNo), not db id", async () => {
+    const { pickSequentialPlayerFromPool } = await import("@workspace/api-base/auction-player-selection");
+    const pool = [
+      { id: 73, serialNo: 2 },
+      { id: 1, serialNo: 1 },
+      { id: 50, serialNo: 3 },
+    ];
+    expect(pickSequentialPlayerFromPool(pool)).toBe(1);
   });
 
   it("random mode stays within pool members", async () => {

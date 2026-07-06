@@ -124,7 +124,15 @@ export type WorkbookValidationResult = {
 };
 
 export type PlayerIdentityMatch = {
-  strategy: "registration_code" | "registration_id" | "mobile" | "email" | "name_dob" | "create_new";
+  strategy:
+    | "player_id"
+    | "registration_code"
+    | "registration_id"
+    | "mobile"
+    | "email"
+    | "name_mobile"
+    | "name_dob"
+    | "create_new";
   playerId?: number;
   isNew: boolean;
 };
