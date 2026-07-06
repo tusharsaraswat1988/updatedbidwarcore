@@ -342,16 +342,16 @@ export default function TournamentSettings() {
         if (!r.ok) throw new Error("Upload failed");
         const data = await r.json() as { url?: string; publicId?: string };
         if (!data.url) throw new Error("Upload failed");
-        return { url: data.url, publicId: data.publicId, name: "", type: "" };
+        return { url: data.url, publicId: data.publicId };
       };
 
       if (idx === "new") {
         const results = await Promise.allSettled(files.map(uploadOne));
         const uploaded = results
-          .filter((r): r is PromiseFulfilledResult<{ url: string; publicId?: string; name: string; type: string }> => r.status === "fulfilled")
+          .filter((r): r is PromiseFulfilledResult<{ url: string; publicId?: string }> => r.status === "fulfilled")
           .map(r => r.value);
         if (uploaded.length > 0) {
-          setSponsorLogos(prev => [...prev, ...uploaded]);
+          setSponsorLogos(prev => [...prev, ...uploaded.map(u => ({ ...u, name: "", type: "" }))]);
         }
         if (uploaded.length < files.length) {
           alert(
@@ -362,7 +362,9 @@ export default function TournamentSettings() {
         }
       } else {
         const uploaded = await uploadOne(files[0]);
-        setSponsorLogos(prev => prev.map((l, i) => i === idx ? { ...l, ...uploaded } : l));
+        setSponsorLogos(prev =>
+          prev.map((l, i) => (i === idx ? { ...l, url: uploaded.url, publicId: uploaded.publicId } : l)),
+        );
       }
     } catch {
       alert("Sponsor logo upload failed. Please try again.");
