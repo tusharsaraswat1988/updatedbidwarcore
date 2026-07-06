@@ -4193,6 +4193,8 @@ components:
           type: ["string", "null"]
         categoryColor:
           type: ["string", "null"]
+        basePrice:
+          type: integer
         soldPrice:
           type: ["integer", "null"]
         retainedPrice:
@@ -4226,6 +4228,8 @@ components:
               type: integer
             maximumSquadSize:
               type: integer
+            auctionUnit:
+              type: string
         team:
           type: object
           required: [id, name, shortCode, ownerName, ownerMobile, purse, purseUsed]
@@ -4260,6 +4264,50 @@ components:
               type: integer
             remainingPurse:
               type: integer
+        auctionRules:
+          type: object
+          properties:
+            minBid:
+              type: ["integer", "null"]
+            auctionUnit:
+              type: string
+            playersChooseBaseValue:
+              type: boolean
+            categoryMinBids:
+              type: array
+              items:
+                type: object
+                required: [name, minBid]
+                properties:
+                  name:
+                    type: string
+                  minBid:
+                    type: integer
+            bidIncrementLines:
+              type: array
+              items:
+                type: string
+            minimumSquadSize:
+              type: ["integer", "null"]
+            maximumSquadSize:
+              type: ["integer", "null"]
+        sponsors:
+          type: array
+          items:
+            type: object
+            required: [name]
+            properties:
+              name:
+                type: string
+              type:
+                type: ["string", "null"]
+        platform:
+          type: object
+          properties:
+            brandName:
+              type: string
+            websiteUrl:
+              type: string
         retainedPlayers:
           type: array
           items:
