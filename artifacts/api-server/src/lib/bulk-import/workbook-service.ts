@@ -21,6 +21,8 @@ import {
   bmwPlayerRowToLegacyAuctionRow,
   buildFieldLabelMap,
   resolvePlayerIdentity,
+  findPlayersMissingFromWorkbook,
+  computeHealthScore,
   getWorkbookSport,
   type ParsedWorkbook,
   type WorkbookImportMode,
@@ -63,6 +65,10 @@ import {
 import { parseWorkbookFromZip, applyLocalMediaToPlayers, cleanupZipExtract } from "./zip-import-service";
 import { importAssetsFromWorkbook, applyAssetResultsToWorkbook } from "./asset-import-service";
 import { writeEntityAuditLogs } from "./entity-audit-service";
+import {
+  deletePlayerRegistrationData,
+  validatePlayerDeletable,
+} from "../player-delete-guard";
 export { buildWorkbookExportFilename } from "./workbook-export-filename";
 
 export async function loadTournamentExportContext(tournamentId: number) {
@@ -164,6 +170,121 @@ export async function buildWorkbookValidationContext(
   };
 }
 
+async function validateReplaceDataPlayerDeletions(
+  tournamentId: number,
+  workbook: ParsedWorkbook,
+  result: WorkbookValidationResult,
+  ctx: Awaited<ReturnType<typeof buildWorkbookValidationContext>>,
+): Promise<WorkbookValidationResult> {
+  if (result.mode !== "replace_data") return result;
+
+  const playerRows = workbook.sheets["03_Players"] ?? [];
+  if (playerRows.length === 0) return result;
+
+  const missingPlayers = findPlayersMissingFromWorkbook(
+    playerRows,
+    ctx.existingPlayers,
+    ctx.auctionCode,
+  );
+
+  for (const summary of missingPlayers) {
+    const [player] = await db
+      .select({
+        id: playersTable.id,
+        status: playersTable.status,
+        teamId: playersTable.teamId,
+        name: playersTable.name,
+      })
+      .from(playersTable)
+      .where(and(eq(playersTable.id, summary.id), eq(playersTable.tournamentId, tournamentId)))
+      .limit(1);
+
+    if (!player) continue;
+
+    const guard = await validatePlayerDeletable(tournamentId, player);
+    if (!guard.ok) {
+      result.issues.push({
+        sheet: "03_Players",
+        row: 0,
+        identity: player.name,
+        severity: "error",
+        message: `${guard.error} (${player.name})`,
+        code: guard.code,
+      });
+      result.summary.errors++;
+    }
+  }
+
+  return result;
+}
+
+async function deletePlayersMissingFromWorkbook(
+  tournamentId: number,
+  workbook: ParsedWorkbook,
+  ctx: Awaited<ReturnType<typeof buildWorkbookValidationContext>>,
+  meta: {
+    performedBy: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    jobId?: number;
+  },
+): Promise<number> {
+  const playerRows = workbook.sheets["03_Players"] ?? [];
+  if (playerRows.length === 0) return 0;
+
+  const missingPlayers = findPlayersMissingFromWorkbook(
+    playerRows,
+    ctx.existingPlayers,
+    ctx.auctionCode,
+  );
+  if (missingPlayers.length === 0) return 0;
+
+  let deleted = 0;
+  const auditEntries: Parameters<typeof writeEntityAuditLogs>[0] = [];
+
+  for (const summary of missingPlayers) {
+    const [player] = await db
+      .select({
+        id: playersTable.id,
+        status: playersTable.status,
+        teamId: playersTable.teamId,
+        name: playersTable.name,
+      })
+      .from(playersTable)
+      .where(and(eq(playersTable.id, summary.id), eq(playersTable.tournamentId, tournamentId)))
+      .limit(1);
+
+    if (!player) continue;
+
+    const guard = await validatePlayerDeletable(tournamentId, player);
+    if (!guard.ok) {
+      throw new Error(`${guard.error} (${player.name})`);
+    }
+
+    await deletePlayerRegistrationData(tournamentId, player.id, player.teamId);
+    auditEntries.push({
+      entityType: "player",
+      entityId: String(player.id),
+      fieldName: "player",
+      oldValue: player.name,
+      newValue: null,
+      action: "bmw_import_delete",
+      performedBy: meta.performedBy,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      jobId: meta.jobId,
+      tournamentId,
+    });
+    deleted++;
+  }
+
+  if (auditEntries.length > 0) {
+    await writeEntityAuditLogs(auditEntries);
+  }
+
+  return deleted;
+}
+
 export async function validateTournamentWorkbook(
   tournamentId: number,
   workbook: ParsedWorkbook,
@@ -221,6 +342,13 @@ export async function validateTournamentWorkbook(
   }
 
   result.valid = result.issues.filter((x) => x.severity === "error").length === 0 && result.summary.rowsTotal > 0;
+  await validateReplaceDataPlayerDeletions(tournamentId, workbook, result, ctx);
+  result.valid = result.issues.filter((x) => x.severity === "error").length === 0 && result.summary.rowsTotal > 0;
+  result.health = computeHealthScore(
+    result.issues,
+    result.summary,
+    result.aiSuggestions?.map((s) => s.reason) ?? [],
+  );
   return { ...result, photoValidation, photoQualityResults };
 }
 
@@ -398,6 +526,7 @@ export async function commitTournamentWorkbook(
     }
 
     let playerUpdated = 0;
+    let playersDeleted = 0;
     let jobId = meta.existingJobId ?? 0;
 
     if (legacyRows.length > 0) {
@@ -432,6 +561,15 @@ export async function commitTournamentWorkbook(
         processingTimeMs: Date.now() - start,
       }).returning();
       jobId = job!.id;
+    }
+
+    if (meta.importMode === "replace_data") {
+      playersDeleted = await deletePlayersMissingFromWorkbook(tournamentId, workbook, valCtx, {
+        performedBy: meta.performedBy,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        jobId: jobId || undefined,
+      });
     }
 
     let photoQueued = 0;
@@ -505,7 +643,7 @@ export async function commitTournamentWorkbook(
         moduleType: "bidwar_master_workbook",
         importMode: meta.importMode,
         workbookVersionId: version?.id,
-        updatedRows: playerUpdated + entitiesCreated,
+        updatedRows: playerUpdated + entitiesCreated + playersDeleted,
         processingTimeMs: Date.now() - start,
       }).where(eq(bulkImportJobsTable.id, jobId));
     }
@@ -532,10 +670,11 @@ export async function commitTournamentWorkbook(
 
     return {
       jobId,
-      updatedRows: playerUpdated + entitiesCreated,
+      updatedRows: playerUpdated + entitiesCreated + playersDeleted,
       versionId: version?.id,
       photoQueued,
       photoImportMode,
+      playersDeleted,
     };
   } finally {
     if (extractDir) await cleanupZipExtract(extractDir);

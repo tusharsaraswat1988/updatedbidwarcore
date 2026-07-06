@@ -36,6 +36,39 @@ type ImportMode =
   | "clone_tournament"
   | "dry_run";
 
+const IMPORT_MODE_HELP: Record<
+  ImportMode,
+  { label: string; description: string; warning?: string }
+> = {
+  merge_data: {
+    label: "Merge Data",
+    description:
+      "Adds new rows and updates fields for players already in the workbook. Players, categories, and teams that exist in the tournament but are missing from the workbook are left unchanged — they are not removed.",
+  },
+  update_tournament: {
+    label: "Update Tournament",
+    description:
+      "Same as Merge Data today: updates tournament settings and any rows present in the workbook. Does not delete players or other records missing from the file.",
+  },
+  replace_data: {
+    label: "Replace Existing",
+    description:
+      "Syncs the tournament roster to match the workbook exactly. Players listed in the file are added or updated; any player in the tournament who is not in the workbook will be permanently deleted.",
+    warning:
+      "Destructive: players missing from 03_Players will be removed. Sold, retained, or bid-history players block import until cleared. Preview shows how many will be deleted before you confirm.",
+  },
+  clone_tournament: {
+    label: "Clone Tournament",
+    description:
+      "Reserved for copying this workbook into a new tournament. Not active on import confirm — use tournament clone or create a new tournament instead.",
+  },
+  dry_run: {
+    label: "Dry Run (validate only)",
+    description:
+      "Checks the workbook for errors and shows a preview. Nothing is written to the tournament.",
+  },
+};
+
 type WorkbookIssue = {
   sheet: string;
   row: number;
@@ -50,6 +83,7 @@ type WorkbookSummary = {
   creates: number;
   updates: number;
   skips: number;
+  deletes?: number;
   errors: number;
   warnings: number;
   suggestions?: number;
@@ -615,18 +649,28 @@ export default function TournamentMasterWorkbookPage() {
               <Upload className="h-8 w-8 text-primary mb-3" />
               <h3 className="font-semibold text-white">Import Workbook</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
+                <div className="sm:col-span-2">
                   <Label className="text-xs">Import Mode</Label>
                   <Select value={importMode} onValueChange={(v) => setImportMode(v as ImportMode)}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="merge_data">Merge Data</SelectItem>
-                      <SelectItem value="update_tournament">Update Tournament</SelectItem>
-                      <SelectItem value="replace_data">Replace Existing</SelectItem>
-                      <SelectItem value="clone_tournament">Clone Tournament</SelectItem>
-                      <SelectItem value="dry_run">Dry Run (validate only)</SelectItem>
+                      {(Object.keys(IMPORT_MODE_HELP) as ImportMode[]).map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {IMPORT_MODE_HELP[mode].label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <div className="mt-2 rounded-md border border-border bg-background/40 px-3 py-2">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {IMPORT_MODE_HELP[importMode].description}
+                    </p>
+                    {IMPORT_MODE_HELP[importMode].warning && (
+                      <p className="mt-1.5 text-xs text-amber-300 leading-relaxed">
+                        {IMPORT_MODE_HELP[importMode].warning}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Google Sheet URL (optional)</Label>
@@ -772,11 +816,32 @@ export default function TournamentMasterWorkbookPage() {
             </div>
           )}
 
+          {importMode === "replace_data" && (preview.summary.deletes ?? 0) > 0 && (
+            <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3">
+              <div className="flex items-start gap-2 text-sm text-red-300">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-red-200">
+                    {preview.summary.deletes} player{(preview.summary.deletes ?? 0) === 1 ? "" : "s"} will be deleted
+                  </p>
+                  <p className="mt-1 text-xs text-red-300/90 leading-relaxed">
+                    Replace Existing removes every player not listed in 03_Players. This cannot be undone from the workbook — use Admin → Players or re-import if needed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-            {[["Total Rows", preview.summary.rowsTotal], ["Creates", preview.summary.creates], ["Updates", preview.summary.updates], ["Skips", preview.summary.skips], ["Errors", preview.summary.errors], ["Warnings", preview.summary.warnings]].map(([label, value]) => (
+            {[["Total Rows", preview.summary.rowsTotal], ["Creates", preview.summary.creates], ["Updates", preview.summary.updates], ["Deletes", preview.summary.deletes ?? 0], ["Skips", preview.summary.skips], ["Errors", preview.summary.errors], ["Warnings", preview.summary.warnings]].map(([label, value]) => (
               <div key={String(label)} className="rounded-lg border border-border bg-background/50 p-3">
                 <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-                <div className="text-xl font-bold text-white">{value}</div>
+                <div className={cn(
+                  "text-xl font-bold",
+                  label === "Deletes" && Number(value) > 0 ? "text-red-400" : "text-white",
+                )}>
+                  {value}
+                </div>
               </div>
             ))}
           </div>
@@ -796,9 +861,19 @@ export default function TournamentMasterWorkbookPage() {
                   <div key={i} className="border-b border-border px-3 py-2 text-xs last:border-b-0">
                     <span className="text-white">{diff.sheet} · Row {diff.row} · {diff.field}</span>
                     <div className="text-muted-foreground">
-                      <span className="line-through">{diff.oldValue ?? "(empty)"}</span>
-                      {" → "}
-                      <span className="text-green-400">{diff.newValue ?? "(empty)"}</span>
+                      {diff.changeType === "delete" ? (
+                        <>
+                          <span className="text-red-400 line-through">{diff.oldValue ?? "(empty)"}</span>
+                          {" → "}
+                          <span className="text-red-300">removed</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="line-through">{diff.oldValue ?? "(empty)"}</span>
+                          {" → "}
+                          <span className="text-green-400">{diff.newValue ?? "(empty)"}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -837,7 +912,9 @@ export default function TournamentMasterWorkbookPage() {
                 ) : (
                   <>
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
-                    Confirm Import
+                    {importMode === "replace_data" && (preview.summary.deletes ?? 0) > 0
+                      ? `Confirm Import (${preview.summary.deletes} delete${(preview.summary.deletes ?? 0) === 1 ? "" : "s"})`
+                      : "Confirm Import"}
                   </>
                 )}
               </Button>

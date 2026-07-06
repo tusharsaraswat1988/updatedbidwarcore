@@ -13,6 +13,7 @@ import {
   resolvePlayerIdentity,
   detectDuplicateIdentities,
   detectDuplicateMobiles,
+  findPlayersMissingFromWorkbook,
   type ExistingPlayerRecord,
 } from "./identity-resolver";
 import {
@@ -424,16 +425,66 @@ export function validateWorkbook(
   }
 
   const errors = issues.filter((x) => x.severity === "error").length;
-  const warnings = issues.filter((x) => x.severity === "warning").length;
+  let warnings = issues.filter((x) => x.severity === "warning").length;
   const suggestions = issues.filter((x) => x.severity === "suggestion").length;
   const rowsTotal = Object.values(workbook.sheets).reduce((sum, r) => sum + r.length, 0);
+
+  let deletes = 0;
+  const playerRemovalDiffs: import("./field-diff.ts").FieldDiff[] = [];
+
+  if (ctx.mode === "replace_data" && playerRows.length > 0) {
+    const missingPlayers = findPlayersMissingFromWorkbook(playerRows, ctx.existingPlayers, ctx.auctionCode);
+    deletes = missingPlayers.length;
+
+    for (const player of missingPlayers) {
+      const identity =
+        player.registrationCode
+        ?? buildRegistrationCode(player.mobileNumber, player.name, ctx.auctionCode);
+      playerRemovalDiffs.push({
+        sheet: "03_Players",
+        row: 0,
+        field: "Player",
+        identity,
+        entityType: "player",
+        entityId: String(player.id),
+        oldValue: player.name,
+        newValue: null,
+        changeType: "delete",
+      });
+    }
+
+    if (missingPlayers.length > 0) {
+      if (missingPlayers.length <= 20) {
+        for (const player of missingPlayers) {
+          issues.push({
+            sheet: "03_Players",
+            row: 0,
+            identity: player.name,
+            severity: "warning",
+            message: `Player "${player.name}" will be removed from the tournament (not listed in workbook).`,
+            code: "PLAYER_WILL_BE_DELETED",
+          });
+          warnings++;
+        }
+      } else {
+        issues.push({
+          sheet: "03_Players",
+          row: 0,
+          severity: "warning",
+          message: `${missingPlayers.length} players will be removed from the tournament (not listed in workbook).`,
+          code: "PLAYERS_WILL_BE_DELETED",
+        });
+        warnings++;
+      }
+    }
+  }
 
   const summary = {
     rowsTotal,
     creates,
     updates,
     skips,
-    deletes: 0,
+    deletes,
     errors,
     warnings,
     suggestions,
@@ -442,7 +493,7 @@ export function validateWorkbook(
   };
 
   const health = computeHealthScore(issues, summary, aiSuggestions.map((s) => s.reason));
-  const diffs = buildPlayerDiffs(workbook, ctx);
+  const diffs = [...buildPlayerDiffs(workbook, ctx), ...playerRemovalDiffs];
 
   return {
     valid: errors === 0 && rowsTotal > 0,

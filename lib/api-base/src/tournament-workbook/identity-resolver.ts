@@ -66,6 +66,24 @@ export function resolvePlayerIdentity(
   return { strategy: "create_new", isNew: true };
 }
 
+/** Players in the tournament that are not matched by any row in 03_Players. */
+export function findPlayersMissingFromWorkbook(
+  playerRows: Record<string, unknown>[],
+  existing: ExistingPlayerRecord[],
+  auctionCode?: string | null,
+): ExistingPlayerRecord[] {
+  const retainedIds = new Set<number>();
+
+  for (const row of playerRows) {
+    const identity = resolvePlayerIdentity(row, existing, auctionCode);
+    if (identity.playerId != null) {
+      retainedIds.add(identity.playerId);
+    }
+  }
+
+  return existing.filter((player) => !retainedIds.has(player.id));
+}
+
 export function detectDuplicateIdentities(
   rows: Record<string, unknown>[],
   auctionCode?: string | null,
