@@ -16,7 +16,22 @@ import {
 } from "./photo-source-adapter";
 import type { CachedPhotoAsset } from "./photo-source-cache";
 
-const PHOTO_IMPORT_CONCURRENCY = 5;
+const DEFAULT_PHOTO_IMPORT_CONCURRENCY = 1;
+
+/** Configurable via PHOTO_IMPORT_CONCURRENCY (minimum 1). Default: 1 for low-memory production hosts. */
+export function resolvePhotoImportConcurrency(
+  rawValue: string | undefined = process.env.PHOTO_IMPORT_CONCURRENCY,
+): number {
+  const raw = rawValue?.trim();
+  if (!raw) return DEFAULT_PHOTO_IMPORT_CONCURRENCY;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return DEFAULT_PHOTO_IMPORT_CONCURRENCY;
+  }
+  return parsed;
+}
+
+export const PHOTO_IMPORT_CONCURRENCY = resolvePhotoImportConcurrency();
 const PHOTO_VALIDATION_CONCURRENCY = 10;
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const PHOTO_VALIDATION_TIMEOUT_MS = 15_000;
@@ -675,4 +690,4 @@ export async function importPhotosFromRows(
   return new Map(imported);
 }
 
-export { mapWithConcurrency, PHOTO_IMPORT_CONCURRENCY };
+export { mapWithConcurrency };
