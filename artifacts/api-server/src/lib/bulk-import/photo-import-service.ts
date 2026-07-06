@@ -4,9 +4,9 @@
  */
 
 import { createHash } from "node:crypto";
-import sharp from "sharp";
 import { parseCloudinaryPublicIdFromUrl } from "@workspace/api-base/cloudinary-media";
 import { uploadBufferToCloudinary } from "../cloudinary-media-service";
+import { sharpMetadata, sharpToBuffer } from "../sharp-pipeline.js";
 import {
   extractDriveFileId,
   extractOriginalFileName,
@@ -206,7 +206,7 @@ export function validateImageQuality(
 
 export async function extractPhotoMetadata(buffer: Buffer): Promise<PhotoImageMetadata | { corrupted: true }> {
   try {
-    const meta = await sharp(buffer, { failOn: "none" }).metadata();
+    const meta = await sharpMetadata(buffer);
     if (!meta.width && !meta.height) {
       return { corrupted: true };
     }
@@ -433,14 +433,15 @@ export async function validatePhotoLinks(urls: string[]): Promise<{
 }
 
 export async function normalizePlayerPhotoBuffer(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer, { failOn: "none" })
-    .rotate()
-    .resize(PLAYER_PHOTO_WIDTH, PLAYER_PHOTO_HEIGHT, {
-      fit: "cover",
-      position: "attention",
-    })
-    .webp({ quality: 88, effort: 4 })
-    .toBuffer();
+  return sharpToBuffer(buffer, (pipeline) =>
+    pipeline
+      .rotate()
+      .resize(PLAYER_PHOTO_WIDTH, PLAYER_PHOTO_HEIGHT, {
+        fit: "cover",
+        position: "attention",
+      })
+      .webp({ quality: 88, effort: 4 }),
+  );
 }
 
 export type PhotoImportResult = {

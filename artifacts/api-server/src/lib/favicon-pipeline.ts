@@ -1,8 +1,8 @@
-import sharp from "sharp";
 import type { FaviconPipelineMetadata } from "@workspace/api-base/branding-assets";
 import { FAVICON_GENERATED_SIZE_KEYS } from "@workspace/api-base/branding-assets";
 import { fetchImageBuffer } from "./pdf-branding.js";
 import { uploadBufferToCloudinary, destroyCloudinaryAssetSafe } from "./cloudinary-media-service.js";
+import { sharpToBuffer } from "./sharp-pipeline.js";
 import { logger } from "./logger.js";
 
 const GENERATED_FOLDER = "bidwar/branding/favicon/generated";
@@ -51,13 +51,12 @@ async function cleanupPreviousGenerated(
 }
 
 async function resizePng(sourceBuffer: Buffer, size: number): Promise<Buffer> {
-  return sharp(sourceBuffer, { failOn: "none" })
-    .resize(size, size, {
+  return sharpToBuffer(sourceBuffer, (pipeline) =>
+    pipeline.resize(size, size, {
       fit: "contain",
       background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
+    }).png(),
+  );
 }
 
 export async function runFaviconPipeline(input: {

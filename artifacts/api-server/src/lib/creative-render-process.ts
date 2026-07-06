@@ -5,7 +5,7 @@
 import { renderCreativeJobHtml } from "@workspace/buzz-studio-render";
 import type { CreativeJobRow } from "@workspace/db";
 import { updateCreativeJobStatus, updateCreativeJobStatusById } from "./creative-jobs-service.js";
-import { screenshotHtmlToPng } from "./creative-render-screenshot.js";
+import { screenshotHtmlToPng, closeRenderBrowser } from "./creative-render-screenshot.js";
 import { storeCreativePng } from "./creative-render-storage.js";
 import { logger } from "./logger.js";
 import { resolveBuzzStudioBackground } from "./buzz-studio-assets.js";
@@ -61,5 +61,7 @@ export async function processCreativeJobRow(row: CreativeJobRow): Promise<void> 
       });
     }
     logger.error({ err, jobId, tournamentId, templateId }, "Creative job render failed");
+  } finally {
+    await closeRenderBrowser();
   }
 }

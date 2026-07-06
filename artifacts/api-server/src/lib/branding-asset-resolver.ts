@@ -23,7 +23,6 @@ import {
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
 import { getAsset } from "./branding-service.js";
 import { coerceFaviconPipelineMetadata } from "./favicon-pipeline.js";
-import { fetchImageBuffer } from "./pdf-branding.js";
 import { patchBrandingIconsInCachedHtml } from "./html-meta-injector.js";
 import { logger } from "./logger.js";
 
@@ -50,14 +49,13 @@ export interface ResolvedBrandingIcon {
   version: number;
 }
 
-interface IconCacheEntry {
+interface StaticAssetPayload {
   buffer: Buffer;
   etag: string;
   mimeType: string;
 }
 
 let faviconVersion = 0;
-const bufferCache = new Map<string, IconCacheEntry>();
 
 function guessMimeType(url: string, stored: string | null | undefined): string {
   if (stored) return stored;
@@ -118,7 +116,7 @@ function loadStaticAssetFallback(
   cacheKey: string,
   relativePath: string | undefined,
   mimeType?: string,
-): IconCacheEntry | null {
+): StaticAssetPayload | null {
   const publicRoot = resolveStaticPublicRoot();
   if (!publicRoot || !relativePath) return null;
 
@@ -128,25 +126,26 @@ function loadStaticAssetFallback(
 
   try {
     const buffer = readFileSync(absolute);
-    const key = `static:${cacheKey}`;
-    const entry: IconCacheEntry = {
+    return {
       buffer,
-      etag: `"${key}"`,
+      etag: `"static:${cacheKey}"`,
       mimeType: mimeType ?? guessStaticMimeType(relative),
     };
-    bufferCache.set(key, entry);
-    return entry;
   } catch {
     return null;
   }
 }
 
-function loadStaticLogoFallback(logoPath: BrandingLogoPath): IconCacheEntry | null {
+function loadStaticLogoFallback(logoPath: BrandingLogoPath): StaticAssetPayload | null {
   return loadStaticAssetFallback(logoPath, BRANDING_LOGO_STATIC_FALLBACKS[logoPath]);
 }
 
-function loadStaticIconFallback(iconPath: BrandingIconPath): IconCacheEntry | null {
+function loadStaticIconFallback(iconPath: BrandingIconPath): StaticAssetPayload | null {
   return loadStaticAssetFallback(iconPath, BRANDING_ICON_STATIC_FALLBACKS[iconPath]);
+}
+
+function brandingEtag(resolved: ResolvedBrandingIcon): string {
+  return `"${resolved.assetType}:v${resolved.version}"`;
 }
 
 async function resolveFaviconGeneratedUrl(
@@ -235,27 +234,9 @@ export function getCachedFaviconVersion(): number {
 export { buildBrandingIconHeadLinks };
 
 export async function refreshBrandingIconCache(): Promise<void> {
-  bufferCache.clear();
   faviconVersion = await getBrandingIconCacheVersion();
   patchBrandingIconsInCachedHtml(faviconVersion);
   logger.info({ faviconVersion }, "Branding: icon resolver cache refreshed");
-}
-
-async function loadIconBuffer(resolved: ResolvedBrandingIcon): Promise<IconCacheEntry | null> {
-  const key = `${resolved.assetType}:v${resolved.version}`;
-  const cached = bufferCache.get(key);
-  if (cached) return cached;
-
-  const buffer = await fetchImageBuffer(resolved.fileUrl);
-  if (!buffer) return null;
-
-  const entry: IconCacheEntry = {
-    buffer,
-    etag: `"${key}"`,
-    mimeType: resolved.mimeType,
-  };
-  bufferCache.set(key, entry);
-  return entry;
 }
 
 async function serveBrandingAsset(
@@ -264,7 +245,20 @@ async function serveBrandingAsset(
   assetPath: BrandingIconPath | BrandingLogoPath,
 ): Promise<void> {
   const resolved = await resolveBrandingIconForPath(assetPath);
-  let entry = resolved ? await loadIconBuffer(resolved) : null;
+
+  if (resolved?.fileUrl.startsWith("https://")) {
+    const etag = brandingEtag(resolved);
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.setHeader("ETag", etag);
+    if (req.headers["if-none-match"] === etag) {
+      res.status(304).end();
+      return;
+    }
+    res.redirect(302, resolved.fileUrl);
+    return;
+  }
+
+  let entry: StaticAssetPayload | null = null;
   let contentType = resolved?.mimeType ?? "image/png";
 
   if (resolved && assetPath in BRANDING_ICON_PATHS) {

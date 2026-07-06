@@ -21,12 +21,16 @@ function isProductionEnv(): boolean {
 }
 
 function buildPayload(usage: NodeJS.MemoryUsage) {
+  const rssMb = toMb(usage.rss);
+  const heapUsedMb = toMb(usage.heapUsed);
   return {
-    rssMb: toMb(usage.rss),
-    heapUsedMb: toMb(usage.heapUsed),
+    rssMb,
+    heapUsedMb,
     heapTotalMb: toMb(usage.heapTotal),
     externalMb: toMb(usage.external),
     arrayBuffersMb: toMb(usage.arrayBuffers),
+    /** RSS minus heapUsed — native allocations (libvips, Buffers, Chromium, pg, etc.) */
+    estimatedNativeMb: Math.max(0, Math.round((rssMb - heapUsedMb) * 10) / 10),
     sseConnections: {
       auction: getTotalSseClientCount(),
       scoring: getScoringTotalSseClientCount(),

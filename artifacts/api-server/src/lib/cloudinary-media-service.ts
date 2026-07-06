@@ -6,6 +6,8 @@ import {
   type CloudinaryUploadResult,
   type StoredCloudinaryImage,
 } from "@workspace/api-base/cloudinary-media";
+import { createReadStream } from "node:fs";
+import type { Readable } from "node:stream";
 
 type CloudinaryLogger = {
   error?: (obj: unknown, msg?: string) => void;
@@ -42,6 +44,29 @@ export async function getCloudinary() {
   return cloudinaryModule.v2;
 }
 
+function uploadStreamToCloudinary(
+  source: Readable,
+  options: Record<string, unknown>,
+): Promise<CloudinaryUploadResult> {
+  return getCloudinary().then((cloudinary) => {
+    if (!cloudinary) throw new Error("Cloudinary is not configured");
+
+    return new Promise<CloudinaryUploadResult>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        options,
+        (error, result) => {
+          if (error || !result?.secure_url || !result.public_id) {
+            reject(error ?? new Error("Cloudinary upload failed"));
+            return;
+          }
+          resolve({ url: result.secure_url, publicId: result.public_id });
+        },
+      );
+      source.pipe(stream);
+    });
+  });
+}
+
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
   options: Record<string, unknown>,
@@ -62,6 +87,13 @@ export async function uploadBufferToCloudinary(
     );
     stream.end(buffer);
   });
+}
+
+export async function uploadPathToCloudinary(
+  filePath: string,
+  options: Record<string, unknown>,
+): Promise<CloudinaryUploadResult> {
+  return uploadStreamToCloudinary(createReadStream(filePath), options);
 }
 
 export async function destroyCloudinaryAssetSafe(

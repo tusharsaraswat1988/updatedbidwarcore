@@ -1,5 +1,4 @@
 import { Router, type Request, type Response } from "express";
-import multer from "multer";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { bulkImportJobsTable, tournamentsTable } from "@workspace/db";
@@ -17,11 +16,11 @@ import {
   rollbackBulkImportJob,
   getImportJobDetail,
 } from "../lib/bulk-import/rollback-service";
+import { createDiskMulter, readUploadedFile, removeUploadedFile } from "../lib/multer-disk-storage";
 
 const router = Router({ mergeParams: true });
 
-const excelUpload = multer({
-  storage: multer.memoryStorage(),
+const excelUpload = createDiskMulter({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ok =
@@ -107,7 +106,8 @@ router.post(
     }
 
     try {
-      const rows = await parseExcelBuffer(req.file.buffer);
+      const fileBuffer = await readUploadedFile(req.file);
+      const rows = await parseExcelBuffer(fileBuffer);
       const preview = await validateAuctionImport(tournamentId, rows);
 
       const [job] = await db
@@ -134,6 +134,8 @@ router.post(
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : "Preview failed" });
+    } finally {
+      await removeUploadedFile(req.file);
     }
   },
 );

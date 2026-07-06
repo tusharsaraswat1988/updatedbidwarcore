@@ -4,7 +4,6 @@
  */
 
 import { Router, type Request, type Response } from "express";
-import multer from "multer";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { bulkImportJobsTable, tournamentsTable, workbookVersionsTable } from "@workspace/db";
@@ -48,11 +47,11 @@ import {
   deleteMappingProfile,
   recordMappingProfileUse,
 } from "../lib/bulk-import/mapping-profile-service";
+import { createDiskMulter, readUploadedFile, removeUploadedFile } from "../lib/multer-disk-storage";
 
 const router = Router({ mergeParams: true });
 
-const fileUpload = multer({
-  storage: multer.memoryStorage(),
+const fileUpload = createDiskMulter({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ok =
@@ -64,6 +63,14 @@ const fileUpload = multer({
     cb(null, ok);
   },
 });
+
+async function parseUploadedWorkbook(file: Express.Multer.File) {
+  const buffer = await readUploadedFile(file);
+  if (file.originalname.endsWith(".zip") || file.mimetype.includes("zip")) {
+    return parseWorkbookFromZipBuffer(buffer);
+  }
+  return parseWorkbookBuffer(buffer);
+}
 
 function clientMeta(req: Request) {
   const forwarded = req.headers["x-forwarded-for"];
@@ -156,12 +163,10 @@ router.post("/import/preview", requireMasterAdmin, fileUpload.single("file"), as
       fileName = googleSheetUrl;
     } else if (req.file) {
       if (req.file.originalname.endsWith(".zip") || req.file.mimetype.includes("zip")) {
-        workbook = await parseWorkbookFromZipBuffer(req.file.buffer);
         sourceType = "zip_package";
         fileName = req.file.originalname;
-      } else {
-        workbook = await parseWorkbookBuffer(req.file.buffer);
       }
+      workbook = await parseUploadedWorkbook(req.file);
     } else {
       res.status(400).json({ error: "Excel file, ZIP package, or googleSheetUrl required" });
       return;
@@ -201,6 +206,8 @@ router.post("/import/preview", requireMasterAdmin, fileUpload.single("file"), as
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Preview failed" });
+  } finally {
+    await removeUploadedFile(req.file);
   }
 });
 
@@ -279,13 +286,13 @@ router.post("/validate", requireMasterAdmin, fileUpload.single("file"), async (r
     return;
   }
   try {
-    const workbook = req.file.originalname.endsWith(".zip")
-      ? await parseWorkbookFromZipBuffer(req.file.buffer)
-      : await parseWorkbookBuffer(req.file.buffer);
+    const workbook = await parseUploadedWorkbook(req.file);
     const validation = await validateTournamentWorkbook(tid, workbook, mode);
     res.json(validation);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Validation failed" });
+  } finally {
+    await removeUploadedFile(req.file);
   }
 });
 
@@ -297,13 +304,13 @@ router.post("/health", requireMasterAdmin, fileUpload.single("file"), async (req
     return;
   }
   try {
-    const workbook = req.file.originalname.endsWith(".zip")
-      ? await parseWorkbookFromZipBuffer(req.file.buffer)
-      : await parseWorkbookBuffer(req.file.buffer);
+    const workbook = await parseUploadedWorkbook(req.file);
     const health = await getWorkbookHealth(tid, workbook, "dry_run");
     res.json(health);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Health check failed" });
+  } finally {
+    await removeUploadedFile(req.file);
   }
 });
 

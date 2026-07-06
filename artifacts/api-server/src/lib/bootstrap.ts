@@ -3,7 +3,10 @@
  * module that opens database connections or reads secrets is imported.
  */
 import { loadAppEnv } from "@workspace/db/load-app-env";
+import { configureSharpMemory } from "./sharp-pipeline.js";
 import { assertRuntimeEnv } from "./runtime-env";
+
+configureSharpMemory();
 
 const env = loadAppEnv();
 if (!env.loaded && process.env.NODE_ENV === "production") {

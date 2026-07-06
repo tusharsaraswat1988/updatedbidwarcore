@@ -5,6 +5,7 @@ import { BASE_URL, DEFAULT_OG_IMAGE_URL, type RegistrationMetaFields } from "../
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "./constants.js";
 import { buildRegistrationCardOverlaySvg } from "./svg-overlay.js";
 import { escapeSvgText } from "./text-layout.js";
+import { sharpToBuffer } from "../sharp-pipeline.js";
 import type { RegistrationOgCardInput } from "./types.js";
 
 function absolutizeImageUrl(url: string): string {
@@ -70,15 +71,16 @@ function buildGeneratedSportsBackground(input: RegistrationOgCardInput): Buffer 
 }
 
 async function buildBannerBackground(source: Buffer, input: RegistrationOgCardInput): Promise<Buffer> {
-  const base = await sharp(source)
-    .resize(OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT, {
-      fit: "cover",
-      position: "attention",
-      withoutEnlargement: false,
-    })
-    .modulate({ brightness: 0.62, saturation: 0.86 })
-    .png()
-    .toBuffer();
+  const base = await sharpToBuffer(source, (pipeline) =>
+    pipeline
+      .resize(OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT, {
+        fit: "cover",
+        position: "attention",
+        withoutEnlargement: false,
+      })
+      .modulate({ brightness: 0.62, saturation: 0.86 })
+      .png(),
+  );
 
   const primary = sanitizeHexColor(input.brand.primaryColor, "#F59E0B");
   const background = sanitizeHexColor(input.brand.backgroundColor, "#080A0F");
@@ -99,10 +101,9 @@ async function buildBannerBackground(source: Buffer, input: RegistrationOgCardIn
   <rect width="1200" height="630" fill="url(#accentGlow)"/>
 </svg>`;
 
-  return sharp(base)
-    .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
-    .png()
-    .toBuffer();
+  return sharpToBuffer(base, (pipeline) =>
+    pipeline.composite([{ input: Buffer.from(overlay), top: 0, left: 0 }]).png(),
+  );
 }
 
 async function buildBackground(input: RegistrationOgCardInput): Promise<Buffer> {
@@ -111,7 +112,7 @@ async function buildBackground(input: RegistrationOgCardInput): Promise<Buffer> 
     if (remote) return buildBannerBackground(remote, input);
   }
 
-  return sharp(buildGeneratedSportsBackground(input)).png().toBuffer();
+  return sharpToBuffer(buildGeneratedSportsBackground(input), (pipeline) => pipeline.png());
 }
 
 async function buildBrandLogoOverlay(
@@ -122,13 +123,14 @@ async function buildBrandLogoOverlay(
   const source = await fetchImageBuffer(trimmed);
   if (!source) return null;
 
-  const buffer = await sharp(source)
-    .resize(196, 64, {
-      fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
+  const buffer = await sharpToBuffer(source, (pipeline) =>
+    pipeline
+      .resize(196, 64, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png(),
+  );
 
   return {
     buffer,
@@ -152,8 +154,9 @@ export async function composeRegistrationOgCard(input: RegistrationOgCardInput):
     composites.push({ input: brandLogo.buffer, top: brandLogo.top, left: brandLogo.left });
   }
 
-  return sharp(background)
-    .composite(composites)
-    .png({ compressionLevel: 9, quality: 92 })
-    .toBuffer();
+  return sharpToBuffer(background, (pipeline) =>
+    pipeline
+      .composite(composites)
+      .png({ compressionLevel: 9, quality: 92 }),
+  );
 }

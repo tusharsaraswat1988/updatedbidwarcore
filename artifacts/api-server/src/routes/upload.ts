@@ -1,10 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
-import sharp from "sharp";
 import {
   getCloudinary,
   uploadBufferToCloudinary,
+  uploadPathToCloudinary,
 } from "../lib/cloudinary-media-service";
+import { createDiskMulter, readUploadedFile, removeUploadedFile } from "../lib/multer-disk-storage";
+import { sharpToBuffer } from "../lib/sharp-pipeline";
 
 const router = Router();
 
@@ -21,8 +23,7 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/heif",
 ]);
 
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
+const imageUpload = createDiskMulter({
   limits: { fileSize: MAX_IMAGE_UPLOAD_BYTES },
   fileFilter(_req, file, cb) {
     if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
@@ -37,8 +38,7 @@ const imageUpload = multer({
   },
 });
 
-const mediaUpload = multer({
-  storage: multer.memoryStorage(),
+const mediaUpload = createDiskMulter({
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
     const allowed =
@@ -51,8 +51,7 @@ const mediaUpload = multer({
   },
 });
 
-const audioUpload = multer({
-  storage: multer.memoryStorage(),
+const audioUpload = createDiskMulter({
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
     const allowed = new Set([
@@ -90,28 +89,32 @@ function shouldOptimizeRasterImage(file: Express.Multer.File) {
   );
 }
 
-async function optimizeImageBuffer(file: Express.Multer.File) {
-  if (!shouldOptimizeRasterImage(file)) {
-    return { buffer: file.buffer, mimetype: file.mimetype };
+function uploadInput(file: Express.Multer.File): string {
+  if (!file.path) {
+    throw new Error("Uploaded file path missing");
   }
-
-  const optimized = await sharp(file.buffer, { failOn: "none" })
-    .rotate()
-    .resize({
-      width: MAX_IMAGE_UPLOAD_DIMENSION_PX,
-      height: MAX_IMAGE_UPLOAD_DIMENSION_PX,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 88, effort: 4 })
-    .toBuffer();
-
-  return { buffer: optimized, mimetype: "image/webp" };
+  return file.path;
 }
 
-function clearMulterFileBuffer(file?: Express.Multer.File) {
-  if (!file) return;
-  file.buffer = Buffer.alloc(0);
+async function optimizeImageFile(file: Express.Multer.File) {
+  if (!shouldOptimizeRasterImage(file)) {
+    const buffer = await readUploadedFile(file);
+    return { buffer, mimetype: file.mimetype };
+  }
+
+  const optimized = await sharpToBuffer(uploadInput(file), (pipeline) =>
+    pipeline
+      .rotate()
+      .resize({
+        width: MAX_IMAGE_UPLOAD_DIMENSION_PX,
+        height: MAX_IMAGE_UPLOAD_DIMENSION_PX,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 88, effort: 4 }),
+  );
+
+  return { buffer: optimized, mimetype: "image/webp" };
 }
 
 /**
@@ -139,7 +142,7 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
 
   let uploadBuffer: Buffer | null = null;
   try {
-    const optimized = await optimizeImageBuffer(req.file);
+    const optimized = await optimizeImageFile(req.file);
     uploadBuffer = optimized.buffer;
     const uploaded = await uploadBufferToCloudinary(uploadBuffer, {
       folder: "bidwar",
@@ -154,7 +157,7 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
     res.status(500).json({ error: "Upload failed. Please try again." });
   } finally {
     uploadBuffer = null;
-    clearMulterFileBuffer(req.file);
+    await removeUploadedFile(req.file);
   }
 });
 
@@ -181,7 +184,7 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
     req.file.mimetype.startsWith("image/")
     && req.file.size > MAX_IMAGE_UPLOAD_BYTES
   ) {
-    clearMulterFileBuffer(req.file);
+    await removeUploadedFile(req.file);
     res.status(413).json({ error: "Image uploads are limited to 5 MB." });
     return;
   }
@@ -189,22 +192,26 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
   let uploadBuffer: Buffer | null = null;
   try {
     if (req.file.mimetype.startsWith("image/")) {
-      const optimized = await optimizeImageBuffer(req.file);
+      const optimized = await optimizeImageFile(req.file);
       uploadBuffer = optimized.buffer;
+      const uploaded = await uploadBufferToCloudinary(uploadBuffer, {
+        folder: "bidwar/branding",
+        resource_type: "auto",
+      });
+      res.json({ url: uploaded.url, publicId: uploaded.publicId });
     } else {
-      uploadBuffer = req.file.buffer;
+      const uploaded = await uploadPathToCloudinary(uploadInput(req.file), {
+        folder: "bidwar/branding",
+        resource_type: "auto",
+      });
+      res.json({ url: uploaded.url, publicId: uploaded.publicId });
     }
-    const uploaded = await uploadBufferToCloudinary(uploadBuffer, {
-      folder: "bidwar/branding",
-      resource_type: "auto",
-    });
-    res.json({ url: uploaded.url, publicId: uploaded.publicId });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary media upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
   } finally {
     uploadBuffer = null;
-    clearMulterFileBuffer(req.file);
+    await removeUploadedFile(req.file);
   }
 });
 
@@ -228,7 +235,7 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   }
 
   try {
-    const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+    const uploaded = await uploadPathToCloudinary(uploadInput(req.file), {
       folder: "bidwar/audio",
       resource_type: "raw",
     });
@@ -237,7 +244,7 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
     req.log?.error({ err }, "Cloudinary audio upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
   } finally {
-    clearMulterFileBuffer(req.file);
+    await removeUploadedFile(req.file);
   }
 });
 
