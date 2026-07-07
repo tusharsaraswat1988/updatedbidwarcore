@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import { useRoute } from "wouter";
 import {
   useGetTournament,
@@ -12,6 +13,26 @@ import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-i
 import { broadcastOverlayUrl, broadcastOverlayPreviewUrl } from "@/lib/broadcast-overlay";
 import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
+
+function LinkSectionHeader({
+  title,
+  description,
+  icon,
+}: {
+  title: string;
+  description: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="bg-yellow-400 px-6 py-3">
+      <div className="flex items-center gap-2">
+        {icon ? <span className="text-slate-900">{icon}</span> : null}
+        <h2 className="font-display text-lg font-bold text-slate-900">{title}</h2>
+      </div>
+      <p className="mt-1 text-xs text-slate-800">{description}</p>
+    </div>
+  );
+}
 
 function LinkRow({ label, url, description, shareText }: { label: string; url: string; description: string; shareText?: string }) {
   const { toast } = useToast();
@@ -68,10 +89,13 @@ export default function LinksPage() {
           description="Share links for auction day — LED screen, streaming, and spectators."
         />
 
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-6">
-            <h2 className="font-display font-bold text-lg mb-1">LED Big Screen</h2>
-            <p className="text-xs text-muted-foreground mb-4">Open on your projector laptop on auction day.</p>
+        <Card className="overflow-hidden border-primary/30 bg-primary/5">
+          <CardContent className="p-0">
+            <LinkSectionHeader
+              title="LED Big Screen"
+              description="Open on your projector laptop on auction day."
+            />
+            <div className="p-6 pt-4">
             <LinkRow
               label="LED Big Screen (projector / TV)"
               url={displayUrl}
@@ -94,18 +118,18 @@ export default function LinksPage() {
               description="Portrait or landscape flanking screen — full profile of the player on block with live bid and timer. Independent of operator LED overlay controls."
               shareText={`Player profile side screen for ${tournament?.name ?? "our auction"}: ${sidePlayerUrl}`}
             />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-violet-500/25 bg-violet-500/5">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-1">
-              <Radio className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Broadcast Overlay</h2>
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Transparent live graphics for streaming — add as a Browser Source in OBS, vMix, Wirecast, or similar (1920×1080).
-            </p>
+        <Card className="overflow-hidden border-violet-500/25 bg-violet-500/5">
+          <CardContent className="p-0">
+            <LinkSectionHeader
+              icon={<Radio className="h-5 w-5" />}
+              title="Broadcast Overlay"
+              description="Transparent live graphics for streaming — add as a Browser Source in OBS, vMix, Wirecast, or similar (1920×1080)."
+            />
+            <div className="p-6 pt-4">
             <LinkRow
               label="Broadcast Overlay URL"
               url={broadcastOverlayUrlValue}
@@ -121,24 +145,25 @@ export default function LinksPage() {
             <div className="mt-4">
               <BroadcastOverlayInfo />
             </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-1">
-              <Monitor className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Spectator viewing (optional)</h2>
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Share this link on WhatsApp, Instagram, or QR codes — fans open it and watch immediately. No auction code required.
-            </p>
+        <Card className="overflow-hidden border-border">
+          <CardContent className="p-0">
+            <LinkSectionHeader
+              icon={<Monitor className="h-5 w-5" />}
+              title="Spectator viewing (optional)"
+              description="Share this link on WhatsApp, Instagram, or QR codes — fans open it and watch immediately. No auction code required."
+            />
+            <div className="p-6 pt-4">
             <LinkRow
               label="Live Auction Viewer (spectators)"
               url={liveViewerUrl}
               description="Opens directly on any phone, tablet, laptop, or OBS browser source — auction loads automatically."
               shareText={`Watch our auction live: ${liveViewerUrl}`}
             />
+            </div>
           </CardContent>
         </Card>
 
