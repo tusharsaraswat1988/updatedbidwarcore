@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useRoute } from "wouter";
 import {
   useGetTournament,
@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { formatIndianRupee, formatShortIndianRupee, normalizeAuctionUnit } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
-import { exportElementToPdf } from "@/lib/export-element-pdf";
+import { exportElementToPdf, printElementAsPdf } from "@/lib/export-element-pdf";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
@@ -53,6 +53,9 @@ const PRESETS: Record<"basic" | "auction" | "detailed", ColKey[]> = {
 const REPORT_TH =
   "border border-gray-400 px-2 py-1 text-[10px] font-bold uppercase leading-tight whitespace-normal tracking-wide align-middle";
 const REPORT_CELL = "border border-gray-400 px-2 py-1 align-middle text-xs";
+const PLANNING_ROW_MIN_PX = 28;
+const PLANNING_SECTION_TITLE_PX = 22;
+const PLANNING_TABLE_HEAD_PX = 30;
 
 function loadCols(tid: number): Set<ColKey> {
   try {
@@ -273,13 +276,15 @@ function PlayerTable({
 }
 
 function AuctionPlanningTable({
-  planningRows,
+  displayRows,
+  rowHeight,
   startSno,
   cols,
   showPhoto,
   className,
 }: {
-  planningRows: number;
+  displayRows: number;
+  rowHeight: number;
   startSno: number;
   cols: Set<ColKey>;
   showPhoto: boolean;
@@ -287,17 +292,19 @@ function AuctionPlanningTable({
 }) {
   const headCell = REPORT_TH;
   const bodyCell = REPORT_CELL;
+  const rowStyle = { height: rowHeight, minHeight: rowHeight };
 
   return (
-    <div className={cn("print-section", className)}>
+    <div className={cn("print-section flex min-h-0 flex-1 flex-col", className)}>
       <h3 className="mb-1.5 flex-shrink-0 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-        Auction Working Sheet — {planningRows} Slots
+        Auction Working Sheet — {displayRows} Slots
       </h3>
-      <table className="w-full table-fixed border-collapse border border-gray-400 text-sm print-table">
-        <thead>
-          <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className={`w-10 ${headCell} text-left`}>S.No</th>
-            <th className={`${headCell} text-left`}>Player Name</th>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-sm print-table">
+          <thead>
+            <tr className="bg-slate-800 text-yellow-400 print-table-header">
+              <th className={`w-10 ${headCell} text-left`}>S.No</th>
+              <th className={`${headCell} text-left`}>Player Name</th>
               {cols.has("age") && <th className={`w-14 ${headCell} text-center`}>Age</th>}
               {cols.has("city") && <th className={`w-24 ${headCell} text-left`}>City</th>}
               {cols.has("mobileNumber") && <th className={`w-28 ${headCell} text-left`}>Mobile</th>}
@@ -312,30 +319,32 @@ function AuctionPlanningTable({
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: planningRows }, (_, i) => (
+            {Array.from({ length: displayRows }, (_, i) => (
               <tr
                 key={i}
+                style={rowStyle}
                 className={cn("print-row", i % 2 === 0 ? "bg-white" : "bg-gray-50")}
               >
-                <td className={`${bodyCell} text-gray-500`}>{startSno + i}</td>
-                <td className={bodyCell}>
+                <td className={`${bodyCell} text-gray-500`} style={rowStyle}>{startSno + i}</td>
+                <td className={bodyCell} style={rowStyle}>
                   <PlayerNameCell showPhoto={showPhoto} placeholder />
                 </td>
-                {cols.has("age") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("city") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("mobileNumber") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("email") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("categoryName") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("role") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("jerseyNumber") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("jerseySize") && <td className={bodyCell}>&nbsp;</td>}
-                {cols.has("status") && <td className={bodyCell}>&nbsp;</td>}
-                <td className={bodyCell}>&nbsp;</td>
-                {cols.has("remainingBalance") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("age") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("city") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("mobileNumber") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("email") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("categoryName") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("role") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("jerseyNumber") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("jerseySize") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                {cols.has("status") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
+                <td className={bodyCell} style={rowStyle}>&nbsp;</td>
+                {cols.has("remainingBalance") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
     </div>
   );
 }
@@ -363,11 +372,62 @@ function ReportPreview({
   const auctionRuleLines = buildAuctionRuleLines(auctionRules, formatAmount);
   const hasNonPlayingMembers = nonPlayingMembers.length > 0;
   const visibleSponsors = showSponsors ? sponsors.filter((sponsor) => sponsor.name?.trim()) : [];
+  const tablesRef = useRef<HTMLDivElement>(null);
+  const acquiredTablesRef = useRef<HTMLDivElement>(null);
+  const [planningSheetLayout, setPlanningSheetLayout] = useState({
+    displayRows: squadInfo.planningRows,
+    rowHeight: PLANNING_ROW_MIN_PX,
+  });
+
+  useLayoutEffect(() => {
+    const tablesEl = tablesRef.current;
+    if (!tablesEl) return;
+
+    const measure = () => {
+      const tablesHeight = tablesEl.clientHeight;
+      const acquiredHeight = acquiredTablesRef.current?.offsetHeight ?? 0;
+      const availableForRows = tablesHeight
+        - acquiredHeight
+        - PLANNING_SECTION_TITLE_PX
+        - PLANNING_TABLE_HEAD_PX
+        - 8;
+
+      const minRows = squadInfo.planningRows;
+      const maxRows = Math.max(minRows, squadInfo.slotsRemaining || minRows);
+
+      if (availableForRows <= 0) {
+        setPlanningSheetLayout({ displayRows: minRows, rowHeight: PLANNING_ROW_MIN_PX });
+        return;
+      }
+
+      const rowsThatFit = Math.floor(availableForRows / PLANNING_ROW_MIN_PX);
+      const displayRows = Math.max(minRows, Math.min(rowsThatFit, maxRows));
+      const rowHeight = Math.max(PLANNING_ROW_MIN_PX, Math.floor(availableForRows / displayRows));
+
+      setPlanningSheetLayout({ displayRows, rowHeight });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(tablesEl);
+    return () => observer.disconnect();
+  }, [
+    squadInfo.planningRows,
+    squadInfo.slotsRemaining,
+    retainedPlayers.length,
+    preSoldPlayers.length,
+    cols,
+    showPhoto,
+    showSponsors,
+    auctionRuleLines.length,
+    hasNonPlayingMembers,
+    visibleSponsors.length,
+  ]);
 
   return (
     <div
       id="print-report"
-      className="report-sheet relative mx-auto flex w-[210mm] max-w-full flex-col bg-white text-gray-900"
+      className="report-sheet relative mx-auto flex min-h-[297mm] w-[210mm] max-w-full flex-col bg-white text-gray-900"
     >
       {!isLicensed && (
         <div
@@ -392,29 +452,32 @@ function ReportPreview({
       {/* Header */}
       <div className="print-header flex-shrink-0 bg-slate-900 text-white">
         <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 px-4 py-2">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <img
-              src={platformLogoUrl}
-              alt={logoAlt}
-              className="h-9 w-auto max-w-[150px] flex-shrink-0 object-contain"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-bold leading-none text-yellow-400">{websiteUrl.replace(/^https?:\/\//, "")}</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-500">Pre-Auction Team Report</p>
-            </div>
-          </div>
+          <img
+            src={platformLogoUrl}
+            alt={logoAlt}
+            className="h-9 w-auto max-w-[150px] flex-shrink-0 object-contain"
+          />
+          <p className="flex-1 text-center text-xs font-semibold uppercase tracking-[0.15em] text-slate-300">
+            Pre-Auction Team Report
+          </p>
           <p className="flex-shrink-0 text-[10px] text-slate-500">
             {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
           </p>
         </div>
 
-        <div className="flex items-start gap-2 border-b border-slate-700/60 px-4 py-1.5">
-          {tournament.logoUrl ? (
-            <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="mt-0.5 h-8 w-8 flex-shrink-0 rounded object-contain" />
-          ) : null}
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase leading-snug text-yellow-400">{tournament.name}</p>
-            <p className="text-[10px] capitalize text-slate-500">{tournament.sport}</p>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 px-4 py-1.5">
+          <div className="flex min-w-0 items-start gap-2">
+            {tournament.logoUrl ? (
+              <img src={cldUrl(tournament.logoUrl, "teamLogo") || tournament.logoUrl} alt={tournament.name} className="mt-0.5 h-8 w-8 flex-shrink-0 rounded object-contain" />
+            ) : null}
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase leading-snug text-yellow-400">{tournament.name}</p>
+              <p className="text-[10px] capitalize text-slate-500">{tournament.sport}</p>
+            </div>
+          </div>
+          <div className="flex-shrink-0 rounded border border-slate-500/70 bg-white px-2.5 py-1.5 shadow-sm">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600">Access Code</p>
+            <p className="mt-1 font-mono text-sm font-semibold tracking-[0.5em] text-slate-500">_ _ _ _ _ _</p>
           </div>
         </div>
 
@@ -489,29 +552,32 @@ function ReportPreview({
       </div>
 
       {/* Tables */}
-      <div className="flex flex-col px-4 py-2 print-tables">
-        {retainedPlayers.length === 0 && preSoldPlayers.length === 0 && (
-          <p className="mb-4 flex-shrink-0 text-sm italic text-gray-400">No retained or pre-sold players assigned to this team.</p>
-        )}
+      <div ref={tablesRef} className="flex min-h-0 flex-1 flex-col px-4 py-2 print-tables">
+        <div ref={acquiredTablesRef} className="flex-shrink-0">
+          {retainedPlayers.length === 0 && preSoldPlayers.length === 0 && (
+            <p className="mb-4 flex-shrink-0 text-sm italic text-gray-400">No retained or pre-sold players assigned to this team.</p>
+          )}
 
-        <PlayerTable
-          players={retainedPlayers}
-          cols={cols}
-          initialBalance={purgeSummary.totalPurse}
-          sectionLabel={`Retained Players (${retainedPlayers.length})`}
-          showPhoto={showPhoto}
-        />
+          <PlayerTable
+            players={retainedPlayers}
+            cols={cols}
+            initialBalance={purgeSummary.totalPurse}
+            sectionLabel={`Retained Players (${retainedPlayers.length})`}
+            showPhoto={showPhoto}
+          />
 
-        <PlayerTable
-          players={preSoldPlayers}
-          cols={cols}
-          initialBalance={purgeSummary.totalPurse - purgeSummary.retainedSpend}
-          sectionLabel={`Pre-Sold Players (${preSoldPlayers.length})`}
-          showPhoto={showPhoto}
-        />
+          <PlayerTable
+            players={preSoldPlayers}
+            cols={cols}
+            initialBalance={purgeSummary.totalPurse - purgeSummary.retainedSpend}
+            sectionLabel={`Pre-Sold Players (${preSoldPlayers.length})`}
+            showPhoto={showPhoto}
+          />
+        </div>
 
         <AuctionPlanningTable
-          planningRows={squadInfo.planningRows}
+          displayRows={planningSheetLayout.displayRows}
+          rowHeight={planningSheetLayout.rowHeight}
           startSno={allAcquired + 1}
           cols={cols}
           showPhoto={showPhoto}
@@ -521,9 +587,9 @@ function ReportPreview({
       {/* Footer */}
       <div className="print-footer mt-auto flex flex-shrink-0 flex-col bg-slate-900 text-white">
         {auctionRuleLines.length > 0 ? (
-          <div className="border-b border-slate-700/60 px-4 py-1.5">
+          <div className="border-b border-slate-700/60 px-4 py-1">
             <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Auction Rules</p>
-            <div className="space-y-0.5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
               {auctionRuleLines.map((line) => (
                 <p key={line} className="text-[9px] leading-snug text-slate-400">{line}</p>
               ))}
@@ -577,6 +643,7 @@ export default function TeamReportsPage() {
   const [cols, setCols] = useState<Set<ColKey>>(() => loadCols(tournamentId));
   const [showSponsors, setShowSponsors] = useState(() => loadShowSponsors(tournamentId));
   const [exporting, setExporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -609,8 +676,23 @@ export default function TeamReportsPage() {
     saveCols(tournamentId, next);
   }
 
-  function handlePrint() {
-    window.print();
+  async function handlePrint() {
+    if (!selectedTeamId || !report) return;
+    const element = document.getElementById("print-report");
+    if (!element) {
+      toast({ title: "Print failed", description: "Report preview not found.", variant: "destructive" });
+      return;
+    }
+
+    setPrinting(true);
+    try {
+      await printElementAsPdf(element);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong while preparing the print preview.";
+      toast({ title: "Print failed", description: message, variant: "destructive" });
+    } finally {
+      setPrinting(false);
+    }
   }
 
   async function handleExportPdf() {
@@ -665,7 +747,7 @@ export default function TeamReportsPage() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          @page { size: A4 portrait; margin: 8mm; }
+          @page { size: A4 portrait; margin: 0; }
 
           html, body {
             margin: 0 !important;
@@ -675,6 +757,8 @@ export default function TeamReportsPage() {
             overflow: visible !important;
           }
 
+          .print-hide { display: none !important; }
+
           body * {
             visibility: hidden !important;
           }
@@ -683,11 +767,11 @@ export default function TeamReportsPage() {
             visibility: visible !important;
           }
           #print-report {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 194mm !important;
-            max-width: 194mm !important;
+            position: fixed !important;
+            inset: 0 !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-height: 297mm !important;
             margin: 0 auto !important;
             padding: 0 !important;
             border: none !important;
@@ -695,9 +779,24 @@ export default function TeamReportsPage() {
             background: white !important;
             overflow: visible !important;
             height: auto !important;
-            min-height: 0 !important;
             z-index: 2147483647 !important;
             page-break-inside: avoid;
+          }
+
+          #print-report .print-header,
+          #print-report .print-footer,
+          #print-report .bg-slate-900,
+          #print-report .bg-slate-800,
+          #print-report .bg-white {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          #print-report .print-tables {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
           }
 
           #print-report .print-row,
@@ -712,8 +811,6 @@ export default function TeamReportsPage() {
             break-inside: avoid;
             page-break-inside: avoid;
           }
-
-          .print-hide { display: none !important; }
         }
       `}</style>
 
@@ -823,11 +920,11 @@ export default function TeamReportsPage() {
             {/* Actions */}
             {selectedTeamId && (
               <div className="p-3 border-t border-border flex flex-col gap-2">
-                <Button onClick={handlePrint} variant="outline" size="sm" className="w-full" disabled={!report}>
-                  <Printer className="w-3.5 h-3.5 mr-1.5" />
-                  Print
+                <Button onClick={handlePrint} variant="outline" size="sm" className="w-full" disabled={!report || printing || exporting}>
+                  {printing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Printer className="w-3.5 h-3.5 mr-1.5" />}
+                  {printing ? "Preparing..." : "Print"}
                 </Button>
-                <Button onClick={handleExportPdf} size="sm" className="w-full" disabled={!report || exporting}>
+                <Button onClick={handleExportPdf} size="sm" className="w-full" disabled={!report || exporting || printing}>
                   {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
                   {exporting ? "Exporting..." : "Export PDF"}
                 </Button>
@@ -861,29 +958,17 @@ export default function TeamReportsPage() {
             ) : (
               <div className="p-6">
                 {/* Screen action bar */}
-                <div className="print-hide flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: report.team.color || "#3B82F6" }} />
-                    <span className="font-semibold text-sm">{report.team.name}</span>
-                    <Badge variant="outline" className="text-xs">Pre-Auction Report</Badge>
-                    {!report.isLicensed && (
-                      <Badge variant="destructive" className="text-xs">Unlicensed</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button onClick={handlePrint} variant="outline" size="sm">
-                      <Printer className="w-3.5 h-3.5 mr-1.5" />
-                      Print
-                    </Button>
-                    <Button onClick={handleExportPdf} size="sm" disabled={exporting}>
-                      {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
-                      {exporting ? "Exporting..." : "Export PDF (A4)"}
-                    </Button>
-                  </div>
+                <div className="print-hide mb-4 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: report.team.color || "#3B82F6" }} />
+                  <span className="font-semibold text-sm">{report.team.name}</span>
+                  <Badge variant="outline" className="text-xs">Pre-Auction Report</Badge>
+                  {!report.isLicensed && (
+                    <Badge variant="destructive" className="text-xs">Unlicensed</Badge>
+                  )}
                 </div>
 
                 {/* Report preview card */}
-                <div className="border border-border rounded-lg overflow-hidden shadow-xl max-w-5xl mx-auto">
+                <div className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-border shadow-xl">
                   <ReportPreview report={report} cols={cols} showSponsors={showSponsors} />
                 </div>
               </div>
