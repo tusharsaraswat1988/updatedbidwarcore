@@ -472,8 +472,9 @@ export default function ObsOverlay() {
       : null,
   }));
 
-  const teamTickerOffset = teams.length > 0 && !showSold ? TEAM_TICKER_HEIGHT_PX : 0;
+  const teamTickerOffset = teams.length > 0 ? TEAM_TICKER_HEIGHT_PX : 0;
   const bottomStackHeight = SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX + teamTickerOffset;
+  const showTeamTicker = teams.length > 0 && !showSold;
   const showAwaitingPlayer =
     !!state &&
     !hasPlayer &&
@@ -518,10 +519,15 @@ export default function ObsOverlay() {
             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
             style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
+              position: "absolute",
+              bottom: bottomStackHeight,
+              left: 0,
+              right: 0,
+              zIndex: 30,
               borderTop: `4px solid ${soldSnap.teamColor}`,
               boxShadow: `0 -8px 60px ${soldSnap.teamColor}44`,
               padding: `28px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
+              background: `linear-gradient(135deg, rgba(0,0,0,0.97) 0%, ${soldSnap.teamColor}28 100%)`,
             }}
           >
             <OutcomeResultPanel
@@ -789,7 +795,7 @@ export default function ObsOverlay() {
       </div>
 
       {/* ── Team squad ticker — above sponsor strip ── */}
-      {teams.length > 0 && !showSold && (
+      {showTeamTicker && (
         <div style={{
           position: "absolute",
           bottom: SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX,

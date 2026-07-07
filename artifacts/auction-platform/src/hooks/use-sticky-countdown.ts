@@ -11,10 +11,10 @@ function isCountdownType(type: string | undefined): boolean {
 
 /**
  * Keeps the last seen countdown alive on the client even after the server
- * clears it (which happens immediately on read once the countdown expires).
+ * clears it on natural expiry (which happens immediately on read once endsAt passes).
  *
  * Holds for 5 s after endsAt so the post-expiry notification banner can
- * complete before the overlay unmounts.
+ * complete before the overlay unmounts. Operator cancel clears immediately.
  */
 export function useStickyCountdown(
   serverDc:
@@ -38,8 +38,18 @@ export function useStickyCountdown(
     const current = localRef.current;
     if (!current) return;
 
-    const holdUntil = new Date(current.endsAt).getTime() + 5000;
-    const remaining = holdUntil - Date.now();
+    const endsAtMs = new Date(current.endsAt).getTime();
+    const now = Date.now();
+
+    // Server cleared countdown before it expired — operator cancelled; dismiss immediately.
+    if (now < endsAtMs) {
+      setLocal(null);
+      return;
+    }
+
+    // Natural expiry: hold 5 s so post-expiry banner can finish.
+    const holdUntil = endsAtMs + 5000;
+    const remaining = holdUntil - now;
     if (remaining <= 0) {
       setLocal(null);
       return;
