@@ -242,7 +242,6 @@ export function useBroadcastStateManager(input: BroadcastStateManagerInput): Bro
 
     const status = state?.status ?? "idle";
     const isBreak = settings.enableBreakMode && displayMode.isBreak && !!breakEndsAt;
-    const isWaiting = status === "idle" || status === "paused";
     const isCompleted = status === "completed";
 
     if (isBreak) {
@@ -255,7 +254,12 @@ export function useBroadcastStateManager(input: BroadcastStateManagerInput): Bro
       return;
     }
 
-    if (isWaiting && !state?.currentPlayer) {
+    if (status === "active") {
+      transitionTo("AUCTION");
+      return;
+    }
+
+    if ((status === "idle" || status === "paused") && !state?.currentPlayer) {
       transitionTo("WAITING");
       return;
     }

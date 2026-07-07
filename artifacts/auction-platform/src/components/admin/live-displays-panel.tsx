@@ -6,6 +6,7 @@ import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
+import { BroadcastControlPanel } from "@/components/broadcast/broadcast-control-panel";
 
 function DisplayEndpointRow({
   label,
@@ -124,6 +125,7 @@ export function LiveDisplaysPanel({
           <DisplayEndpointRow label="Side LED — Player Profile" href={sideDisplayPath(t.id, "player")} tournamentId={t.id} />
         </div>
       </div>
+      <BroadcastControlPanel tournamentId={t.id} />
     </div>
   );
 }
