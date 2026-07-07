@@ -889,6 +889,7 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
+  res.write(": connected\n\n");
 
   const client = addSseClient(tid, res);
   logger.info({ tournamentId: tid, clientCount: getSseClientCount(tid) }, "SSE client connected");
@@ -896,14 +897,31 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   const lastEventHeader = req.headers["last-event-id"];
   const afterVersion = lastEventHeader ? parseInt(String(lastEventHeader), 10) : 0;
 
-  if (afterVersion > 0) {
-    const missed = await getEventsAfter(tid, afterVersion);
-    const latestVersion = await getCurrentEventVersion(tid);
-    const gap = latestVersion - afterVersion;
+  try {
+    if (afterVersion > 0) {
+      const missed = await getEventsAfter(tid, afterVersion);
+      const latestVersion = await getCurrentEventVersion(tid);
+      const gap = latestVersion - afterVersion;
 
-    if (gap > 0 && (gap > EVENT_BUFFER_MAX || missed.length < gap)) {
+      if (gap > 0 && (gap > EVENT_BUFFER_MAX || missed.length < gap)) {
+        const state = await getCachedOrBuildState(tid);
+        const version = latestVersion || (await getCurrentEventVersion(tid));
+        const envelope = {
+          type: "auction_state",
+          version,
+          tournamentId: tid,
+          state: compactAuctionStateForSse(state),
+          invalidate: [] as string[],
+        };
+        res.write(formatSseFrame(version, envelope));
+      } else {
+        for (const event of missed) {
+          res.write(formatSseFrame(event.version, event));
+        }
+      }
+    } else {
       const state = await getCachedOrBuildState(tid);
-      const version = latestVersion || (await getCurrentEventVersion(tid));
+      const version = await getCurrentEventVersion(tid);
       const envelope = {
         type: "auction_state",
         version,
@@ -911,23 +929,11 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
         state: compactAuctionStateForSse(state),
         invalidate: [] as string[],
       };
-      res.write(formatSseFrame(version, envelope));
-    } else {
-      for (const event of missed) {
-        res.write(formatSseFrame(event.version, event));
-      }
+      res.write(formatSseFrame(version || 1, envelope));
     }
-  } else {
-    const state = await getCachedOrBuildState(tid);
-    const version = await getCurrentEventVersion(tid);
-    const envelope = {
-      type: "auction_state",
-      version,
-      tournamentId: tid,
-      state: compactAuctionStateForSse(state),
-      invalidate: [] as string[],
-    };
-    res.write(formatSseFrame(version || 1, envelope));
+  } catch (err) {
+    logger.error({ err, tournamentId: tid }, "SSE initial state failed");
+    res.write(`event: error\ndata: ${JSON.stringify({ error: "auction_state_unavailable" })}\n\n`);
   }
 
   const cleanup = () => {
@@ -940,7 +946,7 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
 
   const heartbeat = setInterval(() => {
     try { res.write(": heartbeat\n\n"); } catch { cleanup(); }
-  }, 20000);
+  }, 12000);
 
   req.on("close", cleanup);
   res.on("close", cleanup);

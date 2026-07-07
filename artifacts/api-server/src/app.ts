@@ -120,6 +120,7 @@ app.use(
     threshold: 1024,
     filter(req, res) {
       // Never compress SSE streams — gzip buffering delays event delivery
+      if (req.path.includes("/auction/events") || req.path.endsWith("/events")) return false;
       if (res.getHeader("Content-Type") === "text/event-stream") return false;
       return compression.filter(req, res);
     },

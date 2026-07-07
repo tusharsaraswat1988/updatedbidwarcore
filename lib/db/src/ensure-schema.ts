@@ -40,6 +40,17 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
   `);
 
   await pool.query(`
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS random_draw_queue TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS obs_context_json TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS re_auction_strategy_json TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS display_countdown TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_purse_booster_json TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_led_toast_json TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_outcome TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 0;
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS branding_assets (
       id SERIAL PRIMARY KEY,
       asset_type TEXT NOT NULL,
