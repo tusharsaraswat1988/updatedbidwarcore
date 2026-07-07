@@ -24,7 +24,7 @@ export const BidCenter = memo(function BidCenter({ view }: { view: LedView }) {
       </span>
 
       <div
-        className="font-['Bebas_Neue'] text-[clamp(4rem,11vw,12rem)] leading-[0.85] tracking-tighter tabular-nums"
+        className="font-['Bebas_Neue'] text-[clamp(4rem,11cqw,12rem)] leading-[0.85] tracking-tighter tabular-nums"
         style={{
           color: "var(--stage-text)",
           animation: state.isBidding
@@ -39,14 +39,14 @@ export const BidCenter = memo(function BidCenter({ view }: { view: LedView }) {
       {showLeading && hasTeamBid && leadingTeam && state.currentBid > 0 ? (
         <div className="mt-6 flex flex-col items-center gap-2">
           <div
-            className="flex items-center gap-6 px-8 py-3 border-l-[6px] bg-white/95 text-black min-h-[4.5rem]"
+            className="flex items-center gap-[1.7cqw] px-[2.5cqw] py-[1.1cqh] border-l-[0.3cqw] bg-white/95 text-black min-h-[6.7cqh] max-w-full"
             style={{ borderLeftColor: leadingTeam.color }}
           >
             {leadingTeam.logoUrl ? (
               <img
                 src={leadingTeam.logoUrl}
                 alt={leadingTeam.name}
-                className="h-16 w-16 shrink-0 object-contain"
+                className="h-[7.4cqh] w-[7.4cqh] shrink-0 object-contain"
               />
             ) : (
               <span className="font-['Bebas_Neue'] text-4xl tracking-widest leading-none">

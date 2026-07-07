@@ -76,9 +76,9 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
           Hammer Time
         </span>
 
-        <div className="relative w-full min-h-[5.5rem] flex items-end justify-end">
+        <div className="relative w-full min-h-[8.1cqh] flex items-end justify-end">
           <div
-            className="font-mono text-7xl font-bold leading-none tabular-nums"
+            className="font-mono text-[clamp(2.5rem,8cqw,4.5rem)] font-bold leading-none tabular-nums"
             style={{
               color: hammerActive
                 ? urgent
@@ -135,7 +135,7 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
           Next Minimum
         </p>
         <p
-          className="font-['Bebas_Neue'] text-3xl leading-none mt-1 tabular-nums"
+          className="font-['Bebas_Neue'] text-[clamp(1.5rem,3cqw,1.875rem)] leading-none mt-1 tabular-nums"
           style={{ color: hammerActive ? "var(--accent)" : "rgba(255,255,255,0.4)" }}
         >
           {nextMinLabel}

@@ -14,6 +14,7 @@ import {
   loginOrganizerAccount,
   type LoginGuardStatus,
   checkOrganizerAccountAuth,
+  checkOrganizerAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
   updateOrganizerProfile,
@@ -1852,13 +1853,23 @@ export default function OrganizerPortal() {
           );
         }
       }
-      // If already logged in and there's a ?next= param, navigate there immediately
-      // (handles the case where OrganizerGuard redirected the user here while they
-      // already had a valid session, e.g. after a page refresh on a protected route)
+      // If already logged in and there's a ?next= param, navigate only when access is confirmed.
+      // Blind redirects to /tournament/:id caused an infinite loop with OrganizerGuard.
       if (loggedIn) {
         const next = new URLSearchParams(window.location.search).get("next") ?? "";
         if (next && next.startsWith("/")) {
-          navigate(next);
+          void (async () => {
+            const tournamentMatch = next.match(/^\/tournament\/(\d+)(?:\/|$)/);
+            if (tournamentMatch) {
+              const tid = parseInt(tournamentMatch[1], 10);
+              const canAccess = await checkOrganizerAuth(tid);
+              if (canAccess) {
+                navigate(next);
+              }
+              return;
+            }
+            navigate(next);
+          })();
         }
       }
     });

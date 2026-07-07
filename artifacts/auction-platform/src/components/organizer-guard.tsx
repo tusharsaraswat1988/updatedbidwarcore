@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, MonitorDown } from "lucide-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
+import { checkOrganizerAccountAuth } from "@/lib/auth";
 
 export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
   const { isLoggedIn, isLoading } = useOrganizerAuth(tournamentId);
@@ -37,11 +38,28 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
     if (!isLoading && !isLoggedIn && tournamentId && !isBidWarLocalHost()) {
       redirectedRef.current = true;
       const returnTo = `${window.location.pathname}${window.location.search}`;
-      if (inScoringApp) {
-        window.location.href = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
-        return;
-      }
-      navigate(`/organizer?next=${encodeURIComponent(location)}`);
+
+      void (async () => {
+        const account = await checkOrganizerAccountAuth();
+
+        // Logged-in organizer account but no tournament session — send to the
+        // per-tournament login gate. Sending them to /organizer?next=… causes an
+        // infinite loop because the portal auto-navigates back to `next`.
+        if (account.loggedIn) {
+          if (inScoringApp) {
+            window.location.href = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
+            return;
+          }
+          navigate(`/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`);
+          return;
+        }
+
+        if (inScoringApp) {
+          window.location.href = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
+          return;
+        }
+        navigate(`/organizer?next=${encodeURIComponent(location)}`);
+      })();
     }
   }, [isLoggedIn, isLoading, tournamentId, navigate, location, inScoringApp]);
 
@@ -102,7 +120,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
     }
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 text-sm text-muted-foreground">
-        Redirecting to organizer login…
+        Redirecting to tournament login…
       </div>
     );
   }

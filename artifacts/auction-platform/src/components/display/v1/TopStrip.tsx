@@ -14,18 +14,18 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
   const live = state.isBidding && !paused;
 
   return (
-    <div className="relative grid h-full min-h-[3.5rem] max-h-[3.5rem] grid-cols-[1fr_auto_1fr] items-center gap-6 overflow-visible px-[3%] border-b border-white/10 bg-black/40">
+    <div className="relative grid h-full min-h-[5.2cqh] max-h-[5.2cqh] grid-cols-[1fr_auto_1fr] items-center gap-[1.7cqw] overflow-visible px-[3%] border-b border-white/10 bg-black/40">
       <div className="pointer-events-none absolute top-0 left-1/2 z-10 -translate-x-1/2">
         <LedTopBrandMark />
       </div>
 
       <div className="col-start-1 flex items-center gap-3 min-w-0 justify-self-start">
-        <div className="hidden md:flex items-center gap-4 min-w-0 max-h-[3.25rem]">
+        <div className="hidden @md/stage:flex items-center gap-[1.1cqw] min-w-0 max-h-[4.8cqh]">
           {tournament.logoUrl ? (
             <img
               src={cldUrl(tournament.logoUrl, "headerLogo")}
               alt=""
-              className="h-12 w-auto max-w-[104px] shrink-0 object-contain"
+              className="h-[5.6cqh] w-auto max-w-[9cqw] shrink-0 object-contain"
               loading="eager"
               decoding="async"
               onError={(e) => {
@@ -46,7 +46,7 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
 
       <div
         aria-hidden
-        className="col-start-2 w-[min(220px,18vw)] shrink-0"
+        className="col-start-2 w-[min(11.5cqw,18cqw)] shrink-0"
       />
 
       <div className="col-start-3 relative z-20 flex items-center justify-end gap-4 justify-self-end">

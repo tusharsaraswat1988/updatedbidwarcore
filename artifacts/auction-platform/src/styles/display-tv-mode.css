@@ -129,7 +129,7 @@
   font-size: calc(var(--score-player-photo) * 0.35);
 }
 
-/* ── V1 LED stage — theme tokens + broadcast animations ───────────── */
+/* V1 LED stage — theme tokens + broadcast animations ───────────── */
 .auction-stage {
   --accent: #ffc400;
   --accent-strong: #ffd633;

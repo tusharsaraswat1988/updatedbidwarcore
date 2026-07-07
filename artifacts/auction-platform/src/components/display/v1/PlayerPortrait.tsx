@@ -174,7 +174,7 @@ function PortraitPlayerName({ name }: { name: string }) {
 
 function GenderPortraitIcon({ gender }: { gender: PlayerGender }) {
   const className =
-    "w-[clamp(4rem,14vw,7rem)] h-[clamp(4rem,14vw,7rem)] text-white/20";
+    "w-[clamp(3rem,50cqw,7rem)] h-[clamp(3rem,50cqw,7rem)] text-white/20";
   if (gender === "female") {
     return <UserRound className={className} strokeWidth={1.15} aria-hidden />;
   }

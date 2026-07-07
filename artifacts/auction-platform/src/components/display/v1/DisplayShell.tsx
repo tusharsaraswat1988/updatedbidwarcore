@@ -9,8 +9,9 @@ import { SponsorSpotlight } from "./SponsorSpotlight";
 import { EffectsLayer } from "./EffectsLayer";
 import type { LedView } from "@/lib/led-view/types";
 
-const STAGE_GRID_ROWS = "grid-rows-[3.5rem_1fr_minmax(3rem,8%)]";
-const STAGE_GRID_ROWS_LIVE = "grid-rows-[3.5rem_1fr_minmax(4.5rem,12%)_minmax(3rem,8%)]";
+/** Row heights scale with the 16:9 stage canvas (cqh), not the browser viewport. */
+const STAGE_GRID_ROWS = "grid-rows-[5.2cqh_1fr_minmax(4.5cqh,8%)]";
+const STAGE_GRID_ROWS_LIVE = "grid-rows-[5.2cqh_1fr_minmax(6.7cqh,12%)_minmax(4.5cqh,8%)]";
 
 /**
  * V1 LED stage layout — pure presentation over a LedView snapshot.

@@ -33,7 +33,7 @@ export const BidLadder = memo(function BidLadder({ view }: { view: LedView }) {
               <span className="font-['Bebas_Neue'] text-lg tracking-widest">
                 {b.team.short}
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40 hidden md:inline">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40 hidden @md/stage:inline">
                 {b.team.name}
               </span>
             </div>

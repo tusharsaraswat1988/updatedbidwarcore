@@ -36,7 +36,7 @@ import { PlayerDirectoryOverlay } from "./player-directory-overlay";
 
 function LedPoweredByFooter({ text }: { text?: string }) {
   return (
-    <div className="py-[0.4vh] flex items-center justify-center bg-black/20 border-t border-white/[0.05]">
+    <div className="py-[0.4cqh] flex items-center justify-center bg-black/20 border-t border-white/[0.05]">
       {text ? (
         <p className={`${LED_META_LABEL_CLASS} text-white/30`}>{text}</p>
       ) : (
@@ -149,7 +149,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           }}
         />
         <div
-          className="relative grid grid-cols-[auto_1fr_auto] items-center gap-8 px-12 py-6 border-8 bg-black/85"
+          className="relative grid max-w-[92cqw] grid-cols-[auto_1fr_auto] items-center gap-[1.7cqw] px-[2.5cqw] py-[1.1cqh] border-[0.42cqw] bg-black/85"
           style={{
             borderColor: teamColor,
             animation: "auction-sold-slam 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both",
@@ -159,31 +159,31 @@ export const EffectsLayer = memo(function EffectsLayer({
             <img
               src={cldUrl(photo, "soldCard")}
               alt={playerName}
-              className="h-40 w-32 object-cover border-4"
+              className="h-[14.8cqh] w-[6.7cqw] object-cover border-[0.21cqw]"
               style={{ borderColor: teamColor }}
             />
           ) : (
-            <div className="h-40 w-32 bg-white/5 border-4" style={{ borderColor: teamColor }} />
+            <div className="h-[14.8cqh] w-[6.7cqw] bg-white/5 border-[0.21cqw]" style={{ borderColor: teamColor }} />
           )}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center min-w-0">
             <p
-              className="font-['Bebas_Neue'] text-[clamp(5rem,14vw,14rem)] leading-[0.85] tracking-tighter text-center"
+              className="font-['Bebas_Neue'] text-[clamp(3rem,14cqw,14rem)] leading-[0.85] tracking-tighter text-center"
               style={{ color: teamColor }}
             >
               SOLD
             </p>
-            <p className="font-['Bebas_Neue'] text-3xl md:text-5xl tracking-widest text-center text-white mt-1 tabular-nums">
+            <p className="font-['Bebas_Neue'] text-[clamp(1.25rem,3.5cqw,3rem)] tracking-widest text-center text-white mt-1 tabular-nums">
               {amount} → {teamShort}
             </p>
-            <p className="text-xs md:text-sm font-mono uppercase tracking-[0.35em] text-white/70 text-center mt-2">
+            <p className="text-[clamp(0.55rem,1.1cqw,0.875rem)] font-mono uppercase tracking-[0.35em] text-white/70 text-center mt-2 truncate max-w-full">
               {playerName} · {teamName}
             </p>
           </div>
           {teamLogo ? (
-            <img src={teamLogo} alt={teamName} className="h-32 w-32 object-contain" />
+            <img src={teamLogo} alt={teamName} className="h-[14.8cqh] w-[14.8cqh] object-contain" />
           ) : (
             <div
-              className="h-32 w-32 grid place-items-center font-['Bebas_Neue'] text-4xl tracking-widest"
+              className="h-[14.8cqh] w-[14.8cqh] grid place-items-center font-['Bebas_Neue'] text-[clamp(1.5rem,3cqw,2.25rem)] tracking-widest"
               style={{ backgroundColor: teamColor, color: "#000" }}
             >
               {teamShort}
@@ -220,7 +220,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             />
           ) : null}
           <div>
-            <p className="font-['Bebas_Neue'] text-[clamp(4rem,12vw,12rem)] leading-[0.85] tracking-tighter text-red-500">
+            <p className="font-['Bebas_Neue'] text-[clamp(4rem,12cqw,12rem)] leading-[0.85] tracking-tighter text-red-500">
               UNSOLD
             </p>
             <p className="text-xs font-mono uppercase tracking-[0.35em] text-white/60 mt-2">
@@ -247,7 +247,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="font-mono text-[10px] uppercase tracking-[0.55em] text-amber-300/90">
               Player Deferred
             </p>
-            <p className="font-['Bebas_Neue'] text-[clamp(2rem,5vw,4rem)] leading-none tracking-wide text-white mt-2">
+            <p className="font-['Bebas_Neue'] text-[clamp(2rem,5cqw,4rem)] leading-none tracking-wide text-white mt-2">
               {playerName}
             </p>
             <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-amber-200/85 mt-3">
@@ -277,7 +277,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             <span className="block w-5 h-20 bg-amber-400" />
           </div>
           <div>
-            <p className="font-['Bebas_Neue'] text-[clamp(4rem,10vw,10rem)] leading-[0.85] tracking-tighter text-amber-400">
+            <p className="font-['Bebas_Neue'] text-[clamp(4rem,10cqw,10rem)] leading-[0.85] tracking-tighter text-amber-400">
               PAUSED
             </p>
             {pausedSeconds != null ? (
@@ -297,7 +297,7 @@ export const EffectsLayer = memo(function EffectsLayer({
     const ss = (breakInfo.secondsLeft % 60).toString().padStart(2, "0");
     const poweredBy = branding?.poweredByText ?? "Powered by BidWar";
     return (
-      <div className={`absolute inset-0 z-30 grid grid-rows-[3.5rem_1fr_auto] pointer-events-none overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
+      <div className={`absolute inset-0 z-30 grid grid-rows-[5.2cqh_1fr_auto] pointer-events-none overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-amber-950 via-black to-orange-950" />
         <div
           className="absolute inset-0 opacity-30"
@@ -323,7 +323,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               Auction Paused
             </p>
             <p
-              className="font-['Bebas_Neue'] text-[clamp(6rem,18vw,18rem)] leading-[0.85] tracking-tighter text-amber-400 mt-2"
+              className="font-['Bebas_Neue'] text-[clamp(6rem,18cqw,18rem)] leading-[0.85] tracking-tighter text-amber-400 mt-2"
               style={{ textShadow: "0 0 60px rgba(245,158,11,0.6)" }}
             >
               BREAK
@@ -377,13 +377,13 @@ export const EffectsLayer = memo(function EffectsLayer({
             Get Ready
           </p>
           <p
-            className="font-['Bebas_Neue'] text-[clamp(3rem,7vw,6rem)] leading-none tracking-widest text-white"
+            className="font-['Bebas_Neue'] text-[clamp(3rem,7cqw,6rem)] leading-none tracking-widest text-white"
           >
             AUCTION STARTS IN
           </p>
           <p
             key={breakInfo.secondsLeft}
-            className="font-['Bebas_Neue'] text-[clamp(10rem,28vw,28rem)] leading-[0.85] tracking-tighter tabular-nums mt-4"
+            className="font-['Bebas_Neue'] text-[clamp(10rem,28cqw,28rem)] leading-[0.85] tracking-tighter tabular-nums mt-4"
             style={{
               color: "var(--accent)",
               textShadow: "0 0 80px color-mix(in srgb, var(--accent) 70%, transparent)",
@@ -439,13 +439,13 @@ export const EffectsLayer = memo(function EffectsLayer({
     // Scale font size by row count so larger grids shrink content proportionally,
     // but with a comfortable floor so text stays readable on screen.
     const scale = 1 / rows;
-    const nameSize = `${1.8 * scale + 0.85}vw`;
-    const amountSize = `${2.6 * scale + 1.1}vw`;
-    const subSize = `${1.2 * scale + 0.75}vw`;
-    const labelSize = `${0.6 * scale + 0.55}vw`;
+    const nameSize = `${1.8 * scale + 0.85}cqw`;
+    const amountSize = `${2.6 * scale + 1.1}cqw`;
+    const subSize = `${1.2 * scale + 0.75}cqw`;
+    const labelSize = `${0.6 * scale + 0.55}cqw`;
 
     return (
-      <div className={`absolute inset-0 z-30 grid grid-rows-[3.5rem_1fr] pointer-events-none ${LED_STAGE_FONT_CLASS}`}>
+      <div className={`absolute inset-0 z-30 grid grid-rows-[5.2cqh_1fr] pointer-events-none ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 bg-[#070b1a]" />
         <LedOverlayTopBar
           tournamentName={tournament.name}
@@ -540,7 +540,7 @@ export const EffectsLayer = memo(function EffectsLayer({
   if (derivedState === "banner") {
     if (!banner.url) {
       return (
-        <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[3.5rem_1fr_minmax(3rem,8%)] ${LED_STAGE_FONT_CLASS}`}>
+        <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[5.2cqh_1fr_minmax(4.5cqh,8%)] ${LED_STAGE_FONT_CLASS}`}>
           <TopStrip view={view} />
           <div className="relative min-h-0 h-full w-full">
             <SponsorSpotlight
@@ -555,7 +555,7 @@ export const EffectsLayer = memo(function EffectsLayer({
     }
 
     return (
-      <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[3.5rem_1fr_auto] ${LED_STAGE_FONT_CLASS}`}>
+      <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[5.2cqh_1fr_auto] ${LED_STAGE_FONT_CLASS}`}>
         <LedOverlayTopBar
           tournamentName={tournament.name}
           tournamentLogoUrl={tournament.logoUrl}
@@ -577,7 +577,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               <LedTopBrandMark />
               <p
                 className={`${LED_HEADLINE_CLASS} text-white/90`}
-                style={{ fontSize: "2.4vw" }}
+                style={{ fontSize: "2.4cqw" }}
               >
                 {tournament.name}
               </p>
@@ -604,7 +604,7 @@ export const EffectsLayer = memo(function EffectsLayer({
 
     return (
       <div
-        className={`absolute inset-0 z-30 grid grid-rows-[3.5rem_1fr_auto_auto] overflow-hidden pointer-events-none ${LED_STAGE_FONT_CLASS}`}
+        className={`absolute inset-0 z-30 grid grid-rows-[5.2cqh_1fr_auto_auto] overflow-hidden pointer-events-none ${LED_STAGE_FONT_CLASS}`}
       >
         <div className="absolute inset-0 team-wise-scene" />
         <div className="absolute inset-0 team-wise-scene-stadium pointer-events-none" />
@@ -706,7 +706,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               "radial-gradient(ellipse at top, color-mix(in oklab, var(--accent) 25%, transparent) 0%, transparent 60%)",
           }}
         />
-        <div className="relative h-full grid grid-rows-[3.5rem_1fr_auto]">
+        <div className="relative h-full grid grid-rows-[5.2cqh_1fr_auto]">
           <LedOverlayTopBar
             tournamentName={tournament.name}
             tournamentLogoUrl={tournament.logoUrl}
@@ -724,7 +724,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           />
 
           {/* List */}
-          <div className="px-[3%] py-[1.5%] flex flex-col justify-center gap-[1.2vh] min-h-0">
+          <div className="px-[3%] py-[1.5%] flex flex-col justify-center gap-[1.2cqh] min-h-0">
             {topSoldPlayers.length === 0 ? (
               <p className="text-center text-white/40 font-mono uppercase tracking-[0.4em] text-xs">
                 No sales yet
@@ -746,7 +746,7 @@ export const EffectsLayer = memo(function EffectsLayer({
 
           {/* Sponsor ticker + Powered by footer */}
           <div className="flex flex-col">
-            <div className="h-[7vh] min-h-[56px]">
+            <div className="h-[7cqh] min-h-[5.2cqh]">
               <ChyronStrip view={view} />
             </div>
             <LedPoweredByFooter />
@@ -771,7 +771,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="font-mono text-[10px] uppercase tracking-[0.5em] text-emerald-300/90">
               Now Bidding
             </p>
-            <p className="font-['Bebas_Neue'] text-[clamp(1.75rem,4vw,3rem)] leading-none tracking-wide text-white mt-1">
+            <p className="font-['Bebas_Neue'] text-[clamp(1.75rem,4cqw,3rem)] leading-none tracking-wide text-white mt-1">
               {newPlayerName}
             </p>
           </div>
@@ -1160,10 +1160,10 @@ function TopSoldRow({
   const formatted = formatAuctionAmount(currentAmount, unit);
 
   return (
-    <div className="flex items-center gap-[1.5vw]">
+    <div className="flex items-center gap-[1.5cqw]">
       <span
         className={`${LED_AMOUNT_CLASS} text-right tabular-nums`}
-        style={{ color: accent, fontSize: "5.5vw", width: "5vw" }}
+        style={{ color: accent, fontSize: "5.5cqw", width: "5cqw" }}
       >
         {rank}
       </span>
@@ -1172,31 +1172,31 @@ function TopSoldRow({
           src={cldUrl(player.portrait, "soldCard")}
           alt=""
           className="object-cover border-2"
-          style={{ borderColor: accent, height: "7vw", width: "7vw" }}
+          style={{ borderColor: accent, height: "7cqw", width: "7cqw" }}
         />
       ) : (
         <div
           className="bg-white/5 border-2"
-          style={{ borderColor: accent, height: "7vw", width: "7vw" }}
+          style={{ borderColor: accent, height: "7cqw", width: "7cqw" }}
         />
       )}
       <div className="flex-1 min-w-0">
         <p
-          className={`${LED_PLAYER_NAME_CLASS} text-white truncate text-[clamp(1.75rem,3.4vw,3.25rem)]`}
+          className={`${LED_PLAYER_NAME_CLASS} text-white truncate text-[clamp(1.75rem,3.4cqw,3.25rem)]`}
         >
           {player.name}
         </p>
-        <p className="mt-[0.4vw] truncate leading-tight">
+        <p className="mt-[0.4cqw] truncate leading-tight">
           <span className={LED_ROLE_META_CLASS}>SOLD TO — </span>
           <span
-            className={`${LED_HEADLINE_CLASS} text-[clamp(0.9375rem,1.5vw,1.5rem)] text-white/90`}
+            className={`${LED_HEADLINE_CLASS} text-[clamp(0.9375rem,1.5cqw,1.5rem)] text-white/90`}
           >
             {player.team?.name ?? "—"}
           </span>
         </p>
         <div
-          className="mt-[0.7vw] bg-white/10 overflow-hidden rounded-sm"
-          style={{ height: "0.55vw" }}
+          className="mt-[0.7cqw] bg-white/10 overflow-hidden rounded-sm"
+          style={{ height: "0.55cqw" }}
         >
           <div
             className="h-full rounded-sm"
@@ -1213,12 +1213,12 @@ function TopSoldRow({
           src={player.team.logoUrl}
           alt=""
           className="object-contain"
-          style={{ height: "4.5vw", width: "4.5vw" }}
+          style={{ height: "4.5cqw", width: "4.5cqw" }}
         />
       ) : null}
       <p
-        className={`${LED_AMOUNT_CLASS} text-right text-[clamp(2rem,4vw,4.25rem)]`}
-        style={{ color: accent, width: "13vw" }}
+        className={`${LED_AMOUNT_CLASS} text-right text-[clamp(2rem,4cqw,4.25rem)]`}
+        style={{ color: accent, width: "13cqw" }}
       >
         {formatted}
       </p>
@@ -1247,7 +1247,7 @@ function FortuneWheel({
     .join(", ");
 
   return (
-    <div className="relative h-[clamp(16rem,32vw,28rem)] w-[clamp(16rem,32vw,28rem)]">
+    <div className="relative h-[clamp(16rem,32cqw,28rem)] w-[clamp(16rem,32cqw,28rem)]">
       <div
         className="absolute inset-0 rounded-full border-8 border-white/20 shadow-[0_0_60px_rgba(0,0,0,0.8)]"
         style={{
@@ -1288,12 +1288,12 @@ function Stat({
 }) {
   return (
     <div className="bg-black/60 px-[8%] py-[6%] flex flex-col justify-center">
-      <p className="text-[0.5vw] font-mono uppercase tracking-[0.25em] text-white/45 leading-none">
+      <p className="text-[0.5cqw] font-mono uppercase tracking-[0.25em] text-white/45 leading-none">
         {label}
       </p>
       <p
         className={`font-['Bebas_Neue'] tabular-nums tracking-wide leading-none mt-[6%] ${
-          big ? "text-[1.55vw]" : "text-[1.05vw]"
+          big ? "text-[1.55cqw]" : "text-[1.05cqw]"
         }`}
         style={{ color: accent ?? "#fff" }}
       >
