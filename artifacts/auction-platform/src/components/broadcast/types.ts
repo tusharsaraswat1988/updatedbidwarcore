@@ -26,7 +26,7 @@ export type BroadcastSettings = {
 
 export const DEFAULT_BROADCAST_SETTINGS: BroadcastSettings = {
   enableSoldAnimation: true,
-  soldAnimationDurationMs: 3000,
+  soldAnimationDurationMs: 6000,
   enableBreakMode: true,
   breakCountdownSeconds: 300,
   theme: "premium-dark",
@@ -95,3 +95,6 @@ export type BroadcastSceneEngineState = {
   sceneContext: BroadcastSceneContext;
   isTransitioning: boolean;
 };
+
+/** @deprecated Use BroadcastFrame from ./director/types */
+export type { BroadcastFrame, BroadcastOutputTarget } from "./director/types";

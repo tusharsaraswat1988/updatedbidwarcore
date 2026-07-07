@@ -1,5 +1,5 @@
 /**
- * BidWar Broadcast Scene Engine — OBS / LED / TV overlay system.
+ * BidWar Broadcast Director — OBS lower-third overlay system.
  */
 export type {
   BroadcastSceneId,
@@ -17,16 +17,24 @@ export {
   broadcastSettingsToSearchParams,
 } from "./broadcast-settings";
 export { useObsBrowserSource } from "./use-obs-browser-source";
-export { useBroadcastStateManager, BroadcastStateManager } from "./broadcast-state-manager";
+export { useBroadcastDirector } from "./use-broadcast-director";
+export {
+  BroadcastDirector,
+  broadcastDirector,
+} from "./director/broadcast-director";
+export type {
+  BroadcastFrame,
+  BroadcastOutputTarget,
+  BroadcastSceneModel,
+  DirectorContext,
+} from "./director/types";
+export { adaptFrameForOutput, registerOutputAdapter } from "./director/output-adapters";
 export { BroadcastLayout } from "./broadcast-layout";
-export { BroadcastAnimator } from "./broadcast-animator";
 export { BroadcastControlPanel } from "./broadcast-control-panel";
-export { AuctionScene } from "./auction-scene";
-export { SoldScene } from "./sold-scene";
-export { UnsoldScene } from "./unsold-scene";
-export { BreakScene } from "./break-scene";
-export { WaitingScene } from "./waiting-scene";
-export { SummaryScene } from "./summary-scene";
-export { PlayerCard } from "./player-card";
-export { BidTimeline } from "./bid-timeline";
-export { HammerAnimation } from "./hammer-animation";
+export { broadcastDirectorDiagnostics } from "./director/diagnostics";
+export type { BroadcastDirectorDiagnostics } from "./director/diagnostics";
+
+/** @deprecated Use useBroadcastDirector */
+export { useBroadcastDirector as useBroadcastStateManager } from "./use-broadcast-director";
+/** @deprecated Use BroadcastDirector */
+export { BroadcastDirector as BroadcastStateManager } from "./director/broadcast-director";

@@ -7,6 +7,8 @@ import {
   getGetTournamentQueryKey,
   useGetTeamPurses,
   getGetTeamPursesQueryKey,
+  useListPlayers,
+  getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
@@ -21,7 +23,7 @@ import {
 } from "@/components/broadcast";
 
 /**
- * Broadcast Overlay — TV-quality scene engine for OBS Browser Source.
+ * Broadcast Overlay — transparent lower-third browser source for OBS.
  * Route: `/tournament/:id/obs` (1920×1080)
  */
 export default function ObsOverlay() {
@@ -48,13 +50,13 @@ export default function ObsOverlay() {
       bodyOverflow: body.style.overflow,
     };
 
-    html.style.background = "#050508";
-    body.style.background = "#050508";
+    html.style.background = "transparent";
+    body.style.background = "transparent";
     body.style.overflow = "hidden";
     html.style.minHeight = "0";
     body.style.minHeight = "0";
     if (root) {
-      root.style.background = "#050508";
+      root.style.background = "transparent";
       root.style.minHeight = `${BROADCAST_OVERLAY_HEIGHT}px`;
     }
 
@@ -97,6 +99,15 @@ export default function ObsOverlay() {
   });
   const teamPurses = embeddedPurses ?? teamPursesFromQuery;
 
+  const { data: players } = useListPlayers(tournamentId, {
+    query: {
+      queryKey: getListPlayersQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: sseAwareRefetchInterval(connectionStatus, 15000),
+      staleTime: 10000,
+    },
+  });
+
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -124,6 +135,7 @@ export default function ObsOverlay() {
       sponsorLogos={sponsorLogos}
       state={state}
       teamPurses={teamPurses}
+      soldPlayers={players}
       settings={settings}
       isObsMode={isObsMode}
       formatAmount={formatAmount}

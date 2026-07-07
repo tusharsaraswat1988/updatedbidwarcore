@@ -1086,6 +1086,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/presentation-context:
+    post:
+      operationId: setPresentationContext
+      tags: [auction]
+      summary: Set explicit on-air presentation context for OBS and displays
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPresentationContextBody"
+      responses:
+        "200":
+          description: State updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/display-player-filter:
     post:
       operationId: setDisplayPlayerFilter
@@ -3410,6 +3435,29 @@ components:
           description: Live team purse snapshot embedded for realtime sync without separate HTTP refetch
           items:
             $ref: "#/components/schemas/TeamPurse"
+        presentationContext:
+          $ref: "#/components/schemas/PresentationContext"
+
+    PresentationContext:
+      type: object
+      description: Explicit on-air presentation context — independent of operator UI navigation
+      properties:
+        context:
+          type: string
+          enum: [auction, top5, team]
+          default: auction
+        selectedTeamId:
+          type: ["integer", "null"]
+          description: Team highlighted in team presentation. Null cycles all teams.
+
+    SetPresentationContextBody:
+      type: object
+      properties:
+        context:
+          type: string
+          enum: [auction, top5, team]
+        selectedTeamId:
+          type: ["integer", "null"]
 
     LastPurseBooster:
       type: object

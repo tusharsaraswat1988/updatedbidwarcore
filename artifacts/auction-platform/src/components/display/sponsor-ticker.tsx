@@ -15,6 +15,7 @@ import {
 } from "@/lib/sponsor-broadcast-priority-styles";
 import { BROADCAST_SAFE_X } from "@/lib/display-broadcast-layout";
 import { useSeamlessTicker } from "@/lib/chyron-ticker";
+import { sortSponsorsForObsTicker } from "@/components/broadcast/obs/sponsor-obs-display";
 
 /** Ribbon content height (px) — used by Broadcast Overlay stacking. */
 export const SPONSOR_RIBBON_HEIGHT_PX = 44;
@@ -107,17 +108,58 @@ function TickerCopy({
  * Bottom sponsor ribbon — readable at distance, secondary to player/bid focus.
  * Names only; top-right logo carousel remains the primary sponsor showcase.
  */
+function logoToTickerSegment(logo: SponsorLogo): TickerSegment | null {
+  const name = logo.name?.trim();
+  if (!name) return null;
+  const typeLabel = resolveSponsorTypeLabel(logo);
+  const tier = sponsorBroadcastTier(resolveSponsorPriorityType(logo));
+  return { kind: "sponsor", name, typeLabel, tier };
+}
+
 /** All sponsors once, then Powered by BidWar — repeats as a block. */
 export function buildTickerSegments(
   logos: SponsorLogo[],
   includePoweredByBidWar?: boolean,
+  obsOrder?: boolean,
 ): TickerSegment[] {
-  const sponsorSegments: TickerSegment[] = getSponsorsByPriority(logos).flatMap((logo) => {
-    const name = logo.name?.trim();
-    if (!name) return [];
-    const typeLabel = resolveSponsorTypeLabel(logo);
-    const tier = sponsorBroadcastTier(resolveSponsorPriorityType(logo));
-    return [{ kind: "sponsor" as const, name, typeLabel, tier }];
+  const orderedLogos = obsOrder ? sortSponsorsForObsTicker(logos) : getSponsorsByPriority(logos);
+
+  if (obsOrder && includePoweredByBidWar) {
+    const titleCo: SponsorLogo[] = [];
+    const rest: SponsorLogo[] = [];
+
+    for (const logo of orderedLogos) {
+      const priorityType = resolveSponsorPriorityType(logo);
+      if (priorityType === SponsorPriorityType.TITLE || priorityType === SponsorPriorityType.CO_SPONSOR) {
+        titleCo.push(logo);
+      } else {
+        rest.push(logo);
+      }
+    }
+
+    const titleCoSegments = titleCo.flatMap((logo) => {
+      const seg = logoToTickerSegment(logo);
+      return seg ? [seg] : [];
+    });
+    const restSegments = rest.flatMap((logo) => {
+      const seg = logoToTickerSegment(logo);
+      return seg ? [seg] : [];
+    });
+
+    if (!titleCoSegments.length && !restSegments.length) {
+      return [{ kind: "bidwar", text: BIDWAR_TICKER_CREDIT }];
+    }
+
+    return [
+      ...titleCoSegments,
+      { kind: "bidwar", text: BIDWAR_TICKER_CREDIT },
+      ...restSegments,
+    ];
+  }
+
+  const sponsorSegments: TickerSegment[] = orderedLogos.flatMap((logo) => {
+    const seg = logoToTickerSegment(logo);
+    return seg ? [seg] : [];
   });
 
   if (!includePoweredByBidWar) return sponsorSegments;
@@ -139,8 +181,8 @@ export const SponsorTicker = memo(function SponsorTicker({
   overlay?: boolean;
 }) {
   const segments = useMemo(
-    () => buildTickerSegments(logos, includePoweredByBidWar),
-    [logos, includePoweredByBidWar],
+    () => buildTickerSegments(logos, includePoweredByBidWar, overlay),
+    [logos, includePoweredByBidWar, overlay],
   );
   const contentKey = useMemo(() => buildTickerContentKey(segments), [segments]);
   const { measureRef, trackRef, ready } = useSeamlessTicker(contentKey, {

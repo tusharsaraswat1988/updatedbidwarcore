@@ -1,31 +1,31 @@
-import { memo, useEffect } from "react";
-import type { AuctionState, TeamPurse } from "@workspace/api-client-react";
+import { memo, useMemo } from "react";
+import type { AuctionState, Player, TeamPurse } from "@workspace/api-client-react";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
-import {
-  BROADCAST_OVERLAY_HEIGHT,
-  BROADCAST_OVERLAY_WIDTH,
-} from "@/lib/broadcast-overlay";
+import { BROADCAST_OVERLAY_HEIGHT, BROADCAST_OVERLAY_WIDTH } from "@/lib/broadcast-overlay";
+import { BIDWAR_BROADCAST_YELLOW } from "@/lib/bidwar-broadcast-colors";
+import { BroadcastOverlayTopBar } from "@/components/display/broadcast-overlay-top-bar";
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
+import { SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX, SponsorTicker } from "@/components/display/sponsor-ticker";
 import type { AuctionFeedState } from "@/hooks/use-auction-connection-state";
-import { BroadcastAnimator } from "./broadcast-animator";
-import { useBroadcastStateManager } from "./broadcast-state-manager";
-import { AuctionScene } from "./auction-scene";
-import { SoldScene } from "./sold-scene";
-import { UnsoldScene } from "./unsold-scene";
-import { BreakScene } from "./break-scene";
-import { WaitingScene } from "./waiting-scene";
-import { SummaryScene } from "./summary-scene";
-import type { BroadcastSettings } from "./types";
-import { cldUrl } from "@/lib/cloudinary";
+import { useBroadcastDirector } from "./use-broadcast-director";
+import type { BroadcastOutputTarget, BroadcastSettings } from "./types";
+import {
+  buildTeamTickerRows,
+  computeBottomStackHeight,
+  ObsLowerThirdScene,
+} from "./obs/obs-lower-third-scene";
+import { TeamTicker } from "./obs/team-ticker";
 
 export type BroadcastLayoutProps = {
   tournamentId: number;
+  outputTarget?: BroadcastOutputTarget;
   tournamentName: string | null;
   tournamentLogoUrl: string | null;
   auctionStartsAt?: string | null;
   sponsorLogos: SponsorLogo[];
   state: AuctionState | undefined;
   teamPurses: TeamPurse[] | undefined;
+  soldPlayers?: Player[] | undefined;
   settings: BroadcastSettings;
   isObsMode: boolean;
   formatAmount: (n: number) => string;
@@ -34,155 +34,103 @@ export type BroadcastLayoutProps = {
   isStaleFeed: boolean;
 };
 
-export const BroadcastLayout = memo(function BroadcastLayout({
-  tournamentId,
-  tournamentName,
-  tournamentLogoUrl,
-  auctionStartsAt,
-  sponsorLogos,
-  state,
-  teamPurses,
-  settings,
-  isObsMode,
-  formatAmount,
-  feedState,
-  secondsSinceLastActivity,
-  isStaleFeed,
-}: BroadcastLayoutProps) {
-  const obsMode = isObsMode || settings.obsPerformanceMode;
-
-  const engine = useBroadcastStateManager({
-    tournamentId,
-    state,
-    teamPurses,
-    tournamentName,
-    tournamentLogoUrl,
-    sponsorLogos,
-    settings,
-    isObsMode: obsMode,
-    formatAmount,
-    isStaleFeed,
+/**
+ * OBS broadcast layout — transparent 1920×1080 canvas with lower-third overlay only.
+ * BroadcastDirector drives scene data; presentation stays in the bottom band + top chrome.
+ */
+export const BroadcastLayout = memo(function BroadcastLayout(props: BroadcastLayoutProps) {
+  const frame = useBroadcastDirector({
+    tournamentId: props.tournamentId,
+    outputTarget: props.outputTarget ?? "obs",
+    state: props.state,
+    teamPurses: props.teamPurses,
+    soldPlayers: props.soldPlayers,
+    tournament: undefined,
+    tournamentName: props.tournamentName,
+    tournamentLogoUrl: props.tournamentLogoUrl,
+    auctionStartsAt: props.auctionStartsAt ?? null,
+    sponsorLogos: props.sponsorLogos,
+    settings: props.settings,
+    isObsMode: props.isObsMode,
+    isStaleFeed: props.isStaleFeed,
+    formatAmount: props.formatAmount,
   });
 
-  // Preload current player photo at broadcast quality
-  useEffect(() => {
-    const url = state?.currentPlayer?.photoUrl;
-    if (!url) return;
-    const img = new Image();
-    img.src = cldUrl(url, "playerCard");
-  }, [state?.currentPlayer?.photoUrl]);
-
-  const sceneContent = (() => {
-    switch (engine.scene) {
-      case "SOLD":
-        return engine.outcomeSnapshot ? (
-          <SoldScene
-            snapshot={engine.outcomeSnapshot}
-            settings={settings}
-            formatAmount={formatAmount}
-            obsMode={obsMode}
-          />
-        ) : null;
-
-      case "UNSOLD":
-        return engine.outcomeSnapshot ? (
-          <UnsoldScene
-            snapshot={engine.outcomeSnapshot}
-            settings={settings}
-            formatAmount={formatAmount}
-            obsMode={obsMode}
-          />
-        ) : null;
-
-      case "BREAK":
-        return engine.breakEndsAt ? (
-          <BreakScene
-            tournamentName={tournamentName}
-            sponsorLogos={sponsorLogos}
-            settings={settings}
-            breakEndsAt={engine.breakEndsAt}
-            breakMessage={engine.breakMessage}
-            obsMode={obsMode}
-          />
-        ) : null;
-
-      case "WAITING":
-        return (
-          <WaitingScene
-            tournamentName={tournamentName}
-            tournamentLogoUrl={tournamentLogoUrl}
-            sponsorLogos={sponsorLogos}
-            settings={settings}
-            auctionStartsAt={auctionStartsAt ?? engine.breakEndsAt}
-            obsMode={obsMode}
-          />
-        );
-
-      case "SUMMARY":
-        return engine.summaryStats ? (
-          <SummaryScene
-            tournamentName={tournamentName}
-            tournamentLogoUrl={tournamentLogoUrl}
-            sponsorLogos={sponsorLogos}
-            settings={settings}
-            stats={engine.summaryStats}
-            formatAmount={formatAmount}
-            obsMode={obsMode}
-          />
-        ) : null;
-
-      case "AUCTION":
-      default:
-        return state ? (
-          <AuctionScene
-            state={state}
-            tournamentName={tournamentName}
-            tournamentLogoUrl={tournamentLogoUrl}
-            sponsorLogos={sponsorLogos}
-            settings={settings}
-            bidTimeline={engine.bidTimeline}
-            formatAmount={formatAmount}
-            obsMode={obsMode}
-          />
-        ) : (
-          <WaitingScene
-            tournamentName={tournamentName}
-            tournamentLogoUrl={tournamentLogoUrl}
-            sponsorLogos={sponsorLogos}
-            settings={settings}
-            obsMode={obsMode}
-          />
-        );
-    }
-  })();
+  const teams = useMemo(() => buildTeamTickerRows(props.teamPurses), [props.teamPurses]);
+  const bottomStackHeight = computeBottomStackHeight(teams.length);
+  const showTeamTicker = teams.length > 0 && frame.sceneId !== "SOLD" && frame.sceneId !== "UNSOLD";
+  const themeAccent = frame.palette.accent || BIDWAR_BROADCAST_YELLOW;
 
   return (
     <div
       data-broadcast-overlay-root
-      data-broadcast-scene={engine.scene}
+      data-broadcast-scene={frame.sceneId}
+      data-broadcast-context={frame.currentContext}
+      data-broadcast-output={frame.outputTarget}
       style={{
-        background: "#050508",
+        background: "transparent",
         width: `${BROADCAST_OVERLAY_WIDTH}px`,
         height: `${BROADCAST_OVERLAY_HEIGHT}px`,
         position: "relative",
         overflow: "hidden",
         fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
-        outline: isStaleFeed ? "4px solid rgba(245,158,11,0.35)" : undefined,
+        outline: props.isStaleFeed ? "4px solid rgba(245,158,11,0.35)" : undefined,
         outlineOffset: -4,
+        opacity: props.isStaleFeed ? 0.95 : 1,
+        transition: "opacity 0.3s ease",
       }}
     >
-      <DisplayConnectionBanner
-        feedState={feedState}
-        secondsSinceLastActivity={secondsSinceLastActivity}
+      {frame.chrome.showConnectionBanner && (
+        <DisplayConnectionBanner
+          feedState={props.feedState}
+          secondsSinceLastActivity={props.secondsSinceLastActivity}
+        />
+      )}
+
+      <BroadcastOverlayTopBar
+        tournamentLogoUrl={props.tournamentLogoUrl}
+        tournamentName={props.tournamentName}
+        sponsorLogos={props.sponsorLogos}
       />
 
-      <BroadcastAnimator
-        sceneKey={engine.scene}
-        isTransitioning={engine.isTransitioning}
-        obsMode={obsMode}
-      >
-        {sceneContent}
-      </BroadcastAnimator>
+      <ObsLowerThirdScene
+        frame={frame}
+        state={props.state}
+        teamPurses={props.teamPurses}
+        formatAmount={props.formatAmount}
+        tournamentName={props.tournamentName}
+        bottomStackHeight={bottomStackHeight}
+      />
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 25 }}>
+        <SponsorTicker
+          logos={props.sponsorLogos}
+          themeAccent={themeAccent}
+          includePoweredByBidWar
+          overlay
+        />
+      </div>
+
+      {showTeamTicker && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX,
+            left: 0,
+            right: 0,
+            zIndex: 22,
+          }}
+        >
+          <TeamTicker teams={teams} />
+        </div>
+      )}
+
+      <style>{`
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.85); }
+        }
+      `}</style>
     </div>
   );
 });

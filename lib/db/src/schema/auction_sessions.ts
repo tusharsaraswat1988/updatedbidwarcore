@@ -24,6 +24,8 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   wheelSpinning: boolean("wheel_spinning").notNull().default(false),
   teamPurseViewActive: boolean("team_purse_view_active").notNull().default(false),
   displayOverlay: text("display_overlay"),
+  /** On-air presentation context — { context, selectedTeamId } */
+  obsContextJson: text("obs_context_json"),
   displayPlayerFilter: text("display_player_filter"),
   wheelItemsJson: text("wheel_items_json"),
   wheelWinner: text("wheel_winner"),

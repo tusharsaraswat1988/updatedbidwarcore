@@ -710,6 +710,26 @@ async function buildAuctionState(tournamentId: number) {
     session.updatedAt?.toISOString() ??
     null;
 
+  let presentationContext = { context: "auction" as const, selectedTeamId: null as number | null };
+  if (session.obsContextJson) {
+    try {
+      const parsed = JSON.parse(session.obsContextJson as string) as Record<string, unknown>;
+      if (typeof parsed.context === "string") {
+        presentationContext = {
+          context:
+            parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
+          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
+        };
+      } else {
+        const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
+        presentationContext = {
+          context: screen === "top5" || screen === "team" ? screen : "auction",
+          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
+        };
+      }
+    } catch { /* ignore legacy */ }
+  }
+
   return {
     tournamentId,
     status: session.status,
@@ -762,6 +782,7 @@ async function buildAuctionState(tournamentId: number) {
     pausedTimeRemaining: session.pausedTimeRemaining ?? null,
     teamPurses,
     lastAuctionActivityAt,
+    presentationContext,
   };
 }
 
@@ -2525,6 +2546,53 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
       displayOverlay: overlay,
       teamPurseViewActive: overlay !== null,
     })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  res.json(await broadcastState(tid));
+});
+
+// POST set explicit on-air presentation context (OBS / future displays)
+router.post("/tournaments/:tournamentId/auction/presentation-context", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+  const body = z.object({
+    context: z.enum(["auction", "top5", "team"]).optional(),
+    selectedTeamId: z.number().int().nullable().optional(),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  await getOrCreateSession(tid);
+  const [session] = await db
+    .select({ obsContextJson: auctionSessionsTable.obsContextJson })
+    .from(auctionSessionsTable)
+    .where(eq(auctionSessionsTable.tournamentId, tid))
+    .limit(1);
+  let current = { context: "auction" as const, selectedTeamId: null as number | null };
+  if (session?.obsContextJson) {
+    try {
+      const parsed = JSON.parse(session.obsContextJson) as Record<string, unknown>;
+      if (typeof parsed.context === "string") {
+        current = {
+          context:
+            parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
+          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
+        };
+      } else {
+        const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
+        current = {
+          context: screen === "top5" || screen === "team" ? screen : "auction",
+          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
+        };
+      }
+    } catch { /* ignore */ }
+  }
+  const next = {
+    context: body.data.context ?? current.context,
+    selectedTeamId:
+      body.data.selectedTeamId !== undefined ? body.data.selectedTeamId : current.selectedTeamId,
+  };
+  await db
+    .update(auctionSessionsTable)
+    .set({ obsContextJson: JSON.stringify(next) })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   res.json(await broadcastState(tid));
 });

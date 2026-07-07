@@ -46,8 +46,8 @@ export function resolveBroadcastSettings(
     enableSoldAnimation: parseBool(params.get("soldAnim"), base.enableSoldAnimation),
     soldAnimationDurationMs: clamp(
       Number(params.get("soldDur") ?? base.soldAnimationDurationMs),
-      1500,
-      8000,
+      3500,
+      12000,
     ),
     enableBreakMode: parseBool(params.get("breakMode"), base.enableBreakMode),
     breakCountdownSeconds: clamp(

@@ -275,6 +275,12 @@ const migrations: Array<{ label: string; sql: string }> = [
     `,
   },
   {
+    label: "auction_sessions_obs_context_json",
+    sql: `
+      ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS obs_context_json TEXT;
+    `,
+  },
+  {
     label: "tournaments_features_json",
     sql: `
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS features_json jsonb;

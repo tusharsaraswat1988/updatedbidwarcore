@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
@@ -8,6 +8,11 @@ import {
   getSponsorLogoFilter,
   sponsorBroadcastTier,
 } from "@/lib/sponsor-broadcast-priority-styles";
+import {
+  getSponsorCarouselLogoScale,
+  getSponsorCarouselRotateMs,
+  sortSponsorsForObsTicker,
+} from "@/components/broadcast/obs/sponsor-obs-display";
 
 import {
   BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH,
@@ -23,10 +28,11 @@ const overlayLogoStyle = (
   height: number,
   tier: ReturnType<typeof sponsorBroadcastTier>,
   maxWidth = BROADCAST_OVERLAY_SPONSOR_LOGO_MAX_WIDTH,
+  scale = 1,
 ): CSSProperties => ({
   display: "block",
-  height,
-  maxWidth,
+  height: height * scale,
+  maxWidth: maxWidth * scale,
   width: "auto",
   objectFit: "contain",
   objectPosition: "right center",
@@ -87,23 +93,34 @@ export const SponsorCarousel = memo(function SponsorCarousel({
   overlayLogoRow?: boolean;
   rotateMs?: number;
 }) {
+  const displayLogos = useMemo(
+    () => (overlay ? sortSponsorsForObsTicker(logos) : logos),
+    [logos, overlay],
+  );
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (logos.length <= 1) return;
-    const id = setInterval(() => {
+    setIdx(0);
+    setVisible(true);
+  }, [displayLogos]);
+
+  useEffect(() => {
+    if (displayLogos.length <= 1) return;
+    const current = displayLogos[idx];
+    const duration = overlay ? getSponsorCarouselRotateMs(current) : rotateMs;
+    const id = window.setTimeout(() => {
       setVisible(false);
-      setTimeout(() => {
-        setIdx(i => (i + 1) % logos.length);
+      window.setTimeout(() => {
+        setIdx((i) => (i + 1) % displayLogos.length);
         setVisible(true);
       }, SPONSOR_CAROUSEL_FADE_MS);
-    }, rotateMs);
-    return () => clearInterval(id);
-  }, [logos.length, rotateMs]);
+    }, duration);
+    return () => window.clearTimeout(id);
+  }, [displayLogos, idx, overlay, rotateMs]);
 
-  if (!logos.length) return null;
-  const current = logos[idx];
+  if (!displayLogos.length) return null;
+  const current = displayLogos[idx];
 
   const priorityType = resolveSponsorPriorityType(current);
   const tier = sponsorBroadcastTier(priorityType);
@@ -117,6 +134,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
   const nameLabel = current.name?.trim() || "";
   const imgAlt = nameLabel || typeLabel || "Sponsor";
   const logoH = BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT;
+  const logoScale = overlay ? getSponsorCarouselLogoScale(current) : 1;
 
   if (overlay && overlayLogoRow) {
     const captionW = BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH;
@@ -140,7 +158,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
             key={current.url}
             src={cldUrl(current.url, "teamLogo")}
             alt={imgAlt}
-            style={overlayLogoStyle(logoH, tier)}
+            style={overlayLogoStyle(logoH, tier, BROADCAST_OVERLAY_SPONSOR_LOGO_MAX_WIDTH, logoScale)}
             loading="eager"
             decoding="async"
             onError={e => (e.currentTarget.style.display = "none")}
@@ -231,7 +249,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
             }
             style={
               overlay
-                ? overlayLogoStyle(BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT, tier)
+                ? overlayLogoStyle(BROADCAST_OVERLAY_SPONSOR_LOGO_HEIGHT, tier, BROADCAST_OVERLAY_SPONSOR_LOGO_MAX_WIDTH, logoScale)
                 : { filter: getSponsorLogoFilter(tier) }
             }
             loading="eager"
@@ -259,9 +277,9 @@ export const SponsorCarousel = memo(function SponsorCarousel({
           ) : null}
         </div>
       )}
-      {!compact && !overlayLogoRow && logos.length > 1 && (
+      {!compact && !overlayLogoRow && displayLogos.length > 1 && (
         <div className="flex gap-1.5 justify-end">
-          {logos.map((_, i) => (
+          {displayLogos.map((_, i) => (
             <div
               key={i}
               className="w-2 h-2 rounded-full transition-all duration-300"

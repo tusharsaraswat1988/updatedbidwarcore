@@ -66,7 +66,7 @@ export function BroadcastControlPanel({ tournamentId }: BroadcastControlPanelPro
           <h2 className="font-display text-base font-black text-white">Broadcast Control</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Scene engine settings for OBS Browser Source. Saved locally and encoded in the overlay URL.
+          Lower-third overlay settings for OBS Browser Source. Saved locally and encoded in the overlay URL.
         </p>
       </div>
 
@@ -87,8 +87,8 @@ export function BroadcastControlPanel({ tournamentId }: BroadcastControlPanelPro
             Sold / unsold duration — {settings.soldAnimationDurationMs / 1000}s
           </Label>
           <Slider
-            min={1500}
-            max={8000}
+            min={3500}
+            max={12000}
             step={500}
             value={[settings.soldAnimationDurationMs]}
             onValueChange={([v]) => update({ soldAnimationDurationMs: v })}

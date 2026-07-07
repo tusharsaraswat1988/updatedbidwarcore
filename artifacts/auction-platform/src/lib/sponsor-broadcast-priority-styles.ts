@@ -36,8 +36,8 @@ export function getSponsorTickerNameStyle(
       return {
         color: TITLE_GOLD,
         fontWeight: 900,
-        fontSize: baseFontSize + 3,
-        letterSpacing: "0.07em",
+        fontSize: baseFontSize + 4,
+        letterSpacing: "0.08em",
         textTransform: "uppercase",
         textShadow:
           "0 0 14px rgba(247, 223, 138, 0.6), 0 0 28px rgba(201, 162, 39, 0.35), 0 2px 4px rgba(0,0,0,0.85)",
@@ -46,8 +46,8 @@ export function getSponsorTickerNameStyle(
       return {
         color: CO_SILVER,
         fontWeight: 800,
-        fontSize: baseFontSize + 1,
-        letterSpacing: "0.06em",
+        fontSize: baseFontSize + 2,
+        letterSpacing: "0.07em",
         textTransform: "uppercase",
         textShadow: "0 0 10px rgba(180, 200, 220, 0.4), 0 2px 4px rgba(0,0,0,0.7)",
       };

@@ -16,6 +16,7 @@ export const auctionSessionsTable = sqliteTable("auction_sessions", {
   wheelSpinning: integer("wheel_spinning", { mode: "boolean" }).notNull().default(false),
   teamPurseViewActive: integer("team_purse_view_active", { mode: "boolean" }).notNull().default(false),
   displayOverlay: text("display_overlay"),
+  obsContextJson: text("obs_context_json"),
   displayPlayerFilter: text("display_player_filter"),
   wheelItemsJson: text("wheel_items_json"),
   wheelWinner: text("wheel_winner"),

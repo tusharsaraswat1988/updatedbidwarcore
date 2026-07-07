@@ -1,15 +1,73 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const HEARTBEAT_MS = 2_000;
-// Maximum time to keep retrying acquire before surfacing a hard "locked" state.
+const PEER_PROBE_MS = 400;
+const STALE_LOCK_RETRY_MS = 1_500;
+// Maximum time to keep retrying acquire before surfacing a hard unavailable state.
 const ACQUIRE_MAX_RETRIES = 5;
 const ACQUIRE_RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000];
+
+function tabIdStorageKey(tournamentId: number): string {
+  return `operator-lock-tab:${tournamentId}`;
+}
 
 function createTabId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Stable per browser tab + tournament — survives remounts when navigating panels. */
+function getOrCreateTabId(tournamentId: number): string {
+  if (!tournamentId) return createTabId();
+  try {
+    const key = tabIdStorageKey(tournamentId);
+    const existing = sessionStorage.getItem(key);
+    if (existing && existing.length >= 8) return existing;
+    const id = createTabId();
+    sessionStorage.setItem(key, id);
+    return id;
+  } catch {
+    return createTabId();
+  }
+}
+
+function operatorLockChannel(tournamentId: number): BroadcastChannel | null {
+  if (typeof BroadcastChannel === "undefined") return null;
+  return new BroadcastChannel(`auction-operator-lock:${tournamentId}`);
+}
+
+/** Returns true when another live operator tab in this browser responds. */
+async function detectPeerOperatorTab(tournamentId: number, tabId: string): Promise<boolean> {
+  const channel = operatorLockChannel(tournamentId);
+  if (!channel) return false;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (hasPeer: boolean) => {
+      if (settled) return;
+      settled = true;
+      channel.removeEventListener("message", onMessage);
+      channel.close();
+      resolve(hasPeer);
+    };
+
+    const onMessage = (ev: MessageEvent) => {
+      const msg = ev.data as { type?: string; tabId?: string } | null;
+      if (
+        (msg?.type === "pong" || msg?.type === "heartbeat") &&
+        msg.tabId &&
+        msg.tabId !== tabId
+      ) {
+        finish(true);
+      }
+    };
+
+    channel.addEventListener("message", onMessage);
+    channel.postMessage({ type: "ping", tabId });
+    window.setTimeout(() => finish(false), PEER_PROBE_MS);
+  });
 }
 
 async function postLock(
@@ -34,25 +92,28 @@ export type LockStatus =
   | "retrying"    // acquire failed, retrying with backoff
   | "controller"  // this tab holds the lock
   | "locked"      // another tab holds the lock (read-only)
+  | "unavailable" // could not confirm lock (network) — read-only, no "other tab" claim
   | "unknown";    // lock state not yet determined
 
 /**
  * Server heartbeat lock — only one operator tab controls a tournament at a time.
  *
- * PHASE 4 CHANGES:
- * - Fails CLOSED on network error (no longer fails open).
- * - Retries acquire with exponential backoff up to ACQUIRE_MAX_RETRIES times.
- * - Exposes `takeover()` for explicit "Take Over" flow.
- * - Exposes `lockStatus` for nuanced UI feedback.
+ * - tabId is persisted in sessionStorage so remounts (panel navigation, HMR) reuse
+ *   the same session instead of falsely appearing as a second operator tab.
+ * - BroadcastChannel probes confirm a real second tab before showing read-only UI.
  */
 export function useOperatorSessionLock(tournamentId: number) {
-  const tabIdRef = useRef<string>(createTabId());
+  const tabIdRef = useRef<string>(getOrCreateTabId(tournamentId));
   const [lockStatus, setLockStatus] = useState<LockStatus>("acquiring");
   const acquireAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peerChannelRef = useRef<BroadcastChannel | null>(null);
 
   const isController = lockStatus === "controller";
-  const lockReady = lockStatus === "controller" || lockStatus === "locked";
+  const lockReady =
+    lockStatus === "controller" ||
+    lockStatus === "locked" ||
+    lockStatus === "unavailable";
   const readOnly = lockReady && !isController;
 
   const clearRetryTimer = useCallback(() => {
@@ -62,8 +123,6 @@ export function useOperatorSessionLock(tournamentId: number) {
     }
   }, []);
 
-  // Exposed takeover function — called only after the operator confirms in the UI.
-  // Uses the /takeover route which force-displaces the current holder.
   const takeover = useCallback(async () => {
     try {
       const data = await postLock(tournamentId, "takeover", tabIdRef.current);
@@ -77,6 +136,10 @@ export function useOperatorSessionLock(tournamentId: number) {
   }, [tournamentId]);
 
   useEffect(() => {
+    tabIdRef.current = getOrCreateTabId(tournamentId);
+  }, [tournamentId]);
+
+  useEffect(() => {
     if (!tournamentId) return;
 
     let cancelled = false;
@@ -84,11 +147,25 @@ export function useOperatorSessionLock(tournamentId: number) {
     acquireAttemptRef.current = 0;
     setLockStatus("acquiring");
 
+    const channel = operatorLockChannel(tournamentId);
+    peerChannelRef.current = channel;
+
+    const onPeerMessage = (ev: MessageEvent) => {
+      const msg = ev.data as { type?: string; tabId?: string } | null;
+      if (msg?.type === "ping" && msg.tabId && msg.tabId !== tabId) {
+        channel?.postMessage({ type: "pong", tabId });
+      }
+    };
+    channel?.addEventListener("message", onPeerMessage);
+
+    const peerAnnounce = setInterval(() => {
+      channel?.postMessage({ type: "heartbeat", tabId });
+    }, HEARTBEAT_MS);
+
     function scheduleAcquireRetry() {
       const attempt = acquireAttemptRef.current;
       if (attempt >= ACQUIRE_MAX_RETRIES) {
-        // Exhausted retries — fail closed: do NOT grant control.
-        if (!cancelled) setLockStatus("locked");
+        if (!cancelled) setLockStatus("unavailable");
         return;
       }
       const delay = ACQUIRE_RETRY_DELAYS_MS[attempt] ?? ACQUIRE_RETRY_DELAYS_MS[ACQUIRE_RETRY_DELAYS_MS.length - 1];
@@ -99,6 +176,25 @@ export function useOperatorSessionLock(tournamentId: number) {
       }, delay);
     }
 
+    function scheduleStaleLockRetry() {
+      clearRetryTimer();
+      if (!cancelled) setLockStatus("acquiring");
+      retryTimerRef.current = setTimeout(() => {
+        if (!cancelled) void acquire();
+      }, STALE_LOCK_RETRY_MS);
+    }
+
+    async function handleAcquireDenied() {
+      const hasPeer = await detectPeerOperatorTab(tournamentId, tabId);
+      if (cancelled) return;
+      if (hasPeer) {
+        setLockStatus("locked");
+      } else {
+        // Stale server lock (e.g. prior mount released late) — retry quietly.
+        scheduleStaleLockRetry();
+      }
+    }
+
     async function acquire() {
       try {
         const data = await postLock(tournamentId, "acquire", tabId);
@@ -107,11 +203,10 @@ export function useOperatorSessionLock(tournamentId: number) {
           setLockStatus("controller");
           acquireAttemptRef.current = 0;
         } else {
-          setLockStatus("locked");
+          await handleAcquireDenied();
         }
       } catch {
         if (cancelled) return;
-        // Network error: fail CLOSED — do not grant control. Retry with backoff.
         scheduleAcquireRetry();
       }
     }
@@ -120,21 +215,24 @@ export function useOperatorSessionLock(tournamentId: number) {
 
     const heartbeat = setInterval(() => {
       void postLock(tournamentId, "heartbeat", tabId)
-        .then((data) => {
+        .then(async (data) => {
           if (cancelled) return;
           if (data.ok) {
             setLockStatus("controller");
-          } else {
-            // Server says we no longer hold the lock (TTL expired or displaced).
-            setLockStatus("locked");
+            return;
           }
+          await handleAcquireDenied();
         })
         .catch(() => {
-          // Transient heartbeat failure: keep last known state but do NOT promote
-          // from locked → controller. A controller stays controller across brief
-          // network glitches; a locked tab stays locked.
+          // Transient heartbeat failure: keep last known state.
         });
     }, HEARTBEAT_MS);
+
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible" || cancelled) return;
+      void acquire();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     const onUnload = () => {
       void postLock(tournamentId, "release", tabId);
@@ -144,7 +242,12 @@ export function useOperatorSessionLock(tournamentId: number) {
     return () => {
       cancelled = true;
       clearInterval(heartbeat);
+      clearInterval(peerAnnounce);
       clearRetryTimer();
+      channel?.removeEventListener("message", onPeerMessage);
+      channel?.close();
+      peerChannelRef.current = null;
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("beforeunload", onUnload);
       void postLock(tournamentId, "release", tabId);
     };

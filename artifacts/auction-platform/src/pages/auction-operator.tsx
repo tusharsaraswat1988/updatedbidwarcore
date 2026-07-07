@@ -46,6 +46,12 @@ import { DisplayConnectionBanner } from "@/components/display/display-connection
 import { AUCTION_FEED_UI, formatLastActivityDiagnostic } from "@workspace/api-base/auction-connection-state";
 import { useMutationSync } from "@/hooks/use-mutation-sync";
 import { useOperatorSessionLock } from "@/hooks/use-operator-session-lock";
+import { useSetPresentationContext } from "@/hooks/use-presentation-context";
+import {
+  parsePresentationContext,
+  presentationContextLabel,
+  type PresentationContextKind,
+} from "@/lib/presentation-context";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
@@ -320,7 +326,6 @@ export default function AuctionOperator() {
   const { applyMutationResult, invalidateFallback } = useMutationSync(tournamentId, connectionStatus);
   const {
     readOnly: operatorReadOnly,
-    lockReady: operatorLockReady,
     lockStatus: operatorLockStatus,
     takeover: operatorTakeover,
   } = useOperatorSessionLock(tournamentId);
@@ -388,6 +393,7 @@ export default function AuctionOperator() {
   const stopTimerMut       = useStopTimer();
   const setDisplayOverlay  = useSetDisplayOverlay();
   const setDisplayPlayerFilterMut = useSetDisplayPlayerFilter();
+  const setPresentationMut = useSetPresentationContext();
   const setCategoryFilter  = useSetCategoryFilter();
   const deferPlayerMut     = useDeferPlayer();
   const setBreakTimerMut   = useSetBreakTimer();
@@ -407,6 +413,25 @@ export default function AuctionOperator() {
   const controlsLocked = operatorReadOnly || auctionMutationPending;
 
   const playerLedActive = state?.displayOverlay === "player";
+  const presentationContext = useMemo(
+    () =>
+      parsePresentationContext(
+        (state as { presentationContext?: unknown } | undefined)?.presentationContext,
+      ),
+    [(state as { presentationContext?: unknown } | undefined)?.presentationContext],
+  );
+
+  async function setOnAirPresentation(
+    context: PresentationContextKind,
+    selectedTeamId: number | null = null,
+  ) {
+    if (controlsLocked || setPresentationMut.isPending) return;
+    const result = await setPresentationMut.mutateAsync({
+      tournamentId,
+      data: { context, selectedTeamId },
+    });
+    applyMutationResult(result);
+  }
 
   async function pushPlayerFilterToLed(
     status: typeof playerFilterStatus,
@@ -1009,11 +1034,19 @@ export default function AuctionOperator() {
           </div>
         )}
 
-        {/* Legacy banner for backward compatibility while lockStatus is unknown */}
-        {operatorLockReady && operatorReadOnly && operatorLockStatus !== "locked" && (
-          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">
-            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-            Read-only — another operator tab is controlling this auction. Close the other tab or wait for it to disconnect.
+        {operatorLockStatus === "unavailable" && (
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-xs border-b z-20 bg-yellow-500/10 border-yellow-500/25 text-yellow-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              Read-only — could not verify operator lock (network issue).
+            </div>
+            <button
+              onClick={() => { void operatorTakeover(); }}
+              className="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 transition-colors"
+              title="Retry taking control of this auction"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -1262,7 +1295,8 @@ export default function AuctionOperator() {
                   title={active ? `Showing ${label} on LED — click to return to live` : `Show ${label} on LED screen`}
                   onClick={async () => {
                     if (controlsLocked) return;
-                    const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: active ? "off" : mode } });
+                    const nextMode = active ? "off" : mode;
+                    const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
                     applyMutationResult(result);
                   }}
                   disabled={timerActive || setDisplayOverlay.isPending}
@@ -1274,6 +1308,45 @@ export default function AuctionOperator() {
                 </button>
               );
             })}
+          </div>
+
+          <div className="flex items-center gap-1 px-1.5 py-1 rounded-lg border border-red-500/25 bg-red-500/5 flex-shrink-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-red-300/70 pr-1.5 border-r border-red-500/20 mr-0.5 leading-tight">
+              ON<br/>AIR
+            </span>
+            {(
+              [
+                { context: "auction" as const, label: "Live Auction", icon: Gavel, activeClass: "bg-emerald-600 text-white" },
+                { context: "top5" as const, label: "Top 5", icon: Crown, activeClass: "bg-amber-600 text-white" },
+                { context: "team" as const, label: "Team Details", icon: Users, activeClass: "bg-blue-600 text-white" },
+              ] as const
+            ).map(({ context, label, icon: Icon, activeClass }) => {
+              const active = presentationContext.context === context;
+              return (
+                <button
+                  key={context}
+                  type="button"
+                  onClick={() => { void setOnAirPresentation(context); }}
+                  disabled={controlsLocked || setPresentationMut.isPending}
+                  title={
+                    context === "auction"
+                      ? "Return OBS to live auction lower-third"
+                      : context === "top5"
+                        ? "Show Top 5 on OBS"
+                        : "Show team overview on OBS"
+                  }
+                  className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                    active ? `${activeClass} shadow-md ring-1 ring-white/20` : "text-white/40 hover:text-white hover:bg-white/8"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{label}</span>
+                </button>
+              );
+            })}
+            <span className="hidden xl:inline text-[10px] text-white/40 pl-1 border-l border-white/10 ml-0.5">
+              {presentationContextLabel(presentationContext.context)}
+            </span>
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">

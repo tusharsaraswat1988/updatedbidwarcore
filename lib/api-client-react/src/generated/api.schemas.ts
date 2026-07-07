@@ -1398,7 +1398,39 @@ export interface AuctionState {
    * @nullable
    */
   lastAuctionActivityAt?: string | null;
+  /** Explicit on-air presentation context for OBS and displays */
+  presentationContext?: PresentationContext;
 }
+
+export type PresentationContextKind =
+  (typeof PresentationContextKind)[keyof typeof PresentationContextKind];
+
+export const PresentationContextKind = {
+  auction: "auction",
+  top5: "top5",
+  team: "team",
+} as const;
+
+export interface PresentationContext {
+  context?: PresentationContextKind;
+  /** @nullable */
+  selectedTeamId?: number | null;
+}
+
+export type SetPresentationContextBodyContext =
+  (typeof SetPresentationContextBodyContext)[keyof typeof SetPresentationContextBodyContext];
+
+export const SetPresentationContextBodyContext = {
+  auction: "auction",
+  top5: "top5",
+  team: "team",
+} as const;
+
+export type SetPresentationContextBody = {
+  context?: SetPresentationContextBodyContext;
+  /** @nullable */
+  selectedTeamId?: number | null;
+};
 
 export type ApplyPurseBoosterRequestTarget =
   (typeof ApplyPurseBoosterRequestTarget)[keyof typeof ApplyPurseBoosterRequestTarget];
