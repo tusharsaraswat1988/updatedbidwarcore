@@ -8,6 +8,12 @@ import {
   portraitSpecGridClass,
 } from "@/lib/led-view/portrait-footer-stats";
 import { cldUrl } from "@/lib/cloudinary";
+import {
+  PortraitPlayerTagBadge,
+  PortraitPlayerTagGlow,
+  portraitTagFrameStyle,
+  resolvePortraitPlayerTag,
+} from "./portrait-player-tag";
 
 /**
  * PLAYER PORTRAIT — full-bleed photo with identity + spec grid overlaid at bottom.
@@ -35,11 +41,16 @@ export const PlayerPortrait = memo(function PlayerPortrait({
 
   if (!currentPlayer) return null;
 
+  const tag = resolvePortraitPlayerTag(currentPlayer.playerTag);
+  const frameStyle = portraitTagFrameStyle(tag);
   const showPhoto = hasUsablePortrait(currentPlayer.portrait) && !photoFailed;
   const specGridClass = portraitSpecGridClass(infoRows.length);
 
   return (
-    <div className="@container/portrait relative h-full min-h-0 overflow-hidden bg-black/40 border border-white/10">
+    <div
+      className="@container/portrait relative h-full min-h-0 overflow-hidden bg-black/40 border-2"
+      style={frameStyle}
+    >
       {showPhoto ? (
         <img
           src={cldUrl(currentPlayer.portrait, "playerCard")}
@@ -56,6 +67,8 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
       )}
 
+      {tag ? <PortraitPlayerTagGlow tag={tag} /> : null}
+
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent pointer-events-none" />
       <div
         className="absolute inset-0 opacity-30 mix-blend-overlay pointer-events-none"
@@ -64,6 +77,10 @@ export const PlayerPortrait = memo(function PlayerPortrait({
             "linear-gradient(180deg, transparent 0%, transparent 45%, var(--accent-glow) 100%)",
         }}
       />
+
+      <div className="absolute top-3 left-3 z-10 max-w-[calc(100%-4.5rem)]">
+        {tag ? <PortraitPlayerTagBadge tag={tag} /> : null}
+      </div>
 
       <div className="absolute top-3 right-3 z-10">
         <div
@@ -83,14 +100,20 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       />
 
       <div className="absolute inset-x-0 bottom-0 z-10 px-3 sm:px-4 pb-3 pt-16 sm:pt-20 bg-gradient-to-t from-black via-black/95 to-transparent">
-        <p className="mb-1.5 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.14em] leading-snug">
+        <p className="mb-1.5 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.14em] leading-snug flex flex-wrap items-center gap-x-2 gap-y-1">
           <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
           {currentPlayer.city ? (
             <>
-              <span className="mx-2 text-white/35 font-normal">•</span>
+              <span className="text-white/35 font-normal">•</span>
               <span className="text-white/80 font-mono tracking-[0.18em]">
                 {currentPlayer.city}
               </span>
+            </>
+          ) : null}
+          {tag ? (
+            <>
+              <span className="text-white/35 font-normal">•</span>
+              <span style={{ color: tag.color }}>{tag.label}</span>
             </>
           ) : null}
         </p>

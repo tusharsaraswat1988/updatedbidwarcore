@@ -12,7 +12,7 @@ vi.mock("../lib/branding-asset-resolver.js", () => ({
   getBrandingIconCacheVersion: vi.fn(async () => 42),
 }));
 
-import { buildAdminAppManifest } from "../lib/branding-manifest.js";
+import { buildAdminAppManifest, buildAuctionPlatformManifest, buildOwnerAppManifest } from "../lib/branding-manifest.js";
 
 function chainSelectLimit(rows: unknown[]) {
   return {
@@ -54,5 +54,45 @@ describe("buildAdminAppManifest", () => {
 
     expect(manifest.name).toBe("BidWar Admin");
     expect(manifest.theme_color).toBe("#09090b");
+  });
+});
+
+describe("buildOwnerAppManifest", () => {
+  beforeEach(() => {
+    selectMock.mockReset();
+  });
+
+  it("uses same-origin PWA icons with correct declared sizes", async () => {
+    selectMock.mockReturnValue(
+      chainSelectLimit([{ brandName: "BidWar", backgroundColor: "#09090b" }]),
+    );
+
+    const manifest = await buildOwnerAppManifest();
+    const icons = manifest.icons as { src: string; sizes: string }[];
+
+    expect(icons[0]?.src).toBe("/pwa-icon-192.png?v=42");
+    expect(icons[0]?.sizes).toBe("192x192");
+    expect(icons[1]?.src).toBe("/pwa-icon-512.png?v=42");
+    expect(icons[1]?.sizes).toBe("512x512");
+  });
+});
+
+describe("buildAuctionPlatformManifest", () => {
+  beforeEach(() => {
+    selectMock.mockReset();
+  });
+
+  it("uses absolute PWA icon URLs with correct declared sizes", async () => {
+    selectMock.mockReturnValue(
+      chainSelectLimit([{ brandName: "BidWar", backgroundColor: "#09090b" }]),
+    );
+
+    const manifest = await buildAuctionPlatformManifest();
+    const icons = manifest.icons as { src: string; sizes: string }[];
+
+    expect(icons[0]?.src).toBe("https://bidwar.in/pwa-icon-192.png?v=42");
+    expect(icons[0]?.sizes).toBe("192x192");
+    expect(icons[1]?.src).toBe("https://bidwar.in/pwa-icon-512.png?v=42");
+    expect(icons[1]?.sizes).toBe("512x512");
   });
 });

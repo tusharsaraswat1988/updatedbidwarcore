@@ -11,6 +11,12 @@ import {
 import { cldUrl } from "@/lib/cloudinary";
 import { SideBroadcastHeader } from "../broadcast-canvas/SideBroadcastHeader";
 import { SideDivider } from "../broadcast-canvas/SideDivider";
+import {
+  PortraitPlayerTagBadge,
+  PortraitPlayerTagGlow,
+  portraitTagFrameStyle,
+  resolvePortraitPlayerTag,
+} from "../v1/portrait-player-tag";
 
 function fmtTimer(secs: number): string {
   const m = Math.floor(secs / 60).toString().padStart(2, "0");
@@ -98,6 +104,8 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
 
   const showPhoto = hasUsablePortrait(currentPlayer.portrait) && !photoFailed;
   const player = currentPlayer;
+  const tag = resolvePortraitPlayerTag(player.playerTag);
+  const frameStyle = portraitTagFrameStyle(tag);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -109,7 +117,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         <SideDivider top={SIDE_LED_LAYOUT.profileHeaderHeight} />
       </header>
 
-      <div className="relative flex-[40%] shrink-0">
+      <div className="relative flex-[40%] shrink-0 border-2" style={frameStyle}>
         {showPhoto ? (
           <img
             src={cldUrl(player.portrait, "playerCard")}
@@ -125,7 +133,13 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
             <GenderPortraitIcon gender={player.gender} />
           </div>
         )}
+        {tag ? <PortraitPlayerTagGlow tag={tag} /> : null}
         <div className="side-player-photo-gradient absolute inset-0" aria-hidden />
+        {tag ? (
+          <div className="absolute left-[4%] top-[4%] z-10 max-w-[55%]">
+            <PortraitPlayerTagBadge tag={tag} fontSize="clamp(18px, 2.2vw, 28px)" />
+          </div>
+        ) : null}
         <div
           className="side-player-serial-badge broadcast-tournament-name absolute z-10 grid place-items-center italic"
           style={{
@@ -143,6 +157,12 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
               <>
                 <span style={{ margin: "0 12px", color: "rgba(255,255,255,0.35)" }}>•</span>
                 <span style={{ color: "rgba(255,255,255,0.85)" }}>{player.categoryName}</span>
+              </>
+            ) : null}
+            {tag ? (
+              <>
+                <span style={{ margin: "0 12px", color: "rgba(255,255,255,0.35)" }}>•</span>
+                <span style={{ color: tag.color }}>{tag.label}</span>
               </>
             ) : null}
           </p>

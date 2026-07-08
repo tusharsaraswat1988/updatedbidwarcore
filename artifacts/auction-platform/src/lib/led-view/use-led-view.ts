@@ -165,6 +165,7 @@ function toLedPlayer(
     soldPrice: p.soldPrice ?? p.retainedPrice ?? null,
     achievements: p.achievements?.trim() || "",
     categoryName: categoryName ?? null,
+    playerTag: p.playerTag ?? null,
   };
 }
 
@@ -502,6 +503,7 @@ export function useLedView(
             soldPrice: null,
             achievements: "",
             categoryName: null,
+            playerTag: null,
           }
       : outcome?.playerId && (outcome.type === "sold" || outcome.type === "unsold")
         ? players.find((p) => p.id === String(outcome.playerId)) ?? null

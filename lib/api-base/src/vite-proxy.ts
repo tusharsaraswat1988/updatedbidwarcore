@@ -10,6 +10,7 @@ export type ViteApiProxyOptions = {
   ws: boolean;
   rewrite?: (path: string) => string;
   selfHandleResponse?: boolean;
+  bypass?: (req: IncomingMessage) => false | string | null | undefined | void;
   configure?: (proxy: {
     on(
       event: "proxyRes",
@@ -202,6 +203,11 @@ export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
       secure: false,
       ws: true,
       selfHandleResponse: true,
+      bypass(req) {
+        const pathname = (req.url ?? "/").split("?")[0] ?? "/";
+        // Manifest is served by the API (dynamic branding). Do not SPA-fallback via owner-app Vite.
+        if (pathname === OWNER_APP_MANIFEST_PATH) return false;
+      },
       configure: (proxy) => {
         proxy.on("error", (err, _req, res) => {
           if (res && !res.headersSent && typeof res.writeHead === "function") {
@@ -369,6 +375,7 @@ export function createViteDevProxies(): Record<string, ViteApiProxyOptions> {
 
 const OWNER_APP_DEV_COOKIE = "bidwar-dev-app=owner";
 const SCORING_APP_DEV_COOKIE = "bidwar-dev-app=scoring";
+const OWNER_APP_MANIFEST_PATH = "/owner-app/manifest.webmanifest";
 
 /** Shared Vite dev paths that collide with auction-platform. */
 function isOwnerAppSharedAssetPath(pathname: string): boolean {
@@ -525,6 +532,17 @@ export function ownerAppDevProxyPlugin(): Plugin {
         }
 
         next();
+      });
+
+      // Owner-app PWA manifest must hit the API, not the owner-app Vite dev server (which SPA-fallbacks to HTML).
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const pathname = raw.split("?")[0] ?? "/";
+        if (pathname !== OWNER_APP_MANIFEST_PATH) {
+          next();
+          return;
+        }
+        forwardHttp(req, res, new URL(getDevApiProxyTarget()), next);
       });
 
       // /academy/:slug is not matched by the "/academy" Vite proxy prefix alone.

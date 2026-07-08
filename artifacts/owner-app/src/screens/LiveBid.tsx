@@ -14,6 +14,7 @@ import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@
 import { computeNextBidAmount, resolveRetainedSpend } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
+import { PlayerTagBadge } from "@/components/PlayerTagBadge";
 import { Toast } from "@/components/Toast";
 import { AuctionConnectionBanner, AuctionFeedIndicator } from "@/components/AuctionConnectionBanner";
 import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
@@ -23,6 +24,7 @@ import { formatPlayerGender } from "@workspace/api-base/player-gender";
 import { useRoleSpecGroups } from "@/hooks/useRoleSpecGroups";
 import { getListPlayersQueryKey, useListPlayers } from "@workspace/api-client-react";
 import { useBreakCountdownFromState } from "@/lib/break-countdown";
+import { getPlayerTagTheme } from "@/lib/player-tag-theme";
 
 const BIDWAR_AMBER = "#F59E0B";
 
@@ -200,16 +202,6 @@ function TimerBar({
   );
 }
 
-const PLAYER_TAG_LABELS: Record<string, string> = {
-  captain: "Captain",
-  vice_captain: "Vice Captain",
-  owner: "Owner",
-  co_owner: "Co-Owner",
-  booster: "Booster",
-  icon: "Icon",
-  star_player: "Star Player",
-};
-
 function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
   player: NonNullable<AuctionState["currentPlayer"]>;
   teamColor: string;
@@ -225,7 +217,7 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
   );
 
   const genderLabel = formatPlayerGender(player.gender);
-  const tagLabel = player.playerTag ? (PLAYER_TAG_LABELS[player.playerTag] ?? player.playerTag.replace(/_/g, " ")) : null;
+  const tagTheme = getPlayerTagTheme(player.playerTag);
 
   const metaItems = [
     player.role ? { label: "Role", value: player.role } : null,
@@ -234,7 +226,6 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
     genderLabel ? { label: "Gender", value: genderLabel } : null,
     player.jerseyNumber ? { label: "Jersey", value: `#${player.jerseyNumber}` } : null,
     categoryName ? { label: "Category", value: categoryName } : null,
-    tagLabel ? { label: "Tag", value: tagLabel } : null,
     player.isNonPlayingMember ? { label: "Type", value: "Non-Playing" } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
@@ -249,19 +240,43 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
-      className={`flex items-start rounded-2xl border border-[#27272a] bg-[#18181b] ${cardPad}`}
+      className={`flex items-start rounded-2xl border bg-[#18181b] ${cardPad}`}
+      style={
+        tagTheme
+          ? {
+              borderColor: tagTheme.color,
+              boxShadow: `0 0 16px ${tagTheme.glow}`,
+            }
+          : { borderColor: "#27272a" }
+      }
     >
-      <div className={`${photoClass} rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center`}>
+      <div
+        className={`${photoClass} relative rounded-xl bg-[#27272a] flex-shrink-0 overflow-hidden flex items-center justify-center`}
+        style={
+          tagTheme
+            ? {
+                border: `2px solid ${tagTheme.color}`,
+                boxShadow: `0 0 14px ${tagTheme.glow}, inset 0 0 20px ${tagTheme.glow}`,
+              }
+            : { border: "1px solid #3f3f46" }
+        }
+      >
         {player.photoUrl ? (
           <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
         ) : (
           <User className="w-10 h-10 text-[#52525b]" />
         )}
+        {player.playerTag ? (
+          <div className="absolute left-1 top-1 z-10 max-w-[calc(100%-0.25rem)]">
+            <PlayerTagBadge tagKey={player.playerTag} />
+          </div>
+        ) : null}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
           <span className="font-mono text-sm text-[#71717a] shrink-0">#{player.serialNo ?? player.id}</span>
           <h2 className={`font-display font-black leading-tight text-white truncate ${nameClass}`}>{player.name}</h2>
+          {player.playerTag ? <PlayerTagBadge tagKey={player.playerTag} size="md" className="shrink-0" /> : null}
         </div>
 
         {metaItems.length > 0 && (
