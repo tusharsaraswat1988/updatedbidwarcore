@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, max } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { brandingAssetsTable, brandingSettingsTable } from "@workspace/db/schema";
 import {
@@ -140,6 +140,15 @@ export async function getAllAssets(): Promise<BrandingAssetRecord[]> {
     .where(eq(brandingAssetsTable.isActive, true));
 
   return rows.map(toRecord);
+}
+
+/** Single-query max asset version — used to warm the icon-version cache. */
+export async function getMaxBrandingAssetVersion(): Promise<number> {
+  const [row] = await db
+    .select({ maxVersion: max(brandingAssetsTable.version) })
+    .from(brandingAssetsTable)
+    .where(eq(brandingAssetsTable.isActive, true));
+  return row?.maxVersion ?? 0;
 }
 
 /**
@@ -467,6 +476,7 @@ export async function resolvePdfWatermarkBranding(): Promise<PdfWatermarkBrandin
 export const brandingService = {
   getAsset,
   getAllAssets,
+  getMaxBrandingAssetVersion,
   getAssetsMap,
   getAdminAssetsMap,
   upsertAsset,

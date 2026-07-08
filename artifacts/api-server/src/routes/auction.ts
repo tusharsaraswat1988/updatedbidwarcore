@@ -93,6 +93,21 @@ import {
 } from "../lib/operator-lock";
 import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
 import { compactAuctionStateForSse } from "../lib/auction-sse-payload";
+import {
+  createBuildTimings,
+  formatAuctionStateFlamegraph,
+  getCachedRoster,
+  getCachedStatic,
+  invalidateAuctionBuildCache,
+  setCachedRoster,
+  setCachedStatic,
+  type AuctionBuildCacheScope,
+  type AuctionStateBuildTimings,
+  type CachedRosterPlayer,
+  type CachedTeamRow,
+  type CachedTournamentSettings,
+} from "../lib/auction-state-build-cache";
+import { getActiveBoosterTotalsForTeams } from "../lib/purse-capacity";
 
 const router = Router();
 
@@ -458,33 +473,91 @@ async function countPlayerStatuses(tournamentId: number) {
   return { soldCount, unsoldCount, availableCount };
 }
 
-async function buildAuctionState(tournamentId: number) {
+async function buildAuctionState(tournamentId: number): Promise<{
+  state: Awaited<ReturnType<typeof buildAuctionStateInner>>;
+  timings: AuctionStateBuildTimings;
+}> {
+  const timings = createBuildTimings();
+  const tTotal = Date.now();
+  const state = await buildAuctionStateInner(tournamentId, timings);
+  timings.total = Date.now() - tTotal;
+  return { state, timings };
+}
+
+async function buildAuctionStateInner(tournamentId: number, timings: AuctionStateBuildTimings) {
+  let t0 = Date.now();
   const session = await getOrCreateSession(tournamentId);
+  timings.session = Date.now() - t0;
 
-  // Always fetch fresh tournament data (timer, tiers) — never rely on stale session values
-  const [tournamentRow] = await db
-    .select({
-      playerSelectionMode: tournamentsTable.playerSelectionMode,
-      timerSeconds: tournamentsTable.timerSeconds,
-      bidTimerSeconds: tournamentsTable.bidTimerSeconds,
-      bidExtensionEnabled: tournamentsTable.bidExtensionEnabled,
-      bidExtensionThresholdSeconds: tournamentsTable.bidExtensionThresholdSeconds,
-      bidExtensionSeconds: tournamentsTable.bidExtensionSeconds,
-      bidTier1UpTo: tournamentsTable.bidTier1UpTo,
-      bidTier1Increment: tournamentsTable.bidTier1Increment,
-      bidTier2UpTo: tournamentsTable.bidTier2UpTo,
-      bidTier2Increment: tournamentsTable.bidTier2Increment,
-      bidTier3Increment: tournamentsTable.bidTier3Increment,
-      bidTiers: tournamentsTable.bidTiers,
-      licenseStatus: tournamentsTable.licenseStatus,
-    })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId));
+  // ── Static cache: tournament settings + bid tiers (immutable during live auction) ──
+  let tournamentRow: CachedTournamentSettings;
+  let tiers: BidTier[];
 
-  const timerSeconds = tournamentRow?.timerSeconds ?? 30;
-  const bidTimerSeconds = tournamentRow?.bidTimerSeconds ?? 15;
+  const cachedStatic = getCachedStatic(tournamentId);
+  if (cachedStatic) {
+    timings.cacheHits.static = true;
+    tournamentRow = cachedStatic.tournament;
+    tiers = cachedStatic.tiers;
+  } else {
+    t0 = Date.now();
+    const [row] = await db
+      .select({
+        playerSelectionMode: tournamentsTable.playerSelectionMode,
+        timerSeconds: tournamentsTable.timerSeconds,
+        bidTimerSeconds: tournamentsTable.bidTimerSeconds,
+        bidExtensionEnabled: tournamentsTable.bidExtensionEnabled,
+        bidExtensionThresholdSeconds: tournamentsTable.bidExtensionThresholdSeconds,
+        bidExtensionSeconds: tournamentsTable.bidExtensionSeconds,
+        bidTier1UpTo: tournamentsTable.bidTier1UpTo,
+        bidTier1Increment: tournamentsTable.bidTier1Increment,
+        bidTier2UpTo: tournamentsTable.bidTier2UpTo,
+        bidTier2Increment: tournamentsTable.bidTier2Increment,
+        bidTier3Increment: tournamentsTable.bidTier3Increment,
+        bidTiers: tournamentsTable.bidTiers,
+        licenseStatus: tournamentsTable.licenseStatus,
+        minimumSquadSize: tournamentsTable.minimumSquadSize,
+        maximumSquadSize: tournamentsTable.maximumSquadSize,
+        minBid: tournamentsTable.minBid,
+        sponsorLogos: tournamentsTable.sponsorLogos,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+    timings.tournament = Date.now() - t0;
 
-  const tiers = await resolveTournamentBidTiers(tournamentId);
+    t0 = Date.now();
+    tournamentRow = {
+      playerSelectionMode: row?.playerSelectionMode ?? null,
+      timerSeconds: row?.timerSeconds ?? null,
+      bidTimerSeconds: row?.bidTimerSeconds ?? null,
+      bidExtensionEnabled: row?.bidExtensionEnabled ?? null,
+      bidExtensionThresholdSeconds: row?.bidExtensionThresholdSeconds ?? null,
+      bidExtensionSeconds: row?.bidExtensionSeconds ?? null,
+      bidTier1UpTo: row?.bidTier1UpTo ?? null,
+      bidTier1Increment: row?.bidTier1Increment ?? null,
+      bidTier2UpTo: row?.bidTier2UpTo ?? null,
+      bidTier2Increment: row?.bidTier2Increment ?? null,
+      bidTier3Increment: row?.bidTier3Increment ?? null,
+      bidTiers: row?.bidTiers ?? null,
+      licenseStatus: row?.licenseStatus ?? null,
+      minimumSquadSize: row?.minimumSquadSize ?? null,
+      maximumSquadSize: row?.maximumSquadSize ?? null,
+      minBid: row?.minBid ?? null,
+      sponsorLogos: row?.sponsorLogos ?? null,
+    };
+    tiers = parseBidTiers(tournamentRow.bidTiers, {
+      bidTier1UpTo: tournamentRow.bidTier1UpTo ?? 100000,
+      bidTier1Increment: tournamentRow.bidTier1Increment ?? 25000,
+      bidTier2UpTo: tournamentRow.bidTier2UpTo ?? 200000,
+      bidTier2Increment: tournamentRow.bidTier2Increment ?? 50000,
+      bidTier3Increment: tournamentRow.bidTier3Increment ?? 100000,
+    });
+    timings.settings = Date.now() - t0;
+
+    setCachedStatic(tournamentId, { tournament: tournamentRow, tiers });
+  }
+
+  const timerSeconds = tournamentRow.timerSeconds ?? 30;
+  const bidTimerSeconds = tournamentRow.bidTimerSeconds ?? 15;
 
   let currentPlayer = null;
   let activeTiers = tiers;
@@ -493,13 +566,15 @@ async function buildAuctionState(tournamentId: number) {
   let teamCategoryPlayerCounts: Record<string, number> | null = null;
 
   if (session.currentPlayerId) {
+    t0 = Date.now();
     const [p] = await db
       .select()
       .from(playersTable)
       .where(eq(playersTable.id, session.currentPlayerId));
     if (p) {
+      const serT0 = Date.now();
       currentPlayer = await serializePlayerWithSpecifications(p, "auction");
-      // Use category's bid settings and enforce max players if category defines them
+      timings.serialization += Date.now() - serT0;
       if (p.categoryId) {
         const [cat] = await db
           .select({ bidTiers: categoriesTable.bidTiers, bidIncrement: categoriesTable.bidIncrement, maxPlayers: categoriesTable.maxPlayers, name: categoriesTable.name })
@@ -510,7 +585,6 @@ async function buildAuctionState(tournamentId: number) {
           if (cat.maxPlayers && cat.maxPlayers > 0) {
             currentCategoryMaxPlayers = cat.maxPlayers;
             currentCategoryName = cat.name;
-            // Count per-team players already bought in this category
             const catPlayers = await db
               .select({ teamId: playersTable.teamId })
               .from(playersTable)
@@ -518,8 +592,8 @@ async function buildAuctionState(tournamentId: number) {
                 and(
                   eq(playersTable.tournamentId, tournamentId),
                   eq(playersTable.categoryId, p.categoryId),
-                  inArray(playersTable.status, ["sold", "retained"])
-                )
+                  inArray(playersTable.status, ["sold", "retained"]),
+                ),
               );
             const counts: Record<string, number> = {};
             for (const cp of catPlayers) {
@@ -533,6 +607,7 @@ async function buildAuctionState(tournamentId: number) {
         }
       }
     }
+    timings.currentPlayer = Date.now() - t0;
   }
 
   const bidIncrement = computeTieredIncrement(session.currentBid ?? 0, activeTiers);
@@ -540,22 +615,118 @@ async function buildAuctionState(tournamentId: number) {
   let currentBidTeamName = null;
   let currentBidTeamColor = null;
   let currentBidTeamLogoUrl = null;
-  if (session.currentBidTeamId) {
-    const [team] = await db
+
+  // ── Roster cache: teams, player counts, sold/retained roster, purses ──
+  let teams: CachedTeamRow[];
+  let soldCount: number;
+  let unsoldCount: number;
+  let availableCount: number;
+  let teamPurses: Awaited<ReturnType<typeof buildTeamPurseSnapshot>>;
+
+  const cachedRoster = getCachedRoster(tournamentId);
+  if (cachedRoster) {
+    timings.cacheHits.roster = true;
+    teams = cachedRoster.teams;
+    soldCount = cachedRoster.counts.soldCount;
+    unsoldCount = cachedRoster.counts.unsoldCount;
+    availableCount = cachedRoster.counts.availableCount;
+    teamPurses = cachedRoster.purses;
+  } else {
+    t0 = Date.now();
+    const teamRows = await db
       .select()
       .from(teamsTable)
-      .where(eq(teamsTable.id, session.currentBidTeamId));
+      .where(eq(teamsTable.tournamentId, tournamentId))
+      .orderBy(asc(teamsTable.id));
+    teams = teamRows.map((t) => ({
+      id: t.id,
+      name: t.name,
+      shortCode: t.shortCode,
+      color: t.color,
+      logoUrl: t.logoUrl,
+      purse: t.purse,
+      purseUsed: t.purseUsed,
+    }));
+    timings.teams = Date.now() - t0;
+
+    t0 = Date.now();
+    const counts = await countPlayerStatuses(tournamentId);
+    soldCount = counts.soldCount;
+    unsoldCount = counts.unsoldCount;
+    availableCount = counts.availableCount;
+    timings.players = Date.now() - t0;
+
+    t0 = Date.now();
+    const rosterPlayers = await db
+      .select()
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.tournamentId, tournamentId),
+          inArray(playersTable.status, ["sold", "retained"]),
+        ),
+      );
+    timings.players += Date.now() - t0;
+
+    const sponsorT0 = Date.now();
+    const boosterTotals = await getActiveBoosterTotalsForTeams(
+      tournamentId,
+      teams.map((t) => t.id),
+    );
+    timings.sponsors = Date.now() - sponsorT0;
+
+    const purseT0 = Date.now();
+    teamPurses = await buildTeamPurseSnapshot(tournamentId, {
+      teams: teamRows,
+      rosterPlayers,
+      tournamentRow: {
+        minimumSquadSize: tournamentRow.minimumSquadSize,
+        maximumSquadSize: tournamentRow.maximumSquadSize,
+        minBid: tournamentRow.minBid,
+      },
+      boosterTotals,
+    });
+    timings.purses = Date.now() - purseT0;
+
+    const rosterPlayersCached: CachedRosterPlayer[] = rosterPlayers.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      teamId: p.teamId,
+      basePrice: p.basePrice,
+      soldPrice: p.soldPrice,
+      retainedPrice: p.retainedPrice,
+      isNonPlayingMember: p.isNonPlayingMember,
+    }));
+
+    setCachedRoster(tournamentId, {
+      teams,
+      counts: { soldCount, unsoldCount, availableCount },
+      rosterPlayers: rosterPlayersCached,
+      purses: teamPurses,
+    });
+  }
+
+  if (session.currentBidTeamId) {
+    t0 = Date.now();
+    const team = teams.find((t) => t.id === session.currentBidTeamId);
     if (team) {
       currentBidTeamName = team.name;
       currentBidTeamColor = team.color;
       currentBidTeamLogoUrl = team.logoUrl;
+    } else {
+      const [bidTeam] = await db
+        .select()
+        .from(teamsTable)
+        .where(eq(teamsTable.id, session.currentBidTeamId));
+      if (bidTeam) {
+        currentBidTeamName = bidTeam.name;
+        currentBidTeamColor = bidTeam.color;
+        currentBidTeamLogoUrl = bidTeam.logoUrl;
+      }
     }
+    timings.currentBid = Date.now() - t0;
   }
-
-  const [{ soldCount, unsoldCount, availableCount }, teamPurses] = await Promise.all([
-    countPlayerStatuses(tournamentId),
-    buildTeamPurseSnapshot(tournamentId),
-  ]);
 
   let wheelItems: { label: string; color: string }[] = [];
   try {
@@ -567,21 +738,13 @@ async function buildAuctionState(tournamentId: number) {
     if (session.activeCategoryIds) activeCategoryIds = JSON.parse(session.activeCategoryIds);
   } catch { /* ignore */ }
 
-  // Trial mode: expose first 2 team IDs that are eligible to bid
-  const licenseStatus = tournamentRow?.licenseStatus ?? "trial";
+  const licenseStatus = tournamentRow.licenseStatus ?? "trial";
   const isTrialMode = licenseStatus !== "active";
   let trialTeamIds: number[] | null = null;
   if (isTrialMode) {
-    const trialTeams = await db
-      .select({ id: teamsTable.id })
-      .from(teamsTable)
-      .where(eq(teamsTable.tournamentId, tournamentId))
-      .orderBy(asc(teamsTable.id))
-      .limit(2);
-    trialTeamIds = trialTeams.map(t => t.id);
+    trialTeamIds = teams.slice(0, 2).map((t) => t.id);
   }
 
-  // Parse deferred player IDs
   let deferredPlayerIds: number[] = [];
   try {
     if (session.deferredPlayerIds) deferredPlayerIds = JSON.parse(session.deferredPlayerIds);
@@ -596,18 +759,14 @@ async function buildAuctionState(tournamentId: number) {
         message: string | null;
         musicMuted?: boolean;
       };
-      // Only include if still in the future (auto-expire stale countdowns)
       if (new Date(parsed.endsAt).getTime() > Date.now()) {
         displayCountdown = parsed;
       } else {
-        // Silently clear expired countdown
         await db.update(auctionSessionsTable).set({ displayCountdown: null }).where(eq(auctionSessionsTable.tournamentId, tournamentId));
       }
     }
   } catch { /* ignore */ }
 
-  // Structured sold/unsold outcome — authoritative result that lives between two
-  // players so all displays render the correct card without parsing lastAction.
   let outcome:
     | {
         type: "sold" | "unsold" | "deferred";
@@ -631,7 +790,6 @@ async function buildAuctionState(tournamentId: number) {
     }
   } catch { /* ignore malformed outcome */ }
 
-  // Last sold player — owner panels only; must not appear after an unsold outcome.
   let lastSoldPlayer: {
     id: number; name: string; role: string | null; photoUrl: string | null;
     soldToTeamId: number; soldToTeamName: string | null; soldToTeamColor: string | null;
@@ -656,7 +814,7 @@ async function buildAuctionState(tournamentId: number) {
       soldAmount: outcome.amount ?? 0,
     };
   } else if (!session.currentPlayerId && outcome?.type !== "unsold") {
-    // Legacy fallback when structured outcome is absent
+    const otherT0 = Date.now();
     const [lastBid] = await db
       .select()
       .from(bidsTable)
@@ -665,7 +823,8 @@ async function buildAuctionState(tournamentId: number) {
       .limit(1);
     if (lastBid) {
       const [lp] = await db.select().from(playersTable).where(eq(playersTable.id, lastBid.playerId));
-      const [lt] = await db.select().from(teamsTable).where(eq(teamsTable.id, lastBid.teamId));
+      const lt = teams.find((t) => t.id === lastBid.teamId)
+        ?? await db.select().from(teamsTable).where(eq(teamsTable.id, lastBid.teamId)).then(([t]) => t);
       if (lp?.status === "sold") {
         lastSoldPlayer = {
           id: lp.id, name: lp.name, role: lp.role, photoUrl: lp.photoUrl,
@@ -676,6 +835,7 @@ async function buildAuctionState(tournamentId: number) {
         };
       }
     }
+    timings.other += Date.now() - otherT0;
   }
 
   let lastPurseBooster: {
@@ -706,10 +866,12 @@ async function buildAuctionState(tournamentId: number) {
     } catch { /* ignore legacy */ }
   }
 
+  const activityT0 = Date.now();
   const lastAuctionActivityAt =
     (await getLastAuctionActivityAt(tournamentId)) ??
     session.updatedAt?.toISOString() ??
     null;
+  timings.other += Date.now() - activityT0;
 
   let presentationContext = { context: "auction" as const, selectedTeamId: null as number | null };
   if (session.obsContextJson) {
@@ -731,7 +893,8 @@ async function buildAuctionState(tournamentId: number) {
     } catch { /* ignore legacy */ }
   }
 
-  return {
+  const serT0 = Date.now();
+  const result = {
     tournamentId,
     status: session.status,
     currentPlayer,
@@ -744,12 +907,10 @@ async function buildAuctionState(tournamentId: number) {
     timerSeconds,
     bidTimerSeconds,
     timerEndsAt: session.timerEndsAt,
-    // Authoritative timer mode — persists across pause (timerEndsAt cleared) so
-    // resume uses bid timer when bidding had already started.
     timerType: session.timerType ?? null,
-    bidExtensionEnabled: tournamentRow?.bidExtensionEnabled ?? false,
-    bidExtensionThresholdSeconds: tournamentRow?.bidExtensionThresholdSeconds ?? 3,
-    bidExtensionSeconds: tournamentRow?.bidExtensionSeconds ?? 5,
+    bidExtensionEnabled: tournamentRow.bidExtensionEnabled ?? false,
+    bidExtensionThresholdSeconds: tournamentRow.bidExtensionThresholdSeconds ?? 3,
+    bidExtensionSeconds: tournamentRow.bidExtensionSeconds ?? 5,
     mainRoundExhausted:
       session.status === "active" && availableCount === 0 && unsoldCount > 0,
     lastAction: session.lastAction,
@@ -760,7 +921,6 @@ async function buildAuctionState(tournamentId: number) {
     fortuneWheelActive: session.fortuneWheelActive,
     wheelSpinning: session.wheelSpinning,
     wheelItems,
-    // Hide winner on live feeds while the wheel is still spinning.
     wheelWinner: session.wheelSpinning ? null : session.wheelWinner,
     teamPurseViewActive: session.teamPurseViewActive,
     displayOverlay: session.displayOverlay,
@@ -768,7 +928,7 @@ async function buildAuctionState(tournamentId: number) {
       ? (() => { try { return JSON.parse(session.displayPlayerFilter as string); } catch { return undefined; } })()
       : undefined,
     activeCategoryIds,
-    playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
+    playerSelectionMode: tournamentRow.playerSelectionMode ?? "sequential",
     licenseStatus,
     trialTeamIds,
     deferredPlayerIds: deferredPlayerIds.length > 0 ? deferredPlayerIds : null,
@@ -785,6 +945,8 @@ async function buildAuctionState(tournamentId: number) {
     lastAuctionActivityAt,
     presentationContext,
   };
+  timings.serialization += Date.now() - serT0;
+  return result;
 }
 
 // ── Auction state cache ───────────────────────────────────────────────────────
@@ -792,8 +954,10 @@ async function buildAuctionState(tournamentId: number) {
 // reads. A 500 ms TTL means all viewers who reconnect within the same half-second
 // share one DB snapshot. Mutations always call invalidateStateCache() first so
 // they bypass stale data and always broadcast a fresh snapshot.
+type AuctionState = Awaited<ReturnType<typeof buildAuctionStateInner>>;
+
 interface StateCacheEntry {
-  data: Awaited<ReturnType<typeof buildAuctionState>>;
+  data: AuctionState;
   cachedAt: number;
 }
 const _stateCache = new Map<number, StateCacheEntry>();
@@ -805,7 +969,13 @@ function invalidateStateCache(tournamentId: number) {
   _stateCache.delete(tournamentId);
 }
 
-async function getCachedOrBuildState(tournamentId: number): Promise<Awaited<ReturnType<typeof buildAuctionState>>> {
+function resolveBuildCacheInvalidation(invalidate: string[]): AuctionBuildCacheScope | null {
+  if (invalidate.includes("purses") && invalidate.includes("players")) return "all";
+  if (invalidate.includes("purses") || invalidate.includes("players")) return "roster";
+  return null;
+}
+
+async function getCachedOrBuildState(tournamentId: number): Promise<AuctionState> {
   const cached = _stateCache.get(tournamentId);
   if (cached && Date.now() - cached.cachedAt < STATE_CACHE_TTL_MS) {
     _cacheHits++;
@@ -813,11 +983,23 @@ async function getCachedOrBuildState(tournamentId: number): Promise<Awaited<Retu
   }
   _cacheMisses++;
   const t0 = Date.now();
-  const data = await buildAuctionState(tournamentId);
-  const elapsed = Date.now() - t0;
-  if (elapsed > 300) {
-    logger.warn({ tournamentId, elapsed, fn: "buildAuctionState" }, "auction state build slow");
+  const { state: data, timings } = await buildAuctionState(tournamentId);
+  const elapsed = timings.total;
+  const flamegraph = formatAuctionStateFlamegraph(timings);
+
+  if (elapsed > 100) {
+    logger.info(
+      { tournamentId, elapsed, timings, flamegraph, fn: "buildAuctionState" },
+      "auction state build timing",
+    );
   }
+  if (elapsed > 300) {
+    logger.warn(
+      { tournamentId, elapsed, timings, flamegraph, fn: "buildAuctionState" },
+      "auction state build slow",
+    );
+  }
+
   _stateCache.set(tournamentId, { data, cachedAt: Date.now() });
   return data;
 }
@@ -837,6 +1019,8 @@ setInterval(() => {
 
 async function broadcastState(tournamentId: number, invalidate: string[] = []) {
   invalidateStateCache(tournamentId);
+  const buildScope = resolveBuildCacheInvalidation(invalidate);
+  if (buildScope) invalidateAuctionBuildCache(tournamentId, buildScope);
   const state = await getCachedOrBuildState(tournamentId);
   await emitAuctionStateEvent(tournamentId, state, invalidate);
   return state;
@@ -855,6 +1039,7 @@ async function broadcastSoldDelta(
   invalidate: string[] = ["bids", "players"],
 ) {
   invalidateStateCache(tournamentId);
+  invalidateAuctionBuildCache(tournamentId, "roster");
   const state = await getCachedOrBuildState(tournamentId);
   await emitSoldEvent(
     tournamentId,
@@ -3201,4 +3386,4 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
 });
 
 export default router;
-export { broadcastState, getOrCreateSession, invalidateStateCache };
+export { broadcastState, getOrCreateSession, invalidateStateCache, invalidateAuctionBuildCache };

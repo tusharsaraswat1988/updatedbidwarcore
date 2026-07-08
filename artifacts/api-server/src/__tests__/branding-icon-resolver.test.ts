@@ -7,9 +7,11 @@ import {
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
 
 const getAssetMock = vi.fn<(type: string) => Promise<BrandingAssetRecord | null>>();
+const getMaxBrandingAssetVersionMock = vi.fn<() => Promise<number>>();
 
 vi.mock("../lib/branding-service.js", () => ({
   getAsset: (type: string) => getAssetMock(type),
+  getMaxBrandingAssetVersion: () => getMaxBrandingAssetVersionMock(),
 }));
 
 vi.mock("../lib/pdf-branding.js", () => ({
@@ -26,8 +28,17 @@ vi.mock("../lib/logger.js", () => ({
 
 import {
   resolveBrandingIconForPath,
+  refreshBrandingIconCache,
+  getCachedFaviconVersion,
   getBrandingIconCacheVersion,
+  getSerializedIconVersionResponse,
+  isBrandingIconCacheInitialized,
+  __resetBrandingIconCacheForTests,
 } from "../lib/branding-asset-resolver.js";
+
+function mockMaxVersionQuery(maxVersion: number): void {
+  getMaxBrandingAssetVersionMock.mockResolvedValue(maxVersion);
+}
 
 function asset(type: string, url: string, version = 1): BrandingAssetRecord {
   return {
@@ -50,6 +61,8 @@ function asset(type: string, url: string, version = 1): BrandingAssetRecord {
 describe("branding-asset-resolver", () => {
   beforeEach(() => {
     getAssetMock.mockReset();
+    getMaxBrandingAssetVersionMock.mockReset();
+    __resetBrandingIconCacheForTests();
   });
 
   it("maps /favicon.ico to FAVICON asset", async () => {
@@ -113,14 +126,29 @@ describe("branding-asset-resolver", () => {
     expect(html).toContain('href="/apple-touch-icon.png?v=5"');
   });
 
-  it("returns max version across all branding assets", async () => {
-    getAssetMock.mockImplementation(async (type: string) => {
-      if (type === "FAVICON") return asset("FAVICON", "https://cdn.example/f.png", 2);
-      if (type === "PWA_ICON") return asset("PWA_ICON", "https://cdn.example/p.png", 7);
-      if (type === "OBS_WATERMARK") return asset("OBS_WATERMARK", "https://cdn.example/obs.png", 9);
-      return null;
-    });
+  it("returns max version from a single DB query on refresh", async () => {
+    mockMaxVersionQuery(9);
+    await refreshBrandingIconCache();
+    expect(getCachedFaviconVersion()).toBe(9);
+    expect(isBrandingIconCacheInitialized()).toBe(true);
+    expect(getMaxBrandingAssetVersionMock).toHaveBeenCalledTimes(1);
+  });
 
-    expect(await getBrandingIconCacheVersion()).toBe(9);
+  it("serves cached version without DB after refresh", async () => {
+    mockMaxVersionQuery(7);
+    await refreshBrandingIconCache();
+    getMaxBrandingAssetVersionMock.mockClear();
+
+    expect(await getBrandingIconCacheVersion()).toBe(7);
+    expect(getMaxBrandingAssetVersionMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses pre-serialized JSON for repeated polls", async () => {
+    mockMaxVersionQuery(5);
+    await refreshBrandingIconCache();
+    const first = getSerializedIconVersionResponse(5);
+    const second = getSerializedIconVersionResponse(5);
+    expect(first).toBe(second);
+    expect(first).toBe('{"version":5}');
   });
 });

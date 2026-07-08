@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { performance } from "node:perf_hooks";
 import { db } from "@workspace/db";
 import { brandingSettingsTable } from "@workspace/db/schema";
 import {
@@ -7,17 +8,71 @@ import {
   type BrandingAssetType,
 } from "@workspace/api-base/branding-assets";
 import { brandingService } from "../lib/branding-service.js";
-import { refreshBrandingIconCache, getBrandingIconCacheVersion } from "../lib/branding-asset-resolver.js";
+import {
+  refreshBrandingIconCache,
+  getCachedFaviconVersion,
+  isBrandingIconCacheInitialized,
+  ensureBrandingIconCacheLoaded,
+  getSerializedIconVersionResponse,
+} from "../lib/branding-asset-resolver.js";
 import { invalidateHomepagePageCache } from "../lib/homepage-data.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
+
+function logSlowBrandingVersion(timing: {
+  cacheLookupMs: number;
+  dbMs: number;
+  serializationMs: number;
+  totalMs: number;
+}): void {
+  if (timing.totalMs <= 100) return;
+  logger.warn(
+    {
+      endpoint: "BrandingVersion",
+      ...timing,
+    },
+    [
+      "BrandingVersion",
+      `Cache Lookup ...... ${timing.cacheLookupMs.toFixed(0)} ms`,
+      `DB ............... ${timing.dbMs.toFixed(0)} ms`,
+      `Serialization ..... ${timing.serializationMs.toFixed(0)} ms`,
+      `Total ............. ${timing.totalMs.toFixed(0)} ms`,
+    ].join("\n"),
+  );
+}
 
 // ─── Public: read-only branding settings ──────────────────────────────────────
 
 router.get("/branding/icon-version", async (_req, res) => {
-  const version = await getBrandingIconCacheVersion();
+  const t0 = performance.now();
+
+  let version: number;
+  let dbMs = 0;
+  const cacheT0 = performance.now();
+
+  if (isBrandingIconCacheInitialized()) {
+    version = getCachedFaviconVersion();
+  } else {
+    const dbStart = performance.now();
+    version = await ensureBrandingIconCacheLoaded();
+    dbMs = performance.now() - dbStart;
+  }
+
+  const cacheLookupMs = performance.now() - cacheT0;
+
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.json({ version });
+
+  const serT0 = performance.now();
+  res.type("application/json").send(getSerializedIconVersionResponse(version));
+  const serializationMs = performance.now() - serT0;
+
+  logSlowBrandingVersion({
+    cacheLookupMs,
+    dbMs,
+    serializationMs,
+    totalMs: performance.now() - t0,
+  });
 });
 
 router.get("/branding", async (_req, res) => {

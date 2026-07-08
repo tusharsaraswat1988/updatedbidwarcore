@@ -11,7 +11,6 @@ import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 import {
   ALL_BRANDING_ICON_PATHS,
   ALL_BRANDING_LOGO_PATHS,
-  BRANDING_ASSET_TYPES,
   BRANDING_ICON_PATHS,
   BRANDING_LOGO_PATHS,
   BRANDING_ICON_STATIC_FALLBACKS,
@@ -21,7 +20,7 @@ import {
   type BrandingLogoPath,
 } from "@workspace/api-base/branding-assets";
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
-import { getAsset } from "./branding-service.js";
+import { getAsset, getMaxBrandingAssetVersion } from "./branding-service.js";
 import { coerceFaviconPipelineMetadata } from "./favicon-pipeline.js";
 import { patchBrandingIconsInCachedHtml } from "./html-meta-injector.js";
 import { logger } from "./logger.js";
@@ -56,6 +55,29 @@ interface StaticAssetPayload {
 }
 
 let faviconVersion = 0;
+let cacheInitialized = false;
+let cacheInitPromise: Promise<number> | null = null;
+let serializedIconVersionResponse: string | null = null;
+let serializedIconVersionFor = -1;
+
+/** Whether the in-memory icon version cache has been populated (startup or refresh). */
+export function isBrandingIconCacheInitialized(): boolean {
+  return cacheInitialized;
+}
+
+/** Pre-serialized JSON body for hot polling — rebuilt only when version changes. */
+export function getSerializedIconVersionResponse(version: number): string {
+  if (serializedIconVersionFor === version && serializedIconVersionResponse) {
+    return serializedIconVersionResponse;
+  }
+  serializedIconVersionResponse = JSON.stringify({ version });
+  serializedIconVersionFor = version;
+  return serializedIconVersionResponse;
+}
+
+async function computeMaxVersionFromDb(): Promise<number> {
+  return getMaxBrandingAssetVersion();
+}
 
 function guessMimeType(url: string, stored: string | null | undefined): string {
   if (stored) return stored;
@@ -216,14 +238,8 @@ export async function resolveBrandingIconForPath(
 
 /** Highest asset version across all branding uploads — used for cache-busting link hrefs. */
 export async function getBrandingIconCacheVersion(): Promise<number> {
-  let maxVersion = 0;
-  for (const type of BRANDING_ASSET_TYPES) {
-    const asset = await getAsset(type);
-    if (asset?.version && asset.version > maxVersion) {
-      maxVersion = asset.version;
-    }
-  }
-  return maxVersion;
+  if (cacheInitialized) return faviconVersion;
+  return ensureBrandingIconCacheLoaded();
 }
 
 /** Synchronous read of the last refreshed favicon cache version (for HTML injection). */
@@ -231,12 +247,43 @@ export function getCachedFaviconVersion(): number {
   return faviconVersion;
 }
 
+/** Cold-start loader — single MAX(version) query, deduped across concurrent requests. */
+export async function ensureBrandingIconCacheLoaded(): Promise<number> {
+  if (cacheInitialized) return faviconVersion;
+  if (!cacheInitPromise) {
+    cacheInitPromise = computeMaxVersionFromDb()
+      .then((version) => {
+        faviconVersion = version;
+        cacheInitialized = true;
+        getSerializedIconVersionResponse(version);
+        patchBrandingIconsInCachedHtml(faviconVersion);
+        logger.info({ faviconVersion }, "Branding: icon version cache loaded");
+        return faviconVersion;
+      })
+      .finally(() => {
+        cacheInitPromise = null;
+      });
+  }
+  return cacheInitPromise;
+}
+
 export { buildBrandingIconHeadLinks };
 
 export async function refreshBrandingIconCache(): Promise<void> {
-  faviconVersion = await getBrandingIconCacheVersion();
+  faviconVersion = await computeMaxVersionFromDb();
+  cacheInitialized = true;
+  getSerializedIconVersionResponse(faviconVersion);
   patchBrandingIconsInCachedHtml(faviconVersion);
   logger.info({ faviconVersion }, "Branding: icon resolver cache refreshed");
+}
+
+/** @internal Vitest-only — resets module cache between tests. */
+export function __resetBrandingIconCacheForTests(): void {
+  faviconVersion = 0;
+  cacheInitialized = false;
+  cacheInitPromise = null;
+  serializedIconVersionResponse = null;
+  serializedIconVersionFor = -1;
 }
 
 async function serveBrandingAsset(

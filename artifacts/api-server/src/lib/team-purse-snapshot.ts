@@ -42,23 +42,46 @@ export type TeamPurseSnapshot = {
   topPlayerAmount: number | null;
 };
 
+type TeamRow = typeof teamsTable.$inferSelect;
+type RosterPlayerRow = typeof playersTable.$inferSelect;
+
+export type BuildTeamPurseSnapshotOpts = {
+  teams?: TeamRow[];
+  rosterPlayers?: RosterPlayerRow[];
+  tournamentRow?: {
+    minimumSquadSize: number | null;
+    maximumSquadSize?: number | null;
+    minBid?: number | null;
+  };
+  /** When provided, skips the booster-totals DB query (sponsors step). */
+  boosterTotals?: Map<number, number>;
+};
+
 /**
  * Build team purse rows for live displays. Uses sold/retained roster only —
  * available/unsold players do not affect purse math.
  */
-export async function buildTeamPurseSnapshot(tournamentId: number): Promise<TeamPurseSnapshot[]> {
-  const [tournamentRow] = await db
-    .select({ minimumSquadSize: tournamentsTable.minimumSquadSize })
+export async function buildTeamPurseSnapshot(
+  tournamentId: number,
+  opts?: BuildTeamPurseSnapshotOpts,
+): Promise<TeamPurseSnapshot[]> {
+  const tournamentRow = opts?.tournamentRow ?? (await db
+    .select({
+      minimumSquadSize: tournamentsTable.minimumSquadSize,
+      maximumSquadSize: tournamentsTable.maximumSquadSize,
+      minBid: tournamentsTable.minBid,
+    })
     .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId));
+    .where(eq(tournamentsTable.id, tournamentId))
+    .then(([t]) => t));
 
-  const teams = await db
+  const teams = opts?.teams ?? await db
     .select()
     .from(teamsTable)
     .where(eq(teamsTable.tournamentId, tournamentId))
     .orderBy(teamsTable.name);
 
-  const rosterPlayers = await db
+  const rosterPlayers = opts?.rosterPlayers ?? await db
     .select()
     .from(playersTable)
     .where(
@@ -78,6 +101,12 @@ export async function buildTeamPurseSnapshot(tournamentId: number): Promise<Team
       basePrice: p.basePrice,
       isNonPlayingMember: p.isNonPlayingMember ?? false,
     })),
+    {
+      minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
+      maximumSquadSize: tournamentRow?.maximumSquadSize ?? 0,
+      minBid: tournamentRow?.minBid ?? 0,
+    },
+    opts?.boosterTotals,
   );
 
   return teams.map((team) => {

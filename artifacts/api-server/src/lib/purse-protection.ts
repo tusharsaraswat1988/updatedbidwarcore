@@ -129,19 +129,30 @@ export async function computeAllTeamPurseProtections(
   tournamentId: number,
   teams: Array<{ id: number; purse: number; purseUsed: number }>,
   playersOverride?: Array<{ id: number; status: string; teamId: number | null; basePrice: number; isNonPlayingMember?: boolean }>,
+  tournamentOpts?: { minimumSquadSize: number; maximumSquadSize: number; minBid: number },
+  boosterTotalsOverride?: Map<number, number>,
 ): Promise<Map<number, PurseProtection>> {
-  const [tournamentRow] = await db
-    .select({
-      minimumSquadSize: tournamentsTable.minimumSquadSize,
-      maximumSquadSize: tournamentsTable.maximumSquadSize,
-      minBid: tournamentsTable.minBid,
-    })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId));
+  let minimumSquadSize: number;
+  let maximumSquadSize: number;
+  let minBid: number;
 
-  const minimumSquadSize = tournamentRow?.minimumSquadSize ?? 0;
-  const maximumSquadSize = tournamentRow?.maximumSquadSize ?? 0;
-  const minBid = tournamentRow?.minBid ?? 0;
+  if (tournamentOpts) {
+    minimumSquadSize = tournamentOpts.minimumSquadSize;
+    maximumSquadSize = tournamentOpts.maximumSquadSize;
+    minBid = tournamentOpts.minBid;
+  } else {
+    const [tournamentRow] = await db
+      .select({
+        minimumSquadSize: tournamentsTable.minimumSquadSize,
+        maximumSquadSize: tournamentsTable.maximumSquadSize,
+        minBid: tournamentsTable.minBid,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+    minimumSquadSize = tournamentRow?.minimumSquadSize ?? 0;
+    maximumSquadSize = tournamentRow?.maximumSquadSize ?? 0;
+    minBid = tournamentRow?.minBid ?? 0;
+  }
 
   const allPlayers =
     playersOverride ??
@@ -150,7 +161,7 @@ export async function computeAllTeamPurseProtections(
       .from(playersTable)
       .where(eq(playersTable.tournamentId, tournamentId)));
 
-  const boosterTotals = await getActiveBoosterTotalsForTeams(
+  const boosterTotals = boosterTotalsOverride ?? await getActiveBoosterTotalsForTeams(
     tournamentId,
     teams.map((t) => t.id),
   );
