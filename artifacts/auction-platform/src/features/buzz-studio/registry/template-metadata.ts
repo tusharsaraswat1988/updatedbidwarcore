@@ -45,7 +45,7 @@ export const TOP_BUYS_META: BuzzTemplateDefinition = {
   description: "Showcase the highest-value auction purchases in a ranked list creative.",
   category: BuzzTemplateCategory.AUCTION,
   enabled: true,
-  aspectRatios: ["1:1", "4:5"],
+  aspectRatios: ["1:1", "4:5", "9:16", "16:9"],
   contractName: "TopBuysListContract",
 };
 

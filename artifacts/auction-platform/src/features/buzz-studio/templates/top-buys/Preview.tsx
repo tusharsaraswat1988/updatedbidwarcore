@@ -14,18 +14,45 @@
 import React, { useState } from "react";
 import { TopBuys } from "./TopBuys";
 import { demoTop3, demoTop5, demoTop10, ALL_DEMO_SCENARIOS } from "./demo-data";
-import type { TopBuysListContract } from "./TopBuys.types";
+import {
+  BUZZ_EXPORT_DIMENSIONS,
+  type BuzzAspectRatio,
+} from "../../rendering/buzz-render-context";
 
-/* ─── Preview component ──────────────────────────────────────────────────── */
+const ASPECT_RATIO_OPTIONS: BuzzAspectRatio[] = ["1:1", "4:5", "9:16", "16:9"];
 
 export function TopBuysPreview() {
-  const [activeIndex, setActiveIndex] = useState(1); // default: Top 5
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [aspectRatio, setAspectRatio] = useState<BuzzAspectRatio>("4:5");
 
   const activeScenario = ALL_DEMO_SCENARIOS[activeIndex];
+  const dims = BUZZ_EXPORT_DIMENSIONS[aspectRatio];
+  const renderProps = {
+    renderMode: "preview" as const,
+    aspectRatio,
+    renderWidth: dims.width,
+    renderHeight: dims.height,
+  };
 
   return (
     <div style={previewStyles.root}>
       <h2 style={previewStyles.heading}>Top Buys — Developer Preview</h2>
+
+      {/* ── Aspect ratio tabs ─────────────────────────────────────────── */}
+      <div style={previewStyles.tabRow}>
+        {ASPECT_RATIO_OPTIONS.map((ratio) => (
+          <button
+            key={ratio}
+            onClick={() => setAspectRatio(ratio)}
+            style={{
+              ...previewStyles.tab,
+              ...(ratio === aspectRatio ? previewStyles.tabActive : {}),
+            }}
+          >
+            {ratio}
+          </button>
+        ))}
+      </div>
 
       {/* ── Scenario tabs ───────────────────────────────────────────────── */}
       <div style={previewStyles.tabRow}>
@@ -45,8 +72,13 @@ export function TopBuysPreview() {
 
       {/* ── Active render ─────────────────────────────────────────────── */}
       <div style={previewStyles.canvasWrapper}>
-        <div style={previewStyles.canvas}>
-          <TopBuys {...activeScenario.data} />
+        <div
+          style={{
+            ...previewStyles.canvas,
+            maxWidth: aspectRatio === "16:9" ? 640 : 420,
+          }}
+        >
+          <TopBuys {...activeScenario.data} {...renderProps} />
         </div>
         <p style={previewStyles.scenarioLabel}>
           Rendering: <strong style={{ color: "#FBBF24" }}>{activeScenario.label}</strong>
@@ -64,7 +96,7 @@ export function TopBuysPreview() {
           <div key={scenario.label} style={previewStyles.gridItem}>
             <p style={previewStyles.gridLabel}>{scenario.label}</p>
             <div style={previewStyles.gridCanvas}>
-              <TopBuys {...scenario.data} />
+              <TopBuys {...scenario.data} {...renderProps} />
             </div>
           </div>
         ))}

@@ -14,7 +14,10 @@ async function getBrowser() {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
-    })();
+    })().catch((err) => {
+      browserPromise = null;
+      throw err;
+    });
   }
   return browserPromise;
 }
@@ -44,9 +47,13 @@ export async function screenshotHtmlToPng(
 }
 
 export async function closeRenderBrowser(): Promise<void> {
-  if (browserPromise) {
-    const browser = await browserPromise;
-    browserPromise = null;
+  if (!browserPromise) return;
+  const pending = browserPromise;
+  browserPromise = null;
+  try {
+    const browser = await pending;
     await browser.close();
+  } catch {
+    // Launch or close failed — singleton already cleared.
   }
 }

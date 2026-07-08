@@ -25,18 +25,18 @@ import { SportType } from "../../types/sport-types";
 
 /* ─── Individual player entries (pool of 10) ────────────────────────────── */
 
-/** #1 — Most expensive. Has player image and team logo. */
+/** #1 — Most expensive. Matches Canva reference layout. */
 const entry1: TopBuyContract = {
-  playerName: "Rahul Kapoor",
-  playerImageUrl: undefined,          // monogram "RK" — test monogram path
-  teamName: "Mumbai Sharks",
+  playerName: "Avijit Soni",
+  playerImageUrl: undefined,
+  teamName: "RD SMASHERS",
   teamLogoUrl: undefined,
-  sport: SportType.Cricket,
-  price: 500000,
-  priceDisplay: "₹5,00,000",
+  sport: SportType.Badminton,
+  price: 2000000,
+  priceDisplay: "₹20,00,000",
   currency: "INR",
   rank: 1,
-  designation: "All-Rounder",
+  designation: "Captain",
 };
 
 /** #2 — Second highest. No player image → monogram fallback. Has team logo placeholder. */
@@ -157,8 +157,11 @@ const entry10: TopBuyContract = {
  */
 export const demoTop3: TopBuysListContract = {
   entries: [entry1, entry2, entry3],
-  title: "Top 3 Buys",
-  sport: SportType.Cricket,
+  title: "TOP BUY",
+  sport: SportType.Badminton,
+  branding: {
+    tagline: "VYAPARI NETWORK\nBADMINTON LEAGUE",
+  },
 };
 
 /**

@@ -4,6 +4,9 @@
  */
 
 import React from "react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   getTemplateById,
@@ -11,6 +14,14 @@ import {
 } from "../../../artifacts/auction-platform/src/features/buzz-studio/registry/template-registry.ts";
 import { BuzzTemplateType } from "../../../artifacts/auction-platform/src/features/buzz-studio/registry/template-types.ts";
 import { resolveRenderDimensions, type RenderDimensions } from "./aspect-ratios.ts";
+
+const TOP_BUY_CHROME_CSS = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css",
+  ),
+  "utf-8",
+);
 
 export const RENDERABLE_TEMPLATE_IDS: readonly BuzzTemplateType[] = [
   BuzzTemplateType.PLAYER_SPOTLIGHT,
@@ -36,7 +47,11 @@ export interface RenderHtmlResult {
   dimensions: RenderDimensions;
 }
 
-function buildHtmlDocument(markup: string, dimensions: RenderDimensions): string {
+function buildHtmlDocument(
+  markup: string,
+  dimensions: RenderDimensions,
+  extraCss = "",
+): string {
   const { width, height } = dimensions;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -70,6 +85,7 @@ function buildHtmlDocument(markup: string, dimensions: RenderDimensions): string
       height: 100% !important;
       min-height: 100% !important;
     }
+    ${extraCss}
   </style>
 </head>
 <body>
@@ -114,7 +130,11 @@ export function renderCreativeJobHtml(input: RenderHtmlInput): RenderHtmlResult 
       featuredFrameLayout={input.featuredFrameLayout}
     />,
   );
-  const html = buildHtmlDocument(markup, dimensions);
+  const html = buildHtmlDocument(
+    markup,
+    dimensions,
+    templateId === BuzzTemplateType.TOP_BUYS ? TOP_BUY_CHROME_CSS : "",
+  );
 
   return { html, dimensions };
 }

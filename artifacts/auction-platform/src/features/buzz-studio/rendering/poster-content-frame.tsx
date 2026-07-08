@@ -8,6 +8,36 @@ import { monogramFor } from "../asset-engine/monogram-generator";
 import type { TemplateFrameRect } from "./template-frame-schema";
 import { frameToZoneRect, resolveFramePixels } from "./template-frame-schema";
 import { PosterAbsoluteZone } from "./poster-absolute-zone";
+import { PLAYER_PHOTO_GLOW_STYLES } from "./poster-primitives";
+
+function PlayerFrameGlow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", isolation: "isolate" }}>
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: "-10%",
+          borderRadius: "50%",
+          background: PLAYER_PHOTO_GLOW_STYLES.radialBackground,
+          filter: "blur(clamp(10px, 2.5vw, 22px))",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: "-4%",
+          borderRadius: "50%",
+          boxShadow: PLAYER_PHOTO_GLOW_STYLES.ambientShadow,
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "relative", width: "100%", height: "100%", zIndex: 1 }}>{children}</div>
+    </div>
+  );
+}
 
 /* ─── Photo (object-fit: cover, clipped) ─────────────────────────────────── */
 
@@ -30,28 +60,39 @@ export function FramePhoto({
         style={{
           width: "100%",
           height: "100%",
-          overflow: "hidden",
+          overflow: "visible",
           borderRadius,
           position: "relative",
-          isolation: "isolate",
         }}
       >
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={name}
-            draggable={false}
+        <PlayerFrameGlow>
+          <div
             style={{
               width: "100%",
               height: "100%",
-              objectFit: "cover",
-              objectPosition: "center top",
-              display: "block",
+              overflow: "hidden",
+              borderRadius,
             }}
-          />
-        ) : (
-          <FramePhotoFallback name={name} />
-        )}
+          >
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={name}
+                draggable={false}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center top",
+                  display: "block",
+                  boxShadow: PLAYER_PHOTO_GLOW_STYLES.imageRing,
+                }}
+              />
+            ) : (
+              <FramePhotoFallback name={name} />
+            )}
+          </div>
+        </PlayerFrameGlow>
       </div>
     </PosterAbsoluteZone>
   );

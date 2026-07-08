@@ -2,8 +2,8 @@
  * Buzz Studio — Poster Primitives (Phase 18)
  *
  * Content-only rendering building blocks for asset-driven templates.
- * No cards, gradients, glow, frames, borders, or decorative UI —
- * only dynamic images and typography placed on designer backgrounds.
+ * Player hero photos get a Bidwar gold ambient glow; team/tournament
+ * assets stay flat. No cards, frames, or decorative UI beyond that glow.
  */
 
 import React from "react";
@@ -52,6 +52,66 @@ export const POSTER_TOKENS = {
 } as const;
 
 const PT = POSTER_TOKENS;
+
+/** Bidwar gold ambient halo behind hero player photos. */
+export const PLAYER_PHOTO_GLOW_STYLES = {
+  radialBackground:
+    "radial-gradient(circle, rgba(251,191,36,0.78) 0%, rgba(253,224,71,0.48) 34%, rgba(217,119,6,0.3) 54%, transparent 76%)",
+  ambientShadow:
+    "0 0 24px 8px rgba(251,191,36,0.55), 0 0 48px 18px rgba(217,119,6,0.34), 0 0 72px 30px rgba(251,191,36,0.18)",
+  imageRing:
+    "0 0 0 2px rgba(253,224,71,0.92), 0 0 22px rgba(251,191,36,0.68), 0 0 44px rgba(217,119,6,0.36)",
+} as const;
+
+function PlayerPhotoGlowWrap({
+  size,
+  fill,
+  children,
+}: {
+  size?: number;
+  fill?: boolean;
+  children: React.ReactNode;
+}) {
+  const blur = fill ? "clamp(12px, 3vw, 28px)" : `${Math.max(10, Math.round((size ?? 120) * 0.08))}px`;
+  const boxSize = fill ? "100%" : size;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: boxSize,
+        height: boxSize,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: fill ? "-8%" : "-14%",
+          borderRadius: "50%",
+          background: PLAYER_PHOTO_GLOW_STYLES.radialBackground,
+          filter: `blur(${blur})`,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: fill ? "-3%" : "-6%",
+          borderRadius: "50%",
+          boxShadow: PLAYER_PHOTO_GLOW_STYLES.ambientShadow,
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "relative", width: "100%", height: "100%", zIndex: 1 }}>{children}</div>
+    </div>
+  );
+}
 
 /* ─── Zone stack wrapper ─────────────────────────────────────────────────── */
 
@@ -114,6 +174,12 @@ export function PosterImage({
         objectFit: kind === "player" ? "cover" : "contain",
         objectPosition: "center",
         display: "block",
+        ...(kind === "player"
+          ? {
+              borderRadius: "50%",
+              boxShadow: PLAYER_PHOTO_GLOW_STYLES.imageRing,
+            }
+          : {}),
       }
     : {
         width: size,
@@ -123,22 +189,36 @@ export function PosterImage({
         display: "block",
         flexShrink: 0,
         borderRadius: kind === "player" ? "50%" : 0,
+        ...(kind === "player"
+          ? {
+              boxShadow: PLAYER_PHOTO_GLOW_STYLES.imageRing,
+            }
+          : {}),
       };
 
+  const wrapPlayerGlow = (node: React.ReactNode) =>
+    kind === "player" ? (
+      <PlayerPhotoGlowWrap size={size} fill={fill}>
+        {node}
+      </PlayerPhotoGlowWrap>
+    ) : (
+      node
+    );
+
   if (url) {
-    return (
+    return wrapPlayerGlow(
       <img
         src={url}
         alt={alt ?? name}
         draggable={false}
         style={imgStyle}
-      />
+      />,
     );
   }
 
   const boxSize = fill ? "100%" : size!;
   const { initials } = monogramFor(name, kind);
-  return (
+  return wrapPlayerGlow(
     <span
       style={{
         display: "flex",
@@ -155,10 +235,15 @@ export function PosterImage({
         lineHeight: 1,
         userSelect: "none",
         flexShrink: 0,
+        ...(kind === "player"
+          ? {
+              boxShadow: PLAYER_PHOTO_GLOW_STYLES.imageRing,
+            }
+          : {}),
       }}
     >
       {initials}
-    </span>
+    </span>,
   );
 }
 

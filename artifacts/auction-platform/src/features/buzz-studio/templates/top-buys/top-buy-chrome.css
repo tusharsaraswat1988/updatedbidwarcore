@@ -1,0 +1,637 @@
+/**
+ * Top Buy — broadcast auction graphic chrome.
+ * IPL-style premium sports television: layered light, metallic gold, player hero.
+ */
+
+.top-buy-poster {
+  --tb-scale: 1;
+  --tb-font-display: "Arial Black", "Franklin Gothic Heavy", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --tb-font-label: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --tb-purple-deep: #12082e;
+  --tb-purple-mid: #2a1560;
+  --tb-purple-light: #4a2890;
+  --tb-navy: #0a0e28;
+  --tb-gold-light: #fff0b3;
+  --tb-gold-mid: #e8c547;
+  --tb-gold-deep: #b8860b;
+  --tb-gold-rich: #d4af37;
+  --tb-cyan: #00e8ff;
+  --tb-cyan-glow: rgba(0, 232, 255, 0.62);
+  --tb-white: #ffffff;
+  --tb-spot-y: 46%;
+  --tb-header-size: calc(30px * var(--tb-scale));
+  --tb-title-size: calc(68px * var(--tb-scale));
+  --tb-photo-size: calc(280px * var(--tb-scale));
+  --tb-name-size: calc(52px * var(--tb-scale));
+  --tb-team-size: calc(30px * var(--tb-scale));
+  --tb-team-logo-size: calc(104px * var(--tb-scale));
+  --tb-price-size: calc(84px * var(--tb-scale));
+  --tb-deal-gap: calc(22px * var(--tb-scale));
+  --tb-footer-text: calc(17px * var(--tb-scale));
+  --tb-footer-logo: calc(33px * var(--tb-scale));
+  --tb-gap: calc(14px * var(--tb-scale));
+  --tb-section-gap: calc(20px * var(--tb-scale));
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  font-family: var(--tb-font-label);
+  color: var(--tb-white);
+}
+
+.top-buy-poster--landscape {
+  --tb-spot-y: 50%;
+  --tb-title-size: calc(52px * var(--tb-scale));
+  --tb-photo-size: calc(220px * var(--tb-scale));
+  --tb-name-size: calc(40px * var(--tb-scale));
+  --tb-team-size: calc(24px * var(--tb-scale));
+  --tb-team-logo-size: calc(88px * var(--tb-scale));
+  --tb-price-size: calc(64px * var(--tb-scale));
+  --tb-deal-gap: calc(16px * var(--tb-scale));
+  --tb-header-size: calc(24px * var(--tb-scale));
+  --tb-section-gap: calc(12px * var(--tb-scale));
+}
+
+.top-buy-poster--tall {
+  --tb-title-size: calc(76px * var(--tb-scale));
+  --tb-photo-size: calc(300px * var(--tb-scale));
+  --tb-section-gap: calc(24px * var(--tb-scale));
+}
+
+/* ── Layered background (stadium broadcast) ───────────────────────────── */
+
+.top-buy-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(74, 40, 144, 0.22) 0%, transparent 58%),
+    radial-gradient(ellipse 120% 80% at 50% 100%, rgba(0, 0, 0, 0.55) 0%, transparent 50%),
+    linear-gradient(
+      168deg,
+      #0c1030 0%,
+      var(--tb-navy) 18%,
+      var(--tb-purple-deep) 48%,
+      #1a0c3a 72%,
+      #08041a 100%
+    );
+  pointer-events: none;
+}
+
+/* Overhead stadium beams — depth without flat fill */
+.top-buy-stadium-lights {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 18%,
+      transparent 42%
+    ),
+    linear-gradient(
+      242deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.015) 16%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse 100% 35% at 50% -5%,
+      rgba(200, 180, 255, 0.14) 0%,
+      transparent 70%
+    );
+  pointer-events: none;
+}
+
+/* Subtle broadcast ray texture — alive, not dominant */
+.top-buy-sunburst {
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  opacity: 0.58;
+  background: repeating-conic-gradient(
+    from -4deg at 50% var(--tb-spot-y),
+    rgba(90, 55, 150, 0.14) 0deg 10deg,
+    rgba(18, 12, 42, 0.04) 10deg 20deg
+  );
+  mask-image: radial-gradient(
+    ellipse 72% 58% at 50% var(--tb-spot-y),
+    black 8%,
+    rgba(0, 0, 0, 0.45) 45%,
+    transparent 78%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 72% 58% at 50% var(--tb-spot-y),
+    black 8%,
+    rgba(0, 0, 0, 0.45) 45%,
+    transparent 78%
+  );
+  pointer-events: none;
+}
+
+/* Hero spotlight — soft, elegant, player-centric */
+.top-buy-player-spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse 42% 36% at 50% var(--tb-spot-y),
+      rgba(255, 248, 230, 0.2) 0%,
+      rgba(232, 197, 71, 0.1) 28%,
+      rgba(74, 40, 144, 0.08) 52%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 55% 48% at 50% var(--tb-spot-y),
+      rgba(180, 140, 255, 0.12) 0%,
+      transparent 65%
+    );
+  pointer-events: none;
+}
+
+/* Edge falloff — keeps energy in the centre */
+.top-buy-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 85% 78% at 50% var(--tb-spot-y),
+    transparent 42%,
+    rgba(0, 0, 0, 0.38) 100%
+  );
+  pointer-events: none;
+}
+
+/* ── Premium gold particles (periphery only) ──────────────────────────── */
+
+.top-buy-decorative {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.top-buy-gold-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 248, 220, 0.95) 0%,
+    rgba(232, 197, 71, 0.75) 35%,
+    rgba(184, 134, 11, 0.35) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 calc(6px * var(--tb-scale)) rgba(232, 197, 71, 0.35);
+  opacity: var(--tb-particle-opacity, 0.7);
+  filter: blur(calc(var(--tb-particle-blur, 0) * var(--tb-scale)));
+  transform: translate(-50%, -50%);
+}
+
+.top-buy-lens-flare {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 236, 190, 0.45) 30%,
+    transparent 72%
+  );
+  opacity: var(--tb-flare-opacity, 0.45);
+  filter: blur(calc(var(--tb-flare-blur, 1) * var(--tb-scale)));
+  transform: translate(-50%, -50%);
+}
+
+/* ── Content stack ────────────────────────────────────────────────────── */
+
+.top-buy-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: stretch;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: calc(24px * var(--tb-scale)) calc(32px * var(--tb-scale)) calc(12px * var(--tb-scale));
+  box-sizing: border-box;
+  gap: 0;
+}
+
+.top-buy-poster--landscape .top-buy-content {
+  flex-direction: row;
+  gap: calc(32px * var(--tb-scale));
+  padding: calc(20px * var(--tb-scale)) calc(40px * var(--tb-scale));
+}
+
+.top-buy-content-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tb-section-gap);
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.top-buy-hero-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tb-section-gap);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.top-buy-body-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  margin-top: calc(28px * var(--tb-scale));
+  gap: 0;
+}
+
+.top-buy-lower-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  margin-top: calc(24px * var(--tb-scale));
+  gap: var(--tb-deal-gap);
+}
+
+.top-buy-poster--landscape .top-buy-body-block {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: calc(36px * var(--tb-scale));
+  margin-top: calc(20px * var(--tb-scale));
+}
+
+.top-buy-poster--landscape .top-buy-lower-block {
+  flex: 0 1 auto;
+  margin-top: 0;
+  align-items: center;
+}
+
+.top-buy-poster--landscape .top-buy-lower-block--landscape {
+  margin-top: calc(12px * var(--tb-scale));
+}
+
+.top-buy-poster--landscape .top-buy-content-main {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.top-buy-poster--landscape .top-buy-hero-block {
+  flex: 0 1 auto;
+}
+
+.top-buy-content-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tb-gap);
+  flex: 0 1 auto;
+}
+
+.top-buy-poster:not(.top-buy-poster--landscape) .top-buy-content-side {
+  width: 100%;
+}
+
+/* ── Player stage (spotlight anchor) ──────────────────────────────────── */
+
+.top-buy-player-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.top-buy-player-stage::before {
+  content: "";
+  position: absolute;
+  width: calc(var(--tb-photo-size) * 1.55);
+  height: calc(var(--tb-photo-size) * 1.45);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 42%,
+    rgba(255, 250, 235, 0.28) 0%,
+    rgba(232, 197, 71, 0.14) 32%,
+    rgba(120, 80, 200, 0.06) 55%,
+    transparent 72%
+  );
+  filter: blur(calc(8px * var(--tb-scale)));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Tournament header ────────────────────────────────────────────────── */
+
+.top-buy-tournament-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(10px * var(--tb-scale));
+  text-align: center;
+  max-width: 92%;
+}
+
+.top-buy-tournament-logo {
+  width: calc(64px * var(--tb-scale));
+  height: calc(64px * var(--tb-scale));
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.5));
+}
+
+.top-buy-tournament-name {
+  margin: 0;
+  font-family: var(--tb-font-label);
+  font-size: var(--tb-header-size);
+  font-weight: 700;
+  color: var(--tb-white);
+  letter-spacing: 0.14em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 3px 12px rgba(0, 0, 0, 0.6);
+  white-space: pre-line;
+}
+
+/* ── Title (TOP BUY) — broadcast power ────────────────────────────────── */
+
+.top-buy-title {
+  margin: 0;
+  font-family: var(--tb-font-display);
+  font-size: var(--tb-title-size);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  background: linear-gradient(
+    180deg,
+    #fffef5 0%,
+    #fff0b3 14%,
+    var(--tb-gold-light) 28%,
+    var(--tb-gold-mid) 52%,
+    var(--tb-gold-deep) 82%,
+    #7a5c0a 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 2px 0 rgba(122, 92, 10, 0.95))
+    drop-shadow(0 5px 0 rgba(90, 68, 8, 0.55))
+    drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65))
+    drop-shadow(0 0 28px rgba(232, 197, 71, 0.38))
+    drop-shadow(0 0 48px rgba(212, 175, 55, 0.15));
+}
+
+/* ── Player frame — metallic broadcast ring ───────────────────────────── */
+
+.top-buy-player-frame {
+  position: relative;
+  width: var(--tb-photo-size);
+  height: var(--tb-photo-size);
+  flex-shrink: 0;
+  border-radius: 50%;
+  padding: calc(7px * var(--tb-scale));
+  background: linear-gradient(
+    145deg,
+    #fff8dc 0%,
+    #f5e6a8 8%,
+    var(--tb-gold-mid) 32%,
+    var(--tb-gold-deep) 58%,
+    #6b4f0a 82%,
+    var(--tb-gold-mid) 94%,
+    #fff0b3 100%
+  );
+  box-sizing: border-box;
+  box-shadow:
+    0 12px 44px rgba(0, 0, 0, 0.58),
+    0 0 48px rgba(232, 197, 71, 0.28),
+    0 0 90px rgba(212, 175, 55, 0.12),
+    inset 0 3px 6px rgba(255, 255, 255, 0.45),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+/* Specular highlight — metallic sheen */
+.top-buy-player-frame::after {
+  content: "";
+  position: absolute;
+  top: 6%;
+  left: 14%;
+  width: 38%;
+  height: 22%;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.18) 45%,
+    transparent 72%
+  );
+  pointer-events: none;
+  z-index: 3;
+  transform: rotate(-18deg);
+}
+
+.top-buy-player-frame-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0a0a12;
+  box-shadow:
+    inset 0 5px 16px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+/* Top-down key light on player face */
+.top-buy-player-frame-inner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 90% 55% at 50% 8%,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 236, 190, 0.06) 38%,
+    transparent 68%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.top-buy-player-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+.top-buy-player-monogram {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tb-font-display);
+  font-size: calc(var(--tb-photo-size) * 0.32);
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.06em;
+  user-select: none;
+  background: linear-gradient(180deg, #3a2468 0%, #1a0e38 100%);
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Player name ──────────────────────────────────────────────────────── */
+
+.top-buy-player-name {
+  margin: 0;
+  font-family: var(--tb-font-display);
+  font-size: var(--tb-name-size);
+  font-weight: 900;
+  color: var(--tb-white);
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  text-align: center;
+  max-width: 95%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.15),
+    0 3px 14px rgba(0, 0, 0, 0.7),
+    0 0 24px rgba(255, 255, 255, 0.08);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Team name + logo ─────────────────────────────────────────────────── */
+
+.top-buy-team-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(12px * var(--tb-scale));
+  max-width: 92%;
+  margin-top: calc(18px * var(--tb-scale));
+}
+
+.top-buy-team-logo {
+  width: var(--tb-team-logo-size);
+  height: var(--tb-team-logo-size);
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.5));
+}
+
+.top-buy-team-name {
+  margin: 0;
+  font-family: var(--tb-font-label);
+  font-size: var(--tb-team-size);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ── Price card — broadcast ticker energy ─────────────────────────────── */
+
+.top-buy-price-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--tb-scale));
+  text-align: center;
+  width: 100%;
+}
+
+.top-buy-price-value {
+  margin: 0;
+  font-family: var(--tb-font-display);
+  font-size: var(--tb-price-size);
+  font-weight: 900;
+  color: var(--tb-cyan);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow:
+    0 0 14px var(--tb-cyan-glow),
+    0 0 32px rgba(0, 232, 255, 0.42),
+    0 0 56px rgba(0, 200, 230, 0.18),
+    0 3px 10px rgba(0, 0, 0, 0.6);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+
+.top-buy-footer {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(14px * var(--tb-scale));
+  flex-shrink: 0;
+  width: 100%;
+  padding: calc(12px * var(--tb-scale)) calc(24px * var(--tb-scale)) calc(14px * var(--tb-scale));
+  box-sizing: border-box;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+.top-buy-footer-text {
+  font-family: var(--tb-font-label);
+  font-size: var(--tb-footer-text);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.top-buy-footer-logo {
+  height: var(--tb-footer-logo);
+  width: auto;
+  max-width: calc(var(--tb-footer-logo) * 5);
+  object-fit: contain;
+  display: block;
+  filter: brightness(1.08) drop-shadow(0 1px 4px rgba(0, 0, 0, 0.35));
+}
