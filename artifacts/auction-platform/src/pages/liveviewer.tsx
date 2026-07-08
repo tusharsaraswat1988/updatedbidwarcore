@@ -267,22 +267,22 @@ function TeamSquadSheet({
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Players</p>
                 </div>
               </div>
-              {(team?.spendablePurse !== undefined || (team?.reservePurse ?? 0) > 0) && (
+              {(team?.maxAllowedBid !== undefined || (team?.futureReservePurse ?? team?.reservePurse ?? 0) > 0) && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  {team?.spendablePurse !== undefined && (
+                  {team?.maxAllowedBid !== undefined && (
                     <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
                       <p className={`font-mono font-bold text-sm tabular-nums ${(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize) ? "text-red-400" : "text-emerald-400"}`}>
                         {(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize)
                           ? "Squad Full"
-                          : fmtShort(team.spendablePurse)}
+                          : fmtShort(team.maxAllowedBid)}
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Max Bid</p>
                     </div>
                   )}
-                  {(team?.reservePurse ?? 0) > 0 && (
+                  {(team?.futureReservePurse ?? team?.reservePurse ?? 0) > 0 && (
                     <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
                       <p className="font-mono font-bold text-sm tabular-nums text-amber-400/90">
-                        {fmtShort(team?.reservePurse ?? 0)}
+                        {fmtShort(team?.futureReservePurse ?? team?.reservePurse ?? 0)}
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Reserved</p>
                     </div>

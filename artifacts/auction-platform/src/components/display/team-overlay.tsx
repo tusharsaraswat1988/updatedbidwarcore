@@ -92,7 +92,7 @@ export const TeamOverlay = memo(function TeamOverlay({
           >
             <div>Team</div>
             <div className="text-right">Total Purse</div>
-            <div className="text-right">Spendable</div>
+            <div className="text-right">Current Spendable</div>
             <div className="text-right">Reserve</div>
             <div className="text-right">Max / Player</div>
             <div className="text-center">Squad</div>
@@ -104,16 +104,12 @@ export const TeamOverlay = memo(function TeamOverlay({
               const color = team.color || "#F59E0B";
               const isLeading = currentBidTeamId === team.teamId;
 
-              const spendable = team.spendablePurse ?? team.purseRemaining;
-              const reserve = team.reservePurse ?? 0;
-              const slotsNeeded = team.slotsRequired ?? 0;
+              const currentSpendable = team.spendablePurse ?? team.purseRemaining;
+              const maxOnPlayer = Math.max(0, team.maxAllowedBid ?? team.purseRemaining);
+              const reserve = team.futureReservePurse ?? team.reservePurse ?? 0;
+              const slotsNeeded = team.futureSlotsRequired ?? team.slotsRequired ?? 0;
               const maxSquad = team.maximumSquadSize ?? 0;
               const squadFull = maxSquad > 0 && team.playersBought >= maxSquad;
-
-              // spendablePurse already reserves (slotsRequired × lowestBasePrice)
-              // for the remaining mandatory slots, so it IS the max a team can
-              // bid on a single player without violating purse protection.
-              const maxOnPlayer = Math.max(0, spendable);
 
               return (
                 <motion.div
@@ -200,7 +196,7 @@ export const TeamOverlay = memo(function TeamOverlay({
                       className="text-base md:text-2xl font-display font-black tabular-nums"
                       style={{ color, textShadow: `0 0 18px ${color}66` }}
                     >
-                      {formatShortIndianRupee(spendable)}
+                      {formatShortIndianRupee(currentSpendable)}
                     </p>
                   </div>
 

@@ -107,11 +107,9 @@ function toLedTeam(t: TeamPurse, minBid: number, tournamentMinSquad: number): Le
   const minSquad = (t.minimumSquadSize ?? 0) > 0 ? t.minimumSquadSize! : tournamentMinSquad;
   const maxSquad = t.maximumSquadSize ?? 0;
   const squad = resolveSquadMetrics(playersBought, minSquad, maxSquad);
-  const slotsForReserve = t.slotsRequired ?? squad.slotsRemaining;
-  const reservedAmount = t.reservePurse ?? slotsForReserve * Math.max(0, minBid);
-  const reserveForOthers = Math.max(0, slotsForReserve - 1) * Math.max(0, minBid);
-  const maxBidAllowed =
-    t.spendablePurse ?? Math.max(0, t.purseRemaining - reserveForOthers);
+  const slotsForReserve = t.futureSlotsRequired ?? t.slotsRequired ?? squad.slotsRemaining;
+  const reservedAmount = t.futureReservePurse ?? t.reservePurse ?? slotsForReserve * Math.max(0, minBid);
+  const maxBidAllowed = t.maxAllowedBid ?? t.purseRemaining;
   return {
     id: String(t.teamId),
     name: t.teamName,

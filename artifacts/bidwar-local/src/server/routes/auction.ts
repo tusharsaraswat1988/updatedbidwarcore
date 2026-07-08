@@ -33,6 +33,7 @@ import {
   type LedPurseBoosterTeamLine,
 } from "@workspace/api-base";
 import { computeScoutPurseProtection } from "../lib/scout-purse.js";
+import { formatPurseProtectionBidError } from "@workspace/api-base/purse-protection";
 import { mirrorStateToCloud } from "../mirror.js";
 import { fetchCloudVenueGuard, releaseVenueAuctionOnCloud } from "../lib/venue-guard.js";
 
@@ -708,10 +709,33 @@ export function createAuctionRouter(db: LocalDb) {
       }
     }
     if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
+    const [tournament] = await db.select({
+      minimumSquadSize: tournamentsTable.minimumSquadSize,
+      maximumSquadSize: tournamentsTable.maximumSquadSize,
+      minBid: tournamentsTable.minBid,
+      bidTimerSeconds: tournamentsTable.bidTimerSeconds,
+    }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    const allPlayers = await db.select({
+      status: playersTable.status,
+      teamId: playersTable.teamId,
+      isNonPlayingMember: playersTable.isNonPlayingMember,
+    }).from(playersTable).where(eq(playersTable.tournamentId, tid));
     const boosterTotal = await getActiveBoosterTotal(db, tid, teamId);
-    const spendable = computeEffectiveCapacity(team.purse, boosterTotal) - team.purseUsed;
-    if (amount > spendable) { res.status(400).json({ error: "Insufficient purse" }); return; }
-    const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    const protection = computeScoutPurseProtection(
+      team,
+      boosterTotal,
+      allPlayers,
+      teamId,
+      {
+        minimumSquadSize: tournament?.minimumSquadSize ?? 0,
+        maximumSquadSize: tournament?.maximumSquadSize ?? 0,
+        minBid: tournament?.minBid ?? 0,
+      },
+    );
+    if (amount > protection.maxAllowedBid) {
+      res.status(400).json({ error: formatPurseProtectionBidError(protection) });
+      return;
+    }
     const bidTimerSecs = tournament?.bidTimerSeconds ?? 15;
     const newTimerEndsAt = new Date(Date.now() + bidTimerSecs * 1000).toISOString();
     await db.update(auctionSessionsTable).set({
@@ -788,11 +812,8 @@ export function createAuctionRouter(db: LocalDb) {
           minBid: tournament?.minBid ?? 0,
         },
       );
-      if (amount > protection.spendablePurse) {
-        const msg = protection.reservePurse > 0
-          ? `Insufficient purse — ₹${protection.reservePurse.toLocaleString("en-IN")} reserved for ${protection.slotsRequired} minimum squad slot${protection.slotsRequired !== 1 ? "s" : ""}`
-          : "Insufficient purse for this team";
-        res.status(400).json({ error: msg });
+      if (amount > protection.maxAllowedBid) {
+        res.status(400).json({ error: formatPurseProtectionBidError(protection, "Insufficient purse for this team") });
         return;
       }
     }

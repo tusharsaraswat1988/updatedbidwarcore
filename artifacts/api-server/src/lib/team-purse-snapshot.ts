@@ -31,6 +31,10 @@ export type TeamPurseSnapshot = {
   reservePurse: number;
   spendablePurse: number;
   slotsRequired: number;
+  futurePlayersBought: number;
+  futureSlotsRequired: number;
+  futureReservePurse: number;
+  maxAllowedBid: number;
   lowestBasePrice: number;
   minimumSquadSize: number;
   maximumSquadSize: number;
@@ -115,6 +119,10 @@ export async function buildTeamPurseSnapshot(tournamentId: number): Promise<Team
       reservePurse: p?.reservePurse ?? 0,
       spendablePurse: p?.spendablePurse ?? purseRemaining,
       slotsRequired: p?.slotsRequired ?? 0,
+      futurePlayersBought: p?.futurePlayersBought ?? playersBought + 1,
+      futureSlotsRequired: p?.futureSlotsRequired ?? 0,
+      futureReservePurse: p?.futureReservePurse ?? 0,
+      maxAllowedBid: p?.maxAllowedBid ?? purseRemaining,
       lowestBasePrice: p?.lowestBasePrice ?? 0,
       minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
       maximumSquadSize: p?.maximumSquadSize ?? 0,

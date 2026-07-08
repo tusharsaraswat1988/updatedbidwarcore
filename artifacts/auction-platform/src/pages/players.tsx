@@ -29,6 +29,7 @@ import {
   getListPlayersQueryKey,
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
+  getGetTeamPursesQueryKey,
   getGetTournamentQueryKey,
   getGetRegistrationStatusQueryKey,
   type SearchGlobalPlayersParams,
@@ -788,10 +789,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           || parseInt(form.selectedBidValue, 10)
           || parseInt(String(form.basePrice), 10)
           || undefined
-        : form.retainedPrice
-          ? parseInt(form.retainedPrice, 10)
-          : undefined,
-      teamId: form.status === "retained" && form.retainedTeamId ? parseInt(form.retainedTeamId) : undefined,
+        : null,
+      teamId: form.status === "retained" && form.retainedTeamId
+        ? parseInt(form.retainedTeamId, 10)
+        : null,
       status: form.status,
       categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
       playerTag: (form.playerTag || undefined) as any,
@@ -811,6 +812,8 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         await createPlayer.mutateAsync({ tournamentId, data });
       }
       qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
       onClose();
     } catch (err: any) {
       const body = err?.response?.data;

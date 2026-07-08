@@ -701,10 +701,10 @@ export default function Teams() {
                       const boosterTotal = tp?.boosterTotal ?? 0;
                       const effectiveCapacity = tp?.effectiveCapacity ?? team.purse;
                       const purseRemaining = effectiveCapacity - (team.purseUsed || 0);
-                      const spendable = tp?.spendablePurse ?? purseRemaining;
-                      const reserved = tp?.reservePurse ?? 0;
+                      const maxAllowedBid = tp?.maxAllowedBid ?? purseRemaining;
+                      const reserved = tp?.futureReservePurse ?? tp?.reservePurse ?? 0;
                       const bought = tp?.playersBought ?? 0;
-                      const slotsNeeded = tp?.slotsRequired ?? 0;
+                      const slotsNeeded = tp?.futureSlotsRequired ?? tp?.slotsRequired ?? 0;
                       const maxSquad = tp?.maximumSquadSize ?? 0;
                       const maxReached = maxSquad > 0 && bought >= maxSquad;
                       return (
@@ -750,7 +750,7 @@ export default function Teams() {
                             <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
                               <p className="text-[10px] text-emerald-400/80 uppercase tracking-wider mb-0.5">Max Bid / Player</p>
                               <p className={`text-sm font-bold font-mono tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
-                                {maxReached ? "Squad full" : formatShort(spendable)}
+                                {maxReached ? "Squad full" : formatShort(maxAllowedBid)}
                               </p>
                             </div>
                             {reserved > 0 ? (

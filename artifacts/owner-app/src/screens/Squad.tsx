@@ -44,6 +44,9 @@ interface TeamPurse {
   playersBought?: number;
   purseUsed?: number;
   reservePurse?: number;
+  futureReservePurse?: number;
+  futureSlotsRequired?: number;
+  maxAllowedBid?: number;
 }
 
 interface Props {
@@ -74,8 +77,8 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
   const capacity = teamPurse?.effectiveCapacity ?? team.purse;
   const boosterTotal = teamPurse?.boosterTotal ?? 0;
   const originalPurse = teamPurse?.originalPurse ?? team.purse;
-  const reserve = teamPurse?.reservePurse ?? 0;
-  const spendable = teamPurse?.spendablePurse ?? (capacity - purseUsed);
+  const reserve = teamPurse?.futureReservePurse ?? teamPurse?.reservePurse ?? 0;
+  const maxAllowedBid = teamPurse?.maxAllowedBid ?? Math.max(0, capacity - purseUsed);
   const count     = myPlayers.length;
 
   return (
@@ -125,7 +128,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         {[
           { label: "Players", value: String(count) },
           { label: "Spent",   value: formatShortIndianRupee(purseUsed) },
-          { label: "Can Bid", value: formatShortIndianRupee(spendable) },
+          { label: "Max Bid", value: formatShortIndianRupee(maxAllowedBid) },
         ].map(({ label, value }) => (
           <div key={label} className="text-center py-4 border-r border-[#27272a] last:border-r-0">
             <p
@@ -156,7 +159,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         </div>
         {reserve > 0 && (
           <p className="text-[10px] text-[#71717a] mt-2 text-center">
-            {formatShortIndianRupee(reserve)} reserved for minimum squad slots · {formatShortIndianRupee(spendable)} available to bid
+            {formatShortIndianRupee(reserve)} reserved after next purchase · {formatShortIndianRupee(maxAllowedBid)} max bid
           </p>
         )}
       </div>

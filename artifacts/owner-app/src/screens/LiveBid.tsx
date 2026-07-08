@@ -118,6 +118,9 @@ interface TeamPurse {
   reservePurse?: number;
   spendablePurse: number;
   slotsRequired?: number;
+  futureReservePurse?: number;
+  futureSlotsRequired?: number;
+  maxAllowedBid?: number;
   playersBought?: number;
   retainedCount?: number;
   maximumSquadSize?: number;
@@ -486,7 +489,7 @@ function TeamPurseFooter({
   purseOverride?: {
     totalPurse: number;
     boosterTotal: number;
-    spendablePurse: number;
+    maxAllowedBid: number;
   } | null;
 }) {
   const { data: allPlayers } = useListPlayers(tournamentId, {
@@ -516,11 +519,11 @@ function TeamPurseFooter({
 
   const totalPurse = purseOverride?.totalPurse ?? teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
   const totalSpent = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
-  const reserve = teamPurse?.reservePurse ?? 0;
+  const purseRemaining = teamPurse?.purseRemaining ?? Math.max(0, totalPurse - totalSpent);
+  const reserve = teamPurse?.futureReservePurse ?? teamPurse?.reservePurse ?? 0;
   const boosterTotal = purseOverride?.boosterTotal ?? teamPurse?.boosterTotal ?? 0;
-  const spendable = purseOverride?.spendablePurse ?? teamPurse?.spendablePurse ?? Math.max(0, totalPurse - totalSpent);
-  const slotsRequired = teamPurse?.slotsRequired ?? 0;
-  const maxBid = slotsRequired > 0 ? Math.floor(spendable / slotsRequired) : spendable;
+  const maxAllowedBid = purseOverride?.maxAllowedBid ?? teamPurse?.maxAllowedBid ?? purseRemaining;
+  const maxBid = maxAllowedBid;
 
   const syncBoostValues = highlightBoost && purseOverride != null;
   const fmtFooter = (amount: number, synced = false) =>
@@ -571,8 +574,8 @@ function TeamPurseFooter({
       },
       {
         key: "purse-left",
-        label: "Can Bid",
-        value: fmtFooter(spendable, true),
+        label: "Purse Left",
+        value: fmtFooter(purseRemaining, true),
         accent: teamNum,
         pulseOnBoost: true,
       },
@@ -608,7 +611,7 @@ function TeamPurseFooter({
     totalPurse,
     retainedSpend,
     totalSpent,
-    spendable,
+    purseRemaining,
     reserve,
     boosterTotal,
     maxBid,
@@ -695,9 +698,11 @@ function getBidDisabledHint(params: {
   biddingEnabled: boolean;
   timerActive: boolean;
   hasTimer: boolean;
-  spendablePurse: number;
+  maxAllowedBid: number;
   nextBidAmount: number;
   reservePurse: number;
+  futureReservePurse: number;
+  futureSlotsRequired: number;
   slotsRequired: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
 }): BidDisabledHint {
@@ -724,17 +729,17 @@ function getBidDisabledHint(params: {
       ? { headline: "Timer ended", subline: "Waiting for the operator's next action" }
       : { headline: "Bidding not open yet", subline: "Wait for the operator to start the timer" };
   }
-  if (params.spendablePurse < params.nextBidAmount) {
-    const shortfall = params.nextBidAmount - params.spendablePurse;
-    if (params.reservePurse > 0) {
+  if (params.maxAllowedBid < params.nextBidAmount) {
+    const shortfall = params.nextBidAmount - params.maxAllowedBid;
+    if (params.futureReservePurse > 0) {
       return {
         headline: `${formatShortIndianRupee(shortfall, params.unit)} short for this bid`,
-        subline: `${formatShortIndianRupee(params.spendablePurse, params.unit)} spendable · ${formatShortIndianRupee(params.reservePurse, params.unit)} held for ${params.slotsRequired} open slot${params.slotsRequired !== 1 ? "s" : ""}`,
+        subline: `${formatShortIndianRupee(params.maxAllowedBid, params.unit)} max bid · ${formatShortIndianRupee(params.futureReservePurse, params.unit)} held for ${params.futureSlotsRequired} slot${params.futureSlotsRequired !== 1 ? "s" : ""} after purchase`,
       };
     }
     return {
       headline: `${formatShortIndianRupee(shortfall, params.unit)} short for this bid`,
-      subline: `${formatShortIndianRupee(params.spendablePurse, params.unit)} spendable · bid needs ${formatShortIndianRupee(params.nextBidAmount, params.unit)}`,
+      subline: `${formatShortIndianRupee(params.maxAllowedBid, params.unit)} max bid · needs ${formatShortIndianRupee(params.nextBidAmount, params.unit)}`,
     };
   }
   return { headline: "Bid unavailable", subline: "Try refreshing or wait a moment" };
@@ -1409,15 +1414,15 @@ function usePurseBoosterCelebration(
   const footerOverride = useMemo(() => {
     if (!banner || banner.variant !== "own") return null;
     const capacityDelta = banner.newCapacity - banner.previousCapacity;
-    const baseSpendable =
-      teamPurse?.spendablePurse ??
+    const baseMaxAllowed =
+      teamPurse?.maxAllowedBid ??
       Math.max(0, banner.previousCapacity - (teamPurse?.purseUsed ?? 0));
     return {
       totalPurse: banner.newCapacity,
       boosterTotal: banner.newCapacity - originalPurse,
-      spendablePurse: baseSpendable + capacityDelta,
+      maxAllowedBid: baseMaxAllowed + capacityDelta,
     };
-  }, [banner, originalPurse, teamPurse?.spendablePurse, teamPurse?.purseUsed]);
+  }, [banner, originalPurse, teamPurse?.maxAllowedBid, teamPurse?.purseUsed]);
 
   return { banner, footerPulse, dismiss, footerOverride };
 }
@@ -1663,11 +1668,13 @@ export function LiveBid({
   const expired     = useTimerExpired(state?.timerEndsAt);
   const timerActive = !!state?.timerEndsAt && !expired;
 
-  const spendablePurse  = teamPurse?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
+  const maxAllowedBid   = teamPurse?.maxAllowedBid ?? (team.purse - (team.purseUsed || 0));
   const reservePurse    = teamPurse?.reservePurse ?? 0;
+  const futureReservePurse = teamPurse?.futureReservePurse ?? reservePurse;
   const playersBought   = teamPurse?.playersBought ?? 0;
   const maxSquad        = teamPurse?.maximumSquadSize ?? 0;
   const slotsRequired   = teamPurse?.slotsRequired ?? 0;
+  const futureSlotsRequired = teamPurse?.futureSlotsRequired ?? slotsRequired;
   const maxSquadReached = maxSquad > 0 && playersBought >= maxSquad;
   const increment       = state?.bidIncrement ?? 50000;
   const nextBidAmount   = computeNextBidAmount({
@@ -1693,7 +1700,7 @@ export function LiveBid({
 
   const canBid =
     isActive && hasPlayer && timerActive && !isLeading && !isOnBreak &&
-    spendablePurse >= nextBidAmount &&
+    maxAllowedBid >= nextBidAmount &&
     (team.isBiddingEnabled ?? true) &&
     !maxSquadReached && !categoryLimitReached;
 
@@ -1750,9 +1757,11 @@ export function LiveBid({
           biddingEnabled: team.isBiddingEnabled ?? true,
           timerActive,
           hasTimer: !!state?.timerEndsAt,
-          spendablePurse,
+          maxAllowedBid,
           nextBidAmount,
           reservePurse,
+          futureReservePurse,
+          futureSlotsRequired,
           slotsRequired,
           unit,
         })

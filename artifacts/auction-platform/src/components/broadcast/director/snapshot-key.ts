@@ -114,7 +114,7 @@ export function computeDirectorSnapshotKey(
     ctx.summaryHighestTeamSpend,
     JSON.stringify(ctx.presentationContext),
     JSON.stringify((ctx.soldPlayers ?? []).map((p) => `${p.id}:${p.soldPrice ?? 0}`)),
-    JSON.stringify((ctx.teamPurses ?? []).map((t) => `${t.teamId}:${t.playersBought}:${t.spendablePurse}`)),
+    JSON.stringify((ctx.teamPurses ?? []).map((t) => `${t.teamId}:${t.playersBought}:${t.maxAllowedBid ?? t.purseRemaining}`)),
   ];
   return parts.join("|");
 }

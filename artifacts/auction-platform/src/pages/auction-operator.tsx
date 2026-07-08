@@ -1966,16 +1966,16 @@ export default function AuctionOperator() {
                       {teams.map(team => {
                         const purseData = teamPurses?.find(p => p.teamId === team.id);
                         const capacity = purseData?.effectiveCapacity ?? team.purse;
-                        const spendable = purseData?.spendablePurse ?? (capacity - (team.purseUsed || 0));
-                        const reserved  = purseData?.reservePurse ?? 0;
-                        const slotsNeeded = purseData?.slotsRequired ?? 0;
+                        const maxAllowedBid = purseData?.maxAllowedBid ?? (capacity - (team.purseUsed || 0));
+                        const reserved  = purseData?.futureReservePurse ?? purseData?.reservePurse ?? 0;
+                        const slotsNeeded = purseData?.futureSlotsRequired ?? purseData?.slotsRequired ?? 0;
                         const bought    = purseData?.playersBought ?? 0;
                         const maxSquad  = purseData?.maximumSquadSize ?? 0;
                         const maxReached = maxSquad > 0 && bought >= maxSquad;
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid   = nextBidAmount;
                         const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
-                        const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !placeBid.isPending;
+                        const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !placeBid.isPending;
                         return (
                           <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
                             className={`relative p-3 rounded-xl border-2 text-left transition-all ${isLeading ? "scale-[1.01]" : "border-white/10"} ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
@@ -2006,7 +2006,7 @@ export default function AuctionOperator() {
                               <span className="text-xs font-bold truncate text-white/80">{team.shortCode || team.name}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <p className="text-[10px] text-white/40">{formatShort(spendable)} spendable</p>
+                              <p className="text-[10px] text-white/40">{formatShort(maxAllowedBid)} max bid</p>
                               {reserved > 0 && (
                                 <span title={`${formatShort(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0">
                                   <ShieldAlert className="w-2.5 h-2.5 text-amber-400/70" />
@@ -2038,9 +2038,9 @@ export default function AuctionOperator() {
                   {(teams || []).map(team => {
                     const purseData = teamPurses?.find(p => p.teamId === team.id);
                     const spent = purseData?.purseUsed ?? team.purseUsed ?? 0;
-                    const spendable = purseData?.spendablePurse ?? ((purseData?.effectiveCapacity ?? team.purse) - spent);
-                    const reserved = purseData?.reservePurse ?? 0;
-                    const slotsNeeded = purseData?.slotsRequired ?? 0;
+                    const maxAllowedBid = purseData?.maxAllowedBid ?? ((purseData?.effectiveCapacity ?? team.purse) - spent);
+                    const reserved = purseData?.futureReservePurse ?? purseData?.reservePurse ?? 0;
+                    const slotsNeeded = purseData?.futureSlotsRequired ?? purseData?.slotsRequired ?? 0;
                     const bought = purseData?.playersBought ?? 0;
                     const maxSquad = purseData?.maximumSquadSize ?? 0;
                     const maxReached = maxSquad > 0 && bought >= maxSquad;
@@ -2089,7 +2089,7 @@ export default function AuctionOperator() {
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Max Bid</span>
                             <span className={`text-sm font-mono font-bold tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
-                              {maxReached ? "FULL" : formatAmount(spendable)}
+                              {maxReached ? "FULL" : formatAmount(maxAllowedBid)}
                             </span>
                           </div>
 
@@ -2199,10 +2199,10 @@ export default function AuctionOperator() {
                 </Select>
                 {manualTeamId ? (() => {
                   const purseData = teamPurses?.find(p => p.teamId === parseInt(manualTeamId, 10));
-                  const spendable = purseData?.spendablePurse ?? null;
-                  return spendable != null ? (
+                  const maxAllowedBid = purseData?.maxAllowedBid ?? null;
+                  return maxAllowedBid != null ? (
                     <p className="text-[10px] text-muted-foreground">
-                      Max spendable for this team: <span className="font-semibold text-foreground">{formatShort(spendable)}</span>
+                      Max bid allowed for this team: <span className="font-semibold text-foreground">{formatShort(maxAllowedBid)}</span>
                     </p>
                   ) : null;
                 })() : null}

@@ -1,34 +1,30 @@
+import {
+  computePurseProtection,
+  type PurseProtectionResult,
+} from "@workspace/api-base/purse-protection";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { computeEffectiveCapacity } from "@workspace/api-base/purse-capacity";
 import { getActiveBoosterTotal, getActiveBoosterTotalsForTeams } from "./purse-capacity";
 
-export interface PurseProtection {
-  originalPurse: number;
-  boosterTotal: number;
-  effectiveCapacity: number;
-  purseRemaining: number;
-  reservePurse: number;
-  spendablePurse: number;
-  slotsRequired: number;
-  lowestBasePrice: number;
-  maximumSquadSize: number;
-}
+export type PurseProtection = PurseProtectionResult;
 
 /**
- * Compute a team's spendable purse after reserving budget for unfilled
- * minimum-squad slots.
+ * Compute a team's purse protection with separate current (UI) and future
+ * (bid validation) reserve states.
  *
- * Formula:
- *   slotsRequired  = max(0, minimumSquadSize - teamPlayerCount)
+ * Current state:
+ *   slotsRequired  = max(0, minimumSquadSize - playersBought)
  *   reservePurse   = slotsRequired × tournament.minBid
  *   spendablePurse = max(0, purseRemaining - reservePurse)
  *
- * NOTE: The per-slot cost uses tournament.minBid (the absolute cheapest any
- * player can sell for), NOT individual player.basePrice. Using basePrice was
- * wrong — category base prices (e.g. ₹1L) would reserve the entire purse
- * even when the tournament minimum is ₹10k.
+ * Future validation state (if this bid succeeds):
+ *   futurePlayersBought = playersBought + 1
+ *   futureSlotsRequired = max(0, minimumSquadSize - futurePlayersBought)
+ *   futureReservePurse  = futureSlotsRequired × tournament.minBid
+ *   maxAllowedBid       = max(0, purseRemaining - futureReservePurse)
+ *
+ * Bid validation MUST compare against maxAllowedBid, not spendablePurse.
  */
 export async function computeTeamPurseProtection(
   tournamentId: number,
@@ -67,11 +63,6 @@ export async function computeTeamPurseProtection(
     ? opts.maximumSquadSize
     : (tournamentRow?.maximumSquadSize ?? 0);
 
-  // Per-slot reserve cost: use the tournament's minimum bid floor.
-  // This is the absolute cheapest any player can be sold for, so it gives
-  // teams the most room to bid while still protecting minimum-squad slots.
-  // (Using individual player.basePrice was wrong — it reserved at category
-  //  price e.g. ₹1L per slot, leaving spendable = ₹0 on a ₹10L purse.)
   const tournamentMinBid = opts?.minBid !== undefined
     ? opts.minBid
     : (tournamentRow?.minBid ?? 0);
@@ -95,29 +86,17 @@ export async function computeTeamPurseProtection(
       slotsRequired: 0,
       lowestBasePrice: 0,
       maximumSquadSize: maxSquadSize,
+      playersBought: 0,
+      futurePlayersBought: 0,
+      futureSlotsRequired: 0,
+      futureReservePurse: 0,
+      maxAllowedBid: 0,
     };
   }
 
   const boosterTotal =
     opts?.boosterTotal ??
     (await getActiveBoosterTotal(tournamentId, teamId));
-  const originalPurse = teamRow.purse;
-  const effectiveCapacity = computeEffectiveCapacity(originalPurse, boosterTotal);
-  const purseRemaining = effectiveCapacity - teamRow.purseUsed;
-
-  if (minSquadSize === 0) {
-    return {
-      originalPurse,
-      boosterTotal,
-      effectiveCapacity,
-      purseRemaining,
-      reservePurse: 0,
-      spendablePurse: purseRemaining,
-      slotsRequired: 0,
-      lowestBasePrice: 0,
-      maximumSquadSize: maxSquadSize,
-    };
-  }
 
   const allPlayers =
     opts?.allPlayers ??
@@ -126,45 +105,19 @@ export async function computeTeamPurseProtection(
       .from(playersTable)
       .where(eq(playersTable.tournamentId, tournamentId)));
 
-  // Non-playing members are excluded from squad-slot counts
-  const playerCount = allPlayers.filter(
-    (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember
+  const playersBought = allPlayers.filter(
+    (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember,
   ).length;
 
-  const slotsRequired = Math.max(0, minSquadSize - playerCount);
-
-  if (slotsRequired === 0) {
-    return {
-      originalPurse,
-      boosterTotal,
-      effectiveCapacity,
-      purseRemaining,
-      reservePurse: 0,
-      spendablePurse: purseRemaining,
-      slotsRequired: 0,
-      lowestBasePrice: tournamentMinBid,
-      maximumSquadSize: maxSquadSize,
-    };
-  }
-
-  // Reserve slotsRequired × tournament.minBid — the cheapest possible cost per
-  // unfilled slot.  Do NOT use player.basePrice here; category base prices are
-  // often 10–100× higher than the tournament minimum and would wrongly reserve
-  // the entire purse (e.g. 10 slots × ₹1L = ₹10L on a ₹10L purse → spendable ₹0).
-  const reservePurse = slotsRequired * tournamentMinBid;
-  const spendablePurse = Math.max(0, purseRemaining - reservePurse);
-
-  return {
-    originalPurse,
+  return computePurseProtection({
+    purse: teamRow.purse,
+    purseUsed: teamRow.purseUsed,
     boosterTotal,
-    effectiveCapacity,
-    purseRemaining,
-    reservePurse,
-    spendablePurse,
-    slotsRequired,
-    lowestBasePrice: tournamentMinBid,
+    playersBought,
+    minimumSquadSize: minSquadSize,
     maximumSquadSize: maxSquadSize,
-  };
+    minBid: tournamentMinBid,
+  });
 }
 
 /**

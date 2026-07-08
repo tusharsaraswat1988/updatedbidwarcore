@@ -124,9 +124,7 @@ export function createTeamsRouter(db: LocalDb) {
         (pl) => pl.teamId === team.id && (pl.status === "sold" || pl.status === "retained"),
       );
       const playersBought = squadPlayers.filter((pl) => pl.status === "sold").length;
-      const maxBidCapacity = p.slotsRequired > 0
-        ? Math.floor(p.spendablePurse / p.slotsRequired)
-        : p.spendablePurse;
+      const maxBidCapacity = p.maxAllowedBid;
       return {
         id: team.id,
         name: team.name,
@@ -139,8 +137,10 @@ export function createTeamsRouter(db: LocalDb) {
         purse: p.effectiveCapacity,
         purseRemaining: p.purseRemaining,
         reservePurse: p.reservePurse,
+        futureReservePurse: p.futureReservePurse,
         spendablePurse: p.spendablePurse,
         slotsRequired: p.slotsRequired,
+        futureSlotsRequired: p.futureSlotsRequired,
         playersBought,
         maximumSquadSize: p.maximumSquadSize,
         maxBidCapacity,

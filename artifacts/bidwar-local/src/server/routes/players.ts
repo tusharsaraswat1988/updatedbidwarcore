@@ -9,6 +9,7 @@ import { playersTable } from "@workspace/db-local";
 const playerGenderSchema = z.enum(PLAYER_GENDER_VALUES);
 import { resolveOfflineUrl } from "../lib/offline-media.js";
 import { localMediaUrlSchema, zodFirstError } from "../lib/local-url-schema.js";
+import { recalcTeamPurseUsed } from "../lib/player-purse.js";
 
 const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   id: p.id, serialNo: p.serialNo, tournamentId: p.tournamentId, categoryId: p.categoryId, teamId: p.teamId,
@@ -108,15 +109,52 @@ export function createPlayersRouter(db: LocalDb) {
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
     if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+    const [existing] = await db.select().from(playersTable)
+      .where(and(eq(playersTable.id, pid), eq(playersTable.tournamentId, tid)));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
     const updates: Record<string, unknown> = { ...d };
     if (d.mobileNumber !== undefined && d.mobileNumber !== null) {
       const mobileParsed = parseIndianMobile(d.mobileNumber);
       if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" }); return; }
       updates.mobileNumber = mobileParsed.normalized;
     }
+
+    const finalStatus = (d.status ?? existing.status) as typeof existing.status;
+    if (finalStatus === "retained" && (d.teamId ?? existing.teamId) == null) {
+      res.status(400).json({ error: "A retained player must be assigned to a team" });
+      return;
+    }
+    if (finalStatus !== "retained" && finalStatus !== "sold") {
+      if (existing.status === "retained" || existing.status === "sold") {
+        updates.teamId = null;
+        if (existing.status === "retained") updates.retainedPrice = null;
+        if (existing.status === "sold") updates.soldPrice = null;
+      }
+    }
+
     const [row] = await db.update(playersTable).set({ ...updates, updatedAt: new Date().toISOString() })
       .where(and(eq(playersTable.id, pid), eq(playersTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
+
+    const purseAffectingStatus = (status: string) => status === "sold" || status === "retained";
+    const teamsToRecalc = new Set<number>();
+    if (existing.teamId) teamsToRecalc.add(existing.teamId);
+    if (row.teamId) teamsToRecalc.add(row.teamId);
+    const shouldRecalcPurse =
+      purseAffectingStatus(existing.status)
+      || purseAffectingStatus(row.status)
+      || d.retainedPrice !== undefined
+      || d.soldPrice !== undefined
+      || d.teamId !== undefined
+      || d.status !== undefined;
+    if (shouldRecalcPurse) {
+      for (const teamId of teamsToRecalc) {
+        await recalcTeamPurseUsed(db, tid, teamId);
+      }
+    }
+
     res.json(playerToJson(row));
   });
 

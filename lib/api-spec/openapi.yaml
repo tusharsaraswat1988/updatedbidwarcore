@@ -2762,6 +2762,7 @@ components:
           type: integer
         maxBidCapacity:
           type: integer
+          description: Maximum single bid allowed (alias of maxAllowedBid for scout UI)
         players:
           type: array
           items:
@@ -3816,8 +3817,21 @@ components:
           type: integer
         spendablePurse:
           type: integer
+          description: Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.
         slotsRequired:
           type: integer
+        futurePlayersBought:
+          type: integer
+          description: Squad count immediately after this bid succeeds (playersBought + 1)
+        futureSlotsRequired:
+          type: integer
+          description: Mandatory slots still open after this bid succeeds
+        futureReservePurse:
+          type: integer
+          description: Reserve held after this bid succeeds (futureSlotsRequired × minBid)
+        maxAllowedBid:
+          type: integer
+          description: Maximum single bid allowed (purseRemaining - futureReservePurse)
         lowestBasePrice:
           type: integer
         minimumSquadSize:

@@ -38,6 +38,10 @@ export type PurseRow = {
   reservePurse?: number;
   spendablePurse?: number;
   slotsRequired?: number;
+  futurePlayersBought?: number;
+  futureSlotsRequired?: number;
+  futureReservePurse?: number;
+  maxAllowedBid?: number;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   lowestBasePrice?: number;

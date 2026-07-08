@@ -32,7 +32,9 @@ function TeamRow({
     purseRemaining: number;
     spendablePurse: number;
     reservePurse: number;
+    futureReservePurse?: number;
     slotsRequired: number;
+    futureSlotsRequired?: number;
     playersBought: number;
     maximumSquadSize: number;
     maxBidCapacity: number;
@@ -79,8 +81,8 @@ function TeamRow({
           </div>
           <p className="text-xs text-[#52525b] mt-0.5">
             {team.playersBought} bought
-            {team.slotsRequired > 0
-              ? ` · ${team.slotsRequired} more to buy`
+            {(team.futureSlotsRequired ?? team.slotsRequired) > 0
+              ? ` · ${team.futureSlotsRequired ?? team.slotsRequired} more to buy`
               : team.maximumSquadSize
                 ? ` / ${team.maximumSquadSize} max`
                 : ""}
@@ -118,7 +120,7 @@ function TeamRow({
                 {[
                   { label: "Total", value: formatShortIndianRupee(team.purse) },
                   { label: "Spent", value: formatShortIndianRupee(purseUsed) },
-                  { label: "Reserved", value: formatShortIndianRupee(team.reservePurse) },
+                  { label: "Reserved", value: formatShortIndianRupee(team.futureReservePurse ?? team.reservePurse) },
                 ].map(({ label, value }) => (
                   <div key={label} className="text-center rounded-xl bg-[#18181b] py-2">
                     <p className="font-display font-bold text-sm text-[#e4e4e7]">{value}</p>

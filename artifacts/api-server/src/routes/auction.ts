@@ -40,6 +40,7 @@ import {
   publishAuctionEvent,
 } from "../lib/auction-events";
 import { computeTeamPurseProtection } from "../lib/purse-protection";
+import { formatPurseProtectionBidError } from "@workspace/api-base/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
@@ -1409,9 +1410,10 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     }
   }
 
-  const { spendablePurse, reservePurse, slotsRequired, maximumSquadSize } = await computeTeamPurseProtection(tid, teamId, {
+  const protection = await computeTeamPurseProtection(tid, teamId, {
     team: { purse: team.purse, purseUsed: team.purseUsed },
   });
+  const { maxAllowedBid, maximumSquadSize } = protection;
 
   // Max squad check — count players already on this team
   if (maximumSquadSize > 0) {
@@ -1464,11 +1466,8 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     }
   }
 
-  if (amount > spendablePurse) {
-    const msg = reservePurse > 0
-      ? `Insufficient spendable purse — ₹${reservePurse.toLocaleString("en-IN")} reserved for ${slotsRequired} minimum squad slot${slotsRequired !== 1 ? "s" : ""}`
-      : "Insufficient purse";
-    res.status(400).json({ error: msg });
+  if (amount > maxAllowedBid) {
+    res.status(400).json({ error: formatPurseProtectionBidError(protection) });
     return;
   }
 
@@ -1751,12 +1750,9 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
 
   // ── Purse validation ───────────────────────────────────────────────────────
   if (amount > 0) {
-    const { spendablePurse, reservePurse, slotsRequired } = await computeTeamPurseProtection(tid, teamId);
-    if (amount > spendablePurse) {
-      const msg = reservePurse > 0
-        ? `Insufficient purse — ₹${reservePurse.toLocaleString("en-IN")} reserved for ${slotsRequired} minimum squad slot${slotsRequired !== 1 ? "s" : ""}`
-        : "Insufficient purse for this team";
-      res.status(400).json({ error: msg });
+    const protection = await computeTeamPurseProtection(tid, teamId);
+    if (amount > protection.maxAllowedBid) {
+      res.status(400).json({ error: formatPurseProtectionBidError(protection, "Insufficient purse for this team") });
       return;
     }
   }

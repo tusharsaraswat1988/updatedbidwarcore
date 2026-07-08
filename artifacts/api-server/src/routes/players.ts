@@ -1198,6 +1198,11 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
       }
       updates.retainedPrice = resolvedRetained;
     }
+  } else if (existing.status === "retained" || existing.status === "sold") {
+    // Leaving roster — clear team assignment and acquisition prices.
+    updates.teamId = null;
+    if (existing.status === "retained") updates.retainedPrice = null;
+    if (existing.status === "sold") updates.soldPrice = null;
   }
 
   if (d.registrationPaymentStatus !== undefined) {
@@ -1240,15 +1245,22 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     void recoverJobsForPlayerEmailUpdate(playerId, player.email).catch(() => {});
   }
 
-  // Recalc purseUsed for any team affected by a retention change
+  // Recalc purseUsed for any team affected by a roster/purse change
+  const purseAffectingStatus = (status: string) => status === "sold" || status === "retained";
   const teamsToRecalc = new Set<number>();
-  if (player.status === "retained" && player.teamId) teamsToRecalc.add(player.teamId);
-  // If player was previously retained on a different team, recalc that team too
-  if (existing.status === "retained" && existing.teamId && existing.teamId !== player.teamId) {
-    teamsToRecalc.add(existing.teamId);
-  }
-  for (const tid2 of teamsToRecalc) {
-    await recalcTeamPurseUsed(tid, tid2);
+  if (existing.teamId) teamsToRecalc.add(existing.teamId);
+  if (player.teamId) teamsToRecalc.add(player.teamId);
+  const shouldRecalcPurse =
+    purseAffectingStatus(existing.status)
+    || purseAffectingStatus(player.status)
+    || d.retainedPrice !== undefined
+    || d.soldPrice !== undefined
+    || d.teamId !== undefined
+    || d.status !== undefined;
+  if (shouldRecalcPurse) {
+    for (const teamId of teamsToRecalc) {
+      await recalcTeamPurseUsed(tid, teamId);
+    }
   }
 
   const reasonResult = resolveAuditReasonWithDefault(

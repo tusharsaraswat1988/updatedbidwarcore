@@ -264,12 +264,16 @@ router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
       reservePurse: 0,
       spendablePurse: team.purse - team.purseUsed,
       slotsRequired: 0,
+      futurePlayersBought: 0,
+      futureSlotsRequired: 0,
+      futureReservePurse: 0,
+      maxAllowedBid: team.purse - team.purseUsed,
       maximumSquadSize: 0,
       lowestBasePrice: 0,
     };
     const squadPlayers = allPlayers.filter(pl => pl.teamId === team.id && (pl.status === "sold" || pl.status === "retained"));
     const playersBought = squadPlayers.filter(pl => !pl.isNonPlayingMember).length;
-    const maxBidCapacity = p.slotsRequired > 0 ? Math.floor(p.spendablePurse / p.slotsRequired) : p.spendablePurse;
+    const maxBidCapacity = p.maxAllowedBid;
     return {
       id: team.id, name: team.name, shortCode: team.shortCode, color: team.color, logoUrl: team.logoUrl,
       originalPurse: p.originalPurse,
@@ -280,6 +284,10 @@ router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
       reservePurse: p.reservePurse,
       spendablePurse: p.spendablePurse,
       slotsRequired: p.slotsRequired,
+      futurePlayersBought: p.futurePlayersBought,
+      futureSlotsRequired: p.futureSlotsRequired,
+      futureReservePurse: p.futureReservePurse,
+      maxAllowedBid: p.maxAllowedBid,
       playersBought, maximumSquadSize: p.maximumSquadSize, maxBidCapacity,
       players: squadPlayers.map(pl => ({ id: pl.id, name: pl.name, role: pl.role, status: pl.status, soldPrice: pl.soldPrice, isNonPlayingMember: pl.isNonPlayingMember })),
     };

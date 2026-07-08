@@ -116,7 +116,7 @@ export function buildTeamOverviewModel(
     shortCode: team.shortCode,
     logoSrc: ctx.resolvePhotoSrc(team.logoUrl ?? null, "teamLogo"),
     accentColor: team.color ?? "#facc15",
-    remainingPurseLabel: ctx.formatAmount(team.spendablePurse ?? team.purseRemaining ?? 0),
+    remainingPurseLabel: ctx.formatAmount(team.maxAllowedBid ?? team.purseRemaining ?? 0),
     playersBoughtLabel: boughtLabel,
     captainName: findCaptainName(ctx.soldPlayers, team.teamId),
     coachName: findCoachName(ctx.soldPlayers, team.teamId),

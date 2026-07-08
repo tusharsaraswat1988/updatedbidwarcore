@@ -1307,8 +1307,14 @@ export interface TeamPurse {
   purseRemaining: number;
   playersBought: number;
   reservePurse: number;
+  /** Current spendable after today's reserve — not the bidding limit. */
   spendablePurse: number;
   slotsRequired: number;
+  futurePlayersBought?: number;
+  futureSlotsRequired?: number;
+  futureReservePurse?: number;
+  /** Maximum single bid allowed for the next purchase. */
+  maxAllowedBid?: number;
   lowestBasePrice: number;
   minimumSquadSize: number;
   maximumSquadSize: number;

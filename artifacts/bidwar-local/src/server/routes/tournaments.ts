@@ -18,6 +18,7 @@ import {
   computeEffectiveCapacity,
   getActiveBoosterTotalsForTeams,
 } from "../lib/purse-capacity.js";
+import { computeScoutPurseProtection } from "../lib/scout-purse.js";
 
 import {
   resolveOfflineUrl,
@@ -253,6 +254,7 @@ export function createTournamentsRouter(db: LocalDb) {
       .select({
         minimumSquadSize: tournamentsTable.minimumSquadSize,
         maximumSquadSize: tournamentsTable.maximumSquadSize,
+        minBid: tournamentsTable.minBid,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId));
@@ -261,14 +263,19 @@ export function createTournamentsRouter(db: LocalDb) {
     const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tournamentId));
     const boosterTotals = await getActiveBoosterTotalsForTeams(db, tournamentId, teams.map(t => t.id));
 
+    const purseOpts = {
+      minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
+      maximumSquadSize: tournamentRow?.maximumSquadSize ?? 0,
+      minBid: tournamentRow?.minBid ?? 0,
+    };
+
     res.json(teams.map(t => {
       const boosterTotal = boosterTotals.get(t.id) ?? 0;
-      const effectiveCapacity = computeEffectiveCapacity(t.purse, boosterTotal);
-      const purseRemaining = effectiveCapacity - t.purseUsed;
+      const p = computeScoutPurseProtection(t, boosterTotal, players, t.id, purseOpts);
       const teamSoldRetained = players.filter(
-        p => p.teamId === t.id && (p.status === "sold" || p.status === "retained"),
+        pRow => pRow.teamId === t.id && (pRow.status === "sold" || pRow.status === "retained"),
       );
-      const playersBought = teamSoldRetained.filter(p => p.status === "sold").length;
+      const playersBought = p.playersBought;
       const retainedCount = players.filter(p => p.teamId === t.id && p.status === "retained").length;
       const topPlayer = teamSoldRetained.reduce<typeof teamSoldRetained[0] | null>((best, p) => {
         const pAmt = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
@@ -283,16 +290,20 @@ export function createTournamentsRouter(db: LocalDb) {
         color: t.color, logoUrl: resolveOfflineUrl(t.logoUrl),
         originalPurse: t.purse,
         boosterTotal,
-        effectiveCapacity,
-        purse: effectiveCapacity,
+        effectiveCapacity: p.effectiveCapacity,
+        purse: p.effectiveCapacity,
         purseUsed: t.purseUsed,
-        purseRemaining,
-        playersBought,
+        purseRemaining: p.purseRemaining,
+        playersBought: p.playersBought,
         retainedCount,
-        reservePurse: 0,
-        spendablePurse: purseRemaining,
-        slotsRequired: 0,
-        lowestBasePrice: 0,
+        reservePurse: p.reservePurse,
+        spendablePurse: p.spendablePurse,
+        slotsRequired: p.slotsRequired,
+        futurePlayersBought: p.futurePlayersBought,
+        futureSlotsRequired: p.futureSlotsRequired,
+        futureReservePurse: p.futureReservePurse,
+        maxAllowedBid: p.maxAllowedBid,
+        lowestBasePrice: p.lowestBasePrice,
         minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
         maximumSquadSize: tournamentRow?.maximumSquadSize ?? 0,
         topPlayerName: topPlayer?.name ?? null,

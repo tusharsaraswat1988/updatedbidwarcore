@@ -981,7 +981,7 @@ function TeamWiseBroadcastPanel({
       {/* Body — justify-between so sections fill the full card height */}
       <div className="relative z-[1] flex flex-col justify-between px-[4.5%] py-[3.5%] flex-1 min-h-0 gap-[0.45em]">
 
-        {/* Financial stats: Purse Left | Max Spendable | Reserve */}
+        {/* Financial stats: Purse Left | Max Bid | Reserve */}
         <div className="grid grid-cols-3 gap-[0.5em]">
           {/* Purse Left */}
           <div className="min-w-0">
@@ -995,10 +995,10 @@ function TeamWiseBroadcastPanel({
               {formatTeamWiseMoneyShort(team.purse, unit)}
             </p>
           </div>
-          {/* Max Spendable */}
+          {/* Max Bid */}
           <div className="min-w-0">
             <p className="team-wise-label" style={{ fontSize: type.label }}>
-              Max Spendable
+              Max Bid
             </p>
             <p
               className="team-wise-stat-spendable tabular-nums mt-[0.2em]"
