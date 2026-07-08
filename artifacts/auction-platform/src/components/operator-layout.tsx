@@ -10,7 +10,7 @@ import { AUCTION_FEED_UI, formatLastActivityDiagnostic } from "@workspace/api-ba
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
 import { openSetupArea } from "@/lib/tournament-navigation";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 
 const operatorHeaderPreset = getBrandSurfacePreset("operator-header");
@@ -96,9 +96,8 @@ function OperatorAppIcon() {
 
 function OperatorCenterBrand() {
   const { logos, brandName, loading } = useBranding();
-  const symbolSrc =
-    cldUrl(logos.mini, "headerLogo") ||
-    cldUrl(logos.appIcon, "headerLogo") ||
+  const wordmarkSrc =
+    getBrandWordmarkSrc(logos, operatorHeaderPreset.logoOrder) ||
     getBrandLogoSrc(logos, operatorHeaderPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
@@ -106,7 +105,7 @@ function OperatorCenterBrand() {
     return <div className="h-11 w-32" aria-hidden />;
   }
 
-  if (!symbolSrc) {
+  if (!wordmarkSrc) {
     return (
       <span className="font-display font-black text-sm sm:text-base tracking-tight text-white uppercase">
         {brandName}
@@ -115,15 +114,13 @@ function OperatorCenterBrand() {
   }
 
   return (
-    <div className="flex items-center justify-center px-3 py-1 rounded-lg bg-white/[0.03] border border-white/8">
-      <img
-        src={symbolSrc}
-        alt={logoAlt}
-        className={operatorHeaderPreset.sizeClass}
-        loading="eager"
-        decoding="async"
-      />
-    </div>
+    <img
+      src={wordmarkSrc}
+      alt={logoAlt}
+      className={operatorHeaderPreset.sizeClass}
+      loading="eager"
+      decoding="async"
+    />
   );
 }
 

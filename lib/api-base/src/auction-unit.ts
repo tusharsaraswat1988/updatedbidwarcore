@@ -28,7 +28,7 @@ export function formatAuctionAmount(
   unit: AuctionUnit = "rupee",
 ): string {
   if (amount == null) return unit === "points" ? "0 Pt." : "₹0";
-  const formatted = amount.toLocaleString("en-IN");
+  const formatted = Math.round(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   return unit === "points" ? `${formatted} Pt.` : `₹${formatted}`;
 }
 

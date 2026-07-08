@@ -41,9 +41,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
-import { AuctionFeedIndicator } from "@/components/auction/auction-connection-banner";
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
-import { AUCTION_FEED_UI, formatLastActivityDiagnostic } from "@workspace/api-base/auction-connection-state";
 import { useMutationSync } from "@/hooks/use-mutation-sync";
 import { useOperatorSessionLock } from "@/hooks/use-operator-session-lock";
 import { useSetPresentationContext } from "@/hooks/use-presentation-context";
@@ -69,7 +67,7 @@ import {
   Play, Pause, SkipForward, CheckCircle, XCircle,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Search,
-  Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert,
+  Hourglass, Monitor, Users, Crown, ShieldAlert,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
   Coffee, PlusCircle, ChevronDown, Volume2, VolumeX,
 } from "lucide-react";
@@ -343,7 +341,6 @@ export default function AuctionOperator() {
     typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null,
     { audience: "operator" },
   );
-  const feedDiagnostic = formatLastActivityDiagnostic(feed.secondsSinceLastActivity);
 
   useEffect(() => {
     const f = state?.displayPlayerFilter;
@@ -1312,7 +1309,7 @@ export default function AuctionOperator() {
 
           <div className="flex items-center gap-1 px-1.5 py-1 rounded-lg border border-red-500/25 bg-red-500/5 flex-shrink-0">
             <span className="text-[9px] font-bold uppercase tracking-wider text-red-300/70 pr-1.5 border-r border-red-500/20 mr-0.5 leading-tight">
-              ON<br/>AIR
+              ON<br/>OBS
             </span>
             {(
               [
@@ -1358,25 +1355,6 @@ export default function AuctionOperator() {
             >
               💰 Booster
             </button>
-          </div>
-
-          <div
-            title={feedDiagnostic ? `${AUCTION_FEED_UI[feed.state].title} · ${feedDiagnostic}` : AUCTION_FEED_UI[feed.state].subtitle}
-            className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-xs font-semibold flex-shrink-0 transition-colors ${
-              feed.state === "live" ? "border-green-500/40 bg-green-500/10 text-green-400"
-              : feed.state === "awaiting_operator_response" ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
-              : feed.state === "reconnecting" ? "border-orange-500/40 bg-orange-500/10 text-orange-400"
-              : "border-red-500/40 bg-red-500/10 text-red-400"
-            }`}
-          >
-            <AuctionFeedIndicator
-              feedState={feed.state}
-              secondsSinceLastActivity={feed.secondsSinceLastActivity}
-              className="w-3.5 h-3.5"
-            />
-            <span className="hidden sm:inline">
-              {feed.state === "live" ? "Live" : feed.state === "awaiting_operator_response" ? "Waiting" : feed.state === "reconnecting" ? "Reconnecting" : "Offline"}
-            </span>
           </div>
 
           {/* Right panel toggle */}
@@ -1500,17 +1478,17 @@ export default function AuctionOperator() {
 
                   return (
                     <div key={player.id}
-                      className={`px-2 py-2 border-b border-white/4 transition-all ${
+                      className={`px-2 py-1.5 border-b border-white/4 transition-all ${
                         isNowOn ? "bg-yellow-400/8 border-yellow-400/15" : "hover:bg-white/4"
                       }`}>
 
-                      <div className="flex items-start gap-1.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         {/* Player # — matches Players page serial column */}
-                        <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{player.serialNo ?? player.id}</span>
+                        <span className="text-[10px] text-white font-medium w-4 text-right flex-shrink-0 font-mono">{player.serialNo ?? player.id}</span>
 
                         {/* Jersey */}
                         {player.jerseyNumber && (
-                          <span className="text-[10px] font-mono font-bold text-white/30 w-5 text-right flex-shrink-0 pt-0.5">#{player.jerseyNumber}</span>
+                          <span className="text-[10px] font-mono font-bold text-white/30 w-5 text-right flex-shrink-0">#{player.jerseyNumber}</span>
                         )}
 
                         {/* Info */}
@@ -1571,38 +1549,38 @@ export default function AuctionOperator() {
                             <p className="text-[10px] text-white/28 leading-tight mt-0.5">base {formatShort(player.basePrice)}</p>
                           )}
                         </div>
+
+                        {/* Status + actions — right column, inline with player info */}
+                        {(isNowOn || isSold || isUnsold || isRetained || (isAvail && !isNowOn)) && (
+                          <div className="flex flex-col items-end justify-center gap-1 flex-shrink-0 ml-0.5">
+                            {isNowOn && <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />}
+                            {isSold    && <span className="text-[8px] font-black text-green-400 bg-green-400/12 px-1.5 py-0.5 rounded">SOLD</span>}
+                            {isUnsold  && <span className="text-[8px] font-black text-red-400/70 bg-red-400/10 px-1.5 py-0.5 rounded">UNSOLD</span>}
+                            {isRetained && <span className="text-[8px] font-black text-purple-400 bg-purple-400/12 px-1.5 py-0.5 rounded">RET</span>}
+
+                            {isAvail && !isNowOn && (
+                              <button
+                                disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
+                                title={hasPlayer ? "Sold, unsold, or defer the current player first" : timerActive ? "Pause current bid first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
+                                onClick={() => handleNextPlayer("sequential", player.id)}
+                                className="text-[10px] px-3.5 py-1 min-w-[38px] rounded-md bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
+                              >
+                                Go
+                              </button>
+                            )}
+                            {(isSold || isUnsold) && (
+                              <button
+                                disabled={controlsLocked || reAuction.isPending || isPaused || hasPlayer}
+                                title={hasPlayer ? "Finish the current player before re-auctioning" : isPaused ? "Resume auction before re-auctioning" : "Re-auction this player"}
+                                onClick={() => void handleInstantReauction(player.id)}
+                                className="text-[9px] px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold inline-flex items-center gap-0.5 transition-all whitespace-nowrap"
+                              >
+                                <RotateCcw className="w-2.5 h-2.5" /> Re-auction
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      {/* Status + actions — own row so Re button is never clipped */}
-                      {(isNowOn || isSold || isUnsold || isRetained || (isAvail && !isNowOn)) && (
-                        <div className="flex items-center justify-end gap-1.5 mt-1.5 pl-5 flex-wrap">
-                          {isNowOn && <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />}
-                          {isSold    && <span className="text-[8px] font-black text-green-400 bg-green-400/12 px-1.5 py-0.5 rounded">SOLD</span>}
-                          {isUnsold  && <span className="text-[8px] font-black text-red-400/70 bg-red-400/10 px-1.5 py-0.5 rounded">UNSOLD</span>}
-                          {isRetained && <span className="text-[8px] font-black text-purple-400 bg-purple-400/12 px-1.5 py-0.5 rounded">RET</span>}
-
-                          {isAvail && !isNowOn && (
-                            <button
-                              disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
-                              title={hasPlayer ? "Sold, unsold, or defer the current player first" : timerActive ? "Pause current bid first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
-                              onClick={() => handleNextPlayer("sequential", player.id)}
-                              className="text-[9px] px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
-                            >
-                              Go
-                            </button>
-                          )}
-                          {(isSold || isUnsold) && (
-                            <button
-                              disabled={controlsLocked || reAuction.isPending || isPaused || hasPlayer}
-                              title={hasPlayer ? "Finish the current player before re-auctioning" : isPaused ? "Resume auction before re-auctioning" : "Re-auction this player"}
-                              onClick={() => void handleInstantReauction(player.id)}
-                              className="text-[9px] px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold inline-flex items-center gap-0.5 transition-all whitespace-nowrap"
-                            >
-                              <RotateCcw className="w-2.5 h-2.5" /> Re-auction
-                            </button>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1714,7 +1692,7 @@ export default function AuctionOperator() {
                   }
                   className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <Coffee className="w-3 h-3" /> Pre Auction & Break Timer
+                  <Coffee className="w-3 h-3" /> Start Break Timer
                 </button>
               )}
               <button
@@ -1907,14 +1885,14 @@ export default function AuctionOperator() {
                     {
                       label: "DEFER",
                       icon: Hourglass,
-                      sub: isPaused ? "Resume first [D]" : timerActive ? "Pause bid first [D]" : !hasPlayer ? "No player [D]" : "Back queue [D]",
+                      sub: isPaused ? "Resume first [D]" : timerActive ? "Pause bid first [D]" : "Return back to Available Pool(D)",
                       title: isPaused ? "Resume auction before deferring a player" : timerActive ? "Pause current bid first" : !hasPlayer ? "Load a player with Next Player first" : undefined,
                       disabled: controlsLocked || isPaused || !hasPlayer || timerActive || deferPlayerMut.isPending,
                       onClick: handleDeferPlayer,
                       bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", glow: "",
                     },
                     {
-                      label: "MANUAL",
+                      label: "SELL MANUALLY",
                       icon: Settings2,
                       sub: isPaused ? "Resume first [M]" : timerActive ? "Pause bid first [M]" : "Set amount [M]",
                       title: isPaused ? "Resume auction before manual sell" : timerActive ? "Pause current bid first" : undefined,
@@ -2050,17 +2028,12 @@ export default function AuctionOperator() {
           <aside className={`border-l border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "teams" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
 
             {/* Teams & Purse */}
-            <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "55%" }}>
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/8 flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-white/45" />
-                  <span className="text-sm font-bold uppercase tracking-wider text-white/60">Teams &amp; Purse</span>
-                </div>
-                <a href={`/tournament/${tournamentId}/teams`} className="text-[11px] text-white/35 hover:text-white/65 transition-colors flex items-center gap-1">
-                  All <ExternalLink className="w-3 h-3" />
-                </a>
+            <div className="flex flex-col flex-shrink-0 min-h-0" style={{ maxHeight: "55%" }}>
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-amber-500/20 bg-amber-500/[0.07] flex-shrink-0">
+                <Trophy className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <span className="text-xs font-black uppercase tracking-wider text-amber-100/80">Teams &amp; Purse</span>
               </div>
-              <ScrollArea className="flex-1 min-h-0">
+              <ScrollArea className="flex-1 min-h-0 bg-[#141720]">
                 <div className="p-2.5 flex flex-col gap-2">
                   {(teams || []).map(team => {
                     const purseData = teamPurses?.find(p => p.teamId === team.id);
@@ -2073,98 +2046,76 @@ export default function AuctionOperator() {
                     const maxReached = maxSquad > 0 && bought >= maxSquad;
                     const isLeading = state?.currentBidTeamId === team.id;
                     const capacity = purseData?.effectiveCapacity ?? team.purse;
-                    const usedPct = capacity > 0 ? Math.min(100, Math.round((spent / capacity) * 100)) : 0;
+                    const purseRemaining = purseData?.purseRemaining ?? Math.max(0, capacity - spent);
+                    const slotsToGo = maxSquad > 0 ? Math.max(0, maxSquad - bought) : slotsNeeded;
                     return (
                       <div
                         key={team.id}
-                        className={`rounded-xl p-3 border transition-all ${isLeading ? "border-2" : "border-white/10"}`}
+                        className={`rounded-lg p-2.5 border transition-all ${isLeading ? "border-2" : "border-white/10"}`}
                         style={{
                           borderColor: isLeading ? team.color || "#fff" : undefined,
-                          boxShadow: isLeading ? `0 0 14px ${team.color}33` : undefined,
+                          boxShadow: isLeading ? `0 0 10px ${team.color}33` : undefined,
                           backgroundColor: `${team.color || "#888"}0c`,
                         }}
                       >
-                        <div className="flex items-start gap-3 mb-2.5">
+                        <div className="flex items-center gap-2.5 mb-2 min-w-0">
                           {team.logoUrl ? (
                             <img
                               src={team.logoUrl}
                               alt={team.name}
-                              className="w-11 h-11 rounded-md object-contain flex-shrink-0 bg-white/5 p-0.5"
+                              className="w-9 h-9 rounded object-contain flex-shrink-0 bg-white/5 p-0.5"
                             />
                           ) : (
                             <div
-                              className="w-11 h-11 rounded-md text-xs font-mono font-black flex items-center justify-center flex-shrink-0"
+                              className="w-9 h-9 rounded text-xs font-mono font-black flex items-center justify-center flex-shrink-0"
                               style={{ backgroundColor: `${team.color}25`, color: team.color || "#fff" }}
                             >
-                              {team.shortCode?.slice(0, 3) || "T"}
+                              {team.name.slice(0, 1)}
                             </div>
                           )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold leading-tight text-white truncate">{team.name}</p>
-                              {isLeading && (
-                                <span
-                                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase flex-shrink-0"
-                                  style={{ color: team.color || "#fff", backgroundColor: `${team.color || "#fff"}18` }}
-                                >
-                                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
-                                  Lead
-                                </span>
-                              )}
-                            </div>
-                            {team.shortCode ? (
-                              <p className="text-[11px] text-white/40 mt-0.5">{team.shortCode}</p>
-                            ) : null}
-                          </div>
+                          <p className="text-sm font-bold leading-tight text-white truncate flex-1 min-w-0">{team.name}</p>
+                          {isLeading && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase flex-shrink-0"
+                              style={{ color: team.color || "#fff", backgroundColor: `${team.color || "#fff"}18` }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
+                              Lead
+                            </span>
+                          )}
                         </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-baseline justify-between gap-3">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Max Bid</span>
-                            <span className={`text-base font-mono font-bold tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
-                              {maxReached ? "SQUAD FULL" : formatShort(spendable)}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Max Bid</span>
+                            <span className={`text-sm font-mono font-bold tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
+                              {maxReached ? "FULL" : formatAmount(spendable)}
                             </span>
                           </div>
 
-                          <div className="flex items-baseline justify-between gap-3">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Squad</span>
-                            <span className="text-sm font-semibold text-white/90 tabular-nums text-right">
-                              {bought}
-                              {maxSquad > 0 ? ` / ${maxSquad}` : ""} players
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Squad</span>
+                            <span className="text-xs font-semibold text-white/90 tabular-nums text-right">
+                              {bought} in
                               <span className="text-white/35 mx-1">·</span>
-                              <span className="text-white/75">{formatShort(spent)} spent</span>
+                              <span className="text-white/60">{slotsToGo} to go</span>
                             </span>
                           </div>
 
-                          <div className="flex items-baseline justify-between gap-3">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Reserve</span>
-                            <span className="text-sm font-mono font-semibold text-amber-400/90 tabular-nums text-right">
-                              {reserved > 0 ? (
-                                <>
-                                  {formatShort(reserved)}
-                                  {slotsNeeded > 0 ? (
-                                    <span className="text-amber-300/70 font-sans font-medium">
-                                      {" "}
-                                      · {slotsNeeded} slot{slotsNeeded !== 1 ? "s" : ""}
-                                    </span>
-                                  ) : null}
-                                </>
-                              ) : (
-                                <span className="text-white/35">—</span>
-                              )}
-                            </span>
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50 pt-0.5">Purse</span>
+                            <div className="text-xs font-mono tabular-nums text-right leading-relaxed">
+                              <div>
+                                <span className="text-white/45 font-sans font-medium">Avail </span>
+                                <span className="font-semibold text-white">{formatAmount(purseRemaining)}</span>
+                              </div>
+                              <div>
+                                <span className="text-white/45 font-sans font-medium">Res </span>
+                                <span className="font-semibold text-amber-400">{reserved > 0 ? formatAmount(reserved) : "—"}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="mt-2.5 h-1.5 bg-white/8 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${usedPct}%`, backgroundColor: team.color || "#888" }}
-                          />
-                        </div>
-                        <p className="mt-1 text-[10px] text-white/30 tabular-nums">
-                          {formatShort(spent)} of {formatShort(capacity)} used
-                        </p>
                       </div>
                     );
                   })}
@@ -2173,15 +2124,18 @@ export default function AuctionOperator() {
               </ScrollArea>
             </div>
 
+            <div className="flex-shrink-0 h-2 bg-[#0f1117] border-y border-white/10" aria-hidden />
+
             {/* Last Actions / Bid History */}
-            <div className="flex-1 flex flex-col min-h-0 border-t border-white/8 overflow-hidden">
-              <div className="flex items-center px-3 py-2 border-b border-white/8 flex-shrink-0">
-                <span className="text-xs font-black uppercase tracking-wider text-white/50">Last Actions</span>
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#11141c]">
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-yellow-500/20 bg-yellow-500/[0.06] flex-shrink-0">
+                <Gavel className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                <span className="text-xs font-black uppercase tracking-wider text-yellow-100/80">Last Biddings Actions</span>
               </div>
               {bids && bids.length > 0 && (
                 <div className="px-3 py-1.5 bg-yellow-400/5 border-b border-yellow-400/10 flex-shrink-0">
                   <p className="text-xs text-yellow-300/70 font-medium truncate">
-                    {bids[0]?.teamName ? `${bids[0].teamName} bid ${formatShort(bids[0].amount)}` : "Latest bid"}
+                    {bids[0]?.teamName ? `${bids[0].teamName} bid ${formatAmount(bids[0].amount)}` : "Latest bid"}
                   </p>
                 </div>
               )}
@@ -2198,7 +2152,7 @@ export default function AuctionOperator() {
                             <p className="text-[11px] text-white/30 truncate">{bid.teamName || t?.name || "—"}</p>
                           </div>
                         </div>
-                        <span className="text-sm font-mono font-semibold text-yellow-400/80 flex-shrink-0">{formatShort(bid.amount)}</span>
+                        <span className="text-xs font-mono font-semibold text-yellow-400/80 flex-shrink-0">{formatAmount(bid.amount)}</span>
                       </div>
                     );
                   })
@@ -2208,31 +2162,6 @@ export default function AuctionOperator() {
               </ScrollArea>
             </div>
           </aside>
-        </div>
-
-        {/* ══════════ BOTTOM BAR ════════════════════════════════════════════ */}
-        <div className="flex-shrink-0 h-7 bg-[#0d0f14] border-t border-white/5 flex items-center px-4 gap-0">
-          {/* Tournament name — left */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Tournament</span>
-            <span className="text-[10px] font-semibold text-white/55 truncate max-w-[200px]">
-              {tournament?.name || "—"}
-            </span>
-          </div>
-
-          <div className="w-px h-4 bg-white/8 mx-4 flex-shrink-0" />
-
-          {/* Keyboard shortcuts — centre */}
-          <div className="flex items-center gap-5 flex-1 justify-center">
-            {["[S] Sold","[U] Unsold","[D] Defer","[M] Manual","[Space] Start/Pause","[N] Next","[Z] Undo"].map((s, i) => (
-              <span key={i} className="text-[10px] text-white/20 font-medium whitespace-nowrap hidden sm:block">{s}</span>
-            ))}
-          </div>
-
-          <div className="w-px h-4 bg-white/8 mx-4 flex-shrink-0" />
-
-          {/* Operator footer — branding handled in header center mark */}
-          <div className="w-[1px] flex-shrink-0" aria-hidden />
         </div>
 
         {/* Mobile panel switcher */}

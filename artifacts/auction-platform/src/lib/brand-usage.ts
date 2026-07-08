@@ -121,9 +121,9 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
     darkBackground: true,
   },
   "operator-header": {
-    logoAsset: "SYMBOL_LOGO",
-    logoOrder: ["mini", "appIcon", "obsWatermark"],
-    sizeClass: "h-9 sm:h-10 w-auto max-w-[120px] object-contain",
+    logoAsset: "REVERSE_LOGO",
+    logoOrder: ["mainReverse", "main", "mini", "appIcon"],
+    sizeClass: "h-8 sm:h-9 w-auto max-w-[min(200px,34vw)] object-contain",
     showBrandName: false,
     showPoweredBy: false,
     darkBackground: true,
