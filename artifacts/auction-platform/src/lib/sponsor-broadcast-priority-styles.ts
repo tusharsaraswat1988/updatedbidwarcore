@@ -271,3 +271,120 @@ export function getSponsorCaptionTypeStyle(
       };
   }
 }
+
+/** Side LED canvas (1080×1920) — tier-specific broadcast treatment. */
+export function getSideLedKickerText(tier: SponsorBroadcastTier): string {
+  switch (tier) {
+    case "title":
+      return "Title Sponsor";
+    case "co_sponsor":
+      return "Co-Presented By";
+    default:
+      return "Proudly Supported By";
+  }
+}
+
+export function getSideLedKickerStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        color: TITLE_GOLD,
+        letterSpacing: "0.18em",
+        textShadow: "0 0 24px rgba(247, 223, 138, 0.45)",
+      };
+    case "co_sponsor":
+      return {
+        color: CO_SILVER,
+        letterSpacing: "0.16em",
+        textShadow: "0 0 20px rgba(180, 200, 220, 0.35)",
+      };
+    default:
+      return {};
+  }
+}
+
+export function getSideLedLogoFrameStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        border: "2px solid rgba(247, 223, 138, 0.72)",
+        background:
+          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(255, 248, 230, 0.97) 100%)",
+        boxShadow:
+          "0 0 48px rgba(247, 223, 138, 0.55), 0 0 96px rgba(201, 162, 39, 0.22), 0 12px 40px rgba(0, 0, 0, 0.28)",
+      };
+    case "co_sponsor":
+      return {
+        border: "2px solid rgba(180, 200, 220, 0.58)",
+        background:
+          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(240, 246, 255, 0.97) 100%)",
+        boxShadow:
+          "0 0 40px rgba(180, 200, 220, 0.42), 0 0 80px rgba(140, 165, 200, 0.16), 0 12px 40px rgba(0, 0, 0, 0.28)",
+      };
+    default:
+      return {
+        border: "1px solid rgba(255,255,255,0.14)",
+        background: "rgba(255,255,255,0.98)",
+        boxShadow:
+          "0 0 36px rgba(212, 175, 55, 0.38), 0 0 72px rgba(212, 175, 55, 0.16), 0 12px 40px rgba(0, 0, 0, 0.32)",
+      };
+  }
+}
+
+export function getSideLedNameStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        color: TITLE_GOLD,
+        textShadow:
+          "0 0 28px rgba(247, 223, 138, 0.55), 0 0 56px rgba(201, 162, 39, 0.28), 0 2px 12px rgba(0,0,0,0.5)",
+      };
+    case "co_sponsor":
+      return {
+        color: CO_SILVER,
+        textShadow:
+          "0 0 22px rgba(180, 200, 220, 0.45), 0 0 44px rgba(140, 165, 200, 0.2), 0 2px 10px rgba(0,0,0,0.45)",
+      };
+    default:
+      return { color: "rgba(255,255,255,0.96)" };
+  }
+}
+
+export function getSideLedNameSize(baseSize: number, tier: SponsorBroadcastTier): number {
+  switch (tier) {
+    case "title":
+      return Math.round(baseSize * 1.08);
+    case "co_sponsor":
+      return Math.round(baseSize * 1.04);
+    default:
+      return baseSize;
+  }
+}
+
+export function getSideLedCategoryStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        color: TITLE_GOLD_MUTED,
+        textShadow: "0 0 16px rgba(247, 223, 138, 0.35)",
+      };
+    case "co_sponsor":
+      return {
+        color: CO_SILVER_MUTED,
+        textShadow: "0 0 12px rgba(180, 200, 220, 0.28)",
+      };
+    default:
+      return { color: "rgba(212, 175, 55, 0.92)" };
+  }
+}
+
+export function getSideLedGlowClass(tier: SponsorBroadcastTier): string {
+  switch (tier) {
+    case "title":
+      return "side-sponsor-glow--title";
+    case "co_sponsor":
+      return "side-sponsor-glow--co";
+    default:
+      return "side-sponsor-glow--normal";
+  }
+}

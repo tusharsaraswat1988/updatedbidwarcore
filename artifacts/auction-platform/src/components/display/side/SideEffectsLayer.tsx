@@ -1,11 +1,9 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
-import { formatAuctionAmount, normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
-import { cldUrl } from "@/lib/cloudinary";
 
 /**
- * Side-panel overlays — sold / unsold on player panel only.
- * Sponsors panel keeps carousel running; pause/break use SideBreakBadge.
+ * Side-panel overlays — unsold on player panel only.
+ * Sold state is shown in the bid footer (SidePlayerProfilePanel).
  */
 export const SideEffectsLayer = memo(function SideEffectsLayer({
   view,
@@ -16,59 +14,17 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
 }) {
   const {
     derivedState,
-    leadingTeam,
-    currentBidLabel,
     currentPlayer,
     basePriceLabel,
     lastOutcome,
-    tournament,
   } = view;
-  const auctionUnit = normalizeAuctionUnit(tournament.auctionUnit);
 
   if (panel === "sponsors") {
     return null;
   }
 
   if (derivedState === "sold") {
-    const teamName = lastOutcome?.teamName ?? leadingTeam?.name ?? "";
-    const teamShort = leadingTeam?.short ?? teamName.slice(0, 3).toUpperCase();
-    const teamColor = lastOutcome?.teamColor ?? leadingTeam?.color ?? "#22C55E";
-    const photo = lastOutcome?.photoUrl ?? currentPlayer?.portrait ?? "";
-    const playerName = lastOutcome?.playerName ?? currentPlayer?.name ?? "";
-    const amount = lastOutcome?.amount
-      ? formatAuctionAmount(lastOutcome.amount, auctionUnit)
-      : currentBidLabel;
-
-    return (
-      <div className="absolute inset-0 z-30 grid place-items-center bg-black/85 p-[6%] pointer-events-none">
-        <div
-          className="w-full max-w-md border-4 bg-black/90 p-6 text-center"
-          style={{
-            borderColor: teamColor,
-            animation: "auction-sold-slam 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both",
-          }}
-        >
-          {photo ? (
-            <img
-              src={cldUrl(photo, "soldCard")}
-              alt={playerName}
-              className="mx-auto mb-4 h-32 w-28 object-cover border-2"
-              style={{ borderColor: teamColor }}
-            />
-          ) : null}
-          <p
-            className="font-['Bebas_Neue'] text-6xl tracking-tighter"
-            style={{ color: teamColor }}
-          >
-            SOLD
-          </p>
-          <p className="mt-2 font-['Bebas_Neue'] text-2xl tabular-nums text-white">{amount}</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.3em] text-white/60">
-            {playerName} → {teamShort}
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (derivedState === "unsold") {

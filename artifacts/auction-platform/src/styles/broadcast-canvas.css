@@ -1,0 +1,573 @@
+/**
+ * Vertical LED broadcast canvas — fixed 1080x1920 design surface.
+ * Browser is only a viewer; layout never reflows, only scales.
+ */
+
+.display-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.display-canvas-scaler {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  will-change: transform;
+  contain: layout style;
+}
+
+.display-canvas {
+  position: relative;
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 9 / 16;
+  transform-origin: center center;
+  font-family: "Space Grotesk", "Barlow Condensed", sans-serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  --broadcast-font-display: "Bebas Neue", "Barlow Condensed", sans-serif;
+  --broadcast-font-label: "Space Grotesk", "Barlow Condensed", sans-serif;
+  --broadcast-font-meta: "Barlow Condensed", sans-serif;
+}
+
+.display-canvas-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.display-canvas-layer--interactive {
+  pointer-events: auto;
+}
+
+/* Broadcast slate animations */
+@keyframes broadcast-slate-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes broadcast-slate-exit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes broadcast-logo-breath {
+  0%, 100% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.broadcast-slate-enter {
+  animation: broadcast-slate-enter 850ms ease-out both;
+  will-change: opacity, transform;
+}
+
+.broadcast-slate-exit {
+  animation: broadcast-slate-exit 850ms ease-in both;
+  will-change: opacity, transform;
+}
+
+.broadcast-logo-breath {
+  animation: broadcast-logo-breath 4.8s ease-in-out infinite;
+  will-change: opacity;
+}
+
+.broadcast-logo-breath-delayed {
+  animation: broadcast-logo-breath 4.8s ease-in-out infinite;
+  animation-delay: -2.4s;
+  will-change: opacity;
+}
+
+@keyframes broadcast-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes broadcast-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+.broadcast-enter {
+  animation: broadcast-fade-in 850ms ease-out both;
+  will-change: opacity, transform;
+}
+
+.broadcast-exit {
+  animation: broadcast-fade-out 850ms ease-in both;
+  will-change: opacity, transform;
+}
+
+/* Side LED background depth */
+.side-broadcast-bg {
+  background: #030303;
+}
+
+.side-broadcast-bg-golden {
+  background: linear-gradient(
+    180deg,
+    rgba(212, 175, 55, 0.06) 0%,
+    transparent 28%,
+    transparent 72%,
+    rgba(212, 175, 55, 0.04) 100%
+  );
+}
+
+.side-broadcast-bg-spotlight {
+  background: radial-gradient(
+    ellipse 72% 48% at 50% 42%,
+    rgba(255, 248, 220, 0.09) 0%,
+    rgba(212, 175, 55, 0.05) 32%,
+    transparent 68%
+  );
+}
+
+.side-broadcast-bg-vignette {
+  background: radial-gradient(
+    ellipse 98% 94% at 50% 50%,
+    transparent 32%,
+    rgba(0, 0, 0, 0.42) 72%,
+    rgba(0, 0, 0, 0.72) 100%
+  );
+}
+
+.side-broadcast-bg-texture {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.022;
+  mix-blend-mode: overlay;
+}
+
+@keyframes side-broadcast-particles-drift {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-72px);
+  }
+}
+
+.side-broadcast-bg-particles {
+  background-image:
+    radial-gradient(circle, rgba(212, 175, 55, 0.2) 0.45px, transparent 0.45px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.08) 0.45px, transparent 0.45px);
+  background-size: 160px 160px, 220px 220px;
+  background-position: 0 0, 80px 60px;
+  opacity: 0.14;
+  animation: side-broadcast-particles-drift 48s linear infinite;
+}
+
+/* Sponsor logo halo — tier variants, fades to transparent */
+.side-sponsor-glow-root {
+  contain: layout style;
+}
+
+.side-sponsor-glow-primary,
+.side-sponsor-glow-secondary {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  filter: blur(22px);
+  mix-blend-mode: screen;
+}
+
+.side-sponsor-glow-secondary {
+  filter: blur(12px);
+}
+
+/* Title — rich gold */
+.side-sponsor-glow--title .side-sponsor-glow-primary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(247, 223, 138, 0.52) 0%,
+    rgba(212, 175, 55, 0.24) 30%,
+    rgba(201, 162, 39, 0.08) 50%,
+    transparent 72%
+  );
+}
+
+.side-sponsor-glow--title .side-sponsor-glow-secondary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 248, 220, 0.38) 0%,
+    rgba(255, 255, 255, 0.14) 34%,
+    transparent 62%
+  );
+}
+
+/* Co-sponsor — cool silver / platinum */
+.side-sponsor-glow--co .side-sponsor-glow-primary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(200, 218, 240, 0.46) 0%,
+    rgba(180, 200, 220, 0.2) 30%,
+    rgba(140, 165, 200, 0.07) 50%,
+    transparent 72%
+  );
+}
+
+.side-sponsor-glow--co .side-sponsor-glow-secondary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(232, 238, 248, 0.32) 0%,
+    rgba(255, 255, 255, 0.1) 34%,
+    transparent 62%
+  );
+}
+
+/* Normal partners — warm accent gold */
+.side-sponsor-glow--normal .side-sponsor-glow-primary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(212, 175, 55, 0.42) 0%,
+    rgba(212, 175, 55, 0.18) 28%,
+    rgba(212, 175, 55, 0.06) 48%,
+    transparent 72%
+  );
+}
+
+.side-sponsor-glow--normal .side-sponsor-glow-secondary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 248, 220, 0.32) 0%,
+    rgba(255, 255, 255, 0.12) 32%,
+    transparent 62%
+  );
+}
+
+/* Safe area / debug guides (developer mode only) */
+.broadcast-safe-guide {
+  position: absolute;
+  border: 1px dashed rgba(255, 60, 60, 0.55);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.broadcast-center-guide-v,
+.broadcast-center-guide-h {
+  position: absolute;
+  background: rgba(80, 180, 255, 0.35);
+  pointer-events: none;
+  z-index: 9997;
+}
+
+.broadcast-center-guide-v {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+
+.broadcast-center-guide-h {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.broadcast-pixel-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9996;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.25) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Canvas typography — Bebas display + Space Grotesk labels */
+.broadcast-tournament-name {
+  font-family: var(--broadcast-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 0.94;
+  color: rgba(255, 255, 255, 0.98);
+  text-shadow:
+    0 2px 24px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(212, 175, 55, 0.08);
+}
+
+.broadcast-kicker {
+  font-family: var(--broadcast-font-label);
+  font-size: 34px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+}
+
+.broadcast-sponsor-kicker {
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.25);
+}
+
+.broadcast-sponsor-name {
+  font-family: var(--broadcast-font-display);
+  font-size: 90px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(255, 255, 255, 0.06);
+}
+
+.broadcast-sponsor-category {
+  font-family: var(--broadcast-font-meta);
+  font-size: 34px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  color: rgba(212, 175, 55, 0.92);
+}
+
+.broadcast-sponsor-footer {
+  font-family: var(--broadcast-font-label);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.broadcast-category {
+  font-family: var(--broadcast-font-meta);
+  font-size: 34px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+}
+
+.broadcast-player-name {
+  font-family: var(--broadcast-font-display);
+  font-size: 76px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.015em;
+  line-height: 0.92;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.45);
+}
+
+.broadcast-bid-amount {
+  font-family: var(--broadcast-font-display);
+  font-size: 120px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 0.88;
+  text-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.55),
+    0 0 48px rgba(212, 175, 55, 0.12);
+}
+
+@keyframes broadcast-team-bid-glow {
+  0%,
+  100% {
+    text-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.55),
+      0 0 32px var(--bid-team-glow),
+      0 0 64px var(--bid-team-glow);
+  }
+  50% {
+    text-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.55),
+      0 0 56px var(--bid-team-glow),
+      0 0 112px var(--bid-team-glow),
+      0 0 160px var(--bid-team-glow);
+  }
+}
+
+.broadcast-spec-label {
+  font-family: var(--broadcast-font-meta);
+  font-size: 30px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.broadcast-spec-value {
+  font-family: var(--broadcast-font-label);
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* BidWar logo — subtle premium halo on broadcast headers */
+.broadcast-logo-premium {
+  filter:
+    drop-shadow(0 0 6px rgba(212, 175, 55, 0.22))
+    drop-shadow(0 0 14px rgba(255, 248, 220, 0.1))
+    drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
+}
+
+/* ── Player LED — premium IPL-style polish ─────────────────────── */
+
+/* Face sits in upper third of portrait frame */
+.side-player-photo {
+  object-position: center 22%;
+}
+
+/* Extended bottom gradient — name lives inside the photo composition */
+.side-player-photo-gradient {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.97) 0%,
+    rgba(0, 0, 0, 0.88) 14%,
+    rgba(0, 0, 0, 0.62) 32%,
+    rgba(0, 0, 0, 0.28) 52%,
+    rgba(0, 0, 0, 0.08) 68%,
+    transparent 82%
+  );
+}
+
+.side-player-name-zone {
+  padding: 0 5% 5%;
+}
+
+.side-player-name {
+  text-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.75),
+    0 4px 32px rgba(0, 0, 0, 0.55),
+    0 0 48px rgba(0, 0, 0, 0.35);
+}
+
+/* Serial badge — flush with safe-area right edge, aligned to photo top */
+.side-player-serial-badge {
+  top: 14px;
+  right: 48px;
+  width: 56px;
+  height: 56px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Stats band — translucent panel with gold rule */
+.side-player-stats {
+  background: rgba(0, 0, 0, 0.38);
+  border-top: 1px solid rgba(212, 175, 55, 0.32);
+  padding: 28px 5% 32px;
+}
+
+.side-player-stats-grid {
+  gap: 22px 48px;
+}
+
+.side-player-spec-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.side-player-spec-value {
+  color: #fff;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.side-player-highlights {
+  padding-top: 4px;
+}
+
+/* Bid footer — hero amount with premium underline glow */
+.side-player-bid-footer {
+  background: rgba(0, 0, 0, 0.72);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 36px 5% 40px;
+}
+
+.side-player-bid-kicker {
+  letter-spacing: 0.14em;
+}
+
+.side-player-bid-amount {
+  position: relative;
+  font-size: 136px;
+  line-height: 0.86;
+  text-shadow:
+    0 4px 28px rgba(0, 0, 0, 0.65),
+    0 0 56px rgba(212, 175, 55, 0.18),
+    0 0 96px rgba(255, 255, 255, 0.06);
+}
+
+.side-player-bid-amount::after {
+  content: "";
+  display: block;
+  width: min(72%, 420px);
+  height: 2px;
+  margin: 14px auto 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(212, 175, 55, 0.15) 15%,
+    rgba(212, 175, 55, 0.72) 50%,
+    rgba(212, 175, 55, 0.15) 85%,
+    transparent 100%
+  );
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.35);
+}
+
+.side-player-bid-team {
+  opacity: 0.95;
+}
+
+.side-player-sold-team-name {
+  display: block;
+  width: 100%;
+  padding: 0 5%;
+  font-size: 56px;
+  line-height: 1.06;
+  text-wrap: balance;
+  word-break: break-word;
+  text-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.55),
+    0 0 32px color-mix(in srgb, currentColor 35%, transparent);
+}

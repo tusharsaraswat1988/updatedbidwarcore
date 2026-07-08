@@ -42,6 +42,9 @@ async function bootstrap(): Promise<void> {
 
   if (isDisplayRoute(pathname)) {
     await import("./styles/display-tv-mode.css");
+    if (pathname.includes("/side-display")) {
+      await import("./styles/broadcast-canvas.css");
+    }
   }
 
   const academyData = readWindowAcademyData();

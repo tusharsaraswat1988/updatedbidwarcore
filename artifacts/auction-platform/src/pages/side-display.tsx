@@ -9,24 +9,29 @@ function parsePanelMode(raw: string | null): SideLedPanelMode {
 }
 
 /**
- * Side LED panels for venue flanking screens — portrait or landscape.
- * ?panel=sponsors  → professional sponsor carousel (left/right screen)
- * ?panel=player    → live player full profile (default)
+ * Side LED panels — fixed 1080×1920 broadcast canvas for venue screens.
  *
- * Uses the same auction API as the main LED display but ignores operator
- * overlay switches (player list, team squads, top 5, banner, purse view).
+ * Production (default): canvas only — no debug UI. Use for live auction / OBS / fullscreen.
+ *   /tournament/:id/side-display?panel=sponsors
+ *   /tournament/:id/side-display?panel=player
  *
- * Colour theme is chosen on the live display via the bottom-left stage picker.
+ * Developer mode (?dev=1): preview controls, safe-area guides, theme picker.
+ *   ?dev=1&guides=safe,center,grid&scale=fit
  */
 export default function SideDisplayView() {
   const [, params] = useRoute("/tournament/:id/side-display");
   const tournamentId = parseInt(params?.id || "0");
   const search = useSearch();
-  const panel = parsePanelMode(new URLSearchParams(search).get("panel"));
+  const paramsObj = new URLSearchParams(search);
+  const panel = parsePanelMode(paramsObj.get("panel"));
 
   return (
     <TournamentCodeGate tournamentId={tournamentId}>
-      <SideDisplayShell tournamentId={tournamentId} panel={panel} />
+      <SideDisplayShell
+        tournamentId={tournamentId}
+        panel={panel}
+        previewSearch={search}
+      />
     </TournamentCodeGate>
   );
 }
