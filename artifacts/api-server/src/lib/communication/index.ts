@@ -37,3 +37,5 @@ export { getDashboardStats, resolveBulkRecipients, queueBulkCommunication, getSe
 export { buildMergeDataForRecipient, refreshJobMergeData } from "./merge-data-builder.js";
 export { buildOrganiserTeamsCredentialsData } from "./render-organiser-teams-bundle.js";
 export { seedCommunicationDefaults } from "./seed-templates.js";
+export { enqueuePlayerSoldEmail, enqueuePlayerSoldEmailAsync } from "./player-sold-email-service.js";
+export { buildPlayerSoldMergeData } from "./player-sold-merge-data.js";

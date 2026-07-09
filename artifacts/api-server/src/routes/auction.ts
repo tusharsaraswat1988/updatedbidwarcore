@@ -42,6 +42,7 @@ import {
 import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { formatPurseProtectionBidError } from "@workspace/api-base/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
+import { enqueuePlayerSoldEmailAsync } from "../lib/communication/player-sold-email-service.js";
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
 import { getAdminPassword, getPublicOrigin, getRuntimeConfig } from "../lib/runtime-env";
@@ -1828,6 +1829,13 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     tournamentName: tournament?.name ?? "the tournament",
   });
 
+  enqueuePlayerSoldEmailAsync({
+    playerId,
+    teamId,
+    amount: soldAmount,
+    tournamentId: tid,
+  });
+
   // DLT SMS: notify player about being sold (fire-and-forget, live tournaments only)
   if (tournament?.licenseStatus === "active" && soldPlayer?.mobileNumber) {
     const playerMobile = soldPlayer.mobileNumber;
@@ -1999,6 +2007,13 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     teamName: team?.name ?? "Team",
     amount,
     tournamentName: manualTournament?.name ?? "the tournament",
+  });
+
+  enqueuePlayerSoldEmailAsync({
+    playerId,
+    teamId,
+    amount,
+    tournamentId: tid,
   });
 
   // Log player auction end for manual sell (fire-and-forget)
