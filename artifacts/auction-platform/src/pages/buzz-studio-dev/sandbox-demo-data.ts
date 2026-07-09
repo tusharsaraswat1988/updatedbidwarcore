@@ -13,12 +13,14 @@ import { DEMO_FULL_IMAGES } from "@/features/buzz-studio/templates/player-spotli
 import { demoFullData } from "@/features/buzz-studio/templates/sold-player/demo-data";
 import { demoTop5 } from "@/features/buzz-studio/templates/top-buys/demo-data";
 import { demoFullCricket } from "@/features/buzz-studio/templates/team-reveal/demo-data";
+import { demoMumbaiSquad } from "@/features/buzz-studio/templates/team-squad/demo-data";
 
 const SANDBOX_DEMO_DATA: Readonly<Partial<Record<BuzzTemplateType, unknown>>> = {
   [BuzzTemplateType.PLAYER_SPOTLIGHT]: DEMO_FULL_IMAGES,
   [BuzzTemplateType.SOLD_PLAYER]: demoFullData,
   [BuzzTemplateType.TOP_BUYS]: demoTop5,
   [BuzzTemplateType.TEAM_REVEAL]: demoFullCricket,
+  [BuzzTemplateType.TEAM_SQUAD]: demoMumbaiSquad,
 };
 
 export function getSandboxDemoData(

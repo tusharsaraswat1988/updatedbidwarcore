@@ -125,6 +125,9 @@ export { formatSoldPrice, formatBidCount } from "./templates/sold-player/SoldPla
 export { TopBuys } from "./templates/top-buys/TopBuys";
 export { formatTopBuyPrice, resolveRank, compactGridCols } from "./templates/top-buys/TopBuys.utils";
 
+export { TeamSquad } from "./templates/team-squad/TeamSquad";
+export { formatSquadPlayerPrice, rosterGridColumns, squadCounts } from "./templates/team-squad/TeamSquad.utils";
+
 /* ─── Contracts ────────────────────────────────────────────────────────── */
 
 export type {
@@ -139,6 +142,9 @@ export type {
   TopBuyContract,
   TopBuysListContract,
   TeamRevealContract,
+  TeamSquadContract,
+  TeamSquadPlayerEntry,
+  SquadPlayerStatus,
   AuctionSummaryContract,
   MvpCardContract,
   TournamentLaunchContract,
@@ -216,6 +222,11 @@ export {
   getTeamRevealContracts,
   mapTeamRevealFromSnapshot,
 } from "./providers/team-reveal-provider";
+
+export {
+  getTeamSquadContracts,
+  mapTeamSquadFromSnapshot,
+} from "./providers/team-squad-provider";
 
 /* ─── Render Pipeline ──────────────────────────────────────────────────── */
 

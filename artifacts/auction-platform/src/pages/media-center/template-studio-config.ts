@@ -11,11 +11,13 @@ import {
   getSoldPlayerContracts,
   getTopBuysContract,
   getTeamRevealContracts,
+  getTeamSquadContracts,
 } from "@/features/buzz-studio";
 import type { PlayerSpotlightContract } from "@/features/buzz-studio/contracts/PlayerSpotlight.contract";
 import type { SoldPlayerContract } from "@/features/buzz-studio/contracts/SoldPlayer.contract";
 import type { TopBuysListContract } from "@/features/buzz-studio/contracts/TopBuy.contract";
 import type { TeamRevealContract } from "@/features/buzz-studio/contracts/TeamReveal.contract";
+import type { TeamSquadContract } from "@/features/buzz-studio/contracts/TeamSquad.contract";
 
 export type TemplateStudioSelectionMode = "list" | "none";
 
@@ -144,6 +146,40 @@ async function loadTeamRevealData(
   };
 }
 
+async function loadTeamSquadData(
+  tournamentId: number,
+): Promise<TemplateStudioLoadedData> {
+  const contracts = await getTeamSquadContracts(tournamentId);
+  const items: TemplateStudioListItem[] = contracts.map((contract) => ({
+    id: itemKey(contract.teamId, contract.teamName ?? "team"),
+    label: contract.teamName ?? "Team",
+    subtitle:
+      contract.players.length > 0
+        ? `${contract.players.length} players`
+        : "No players yet",
+    searchText: [
+      contract.teamName,
+      ...contract.players.map((p) => p.playerName),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase(),
+  }));
+  const contractsById = new Map<string, Record<string, unknown>>(
+    contracts.map((contract) => [
+      itemKey(contract.teamId, contract.teamName ?? "team"),
+      contract as unknown as Record<string, unknown>,
+    ]),
+  );
+
+  return {
+    selectionMode: "list",
+    emptyMessage: "No teams available",
+    items,
+    contractsById,
+  };
+}
+
 const TEMPLATE_STUDIO_CONFIG: Readonly<
   Partial<Record<BuzzTemplateType, TemplateStudioConfig>>
 > = {
@@ -171,6 +207,12 @@ const TEMPLATE_STUDIO_CONFIG: Readonly<
     listLabel: "Teams",
     load: loadTeamRevealData,
   },
+  [BuzzTemplateType.TEAM_SQUAD]: {
+    selectionMode: "list",
+    emptyMessage: "No teams available",
+    listLabel: "Teams",
+    load: loadTeamSquadData,
+  },
 };
 
 export function getTemplateStudioConfig(
@@ -192,4 +234,5 @@ export type {
   SoldPlayerContract,
   TopBuysListContract,
   TeamRevealContract,
+  TeamSquadContract,
 };

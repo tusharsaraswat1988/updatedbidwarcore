@@ -15,6 +15,7 @@ export type { PlayerSpotlightContract } from "./PlayerSpotlight.contract";
 export type { SoldPlayerContract } from "./SoldPlayer.contract";
 export type { TopBuyContract, TopBuysListContract } from "./TopBuy.contract";
 export type { TeamRevealContract } from "./TeamReveal.contract";
+export type { TeamSquadContract, TeamSquadPlayerEntry, SquadPlayerStatus } from "./TeamSquad.contract";
 export type { AuctionSummaryContract } from "./AuctionSummary.contract";
 export type { MvpCardContract } from "./MvpCard.contract";
 export type { TournamentLaunchContract } from "./TournamentLaunch.contract";
