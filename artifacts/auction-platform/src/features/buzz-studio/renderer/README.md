@@ -20,6 +20,7 @@ Same components as Template Studio — no duplicate render templates:
 - `sold_player`
 - `top_buys`
 - `team_reveal`
+- `team_squad`
 
 ## Aspect ratios
 
@@ -27,7 +28,25 @@ Same components as Template Studio — no duplicate render templates:
 |-------|----------|
 | 1:1   | 1080×1080 |
 | 4:5   | 1080×1350 |
+| 9:16  | 1080×1920 |
 | 16:9  | 1920×1080 |
+
+## Production setup (required for PNG export)
+
+Creative jobs use Playwright Chromium. On first deploy or if jobs fail with `browserType.launch`:
+
+```bash
+pnpm run setup:playwright-browsers
+```
+
+Set in production environment:
+
+| Variable | Value |
+|----------|-------|
+| `CREATIVE_RENDER_WORKER_ENABLED` | `true` |
+| `PLAYWRIGHT_BROWSERS_PATH` | `.playwright-browsers` |
+
+Replit/Docker builds run browser install automatically via `build:deploy` / `postBuild`.
 
 ## Environment
 

@@ -9,7 +9,7 @@
     "dev:stop": "pnpm --filter @workspace/scripts run dev:stop",
     "dev:restart": "pnpm dev:stop && pnpm dev",
     "build": "pnpm run typecheck && pnpm run build:deploy",
-    "build:deploy": "pnpm -r --if-present run build",
+    "build:deploy": "pnpm -r --if-present run build && node scripts/setup-playwright-browsers.mjs",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "build:prod": "pnpm install --frozen-lockfile --prod=false && pnpm run build:deploy",
@@ -20,7 +20,8 @@
     "db:setup:prod": "pnpm run db:push:prod && pnpm run migrate:prod",
     "verify:local": "pnpm --filter @workspace/scripts run verify:local",
     "verify:production": "pnpm --filter @workspace/scripts run verify:production",
-    "branding:generate": "node scripts/generate-branding-static-assets.mjs"
+    "branding:generate": "node scripts/generate-branding-static-assets.mjs",
+    "setup:playwright-browsers": "node scripts/setup-playwright-browsers.mjs"
   },
   "private": true,
   "devDependencies": {

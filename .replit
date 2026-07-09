@@ -5,7 +5,7 @@ router = "application"
 deploymentTarget = "autoscale"
 
 [deployment.postBuild]
-args = ["pnpm", "store", "prune"]
+args = ["sh", "-c", "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers node scripts/setup-playwright-browsers.mjs && pnpm store prune"]
 env = { "CI" = "true" }
 
 [workflows]
@@ -68,6 +68,8 @@ externalPort = 6000
 [userenv.production]
 APP_DOMAIN = "bidwar.in"
 APP_PUBLIC_SCHEME = "https"
+CREATIVE_RENDER_WORKER_ENABLED = "true"
+PLAYWRIGHT_BROWSERS_PATH = ".playwright-browsers"
 
 [nix]
 channel = "stable-25_05"

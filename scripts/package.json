@@ -14,6 +14,7 @@
     "dev:stop": "node ./dev-stop.mjs",
     "verify:local": "tsx src/verify-local.ts",
     "verify:production": "tsx src/verify-production.ts",
+    "setup:playwright-browsers": "node ./setup-playwright-browsers.mjs",
     "verify:root-cause-rcv": "tsx --env-file=../.env src/verify-root-cause-rcv.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

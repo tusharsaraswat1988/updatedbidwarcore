@@ -15,10 +15,11 @@ run = "pnpm --filter @workspace/api-server run dev"
 [services.production]
 
 [services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
+args = ["sh", "-c", "pnpm --filter @workspace/api-server run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers node scripts/setup-playwright-browsers.mjs"]
 
 [services.production.build.env]
 NODE_ENV = "production"
+PLAYWRIGHT_BROWSERS_PATH = ".playwright-browsers"
 
 [services.production.run]
 # we don't run through pnpm to make startup faster in production
@@ -27,6 +28,8 @@ args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 [services.production.run.env]
 PORT = "8080"
 NODE_ENV = "production"
+CREATIVE_RENDER_WORKER_ENABLED = "true"
+PLAYWRIGHT_BROWSERS_PATH = ".playwright-browsers"
 
 [services.production.health.startup]
 path = "/api/healthz"
