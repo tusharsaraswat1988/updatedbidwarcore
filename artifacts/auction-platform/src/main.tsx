@@ -14,6 +14,7 @@ function isDisplayRoute(pathname: string): boolean {
     pathname.includes("/display") ||
     pathname.includes("/side-display") ||
     pathname.includes("/obs-overlay") ||
+    pathname.includes("/obs") ||
     pathname.includes("/liveviewer")
   );
 }

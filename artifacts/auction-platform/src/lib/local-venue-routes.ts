@@ -21,6 +21,10 @@ const LOCAL_PUBLIC_SEGMENTS = new Set([
   "side-display",
   "obs",
   "obs/preview",
+  "obs/v2",
+  "obs/v2/preview",
+  "obs/lab",
+  "obs/lab/preview",
   "liveviewer",
 ]);
 

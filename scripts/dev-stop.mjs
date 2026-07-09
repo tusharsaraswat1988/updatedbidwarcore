@@ -1,5 +1,5 @@
 /**
- * Stop all BidWar local dev servers (API, auction-platform, owner-app, scoring-app).
+ * Stop all BidWar local dev servers (API, auction-platform, owner-app, and scoring-app if running).
  * Usage: pnpm dev:stop
  */
 import { getDevPorts, freePorts, waitForPortsFree } from "./dev-ports.mjs";

@@ -10,7 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Monitor, Link2, Copy, ExternalLink, MessageCircle, Radio } from "lucide-react";
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
-import { broadcastOverlayUrl, broadcastOverlayPreviewUrl } from "@/lib/broadcast-overlay";
+import {
+  broadcastOverlayUrl,
+  broadcastOverlayPreviewUrl,
+  broadcastOverlayV2Url,
+  broadcastOverlayV2PreviewUrl,
+} from "@/lib/broadcast-overlay";
 import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
 
@@ -79,6 +84,8 @@ export default function LinksPage() {
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
   const broadcastPreviewUrlValue = broadcastOverlayPreviewUrl(base, tournamentId);
+  const broadcastV2UrlValue = broadcastOverlayV2Url(base, tournamentId);
+  const broadcastV2PreviewUrlValue = broadcastOverlayV2PreviewUrl(base, tournamentId);
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -139,8 +146,20 @@ export default function LinksPage() {
             <LinkRow
               label="Camera preview (test without OBS)"
               url={broadcastPreviewUrlValue}
-              description="See the live overlay on your laptop or phone camera — same layout as OBS, no streaming software needed."
+              description="See the classic live overlay on your laptop or phone camera — same layout as /obs, no streaming software needed."
               shareText={`Overlay camera preview: ${broadcastPreviewUrlValue}`}
+            />
+            <LinkRow
+              label="Broadcast Overlay v2 (recommended)"
+              url={broadcastV2UrlValue}
+              description="Polished graphics — Top 5 strip, 6-team overview pages, stronger bid pop. Same live feed as classic overlay. Set Browser Source to 1920×1080, transparent."
+              shareText={`Broadcast Overlay v2 for ${tournament?.name ?? "our auction"}: ${broadcastV2UrlValue}`}
+            />
+            <LinkRow
+              label="Overlay v2 camera preview"
+              url={broadcastV2PreviewUrlValue}
+              description="Camera + Overlay v2 — test the new graphics without OBS."
+              shareText={`Overlay v2 camera preview: ${broadcastV2PreviewUrlValue}`}
             />
             <div className="mt-4">
               <BroadcastOverlayInfo />

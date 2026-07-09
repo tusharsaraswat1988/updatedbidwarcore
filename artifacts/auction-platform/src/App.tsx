@@ -56,6 +56,11 @@ const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
 const ObsOverlayPreview = lazy(() => import("@/pages/obs-overlay-preview"));
 const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
+const ObsV2OverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
+const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
+/** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
+const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
+const ObsLabOverlay = lazy(() => import("@/pages/obs-v2-overlay"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LegalPage = lazy(() => import("@/pages/legal"));
@@ -211,6 +216,24 @@ function RouteSuspenseFallback() {
   }
 
   const path = typeof window !== "undefined" ? window.location.pathname : "";
+
+  // OBS overlays must boot transparent (Browser Source chroma).
+  if (/\/obs(\/(v2|lab))?(\/preview)?\/?$/.test(path) || path.includes("/obs/")) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          minHeight: "100vh",
+          background: "transparent",
+        }}
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading broadcast overlay"
+      />
+    );
+  }
+
   if (/^\/tournament\/\d+\/auction\/?$/.test(path)) {
     return (
       <div
@@ -272,6 +295,10 @@ function Router() {
         <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
         <Route path="/register/:code" component={PlayerRegister} />
         <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
+        <Route path="/tournament/:id/obs/v2/preview" component={ObsV2OverlayPreview} />
+        <Route path="/tournament/:id/obs/v2" component={ObsV2Overlay} />
+        <Route path="/tournament/:id/obs/lab/preview" component={ObsLabOverlayPreview} />
+        <Route path="/tournament/:id/obs/lab" component={ObsLabOverlay} />
         <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 

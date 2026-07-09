@@ -84,10 +84,48 @@ export function broadcastOverlayPreviewPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs/preview`;
 }
 
+/** Broadcast Overlay v2 — polished graphics; classic `/obs` unchanged. */
+export function broadcastOverlayV2Path(tournamentId: number): string {
+  return `/tournament/${tournamentId}/obs/v2`;
+}
+
+/** Camera preview for Overlay v2 (no OBS required). */
+export function broadcastOverlayV2PreviewPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/obs/v2/preview`;
+}
+
+/** @deprecated Use broadcastOverlayV2Path */
+export function broadcastOverlayLabPath(tournamentId: number): string {
+  return broadcastOverlayV2Path(tournamentId);
+}
+
+/** @deprecated Use broadcastOverlayV2PreviewPath */
+export function broadcastOverlayLabPreviewPath(tournamentId: number): string {
+  return broadcastOverlayV2PreviewPath(tournamentId);
+}
+
 export function broadcastOverlayUrl(origin: string, tournamentId: number): string {
   return `${origin}${broadcastOverlayPath(tournamentId)}`;
 }
 
 export function broadcastOverlayPreviewUrl(origin: string, tournamentId: number): string {
   return `${origin}${broadcastOverlayPreviewPath(tournamentId)}`;
+}
+
+export function broadcastOverlayV2Url(origin: string, tournamentId: number): string {
+  return `${origin}${broadcastOverlayV2Path(tournamentId)}`;
+}
+
+export function broadcastOverlayV2PreviewUrl(origin: string, tournamentId: number): string {
+  return `${origin}${broadcastOverlayV2PreviewPath(tournamentId)}`;
+}
+
+/** @deprecated Use broadcastOverlayV2Url */
+export function broadcastOverlayLabUrl(origin: string, tournamentId: number): string {
+  return broadcastOverlayV2Url(origin, tournamentId);
+}
+
+/** @deprecated Use broadcastOverlayV2PreviewUrl */
+export function broadcastOverlayLabPreviewUrl(origin: string, tournamentId: number): string {
+  return broadcastOverlayV2PreviewUrl(origin, tournamentId);
 }

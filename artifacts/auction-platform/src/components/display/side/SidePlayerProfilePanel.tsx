@@ -107,8 +107,16 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
   const tag = resolvePortraitPlayerTag(player.playerTag);
   const frameStyle = portraitTagFrameStyle(tag);
 
+  const bidPopKey = `${state.currentBid}-${leadingTeam?.id ?? "none"}`;
+  const bidRestGlow =
+    live && teamBidGlow
+      ? "broadcast-team-bid-glow 2.5s ease-in-out 0.85s infinite"
+      : live
+        ? "auction-mega-glow 3s ease-in-out 0.85s infinite"
+        : undefined;
+
   return (
-    <div className="flex h-full w-full flex-col">
+    <div key={player.id} className="side-player-stack flex h-full w-full flex-col">
       <header
         className="relative shrink-0 bg-black/50"
         style={{ height: SIDE_LED_LAYOUT.profileHeaderHeight + SIDE_LED_LAYOUT.dividerHeight }}
@@ -117,7 +125,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         <SideDivider top={SIDE_LED_LAYOUT.profileHeaderHeight} />
       </header>
 
-      <div className="relative flex-[40%] shrink-0 border-2" style={frameStyle}>
+      <div className="side-player-portrait relative border-2" style={frameStyle}>
         {showPhoto ? (
           <img
             src={cldUrl(player.portrait, "playerCard")}
@@ -134,6 +142,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
           </div>
         )}
         {tag ? <PortraitPlayerTagGlow tag={tag} /> : null}
+        <div className="side-player-portrait-spotlight" aria-hidden />
         <div className="side-player-photo-gradient absolute inset-0" aria-hidden />
         {tag ? (
           <div className="absolute left-[4%] top-[4%] z-10 max-w-[55%]">
@@ -150,7 +159,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         >
           #{player.serialNo}
         </div>
-        <div className="side-player-name-zone absolute bottom-0 left-0 right-0">
+        <div className="side-player-name-zone absolute bottom-0 left-0 right-0 z-10">
           <p className="broadcast-category" style={{ margin: 0, fontSize: 34, lineHeight: 1.2 }}>
             <span style={{ color: "var(--accent)" }}>{roleLabel || player.roleRaw}</span>
             {player.categoryName ? (
@@ -170,7 +179,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
             className="broadcast-player-name side-player-name"
             style={{
               margin: "10px 0 0",
-              fontSize: "clamp(5rem, 14vw, 9rem)",
+              fontSize: "clamp(5.5rem, 15vw, 9.5rem)",
               lineHeight: 0.86,
               color: "#fff",
             }}
@@ -204,9 +213,9 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
           <p
             className="broadcast-kicker side-player-highlights"
             style={{
-              marginTop: 20,
-              fontSize: 30,
-              lineHeight: 1.35,
+              marginTop: 12,
+              fontSize: 28,
+              lineHeight: 1.3,
               fontWeight: 500,
               color: "rgba(255,255,255,0.6)",
               overflow: "hidden",
@@ -216,13 +225,13 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
             }}
             title={player.achievements}
           >
-            <span style={{ fontSize: 28, color: "rgba(255,255,255,0.45)" }}>Highlights: </span>
+            <span style={{ fontSize: 26, color: "rgba(255,255,255,0.45)" }}>Highlights: </span>
             {player.achievements}
           </p>
         ) : null}
       </div>
 
-      <footer className="side-player-bid-footer relative shrink-0 px-[5%] min-h-[22%]">
+      <footer className="side-player-bid-footer relative shrink-0 px-[5%] min-h-[20%]">
         {sold ? (
           <div className="side-player-sold-hero flex h-full min-h-[160px] flex-col items-center justify-center text-center">
             <p
@@ -251,7 +260,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         ) : (
           <>
             {live ? (
-              <div className="absolute right-[5%] top-1/2 flex -translate-y-1/2 flex-col items-end">
+              <div className="absolute right-[5%] top-1/2 z-10 flex -translate-y-1/2 flex-col items-end">
                 <span
                   className="broadcast-kicker"
                   style={{ marginBottom: 8, fontSize: 28, color: "rgba(255,255,255,0.45)" }}
@@ -269,7 +278,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
                 >
                   {fmtTimer(countdown)}
                 </span>
-                <div className="mt-2 h-1.5 w-28 bg-white/10 overflow-hidden">
+                <div className="mt-2 h-1.5 w-28 overflow-hidden bg-white/10">
                   <div
                     className="h-full transition-all duration-1000 ease-linear"
                     style={{
@@ -282,13 +291,12 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
             ) : null}
 
             <div
-              key={`${state.currentBid}-${leadingTeam?.id ?? "none"}`}
-              className="side-player-bid-hero mx-auto flex w-full max-w-3xl flex-col items-center text-center"
-              style={{ animation: live ? "auction-bid-flash 1.2s ease-out" : undefined }}
+              key={bidPopKey}
+              className={`side-player-bid-hero side-player-bid-hero--pop mx-auto flex w-full max-w-3xl flex-col items-center text-center`}
             >
               <p
                 className="broadcast-sponsor-kicker side-player-bid-kicker"
-                style={{ margin: "0 0 16px", fontSize: 32 }}
+                style={{ margin: "0 0 12px", fontSize: 32 }}
               >
                 {state.currentBid > 0 ? "Current Bid" : "Bid Starts At"}
               </p>
@@ -298,18 +306,18 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
                   margin: 0,
                   color: "#fff",
                   ...(teamBidGlow ? { "--bid-team-glow": teamBidGlow } : {}),
-                  animation:
-                    live && teamBidGlow
-                      ? "broadcast-team-bid-glow 2.5s ease-in-out infinite"
-                      : live
-                        ? "auction-mega-glow 3s ease-in-out infinite"
-                        : undefined,
+                  animation: [
+                    "side-player-bid-pop 0.85s cubic-bezier(0.22, 1.35, 0.36, 1) both",
+                    bidRestGlow,
+                  ]
+                    .filter(Boolean)
+                    .join(", "),
                 }}
               >
                 {currentBidLabel}
               </p>
               {leadingTeam && state.currentBid > 0 ? (
-                <div className="side-player-bid-team mt-5 flex max-w-full items-center justify-center gap-3">
+                <div className="side-player-bid-team mt-4 flex max-w-full items-center justify-center gap-3">
                   {leadingTeam.logoUrl ? (
                     <img src={leadingTeam.logoUrl} alt="" className="h-12 w-12 shrink-0 object-contain" />
                   ) : null}
@@ -330,7 +338,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
               ) : live ? (
                 <p
                   className="broadcast-kicker"
-                  style={{ marginTop: 16, fontSize: 28, color: "rgba(255,255,255,0.4)" }}
+                  style={{ marginTop: 14, fontSize: 28, color: "rgba(255,255,255,0.4)" }}
                 >
                   Waiting for first bid
                 </p>

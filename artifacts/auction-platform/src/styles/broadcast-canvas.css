@@ -446,7 +446,45 @@
     drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
 }
 
-/* ── Player LED — premium IPL-style polish ─────────────────────── */
+/* ── Player LED — portrait-dominant stadium gold ───────────────── */
+
+.side-player-stack {
+  animation: side-player-enter 700ms ease-out both;
+}
+
+@keyframes side-player-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Portrait owns the vertical stack */
+.side-player-portrait {
+  flex: 1 1 58%;
+  min-height: 0;
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.28),
+    0 0 36px rgba(212, 175, 55, 0.12),
+    inset 0 0 80px rgba(0, 0, 0, 0.35);
+}
+
+.side-player-portrait-spotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 28%,
+    rgba(255, 248, 220, 0.1) 0%,
+    rgba(212, 175, 55, 0.04) 36%,
+    transparent 68%
+  );
+  mix-blend-mode: screen;
+}
 
 /* Face sits in upper third of portrait frame */
 .side-player-photo {
@@ -457,24 +495,24 @@
 .side-player-photo-gradient {
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.97) 0%,
-    rgba(0, 0, 0, 0.88) 14%,
-    rgba(0, 0, 0, 0.62) 32%,
-    rgba(0, 0, 0, 0.28) 52%,
-    rgba(0, 0, 0, 0.08) 68%,
-    transparent 82%
+    rgba(0, 0, 0, 0.98) 0%,
+    rgba(0, 0, 0, 0.9) 12%,
+    rgba(0, 0, 0, 0.68) 28%,
+    rgba(0, 0, 0, 0.32) 48%,
+    rgba(0, 0, 0, 0.1) 64%,
+    transparent 80%
   );
 }
 
 .side-player-name-zone {
-  padding: 0 5% 5%;
+  padding: 0 5% 6%;
 }
 
 .side-player-name {
   text-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.75),
-    0 4px 32px rgba(0, 0, 0, 0.55),
-    0 0 48px rgba(0, 0, 0, 0.35);
+    0 2px 16px rgba(0, 0, 0, 0.8),
+    0 4px 36px rgba(0, 0, 0, 0.6),
+    0 0 56px rgba(0, 0, 0, 0.4);
 }
 
 /* Serial badge — flush with safe-area right edge, aligned to photo top */
@@ -488,15 +526,15 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-/* Stats band — translucent panel with gold rule */
+/* Stats band — compact secondary strip */
 .side-player-stats {
-  background: rgba(0, 0, 0, 0.38);
-  border-top: 1px solid rgba(212, 175, 55, 0.32);
-  padding: 28px 5% 32px;
+  background: rgba(0, 0, 0, 0.42);
+  border-top: 1px solid rgba(212, 175, 55, 0.36);
+  padding: 18px 5% 20px;
 }
 
 .side-player-stats-grid {
-  gap: 22px 48px;
+  gap: 14px 40px;
 }
 
 .side-player-spec-label {
@@ -514,14 +552,14 @@
 }
 
 .side-player-highlights {
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 /* Bid footer — hero amount with premium underline glow */
 .side-player-bid-footer {
-  background: rgba(0, 0, 0, 0.72);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 36px 5% 40px;
+  background: rgba(0, 0, 0, 0.78);
+  border-top: 1px solid rgba(212, 175, 55, 0.18);
+  padding: 28px 5% 34px;
 }
 
 .side-player-bid-kicker {
@@ -530,7 +568,7 @@
 
 .side-player-bid-amount {
   position: relative;
-  font-size: 136px;
+  font-size: 148px;
   line-height: 0.86;
   text-shadow:
     0 4px 28px rgba(0, 0, 0, 0.65),
@@ -553,6 +591,65 @@
     transparent 100%
   );
   box-shadow: 0 0 14px rgba(212, 175, 55, 0.35);
+}
+
+/* Strong bid pop — scale + gold flash on amount change */
+@keyframes side-player-bid-pop {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.55;
+    filter: brightness(1.8);
+    text-shadow:
+      0 0 0 transparent,
+      0 0 48px rgba(212, 175, 55, 0.9),
+      0 0 96px rgba(255, 248, 220, 0.55);
+  }
+  35% {
+    transform: scale(1.14);
+    opacity: 1;
+    filter: brightness(1.35);
+    text-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.55),
+      0 0 64px rgba(212, 175, 55, 0.85),
+      0 0 120px rgba(255, 248, 220, 0.4);
+  }
+  70% {
+    transform: scale(0.98);
+    filter: brightness(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+    text-shadow:
+      0 4px 28px rgba(0, 0, 0, 0.65),
+      0 0 56px rgba(212, 175, 55, 0.18),
+      0 0 96px rgba(255, 255, 255, 0.06);
+  }
+}
+
+@keyframes side-player-bid-flash-plate {
+  0% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+  25% {
+    background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+    box-shadow: 0 0 72px 12px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.side-player-bid-hero--pop {
+  animation: side-player-bid-flash-plate 1.05s ease-out;
+}
+
+.side-player-bid-amount--pop {
+  animation: side-player-bid-pop 0.85s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+  will-change: transform, filter, text-shadow;
 }
 
 .side-player-bid-team {

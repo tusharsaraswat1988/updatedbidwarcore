@@ -1,5 +1,6 @@
 /**
- * Start API + auction-platform + owner-app + scoring-app together with shared root .env and dev defaults.
+ * Start API + auction-platform + owner-app together with shared root .env and dev defaults.
+ * Scoring-app is off by default (incomplete module) — enable with DEV_ENABLE_SCORING=1 or `pnpm dev -- --scoring`.
  * Automatically frees stale dev ports before starting.
  * Usage: pnpm dev   (from repository root)
  */
@@ -22,6 +23,11 @@ const API_PORT_STR = String(API_PORT);
 const FRONTEND_PORT_STR = String(FRONTEND_PORT);
 const OWNER_APP_PORT_STR = String(OWNER_APP_PORT);
 const SCORING_APP_PORT_STR = String(SCORING_APP_PORT);
+
+/** Scoring module is incomplete — keep it out of the default local stack to save RAM. */
+const enableScoring =
+  process.argv.includes("--scoring") ||
+  /^(1|true|yes|on)$/i.test(process.env.DEV_ENABLE_SCORING?.trim() || "");
 
 /** Local dev public origin — always overrides production APP_* from .env so OAuth stays on localhost. */
 function resolveDevPublicEnv(frontendPort) {
@@ -84,6 +90,20 @@ const forceStart = process.argv.includes("--force");
 const children = [];
 let shuttingDown = false;
 
+function isCoreStackRunning(stack) {
+  return Boolean(stack.api && stack.web && stack.owner);
+}
+
+function isFullStackRunning(stack) {
+  return isCoreStackRunning(stack) && (!enableScoring || Boolean(stack.scoring));
+}
+
+function hasAnyDevProcess(stack) {
+  return Boolean(
+    stack.api || stack.web || stack.owner || (enableScoring && stack.scoring),
+  );
+}
+
 function shutdown(code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -134,7 +154,15 @@ function run(label, command, args, env, { restartOnCrash = false, maxRestarts = 
   return start();
 }
 
-const devPorts = [...new Set([API_PORT, FRONTEND_PORT, OWNER_APP_PORT, SCORING_APP_PORT])];
+// Always free scoring port too so a leftover scoring-app from older runs does not linger.
+const devPorts = [
+  ...new Set([
+    API_PORT,
+    FRONTEND_PORT,
+    OWNER_APP_PORT,
+    SCORING_APP_PORT,
+  ]),
+];
 
 console.log("\nBidWar — local development\n");
 if (loaded) {
@@ -144,6 +172,9 @@ if (loaded) {
     `  Env:      (no ${file} at ${envPath} — copy .env.example to .env)\n`,
   );
 }
+console.log(
+  `  Scoring:   ${enableScoring ? "enabled" : "disabled (set DEV_ENABLE_SCORING=1 or pass --scoring to enable)"}`,
+);
 
 const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT };
 
@@ -151,27 +182,35 @@ let startServers = true;
 
 if (!forceStart) {
   const stack = await getDevStackStatus(devPortsConfig);
-  const allRunning = stack.api && stack.web && stack.owner && stack.scoring;
 
-  if (allRunning) {
+  // Scoring disabled but still listening → treat as stale so freePorts stops it.
+  const staleScoring = !enableScoring && Boolean(stack.scoring);
+
+  if (isFullStackRunning(stack) && !staleScoring) {
     console.log(
       "\n  Dev servers are already running.\n" +
         `  API:       http://127.0.0.1:${API_PORT}/api/healthz\n` +
         `  Frontend:  http://127.0.0.1:${FRONTEND_PORT}/admin/login\n` +
         `  Owner app: http://127.0.0.1:${FRONTEND_PORT}/owner-app/join\n` +
-        `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/\n\n` +
-        "  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
+        (enableScoring
+          ? `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/\n`
+          : "") +
+        "\n  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
         "  To force-kill existing processes: `pnpm dev -- --force`\n",
     );
     startServers = false;
     process.exitCode = 0;
-  } else if (stack.api || stack.web || stack.owner || stack.scoring) {
+  } else if (hasAnyDevProcess(stack) || staleScoring) {
     console.warn(
-      "\n  Partial dev stack detected — restarting all services.\n" +
+      "\n  Partial / stale dev stack detected — restarting services.\n" +
         `  API (${API_PORT}):           ${stack.api ? "running" : "NOT running"}\n` +
         `  Frontend (${FRONTEND_PORT}):      ${stack.web ? "running" : "NOT running"}\n` +
         `  Owner app (${OWNER_APP_PORT}):    ${stack.owner ? "running" : "NOT running"}\n` +
-        `  Scoring app (${SCORING_APP_PORT}): ${stack.scoring ? "running" : "NOT running"}\n`,
+        (enableScoring
+          ? `  Scoring app (${SCORING_APP_PORT}): ${stack.scoring ? "running" : "NOT running"}\n`
+          : stack.scoring
+            ? `  Scoring app (${SCORING_APP_PORT}): running (will be stopped — scoring disabled)\n`
+            : ""),
     );
     // Continue below — freePorts will stop orphaned processes and start fresh.
   }
@@ -202,12 +241,16 @@ if (startServers) {
   console.log(
     `             (direct) http://127.0.0.1:${OWNER_APP_PORT}/owner-app/`,
   );
-  console.log(
-    `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/tournament/1/score`,
-  );
-  console.log(
-    `             (direct) http://127.0.0.1:${SCORING_APP_PORT}/scoring-app/\n`,
-  );
+  if (enableScoring) {
+    console.log(
+      `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/tournament/1/score`,
+    );
+    console.log(
+      `             (direct) http://127.0.0.1:${SCORING_APP_PORT}/scoring-app/\n`,
+    );
+  } else {
+    console.log("");
+  }
 
   console.log("Building API (one-time)…\n");
   try {
@@ -265,13 +308,15 @@ if (startServers) {
     { restartOnCrash: true },
   );
 
-  run(
-    "scoring",
-    "pnpm",
-    ["--filter", "@workspace/scoring-app", "run", "dev"],
-    devEnv({ SCORING_APP_PORT: SCORING_APP_PORT_STR, PORT: SCORING_APP_PORT_STR }),
-    { restartOnCrash: true },
-  );
+  if (enableScoring) {
+    run(
+      "scoring",
+      "pnpm",
+      ["--filter", "@workspace/scoring-app", "run", "dev"],
+      devEnv({ SCORING_APP_PORT: SCORING_APP_PORT_STR, PORT: SCORING_APP_PORT_STR }),
+      { restartOnCrash: true },
+    );
+  }
 
   console.log("All dev processes started. Press Ctrl+C to stop.\n");
 }

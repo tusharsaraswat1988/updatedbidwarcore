@@ -30,6 +30,7 @@ export type {
 } from "./director/types";
 export { adaptFrameForOutput, registerOutputAdapter } from "./director/output-adapters";
 export { BroadcastLayout } from "./broadcast-layout";
+export { BroadcastLabLayout } from "./broadcast-lab-layout";
 export { BroadcastControlPanel } from "./broadcast-control-panel";
 export { broadcastDirectorDiagnostics } from "./director/diagnostics";
 export type { BroadcastDirectorDiagnostics } from "./director/diagnostics";
