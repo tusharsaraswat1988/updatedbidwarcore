@@ -1536,6 +1536,13 @@ export interface RegistrationStatus {
   limit?: number | null;
   /** @nullable */
   deadline?: string | null;
+  /** Tournament lifecycle status (setup, active, completed) */
+  tournamentStatus?: string;
+  /**
+   * When registration is closed, existing players may still update photo and sports
+   * specs only while this is true (tournament still in setup).
+   */
+  profileUpdatesAllowed?: boolean;
   /** Whether registration fee collection is enabled */
   enableRegistrationPayment?: boolean;
   /**

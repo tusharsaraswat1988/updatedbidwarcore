@@ -253,7 +253,14 @@ export default function PlayerRegister() {
   }, [specs, foundProfile, existingRegistration, form.role]);
 
   const canUpdateExisting = !!existingRegistration;
-  const isClosed = status && !status.open && !canUpdateExisting;
+  const registrationClosed = !!(status && !status.open);
+  const profileUpdatesAllowed = status?.profileUpdatesAllowed !== false;
+  /** Closed registration + matched player: only photo/role/specs editable (if setup). */
+  const closedSelfUpdateMode = registrationClosed && canUpdateExisting;
+  const closedUpdateEditable = closedSelfUpdateMode && profileUpdatesAllowed;
+  const closedUpdateReadOnly = closedSelfUpdateMode && !profileUpdatesAllowed;
+  /** Identity / contact fields locked in closed self-update (shown, not editable). */
+  const identityFieldsLocked = closedSelfUpdateMode;
   const closedReason = status?.reason;
   const remaining = status?.limit != null ? Math.max(0, status.limit - status.currentCount) : null;
 
@@ -339,58 +346,95 @@ export default function PlayerRegister() {
         if (!registrationCode) return;
         setLookupLoading(true);
         try {
+          const registrationClosedNow = status && !status.open;
           const sportQ = tournament?.sport ? `&sport=${encodeURIComponent(tournament.sport)}` : "";
-          const [globalRes, tournamentRes] = await Promise.all([
-            fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1${sportQ}`),
-            fetch(`/api/register/${encodeURIComponent(registrationCode)}/lookup?mobile=${encodeURIComponent(sanitized)}`),
-          ]);
-          const data: GlobalPlayerLookup[] = await globalRes.json();
-          const match = Array.isArray(data) && data.length > 0
-            ? (sanitized.length >= 10 ? data[0] : data.find(p => p.name && sanitized.length >= 2))
-            : undefined;
-          if (match) setFoundProfile(match);
+          const tournamentLookupPromise = fetch(
+            `/api/register/${encodeURIComponent(registrationCode)}/lookup?mobile=${encodeURIComponent(sanitized)}`,
+          );
+          const globalLookupPromise = registrationClosedNow
+            ? Promise.resolve(null)
+            : fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1${sportQ}`);
 
-          const tournamentLookup = await tournamentRes.json() as {
-            registered?: boolean;
-            player?: GlobalPlayerLookup;
-          };
-          if (tournamentLookup.registered && tournamentLookup.player) {
-            setExistingRegistration(tournamentLookup.player);
-            const tp = tournamentLookup.player;
-            setForm(prev => ({
-              ...prev,
-              name: tp.name || prev.name,
-              city: tp.city ?? prev.city,
-              age: tp.age != null ? String(tp.age) : prev.age,
-              gender: tp.gender ?? prev.gender,
-              role: tp.role ?? prev.role,
-              photoUrl: tp.photoUrl ?? prev.photoUrl,
-              battingStyle: tp.battingStyle ?? prev.battingStyle,
-              bowlingStyle: tp.bowlingStyle ?? prev.bowlingStyle,
-              specialization: tp.specialization ?? prev.specialization,
-              jerseyNumber: tp.jerseyNumber ?? prev.jerseyNumber,
-              jerseySize: (tp.jerseySize as JerseySize | null) ?? prev.jerseySize,
-              achievements: tp.achievements ?? prev.achievements,
-              cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
-              availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
-            }));
-          } else if (match) {
-            setForm(prev => ({
-              ...prev,
-              name: prev.name || match.name,
-              city: prev.city || (match.city ?? ""),
-              age: prev.age || (match.age ? String(match.age) : ""),
-              gender: prev.gender || (match.gender ?? ""),
-              role: prev.role || (match.role ?? ""),
-              photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
-              battingStyle: prev.battingStyle || (match.battingStyle ?? ""),
-              bowlingStyle: prev.bowlingStyle || (match.bowlingStyle ?? ""),
-              specialization: prev.specialization || (match.specialization ?? ""),
-              jerseyNumber: prev.jerseyNumber || (match.jerseyNumber ?? ""),
-              jerseySize: prev.jerseySize || ((match.jerseySize as JerseySize | null) ?? ""),
-              achievements: prev.achievements || (match.achievements ?? ""),
-              cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
-            }));
+          const [globalRes, tournamentRes] = await Promise.all([
+            globalLookupPromise,
+            tournamentLookupPromise,
+          ]);
+
+          if (globalRes) {
+            const data: GlobalPlayerLookup[] = await globalRes.json();
+            const match = Array.isArray(data) && data.length > 0
+              ? (sanitized.length >= 10 ? data[0] : data.find(p => p.name && sanitized.length >= 2))
+              : undefined;
+            if (match) setFoundProfile(match);
+
+            const tournamentLookup = await tournamentRes.json() as {
+              registered?: boolean;
+              player?: GlobalPlayerLookup;
+            };
+            if (tournamentLookup.registered && tournamentLookup.player) {
+              setExistingRegistration(tournamentLookup.player);
+              const tp = tournamentLookup.player;
+              setForm(prev => ({
+                ...prev,
+                name: tp.name || prev.name,
+                city: tp.city ?? prev.city,
+                age: tp.age != null ? String(tp.age) : prev.age,
+                gender: tp.gender ?? prev.gender,
+                role: tp.role ?? prev.role,
+                photoUrl: tp.photoUrl ?? prev.photoUrl,
+                battingStyle: tp.battingStyle ?? prev.battingStyle,
+                bowlingStyle: tp.bowlingStyle ?? prev.bowlingStyle,
+                specialization: tp.specialization ?? prev.specialization,
+                jerseyNumber: tp.jerseyNumber ?? prev.jerseyNumber,
+                jerseySize: (tp.jerseySize as JerseySize | null) ?? prev.jerseySize,
+                achievements: tp.achievements ?? prev.achievements,
+                cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
+                availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
+              }));
+            } else if (match) {
+              setForm(prev => ({
+                ...prev,
+                name: prev.name || match.name,
+                city: prev.city || (match.city ?? ""),
+                age: prev.age || (match.age ? String(match.age) : ""),
+                gender: prev.gender || (match.gender ?? ""),
+                role: prev.role || (match.role ?? ""),
+                photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
+                battingStyle: prev.battingStyle || (match.battingStyle ?? ""),
+                bowlingStyle: prev.bowlingStyle || (match.bowlingStyle ?? ""),
+                specialization: prev.specialization || (match.specialization ?? ""),
+                jerseyNumber: prev.jerseyNumber || (match.jerseyNumber ?? ""),
+                jerseySize: prev.jerseySize || ((match.jerseySize as JerseySize | null) ?? ""),
+                achievements: prev.achievements || (match.achievements ?? ""),
+                cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
+              }));
+            }
+          } else {
+            const tournamentLookup = await tournamentRes.json() as {
+              registered?: boolean;
+              player?: GlobalPlayerLookup;
+            };
+            if (tournamentLookup.registered && tournamentLookup.player) {
+              setExistingRegistration(tournamentLookup.player);
+              const tp = tournamentLookup.player;
+              setForm(prev => ({
+                ...prev,
+                name: tp.name || prev.name,
+                city: tp.city ?? prev.city,
+                age: tp.age != null ? String(tp.age) : prev.age,
+                gender: tp.gender ?? prev.gender,
+                role: tp.role ?? prev.role,
+                photoUrl: tp.photoUrl ?? prev.photoUrl,
+                battingStyle: tp.battingStyle ?? prev.battingStyle,
+                bowlingStyle: tp.bowlingStyle ?? prev.bowlingStyle,
+                specialization: tp.specialization ?? prev.specialization,
+                jerseyNumber: tp.jerseyNumber ?? prev.jerseyNumber,
+                jerseySize: (tp.jerseySize as JerseySize | null) ?? prev.jerseySize,
+                achievements: tp.achievements ?? prev.achievements,
+                cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
+                availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
+              }));
+            }
           }
         } catch { /* ignore */ } finally {
           setLookupLoading(false);
@@ -402,6 +446,10 @@ export default function PlayerRegister() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (closedUpdateReadOnly) {
+      setErrorMsg("Profile updates are locked because the auction has started. Contact your organiser.");
+      return;
+    }
     const mobileResult = parseIndianMobile(form.mobileNumber);
     if (!mobileResult.ok) {
       setErrorMsg(mobileResult.error);
@@ -411,7 +459,7 @@ export default function PlayerRegister() {
     setEmailError("");
     setPhotoError("");
 
-    const emailResult = showEmail
+    const emailResult = showEmail && !closedSelfUpdateMode
       ? parseOptionalEmail(form.email)
       : { ok: true as const, email: null };
     if (!emailResult.ok) {
@@ -439,7 +487,7 @@ export default function PlayerRegister() {
       ? (specSelections[sortedSpecs[2].id] || form.specialization || undefined)
       : (form.specialization || undefined);
 
-    if (paymentConfigured) {
+    if (!closedSelfUpdateMode && paymentConfigured) {
       const needsUtr = verificationMethod === "utr" || verificationMethod === "utr_and_screenshot";
       const needsScreenshot = verificationMethod === "screenshot" || verificationMethod === "utr_and_screenshot";
       if (needsUtr && !utrNumber.trim()) {
@@ -452,7 +500,7 @@ export default function PlayerRegister() {
       }
     }
 
-    if (declarationRequired && !declarationAccepted) {
+    if (!closedSelfUpdateMode && declarationRequired && !declarationAccepted) {
       setErrorMsg("Please accept the declaration to continue.");
       return;
     }
@@ -480,41 +528,59 @@ export default function PlayerRegister() {
 
     try {
       setRegisterPending(true);
+      const closedPayload = closedSelfUpdateMode
+        ? {
+            name: form.name || existingRegistration?.name || "Player",
+            mobileNumber: mobileResult.normalized,
+            role: form.role || undefined,
+            battingStyle: battingStyle || undefined,
+            bowlingStyle: bowlingStyle || undefined,
+            specialization: specialization || undefined,
+            specifications: specifications.length > 0 ? specifications : undefined,
+            photoUrl: form.photoUrl || undefined,
+            photoPublicId: form.photoPublicId || undefined,
+          }
+        : {
+            name: form.name,
+            mobileNumber: mobileResult.normalized,
+            email: showEmail ? (emailResult.email || undefined) : undefined,
+            city: showCity ? (form.city || undefined) : undefined,
+            role: form.role || undefined,
+            battingStyle: battingStyle || undefined,
+            bowlingStyle: bowlingStyle || undefined,
+            specialization: specialization || undefined,
+            specifications: specifications.length > 0 ? specifications : undefined,
+            age: showAge && form.age ? parseInt(form.age) : undefined,
+            gender: showGender && (form.gender === "M" || form.gender === "F") ? form.gender : undefined,
+            jerseyNumber: fieldVisibility.jerseyNumber ? (form.jerseyNumber || undefined) : undefined,
+            jerseySize: fieldVisibility.jerseySize ? (form.jerseySize || undefined) : undefined,
+            achievements: showAchievements ? (form.achievements || undefined) : undefined,
+            availabilityDates: showMatchAvailability ? (form.availabilityDates || undefined) : undefined,
+            cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
+            photoUrl: form.photoUrl || undefined,
+            photoPublicId: form.photoPublicId || undefined,
+            basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
+            selectedBidValue: playerBidValueMode && !existingRegistration
+              ? parseInt(selectedBidValue, 10)
+              : undefined,
+            whatsappConsent: showWhatsappConsent ? waConsent : undefined,
+            registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
+            utrNumber: utrNumber.trim() || undefined,
+            paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
+            paymentScreenshotPublicId: paymentScreenshotPublicId.trim() || undefined,
+          };
       const res = await fetch(`/api/register/${encodeURIComponent(registrationCode)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          mobileNumber: mobileResult.normalized,
-          email: showEmail ? (emailResult.email || undefined) : undefined,
-          city: showCity ? (form.city || undefined) : undefined,
-          role: form.role || undefined,
-          battingStyle: battingStyle || undefined,
-          bowlingStyle: bowlingStyle || undefined,
-          specialization: specialization || undefined,
-          specifications: specifications.length > 0 ? specifications : undefined,
-          age: showAge && form.age ? parseInt(form.age) : undefined,
-          gender: showGender && (form.gender === "M" || form.gender === "F") ? form.gender : undefined,
-          jerseyNumber: fieldVisibility.jerseyNumber ? (form.jerseyNumber || undefined) : undefined,
-          jerseySize: fieldVisibility.jerseySize ? (form.jerseySize || undefined) : undefined,
-          achievements: showAchievements ? (form.achievements || undefined) : undefined,
-          availabilityDates: showMatchAvailability ? (form.availabilityDates || undefined) : undefined,
-          cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
-          photoUrl: form.photoUrl || undefined,
-          photoPublicId: form.photoPublicId || undefined,
-          basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
-          selectedBidValue: playerBidValueMode && !existingRegistration
-            ? parseInt(selectedBidValue, 10)
-            : undefined,
-          whatsappConsent: showWhatsappConsent ? waConsent : undefined,
-          registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
-          utrNumber: utrNumber.trim() || undefined,
-          paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
-          paymentScreenshotPublicId: paymentScreenshotPublicId.trim() || undefined,
-        }),
+        body: JSON.stringify(closedPayload),
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (result?.code === "PROFILE_UPDATES_LOCKED") {
+          setErrorMsg(result.error || "Profile updates are locked. Contact your organiser.");
+          void refetchStatus();
+          return;
+        }
         if (result?.field === "email") {
           setEmailError(result.error || "Please enter a valid email address");
           return;
@@ -528,7 +594,7 @@ export default function PlayerRegister() {
           setErrorMsg(result.error || "Please accept the declaration to continue.");
           return;
         }
-        if (result && typeof result === "object" && result.reason) {
+        if (result && typeof result === "object" && result.reason && !existingRegistration) {
           setErrorMsg(
             result.reason === "deadline_passed"
               ? "Registration closed: the deadline has passed."
@@ -601,10 +667,10 @@ export default function PlayerRegister() {
           />
 
           <AnimatePresence mode="wait">
-            {isClosed ? (
-              <motion.div key="closed" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            {registrationClosed && !canUpdateExisting && !submitted ? (
+              <motion.div key="closed" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                 <Card className="border-destructive/40 bg-destructive/10">
-                  <CardContent className="p-10 text-center">
+                  <CardContent className="p-8 sm:p-10 text-center">
                     {closedReason === "deadline_passed" ? (
                       <CalendarX className="w-16 h-16 text-destructive mx-auto mb-4" />
                     ) : (
@@ -617,8 +683,48 @@ export default function PlayerRegister() {
                         : <>This tournament has reached its limit of <span className="font-semibold text-foreground">{status?.limit}</span> registered players.</>}
                     </p>
                     <p className="text-xs text-muted-foreground mt-4">
-                      Please contact the tournament organizer for more details.
+                      New registrations are not accepted. Already registered? Update your photo and sports details below.
                     </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border">
+                  <CardContent className="p-4 sm:p-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Search className="w-4 h-4 text-primary shrink-0" />
+                      <h3 className="font-semibold text-sm">Already registered?</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the mobile number you registered with to view or update your profile.
+                    </p>
+                    <div className="relative">
+                      <Input
+                        value={form.mobileNumber}
+                        onChange={e => handleMobileChange(e.target.value)}
+                        placeholder="10-digit mobile (e.g. 9876543210)"
+                        type="tel"
+                        className="pr-8 h-11 sm:h-9 text-base"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        maxLength={10}
+                      />
+                      {lookupLoading && (
+                        <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-primary" />
+                      )}
+                    </div>
+                    {lookupLoading && (
+                      <p className="text-xs text-muted-foreground">Looking up your registration…</p>
+                    )}
+                    {!lookupLoading && mobileLookedUp && !existingRegistration && form.mobileNumber.length >= 10 && (
+                      <p className="text-xs text-amber-300">
+                        No registration found for this mobile. Contact your organiser if you need help.
+                      </p>
+                    )}
+                    {errorMsg && (
+                      <div className="p-3 rounded-md border border-destructive/40 bg-destructive/10 text-sm text-destructive">
+                        {errorMsg}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -680,7 +786,7 @@ export default function PlayerRegister() {
                       onClick={() => {
                         setSubmitted(false); setWaConsent(false); setDeclarationAccepted(false); setErrorMsg(null); setEmailError("");
                         setUtrNumber(""); setPaymentScreenshotUrl(""); setPaymentScreenshotPublicId("");
-                        setFoundProfile(null); setMobileLookedUp(false);
+                        setFoundProfile(null); setExistingRegistration(null); setMobileLookedUp(false); setRegistrationUpdated(false);
                         setForm({
                           name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
@@ -689,7 +795,7 @@ export default function PlayerRegister() {
                         setSpecSelections({});
                       }}
                     >
-                      Register Another Player
+                      {registrationClosed ? "Update Another Profile" : "Register Another Player"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -697,7 +803,7 @@ export default function PlayerRegister() {
             ) : (
               <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 {/* Status banner */}
-                {status && (status.deadline || status.limit != null) && (
+                {status && !registrationClosed && (status.deadline || status.limit != null) && (
                   <div className="mb-4 flex flex-wrap items-center justify-center gap-3 text-xs">
                     {status.deadline && (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
@@ -712,12 +818,25 @@ export default function PlayerRegister() {
                   </div>
                 )}
 
+                {closedSelfUpdateMode && (
+                  <div className="mb-4 space-y-2">
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+                      Registration is closed. You can {closedUpdateEditable ? "update your photo, role, and sports specs" : "view your registration"}.
+                      {closedUpdateEditable
+                        ? " Other details are locked — contact your organiser to change them."
+                        : " Profile edits are locked because the auction has started — contact your organiser."}
+                    </div>
+                  </div>
+                )}
+
                 <Card className="border-border">
                   <CardContent className="p-4 sm:p-6">
                     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                       <div className="flex items-center gap-2 mb-2">
                         <User className="w-5 h-5 text-primary" />
-                        <h2 className="font-bold text-lg">Your Details</h2>
+                        <h2 className="font-bold text-lg">
+                          {closedSelfUpdateMode ? "Your Registration" : "Your Details"}
+                        </h2>
                       </div>
 
                       {errorMsg && (
@@ -731,13 +850,21 @@ export default function PlayerRegister() {
                         <div className="flex items-center gap-2">
                           <Search className="w-4 h-4 text-primary shrink-0" />
                           <Label className="text-primary font-semibold">Mobile Number *</Label>
-                          <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-primary/80">
-                            Start here
-                          </span>
+                          {identityFieldsLocked ? (
+                            <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <Lock className="w-3 h-3" /> Locked
+                            </span>
+                          ) : (
+                            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                              Start here
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-primary/70 -mt-0.5">
-                          We&apos;ll look up your profile from past registrations using this number.
-                        </p>
+                        {!identityFieldsLocked && (
+                          <p className="text-xs text-primary/70 -mt-0.5">
+                            We&apos;ll look up your profile from past registrations using this number.
+                          </p>
+                        )}
                         <div className="relative">
                           <Input
                             required
@@ -749,12 +876,14 @@ export default function PlayerRegister() {
                             inputMode="numeric"
                             autoComplete="tel"
                             maxLength={10}
+                            disabled={identityFieldsLocked}
+                            readOnly={identityFieldsLocked}
                           />
                           {lookupLoading && (
                             <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-primary" />
                           )}
                           {!lookupLoading && mobileLookedUp && (
-                            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${foundProfile ? "text-green-500" : "text-primary/60"}`} />
+                            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${foundProfile || existingRegistration ? "text-green-500" : "text-primary/60"}`} />
                           )}
                         </div>
                         {lookupLoading && (
@@ -764,63 +893,161 @@ export default function PlayerRegister() {
                         )}
                         {existingRegistration ? (
                           <p className="text-xs text-amber-300">
-                            You&apos;re already registered in this tournament. Update your profile below — auction status and team assignment won&apos;t change.
+                            {closedSelfUpdateMode
+                              ? closedUpdateEditable
+                                ? "You're already registered. Update photo, role, and sports specs below."
+                                : "You're already registered. Profile is view-only — contact your organiser to make changes."
+                              : "You're already registered in this tournament. Update your profile below — auction status and team assignment won't change."}
                           </p>
                         ) : foundProfile ? (
                           <p className="text-xs text-green-400">
                             Profile found — details pre-filled from your previous registration.
                           </p>
                         ) : null}
+                        {closedSelfUpdateMode && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-0 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setExistingRegistration(null);
+                              setFoundProfile(null);
+                              setMobileLookedUp(false);
+                              setErrorMsg(null);
+                              setForm(prev => ({
+                                ...prev,
+                                mobileNumber: "",
+                                name: "",
+                                email: "",
+                                city: "",
+                                age: "",
+                                gender: "",
+                                role: roles[0]?.roleName ?? "",
+                                photoUrl: "",
+                                photoPublicId: "",
+                                battingStyle: "",
+                                bowlingStyle: "",
+                                specialization: "",
+                                jerseyNumber: "",
+                                jerseySize: "",
+                                achievements: "",
+                                cricheroUrl: "",
+                                availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
+                              }));
+                              setSpecSelections({});
+                            }}
+                          >
+                            Use a different mobile
+                          </Button>
+                        )}
                       </div>
 
                       {showEmail && (
-                        <OptionalEmailField
-                          id="register-email"
-                          value={form.email}
-                          onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
-                          error={emailError || undefined}
-                          inputClassName="h-11 sm:h-9 text-base"
-                        />
+                        <div className="space-y-1.5">
+                          <OptionalEmailField
+                            id="register-email"
+                            value={form.email}
+                            onChange={v => { if (!identityFieldsLocked) { f("email", v); if (emailError) setEmailError(""); } }}
+                            error={emailError || undefined}
+                            inputClassName={`h-11 sm:h-9 text-base${identityFieldsLocked ? " opacity-70" : ""}`}
+                            disabled={identityFieldsLocked}
+                          />
+                          {identityFieldsLocked && (
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                              <Lock className="w-3 h-3" /> To change this, contact your organiser.
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       <div className="space-y-2">
-                        <Label>Full Name *</Label>
-                        <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
+                        <div className="flex items-center gap-2">
+                          <Label>Full Name *</Label>
+                          {identityFieldsLocked && (
+                            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              <Lock className="w-3 h-3" /> Locked
+                            </span>
+                          )}
+                        </div>
+                        <Input
+                          required
+                          value={form.name}
+                          onChange={e => f("name", e.target.value)}
+                          placeholder="Your full name"
+                          className="h-11 sm:h-9"
+                          autoComplete="name"
+                          disabled={identityFieldsLocked}
+                          readOnly={identityFieldsLocked}
+                        />
+                        {identityFieldsLocked && (
+                          <p className="text-[11px] text-muted-foreground">To change this, contact your organiser.</p>
+                        )}
                       </div>
 
                       {showProfileDetails && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {showCity && (
-                            <div className="space-y-2">
-                              <Label>City</Label>
-                              <CityAutocomplete
-                                value={form.city}
-                                onChange={v => f("city", v)}
-                                className="h-11 sm:h-9"
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {showCity && (
+                              <div className="space-y-2">
+                                <Label className="inline-flex items-center gap-1.5">
+                                  City
+                                  {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                                </Label>
+                                <CityAutocomplete
+                                  value={form.city}
+                                  onChange={v => { if (!identityFieldsLocked) f("city", v); }}
+                                  className="h-11 sm:h-9"
+                                  disabled={identityFieldsLocked}
+                                />
+                              </div>
+                            )}
+                            {showAge && (
+                              <div className="space-y-2">
+                                <Label className="inline-flex items-center gap-1.5">
+                                  Age
+                                  {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                                </Label>
+                                <Input
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={form.age}
+                                  onChange={e => f("age", e.target.value)}
+                                  className="h-11 sm:h-9"
+                                  disabled={identityFieldsLocked}
+                                  readOnly={identityFieldsLocked}
+                                />
+                              </div>
+                            )}
+                            {showGender && (
+                              <PlayerGenderSelect
+                                value={form.gender}
+                                onChange={(v) => { if (!identityFieldsLocked) f("gender", v); }}
+                                triggerClassName="h-11 sm:h-9"
+                                disabled={identityFieldsLocked}
                               />
-                            </div>
-                          )}
-                          {showAge && (
-                            <div className="space-y-2">
-                              <Label>Age</Label>
-                              <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} className="h-11 sm:h-9" />
-                            </div>
-                          )}
-                          {showGender && (
-                            <PlayerGenderSelect
-                              value={form.gender}
-                              onChange={(v) => f("gender", v)}
-                              triggerClassName="h-11 sm:h-9"
-                            />
+                            )}
+                          </div>
+                          {identityFieldsLocked && (
+                            <p className="text-[11px] text-muted-foreground">To change these details, contact your organiser.</p>
                           )}
                         </div>
                       )}
 
                       {/* Role + role-specific specifications */}
-                      <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
+                      <div className={`space-y-3 p-3 sm:p-4 rounded-lg border ${closedUpdateEditable ? "border-primary/40 bg-primary/5" : "border-border bg-muted/20"}`}>
+                        {closedSelfUpdateMode && (
+                          <p className="text-xs font-medium text-primary">
+                            {closedUpdateEditable ? "Editable — photo, role & sports specs" : "View only — auction has started"}
+                          </p>
+                        )}
                         <div className="space-y-2">
                           <Label>Role *</Label>
-                          <Select value={form.role} onValueChange={v => f("role", v)}>
+                          <Select
+                            value={form.role}
+                            onValueChange={v => f("role", v)}
+                            disabled={closedUpdateReadOnly}
+                          >
                             <SelectTrigger className="h-11 sm:h-9"><SelectValue placeholder="Select role" /></SelectTrigger>
                             <SelectContent className="dark max-h-[min(50dvh,320px)]">
                               {roles.length > 0
@@ -848,6 +1075,7 @@ export default function PlayerRegister() {
                                 <Select
                                   value={specSelections[group.id] ?? ""}
                                   onValueChange={v => setSpecSelections(prev => ({ ...prev, [group.id]: v }))}
+                                  disabled={closedUpdateReadOnly}
                                 >
                                   <SelectTrigger className="h-11 sm:h-9">
                                     <SelectValue placeholder={`Select ${group.groupName}`} />
@@ -866,6 +1094,8 @@ export default function PlayerRegister() {
                                   onChange={e => setSpecSelections(prev => ({ ...prev, [group.id]: e.target.value }))}
                                   placeholder={group.groupName}
                                   className="h-11 sm:h-9"
+                                  disabled={closedUpdateReadOnly}
+                                  readOnly={closedUpdateReadOnly}
                                 />
                               )}
                             </div>
@@ -874,15 +1104,33 @@ export default function PlayerRegister() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Batting Style</Label>
-                              <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} className="h-11 sm:h-9" />
+                              <Input
+                                value={form.battingStyle}
+                                onChange={e => f("battingStyle", e.target.value)}
+                                className="h-11 sm:h-9"
+                                disabled={closedUpdateReadOnly}
+                                readOnly={closedUpdateReadOnly}
+                              />
                             </div>
                             <div className="space-y-2">
                               <Label>Bowling Style</Label>
-                              <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} className="h-11 sm:h-9" />
+                              <Input
+                                value={form.bowlingStyle}
+                                onChange={e => f("bowlingStyle", e.target.value)}
+                                className="h-11 sm:h-9"
+                                disabled={closedUpdateReadOnly}
+                                readOnly={closedUpdateReadOnly}
+                              />
                             </div>
                             <div className="space-y-2 sm:col-span-2">
                               <Label>Specialization</Label>
-                              <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} className="h-11 sm:h-9" />
+                              <Input
+                                value={form.specialization}
+                                onChange={e => f("specialization", e.target.value)}
+                                className="h-11 sm:h-9"
+                                disabled={closedUpdateReadOnly}
+                                readOnly={closedUpdateReadOnly}
+                              />
                             </div>
                           </div>
                         ) : null)}
@@ -910,19 +1158,35 @@ export default function PlayerRegister() {
                       )}
 
                       {showJersey && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {fieldVisibility.jerseyNumber && (
-                            <div className="space-y-2">
-                              <Label>Jersey Number</Label>
-                              <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} inputMode="numeric" className="h-11 sm:h-9" />
-                            </div>
-                          )}
-                          {fieldVisibility.jerseySize && (
-                            <JerseySizeSelect
-                              value={form.jerseySize}
-                              onChange={v => f("jerseySize", v)}
-                              triggerClassName="h-11 sm:h-9"
-                            />
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {fieldVisibility.jerseyNumber && (
+                              <div className="space-y-2">
+                                <Label className="inline-flex items-center gap-1.5">
+                                  Jersey Number
+                                  {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                                </Label>
+                                <Input
+                                  value={form.jerseyNumber}
+                                  onChange={e => f("jerseyNumber", e.target.value)}
+                                  inputMode="numeric"
+                                  className="h-11 sm:h-9"
+                                  disabled={identityFieldsLocked}
+                                  readOnly={identityFieldsLocked}
+                                />
+                              </div>
+                            )}
+                            {fieldVisibility.jerseySize && (
+                              <JerseySizeSelect
+                                value={form.jerseySize}
+                                onChange={v => { if (!identityFieldsLocked) f("jerseySize", v); }}
+                                triggerClassName="h-11 sm:h-9"
+                                disabled={identityFieldsLocked}
+                              />
+                            )}
+                          </div>
+                          {identityFieldsLocked && (
+                            <p className="text-[11px] text-muted-foreground">To change jersey details, contact your organiser.</p>
                           )}
                         </div>
                       )}
@@ -933,6 +1197,7 @@ export default function PlayerRegister() {
                         const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean);
                         const selectedSet = new Set<string>(selectedDates);
                         function toggleAvailDate(iso: string) {
+                          if (identityFieldsLocked) return;
                           const next = new Set<string>(selectedSet);
                           if (next.has(iso)) next.delete(iso); else next.add(iso);
                           const kept: string[] = [];
@@ -944,8 +1209,13 @@ export default function PlayerRegister() {
                             <Label className="flex items-center gap-1.5">
                               <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
                               Match Availability
+                              {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
                             </Label>
-                            <p className="text-xs text-muted-foreground">Select the match days you will be available to play.</p>
+                            <p className="text-xs text-muted-foreground">
+                              {identityFieldsLocked
+                                ? "To change availability, contact your organiser."
+                                : "Select the match days you will be available to play."}
+                            </p>
                             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
                               {matchDates.map((iso: string) => {
                                 const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -953,12 +1223,13 @@ export default function PlayerRegister() {
                                 return (
                                   <label
                                     key={iso}
-                                    className={`flex items-center gap-2 cursor-pointer text-sm px-3 py-2.5 min-h-11 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
+                                    className={`flex items-center gap-2 text-sm px-3 py-2.5 min-h-11 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300" : "border-border hover:bg-muted/50 text-muted-foreground"} ${identityFieldsLocked ? "opacity-70 cursor-default" : "cursor-pointer"}`}
                                   >
                                     <input
                                       type="checkbox"
                                       checked={checked}
                                       onChange={() => toggleAvailDate(iso)}
+                                      disabled={identityFieldsLocked}
                                       className="accent-amber-400 h-4 w-4 shrink-0"
                                     />
                                     {label}
@@ -972,8 +1243,20 @@ export default function PlayerRegister() {
 
                       {showAchievements && (
                         <div className="space-y-2">
-                          <Label>Achievements / Bio</Label>
-                          <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-11 sm:h-9" />
+                          <Label className="inline-flex items-center gap-1.5">
+                            Achievements / Bio
+                            {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                          </Label>
+                          <Input
+                            value={form.achievements}
+                            onChange={e => f("achievements", e.target.value)}
+                            className="h-11 sm:h-9"
+                            disabled={identityFieldsLocked}
+                            readOnly={identityFieldsLocked}
+                          />
+                          {identityFieldsLocked && (
+                            <p className="text-[11px] text-muted-foreground">To change this, contact your organiser.</p>
+                          )}
                         </div>
                       )}
 
@@ -982,12 +1265,20 @@ export default function PlayerRegister() {
                           <div className="flex items-center gap-2">
                             <ExternalLink className="w-4 h-4 text-primary shrink-0" />
                             <Label className="text-primary font-semibold">Crichero Profile URL</Label>
-                            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-primary/80">
-                              Cricket
-                            </span>
+                            {identityFieldsLocked ? (
+                              <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                <Lock className="w-3 h-3" /> Locked
+                              </span>
+                            ) : (
+                              <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                                Cricket
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-primary/70 -mt-0.5">
-                            Add your CricHero profile link so organisers can view your match stats.
+                            {identityFieldsLocked
+                              ? "To change this, contact your organiser."
+                              : "Add your CricHero profile link so organisers can view your match stats."}
                           </p>
                           <Input
                             value={form.cricheroUrl}
@@ -995,12 +1286,17 @@ export default function PlayerRegister() {
                             type="url"
                             inputMode="url"
                             className="h-11 sm:h-9 border-primary/30 bg-background/60 focus-visible:border-primary focus-visible:ring-primary/25"
+                            disabled={identityFieldsLocked}
+                            readOnly={identityFieldsLocked}
                           />
                         </div>
                       )}
 
                       <div ref={photoFieldRef} className="space-y-2">
-                        <Label>Player Photo *</Label>
+                        <Label className="inline-flex items-center gap-1.5">
+                          Player Photo *
+                          {closedUpdateReadOnly && <Lock className="w-3 h-3 text-muted-foreground" />}
+                        </Label>
                         <div className="flex gap-3 items-start">
                           <div className={`w-14 h-14 sm:w-12 sm:h-12 rounded-lg border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0 ${photoError ? "border-destructive" : "border-border"}`}>
                             {form.photoUrl ? (
@@ -1015,32 +1311,38 @@ export default function PlayerRegister() {
                             )}
                           </div>
                           <div className="flex-1 space-y-1.5">
-                            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-11 sm:h-7 text-sm sm:text-xs gap-1.5 w-full sm:w-auto"
-                                onClick={() => setPhotoEditorOpen(true)}
-                              >
-                                {form.photoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Photo</> : <><Upload className="w-3.5 h-3.5" /> Upload Photo</>}
-                              </Button>
-                              {form.photoUrl && (
+                            {!closedUpdateReadOnly && (
+                              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant="ghost"
-                                  className="h-11 sm:h-7 text-sm sm:text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 w-full sm:w-auto"
-                                  onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
+                                  variant="outline"
+                                  className="h-11 sm:h-7 text-sm sm:text-xs gap-1.5 w-full sm:w-auto"
+                                  onClick={() => setPhotoEditorOpen(true)}
                                 >
-                                  <X className="w-3.5 h-3.5" /> Remove
+                                  {form.photoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Photo</> : <><Upload className="w-3.5 h-3.5" /> Upload Photo</>}
                                 </Button>
-                              )}
-                            </div>
+                                {form.photoUrl && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-11 sm:h-7 text-sm sm:text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 w-full sm:w-auto"
+                                    onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
+                                  >
+                                    <X className="w-3.5 h-3.5" /> Remove
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                             {photoError ? (
                               <p className="text-xs text-destructive">{photoError}</p>
                             ) : (
-                              <p className="text-xs text-muted-foreground">Upload, crop, and enhance your photo.</p>
+                              <p className="text-xs text-muted-foreground">
+                                {closedUpdateReadOnly
+                                  ? "To change your photo, contact your organiser."
+                                  : "Upload, crop, and enhance your photo."}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -1061,7 +1363,7 @@ export default function PlayerRegister() {
                         />
                       </div>
 
-                      {declarationRequired && (
+                      {!closedSelfUpdateMode && declarationRequired && (
                         <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
                           <p className="text-sm font-semibold text-foreground">Declaration & Consent</p>
                           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
@@ -1083,7 +1385,7 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      {showWhatsappConsent && (
+                      {!closedSelfUpdateMode && showWhatsappConsent && (
                         <div className="space-y-2">
                           <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1">
                             <input
@@ -1099,7 +1401,7 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      {paymentEnabled && paymentConfigured && (
+                      {!closedSelfUpdateMode && paymentEnabled && paymentConfigured && (
                         <RegistrationPaymentFormSection
                           registrationFee={registrationFee}
                           upiId={upiId}
@@ -1116,20 +1418,26 @@ export default function PlayerRegister() {
                         />
                       )}
 
-                      <Button
-                        type="submit"
-                        size="lg"
-                        className="w-full h-12 sm:h-12 text-base font-bold sticky bottom-0 sm:static"
-                        disabled={registerPending || (declarationRequired && !declarationAccepted)}
-                      >
-                        {registerPending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
-                        ) : existingRegistration ? (
-                          "Update Registration"
-                        ) : (
-                          "Submit Registration"
-                        )}
-                      </Button>
+                      {closedUpdateReadOnly ? (
+                        <div className="rounded-lg border border-border bg-muted/20 px-3 py-3 text-sm text-muted-foreground text-center">
+                          Updates are locked — contact your organiser to change your photo or details.
+                        </div>
+                      ) : (
+                        <Button
+                          type="submit"
+                          size="lg"
+                          className="w-full h-12 sm:h-12 text-base font-bold sticky bottom-0 sm:static"
+                          disabled={registerPending || (!closedSelfUpdateMode && declarationRequired && !declarationAccepted)}
+                        >
+                          {registerPending ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
+                          ) : existingRegistration ? (
+                            closedSelfUpdateMode ? "Update Photo & Specs" : "Update Registration"
+                          ) : (
+                            "Submit Registration"
+                          )}
+                        </Button>
+                      )}
                     </form>
                   </CardContent>
                 </Card>

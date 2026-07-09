@@ -14,6 +14,7 @@ type Props = {
   id?: string;
   label?: string;
   triggerClassName?: string;
+  disabled?: boolean;
 };
 
 export function JerseySizeSelect({
@@ -22,6 +23,7 @@ export function JerseySizeSelect({
   id = "jersey-size",
   label = "Jersey Size",
   triggerClassName,
+  disabled = false,
 }: Props) {
   return (
     <div className="space-y-2">
@@ -29,6 +31,7 @@ export function JerseySizeSelect({
       <Select
         value={value || "none"}
         onValueChange={(v) => onChange(v === "none" ? "" : (v as JerseySize))}
+        disabled={disabled}
       >
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder="Select size" />

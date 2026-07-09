@@ -12,6 +12,7 @@ type OptionalEmailFieldProps = {
   error?: string;
   className?: string;
   inputClassName?: string;
+  disabled?: boolean;
 };
 
 export function OptionalEmailField({
@@ -22,6 +23,7 @@ export function OptionalEmailField({
   error,
   className,
   inputClassName,
+  disabled = false,
 }: OptionalEmailFieldProps) {
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"}>
@@ -35,6 +37,8 @@ export function OptionalEmailField({
         onChange={e => onChange(e.target.value)}
         placeholder="you@example.com"
         className={inputClassName}
+        disabled={disabled}
+        readOnly={disabled}
       />
       {error ? (
         <p className="text-xs text-destructive">{error}</p>

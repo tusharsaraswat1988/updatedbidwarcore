@@ -1670,6 +1670,16 @@ export const GetRegistrationStatusResponse = zod.object({
   currentCount: zod.number(),
   limit: zod.number().nullish(),
   deadline: zod.string().nullish(),
+  tournamentStatus: zod
+    .string()
+    .optional()
+    .describe("Tournament lifecycle status (setup, active, completed)"),
+  profileUpdatesAllowed: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When registration is closed, existing players may still update photo and sports specs only while this is true (tournament still in setup).",
+    ),
   enableRegistrationPayment: zod
     .boolean()
     .optional()

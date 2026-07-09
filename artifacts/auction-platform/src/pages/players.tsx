@@ -45,6 +45,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Sheet,
   SheetContent,
   SheetFooter,
@@ -578,6 +588,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   });
 
   const [submitError, setSubmitError] = useState("");
+  const [releaseRetainedOpen, setReleaseRetainedOpen] = useState(false);
+  const isLiveAuction =
+    tournament?.status === "active" || tournament?.status === "paused";
+  const retainedTeamName = teams.find((t) => String(t.id) === form.retainedTeamId)?.name;
 
   // selectedRoleId must be derived AFTER form state to avoid temporal dead zone
   const selectedRoleId = sportRoles.find(r => r.roleName === form.role)?.id;
@@ -784,15 +798,17 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       email: emailResult.email || undefined,
       cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
       availabilityDates: form.availabilityDates || undefined,
+      // Omit nulls on create — POST schema rejects null for retainedPrice.
+      // PATCH clears team/retained fields server-side when leaving retained/sold.
       retainedPrice: form.status === "retained"
         ? parseInt(form.retainedPrice, 10)
           || parseInt(form.selectedBidValue, 10)
           || parseInt(String(form.basePrice), 10)
           || undefined
-        : null,
+        : undefined,
       teamId: form.status === "retained" && form.retainedTeamId
         ? parseInt(form.retainedTeamId, 10)
-        : null,
+        : undefined,
       status: form.status,
       categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
       playerTag: (form.playerTag || undefined) as any,
@@ -815,9 +831,15 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
       qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
       onClose();
-    } catch (err: any) {
-      const body = err?.response?.data;
-      const msg = body?.error || err?.message || "Failed to save player";
+    } catch (err: unknown) {
+      const apiErr = err as {
+        data?: { error?: string; field?: string } | null;
+        response?: { data?: { error?: string; field?: string } };
+        message?: string;
+      };
+      const body = (apiErr?.data && typeof apiErr.data === "object" ? apiErr.data : null)
+        ?? apiErr?.response?.data;
+      const msg = body?.error || apiErr?.message || "Failed to save player";
       if (body?.field === "mobileNumber") {
         setMobileError(msg);
       } else if (body?.field === "email") {
@@ -829,6 +851,24 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   }
 
   const f = (key: string, val: string | number | boolean) => setForm(prev => ({ ...prev, [key]: val }));
+
+  function applyStatusChange(nextStatus: string) {
+    f("status", nextStatus);
+    if (nextStatus === "retained") {
+      const defaultPrice = form.selectedBidValue || String(form.basePrice || "");
+      if (defaultPrice && !form.retainedPrice) {
+        f("retainedPrice", defaultPrice);
+      }
+    }
+  }
+
+  function handleStatusChange(nextStatus: string) {
+    if (isLiveAuction && form.status === "retained" && nextStatus === "available") {
+      setReleaseRetainedOpen(true);
+      return;
+    }
+    applyStatusChange(nextStatus);
+  }
 
   function clearProfileFill(newName: string) {
     setForm(prev => ({
@@ -1289,15 +1329,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Select value={form.status} onValueChange={v => {
-              f("status", v);
-              if (v === "retained") {
-                const defaultPrice = form.selectedBidValue || String(form.basePrice || "");
-                if (defaultPrice && !form.retainedPrice) {
-                  f("retainedPrice", defaultPrice);
-                }
-              }
-            }}>
+            <Select value={form.status} onValueChange={handleStatusChange}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent className="dark">
                 <SelectItem value="available">Available</SelectItem>
@@ -1329,7 +1361,46 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             </Select>
           </div>
         )}
+        {isLiveAuction && form.status === "retained" && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            Auction is live. Moving this player to Available will remove them from the team and return the retained amount to that team&apos;s purse.
+          </p>
+        )}
       </div>
+
+      <AlertDialog open={releaseRetainedOpen} onOpenChange={setReleaseRetainedOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Release retained player?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  This player will leave
+                  {retainedTeamName ? (
+                    <> <span className="text-foreground font-medium">{retainedTeamName}</span></>
+                  ) : (
+                    " their team"
+                  )}
+                  , the retained amount will return to that team&apos;s purse, and they can be auctioned again.
+                </p>
+                <p>You can still save after confirming. This does not undo itself automatically.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Keep retained</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                applyStatusChange("available");
+                setReleaseRetainedOpen(false);
+              }}
+            >
+              Make available
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Player tag section */}
       <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">

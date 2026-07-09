@@ -14,6 +14,7 @@ type Props = {
   label?: string;
   triggerClassName?: string;
   required?: boolean;
+  disabled?: boolean;
 };
 
 export function PlayerGenderSelect({
@@ -23,6 +24,7 @@ export function PlayerGenderSelect({
   label = "Gender",
   triggerClassName,
   required,
+  disabled = false,
 }: Props) {
   return (
     <div className="space-y-2">
@@ -33,6 +35,7 @@ export function PlayerGenderSelect({
       <Select
         value={value || "none"}
         onValueChange={(v) => onChange(v === "none" ? "" : (v as "M" | "F"))}
+        disabled={disabled}
       >
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder="Select gender" />

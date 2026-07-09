@@ -10,6 +10,7 @@ type CityAutocompleteProps = {
   placeholder?: string;
   className?: string;
   showHint?: boolean;
+  disabled?: boolean;
 };
 
 export function CityAutocomplete({
@@ -19,12 +20,13 @@ export function CityAutocomplete({
   placeholder = "",
   className,
   showHint = true,
+  disabled = false,
 }: CityAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(() => searchIndianCities(value), [value]);
-  const showDropdown = open && value.trim().length >= 2 && suggestions.length > 0;
+  const showDropdown = !disabled && open && value.trim().length >= 2 && suggestions.length > 0;
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
@@ -43,13 +45,16 @@ export function CityAutocomplete({
           id={id}
           value={value}
           onChange={e => {
+            if (disabled) return;
             onChange(e.target.value);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { if (!disabled) setOpen(true); }}
           placeholder={placeholder}
           className={className}
           autoComplete="off"
+          disabled={disabled}
+          readOnly={disabled}
         />
         {showDropdown && (
           <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">

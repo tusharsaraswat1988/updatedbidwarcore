@@ -3683,6 +3683,14 @@ components:
           type: ["integer", "null"]
         deadline:
           type: ["string", "null"]
+        tournamentStatus:
+          type: string
+          description: Tournament lifecycle status (setup, active, completed)
+        profileUpdatesAllowed:
+          type: boolean
+          description: >
+            When registration is closed, existing players may still update photo and sports
+            specs only while this is true (tournament still in setup).
         enableRegistrationPayment:
           type: boolean
           description: Whether registration fee collection is enabled

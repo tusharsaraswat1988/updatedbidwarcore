@@ -72,6 +72,10 @@ import {
   withdrawTournamentPlayer,
   applyPublicWithdrawnReRegistration,
 } from "../lib/player-withdrawal";
+import {
+  buildClosedPublicRegistrationProfileUpdates,
+  profileUpdatesAllowedForTournamentStatus,
+} from "../lib/public-registration-closed-update";
 import type { Request, Response } from "express";
 import { googleSheetsOwnerKey } from "../lib/google-sheets-oauth.js";
 import {
@@ -113,6 +117,7 @@ async function computeRegistrationStatus(tid: number) {
     .select({
       deadline: tournamentsTable.registrationDeadline,
       limit: tournamentsTable.registrationLimit,
+      status: tournamentsTable.status,
       enableRegistrationPayment: tournamentsTable.enableRegistrationPayment,
       registrationFee: tournamentsTable.registrationFee,
       upiId: tournamentsTable.upiId,
@@ -129,6 +134,7 @@ async function computeRegistrationStatus(tid: number) {
   const count = await countActiveRegistrations(tid);
   const deadline = tournament.deadline ?? null;
   const limit = tournament.limit ?? null;
+  const tournamentStatus = tournament.status ?? "setup";
   let reason: string | null = null;
   let open = true;
   if (deadline) {
@@ -148,6 +154,8 @@ async function computeRegistrationStatus(tid: number) {
     currentCount: count,
     limit,
     deadline,
+    tournamentStatus,
+    profileUpdatesAllowed: profileUpdatesAllowedForTournamentStatus(tournamentStatus),
     enableRegistrationPayment: tournament.enableRegistrationPayment ?? false,
     registrationFee: tournament.registrationFee ?? null,
     upiId: tournament.upiId ?? null,
@@ -646,8 +654,10 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     return;
   }
 
-  const paymentConfig = await fetchTournamentPaymentConfig(tid);
-  if (paymentConfig?.enableRegistrationPayment) {
+  // Payment + declaration only apply to open registration (new signup or full profile update).
+  // Closed self-updates are photo/role/specs only and skip these gates.
+  const paymentConfig = status.open ? await fetchTournamentPaymentConfig(tid) : null;
+  if (status.open && paymentConfig?.enableRegistrationPayment) {
     const method = paymentConfig.paymentVerificationMethod;
     if (!method) {
       res.status(400).json({ error: "Tournament payment settings are incomplete. Contact the organizer." });
@@ -666,7 +676,8 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
   const paymentFields = buildPaymentInsertFields(paymentConfig, d, "public");
 
   const declarationRequired =
-    status.enableRegistrationDeclaration === true
+    status.open
+    && status.enableRegistrationDeclaration === true
     && parseRegistrationDeclarationPoints(status.registrationDeclarationText).length > 0;
   if (declarationRequired && d.registrationDeclarationAccepted !== true) {
     res.status(400).json({
@@ -684,6 +695,64 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       .where(and(eq(playersTable.id, existingDup.id), eq(playersTable.tournamentId, tid)));
     if (!existing) {
       res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    // After registration closes: only photo + role/specs, and only while auction is in setup.
+    if (!status.open) {
+      if (!status.profileUpdatesAllowed) {
+        res.status(403).json({
+          error: "Profile updates are locked because the auction has started. Contact your organiser.",
+          code: "PROFILE_UPDATES_LOCKED",
+          ...status,
+        });
+        return;
+      }
+
+      const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+      const updates = buildClosedPublicRegistrationProfileUpdates(
+        {
+          role: d.role,
+          photoUrl: d.photoUrl,
+          photoPublicId: d.photoPublicId,
+        },
+        legacySpecFields,
+      );
+
+      const imageChanges: ImageFieldChange[] = [{
+        label: "photoUrl",
+        previous: { url: existing.photoUrl, publicId: existing.photoPublicId },
+        next: { url: d.photoUrl ?? null, publicId: d.photoPublicId ?? null },
+      }];
+
+      let player!: typeof playersTable.$inferSelect;
+      await commitBatchCloudinaryImageWrites({
+        changes: imageChanges,
+        persist: async () => {
+          const [updated] = await db
+            .update(playersTable)
+            .set(updates)
+            .where(and(eq(playersTable.id, existing.id), eq(playersTable.tournamentId, tid)))
+            .returning();
+          if (!updated) throw new Error("PLAYER_NOT_FOUND");
+          player = updated;
+        },
+        logger: req.log,
+        context: {
+          route: "players.publicRegistrationClosedUpdate",
+          tournamentId: tid,
+          playerId: existing.id,
+        },
+      });
+
+      syncAuctionPlayerToMasterAsync(player.id, tid);
+      await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
+
+      res.status(200).json({
+        ...(await serializePlayerWithSpecifications(player, "public")),
+        updated: true,
+        closedRegistrationUpdate: true,
+      });
       return;
     }
 
