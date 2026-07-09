@@ -1,7 +1,8 @@
 import type { CommunicationTemplate } from "@workspace/db";
 import type { CommunicationPendingReason } from "./types.js";
 
-function isValidEmail(email: string | null | undefined): boolean {
+/** Shared email check for bulk targets, recipient resolve, and send validation. */
+export function isValidEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const trimmed = email.trim();
   if (!trimmed || trimmed.startsWith("eml:") || trimmed.startsWith("gid_")) return false;

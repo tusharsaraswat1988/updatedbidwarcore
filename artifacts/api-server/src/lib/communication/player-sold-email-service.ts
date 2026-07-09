@@ -13,16 +13,10 @@ import { logCommunicationAction } from "./template-service.js";
 import { renderMergeTemplate } from "./merge-variables.js";
 import { getTemplateByKey } from "./template-service.js";
 import { PLAYER_SOLD_SUBJECT } from "./player-sold-email-template.js";
+import { isValidEmail } from "./validation.js";
 
 const TEMPLATE_KEY = "player_sold";
 const EVENT_TYPE = "PLAYER_SOLD";
-
-function isValidEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const trimmed = email.trim();
-  if (!trimmed || trimmed.startsWith("eml:") || trimmed.startsWith("gid_")) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-}
 
 function classifyEmail(email: string | null | undefined): "valid" | "missing" | "invalid" {
   if (!email || !email.trim()) return "missing";
@@ -33,15 +27,36 @@ function buildIdempotencyKey(playerId: number, teamId: number, amount: number): 
   return `${EVENT_TYPE}:player:${playerId}:team:${teamId}:amount:${amount}:email`;
 }
 
-async function createFailedPlayerSoldEmailJob(params: {
+/**
+ * When email is missing/invalid at sell time, create a pending job so admin can
+ * fix the recipient from the Pending tab (Edit → Send) instead of a dead failed row.
+ */
+async function createPendingPlayerSoldEmailJob(params: {
   tournamentId: number;
   playerId: number;
   playerName: string | null;
   recipientEmail: string | null;
   errorMessage: string;
   idempotencyKey: string;
+  teamId: number;
+  amount: number;
 }): Promise<void> {
   const template = await getTemplateByKey(TEMPLATE_KEY);
+
+  // Prefer full merge data so the email is ready once recipient email is fixed
+  let mergeData: Record<string, unknown> = {
+    player_name: params.playerName ?? "Player",
+  };
+  try {
+    mergeData = await buildPlayerSoldMergeData({
+      playerId: params.playerId,
+      teamId: params.teamId,
+      amount: params.amount,
+      tournamentId: params.tournamentId,
+    });
+  } catch (err) {
+    logger.warn({ err, playerId: params.playerId }, "Player sold email: merge data unavailable for pending job");
+  }
 
   try {
     const [job] = await db
@@ -54,16 +69,13 @@ async function createFailedPlayerSoldEmailJob(params: {
         triggeredByEvent: EVENT_TYPE,
         entityType: "player",
         entityId: params.playerId,
-        status: "failed",
-        pendingReason: null,
+        status: "pending",
+        pendingReason: "email_missing",
         subject: template
-          ? renderMergeTemplate(template.subject, {
-              player_name: params.playerName ?? "Player",
-              team_name: "",
-            })
+          ? renderMergeTemplate(template.subject, mergeData)
           : PLAYER_SOLD_SUBJECT,
-        htmlBody: null,
-        mergeData: {},
+        htmlBody: template ? renderMergeTemplate(template.htmlBody, mergeData) : null,
+        mergeData,
         idempotencyKey: params.idempotencyKey,
         sentBy: "system",
         errorMessage: params.errorMessage,
@@ -85,12 +97,12 @@ async function createFailedPlayerSoldEmailJob(params: {
       jobId: job.id,
       templateId: template?.id ?? null,
       action: "created",
-      newStatus: "failed",
+      newStatus: "pending",
       recipientName: params.playerName,
       recipientEmail: params.recipientEmail,
       createdBy: "system",
       triggeredBy: EVENT_TYPE,
-      metadata: { reason: params.errorMessage },
+      metadata: { reason: params.errorMessage, pendingReason: "email_missing" },
     });
 
     logger.info(
@@ -99,15 +111,15 @@ async function createFailedPlayerSoldEmailJob(params: {
         playerId: params.playerId,
         reason: params.errorMessage,
       },
-      "Player sold email: logged as failed",
+      "Player sold email: pending (email missing) — fixable from Communication Center",
     );
   } catch (err) {
     const pgCode = (err as { code?: string })?.code;
     if (pgCode === "23505") {
-      logger.debug({ idempotencyKey: params.idempotencyKey }, "Player sold email failure log skipped — duplicate");
+      logger.debug({ idempotencyKey: params.idempotencyKey }, "Player sold email pending job skipped — duplicate");
       return;
     }
-    logger.error({ err, playerId: params.playerId }, "Failed to create player sold email failure log");
+    logger.error({ err, playerId: params.playerId }, "Failed to create player sold email pending job");
   }
 }
 
@@ -169,25 +181,29 @@ export async function enqueuePlayerSoldEmail(params: {
 
     const emailState = classifyEmail(player.email);
     if (emailState === "missing") {
-      await createFailedPlayerSoldEmailJob({
+      await createPendingPlayerSoldEmailJob({
         tournamentId,
         playerId,
         playerName: player.name,
         recipientEmail: null,
         errorMessage: "Player email not available.",
         idempotencyKey,
+        teamId,
+        amount,
       });
       return;
     }
 
     if (emailState === "invalid") {
-      await createFailedPlayerSoldEmailJob({
+      await createPendingPlayerSoldEmailJob({
         tournamentId,
         playerId,
         playerName: player.name,
         recipientEmail: player.email,
         errorMessage: "Invalid email address.",
         idempotencyKey,
+        teamId,
+        amount,
       });
       return;
     }

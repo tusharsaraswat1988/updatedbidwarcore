@@ -192,6 +192,12 @@ export default function AdminCommunicationCenter() {
   const [bulkRecipients, setBulkRecipients] = useState<Array<{ name: string | null; email: string; role: string }>>([]);
   const [bulkTeams, setBulkTeams] = useState<Array<{ id: number; name: string; ownerName: string | null; ownerEmail: string | null; hasEmail: boolean }>>([]);
   const [bulkPlayers, setBulkPlayers] = useState<Array<{ id: number; name: string; email: string | null; hasEmail: boolean; status: string | null }>>([]);
+  const [bulkTargetTotals, setBulkTargetTotals] = useState<{
+    teams: number;
+    teamsWithEmail: number;
+    players: number;
+    playersWithEmail: number;
+  } | null>(null);
   const [bulkOrganiserBundle, setBulkOrganiserBundle] = useState<{
     tournamentName: string;
     teamCount: number;
@@ -205,6 +211,12 @@ export default function AdminCommunicationCenter() {
   const [tournaments, setTournaments] = useState<Array<{ id: number; name: string }>>([]);
 
   const apiBase = "/api/auth/admin/communication-center";
+  const selectedBulkTemplate = templates.find((t) => t.id === bulkTemplateId);
+  const isPlayerSoldBulkTemplate = selectedBulkTemplate?.internalKey === "player_sold";
+  const needsTournament =
+    bulkFilterType !== "organisers" &&
+    bulkFilterType !== "custom_emails" &&
+    bulkFilterType !== "csv";
 
   const fetchDashboard = useCallback(async () => {
     const res = await fetch(`${apiBase}/dashboard`, { credentials: "include" });
@@ -259,7 +271,13 @@ export default function AdminCommunicationCenter() {
       else if (t === "templates") await fetchTemplates(false);
       else if (t === "drafts") await fetchTemplates(true);
       else if (t === "pending") await fetchJobs({ statuses: ["pending", "ready_to_send", "draft"] });
-      else if (t === "sent") await fetchJobs({ statuses: ["delivered", "opened", "clicked", "failed", "queued", "processing"] });
+      else if (t === "sent") {
+        if (statusFilter !== "all") {
+          await fetchJobs({ status: statusFilter });
+        } else {
+          await fetchJobs({ statuses: ["delivered", "opened", "clicked", "failed", "queued", "processing"] });
+        }
+      }
       else if (t === "logs") await fetchLogs();
       else if (t === "assets") await fetchAssets();
       else if (t === "bulk") {
@@ -273,7 +291,7 @@ export default function AdminCommunicationCenter() {
     } finally {
       setLoading(false);
     }
-  }, [fetchDashboard, fetchTemplates, fetchJobs, fetchLogs, fetchAssets]);
+  }, [fetchDashboard, fetchTemplates, fetchJobs, fetchLogs, fetchAssets, statusFilter]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -336,23 +354,41 @@ export default function AdminCommunicationCenter() {
     if (!bulkTournamentId) {
       setBulkTeams([]);
       setBulkPlayers([]);
+      setBulkTargetTotals(null);
       setBulkTeamId("");
       setBulkPlayerId("");
       return;
     }
-    void fetch(`${apiBase}/bulk/targets?tournamentId=${bulkTournamentId}`, { credentials: "include" })
+    const params = new URLSearchParams({
+      tournamentId: bulkTournamentId,
+      emailOnly: "true",
+    });
+    // Player Sold / Specific Player: prefer sold players with email
+    if (isPlayerSoldBulkTemplate || bulkFilterType === "selected_players" || bulkFilterType === "player") {
+      if (isPlayerSoldBulkTemplate || bulkFilterType === "selected_players") {
+        params.set("playerStatus", "sold");
+      }
+    }
+    void fetch(`${apiBase}/bulk/targets?${params}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((d: { teams?: typeof bulkTeams; players?: typeof bulkPlayers }) => {
+      .then((d: {
+        teams?: typeof bulkTeams;
+        players?: typeof bulkPlayers;
+        totals?: typeof bulkTargetTotals;
+      }) => {
         setBulkTeams(d.teams ?? []);
         setBulkPlayers(d.players ?? []);
+        setBulkTargetTotals(d.totals ?? null);
       })
       .catch(() => {
         setBulkTeams([]);
         setBulkPlayers([]);
+        setBulkTargetTotals(null);
       });
-  }, [apiBase, bulkTournamentId]);
+  }, [apiBase, bulkTournamentId, bulkFilterType, isPlayerSoldBulkTemplate]);
 
   const organiserTeamsTemplate = templates.find((t) => t.internalKey === "organiser_all_teams_credentials");
+  const playerSoldTemplate = templates.find((t) => t.internalKey === "player_sold");
 
   useEffect(() => {
     if (bulkFilterType === "organiser_teams_credentials" && organiserTeamsTemplate) {
@@ -360,13 +396,41 @@ export default function AdminCommunicationCenter() {
     }
   }, [bulkFilterType, organiserTeamsTemplate]);
 
+  // When Player Sold template is chosen, lock recipient filter to sold players
+  useEffect(() => {
+    if (!isPlayerSoldBulkTemplate) return;
+    if (bulkFilterType !== "selected_players" && bulkFilterType !== "player") {
+      setBulkFilterType("selected_players");
+      setBulkRecipients([]);
+      setBulkOrganiserBundle(null);
+      setBulkEmailPreview(null);
+    }
+  }, [isPlayerSoldBulkTemplate, bulkFilterType]);
+
   const handleBulkFilterChange = (value: string) => {
     setBulkFilterType(value);
     setBulkRecipients([]);
     setBulkOrganiserBundle(null);
     setBulkEmailPreview(null);
+    setBulkTeamId("");
+    setBulkPlayerId("");
     if (value === "organiser_teams_credentials" && organiserTeamsTemplate) {
       setBulkTemplateId(organiserTeamsTemplate.id);
+    }
+    if (value === "selected_players" && playerSoldTemplate && !bulkTemplateId) {
+      setBulkTemplateId(playerSoldTemplate.id);
+    }
+  };
+
+  const handleBulkTemplateChange = (value: string) => {
+    setBulkTemplateId(value);
+    setBulkRecipients([]);
+    setBulkEmailPreview(null);
+    const tpl = templates.find((t) => t.id === value);
+    if (tpl?.internalKey === "player_sold") {
+      setBulkFilterType("selected_players");
+      setBulkTeamId("");
+      setBulkPlayerId("");
     }
   };
 
@@ -382,7 +446,7 @@ export default function AdminCommunicationCenter() {
 
   const previewBulkRecipients = async () => {
     const filter = buildBulkFilter();
-    if ((filter.type === "team" || filter.type === "player" || filter.type === "organiser_teams_credentials") && !filter.tournamentId) {
+    if (needsTournament && !filter.tournamentId) {
       alert("Please select a tournament first.");
       return;
     }
@@ -426,7 +490,7 @@ export default function AdminCommunicationCenter() {
       return;
     }
     const filter = buildBulkFilter();
-    if (filter.type === "organiser_teams_credentials" && !filter.tournamentId) {
+    if (needsTournament && !filter.tournamentId) {
       alert("Please select a tournament first.");
       return;
     }
@@ -453,12 +517,20 @@ export default function AdminCommunicationCenter() {
   const queueBulk = async () => {
     if (!bulkTemplateId) return;
     const filter = buildBulkFilter();
-    if (filter.type === "organiser_teams_credentials" && !filter.tournamentId) {
+    if (needsTournament && !filter.tournamentId) {
       alert("Please select a tournament first.");
       return;
     }
+    if (filter.type === "team" && !filter.teamId) {
+      alert("Please select a specific team.");
+      return;
+    }
+    if (filter.type === "player" && !filter.playerId) {
+      alert("Please select a specific player.");
+      return;
+    }
     if (!bulkRecipients.length) {
-      alert("Preview recipients first to confirm the organiser email.");
+      alert("Preview recipients first to confirm who will receive this email.");
       return;
     }
     await fetch(`${apiBase}/bulk/queue`, {
@@ -692,10 +764,25 @@ export default function AdminCommunicationCenter() {
                   <SelectItem value="delivered">Delivered</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="queued">Queued</SelectItem>
+                  <SelectItem value="opened">Opened</SelectItem>
+                  <SelectItem value="clicked">Clicked</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <JobsTable jobs={jobs} onSend={sendJob} onView={setViewJob} onResend={resendJob} resendingId={resendingId} showSent />
+            <JobsTable
+              jobs={jobs}
+              onSend={sendJob}
+              onView={setViewJob}
+              onResend={resendJob}
+              resendingId={resendingId}
+              showSent
+              onEditRecipient={(j) => setEditRecipient({
+                jobId: j.id,
+                email: j.recipient?.recipientEmail ?? "",
+                name: j.recipient?.recipientName ?? "",
+              })}
+            />
           </TabsContent>
 
           <TabsContent value="drafts">
@@ -737,20 +824,20 @@ export default function AdminCommunicationCenter() {
                       <SelectContent>
                         <SelectItem value="organiser_teams_credentials">Organiser — All Teams Credentials</SelectItem>
                         <SelectItem value="team">Specific Team Owner</SelectItem>
-                        <SelectItem value="player">Specific Player</SelectItem>
+                        <SelectItem value="player">Specific Player (with email)</SelectItem>
                         <SelectItem value="team_owners">All Team Owners</SelectItem>
-                        <SelectItem value="players">All Players</SelectItem>
-                        <SelectItem value="selected_players">Selected Players</SelectItem>
-                        <SelectItem value="unsold_players">Unsold Players</SelectItem>
-                        <SelectItem value="men">Men</SelectItem>
-                        <SelectItem value="women">Women</SelectItem>
+                        <SelectItem value="players">All Players (with email)</SelectItem>
+                        <SelectItem value="selected_players">Sold Players (with email)</SelectItem>
+                        <SelectItem value="unsold_players">Unsold Players (with email)</SelectItem>
+                        <SelectItem value="men">Men (with email)</SelectItem>
+                        <SelectItem value="women">Women (with email)</SelectItem>
                         <SelectItem value="organisers">Organisers</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>Template</Label>
-                    <Select value={bulkTemplateId} onValueChange={setBulkTemplateId}>
+                    <Select value={bulkTemplateId} onValueChange={handleBulkTemplateChange}>
                       <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
                       <SelectContent>
                         {templates.filter((t) => !t.isDraft && t.isActive).map((t) => (
@@ -760,6 +847,23 @@ export default function AdminCommunicationCenter() {
                     </Select>
                   </div>
                 </div>
+
+                {isPlayerSoldBulkTemplate && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">Player Sold email</p>
+                    <p className="mt-1">
+                      Recipients are sold players who have a valid email on file.
+                      Use <span className="font-medium text-foreground">Sold Players</span> for everyone,
+                      or <span className="font-medium text-foreground">Specific Player</span> to pick one.
+                    </p>
+                    {bulkTournamentId && bulkTargetTotals && (
+                      <p className="mt-2 text-xs">
+                        {bulkTargetTotals.playersWithEmail} of {bulkTargetTotals.players} players in this list have email
+                        {bulkFilterType === "selected_players" || bulkFilterType === "player" ? " (sold filter applied)" : ""}.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {bulkFilterType === "organiser_teams_credentials" && (
                   <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-sm text-muted-foreground">
@@ -776,36 +880,58 @@ export default function AdminCommunicationCenter() {
 
                 {bulkFilterType === "team" && bulkTournamentId && (
                   <div>
-                    <Label>Team</Label>
+                    <Label>Team (owners with email)</Label>
                     <Select value={bulkTeamId} onValueChange={(v) => { setBulkTeamId(v); setBulkRecipients([]); }}>
-                      <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={bulkTeams.length ? "Select team" : "No teams with email"} /></SelectTrigger>
                       <SelectContent>
                         {bulkTeams.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)} disabled={!t.hasEmail}>
-                            {t.name} — {t.ownerName ?? "Owner"}{!t.hasEmail ? " (no email)" : ""}
+                          <SelectItem key={t.id} value={String(t.id)}>
+                            {t.name} — {t.ownerName ?? "Owner"}{t.ownerEmail ? ` — ${t.ownerEmail}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Team owner link (`login_link`) is auto-filled for the selected team.
-                    </p>
+                    {bulkTargetTotals && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Showing {bulkTeams.length} of {bulkTargetTotals.teams} teams (email required).
+                        Team owner link (`login_link`) is auto-filled for the selected team.
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {bulkFilterType === "player" && bulkTournamentId && (
                   <div>
-                    <Label>Player</Label>
+                    <Label>
+                      Player
+                      {isPlayerSoldBulkTemplate ? " (sold, with email)" : " (with email)"}
+                    </Label>
                     <Select value={bulkPlayerId} onValueChange={(v) => { setBulkPlayerId(v); setBulkRecipients([]); }}>
-                      <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder={bulkPlayers.length ? "Select player" : "No players with email"} />
+                      </SelectTrigger>
                       <SelectContent>
                         {bulkPlayers.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)} disabled={!p.hasEmail}>
-                            {p.name}{!p.hasEmail ? " (no email)" : ` — ${p.email}`}
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name}{p.email ? ` — ${p.email}` : ""}{p.status ? ` (${p.status})` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {bulkTargetTotals && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Showing {bulkPlayers.length} selectable player{bulkPlayers.length === 1 ? "" : "s"}
+                        {" "}({bulkTargetTotals.playersWithEmail} with email
+                        {isPlayerSoldBulkTemplate || bulkFilterType === "selected_players" ? " among sold" : ""}
+                        {" "}of {bulkTargetTotals.players} in filter).
+                        Players without a valid email are hidden.
+                      </p>
+                    )}
+                    {!bulkPlayers.length && bulkTargetTotals && bulkTargetTotals.players > 0 && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        {bulkTargetTotals.players} player(s) match this tournament filter, but none have a valid email on file.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1054,8 +1180,8 @@ function JobsTable({
                         <RotateCcw className={`h-3.5 w-3.5 ${resendingId === j.id ? "animate-spin" : ""}`} />
                       </Button>
                     )}
-                    {onEditRecipient && (
-                      <Button size="sm" variant="ghost" onClick={() => onEditRecipient(j)}>Edit</Button>
+                    {onEditRecipient && (!showSent || j.status === "failed" || !j.recipient?.recipientEmail) && (
+                      <Button size="sm" variant="ghost" title="Edit recipient" onClick={() => onEditRecipient(j)}>Edit</Button>
                     )}
                   </div>
                 </TableCell>
