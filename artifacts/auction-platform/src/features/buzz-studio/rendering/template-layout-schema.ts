@@ -31,6 +31,7 @@ export type PosterZoneId =
   | "subtitle"
   | "statsRow"
   | "leaderboard"
+  | "roster"
   | "footerBranding";
 
 /** Normalized rectangle (0–1) relative to the poster content area. */

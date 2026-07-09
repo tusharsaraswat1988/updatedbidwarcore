@@ -117,11 +117,28 @@ const TEAM_REVEAL_LAYOUTS: TemplateLayoutDefinition[] = layoutForEachRatio(
   },
 );
 
+/** Team Squad — full roster with sold + retained players */
+const TEAM_SQUAD_LAYOUTS: TemplateLayoutDefinition[] = layoutForEachRatio(
+  BuzzTemplateType.TEAM_SQUAD,
+  (ratio) => {
+    const landscape = ratio === "16:9";
+    return {
+      tournamentLogo: { flex: 0, minHeightRatio: landscape ? 0.14 : 0.12, align: "center" },
+      tournamentName: { flex: 0, minHeightRatio: 0.04, align: "center" },
+      teamLogo: { flex: landscape ? 0 : 0, minHeightRatio: landscape ? 0 : 0.16, align: "center" },
+      teamName: { flex: 0, minHeightRatio: 0.06, align: "center" },
+      roster: { flex: 1, align: "stretch", justify: "flex-start" },
+      footerBranding: { flex: 0, minHeightRatio: 0.05, align: "center" },
+    };
+  },
+);
+
 export const TEMPLATE_LAYOUT_SCHEMAS: TemplateLayoutSchema[] = [
   { templateId: BuzzTemplateType.PLAYER_SPOTLIGHT, layouts: PLAYER_SPOTLIGHT_LAYOUTS },
   { templateId: BuzzTemplateType.SOLD_PLAYER, layouts: SOLD_PLAYER_LAYOUTS },
   { templateId: BuzzTemplateType.TOP_BUYS, layouts: TOP_BUYS_LAYOUTS },
   { templateId: BuzzTemplateType.TEAM_REVEAL, layouts: TEAM_REVEAL_LAYOUTS },
+  { templateId: BuzzTemplateType.TEAM_SQUAD, layouts: TEAM_SQUAD_LAYOUTS },
 ];
 
 const layoutIndex = new Map<string, TemplateLayoutDefinition>();

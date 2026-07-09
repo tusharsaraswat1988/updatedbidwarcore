@@ -28,6 +28,7 @@ export const RENDERABLE_TEMPLATE_IDS: readonly BuzzTemplateType[] = [
   BuzzTemplateType.SOLD_PLAYER,
   BuzzTemplateType.TOP_BUYS,
   BuzzTemplateType.TEAM_REVEAL,
+  BuzzTemplateType.TEAM_SQUAD,
 ] as const;
 
 export function isRenderableTemplateId(templateId: string): templateId is BuzzTemplateType {

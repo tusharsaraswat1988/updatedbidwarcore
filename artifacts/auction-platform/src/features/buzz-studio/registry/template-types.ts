@@ -11,6 +11,7 @@ export enum BuzzTemplateType {
   SOLD_PLAYER = "sold_player",
   TOP_BUYS = "top_buys",
   TEAM_REVEAL = "team_reveal",
+  TEAM_SQUAD = "team_squad",
   AUCTION_SUMMARY = "auction_summary",
   MVP_CARD = "mvp_card",
   TOURNAMENT_LAUNCH = "tournament_launch",

@@ -39,6 +39,11 @@ export const TEMPLATE_PREVIEWS: Readonly<Record<BuzzTemplateType, BuzzTemplatePr
     previewTitle: "Team Reveal",
   },
 
+  [BuzzTemplateType.TEAM_SQUAD]: {
+    templateId: BuzzTemplateType.TEAM_SQUAD,
+    previewTitle: "Team Squad",
+  },
+
   [BuzzTemplateType.AUCTION_SUMMARY]: {
     templateId: BuzzTemplateType.AUCTION_SUMMARY,
     previewTitle: "Auction Summary",

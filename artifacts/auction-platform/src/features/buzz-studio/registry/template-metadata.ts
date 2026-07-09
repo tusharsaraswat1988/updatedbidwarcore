@@ -59,6 +59,16 @@ export const TEAM_REVEAL_META: BuzzTemplateDefinition = {
   contractName: "TeamRevealContract",
 };
 
+export const TEAM_SQUAD_META: BuzzTemplateDefinition = {
+  id: BuzzTemplateType.TEAM_SQUAD,
+  title: "Team Squad",
+  description: "Full team roster with sold and retained players — export per team for social posts.",
+  category: BuzzTemplateCategory.TEAM,
+  enabled: true,
+  aspectRatios: ["1:1", "4:5", "9:16", "16:9"],
+  contractName: "TeamSquadContract",
+};
+
 export const AUCTION_SUMMARY_META: BuzzTemplateDefinition = {
   id: BuzzTemplateType.AUCTION_SUMMARY,
   title: "Auction Summary",
@@ -106,6 +116,7 @@ export const ALL_TEMPLATE_METADATA: readonly BuzzTemplateDefinition[] = [
   SOLD_PLAYER_META,
   TOP_BUYS_META,
   TEAM_REVEAL_META,
+  TEAM_SQUAD_META,
   AUCTION_SUMMARY_META,
   MVP_CARD_META,
   TOURNAMENT_LAUNCH_META,

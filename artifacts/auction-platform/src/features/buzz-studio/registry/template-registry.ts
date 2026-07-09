@@ -44,6 +44,7 @@ import { PlayerSpotlight } from "../templates/player-spotlight/PlayerSpotlight";
 import { SoldPlayer } from "../templates/sold-player/SoldPlayer";
 import { TopBuys } from "../templates/top-buys/TopBuys";
 import { TeamReveal } from "../templates/team-reveal/TeamReveal";
+import { TeamSquad } from "../templates/team-squad/TeamSquad";
 
 /**
  * Maps each BuzzTemplateType to its React component.
@@ -54,6 +55,7 @@ const COMPONENT_MAP: Readonly<Record<BuzzTemplateType, ComponentType<Record<stri
   [BuzzTemplateType.SOLD_PLAYER]: SoldPlayer as unknown as ComponentType<Record<string, unknown>>,
   [BuzzTemplateType.TOP_BUYS]: TopBuys as unknown as ComponentType<Record<string, unknown>>,
   [BuzzTemplateType.TEAM_REVEAL]: TeamReveal as unknown as ComponentType<Record<string, unknown>>,
+  [BuzzTemplateType.TEAM_SQUAD]: TeamSquad as unknown as ComponentType<Record<string, unknown>>,
   [BuzzTemplateType.AUCTION_SUMMARY]: null,
   [BuzzTemplateType.MVP_CARD]: null,
   [BuzzTemplateType.TOURNAMENT_LAUNCH]: null,
