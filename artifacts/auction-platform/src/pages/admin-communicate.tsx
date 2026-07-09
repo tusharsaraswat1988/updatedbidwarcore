@@ -126,6 +126,8 @@ export default function AdminCommunicate() {
   const [sendResult, setSendResult] = useState<{ success: boolean; sent: number; failed: number; stub?: boolean; blastId?: string } | null>(null);
   const [sendError, setSendError] = useState("");
 
+  const isPlayerSoldTemplate = templateName === "player_sold";
+
   // Log filter
   const [logChannel, setLogChannel] = useState("");
   const [logStatus, setLogStatus] = useState("");
@@ -133,6 +135,17 @@ export default function AdminCommunicate() {
 
   const selectedTournament = tournaments.find(t => String(t.id) === selectedTid);
   const isLicensedForWa = selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked;
+
+  function handleTemplateChange(value: string) {
+    const next = value === "__none__" ? "" : value;
+    setTemplateName(next);
+    setSendError("");
+    setSendResult(null);
+    if (next === "player_sold") {
+      setRecipientGroup("sold_players");
+      setMessageContent("");
+    }
+  }
 
   const loadTournaments = useCallback(async () => {
     setLoadingTournaments(true);
@@ -226,12 +239,25 @@ export default function AdminCommunicate() {
   }
 
   async function handleSend() {
-    if (!messageContent.trim()) { setSendError("Message content is required"); return; }
+    if (isPlayerSoldTemplate) {
+      if (!selectedTid) {
+        setSendError("Select a tournament to send the Player Sold template");
+        return;
+      }
+    } else if (!messageContent.trim()) {
+      setSendError("Message content is required");
+      return;
+    }
+
     setSending(true);
     setSendError("");
     setSendResult(null);
     try {
-      const body: Record<string, unknown> = { recipientGroup, channel, messageContent };
+      const body: Record<string, unknown> = {
+        recipientGroup: isPlayerSoldTemplate ? "sold_players" : recipientGroup,
+        channel,
+        messageContent: isPlayerSoldTemplate ? "" : messageContent,
+      };
       if (selectedTid) body.tournamentId = parseInt(selectedTid);
       if (templateName.trim()) body.templateName = templateName.trim();
 
@@ -383,7 +409,11 @@ export default function AdminCommunicate() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Recipients</Label>
-                      <Select value={recipientGroup} onValueChange={setRecipientGroup}>
+                      <Select
+                        value={isPlayerSoldTemplate ? "sold_players" : recipientGroup}
+                        onValueChange={setRecipientGroup}
+                        disabled={isPlayerSoldTemplate}
+                      >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent className="dark">
                           <SelectItem value="all_players">All Players</SelectItem>
@@ -412,21 +442,41 @@ export default function AdminCommunicate() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Template Name (optional)</Label>
-                    <Input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="e.g. auction_result, team_roster" className="text-sm" />
+                    <Label className="text-xs text-muted-foreground">Template</Label>
+                    <Select value={templateName || "__none__"} onValueChange={handleTemplateChange}>
+                      <SelectTrigger><SelectValue placeholder="None (custom message)" /></SelectTrigger>
+                      <SelectContent className="dark">
+                        <SelectItem value="__none__">None (custom message)</SelectItem>
+                        <SelectItem value="player_sold">Player Sold (DLT SMS)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Message</Label>
-                    <Textarea
-                      value={messageContent}
-                      onChange={e => setMessageContent(e.target.value)}
-                      placeholder="Type your message here..."
-                      className="min-h-[120px] text-sm resize-none"
-                      maxLength={4096}
-                    />
-                    <p className="text-[11px] text-muted-foreground text-right">{messageContent.length}/4096</p>
-                  </div>
+                  {isPlayerSoldTemplate ? (
+                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-2">
+                      <p className="text-xs font-medium text-foreground">Player Sold template</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Sends the approved DLT SMS to every sold player in the selected tournament.
+                        Each message is personalized with player name, team, sold amount, and app URL
+                        (same variables as the automatic auction notification).
+                      </p>
+                      {!selectedTid && (
+                        <p className="text-[11px] text-amber-400">Select a tournament above before sending.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Message</Label>
+                      <Textarea
+                        value={messageContent}
+                        onChange={e => setMessageContent(e.target.value)}
+                        placeholder="Type your message here..."
+                        className="min-h-[120px] text-sm resize-none"
+                        maxLength={4096}
+                      />
+                      <p className="text-[11px] text-muted-foreground text-right">{messageContent.length}/4096</p>
+                    </div>
+                  )}
 
                   {sendError && (
                     <p className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">{sendError}</p>
@@ -437,7 +487,7 @@ export default function AdminCommunicate() {
                       {sendResult.success ? <CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5" /> : <XCircle className="w-4 h-4 text-red-400 mt-0.5" />}
                       <div>
                         <p className="text-xs font-bold text-green-400">
-                          Sent {sendResult.sent} messages{sendResult.failed > 0 ? `, ${sendResult.failed} failed` : ""}{sendResult.stub ? " (stub mode — configure Twilio credentials to send real messages)" : ""}
+                          Sent {sendResult.sent} messages{sendResult.failed > 0 ? `, ${sendResult.failed} failed` : ""}{sendResult.stub ? " (stub mode — SMS/WhatsApp credentials not fully configured)" : ""}
                         </p>
                         {sendResult.blastId && <p className="text-[10px] text-muted-foreground mt-0.5">Blast ID: {sendResult.blastId}</p>}
                       </div>
@@ -445,9 +495,16 @@ export default function AdminCommunicate() {
                   )}
 
                   <div className="flex justify-end">
-                    <Button onClick={handleSend} disabled={sending || !messageContent.trim()} className="gap-2">
+                    <Button
+                      onClick={handleSend}
+                      disabled={
+                        sending
+                        || (isPlayerSoldTemplate ? !selectedTid : !messageContent.trim())
+                      }
+                      className="gap-2"
+                    >
                       {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      Send Messages
+                      {isPlayerSoldTemplate ? "Send Player Sold" : "Send Messages"}
                     </Button>
                   </div>
                 </CardContent>

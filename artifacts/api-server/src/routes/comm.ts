@@ -22,14 +22,44 @@ import {
   consentBlastLogTable,
   waConsentEventsTable,
   waTemplatesTable,
+  smsNotificationSettingsTable,
 } from "@workspace/db";
-import { eq, and, desc, gte, lte, sql, or } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, or, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms } from "../lib/comm-sender";
+import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
+import { getPublicOrigin } from "../lib/runtime-env";
 import { logger } from "../lib/logger";
 
 const router = Router();
+
+/** Normalize free-text / dropdown template names to a canonical key. */
+function normalizeCommTemplateName(name: string | undefined | null): string | null {
+  if (!name?.trim()) return null;
+  const key = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (key === "player_sold" || key === "playersold") return "player_sold";
+  return name.trim();
+}
+
+function buildPlayerSoldWaMessage(opts: {
+  playerName: string;
+  teamName: string;
+  amount: number;
+  tournamentName: string;
+}): string {
+  const amt = `₹${opts.amount.toLocaleString("en-IN")}`;
+  return `*BidWar Auction Update*\n\nCongratulations ${opts.playerName}!\n\nYou have been *SOLD* to *${opts.teamName}* for *${amt}* in *${opts.tournamentName}*.\n\nGood luck for the tournament!`;
+}
+
+function buildPlayerSoldSmsPreview(opts: {
+  playerName: string;
+  teamName: string;
+  amount: number;
+  appUrl: string;
+}): string {
+  return `Player Sold: ${opts.playerName} → ${opts.teamName} for ${opts.amount} | ${opts.appUrl}`;
+}
 
 function isMasterAdmin(req: import("express").Request): boolean {
   return !!req.jwtUser.isAdmin && req.jwtUser.adminLevel === "master";
@@ -255,12 +285,197 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     specificTeamId: z.number().int().optional(),
     channel: z.enum(["whatsapp", "sms", "both"]),
     templateName: z.string().optional(),
-    messageContent: z.string().min(1).max(4096),
+    // Free-form message is optional when using a known DLT template (e.g. player_sold)
+    messageContent: z.string().max(4096).optional().default(""),
     manualMobiles: z.array(z.string()).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
+  const canonicalTemplate = normalizeCommTemplateName(d.templateName);
+  const isPlayerSoldTemplate = canonicalTemplate === "player_sold";
+
+  if (!isPlayerSoldTemplate && !d.messageContent.trim()) {
+    res.status(400).json({ error: "Message content is required" });
+    return;
+  }
+
+  // Player Sold template: personalized DLT SMS (+ optional WA) to sold players
+  if (isPlayerSoldTemplate) {
+    if (!d.tournamentId) {
+      res.status(400).json({ error: "tournamentId is required for the player_sold template" });
+      return;
+    }
+    if (d.recipientGroup !== "sold_players" && d.recipientGroup !== "all_players") {
+      res.status(400).json({
+        error: "player_sold template only supports sold_players (or all_players, which is filtered to sold)",
+      });
+      return;
+    }
+
+    const tid = d.tournamentId;
+    const [tournament] = await db
+      .select({
+        id: tournamentsTable.id,
+        name: tournamentsTable.name,
+        licenseStatus: tournamentsTable.licenseStatus,
+        adminLocked: tournamentsTable.adminLocked,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+    if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+    if (d.channel === "whatsapp" || d.channel === "both") {
+      if (tournament.licenseStatus !== "active" || tournament.adminLocked) {
+        res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" });
+        return;
+      }
+    }
+
+    // Resolve DLT template ID (env takes priority, same as auction auto-send)
+    const [smsSettings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+    const envTemplateId = playerSoldTemplateId();
+    const dltTemplateId = envTemplateId || smsSettings?.playerSoldTemplateId || null;
+
+    // SMS path (direct or WA→SMS consent fallback) needs the DLT template ID
+    if ((d.channel === "sms" || d.channel === "both") && !dltTemplateId) {
+      res.status(400).json({
+        error: "Player Sold DLT template ID is not configured. Set BULKSMS_PLAYER_SOLD_TEMPLATE_ID or configure it in SMS settings.",
+      });
+      return;
+    }
+
+    const soldPlayers = await db
+      .select({
+        id: playersTable.id,
+        name: playersTable.name,
+        mobileNumber: playersTable.mobileNumber,
+        soldPrice: playersTable.soldPrice,
+        teamId: playersTable.teamId,
+        whatsappConsent: playersTable.whatsappConsent,
+      })
+      .from(playersTable)
+      .where(and(
+        eq(playersTable.tournamentId, tid),
+        eq(playersTable.status, "sold"),
+        sql`${playersTable.mobileNumber} IS NOT NULL AND ${playersTable.mobileNumber} != ''`,
+      ));
+
+    if (soldPlayers.length === 0) {
+      res.status(400).json({ error: "No sold players with mobile numbers found for this tournament" });
+      return;
+    }
+
+    const teamIds = [...new Set(soldPlayers.map(p => p.teamId).filter((id): id is number => id != null))];
+    const teamRows = teamIds.length > 0
+      ? await db.select({ id: teamsTable.id, name: teamsTable.name }).from(teamsTable).where(inArray(teamsTable.id, teamIds))
+      : [];
+    const teamNameById = new Map(teamRows.map(t => [t.id, t.name]));
+
+    const appUrl = process.env.APP_URL?.trim() || getPublicOrigin();
+    const blastId = generateBlastId();
+    const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string }> = [];
+    const logTemplateName = "player_sold";
+
+    logger.info({
+      tournamentId: tid,
+      soldCount: soldPlayers.length,
+      channel: d.channel,
+      dltTemplateId,
+      templateIdSource: envTemplateId ? "env" : "db",
+    }, "Admin communicate: player_sold blast starting");
+
+    for (const player of soldPlayers) {
+      const mobile = player.mobileNumber!;
+      const playerName = player.name ?? "Player";
+      const teamName = (player.teamId != null ? teamNameById.get(player.teamId) : null) ?? "Team";
+      const amount = player.soldPrice ?? 0;
+      const effectiveChannel =
+        (d.channel === "whatsapp" || d.channel === "both") && !player.whatsappConsent
+          ? "sms"
+          : d.channel;
+
+      if (effectiveChannel === "whatsapp" || effectiveChannel === "both") {
+        const waBody = buildPlayerSoldWaMessage({
+          playerName,
+          teamName,
+          amount,
+          tournamentName: tournament.name,
+        });
+        const waResult = await sendWhatsApp(mobile, waBody);
+        await db.insert(commLogsTable).values({
+          tournamentId: tid,
+          recipientType: "player",
+          recipientId: player.id,
+          recipientMobile: mobile,
+          channel: "whatsapp",
+          templateName: logTemplateName,
+          messageContent: waBody,
+          sentByAdminId: "master_admin",
+          blastId,
+          deliveryStatus: waResult.success ? "sent" : "failed",
+          metaMessageId: waResult.messageSid ?? null,
+          errorMessage: waResult.error ?? null,
+        });
+        results.push({ mobile, channel: "whatsapp", success: waResult.success, stub: waResult.stub, error: waResult.error });
+      }
+
+      if (effectiveChannel === "sms" || effectiveChannel === "both") {
+        if (!dltTemplateId) {
+          const err = "Player Sold DLT template ID is not configured";
+          await db.insert(commLogsTable).values({
+            tournamentId: tid,
+            recipientType: "player",
+            recipientId: player.id,
+            recipientMobile: mobile,
+            channel: "sms",
+            templateName: logTemplateName,
+            messageContent: buildPlayerSoldSmsPreview({ playerName, teamName, amount, appUrl }),
+            sentByAdminId: "master_admin",
+            blastId,
+            deliveryStatus: "failed",
+            metaMessageId: null,
+            errorMessage: err,
+          });
+          results.push({ mobile, channel: "sms", success: false, error: err });
+        } else {
+          // DLT vars must match approved sample: 1=player, 2=team, 3=amount, 4=app URL
+          const smsResult = await sendDltSms(
+            [mobile],
+            dltTemplateId,
+            [playerName, teamName, String(amount), appUrl],
+          );
+          const preview = buildPlayerSoldSmsPreview({ playerName, teamName, amount, appUrl });
+          await db.insert(commLogsTable).values({
+            tournamentId: tid,
+            recipientType: "player",
+            recipientId: player.id,
+            recipientMobile: mobile,
+            channel: "sms",
+            templateName: logTemplateName,
+            messageContent: preview,
+            sentByAdminId: "master_admin",
+            blastId,
+            deliveryStatus: smsResult.success ? "sent" : "failed",
+            metaMessageId: null,
+            errorMessage: smsResult.error ?? null,
+          });
+          results.push({ mobile, channel: "sms", success: smsResult.success, error: smsResult.error });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      blastId,
+      template: "player_sold",
+      sent: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      stub: results.some(r => r.stub),
+      results,
+    });
+    return;
+  }
 
   // WhatsApp template enforcement.
   // Stub mode (no Twilio creds): template not enforced — allows dev/demo use.
