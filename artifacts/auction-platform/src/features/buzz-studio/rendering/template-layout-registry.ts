@@ -122,11 +122,12 @@ const TEAM_SQUAD_LAYOUTS: TemplateLayoutDefinition[] = layoutForEachRatio(
   BuzzTemplateType.TEAM_SQUAD,
   (ratio) => {
     const landscape = ratio === "16:9";
+    const tall = ratio === "9:16";
     return {
-      tournamentLogo: { flex: 0, minHeightRatio: landscape ? 0.14 : 0.12, align: "center" },
-      tournamentName: { flex: 0, minHeightRatio: 0.04, align: "center" },
-      teamLogo: { flex: landscape ? 0 : 0, minHeightRatio: landscape ? 0 : 0.16, align: "center" },
-      teamName: { flex: 0, minHeightRatio: 0.06, align: "center" },
+      tournamentLogo: { flex: 0, minHeightRatio: landscape ? 0.1 : tall ? 0.09 : 0.1, align: "center" },
+      tournamentName: { flex: 0, minHeightRatio: 0.03, align: "center" },
+      teamLogo: { flex: 0, minHeightRatio: landscape ? 0 : tall ? 0.1 : 0.12, align: "center" },
+      teamName: { flex: 0, minHeightRatio: 0.04, align: "center" },
       roster: { flex: 1, align: "stretch", justify: "flex-start" },
       footerBranding: { flex: 0, minHeightRatio: 0.05, align: "center" },
     };

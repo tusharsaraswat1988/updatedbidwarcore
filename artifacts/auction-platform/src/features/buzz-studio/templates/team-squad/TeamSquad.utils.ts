@@ -3,7 +3,7 @@
  */
 
 import type { TeamSquadContract, TeamSquadPlayerEntry } from "./TeamSquad.types";
-import type { BuzzAspectRatio } from "../../rendering/buzz-render-context";
+import type { BuzzAspectRatio, BuzzRenderContext } from "../../rendering/buzz-render-context";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: "₹",
@@ -62,4 +62,69 @@ export function rosterGridColumns(
     return playerCount > 10 ? 2 : 1;
   }
   return 1;
+}
+
+/** Vertical budget ratios — header + footer reserved; roster fills the rest. */
+function rosterHeightBudget(
+  aspectRatio: BuzzAspectRatio,
+  landscape: boolean,
+): number {
+  if (landscape) return 0.78;
+  if (aspectRatio === "9:16") return 0.58;
+  if (aspectRatio === "4:5") return 0.62;
+  return 0.6;
+}
+
+export interface SquadRosterLayout {
+  columns: number;
+  avatarSize: number;
+  rowGap: number;
+  rowPaddingY: number;
+  rowPaddingX: number;
+  nameSize: number;
+  priceSize: number;
+  metaSize: number;
+  rowMinHeight: number;
+}
+
+/**
+ * Scale roster rows so the full squad fits inside the export canvas for any ratio.
+ */
+export function computeSquadRosterLayout(
+  ctx: BuzzRenderContext,
+  playerCount: number,
+): SquadRosterLayout {
+  const landscape = ctx.aspectRatio === "16:9";
+  const columns = rosterGridColumns(ctx.aspectRatio, playerCount);
+  const rows = Math.max(1, Math.ceil(playerCount / columns));
+  const budget = rosterHeightBudget(ctx.aspectRatio, landscape) * ctx.renderHeight;
+  const baseGap = Math.max(4, Math.round(ctx.renderHeight * 0.006));
+  const totalGap = baseGap * Math.max(0, rows - 1);
+  const rowMinHeight = Math.max(36, Math.floor((budget - totalGap) / rows));
+
+  const avatarSize = Math.max(
+    24,
+    Math.min(
+      Math.round(rowMinHeight * 0.72),
+      landscape ? Math.round(ctx.renderHeight * 0.1) : Math.round(ctx.renderHeight * 0.045),
+    ),
+  );
+
+  const rowPaddingY = Math.max(4, Math.round(rowMinHeight * 0.1));
+  const rowPaddingX = Math.max(6, Math.round(ctx.renderWidth * 0.014));
+  const metaSize = Math.max(8, Math.round(rowMinHeight * 0.16));
+  const nameSize = Math.max(13, Math.round(rowMinHeight * 0.28));
+  const priceSize = Math.max(metaSize * 2.4, Math.round(metaSize * 3));
+
+  return {
+    columns,
+    avatarSize,
+    rowGap: baseGap,
+    rowPaddingY,
+    rowPaddingX,
+    nameSize,
+    priceSize,
+    metaSize,
+    rowMinHeight,
+  };
 }
