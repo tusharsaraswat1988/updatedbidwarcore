@@ -20,9 +20,7 @@ describe("player sold email template", () => {
     auction_date: "15 March 2026",
     organiser_name: "Rajesh Kumar",
     organiser_email: "rajesh@example.com",
-    tournament_url: "https://bidwar.in/tournament/1",
     bidwar_logo: "<img alt='BidWar' />",
-    celebration_gif: "https://bidwar.in/assets/email/auction-celebration.gif",
     current_year: "2026",
   };
 
@@ -38,20 +36,20 @@ describe("player sold email template", () => {
     expect(html).toContain("Mumbai Warriors");
     expect(html).toContain("₹12,50,000");
     expect(html).toContain("Every Champion Starts With A Winning Bid");
-    expect(html).toContain("View Tournament");
+    expect(html).toContain("🎉");
+    expect(html).not.toContain("View Tournament");
+    expect(html).not.toContain("celebration_gif");
     expect(html).toContain("#0B0B0B");
   });
 
-  it("hides sponsor and CTA blocks when empty", () => {
+  it("hides sponsor blocks when empty", () => {
     const html = renderMergeTemplate(PLAYER_SOLD_HTML, {
       ...sampleData,
       title_sponsor: "",
       co_sponsors_line: "",
-      tournament_url: "",
       organiser_email: "",
     });
     expect(html).not.toContain("Co-powered by");
-    expect(html).not.toContain("View Tournament");
     expect(html).not.toContain("rajesh@example.com");
   });
 

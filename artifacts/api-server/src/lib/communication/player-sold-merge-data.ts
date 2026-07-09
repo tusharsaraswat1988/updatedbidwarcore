@@ -17,8 +17,7 @@ import {
 } from "@workspace/api-base/sponsor-priority";
 import { eq } from "drizzle-orm";
 import { brandingService } from "../branding-service.js";
-import { resolveTournamentDashboardUrl } from "../notifications/templates/email-branding.js";
-import { buildPublicUrl, getPublicOrigin } from "../runtime-env.js";
+import { getPublicOrigin } from "../runtime-env.js";
 
 function appUrl(): string {
   return process.env.APP_URL?.trim() || getPublicOrigin();
@@ -154,9 +153,6 @@ export async function buildPlayerSoldMergeData(params: {
   const unit = normalizeAuctionUnit(tournament?.auctionUnit);
   const amountDisplay = formatAmountDisplay(params.amount, unit);
 
-  const tournamentUrl = resolveTournamentDashboardUrl(baseUrl, params.tournamentId);
-  const celebrationGif = buildPublicUrl("/assets/email/auction-celebration.gif");
-
   const mergeData: Record<string, string> = {
     player_name: player?.name?.trim() ?? "Player",
     team_name: team?.name?.trim() ?? "Team",
@@ -168,7 +164,6 @@ export async function buildPlayerSoldMergeData(params: {
     amount_display: amountDisplay,
     player_avatar: playerAvatar,
     bidwar_logo: bidwarLogo,
-    celebration_gif: celebrationGif,
     current_year: String(new Date().getFullYear()),
     app_url: baseUrl,
     brand_name: brandName,
@@ -187,10 +182,6 @@ export async function buildPlayerSoldMergeData(params: {
 
   if (teamLogo) {
     mergeData.team_logo = teamLogo;
-  }
-
-  if (tournamentUrl) {
-    mergeData.tournament_url = tournamentUrl;
   }
 
   if (unit === "points") {
