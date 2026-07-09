@@ -75,3 +75,5 @@ secrets.toml
 *credentials*
 .env.production
 .env.staging
+# Brainstorm visual companion sessions
+.superpowers/
