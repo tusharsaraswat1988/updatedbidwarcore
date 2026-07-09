@@ -281,6 +281,7 @@ export async function revalidateAndRefreshJob(jobId: string): Promise<void> {
       subject,
       htmlBody,
       mergeData,
+      errorMessage: newStatus === "ready_to_send" ? null : job.errorMessage,
       updatedAt: new Date(),
     })
     .where(eq(communicationJobsTable.id, jobId));

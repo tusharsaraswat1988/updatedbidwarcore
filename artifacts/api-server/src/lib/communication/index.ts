@@ -23,7 +23,7 @@ export {
   cancelJob,
   getEntityCommunicationHistory,
 } from "./job-service.js";
-export { validateJobForSend } from "./validation.js";
+export { validateJobForSend, isValidEmail } from "./validation.js";
 export {
   recoverPendingJobsForEntity,
   sweepPendingJobsForRecovery,

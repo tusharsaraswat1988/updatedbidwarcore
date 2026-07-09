@@ -357,7 +357,12 @@ router.get("/auth/admin/communication-center/bulk/targets", async (req, res) => 
   if (!Number.isFinite(tournamentId)) {
     return res.status(400).json({ error: "tournamentId required" });
   }
-  const targets = await getBulkTargets(tournamentId);
+  const emailOnly = req.query.emailOnly !== "false";
+  const playerStatus =
+    typeof req.query.playerStatus === "string" && req.query.playerStatus.trim()
+      ? req.query.playerStatus.trim()
+      : undefined;
+  const targets = await getBulkTargets(tournamentId, { emailOnly, playerStatus });
   return res.json(targets);
 });
 

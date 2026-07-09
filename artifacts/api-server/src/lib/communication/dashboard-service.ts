@@ -16,6 +16,7 @@ import type { DashboardStats, BulkRecipientFilter } from "./types.js";
 import { createCommunicationJob, queueJob } from "./job-service.js";
 import { buildMergeDataForRecipient } from "./merge-data-builder.js";
 import { buildOrganiserTeamsCredentialsData } from "./render-organiser-teams-bundle.js";
+import { isValidEmail } from "./validation.js";
 
 export async function getDashboardStats(tournamentId?: number): Promise<DashboardStats> {
   const countsResult = await pool.query<{
@@ -135,9 +136,6 @@ export async function resolveBulkRecipients(
   filter: BulkRecipientFilter,
 ): Promise<Array<{ name: string | null; email: string; role: string; entityType?: string; entityId?: number; tournamentId?: number }>> {
   const results: Array<{ name: string | null; email: string; role: string; entityType?: string; entityId?: number; tournamentId?: number }> = [];
-
-  const isValidEmail = (email: string | null | undefined) =>
-    email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   if (filter.type === "custom_emails" && filter.emails?.length) {
     for (const email of filter.emails) {
@@ -386,7 +384,10 @@ export async function queueBulkCommunication(params: {
 }
 
 /** Teams and players for bulk targeting dropdowns (Super Admin). */
-export async function getBulkTargets(tournamentId: number) {
+export async function getBulkTargets(
+  tournamentId: number,
+  opts?: { emailOnly?: boolean; playerStatus?: string },
+) {
   const teams = await db
     .select({
       id: teamsTable.id,
@@ -398,6 +399,11 @@ export async function getBulkTargets(tournamentId: number) {
     .where(eq(teamsTable.tournamentId, tournamentId))
     .orderBy(teamsTable.name);
 
+  const playerConditions = [eq(playersTable.tournamentId, tournamentId)];
+  if (opts?.playerStatus) {
+    playerConditions.push(eq(playersTable.status, opts.playerStatus));
+  }
+
   const players = await db
     .select({
       id: playersTable.id,
@@ -406,27 +412,38 @@ export async function getBulkTargets(tournamentId: number) {
       status: playersTable.status,
     })
     .from(playersTable)
-    .where(eq(playersTable.tournamentId, tournamentId))
+    .where(and(...playerConditions))
     .orderBy(playersTable.name);
 
-  const isValidEmail = (email: string | null | undefined) =>
-    email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const mappedTeams = teams.map((t) => ({
+    id: t.id,
+    name: t.name,
+    ownerName: t.ownerName,
+    ownerEmail: t.ownerEmail,
+    hasEmail: isValidEmail(t.ownerEmail),
+  }));
+
+  const mappedPlayers = players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    status: p.status,
+    hasEmail: isValidEmail(p.email),
+  }));
+
+  // Default: only show selectable (email-available) targets in dropdowns.
+  // Pass emailOnly=false to include no-email rows for diagnostics.
+  const emailOnly = opts?.emailOnly !== false;
 
   return {
-    teams: teams.map((t) => ({
-      id: t.id,
-      name: t.name,
-      ownerName: t.ownerName,
-      ownerEmail: t.ownerEmail,
-      hasEmail: isValidEmail(t.ownerEmail),
-    })),
-    players: players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      email: p.email,
-      status: p.status,
-      hasEmail: isValidEmail(p.email),
-    })),
+    teams: emailOnly ? mappedTeams.filter((t) => t.hasEmail) : mappedTeams,
+    players: emailOnly ? mappedPlayers.filter((p) => p.hasEmail) : mappedPlayers,
+    totals: {
+      teams: mappedTeams.length,
+      teamsWithEmail: mappedTeams.filter((t) => t.hasEmail).length,
+      players: mappedPlayers.length,
+      playersWithEmail: mappedPlayers.filter((p) => p.hasEmail).length,
+    },
   };
 }
 

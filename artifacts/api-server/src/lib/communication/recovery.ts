@@ -9,13 +9,7 @@ import {
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { revalidateAndRefreshJob } from "./job-service.js";
 import { logger } from "../logger.js";
-
-function isValidEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const trimmed = email.trim();
-  if (!trimmed || trimmed.startsWith("eml:") || trimmed.startsWith("gid_")) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-}
+import { isValidEmail } from "./validation.js";
 
 /** Re-check pending jobs when recipient email becomes available. */
 export async function recoverPendingJobsForEntity(
