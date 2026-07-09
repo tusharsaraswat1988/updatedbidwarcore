@@ -126,7 +126,7 @@ export { TopBuys } from "./templates/top-buys/TopBuys";
 export { formatTopBuyPrice, resolveRank, compactGridCols } from "./templates/top-buys/TopBuys.utils";
 
 export { TeamSquad } from "./templates/team-squad/TeamSquad";
-export { formatSquadPlayerPrice, rosterGridColumns, squadCounts } from "./templates/team-squad/TeamSquad.utils";
+export { formatSquadPlayerPrice, rosterGridColumns, squadCounts, computeSquadRosterLayout } from "./templates/team-squad/TeamSquad.utils";
 
 /* ─── Contracts ────────────────────────────────────────────────────────── */
 
