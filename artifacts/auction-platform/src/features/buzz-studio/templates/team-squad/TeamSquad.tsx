@@ -151,7 +151,7 @@ function TeamSquadPoster({
   const bodySize = bodyLabelSize(ctx);
   const landscape = isLandscapePoster(ctx);
   const counts = squadCounts({ players } as TeamSquadContract);
-  const rosterLayout = computeSquadRosterLayout(ctx, players.length);
+  const rosterLayout = computeSquadRosterLayout(ctx, players, currency);
   const rowGap = rosterLayout.rowGap;
 
   const headerEl = (
@@ -496,6 +496,7 @@ function SquadPlayerRow({
         border: `1px solid ${player.isCaptain ? `${accent}66` : "rgba(255,255,255,0.08)"}`,
         boxShadow: player.isCaptain ? `0 0 8px ${accent}22` : undefined,
         minWidth: 0,
+        width: "100%",
       }}
     >
       <SquadPlayerAvatar
@@ -503,7 +504,16 @@ function SquadPlayerRow({
         url={player.playerImageUrl}
         size={rosterLayout.avatarSize}
       />
-      <div style={{ display: "flex", flexDirection: "column", gap: Math.round(rosterLayout.metaSize * 0.2), minWidth: 0, flex: 1 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: Math.round(rosterLayout.metaSize * 0.2),
+          minWidth: 0,
+          flex: "1 1 0",
+          overflow: "hidden",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: Math.round(rosterLayout.metaSize * 0.35), minWidth: 0 }}>
           <span
             style={{
@@ -517,6 +527,7 @@ function SquadPlayerRow({
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               flex: 1,
+              minWidth: 0,
             }}
           >
             {player.playerName}
@@ -550,6 +561,8 @@ function SquadPlayerRow({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                flex: 1,
+                minWidth: 0,
               }}
             >
               {player.designation}
@@ -558,24 +571,58 @@ function SquadPlayerRow({
         </div>
       </div>
       {price ? (
-        <span
+        <div
           style={{
-            fontFamily: PT.font,
-            fontSize: rosterLayout.priceSize,
-            fontWeight: 800,
-            color: isRetained ? "#86EFAC" : PT.gold,
-            letterSpacing: "0.02em",
-            lineHeight: 1,
+            flex: "0 0 auto",
             flexShrink: 0,
-            textAlign: "right",
-            maxWidth: "38%",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            minWidth: rosterLayout.priceAreaWidth,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            paddingLeft: Math.round(rosterLayout.rowPaddingX * 0.5),
+            overflow: "visible",
           }}
         >
-          {price}
-        </span>
+          <span
+            style={{
+              fontFamily: PT.font,
+              fontSize: rosterLayout.priceSize,
+              fontWeight: 800,
+              color: isRetained ? "#86EFAC" : PT.gold,
+              letterSpacing: "0.01em",
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              textAlign: "right",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {price}
+          </span>
+        </div>
+      ) : isRetained ? (
+        <div
+          style={{
+            flex: "0 0 auto",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            paddingLeft: Math.round(rosterLayout.rowPaddingX * 0.5),
+          }}
+        >
+          <span
+            style={{
+              fontFamily: PT.font,
+              fontSize: rosterLayout.metaSize,
+              fontWeight: 700,
+              color: "#86EFAC",
+              letterSpacing: "0.06em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            RETAINED
+          </span>
+        </div>
       ) : null}
     </div>
   );
@@ -646,6 +693,7 @@ function TeamSquadLegacy({
           priceSize: 30,
           metaSize: 9,
           rowMinHeight: 52,
+          priceAreaWidth: 120,
         }}
         accent={accent}
       />

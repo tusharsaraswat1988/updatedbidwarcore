@@ -85,15 +85,51 @@ export interface SquadRosterLayout {
   priceSize: number;
   metaSize: number;
   rowMinHeight: number;
+  priceAreaWidth: number;
+}
+
+/** Longest formatted price string length in the squad (for width fitting). */
+export function longestSquadPriceLength(
+  players: TeamSquadPlayerEntry[],
+  currency = "INR",
+): number {
+  let max = 5;
+  for (const player of players) {
+    const formatted = formatSquadPlayerPrice(player, currency);
+    if (formatted) max = Math.max(max, formatted.length);
+  }
+  return max;
+}
+
+/** Rough glyph width for bold currency strings (₹, digits, commas). */
+function estimatePriceTextWidth(charCount: number, fontSize: number): number {
+  // Slightly conservative so export never clips the last digit.
+  return charCount * fontSize * 0.62;
+}
+
+function fitPriceFontSize(
+  charCount: number,
+  availableWidth: number,
+  preferredSize: number,
+  minSize: number,
+): number {
+  let size = preferredSize;
+  while (size > minSize && estimatePriceTextWidth(charCount, size) > availableWidth) {
+    size -= 1;
+  }
+  return size;
 }
 
 /**
  * Scale roster rows so the full squad fits inside the export canvas for any ratio.
+ * Price font scales down when needed so amounts like ₹10,00,000 never truncate.
  */
 export function computeSquadRosterLayout(
   ctx: BuzzRenderContext,
-  playerCount: number,
+  players: TeamSquadPlayerEntry[],
+  currency = "INR",
 ): SquadRosterLayout {
+  const playerCount = players.length;
   const landscape = ctx.aspectRatio === "16:9";
   const columns = rosterGridColumns(ctx.aspectRatio, playerCount);
   const rows = Math.max(1, Math.ceil(playerCount / columns));
@@ -113,8 +149,16 @@ export function computeSquadRosterLayout(
   const rowPaddingY = Math.max(4, Math.round(rowMinHeight * 0.1));
   const rowPaddingX = Math.max(6, Math.round(ctx.renderWidth * 0.014));
   const metaSize = Math.max(8, Math.round(rowMinHeight * 0.16));
-  const nameSize = Math.max(13, Math.round(rowMinHeight * 0.28));
-  const priceSize = Math.max(metaSize * 2.4, Math.round(metaSize * 3));
+  const nameSize = Math.max(13, Math.round(rowMinHeight * 0.26));
+
+  const canvasPadX = Math.round(ctx.renderWidth * 0.055) * 2;
+  const rowInnerWidth = Math.max(120, (ctx.renderWidth - canvasPadX) / columns);
+  const gapBudget = avatarSize + rowPaddingX * 2 + Math.round(rowPaddingX * 0.8);
+  const priceAreaWidth = Math.max(80, Math.round((rowInnerWidth - gapBudget) * 0.5));
+  const maxPriceChars = longestSquadPriceLength(players, currency);
+  const preferredPrice = Math.round(metaSize * 2.8);
+  const minPrice = Math.max(13, Math.round(metaSize * 1.35));
+  const priceSize = fitPriceFontSize(maxPriceChars, priceAreaWidth, preferredPrice, minPrice);
 
   return {
     columns,
@@ -126,5 +170,6 @@ export function computeSquadRosterLayout(
     priceSize,
     metaSize,
     rowMinHeight,
+    priceAreaWidth,
   };
 }
