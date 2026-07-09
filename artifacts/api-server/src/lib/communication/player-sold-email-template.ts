@@ -19,16 +19,10 @@ export const PLAYER_SOLD_HTML = `<!DOCTYPE html>
 <!-- Hero -->
 <tr>
 <td align="center" style="padding:36px 28px 28px;background:linear-gradient(180deg,#141414 0%,#0B0B0B 100%);">
-{{#celebration_gif}}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
 <tr>
-<td align="center" style="padding-bottom:16px;">
-<img src="{{celebration_gif}}" width="120" height="80" alt="Celebration" style="display:block;border:0;outline:none;max-width:120px;height:auto;" />
-</td>
+<td align="center" style="padding-bottom:12px;font-size:36px;line-height:1;letter-spacing:0.2em;">🎉 ✨ 🎊</td>
 </tr>
-</table>
-{{/celebration_gif}}
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
 <tr>
 <td align="center" style="padding-bottom:14px;">
 {{bidwar_logo}}
@@ -181,21 +175,6 @@ export const PLAYER_SOLD_HTML = `<!DOCTYPE html>
 </table>
 </td>
 </tr>
-
-<!-- CTA -->
-{{#tournament_url}}
-<tr>
-<td align="center" style="padding:0 32px 32px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0">
-<tr>
-<td align="center" style="border-radius:10px;background:linear-gradient(135deg,#F4B400 0%,#D4AF37 100%);">
-<a href="{{tournament_url}}" target="_blank" style="display:inline-block;padding:14px 32px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;color:#0B0B0B;text-decoration:none;letter-spacing:0.04em;">View Tournament</a>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-{{/tournament_url}}
 
 <!-- Footer -->
 <tr>

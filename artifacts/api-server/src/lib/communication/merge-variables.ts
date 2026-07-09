@@ -109,7 +109,5 @@ export function buildSampleMergeData(): Record<string, string> {
     team_logo: tournamentLogo,
     amount_display: "₹12,50,000",
     amount_money: "1",
-    tournament_url: `${appUrl}/tournament/1`,
-    celebration_gif: `${appUrl}/assets/email/auction-celebration.gif`,
   };
 }

@@ -319,7 +319,9 @@ async function upgradePlayerSoldTemplateIfNeeded(existing: {
 }): Promise<void> {
   const alreadyV2 =
     existing.htmlBody.includes("YOU HAVE BEEN SOLD TO") &&
-    existing.subject.includes("Welcome to {{team_name}}");
+    existing.subject.includes("Welcome to {{team_name}}") &&
+    !existing.htmlBody.includes("{{#celebration_gif}}") &&
+    !existing.htmlBody.includes("View Tournament");
   if (alreadyV2) return;
 
   const [latest] = await db
@@ -348,7 +350,7 @@ async function upgradePlayerSoldTemplateIfNeeded(existing: {
     subject: PLAYER_SOLD_SUBJECT,
     htmlBody: PLAYER_SOLD_HTML,
     createdBy: "system",
-    changeNote: "Premium player sold email v2",
+    changeNote: "Player sold email v2.1 — emoji celebration, remove View Tournament CTA",
   });
 
   logger.info({ templateId: existing.id, version: nextVersion }, "Player sold template upgraded to v2");
