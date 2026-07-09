@@ -18,6 +18,7 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { resolveRetainedSpend } from "@workspace/api-base";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
@@ -169,6 +170,22 @@ function useSoundEngine() {
   return { play, settings, toggle };
 }
 
+function playerAcquisitionAmount(player: {
+  status?: string | null;
+  soldPrice?: number | null;
+  retainedPrice?: number | null;
+  basePrice?: number | null;
+}): number {
+  if (player.status === "retained") {
+    return resolveRetainedSpend({
+      status: "retained",
+      retainedPrice: player.retainedPrice,
+      basePrice: player.basePrice,
+    });
+  }
+  return player.soldPrice ?? 0;
+}
+
 // ── TeamSquadSheet — bottom sheet on mobile, centered modal on desktop ─────────
 
 function TeamSquadSheet({
@@ -187,7 +204,10 @@ function TeamSquadSheet({
   const fmtShort = (amount: number | null | undefined) => formatShortIndianRupee(amount, unit);
   const tc = team?.color || "#F59E0B";
   const squadPlayers = useMemo(
-    () => players.filter((p) => p.teamId === team?.teamId && p.status === "sold"),
+    () =>
+      players
+        .filter((p) => p.teamId === team?.teamId && (p.status === "sold" || p.status === "retained"))
+        .sort((a, b) => playerAcquisitionAmount(b) - playerAcquisitionAmount(a)),
     [players, team?.teamId],
   );
 
@@ -345,12 +365,19 @@ function TeamSquadSheet({
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm leading-none truncate">{player.name}</p>
                         {player.role && (
-                          <p className="text-xs text-muted-foreground capitalize mt-0.5">{player.role}</p>
+                          <p className="text-xs text-muted-foreground capitalize mt-0.5 flex items-center gap-1.5">
+                            {player.role}
+                            {player.status === "retained" && (
+                              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide bg-amber-400/10 px-1.5 py-0.5 rounded-full border border-amber-400/30">
+                                Retained
+                              </span>
+                            )}
+                          </p>
                         )}
                       </div>
-                      {player.soldPrice ? (
+                      {playerAcquisitionAmount(player) > 0 ? (
                         <p className="text-xs font-bold tabular-nums flex-shrink-0" style={{ color: tc }}>
-                          {fmtShort(player.soldPrice)}
+                          {fmtShort(playerAcquisitionAmount(player))}
                         </p>
                       ) : null}
                     </div>
@@ -510,10 +537,12 @@ function CompletedScreen({
   tournament,
   players,
   teamPurses,
+  onSelectTeam,
 }: {
   tournament: Tournament | undefined;
   players: Player[];
   teamPurses: TeamPurse[] | undefined;
+  onSelectTeam: (teamId: number) => void;
 }) {
   const unit = normalizeAuctionUnit(tournament?.auctionUnit);
   const fmtShort = (amount: number | null | undefined) => formatShortIndianRupee(amount, unit);
@@ -616,7 +645,10 @@ function CompletedScreen({
       {/* Team standings */}
       {teamStandings.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-3">Team Standings</p>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Team Standings</p>
+            <p className="text-[10px] text-muted-foreground/70">Tap a team to view squad</p>
+          </div>
           <div className="space-y-2">
             {teamStandings.map((team) => {
               const tc = team.color || "#F59E0B";
@@ -624,9 +656,11 @@ function CompletedScreen({
                 ? Math.min(100, (team.playersBought / team.maximumSquadSize) * 100)
                 : 0;
               return (
-                <div
+                <button
                   key={team.teamId}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-card/40 border border-border/40"
+                  type="button"
+                  onClick={() => onSelectTeam(team.teamId)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-card/40 border border-border/40 hover:bg-card/60 active:scale-[0.99] transition-all cursor-pointer text-left"
                 >
                   {team.logoUrl ? (
                     <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
@@ -660,7 +694,8 @@ function CompletedScreen({
                       )}
                     </div>
                   </div>
-                </div>
+                  <ChevronRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/50" />
+                </button>
               );
             })}
           </div>
@@ -1293,6 +1328,7 @@ export default function LiveViewerPage() {
           tournament={tournament}
           players={playerList}
           teamPurses={teamPurses}
+          onSelectTeam={setSelectedTeamId}
         />
       ) : (
         <>
