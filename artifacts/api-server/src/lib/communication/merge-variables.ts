@@ -103,5 +103,13 @@ export function buildSampleMergeData(): Record<string, string> {
     }),
     venue: "Wankhede Stadium, Mumbai",
     tournament_dates: "15 March 2026 at 14:00",
+    title_sponsor: "DreamSports",
+    co_sponsors_line: "PayFast, StarPlay and FanZone",
+    player_avatar: `<img src="${appUrl}/logo.png" width="88" height="88" alt="Player" style="display:block;border-radius:44px;" />`,
+    team_logo: tournamentLogo,
+    amount_display: "₹12,50,000",
+    amount_money: "1",
+    tournament_url: `${appUrl}/tournament/1`,
+    celebration_gif: `${appUrl}/assets/email/auction-celebration.gif`,
   };
 }

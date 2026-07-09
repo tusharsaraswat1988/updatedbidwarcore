@@ -10,6 +10,10 @@ import {
   PLAYER_REGISTRATION_HTML,
   PLAYER_REGISTRATION_SUBJECT,
 } from "./player-registration-email-template.js";
+import {
+  PLAYER_SOLD_HTML,
+  PLAYER_SOLD_SUBJECT,
+} from "./player-sold-email-template.js";
 
 const DEFAULT_TEMPLATES = [
   {
@@ -60,12 +64,11 @@ const DEFAULT_TEMPLATES = [
 <p>Auction date: {{auction_date}}</p>`,
   },
   {
-    name: "Player Selected",
-    internalKey: "player_selected",
-    eventType: "PLAYER_SELECTED",
-    subject: "Congratulations {{player_name}} — selected for {{team_name}}!",
-    htmlBody: `<h1>You've been selected!</h1>
-<p>Hi {{player_name}}, you have been selected by <strong>{{team_name}}</strong> for {{amount}}.</p>`,
+    name: "Player Sold",
+    internalKey: "player_sold",
+    eventType: "PLAYER_SOLD",
+    subject: PLAYER_SOLD_SUBJECT,
+    htmlBody: PLAYER_SOLD_HTML,
   },
   {
     name: "Player Unsold",
@@ -217,6 +220,9 @@ export async function seedCommunicationDefaults(): Promise<void> {
       if (tpl.internalKey === "player_registration") {
         await upgradePlayerRegistrationTemplateIfNeeded(existing);
       }
+      if (tpl.internalKey === "player_sold") {
+        await upgradePlayerSoldTemplateIfNeeded(existing);
+      }
       continue;
     }
 
@@ -248,6 +254,104 @@ export async function seedCommunicationDefaults(): Promise<void> {
   }
 
   logger.info("Communication Center defaults seeded");
+  await migratePlayerSelectedToPlayerSold();
+}
+
+/** Rename legacy player_selected template to player_sold (v2 premium email). */
+async function migratePlayerSelectedToPlayerSold(): Promise<void> {
+  const [legacy] = await db
+    .select()
+    .from(communicationTemplatesTable)
+    .where(eq(communicationTemplatesTable.internalKey, "player_selected"))
+    .limit(1);
+
+  if (!legacy) return;
+
+  const [alreadyMigrated] = await db
+    .select({ id: communicationTemplatesTable.id })
+    .from(communicationTemplatesTable)
+    .where(eq(communicationTemplatesTable.internalKey, "player_sold"))
+    .limit(1);
+
+  if (alreadyMigrated) {
+    await db
+      .update(communicationTemplatesTable)
+      .set({ isArchived: true, updatedAt: new Date() })
+      .where(eq(communicationTemplatesTable.id, legacy.id));
+    return;
+  }
+
+  await db
+    .update(communicationTemplatesTable)
+    .set({
+      name: "Player Sold",
+      internalKey: "player_sold",
+      eventType: "PLAYER_SOLD",
+      subject: PLAYER_SOLD_SUBJECT,
+      htmlBody: PLAYER_SOLD_HTML,
+      updatedAt: new Date(),
+    })
+    .where(eq(communicationTemplatesTable.id, legacy.id));
+
+  const [latest] = await db
+    .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
+    .from(communicationTemplateVersionsTable)
+    .where(eq(communicationTemplateVersionsTable.templateId, legacy.id))
+    .orderBy(desc(communicationTemplateVersionsTable.versionNumber))
+    .limit(1);
+
+  await db.insert(communicationTemplateVersionsTable).values({
+    templateId: legacy.id,
+    versionNumber: (latest?.versionNumber ?? 0) + 1,
+    subject: PLAYER_SOLD_SUBJECT,
+    htmlBody: PLAYER_SOLD_HTML,
+    createdBy: "system",
+    changeNote: "Renamed player_selected → player_sold (premium v2)",
+  });
+
+  logger.info({ templateId: legacy.id }, "Migrated player_selected to player_sold");
+}
+
+async function upgradePlayerSoldTemplateIfNeeded(existing: {
+  id: string;
+  htmlBody: string;
+  subject: string;
+}): Promise<void> {
+  const alreadyV2 =
+    existing.htmlBody.includes("YOU HAVE BEEN SOLD TO") &&
+    existing.subject.includes("Welcome to {{team_name}}");
+  if (alreadyV2) return;
+
+  const [latest] = await db
+    .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
+    .from(communicationTemplateVersionsTable)
+    .where(eq(communicationTemplateVersionsTable.templateId, existing.id))
+    .orderBy(desc(communicationTemplateVersionsTable.versionNumber))
+    .limit(1);
+
+  const nextVersion = (latest?.versionNumber ?? 0) + 1;
+
+  await db
+    .update(communicationTemplatesTable)
+    .set({
+      name: "Player Sold",
+      eventType: "PLAYER_SOLD",
+      subject: PLAYER_SOLD_SUBJECT,
+      htmlBody: PLAYER_SOLD_HTML,
+      updatedAt: new Date(),
+    })
+    .where(eq(communicationTemplatesTable.id, existing.id));
+
+  await db.insert(communicationTemplateVersionsTable).values({
+    templateId: existing.id,
+    versionNumber: nextVersion,
+    subject: PLAYER_SOLD_SUBJECT,
+    htmlBody: PLAYER_SOLD_HTML,
+    createdBy: "system",
+    changeNote: "Premium player sold email v2",
+  });
+
+  logger.info({ templateId: existing.id, version: nextVersion }, "Player sold template upgraded to v2");
 }
 
 async function upgradePlayerRegistrationTemplateIfNeeded(existing: {

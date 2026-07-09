@@ -27,7 +27,7 @@ const EVENT_TEMPLATE_MAP: Record<string, string> = {
   PLAYER_REGISTERED: "player_registration",
   TEAM_OWNER_REGISTERED: "welcome_team_owner",
   OWNER_CREDENTIALS_SENT: "team_credentials",
-  PLAYER_SELECTED: "player_selected",
+  PLAYER_SOLD: "player_sold",
   PLAYER_UNSOLD: "player_unsold",
   AUCTION_REMINDER: "auction_reminder",
   AUCTION_STARTED: "auction_starting",
