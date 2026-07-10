@@ -75,6 +75,7 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
+import { BID_ACK_TIMEOUT_MS, logBidLifecycle } from "@workspace/api-base/auction-bid-sync";
 import {
   tournamentToReadinessInput,
   validateAuctionReadiness,
@@ -297,6 +298,9 @@ export default function AuctionOperator() {
   const playerFilterContainerRef = useRef<HTMLDivElement>(null);
   // Per-team bid debounce
   const bidDebounce = useRef<Map<number, number>>(new Map());
+  /** Local bid gate — never rely solely on placeBid.isPending (can stick if fetch hangs). */
+  const [bidGateLocked, setBidGateLocked] = useState(false);
+  const bidGateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Drop stale fortune-wheel broadcast from a prior session so the LED shows
   // the auction main view when the operator opens auction control.
@@ -398,7 +402,7 @@ export default function AuctionOperator() {
   const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
 
   const auctionMutationPending =
-    placeBid.isPending ||
+    bidGateLocked ||
     sellPlayer.isPending ||
     markUnsold.isPending ||
     nextPlayer.isPending ||
@@ -490,7 +494,7 @@ export default function AuctionOperator() {
   }
 
   function handleBid(teamId: number) {
-    if (controlsLocked || placeBid.isPending) return;
+    if (controlsLocked || bidGateLocked) return;
     const now = Date.now();
     if ((bidDebounce.current.get(teamId) ?? 0) + 150 > now) return;
     bidDebounce.current.set(teamId, now);
@@ -504,10 +508,63 @@ export default function AuctionOperator() {
       if (!old) return old;
       return { ...old, currentBid: nextBid, currentBidTeamId: teamId, currentBidTeamName: bidTeam?.name ?? old.currentBidTeamName, currentBidTeamColor: bidTeam?.color ?? old.currentBidTeamColor };
     });
+
+    setBidGateLocked(true);
+    if (bidGateTimerRef.current) clearTimeout(bidGateTimerRef.current);
+    bidGateTimerRef.current = setTimeout(() => {
+      setBidGateLocked(false);
+      logBidLifecycle({
+        event: "ack_timeout",
+        tournamentId,
+        teamId,
+        amount: nextBid,
+        detail: "operator_bid_gate_timeout",
+      });
+      // Clear a hung React Query mutation so isPending cannot wedge other UI.
+      if (placeBid.isPending) placeBid.reset();
+    }, BID_ACK_TIMEOUT_MS);
+
+    const startedAt = Date.now();
+    logBidLifecycle({
+      event: "submit_start",
+      tournamentId,
+      teamId,
+      amount: nextBid,
+      detail: "operator",
+    });
+
     placeBid
       .mutateAsync({ tournamentId, data: { teamId, amount: nextBid } })
-      .then((result) => { applyMutationResult(result); })
-      .catch(() => { invalidateFallback(); });
+      .then((result) => {
+        applyMutationResult(result);
+        logBidLifecycle({
+          event: "submit_success",
+          tournamentId,
+          teamId,
+          amount: nextBid,
+          elapsedMs: Date.now() - startedAt,
+          detail: "operator",
+        });
+      })
+      .catch((err) => {
+        invalidateFallback();
+        logBidLifecycle({
+          event: "submit_error",
+          tournamentId,
+          teamId,
+          amount: nextBid,
+          elapsedMs: Date.now() - startedAt,
+          error: err instanceof Error ? err.message : "unknown",
+          detail: "operator",
+        });
+      })
+      .finally(() => {
+        if (bidGateTimerRef.current) {
+          clearTimeout(bidGateTimerRef.current);
+          bidGateTimerRef.current = null;
+        }
+        setBidGateLocked(false);
+      });
   }
 
   async function handleSell() {
@@ -1975,7 +2032,7 @@ export default function AuctionOperator() {
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid   = nextBidAmount;
                         const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
-                        const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !placeBid.isPending;
+                        const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !bidGateLocked;
                         return (
                           <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
                             className={`relative p-3 rounded-xl border-2 text-left transition-all ${isLeading ? "scale-[1.01]" : "border-white/10"} ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}

@@ -12,6 +12,26 @@ export {
 } from "./auction-bid";
 
 export {
+  BID_ACK_TIMEOUT_MS,
+  BID_WATCHDOG_MS,
+  decideBidMutationApply,
+  isBidAckPayload,
+  isBidUiBusy,
+  logBidLifecycle,
+  mergeBidFields,
+  nextMonotonicVersion,
+  reduceBidUiPhase,
+  shouldAcceptMonotonicVersion,
+  shouldApplyBidDelta,
+  simulateRapidBidVersionRace,
+  type BidLifecycleEvent,
+  type BidLifecycleLog,
+  type BidMutationDecision,
+  type BidMutationPayload,
+  type BidUiPhase,
+} from "./auction-bid-sync";
+
+export {
   computeEffectiveCapacity,
   computePurseRemaining,
   assertCapacityNotBelowUsed,

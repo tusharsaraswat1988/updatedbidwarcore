@@ -1030,8 +1030,27 @@ async function broadcastState(tournamentId: number, invalidate: string[] = []) {
 async function broadcastBidDelta(tournamentId: number, delta: BidDeltaFields) {
   invalidateStateCache(tournamentId);
   const eventVersion = await emitBidEvent(tournamentId, delta);
-  const state = await getCachedOrBuildState(tournamentId);
-  return { ...state, eventVersion };
+  // Warm the state cache in the background. The bid ACK must not wait on a full
+  // buildAuctionState rebuild — that path was blocking the HTTP response under
+  // load and left owner/operator bid buttons spinning until the rebuild finished.
+  void getCachedOrBuildState(tournamentId).catch((err) => {
+    logger.warn({ err, tournamentId }, "bid cache warm failed after bid ACK");
+  });
+  logger.info(
+    {
+      tournamentId,
+      eventVersion,
+      currentBid: delta.currentBid,
+      currentBidTeamId: delta.currentBidTeamId,
+      playerId: delta.playerId,
+    },
+    "bid_ack_emitted",
+  );
+  return {
+    bidAck: true as const,
+    eventVersion,
+    ...delta,
+  };
 }
 
 async function broadcastSoldDelta(
