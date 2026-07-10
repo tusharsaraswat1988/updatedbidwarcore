@@ -223,7 +223,7 @@ export type LedView = {
   incrementLabel: string;
   ladder: { team: LedTeam; amount: number; amountLabel: string; id: string }[];
   uniqueBidders: number;
-  tournament: { name: string; organizer: string; venue: string; date: string; logoUrl: string | null; auctionUnit?: import("@workspace/api-base/auction-unit").AuctionUnit };
+  tournament: { name: string; organizer: string; venue: string; date: string; logoUrl: string | null; auctionUnit?: import("@workspace/api-base/auction-unit").AuctionUnit; isTrial: boolean };
   roleLabel: string;
   sponsors: LiveSponsorDTO[];
   branding: LiveBrandingDTO | null;

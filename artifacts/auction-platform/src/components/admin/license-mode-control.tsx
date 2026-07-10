@@ -15,7 +15,7 @@ const modes: Array<{
   {
     id: "trial",
     label: "Trial",
-    description: "Practice mode",
+    description: "Trial mode",
     icon: AlertTriangle,
     activeClass: "border-amber-500/60 bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40",
     idleClass: "border-border/60 bg-muted/10 text-muted-foreground",

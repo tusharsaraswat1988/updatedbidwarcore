@@ -6,6 +6,7 @@ import {
   LED_STAGE_FONT_CLASS,
 } from "@/lib/led-display-typography";
 import { LedTopBrandMark } from "./led-top-brand-mark";
+import { TrialLicenseBadge } from "@/components/trial-license-badge";
 
 /** Matches TopStrip row height so overlay ↔ live scene switches keep logo fixed. */
 export const LED_TOP_ROW_HEIGHT_CLASS = "min-h-[5.2cqh] max-h-[5.2cqh]";
@@ -51,12 +52,14 @@ function LedTournamentBlock({
 export const LedOverlayTopBar = memo(function LedOverlayTopBar({
   tournamentName,
   tournamentLogoUrl,
+  isTrial = false,
   right,
   className = "",
   barClassName = "",
 }: {
   tournamentName: string;
   tournamentLogoUrl?: string | null;
+  isTrial?: boolean;
   right?: ReactNode;
   className?: string;
   barClassName?: string;
@@ -79,8 +82,9 @@ export const LedOverlayTopBar = memo(function LedOverlayTopBar({
           className="col-start-2 w-[min(11.5cqw,18cqw)] shrink-0"
         />
 
-        {right ? (
-          <div className="col-start-3 flex items-center justify-end justify-self-end min-w-0 text-right">
+        {right || isTrial ? (
+          <div className="col-start-3 flex items-center justify-end gap-3 justify-self-end min-w-0 text-right">
+            {isTrial ? <TrialLicenseBadge size="led" /> : null}
             {right}
           </div>
         ) : (

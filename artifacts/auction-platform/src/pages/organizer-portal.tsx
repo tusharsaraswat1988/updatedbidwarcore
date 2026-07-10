@@ -41,6 +41,7 @@ import {
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { HintLabel } from "@/components/ui/hint-label";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
+import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -74,9 +75,7 @@ function TournamentLicenseBadge({ status }: { status: string }) {
       </Badge>
     );
   }
-  return (
-    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]" title="Practice mode — try the auction before going live">Practice</Badge>
-  );
+  return <TrialLicenseBadge />;
 }
 
 type TimePeriod = "AM" | "PM";

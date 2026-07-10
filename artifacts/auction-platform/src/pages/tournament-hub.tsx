@@ -24,6 +24,7 @@ import {
   minPlayersRequired,
   type AuctionReadinessCheckId,
 } from "@workspace/api-base/auction-readiness";
+import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 
@@ -108,6 +109,7 @@ export default function TournamentHub() {
               <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
             )}
             <h1 className="text-4xl font-bold tracking-tight">{tournament?.name}</h1>
+            {readinessMode === "trial" ? <TrialLicenseBadge /> : null}
             <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
               {statusLabel}
             </span>

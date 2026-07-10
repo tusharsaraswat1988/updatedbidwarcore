@@ -310,6 +310,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         <LedOverlayTopBar
           tournamentName={tournament.name}
           tournamentLogoUrl={tournament.logoUrl}
+          isTrial={tournament.isTrial}
           barClassName="backdrop-blur-sm"
         />
 
@@ -450,6 +451,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         <LedOverlayTopBar
           tournamentName={tournament.name}
           tournamentLogoUrl={tournament.logoUrl}
+          isTrial={tournament.isTrial}
           right={
             <p className={`${LED_HEADLINE_CLASS} text-xl md:text-2xl text-white/90`}>
               TEAM PURSE
@@ -559,6 +561,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         <LedOverlayTopBar
           tournamentName={tournament.name}
           tournamentLogoUrl={tournament.logoUrl}
+          isTrial={tournament.isTrial}
           barClassName="bg-black/70 backdrop-blur-sm"
         />
 
@@ -615,6 +618,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         <LedOverlayTopBar
           tournamentName={tournament.name}
           tournamentLogoUrl={tournament.logoUrl}
+          isTrial={tournament.isTrial}
           right={
             <div className="text-right">
               <p className={LED_SECTION_KICKER_CLASS}>Squad Status</p>
@@ -710,6 +714,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           <LedOverlayTopBar
             tournamentName={tournament.name}
             tournamentLogoUrl={tournament.logoUrl}
+          isTrial={tournament.isTrial}
             right={
               <div>
                 <p className={LED_SECTION_KICKER_CLASS}>Highest Bids</p>

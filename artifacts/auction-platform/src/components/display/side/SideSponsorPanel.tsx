@@ -144,7 +144,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
 
   return (
     <>
-      <SideBroadcastHeader tournamentName={tournament.name} />
+      <SideBroadcastHeader tournamentName={tournament.name} isTrial={tournament.isTrial} />
       <SideDivider />
 
       {entries.length > 0 && current ? (

@@ -353,7 +353,7 @@ router.post("/seed/demo", async (req, res) => {
     success: true,
     message: "Demo data seeded successfully",
     ...results,
-    note: "Both tournaments are in trial mode — first 10 players can be auctioned. Upgrade license to 'live' in Super Admin to unlock all players.",
+    note: "Both tournaments are in trial mode — only the first 2 teams can bid. Upgrade license to 'live' in Super Admin for full team bidding.",
   });
 });
 
