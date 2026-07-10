@@ -121,7 +121,7 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         className="relative shrink-0 bg-black/50"
         style={{ height: SIDE_LED_LAYOUT.profileHeaderHeight + SIDE_LED_LAYOUT.dividerHeight }}
       >
-        <SideBroadcastHeader tournamentName={tournament.name} variant="profile" />
+        <SideBroadcastHeader tournamentName={tournament.name} variant="profile" isTrial={tournament.isTrial} />
         <SideDivider top={SIDE_LED_LAYOUT.profileHeaderHeight} />
       </header>
 

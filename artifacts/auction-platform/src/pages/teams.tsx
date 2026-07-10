@@ -579,9 +579,9 @@ export default function Teams() {
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-2xl">
             <Users className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-300 text-sm">Practice mode: only 2 teams can bid</p>
+              <p className="font-semibold text-amber-300 text-sm">Trial: only 2 teams can bid</p>
               <p className="text-xs text-muted-foreground mt-1">
-                You can add all teams now, but during practice only the first 2 teams can place bids. All teams will work after live activation.
+                You can add all teams now, but during trial only the first 2 teams can place bids. All teams will work after live activation.
               </p>
             </div>
           </div>

@@ -1401,19 +1401,6 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   let deferredIds: number[] = [];
   try { if (session.deferredPlayerIds) deferredIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
 
-  // Trial mode: restrict pool to first 10 players by ID
-  const isTrialMode = tournament?.licenseStatus !== "active";
-  let trialPlayerIds: number[] | null = null;
-  if (isTrialMode) {
-    const first10 = await db
-      .select({ id: playersTable.id })
-      .from(playersTable)
-      .where(eq(playersTable.tournamentId, tid))
-      .orderBy(asc(playersTable.id))
-      .limit(10);
-    trialPlayerIds = first10.map(p => p.id);
-  }
-
   let selectedPlayerId: number | null = null;
   let newDeferredIds = deferredIds;
   let newRandomDrawQueue: string | null = session.randomDrawQueue ?? null;
@@ -1429,7 +1416,6 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     // Build base conditions
     const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
     if (activeCatIds && activeCatIds.length > 0) baseConditions.push(inArray(playersTable.categoryId, activeCatIds));
-    if (trialPlayerIds && trialPlayerIds.length > 0) baseConditions.push(inArray(playersTable.id, trialPlayerIds));
 
     const allAvailable = await db.select().from(playersTable).where(and(...baseConditions));
 

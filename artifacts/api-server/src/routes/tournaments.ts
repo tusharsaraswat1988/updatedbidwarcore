@@ -928,7 +928,7 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   const viewerUrl = buildPublicUrl(`/tournament/${tid}/display`);
 
   const orgId = tournament.organizerId;
-  if (tournament.licenseStatus === "active" && orgId != null) {
+  if (orgId != null) {
     void (async () => {
       try {
         const { smsNotificationSettingsTable, organizersTable: orgsTable } = await import("@workspace/db");

@@ -23,6 +23,7 @@ import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
@@ -228,8 +229,13 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
           {tournamentId && (
             <>
               {!collapsed && (
-                <div className="px-4 mt-7 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                  {tournament?.name || "Tournament"}
+                <div className="px-4 mt-7 mb-1 flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                    {tournament?.name || "Tournament"}
+                  </span>
+                  {tournament?.licenseStatus && tournament.licenseStatus !== "active" && tournament.licenseStatus !== "completed" ? (
+                    <TrialLicenseBadge className="shrink-0" />
+                  ) : null}
                 </div>
               )}
               {!collapsed && (
@@ -320,7 +326,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     {!collapsed && (
                       <>
                         <span className="font-medium">Pre-Auction Reports</span>
-                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Practice</span>
+                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Trial</span>
                       </>
                     )}
                   </div>
@@ -375,7 +381,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
                   }`}>
                     <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                    <span>Clear Practice Data</span>
+                    <span>Clear Trial Data</span>
                   </Link>
                 )}
                 {tournament?.localModeEnabled && !localVenue ? (

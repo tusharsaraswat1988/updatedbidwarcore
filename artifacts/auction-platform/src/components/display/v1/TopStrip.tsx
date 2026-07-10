@@ -3,6 +3,7 @@ import type { LedView } from "@/lib/led-view/types";
 import { cldUrl } from "@/lib/cloudinary";
 import { LedTopBrandMark } from "./led-top-brand-mark";
 import { DevThemePicker } from "./DevThemePicker";
+import { TrialLicenseBadge } from "@/components/trial-license-badge";
 
 /**
  * TOP STRIP — OBS crest (center), tournament line, LIVE pill, remaining counter.
@@ -50,6 +51,7 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
       />
 
       <div className="col-start-3 relative z-20 flex items-center justify-end gap-4 justify-self-end">
+        {tournament.isTrial ? <TrialLicenseBadge size="led" /> : null}
         <div
           className={`flex items-center gap-2 px-4 py-1.5 border ${
             live

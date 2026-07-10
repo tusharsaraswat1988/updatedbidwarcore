@@ -36,21 +36,15 @@ type SideBroadcastHeaderVariant = "profile" | "sponsor";
 /** Shared top header — BidWar logo + tournament name, canvas-absolute. */
 
 export function SideBroadcastHeader({
-
   tournamentName,
-
   variant = "sponsor",
-
   showLiveDot = false,
-
+  isTrial = false,
 }: {
-
   tournamentName: string;
-
   variant?: SideBroadcastHeaderVariant;
-
   showLiveDot?: boolean;
-
+  isTrial?: boolean;
 }) {
 
   const { logos, brandName, iconVersion } = useBranding();
@@ -70,6 +64,28 @@ export function SideBroadcastHeader({
     return (
 
       <>
+
+        {isTrial ? (
+          <div
+            aria-label="Trial auction"
+            style={{
+              position: "absolute",
+              top: SIDE_LED_LAYOUT.profileLiveDotTop,
+              left: SIDE_LED_LAYOUT.profileLiveDotRight,
+              padding: "4px 10px",
+              borderRadius: 4,
+              border: "1px solid rgba(251, 191, 36, 0.5)",
+              backgroundColor: "rgba(251, 191, 36, 0.12)",
+              color: "#fcd34d",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+            }}
+          >
+            Trial
+          </div>
+        ) : null}
 
         {showLiveDot ? (
 
@@ -210,6 +226,29 @@ export function SideBroadcastHeader({
   return (
 
     <>
+
+      {isTrial ? (
+        <div
+          aria-label="Trial auction"
+          style={{
+            position: "absolute",
+            top: 24,
+            right: 24,
+            padding: "4px 10px",
+            borderRadius: 4,
+            border: "1px solid rgba(251, 191, 36, 0.5)",
+            backgroundColor: "rgba(251, 191, 36, 0.12)",
+            color: "#fcd34d",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            zIndex: 2,
+          }}
+        >
+          Trial
+        </div>
+      ) : null}
 
       {logoSrc ? (
 
