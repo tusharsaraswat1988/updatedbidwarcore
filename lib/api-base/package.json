@@ -8,6 +8,7 @@
     "./vite-proxy": "./src/vite-proxy.ts",
     "./dev-cors": "./src/dev-cors.ts",
     "./auction-bid": "./src/auction-bid.ts",
+    "./auction-bid-sync": "./src/auction-bid-sync.ts",
     "./auction-unit": "./src/auction-unit.ts",
     "./auction-player-selection": "./src/auction-player-selection.ts",
     "./auction-readiness": "./src/auction-readiness.ts",

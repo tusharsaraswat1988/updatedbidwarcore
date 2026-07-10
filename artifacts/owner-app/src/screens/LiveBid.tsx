@@ -8,6 +8,7 @@ import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
+import { useBidLifecycle } from "@/hooks/use-bid-lifecycle";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
@@ -151,17 +152,6 @@ interface Props {
   onSignOut: () => void;
   onSync: () => void;
   isSyncError?: boolean;
-}
-
-// ── Anti-double-tap ──────────────────────────────────────────────────────────
-function useDebounce(ms = 600) {
-  const lastTap = useRef(0);
-  return useCallback(() => {
-    const now = Date.now();
-    if (now - lastTap.current < ms) return false;
-    lastTap.current = now;
-    return true;
-  }, [ms]);
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -1661,11 +1651,14 @@ export function LiveBid({
     tournamentId,
     state?.lastAuctionActivityAt,
   );
-  const mayTap      = useDebounce(600);
   const { brandName, logos, poweredByText, miniBrandText, showPoweredBy, iconVersion } = useBranding();
 
-  const [bidding,            setBidding]            = useState(false);
-  const [bidFeedback,        setBidFeedback]         = useState<"success" | "error" | "leading" | null>(null);
+  const {
+    bidding,
+    bidFeedback,
+    runBid,
+  } = useBidLifecycle({ tournamentId, teamId });
+
   const [showSignOutConfirm, setShowSignOutConfirm]  = useState(false);
   const [syncing,            setSyncing]             = useState(false);
   const [syncFailed,         setSyncFailed]          = useState(false);
@@ -1741,19 +1734,13 @@ export function LiveBid({
   }
 
   async function handleBidTap() {
-    if (isOnBreak || !canBid || bidding || !mayTap()) return;
+    if (isOnBreak || !canBid) return;
     hapticBid();
-    setBidding(true);
-    try {
-      const result = await onBid(nextBidAmount);
-      setBidFeedback(result);
-      if (result === "success") hapticSuccess();
-      else if (result === "leading") hapticLeading();
-      else hapticError();
-      setTimeout(() => setBidFeedback(null), 1600);
-    } finally {
-      setBidding(false);
-    }
+    const result = await runBid(nextBidAmount, onBid, canBid && !isOnBreak);
+    if (result === "blocked") return;
+    if (result === "success") hapticSuccess();
+    else if (result === "leading") hapticLeading();
+    else hapticError();
   }
 
   // ── Disable-reason ──────────────────────────────────────────────────────────

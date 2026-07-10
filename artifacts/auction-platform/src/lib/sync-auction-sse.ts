@@ -5,6 +5,13 @@ import {
   recordAuctionActivity,
 } from "@workspace/api-base/auction-connection-state";
 import {
+  decideBidMutationApply,
+  logBidLifecycle,
+  mergeBidFields,
+  nextMonotonicVersion,
+  shouldApplyBidDelta as shouldApplyBidDeltaShared,
+} from "@workspace/api-base/auction-bid-sync";
+import {
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
   getGetTournamentInsightsQueryKey,
@@ -65,7 +72,9 @@ function getCachedVersion(tournamentId: number): number {
 }
 
 function setCachedVersion(tournamentId: number, version: number): void {
-  versionByTournament.set(tournamentId, version);
+  // Never regress the cursor — stale HTTP responses must not unlock older SSE events.
+  const current = versionByTournament.get(tournamentId) ?? 0;
+  if (version > current) versionByTournament.set(tournamentId, version);
 }
 
 function isStale(tournamentId: number, version: number | undefined): boolean {
@@ -136,24 +145,16 @@ function shouldApplyBidDelta(
   base: AuctionStateCache | undefined,
   msg: SseAuctionMessage,
 ): boolean {
-  const incomingBid = msg.currentBid;
-  if (incomingBid == null) return true;
-
-  const existingBid = base?.currentBid;
-  if (existingBid == null || typeof existingBid !== "number") return true;
-
-  if (incomingBid > existingBid) return true;
-
-  if (incomingBid === existingBid) {
-    const incomingTimer = msg.timerEndsAt;
-    const existingTimer = base?.timerEndsAt;
-    if (typeof incomingTimer === "string" && typeof existingTimer === "string") {
-      return new Date(incomingTimer).getTime() > new Date(existingTimer).getTime();
-    }
-    return typeof incomingTimer === "string" && !existingTimer;
-  }
-
-  return false;
+  return shouldApplyBidDeltaShared(
+    {
+      currentBid: typeof base?.currentBid === "number" ? base.currentBid : null,
+      timerEndsAt: typeof base?.timerEndsAt === "string" ? base.timerEndsAt : null,
+    },
+    {
+      currentBid: msg.currentBid,
+      timerEndsAt: msg.timerEndsAt,
+    },
+  );
 }
 
 function resolveBidPlayerId(
@@ -211,22 +212,7 @@ function mergeBidDelta(
   prev: AuctionStateCache | undefined,
   msg: SseAuctionMessage,
 ): AuctionStateCache {
-  const base = prev ?? {};
-  return stampVersion(
-    {
-      ...base,
-      currentBid: msg.currentBid ?? base.currentBid,
-      currentBidTeamId: msg.currentBidTeamId ?? base.currentBidTeamId,
-      currentBidTeamName: msg.currentBidTeamName ?? base.currentBidTeamName,
-      currentBidTeamColor: msg.currentBidTeamColor ?? base.currentBidTeamColor,
-      currentBidTeamLogoUrl: msg.currentBidTeamLogoUrl ?? base.currentBidTeamLogoUrl,
-      timerEndsAt: msg.timerEndsAt ?? base.timerEndsAt,
-      timerType: msg.timerType ?? base.timerType,
-      lastAction: msg.lastAction ?? base.lastAction,
-      bidIncrement: msg.bidIncrement ?? base.bidIncrement,
-    },
-    msg.version,
-  );
+  return mergeBidFields(prev, msg, msg.version);
 }
 
 function mergeSoldDelta(
@@ -358,19 +344,74 @@ export function applyAuctionResetState(
   bumpInsightsQueries(qc, tournamentId);
 }
 
-/** Apply an HTTP mutation response and sync the SSE version tracker. */
+/**
+ * Apply an HTTP mutation response with a monotonic version gate.
+ * Stale bid ACKs (older than the latest SSE event) are rejected so they cannot
+ * regress the live leader and stick bid controls on the wrong team.
+ */
 export function applyMutationAuctionState(
   qc: QueryClient,
   tournamentId: number,
   result: AuctionStateCache,
 ): void {
   const key = getGetAuctionStateQueryKey(tournamentId);
+  const cachedVersion = getCachedVersion(tournamentId);
+  const decision = decideBidMutationApply(cachedVersion, result);
+
+  if (decision.action === "reject_stale") {
+    logBidLifecycle({
+      event: "stale_mutation_rejected",
+      tournamentId,
+      eventVersion: result.eventVersion,
+      cachedVersion,
+      detail: decision.reason,
+    });
+    return;
+  }
+
+  if (decision.action === "merge_bid_ack") {
+    const prev = qc.getQueryData<AuctionStateCache>(key);
+    if (!shouldApplyBidDelta(prev, result)) {
+      logBidLifecycle({
+        event: "stale_mutation_rejected",
+        tournamentId,
+        eventVersion: result.eventVersion,
+        cachedVersion,
+        detail: "bid_amount_regression",
+      });
+      if (result.eventVersion != null && result.eventVersion > 0) {
+        setCachedVersion(tournamentId, nextMonotonicVersion(cachedVersion, result.eventVersion));
+      }
+      return;
+    }
+    const version = result.eventVersion;
+    qc.setQueryData(key, mergeBidFields(prev, result, version));
+    if (version != null && version > 0) {
+      setCachedVersion(tournamentId, nextMonotonicVersion(cachedVersion, version));
+    }
+    logBidLifecycle({
+      event: "bid_ack_merged",
+      tournamentId,
+      eventVersion: version,
+      cachedVersion: getCachedVersion(tournamentId),
+      amount: typeof result.currentBid === "number" ? result.currentBid : undefined,
+    });
+    syncTeamPurses(qc, tournamentId, result.teamPurses);
+    return;
+  }
+
   const version = result.eventVersion;
   const stamped = version != null ? stampVersion(result, version) : result;
   qc.setQueryData(key, stamped);
   if (version != null && version > 0) {
-    setCachedVersion(tournamentId, version);
+    setCachedVersion(tournamentId, nextMonotonicVersion(cachedVersion, version));
   }
+  logBidLifecycle({
+    event: "full_state_replaced",
+    tournamentId,
+    eventVersion: version,
+    cachedVersion: getCachedVersion(tournamentId),
+  });
   syncTeamPurses(qc, tournamentId, result.teamPurses);
 }
 

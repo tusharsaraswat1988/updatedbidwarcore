@@ -35,6 +35,28 @@ import { breakCountdownEndsAt, isAuctionPausedForBreak } from "@/lib/break-count
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
+/** Extract bid error text from ApiError (customFetch) or axios-shaped errors. */
+function extractBidErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") return "";
+  const e = err as {
+    data?: { error?: unknown };
+    response?: { data?: { error?: unknown } };
+    message?: unknown;
+  };
+  if (typeof e.data?.error === "string" && e.data.error.trim()) return e.data.error;
+  if (typeof e.response?.data?.error === "string" && e.response.data.error.trim()) {
+    return e.response.data.error;
+  }
+  if (typeof e.message === "string") {
+    const idx = e.message.indexOf(": ");
+    if (idx >= 0) {
+      const rest = e.message.slice(idx + 2).trim();
+      if (rest) return rest;
+    }
+  }
+  return "";
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export function OwnerRoute() {
   const params       = useParams<{ id: string; teamId: string }>();
@@ -237,11 +259,11 @@ export function OwnerRoute() {
       setLastBidError("");
       return "success";
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+      const msg = extractBidErrorMessage(err);
       const display = msg || "Bid failed. Please try again.";
       setLastBidError(display);
       invalidateFallback();
-      if (msg.includes("already the highest bidder")) {
+      if (/already the highest bidder/i.test(msg)) {
         return "leading";
       }
       return "error";
