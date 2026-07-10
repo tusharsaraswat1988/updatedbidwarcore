@@ -2,7 +2,7 @@
  * Buzz Studio — Team Squad Template
  *
  * Per-team roster creative showing sold + retained players.
- * Tournament name at top, BidWar logo in footer, all four export ratios.
+ * Responsive across 1:1, 4:5, 9:16, 16:9 — no name/price clipping.
  */
 
 import React from "react";
@@ -23,16 +23,19 @@ import {
 import {
   PosterZoneStack,
   PosterImage,
-  PosterTitle,
   PosterMicroLabel,
-  TournamentHeader,
   posterSizes,
   POSTER_TOKENS,
 } from "../../rendering/poster-primitives";
+import type { BuzzBranding, BuzzSponsorMark } from "../../contracts/branding";
 import {
   formatSquadPlayerPrice,
   squadCounts,
   computeSquadRosterLayout,
+  fitTournamentTitleSize,
+  fitTeamTitleSize,
+  isMarqueePlayerTag,
+  squadTagTheme,
 } from "./TeamSquad.utils";
 import type { SquadRosterLayout } from "./TeamSquad.utils";
 import type { TeamSquadContract, TeamSquadPlayerEntry } from "./TeamSquad.types";
@@ -51,14 +54,14 @@ const SQUAD_GLOW_INTENSITY = 0.2;
 const SQUAD_PLAYER_GLOW = {
   radialBackground:
     "radial-gradient(circle, rgba(251,191,36,0.16) 0%, rgba(253,224,71,0.10) 34%, rgba(217,119,6,0.06) 54%, transparent 76%)",
-  ambientShadow:
-    "0 0 5px 2px rgba(251,191,36,0.11), 0 0 10px 4px rgba(217,119,6,0.07), 0 0 14px 6px rgba(251,191,36,0.04)",
   imageRing:
     "0 0 0 1px rgba(253,224,71,0.5), 0 0 4px rgba(251,191,36,0.14), 0 0 9px rgba(217,119,6,0.07)",
 } as const;
 
 const SQUAD_ROW_BACKGROUND =
   "linear-gradient(90deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.78) 100%)";
+
+const TOP_SOLD_ACCENT = "#F59E0B";
 
 export function TeamSquad(props: TeamSquadProps) {
   const renderCtx = pickRenderContext(props);
@@ -106,6 +109,7 @@ export function TeamSquad(props: TeamSquadProps) {
           players={players}
           accent={accent}
           currency={props.currency}
+          branding={props.branding}
         />
       </BidwarCanvas>
     );
@@ -120,6 +124,7 @@ export function TeamSquad(props: TeamSquadProps) {
         tournamentLogoUrl={tournamentLogoUrl}
         players={players}
         accent={accent}
+        branding={props.branding}
       />
     </BidwarCanvas>
   );
@@ -134,6 +139,7 @@ function TeamSquadPoster({
   players,
   accent,
   currency,
+  branding,
 }: {
   ctx: BuzzRenderContext;
   displayName: string;
@@ -143,6 +149,7 @@ function TeamSquadPoster({
   players: TeamSquadPlayerEntry[];
   accent: string;
   currency?: string;
+  branding?: BuzzBranding;
 }) {
   const layout = getTemplateLayout(BuzzTemplateType.TEAM_SQUAD, ctx.aspectRatio);
   const zones = layout?.zones ?? {};
@@ -153,14 +160,25 @@ function TeamSquadPoster({
   const counts = squadCounts({ players } as TeamSquadContract);
   const rosterLayout = computeSquadRosterLayout(ctx, players, currency);
   const rowGap = rosterLayout.rowGap;
+  const contentWidth = Math.round(ctx.renderWidth * 0.9);
+
+  const sponsorBarEl = (
+    <SquadSponsorBar
+      titleSponsor={branding?.titleSponsor}
+      coSponsors={branding?.coSponsors}
+      height={landscape ? Math.round(ctx.renderHeight * 0.055) : Math.round(ctx.renderHeight * 0.038)}
+      width={ctx.renderWidth}
+    />
+  );
 
   const headerEl = (
-    <TournamentHeader
+    <SquadTournamentHeader
       logoUrl={tournamentLogoUrl}
       name={tournamentName}
-      logoSize={Math.round(sizes.tournLogoSize * (landscape ? 0.9 : 0.82))}
-      nameSize={sizes.tournNameSize}
+      logoSize={Math.round(sizes.tournLogoSize * (landscape ? 0.75 : 0.7))}
+      preferredNameSize={sizes.tournNameSize}
       microSize={sizes.microSize}
+      availableWidth={contentWidth}
     />
   );
 
@@ -170,11 +188,12 @@ function TeamSquadPoster({
       teamLogoUrl={teamLogoUrl}
       accent={accent}
       counts={counts}
-      logoSize={landscape ? Math.round(sizes.teamLogoSize * 0.48) : Math.round(sizes.teamLogoSize * 0.36)}
-      titleSize={landscape ? Math.round(sizes.titleSize * 0.36) : Math.round(sizes.titleSize * 0.32)}
+      logoSize={landscape ? Math.round(sizes.teamLogoSize * 0.42) : Math.round(sizes.teamLogoSize * 0.34)}
+      preferredTitleSize={landscape ? Math.round(sizes.titleSize * 0.42) : Math.round(sizes.titleSize * 0.4)}
       microSize={sizes.microSize}
       bodySize={bodySize}
       landscape={landscape}
+      availableWidth={landscape ? Math.round(ctx.renderWidth * 0.28) : contentWidth}
       compact={ctx.aspectRatio === "9:16" && players.length >= 8}
     />
   );
@@ -191,6 +210,7 @@ function TeamSquadPoster({
   if (landscape) {
     return (
       <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", flex: 1, minHeight: 0 }}>
+        {sponsorBarEl}
         <PosterZoneStack spec={{ ...zones.tournamentLogo, align: "center" }} ctx={ctx}>
           {headerEl}
         </PosterZoneStack>
@@ -208,10 +228,11 @@ function TeamSquadPoster({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", flex: 1, minHeight: 0, overflow: "hidden" }}>
-      <PosterZoneStack spec={{ ...zones.tournamentLogo, minHeightRatio: landscape ? 0.1 : 0.09, align: "center" }} ctx={ctx}>
+      {sponsorBarEl}
+      <PosterZoneStack spec={{ ...zones.tournamentLogo, minHeightRatio: 0.08, align: "center" }} ctx={ctx}>
         {headerEl}
       </PosterZoneStack>
-      <PosterZoneStack spec={{ ...zones.teamLogo, flex: 0, minHeightRatio: landscape ? 0 : 0.11, align: "center" }} ctx={ctx}>
+      <PosterZoneStack spec={{ ...zones.teamLogo, flex: 0, minHeightRatio: 0.12, align: "center" }} ctx={ctx}>
         {teamHeaderEl}
       </PosterZoneStack>
       <PosterZoneStack spec={{ ...zones.roster, flex: 1, align: "stretch", justify: "flex-start" }} ctx={ctx}>
@@ -221,16 +242,193 @@ function TeamSquadPoster({
   );
 }
 
+/* ─── Sponsors ───────────────────────────────────────────────────────────── */
+
+function SquadSponsorBar({
+  titleSponsor,
+  coSponsors,
+  height,
+  width,
+}: {
+  titleSponsor?: BuzzSponsorMark;
+  coSponsors?: BuzzSponsorMark[];
+  height: number;
+  width: number;
+}) {
+  const hasTitle = Boolean(titleSponsor?.url);
+  const cos = (coSponsors ?? []).filter((s) => s.url).slice(0, 3);
+  if (!hasTitle && cos.length === 0) return null;
+
+  const logoH = Math.max(18, Math.round(height * 0.85));
+  const padX = Math.round(width * 0.04);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "100%",
+        minHeight: height,
+        padding: `${Math.round(height * 0.15)}px ${padX}px`,
+        flexShrink: 0,
+        gap: Math.round(height * 0.4),
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: Math.round(height * 0.25), minWidth: 0, flex: 1 }}>
+        {hasTitle && titleSponsor ? (
+          <>
+            <span
+              style={{
+                fontFamily: PT.font,
+                fontSize: Math.max(7, Math.round(height * 0.28)),
+                fontWeight: 700,
+                color: PT.ghost,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                flexShrink: 0,
+              }}
+            >
+              Title
+            </span>
+            <img
+              src={titleSponsor.url}
+              alt={titleSponsor.name ?? "Title Sponsor"}
+              draggable={false}
+              style={{
+                height: logoH,
+                width: "auto",
+                maxWidth: Math.round(width * 0.22),
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </>
+        ) : (
+          <span />
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: Math.round(height * 0.35), minWidth: 0, flex: 1 }}>
+        {cos.length > 0 ? (
+          <>
+            <span
+              style={{
+                fontFamily: PT.font,
+                fontSize: Math.max(7, Math.round(height * 0.28)),
+                fontWeight: 700,
+                color: PT.ghost,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                flexShrink: 0,
+              }}
+            >
+              Co
+            </span>
+            {cos.map((sponsor, i) => (
+              <img
+                key={`${sponsor.url}-${i}`}
+                src={sponsor.url}
+                alt={sponsor.name ?? `Co Sponsor ${i + 1}`}
+                draggable={false}
+                style={{
+                  height: Math.round(logoH * 0.9),
+                  width: "auto",
+                  maxWidth: Math.round(width * 0.12),
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            ))}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Tournament header (2-line, 80% size) ───────────────────────────────── */
+
+function SquadTournamentHeader({
+  logoUrl,
+  name,
+  logoSize,
+  preferredNameSize,
+  microSize,
+  availableWidth,
+}: {
+  logoUrl?: string | null;
+  name?: string | null;
+  logoSize: number;
+  preferredNameSize: number;
+  microSize: number;
+  availableWidth: number;
+}) {
+  const hasLogo = Boolean(logoUrl);
+  const hasName = Boolean(name?.trim());
+  if (!hasLogo && !hasName) return null;
+
+  const nameSize = hasName
+    ? fitTournamentTitleSize(name!, availableWidth * 0.92, preferredNameSize, 2)
+    : preferredNameSize;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: Math.round(microSize * 0.45),
+        width: "100%",
+      }}
+    >
+      {hasLogo ? (
+        <PosterImage name={name ?? "Tournament"} url={logoUrl} size={logoSize} kind="tournament" />
+      ) : null}
+      {hasName ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: Math.round(microSize * 0.35), width: "100%" }}>
+          <h2
+            style={{
+              margin: 0,
+              fontFamily: PT.font,
+              fontSize: `${nameSize}px`,
+              fontWeight: 800,
+              color: PT.white,
+              letterSpacing: "0.06em",
+              lineHeight: 1.15,
+              textTransform: "uppercase",
+              textAlign: "center",
+              maxWidth: "100%",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              wordBreak: "break-word",
+            }}
+          >
+            {name}
+          </h2>
+          <PosterMicroLabel size={microSize} gold>
+            PRESENTS
+          </PosterMicroLabel>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ─── Team header ────────────────────────────────────────────────────────── */
+
 function TeamSquadHeader({
   displayName,
   teamLogoUrl,
   accent,
   counts,
   logoSize,
-  titleSize,
+  preferredTitleSize,
   microSize,
   bodySize,
   landscape,
+  availableWidth,
   compact = false,
 }: {
   displayName: string;
@@ -238,21 +436,24 @@ function TeamSquadHeader({
   accent: string;
   counts: { sold: number; retained: number; total: number };
   logoSize: number;
-  titleSize: number;
+  preferredTitleSize: number;
   microSize: number;
   bodySize: number;
   landscape: boolean;
+  availableWidth: number;
   compact?: boolean;
 }) {
+  const titleSize = fitTeamTitleSize(displayName, availableWidth * 0.95, preferredTitleSize, 2);
+
   return (
     <div
       style={{
         display: "flex",
-        flexDirection: landscape ? "column" : "row",
-        alignItems: landscape ? "center" : "center",
-        gap: Math.round(microSize * (compact ? 0.9 : 1.2)),
+        flexDirection: landscape ? "column" : "column",
+        alignItems: "center",
+        gap: Math.round(microSize * (compact ? 0.7 : 1.0)),
         width: "100%",
-        padding: `${Math.round(microSize * 0.35)}px 0`,
+        padding: `${Math.round(microSize * 0.25)}px 0`,
       }}
     >
       <div
@@ -280,25 +481,52 @@ function TeamSquadHeader({
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: landscape ? "center" : "flex-start",
-          gap: Math.round(microSize * 0.5),
+          alignItems: "center",
+          gap: Math.round(microSize * 0.45),
           minWidth: 0,
-          flex: landscape ? undefined : 1,
+          width: "100%",
         }}
       >
         <PosterMicroLabel size={microSize} gold>
           FULL SQUAD
         </PosterMicroLabel>
-        <PosterTitle size={titleSize} align={landscape ? "center" : "left"}>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: PT.font,
+            fontSize: `${titleSize}px`,
+            fontWeight: 900,
+            color: PT.white,
+            letterSpacing: "0.05em",
+            lineHeight: 1.1,
+            textTransform: "uppercase",
+            textAlign: "center",
+            maxWidth: "100%",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            wordBreak: "break-word",
+          }}
+        >
           {displayName}
-        </PosterTitle>
-        <div style={{ display: "flex", gap: Math.round(microSize * 0.8), flexWrap: "wrap", justifyContent: landscape ? "center" : "flex-start" }}>
-          <SquadCountPill label="TOTAL" value={counts.total} accent={accent} size={bodySize} />
+        </h1>
+        <div
+          style={{
+            display: "flex",
+            gap: Math.round(microSize * 0.7),
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
           {counts.sold > 0 ? (
             <SquadCountPill label="SOLD" value={counts.sold} accent={PT.gold} size={bodySize} />
           ) : null}
           {counts.retained > 0 ? (
             <SquadCountPill label="RETAINED" value={counts.retained} accent="#22C55E" size={bodySize} />
+          ) : null}
+          {counts.sold === 0 && counts.retained === 0 ? (
+            <SquadCountPill label="TOTAL" value={counts.total} accent={accent} size={bodySize} />
           ) : null}
         </div>
       </div>
@@ -355,6 +583,8 @@ function SquadCountPill({
   );
 }
 
+/* ─── Roster ─────────────────────────────────────────────────────────────── */
+
 function SquadRosterGrid({
   players,
   rosterLayout,
@@ -403,11 +633,20 @@ function SquadPlayerAvatar({
   name,
   url,
   size,
+  glowColor,
+  glowRing,
 }: {
   name: string;
   url?: string | null;
   size: number;
+  glowColor?: string;
+  glowRing?: string;
 }) {
+  const radial = glowColor
+    ? `radial-gradient(circle, ${glowColor} 0%, transparent 72%)`
+    : SQUAD_PLAYER_GLOW.radialBackground;
+  const ring = glowRing ?? SQUAD_PLAYER_GLOW.imageRing;
+
   const imgStyle: React.CSSProperties = {
     width: size,
     height: size,
@@ -416,7 +655,7 @@ function SquadPlayerAvatar({
     display: "block",
     flexShrink: 0,
     borderRadius: "50%",
-    boxShadow: SQUAD_PLAYER_GLOW.imageRing,
+    boxShadow: ring,
   };
 
   const content = url ? (
@@ -455,10 +694,10 @@ function SquadPlayerAvatar({
         aria-hidden
         style={{
           position: "absolute",
-          inset: "-10%",
+          inset: "-14%",
           borderRadius: "50%",
-          background: SQUAD_PLAYER_GLOW.radialBackground,
-          filter: `blur(${Math.max(4, Math.round(size * 0.06 * SQUAD_GLOW_INTENSITY * 5))}px)`,
+          background: radial,
+          filter: `blur(${Math.max(4, Math.round(size * 0.08 * (glowColor ? 1.4 : SQUAD_GLOW_INTENSITY * 5)))}px)`,
           pointerEvents: "none",
         }}
       />
@@ -482,50 +721,81 @@ function SquadPlayerRow({
   const isRetained = player.status === "retained";
   const statusColor = isRetained ? "#22C55E" : PT.gold;
   const statusLabel = isRetained ? "RETAINED" : "SOLD";
+  const tagTheme = squadTagTheme(player.playerTag);
+  const isMarquee = isMarqueePlayerTag(player.playerTag);
+  const isTopSold = player.isTopSold === true;
+
+  let rowBorder = `1px solid rgba(255,255,255,0.08)`;
+  let rowShadow: string | undefined;
+  let avatarGlow: string | undefined;
+  let avatarRing: string | undefined;
+
+  if (isMarquee && tagTheme) {
+    rowBorder = `1px solid ${tagTheme.border}`;
+    rowShadow = `0 0 10px ${tagTheme.glow}`;
+    avatarGlow = tagTheme.glow;
+    avatarRing = `0 0 0 1.5px ${tagTheme.color}, 0 0 8px ${tagTheme.glow}`;
+  } else if (player.isCaptain) {
+    rowBorder = `1px solid ${accent}66`;
+    rowShadow = `0 0 8px ${accent}22`;
+  } else if (isTopSold) {
+    rowBorder = `1px solid ${TOP_SOLD_ACCENT}55`;
+    rowShadow = `0 0 6px ${TOP_SOLD_ACCENT}18`;
+    avatarRing = `0 0 0 1px ${TOP_SOLD_ACCENT}88, 0 0 5px ${TOP_SOLD_ACCENT}33`;
+  }
 
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        gap: Math.round(rosterLayout.rowPaddingX * 0.8),
+        gap: Math.round(rosterLayout.rowPaddingX * 0.7),
         padding: `${rosterLayout.rowPaddingY}px ${rosterLayout.rowPaddingX}px`,
         minHeight: rosterLayout.rowMinHeight,
         borderRadius: Math.round(rosterLayout.metaSize * 0.65),
-        background: SQUAD_ROW_BACKGROUND,
-        border: `1px solid ${player.isCaptain ? `${accent}66` : "rgba(255,255,255,0.08)"}`,
-        boxShadow: player.isCaptain ? `0 0 8px ${accent}22` : undefined,
+        background: isTopSold && !isMarquee
+          ? `linear-gradient(90deg, rgba(245,158,11,0.12) 0%, rgba(0,0,0,0.72) 55%)`
+          : SQUAD_ROW_BACKGROUND,
+        border: rowBorder,
+        boxShadow: rowShadow,
         minWidth: 0,
         width: "100%",
+        overflow: "hidden",
       }}
     >
       <SquadPlayerAvatar
         name={player.playerName}
         url={player.playerImageUrl}
         size={rosterLayout.avatarSize}
+        glowColor={avatarGlow}
+        glowRing={avatarRing}
       />
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: Math.round(rosterLayout.metaSize * 0.2),
+          gap: Math.round(rosterLayout.metaSize * 0.18),
           minWidth: 0,
           flex: "1 1 0",
           overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: Math.round(rosterLayout.metaSize * 0.35), minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: Math.round(rosterLayout.metaSize * 0.3), minWidth: 0 }}>
           <span
             style={{
               fontFamily: PT.font,
               fontSize: rosterLayout.nameSize,
               fontWeight: 800,
               color: PT.white,
-              letterSpacing: "0.03em",
-              lineHeight: 1.1,
+              letterSpacing: "0.02em",
+              lineHeight: 1.15,
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
               flex: 1,
               minWidth: 0,
             }}
@@ -539,7 +809,7 @@ function SquadPlayerRow({
                 fontSize: Math.max(7, rosterLayout.metaSize - 1),
                 fontWeight: 800,
                 color: accent,
-                letterSpacing: "0.12em",
+                letterSpacing: "0.1em",
                 flexShrink: 0,
               }}
             >
@@ -547,22 +817,27 @@ function SquadPlayerRow({
             </span>
           ) : null}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: Math.round(rosterLayout.metaSize * 0.35), minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: Math.round(rosterLayout.metaSize * 0.3), minWidth: 0, flexWrap: "wrap" }}>
           <StatusPill label={statusLabel} color={statusColor} size={rosterLayout.metaSize} />
-          {player.designation ? (
+          {isMarquee && tagTheme ? (
+            <StatusPill label={tagTheme.label.toUpperCase()} color={tagTheme.color} size={rosterLayout.metaSize} />
+          ) : null}
+          {isTopSold && player.topSoldRank ? (
+            <StatusPill label={`TOP ${player.topSoldRank}`} color={TOP_SOLD_ACCENT} size={rosterLayout.metaSize} />
+          ) : null}
+          {player.designation && !isMarquee ? (
             <span
               style={{
                 fontFamily: PT.font,
                 fontSize: rosterLayout.metaSize,
                 fontWeight: 600,
                 color: PT.ghost,
-                letterSpacing: "0.08em",
+                letterSpacing: "0.06em",
                 textTransform: "uppercase",
+                whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flex: 1,
-                minWidth: 0,
+                maxWidth: "40%",
               }}
             >
               {player.designation}
@@ -575,12 +850,12 @@ function SquadPlayerRow({
           style={{
             flex: "0 0 auto",
             flexShrink: 0,
+            width: rosterLayout.priceAreaWidth,
             minWidth: rosterLayout.priceAreaWidth,
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-end",
-            paddingLeft: Math.round(rosterLayout.rowPaddingX * 0.5),
-            overflow: "visible",
+            paddingLeft: Math.round(rosterLayout.rowPaddingX * 0.35),
           }}
         >
           <span
@@ -607,7 +882,7 @@ function SquadPlayerRow({
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-end",
-            paddingLeft: Math.round(rosterLayout.rowPaddingX * 0.5),
+            paddingLeft: Math.round(rosterLayout.rowPaddingX * 0.35),
           }}
         >
           <span
@@ -636,8 +911,8 @@ function StatusPill({ label, color, size }: { label: string; color: string; size
         fontSize: Math.max(7, size - 2),
         fontWeight: 800,
         color,
-        letterSpacing: "0.14em",
-        padding: `${Math.round(size * 0.15)}px ${Math.round(size * 0.4)}px`,
+        letterSpacing: "0.12em",
+        padding: `${Math.round(size * 0.12)}px ${Math.round(size * 0.35)}px`,
         borderRadius: 4,
         border: `1px solid ${color}55`,
         background: `${color}18`,
@@ -650,6 +925,8 @@ function StatusPill({ label, color, size }: { label: string; color: string; size
   );
 }
 
+/* ─── Legacy preview (no export frame) ───────────────────────────────────── */
+
 function TeamSquadLegacy({
   displayName,
   teamLogoUrl,
@@ -657,6 +934,7 @@ function TeamSquadLegacy({
   tournamentLogoUrl,
   players,
   accent,
+  branding,
 }: {
   displayName: string;
   teamLogoUrl?: string | null;
@@ -664,36 +942,52 @@ function TeamSquadLegacy({
   tournamentLogoUrl?: string | null;
   players: TeamSquadPlayerEntry[];
   accent: string;
+  branding?: BuzzBranding;
 }) {
   const counts = squadCounts({ players } as TeamSquadContract);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: 16, padding: "8px 0" }}>
-      <TournamentHeader logoUrl={tournamentLogoUrl} name={tournamentName} logoSize={56} nameSize={14} microSize={9} />
+      <SquadSponsorBar
+        titleSponsor={branding?.titleSponsor}
+        coSponsors={branding?.coSponsors}
+        height={36}
+        width={480}
+      />
+      <SquadTournamentHeader
+        logoUrl={tournamentLogoUrl}
+        name={tournamentName}
+        logoSize={56}
+        preferredNameSize={14}
+        microSize={9}
+        availableWidth={440}
+      />
       <TeamSquadHeader
         displayName={displayName}
         teamLogoUrl={teamLogoUrl}
         accent={accent}
         counts={counts}
         logoSize={72}
-        titleSize={26}
+        preferredTitleSize={28}
         microSize={9}
         bodySize={13}
         landscape={false}
+        availableWidth={440}
       />
       <SquadRosterGrid
         players={players}
         rosterLayout={{
-          columns: players.length > 8 ? 2 : 1,
+          columns: players.length >= 5 ? 2 : 1,
           avatarSize: 36,
           rowGap: 8,
           rowPaddingY: 6,
           rowPaddingX: 8,
-          nameSize: 16,
-          priceSize: 30,
+          nameSize: 14,
+          priceSize: 22,
           metaSize: 9,
           rowMinHeight: 52,
-          priceAreaWidth: 120,
+          priceAreaWidth: 100,
+          nameAreaWidth: 140,
         }}
         accent={accent}
       />

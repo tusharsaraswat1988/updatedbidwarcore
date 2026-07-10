@@ -137,6 +137,7 @@ export type {
   ContractTeamInfo,
   ContractPriceInfo,
   BuzzBranding,
+  BuzzSponsorMark,
   PlayerSpotlightContract,
   SoldPlayerContract,
   TopBuyContract,

@@ -101,6 +101,9 @@ const PLAYER_TAG_LABELS: Record<string, string> = {
   vice_captain: "Vice Captain",
   owner: "Owner",
   co_owner: "Co-Owner",
+  booster: "Booster",
+  icon: "Icon",
+  star_player: "Star Player",
 };
 
 export function resolvePlayerDesignation(player: Player): string | undefined {

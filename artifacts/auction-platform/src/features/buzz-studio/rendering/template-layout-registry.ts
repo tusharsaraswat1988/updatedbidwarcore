@@ -124,9 +124,9 @@ const TEAM_SQUAD_LAYOUTS: TemplateLayoutDefinition[] = layoutForEachRatio(
     const landscape = ratio === "16:9";
     const tall = ratio === "9:16";
     return {
-      tournamentLogo: { flex: 0, minHeightRatio: landscape ? 0.1 : tall ? 0.09 : 0.1, align: "center" },
+      tournamentLogo: { flex: 0, minHeightRatio: landscape ? 0.09 : tall ? 0.08 : 0.09, align: "center" },
       tournamentName: { flex: 0, minHeightRatio: 0.03, align: "center" },
-      teamLogo: { flex: 0, minHeightRatio: landscape ? 0 : tall ? 0.1 : 0.12, align: "center" },
+      teamLogo: { flex: 0, minHeightRatio: landscape ? 0 : tall ? 0.11 : 0.13, align: "center" },
       teamName: { flex: 0, minHeightRatio: 0.04, align: "center" },
       roster: { flex: 1, align: "stretch", justify: "flex-start" },
       footerBranding: { flex: 0, minHeightRatio: 0.05, align: "center" },
