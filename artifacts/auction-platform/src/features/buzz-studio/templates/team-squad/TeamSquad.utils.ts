@@ -7,32 +7,18 @@
 
 import type { TeamSquadContract, TeamSquadPlayerEntry } from "./TeamSquad.types";
 import type { BuzzAspectRatio, BuzzRenderContext } from "../../rendering/buzz-render-context";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "₹",
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-};
-
-function formatINR(amount: number): string {
-  const intStr = Math.round(amount).toString();
-  if (intStr.length <= 3) return `₹${intStr}`;
-  const lastThree = intStr.slice(-3);
-  const remaining = intStr.slice(0, -3);
-  const grouped = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
-  return `₹${grouped},${lastThree}`;
-}
+import {
+  formatBuzzPrice,
+  resolveBuzzAuctionUnit,
+} from "../../lib/format-buzz-price";
 
 export function formatSquadPlayerPrice(
   entry: TeamSquadPlayerEntry,
-  currency = "INR",
+  unitOrCurrency = "rupee",
 ): string | null {
   if (entry.priceDisplay) return entry.priceDisplay;
   if (entry.price == null) return null;
-  if (currency === "INR") return formatINR(entry.price);
-  const symbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
-  return `${symbol}${Math.round(entry.price).toLocaleString("en-US")}`;
+  return formatBuzzPrice(entry.price, resolveBuzzAuctionUnit(unitOrCurrency));
 }
 
 export function squadCounts(contract: TeamSquadContract): {
@@ -117,11 +103,11 @@ function fitFontToWidth(
 
 export function longestSquadPriceLength(
   players: TeamSquadPlayerEntry[],
-  currency = "INR",
+  unitOrCurrency = "rupee",
 ): number {
   let max = 5;
   for (const player of players) {
-    const formatted = formatSquadPlayerPrice(player, currency);
+    const formatted = formatSquadPlayerPrice(player, unitOrCurrency);
     if (formatted) max = Math.max(max, formatted.length);
   }
   return max;
@@ -142,7 +128,7 @@ function longestSquadNameLength(players: TeamSquadPlayerEntry[]): number {
 export function computeSquadRosterLayout(
   ctx: BuzzRenderContext,
   players: TeamSquadPlayerEntry[],
-  currency = "INR",
+  unitOrCurrency = "rupee",
 ): SquadRosterLayout {
   const playerCount = Math.max(1, players.length);
   const landscape = ctx.aspectRatio === "16:9";
@@ -175,7 +161,7 @@ export function computeSquadRosterLayout(
   const priceAreaWidth = Math.max(56, Math.round(contentWidth * 0.48));
 
   const maxNameChars = longestSquadNameLength(players);
-  const maxPriceChars = longestSquadPriceLength(players, currency);
+  const maxPriceChars = longestSquadPriceLength(players, unitOrCurrency);
 
   // Names may wrap to 2 lines — fit against ~1.85× single-line width budget.
   const preferredName = Math.max(11, Math.round(rowMinHeight * 0.28));

@@ -108,7 +108,7 @@ export function TeamSquad(props: TeamSquadProps) {
           tournamentLogoUrl={tournamentLogoUrl}
           players={players}
           accent={accent}
-          currency={props.currency}
+          currency={props.auctionUnit ?? props.currency}
           branding={props.branding}
         />
       </BidwarCanvas>

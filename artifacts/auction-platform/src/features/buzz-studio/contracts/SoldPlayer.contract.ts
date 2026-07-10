@@ -18,13 +18,20 @@ export interface SoldPlayerContract
     ContractTeamInfo,
     ContractSportInfo {
   /**
-   * Final hammer price (numeric, full unit — e.g. rupees, not paise).
+   * Final hammer price (numeric, full unit — e.g. rupees or points).
    * Required. Displayed as the primary value in the template.
    */
   soldPrice: number;
 
   /**
-   * ISO 4217 currency code or display symbol.
+   * Tournament auction unit — "rupee" | "points".
+   * Prefer this over `currency` for display formatting.
+   * @default "rupee"
+   */
+  auctionUnit?: string;
+
+  /**
+   * Legacy currency code ("INR" | "points"). Prefer `auctionUnit`.
    * @default "INR"
    */
   currency?: string;

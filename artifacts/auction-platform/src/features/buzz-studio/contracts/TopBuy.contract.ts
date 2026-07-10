@@ -24,12 +24,19 @@ export interface TopBuyContract
 
   /**
    * Pre-formatted price string for direct display.
-   * e.g. "₹42L", "₹1.2Cr"
+   * e.g. "₹42L", "1.2L Pt."
    */
   priceDisplay?: string;
 
   /**
-   * ISO 4217 currency code or display symbol.
+   * Tournament auction unit — "rupee" | "points".
+   * Prefer this over `currency` for display formatting.
+   * @default "rupee"
+   */
+  auctionUnit?: string;
+
+  /**
+   * Legacy currency code ("INR" | "points"). Prefer `auctionUnit`.
    * @default "INR"
    */
   currency?: string;

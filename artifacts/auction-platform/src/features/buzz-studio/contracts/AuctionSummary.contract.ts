@@ -34,12 +34,19 @@ export interface AuctionSummaryContract extends ContractSportInfo {
 
   /**
    * Pre-formatted total spend string.
-   * e.g. "₹12.4Cr"
+   * e.g. "₹12.4Cr" or "12.4L Pt."
    */
   totalSpendDisplay?: string;
 
   /**
-   * ISO 4217 currency code or display symbol.
+   * Tournament auction unit — "rupee" | "points".
+   * Prefer this over `currency` for display formatting.
+   * @default "rupee"
+   */
+  auctionUnit?: string;
+
+  /**
+   * Legacy currency code ("INR" | "points"). Prefer `auctionUnit`.
    * @default "INR"
    */
   currency?: string;

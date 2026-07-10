@@ -54,6 +54,7 @@ function mapSoldPlayerContract(
     teamLogoUrl: optionalUrl(team?.logoUrl),
     sport: snapshot.sport,
     soldPrice: player.soldPrice!,
+    auctionUnit: snapshot.auctionUnit,
     currency: snapshot.currency,
     bidCount: bidCount && bidCount > 0 ? bidCount : undefined,
     designation: resolvePlayerDesignation(player),

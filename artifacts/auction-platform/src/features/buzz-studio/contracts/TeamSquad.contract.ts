@@ -45,6 +45,13 @@ export interface TeamSquadContract extends ContractTeamInfo, ContractSportInfo {
    */
   currency?: string;
 
+  /**
+   * Tournament auction unit — "rupee" | "points".
+   * Prefer this over `currency` for display formatting.
+   * @default "rupee"
+   */
+  auctionUnit?: string;
+
   branding?: BuzzBranding;
 
   metadata?: ContractMetadata;

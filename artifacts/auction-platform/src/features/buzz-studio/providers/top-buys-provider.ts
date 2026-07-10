@@ -63,6 +63,7 @@ function mapTopBuyEntry(
     teamLogoUrl: optionalUrl(team?.logoUrl),
     sport: snapshot.sport,
     price: player.soldPrice!,
+    auctionUnit: snapshot.auctionUnit,
     currency: snapshot.currency,
     rank,
     designation: resolvePlayerDesignation(player),

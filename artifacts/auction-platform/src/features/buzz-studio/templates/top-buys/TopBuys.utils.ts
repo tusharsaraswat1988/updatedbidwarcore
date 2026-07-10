@@ -2,72 +2,36 @@
  * Buzz Studio — Top Buys Template Utilities
  *
  * Pure functions for formatting top-buy entry display values.
- * No React. No side effects. No auction imports.
- *
- * Price formatting algorithm: identical to formatSoldPrice() in
- * sold-player/SoldPlayer.utils.ts. Field names differ between contracts:
- *   TopBuyContract    → price, priceDisplay, currency
- *   SoldPlayerContract → soldPrice, soldPriceDisplay, currency
- *
- * The shared algorithm lives here rather than importing the sold-player
- * util directly to avoid cross-template coupling.
+ * No React. No side effects.
  */
 
 import type { TopBuyContract } from "./TopBuys.types";
-
-/* ─── Currency symbols ───────────────────────────────────────────────────── */
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "₹",
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-  AUD: "A$",
-  CAD: "C$",
-};
-
-/* ─── Indian number grouping ─────────────────────────────────────────────── */
-
-/**
- * Format a number using Indian grouping (same logic as SoldPlayer.utils#formatINR).
- * 75000   → "₹75,000"
- * 500000  → "₹5,00,000"
- * 4200000 → "₹42,00,000"
- */
-function formatINR(amount: number): string {
-  const intStr = Math.round(amount).toString();
-  if (intStr.length <= 3) return `₹${intStr}`;
-  const lastThree = intStr.slice(-3);
-  const remaining = intStr.slice(0, -3);
-  const grouped = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
-  return `₹${grouped},${lastThree}`;
-}
-
-function formatWithCurrency(amount: number, currency: string): string {
-  if (currency === "INR") return formatINR(amount);
-  const symbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
-  return `${symbol}${Math.round(amount).toLocaleString("en-US")}`;
-}
-
-/* ─── Public helpers ─────────────────────────────────────────────────────── */
+import {
+  formatBuzzPrice,
+  resolveBuzzUnitFromContract,
+} from "../../lib/format-buzz-price";
 
 /**
  * Resolve the display price string for a TopBuyContract entry.
  *
  * Resolution order:
  *   1. `priceDisplay` — pre-formatted string (e.g. "₹42L")
- *   2. Format `price` using `currency` (defaults to "INR")
+ *   2. Format `price` using tournament auction unit (rupee → ₹, points → Pt.)
  *
  * @example
- * formatTopBuyPrice({ price: 500000 })
+ * formatTopBuyPrice({ price: 500000, auctionUnit: "rupee" })
  * // → "₹5,00,000"
+ *
+ * formatTopBuyPrice({ price: 500000, auctionUnit: "points" })
+ * // → "5,00,000 Pt."
  *
  * formatTopBuyPrice({ price: 4200000, priceDisplay: "₹42L" })
  * // → "₹42L"
  */
 export function formatTopBuyPrice(entry: TopBuyContract): string {
   if (entry.priceDisplay) return entry.priceDisplay;
-  return formatWithCurrency(entry.price, entry.currency ?? "INR");
+  const unit = resolveBuzzUnitFromContract(entry);
+  return formatBuzzPrice(entry.price, unit);
 }
 
 /**

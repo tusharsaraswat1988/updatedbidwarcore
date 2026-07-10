@@ -128,6 +128,14 @@ export { formatTopBuyPrice, resolveRank, compactGridCols } from "./templates/top
 export { TeamSquad } from "./templates/team-squad/TeamSquad";
 export { formatSquadPlayerPrice, rosterGridColumns, squadCounts, computeSquadRosterLayout } from "./templates/team-squad/TeamSquad.utils";
 
+export {
+  formatBuzzPrice,
+  resolveBuzzAuctionUnit,
+  resolveBuzzUnitFromContract,
+  currencyCodeForAuctionUnit,
+} from "./lib/format-buzz-price";
+export type { AuctionUnit as BuzzAuctionUnit } from "./lib/format-buzz-price";
+
 /* ─── Contracts ────────────────────────────────────────────────────────── */
 
 export type {

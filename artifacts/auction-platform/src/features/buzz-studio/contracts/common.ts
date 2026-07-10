@@ -71,21 +71,27 @@ export interface ContractTeamInfo {
 /* ─── Price / Currency ───────────────────────────────────────────────────── */
 
 /**
- * Monetary value with optional currency code.
+ * Monetary value with optional auction unit / currency code.
  * Used in sold cards, top-buy lists, and auction summaries.
  */
 export interface ContractPriceInfo {
-  /** Numeric value in the smallest logical unit (e.g. full rupees, not paise). */
+  /** Numeric value in the smallest logical unit (e.g. full rupees or points). */
   amount: number;
   /**
-   * ISO 4217 currency code or a display symbol.
+   * Tournament auction unit — "rupee" | "points".
+   * Prefer this over `currency` for display formatting.
+   * @default "rupee"
+   */
+  auctionUnit?: string;
+  /**
+   * Legacy currency code ("INR" | "points"). Prefer `auctionUnit`.
    * @default "INR"
    */
   currency?: string;
   /**
    * Pre-formatted display string.
    * When provided, templates use this directly instead of formatting `amount`.
-   * e.g. "₹42,00,000" or "₹42L"
+   * e.g. "₹42,00,000" or "1,65,000 Pt."
    */
   displayValue?: string;
 }

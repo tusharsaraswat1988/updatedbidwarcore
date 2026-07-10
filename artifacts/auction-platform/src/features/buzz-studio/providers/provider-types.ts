@@ -15,11 +15,13 @@ import {
   listBids,
 } from "@workspace/api-client-react";
 import type { Bid, Player, Team, Tournament } from "@workspace/api-client-react";
+import { normalizeAuctionUnit, type AuctionUnit } from "@workspace/api-base/auction-unit";
 import { SportType } from "../types/sport-types";
 import {
   brandingContextFromTournament,
   type BuzzStudioBrandingContext,
 } from "./contract-branding";
+import { currencyCodeForAuctionUnit } from "../lib/format-buzz-price";
 
 export {
   buildContractBranding,
@@ -32,6 +34,12 @@ export {
 export interface BuzzStudioTournamentSnapshot extends BuzzStudioBrandingContext {
   tournamentId: number;
   sport: SportType;
+  /** Tournament auction unit — drives ₹ vs Pt. on all creatives. */
+  auctionUnit: AuctionUnit;
+  /**
+   * Legacy currency code derived from auctionUnit ("INR" | "points").
+   * Prefer `auctionUnit` for new code.
+   */
   currency: string;
   players: Player[];
   teams: Team[];
@@ -65,11 +73,13 @@ export function snapshotFromTournamentData(
   teams: Team[],
   bids: Bid[],
 ): BuzzStudioTournamentSnapshot {
+  const auctionUnit = normalizeAuctionUnit(tournament.auctionUnit);
   return {
     tournamentId: tournament.id,
     ...brandingContextFromTournament(tournament),
     sport: toSportType(tournament.sport),
-    currency: "INR",
+    auctionUnit,
+    currency: currencyCodeForAuctionUnit(auctionUnit),
     players,
     teams,
     bids,

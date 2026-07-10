@@ -47,6 +47,7 @@ function mapTeamRevealContract(
     captainImageUrl: optionalUrl(captain?.photoUrl),
     playerCount: playerCount > 0 ? playerCount : undefined,
     totalSpend,
+    auctionUnit: snapshot.auctionUnit,
     currency: snapshot.currency,
     branding,
     metadata,

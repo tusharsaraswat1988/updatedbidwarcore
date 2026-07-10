@@ -39,12 +39,19 @@ export interface TeamRevealContract extends ContractTeamInfo, ContractSportInfo 
 
   /**
    * Pre-formatted total spend string.
-   * e.g. "₹3.2Cr"
+   * e.g. "₹3.2Cr" or "3.2L Pt."
    */
   totalSpendDisplay?: string;
 
   /**
-   * Currency code.
+   * Tournament auction unit — "rupee" | "points".
+   * Prefer this over `currency` for display formatting.
+   * @default "rupee"
+   */
+  auctionUnit?: string;
+
+  /**
+   * Legacy currency code ("INR" | "points"). Prefer `auctionUnit`.
    * @default "INR"
    */
   currency?: string;
