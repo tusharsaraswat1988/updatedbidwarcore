@@ -1295,7 +1295,7 @@ export default function TournamentSettings() {
                     </Select>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed sm:pb-2">
-                    Applies to LED, OBS, owner app, and reports.
+                    Applies to LED, OBS, owner app, reports, and Buzz Studio creatives.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

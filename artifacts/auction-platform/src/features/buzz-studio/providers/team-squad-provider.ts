@@ -109,6 +109,7 @@ function mapTeamSquadContract(
     sport: snapshot.sport,
     players: sortSquadPlayers(squadPlayers),
     currency: snapshot.currency,
+    auctionUnit: snapshot.auctionUnit,
     branding,
     metadata,
   };

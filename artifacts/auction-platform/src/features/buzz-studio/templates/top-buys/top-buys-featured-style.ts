@@ -27,7 +27,8 @@ export const FEATURED_AMOUNT_SHADOW =
 export const FEATURED_NAME_SHADOW = "0 1px 3px rgba(0, 0, 0, 0.45)";
 
 /**
- * Featured poster price — space after ₹ like reference: "₹ 1,20,000"
+ * Featured poster price — space after ₹ like reference: "₹ 1,20,000".
+ * Points amounts ("1,20,000 Pt.") are left unchanged.
  */
 export function formatFeaturedTopBuyPrice(priceDisplay: string): string {
   if (priceDisplay.startsWith("₹") && !priceDisplay.startsWith("₹ ")) {
