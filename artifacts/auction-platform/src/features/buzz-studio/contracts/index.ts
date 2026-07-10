@@ -8,7 +8,7 @@ export type {
 } from "./common";
 
 /* ─── Branding ────────────────────────────────────────────────────────── */
-export type { BuzzBranding } from "./branding";
+export type { BuzzBranding, BuzzSponsorMark } from "./branding";
 
 /* ─── Template Contracts ──────────────────────────────────────────────── */
 export type { PlayerSpotlightContract } from "./PlayerSpotlight.contract";

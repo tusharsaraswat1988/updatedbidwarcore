@@ -11,6 +11,12 @@
  * No rendering logic. No imports from application code.
  */
 
+/** Compact sponsor mark for creative headers (title / co-sponsor slots). */
+export interface BuzzSponsorMark {
+  url: string;
+  name?: string;
+}
+
 export interface BuzzBranding {
   /**
    * Tournament or organizer logo URL.
@@ -29,6 +35,16 @@ export interface BuzzBranding {
    * Used as alt text and in text-only sponsor slots.
    */
   sponsorName?: string;
+
+  /**
+   * Title sponsor (max 1) — shown top-left on squad / poster creatives.
+   */
+  titleSponsor?: BuzzSponsorMark;
+
+  /**
+   * Co-sponsors (max 3) — shown top-right on squad / poster creatives.
+   */
+  coSponsors?: BuzzSponsorMark[];
 
   /**
    * Overrides the default "Powered by BidWar" footer text.

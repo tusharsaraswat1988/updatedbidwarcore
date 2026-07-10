@@ -24,6 +24,12 @@ export interface TeamSquadPlayerEntry {
   priceDisplay?: string;
   designation?: string;
   isCaptain?: boolean;
+  /** Raw player tag key (icon, star_player, captain, …). */
+  playerTag?: string;
+  /** True when this player is among the tournament's top 5 sold by price. */
+  isTopSold?: boolean;
+  /** 1–5 when isTopSold; omitted otherwise. */
+  topSoldRank?: number;
 }
 
 export interface TeamSquadContract extends ContractTeamInfo, ContractSportInfo {

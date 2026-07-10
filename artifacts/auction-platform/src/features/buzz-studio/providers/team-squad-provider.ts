@@ -16,6 +16,8 @@ import {
   type BuzzStudioTournamentSnapshot,
 } from "./provider-types";
 
+const TOP_SOLD_LIMIT = 5;
+
 function squadPrice(player: Player): number | undefined {
   if (player.status === "retained") {
     return player.retainedPrice ?? player.soldPrice ?? undefined;
@@ -23,16 +25,41 @@ function squadPrice(player: Player): number | undefined {
   return player.soldPrice ?? undefined;
 }
 
-function mapSquadPlayer(player: Player): TeamSquadPlayerEntry {
+/** Tournament-wide top sold player ids → rank (1 = highest). */
+function topSoldRankByPlayerId(
+  players: Player[],
+  limit = TOP_SOLD_LIMIT,
+): Map<string, number> {
+  const ranked = players
+    .filter((player) => player.status === "sold" && (player.soldPrice ?? 0) > 0)
+    .toSorted((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0))
+    .slice(0, limit);
+
+  const map = new Map<string, number>();
+  ranked.forEach((player, index) => {
+    map.set(String(player.id), index + 1);
+  });
+  return map;
+}
+
+function mapSquadPlayer(
+  player: Player,
+  topSoldRanks: Map<string, number>,
+): TeamSquadPlayerEntry {
   const price = squadPrice(player);
+  const playerId = String(player.id);
+  const topSoldRank = topSoldRanks.get(playerId);
   return {
-    playerId: String(player.id),
+    playerId,
     playerName: player.name,
     playerImageUrl: optionalUrl(player.photoUrl),
     status: player.status === "retained" ? "retained" : "sold",
     price,
     designation: resolvePlayerDesignation(player),
     isCaptain: player.playerTag === "captain",
+    playerTag: player.playerTag ?? undefined,
+    isTopSold: topSoldRank != null,
+    topSoldRank,
   };
 }
 
@@ -51,10 +78,11 @@ export function mapTeamSquadFromSnapshot(
 ): TeamSquadContract[] {
   const metadata = contractMetadata(snapshot.tournamentId);
   const branding = buildContractBranding(snapshot);
+  const topSoldRanks = topSoldRankByPlayerId(snapshot.players);
 
   return snapshot.teams
     .toSorted((a, b) => a.name.localeCompare(b.name))
-    .map((team) => mapTeamSquadContract(team, snapshot, metadata, branding));
+    .map((team) => mapTeamSquadContract(team, snapshot, metadata, branding, topSoldRanks));
 }
 
 function mapTeamSquadContract(
@@ -62,6 +90,7 @@ function mapTeamSquadContract(
   snapshot: BuzzStudioTournamentSnapshot,
   metadata: ReturnType<typeof contractMetadata>,
   branding: ReturnType<typeof buildContractBranding>,
+  topSoldRanks: Map<string, number>,
 ): TeamSquadContract {
   const squadPlayers = snapshot.players
     .filter(
@@ -70,7 +99,7 @@ function mapTeamSquadContract(
         !player.isNonPlayingMember &&
         (player.status === "sold" || player.status === "retained"),
     )
-    .map(mapSquadPlayer);
+    .map((player) => mapSquadPlayer(player, topSoldRanks));
 
   return {
     teamId: String(team.id),
