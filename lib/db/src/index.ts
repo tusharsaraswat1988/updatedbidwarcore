@@ -8,6 +8,8 @@ import * as schema from "./schema";
 const { Pool } = pg;
 
 export { ensureCoreSchema } from "./ensure-schema";
+export { getBootMetricsSnapshot } from "./boot-metrics";
+export type { BootMetricsSnapshot, SystemCMetrics, SystemDMetrics } from "./boot-metrics";
 
 export const pool = new Pool({
   connectionString: resolveDatabaseUrl(),

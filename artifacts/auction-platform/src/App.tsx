@@ -363,6 +363,7 @@ function Router() {
         <Route path="/admin/knowledge-center/academy/new" component={AdminAcademyLessonForm} />
         <Route path="/admin/knowledge-center/academy/:id" component={AdminAcademyLessonForm} />
         <Route path="/admin/knowledge-center/academy" component={AdminAcademyLessonsList} />
+        <Route path="/admin/settings/system/diagnostics" component={AdminSystemPage} />
         <Route path="/admin/settings/system/audit-logs" component={AdminSystemPage} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
         <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />

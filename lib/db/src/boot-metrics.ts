@@ -73,6 +73,7 @@ const systemCSettledPromise = new Promise<void>((resolve) => {
 let systemDMetrics: SystemDMetrics | null = null;
 let summaryPrinted = false;
 const bootStartedAt = Date.now();
+let totalDatabaseBootTimeMs: number | null = null;
 
 /**
  * Observe a System C pool.query without changing SQL or error handling.
@@ -155,13 +156,13 @@ function tryPrintDatabaseStartupSummary(): void {
   }
   summaryPrinted = true;
 
-  const totalMs = Date.now() - bootStartedAt;
-  const text = formatStartupSummary(systemCMetrics, systemDMetrics, totalMs);
+  totalDatabaseBootTimeMs = Date.now() - bootStartedAt;
+  const text = formatStartupSummary(systemCMetrics, systemDMetrics, totalDatabaseBootTimeMs);
   const payload = {
     event: "database_startup_summary",
     systemC: systemCMetrics,
     systemD: systemDMetrics,
-    totalDatabaseBootTimeMs: totalMs,
+    totalDatabaseBootTimeMs,
   };
 
   // One human-readable block + one structured JSON line. No per-query logs.
@@ -175,16 +176,26 @@ export async function waitForDatabaseStartupSummary(): Promise<void> {
   tryPrintDatabaseStartupSummary();
 }
 
-export function getBootMetricsSnapshot(): {
+export type BootMetricsSnapshot = {
   systemC: SystemCMetrics | null;
   systemD: SystemDMetrics | null;
   systemCSettled: boolean;
   summaryPrinted: boolean;
-} {
+  /** True when both System C and System D metrics are available. */
+  ready: boolean;
+  totalDatabaseBootTimeMs: number | null;
+};
+
+export function getBootMetricsSnapshot(): BootMetricsSnapshot {
+  const ready = systemCMetrics != null && systemDMetrics != null;
   return {
     systemC: systemCMetrics,
     systemD: systemDMetrics,
     systemCSettled,
     summaryPrinted,
+    ready,
+    totalDatabaseBootTimeMs: ready
+      ? (totalDatabaseBootTimeMs ?? Date.now() - bootStartedAt)
+      : null,
   };
 }
