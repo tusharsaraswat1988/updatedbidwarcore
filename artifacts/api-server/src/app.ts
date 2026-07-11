@@ -178,7 +178,7 @@ app.use(globalLimiter);
 app.use("/api", router);
 
 // ── Crawl assets (robots.txt + sitemaps) — always registered ───────────────
-registerSeoRoutes(app, CANONICAL_HOST);
+registerSeoRoutes(app);
 
 // SPA shell for meta/SSR injection — production uses built index only; dev uses Vite source.
 initSpaIndexShell({

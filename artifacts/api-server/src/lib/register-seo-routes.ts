@@ -58,11 +58,11 @@ function sendSitemapOrError(
  * Called unconditionally so crawlers can discover URLs even when
  * SERVE_STATIC=false (API-only deployments behind a CDN).
  */
-export function registerSeoRoutes(app: Express, host = "bidwar.in"): void {
+export function registerSeoRoutes(app: Express): void {
   app.get("/robots.txt", (_req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-    res.send(buildRobotsTxt(host));
+    res.send(buildRobotsTxt());
   });
 
   app.get("/sitemap-index.xml", (_req, res) =>

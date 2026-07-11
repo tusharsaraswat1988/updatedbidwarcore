@@ -29,8 +29,24 @@ import {
   toIsoDateTime,
 } from "@workspace/blog-data";
 import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
+import { getPublicOrigin } from "./runtime-env.js";
 
-export const BASE_URL = "https://bidwar.in";
+/** Runtime public origin from APP_URL (via runtime-env). Used for all server-side SEO metadata. */
+export function getBaseUrl(): string {
+  try {
+    return getPublicOrigin();
+  } catch {
+    const raw = process.env.APP_URL?.trim();
+    if (raw) {
+      const normalized = raw.includes("://") ? raw : `https://${raw}`;
+      return normalized.replace(/\/+$/, "");
+    }
+    return "https://bidwar.in";
+  }
+}
+
+const BASE_URL = getBaseUrl();
+export { BASE_URL };
 export const DEFAULT_OG_IMAGE_URL = resolvePlatformPrimaryLogoUrl(BASE_URL);
 const PHONE = "+91-8707488250";
 
