@@ -3,17 +3,23 @@ import express from "express";
 import request from "supertest";
 import type { Request } from "express";
 
-const { mockGetBootMetricsSnapshot, mockGetRuntimeConfig } = vi.hoisted(() => ({
+const { mockGetBootMetricsSnapshot, mockGetRuntimeConfig, mockCollectRuntime } = vi.hoisted(() => ({
   mockGetBootMetricsSnapshot: vi.fn(),
   mockGetRuntimeConfig: vi.fn(),
+  mockCollectRuntime: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => ({
   getBootMetricsSnapshot: mockGetBootMetricsSnapshot,
+  pool: { totalCount: 2, idleCount: 1, waitingCount: 0 },
 }));
 
 vi.mock("../lib/runtime-env.js", () => ({
   getRuntimeConfig: mockGetRuntimeConfig,
+}));
+
+vi.mock("../lib/diagnostics/collect-runtime-diagnostics.js", () => ({
+  collectRuntimeDiagnostics: mockCollectRuntime,
 }));
 
 import diagnosticsRouter from "../routes/diagnostics";
@@ -32,8 +38,49 @@ describe("GET /api/auth/admin/diagnostics/startup", () => {
   beforeEach(() => {
     mockGetBootMetricsSnapshot.mockReset();
     mockGetRuntimeConfig.mockReset();
+    mockCollectRuntime.mockReset();
     mockGetRuntimeConfig.mockReturnValue({
       databaseUrl: "postgresql://owner:secret@ep-abc.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+    });
+    mockCollectRuntime.mockReturnValue({
+      process: {
+        serverStartTime: "2026-07-11T12:00:00.000Z",
+        uptimeSeconds: 90,
+        uptimeHuman: "1m 30s",
+        pid: 99,
+        nodeVersion: process.version,
+        nodeEnv: "production",
+        gitBranch: "develop",
+      },
+      memory: {
+        rssBytes: 1,
+        heapUsedBytes: 1,
+        heapTotalBytes: 1,
+        rssMb: 10,
+        heapUsedMb: 5,
+        heapTotalMb: 8,
+      },
+      eventLoopDelayMs: null,
+      redis: {
+        configured: true,
+        status: "ready",
+        initAttempted: true,
+        commandClientStatus: "ready",
+        subscriberClientStatus: "ready",
+      },
+      sse: {
+        status: "active",
+        auctionClients: 2,
+        scoringClients: 0,
+        badmintonClients: 1,
+        totalClients: 3,
+      },
+      databaseConnection: {
+        status: "pool_active",
+        totalCount: 2,
+        idleCount: 1,
+        waitingCount: 0,
+      },
     });
     mockGetBootMetricsSnapshot.mockReturnValue({
       systemC: {
@@ -59,10 +106,9 @@ describe("GET /api/auth/admin/diagnostics/startup", () => {
     });
   });
 
-  it("returns 401 when unauthenticated", async () => {
+  it("returns 403 when unauthenticated", async () => {
     const res = await request(buildApp()).get("/api/auth/admin/diagnostics/startup");
     expect(res.status).toBe(403);
-    // requireMasterAdmin returns 403 when jwt missing/not master (isAdmin falsy)
     expect(res.body.error).toMatch(/Super Admin|authoris/i);
   });
 
@@ -74,7 +120,7 @@ describe("GET /api/auth/admin/diagnostics/startup", () => {
     expect(res.body.error).toBe("Super Admin access required");
   });
 
-  it("returns 200 ready payload for master admin", async () => {
+  it("returns 200 ready payload for master admin including v2 fields", async () => {
     process.env.APP_DOMAIN = "bidwar-staging.onrender.com";
     process.env.APP_URL = "https://bidwar-staging.onrender.com";
     process.env.NODE_ENV = "production";
@@ -86,10 +132,13 @@ describe("GET /api/auth/admin/diagnostics/startup", () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.startup.ready).toBe(true);
-    expect(res.body.startup.startupDdlBatches).toBe(33);
-    expect(res.body.startup.systemC.executionTimeMs).toBe(200);
-    expect(res.body.startup.systemD.executionTimeMs).toBe(100);
-    expect(res.body.database.databaseName).toBe("neondb");
+    expect(res.body.process.pid).toBe(99);
+    expect(res.body.process.gitBranch).toBe("develop");
+    expect(res.body.memory.rssMb).toBe(10);
+    expect(res.body.redis.status).toBe("ready");
+    expect(res.body.sse.totalClients).toBe(3);
+    expect(res.body.databaseConnection.status).toBe("pool_active");
+    expect(res.body.eventLoopDelayMs).toBeNull();
     expect(JSON.stringify(res.body)).not.toContain("secret");
     expect(JSON.stringify(res.body)).not.toMatch(/DATABASE_URL/i);
   });

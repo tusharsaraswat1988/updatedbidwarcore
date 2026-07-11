@@ -11,6 +11,7 @@ type DiagnosticsPayload = {
     commitShaShort: string | null;
     buildTimestamp: string | null;
     source: string;
+    gitBranch: string | null;
   };
   database: {
     hostMasked: string;
@@ -41,9 +42,42 @@ type DiagnosticsPayload = {
     startupFailures: number | null;
   };
   process: {
+    serverStartTime: string;
     uptimeSeconds: number;
+    uptimeHuman: string;
     pid: number;
+    nodeVersion: string;
     nodeEnv: string;
+    gitBranch: string | null;
+  };
+  memory: {
+    rssBytes: number;
+    heapUsedBytes: number;
+    heapTotalBytes: number;
+    rssMb: number;
+    heapUsedMb: number;
+    heapTotalMb: number;
+  };
+  eventLoopDelayMs: null;
+  redis: {
+    configured: boolean;
+    status: string;
+    initAttempted: boolean;
+    commandClientStatus: string | null;
+    subscriberClientStatus: string | null;
+  };
+  sse: {
+    status: string;
+    auctionClients: number;
+    scoringClients: number;
+    badmintonClients: number;
+    totalClients: number;
+  };
+  databaseConnection: {
+    status: string;
+    totalCount: number;
+    idleCount: number;
+    waitingCount: number;
   };
 };
 
@@ -173,38 +207,77 @@ export function DiagnosticsPanel() {
               {data.build.commitSha ? (
                 <p className="mb-2 break-all font-mono text-[11px] text-muted-foreground">{data.build.commitSha}</p>
               ) : null}
+              <MetricRow label="Git branch" value={data.build.gitBranch ?? "unknown"} />
               <MetricRow label="Build timestamp" value={data.build.buildTimestamp ?? "unknown"} />
               <MetricRow label="Source" value={data.build.source} />
             </section>
 
             <section className="rounded-lg border border-border bg-background/50 p-4">
-              <h3 className="mb-2 text-sm font-medium text-foreground">Database</h3>
+              <h3 className="mb-2 text-sm font-medium text-foreground">Process</h3>
+              <MetricRow label="Server start time" value={new Date(data.process.serverStartTime).toLocaleString()} />
+              <MetricRow label="Current uptime" value={data.process.uptimeHuman} />
+              <MetricRow label="Process PID" value={String(data.process.pid)} />
+              <MetricRow label="Node version" value={data.process.nodeVersion} />
+              <MetricRow label="NODE_ENV" value={data.process.nodeEnv} />
+            </section>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-lg border border-border bg-background/50 p-4">
+              <h3 className="mb-2 text-sm font-medium text-foreground">Memory</h3>
+              <MetricRow label="RSS" value={`${data.memory.rssMb} MB`} />
+              <MetricRow label="Heap used" value={`${data.memory.heapUsedMb} MB`} />
+              <MetricRow label="Heap total" value={`${data.memory.heapTotalMb} MB`} />
+            </section>
+
+            <section className="rounded-lg border border-border bg-background/50 p-4">
+              <h3 className="mb-2 text-sm font-medium text-foreground">Infrastructure</h3>
+              <MetricRow label="Redis status" value={data.redis.status} />
+              <MetricRow label="Redis configured" value={data.redis.configured ? "yes" : "no"} />
+              <MetricRow label="SSE status" value={data.sse.status} />
+              <MetricRow label="SSE clients (total)" value={String(data.sse.totalClients)} />
+              <MetricRow
+                label="SSE breakdown"
+                value={`auction ${data.sse.auctionClients} · scoring ${data.sse.scoringClients} · badminton ${data.sse.badmintonClients}`}
+              />
+              <MetricRow label="Database connection" value={data.databaseConnection.status} />
+              <MetricRow
+                label="Pool (total/idle/waiting)"
+                value={`${data.databaseConnection.totalCount}/${data.databaseConnection.idleCount}/${data.databaseConnection.waitingCount}`}
+              />
+              <MetricRow label="Event loop delay" value="not instrumented" />
+            </section>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-lg border border-border bg-background/50 p-4">
+              <h3 className="mb-2 text-sm font-medium text-foreground">Database identity</h3>
               <MetricRow label="Host (masked)" value={data.database.hostMasked} />
               <MetricRow label="Database name" value={data.database.databaseName} />
               <MetricRow label="SSL mode present" value={data.database.sslModePresent ? "yes" : "no"} />
             </section>
-          </div>
 
-          <section className="rounded-lg border border-border bg-background/50 p-4">
-            <h3 className="mb-2 text-sm font-medium text-foreground">Database startup</h3>
-            {!data.startup.ready ? (
-              <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
-                {data.startup.reason ?? "Boot metrics still settling — refresh in a few seconds."}
-              </p>
-            ) : null}
-            <MetricRow label="System C execution time" value={formatMs(data.startup.systemC?.executionTimeMs)} />
-            <MetricRow label="System D execution time" value={formatMs(data.startup.systemD?.executionTimeMs)} />
-            <MetricRow label="Total database boot time" value={formatMs(data.startup.totalDatabaseBootTimeMs)} />
-            <MetricRow
-              label="Startup DDL batches"
-              value={data.startup.startupDdlBatches != null ? String(data.startup.startupDdlBatches) : "—"}
-            />
-            <MetricRow
-              label="Startup failures"
-              value={data.startup.startupFailures != null ? String(data.startup.startupFailures) : "—"}
-              emphasize={(data.startup.startupFailures ?? 0) > 0}
-            />
-          </section>
+            <section className="rounded-lg border border-border bg-background/50 p-4">
+              <h3 className="mb-2 text-sm font-medium text-foreground">Database startup</h3>
+              {!data.startup.ready ? (
+                <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                  {data.startup.reason ?? "Boot metrics still settling — refresh in a few seconds."}
+                </p>
+              ) : null}
+              <MetricRow label="System C execution time" value={formatMs(data.startup.systemC?.executionTimeMs)} />
+              <MetricRow label="System D execution time" value={formatMs(data.startup.systemD?.executionTimeMs)} />
+              <MetricRow label="Total database boot time" value={formatMs(data.startup.totalDatabaseBootTimeMs)} />
+              <MetricRow
+                label="Startup DDL batches"
+                value={data.startup.startupDdlBatches != null ? String(data.startup.startupDdlBatches) : "—"}
+              />
+              <MetricRow
+                label="Startup failures"
+                value={data.startup.startupFailures != null ? String(data.startup.startupFailures) : "—"}
+                emphasize={(data.startup.startupFailures ?? 0) > 0}
+              />
+            </section>
+          </div>
 
           {data.startup.systemC ? (
             <details className="rounded-lg border border-border bg-background/50 p-4">
@@ -221,23 +294,8 @@ export function DiagnosticsPanel() {
             </details>
           ) : null}
 
-          <details className="rounded-lg border border-border bg-background/50 p-4">
-            <summary className="cursor-pointer text-sm font-medium text-foreground">Process</summary>
-            <div className="mt-2">
-              <MetricRow label="Uptime" value={`${data.process.uptimeSeconds}s`} />
-              <MetricRow label="PID" value={String(data.process.pid)} />
-              <MetricRow label="NODE_ENV" value={data.process.nodeEnv} />
-              {data.startup.systemD ? (
-                <>
-                  <MetricRow label="System D success" value={String(data.startup.systemD.success)} />
-                  <MetricRow label="System D queries" value={String(data.startup.systemD.queryCount)} />
-                </>
-              ) : null}
-            </div>
-          </details>
-
           <p className="text-xs text-muted-foreground">
-            Metrics for this server instance only. Compatible with Local, Staging, and Production.
+            Metrics for this server instance only. Pool status is in-memory (no DB query). Event loop delay is skipped (not instrumented).
           </p>
         </>
       ) : null}

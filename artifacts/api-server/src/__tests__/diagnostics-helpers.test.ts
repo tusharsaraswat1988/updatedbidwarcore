@@ -3,6 +3,48 @@ import { maskDatabaseUrl, maskHostname } from "../lib/diagnostics/mask-database-
 import { classifyEnvironment } from "../lib/diagnostics/classify-environment";
 import { buildStartupDiagnosticsPayload } from "../lib/diagnostics/build-startup-payload";
 import type { BootMetricsSnapshot } from "@workspace/db/boot-metrics";
+import type { RuntimeDiagnostics } from "../lib/diagnostics/collect-runtime-diagnostics";
+
+const runtimeFixture: RuntimeDiagnostics = {
+  process: {
+    serverStartTime: "2026-07-11T12:00:00.000Z",
+    uptimeSeconds: 120,
+    uptimeHuman: "2m 0s",
+    pid: 4242,
+    nodeVersion: "v22.0.0",
+    nodeEnv: "production",
+    gitBranch: "develop",
+  },
+  memory: {
+    rssBytes: 100_000_000,
+    heapUsedBytes: 40_000_000,
+    heapTotalBytes: 60_000_000,
+    rssMb: 95.4,
+    heapUsedMb: 38.1,
+    heapTotalMb: 57.2,
+  },
+  eventLoopDelayMs: null,
+  redis: {
+    configured: false,
+    status: "disabled",
+    initAttempted: true,
+    commandClientStatus: null,
+    subscriberClientStatus: null,
+  },
+  sse: {
+    status: "idle",
+    auctionClients: 0,
+    scoringClients: 0,
+    badmintonClients: 0,
+    totalClients: 0,
+  },
+  databaseConnection: {
+    status: "pool_idle",
+    totalCount: 1,
+    idleCount: 1,
+    waitingCount: 0,
+  },
+};
 
 describe("maskDatabaseUrl", () => {
   it("masks host and returns database name without credentials", () => {
@@ -109,6 +151,7 @@ describe("buildStartupDiagnosticsPayload", () => {
     const payload = buildStartupDiagnosticsPayload({
       snapshot: readySnapshot,
       databaseUrl: "postgresql://u:p@db.example.com/mydb?sslmode=require",
+      runtime: runtimeFixture,
       appDomain: "bidwar-staging.onrender.com",
       appUrl: "https://bidwar-staging.onrender.com",
       nodeEnv: "production",
@@ -121,6 +164,14 @@ describe("buildStartupDiagnosticsPayload", () => {
     expect(payload.startup.startupFailures).toBe(0);
     expect(payload.startup.totalDatabaseBootTimeMs).toBe(120);
     expect(payload.environment).toBe("staging");
+    expect(payload.process.pid).toBe(4242);
+    expect(payload.process.nodeVersion).toBe("v22.0.0");
+    expect(payload.build.gitBranch).toBe("develop");
+    expect(payload.memory.rssMb).toBe(95.4);
+    expect(payload.redis.status).toBe("disabled");
+    expect(payload.sse.status).toBe("idle");
+    expect(payload.databaseConnection.status).toBe("pool_idle");
+    expect(payload.eventLoopDelayMs).toBeNull();
     expect(JSON.stringify(payload)).not.toMatch(/password|DATABASE_URL|s3cret/i);
     expect(payload.database.hostMasked).not.toContain("u:p");
   });
@@ -143,6 +194,7 @@ describe("buildStartupDiagnosticsPayload", () => {
     const payload = buildStartupDiagnosticsPayload({
       snapshot: settling,
       databaseUrl: "postgresql://u:p@localhost/db",
+      runtime: runtimeFixture,
       nodeEnv: "development",
       appDomain: "localhost",
     });

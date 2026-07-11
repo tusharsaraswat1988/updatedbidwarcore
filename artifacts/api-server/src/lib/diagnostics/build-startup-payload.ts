@@ -6,12 +6,13 @@ import type { BootMetricsSnapshot, SystemCMetrics, SystemDMetrics } from "@works
 import { classifyEnvironment, type BidwarEnvironment } from "./classify-environment";
 import { maskDatabaseUrl, type MaskedDatabaseIdentity } from "./mask-database-url";
 import { resolveBuildInfo, type BuildInfo } from "./resolve-build-info";
+import type { RuntimeDiagnostics } from "./collect-runtime-diagnostics";
 
 export type StartupDiagnosticsPayload = {
   ok: true;
   capturedAt: string;
   environment: BidwarEnvironment;
-  build: BuildInfo;
+  build: BuildInfo & { gitBranch: string | null };
   database: MaskedDatabaseIdentity;
   startup: {
     ready: boolean;
@@ -22,16 +23,19 @@ export type StartupDiagnosticsPayload = {
     startupDdlBatches: number | null;
     startupFailures: number | null;
   };
-  process: {
-    uptimeSeconds: number;
-    pid: number;
-    nodeEnv: string;
-  };
+  process: RuntimeDiagnostics["process"];
+  memory: RuntimeDiagnostics["memory"];
+  /** null when event-loop delay is not instrumented in-process. */
+  eventLoopDelayMs: null;
+  redis: RuntimeDiagnostics["redis"];
+  sse: RuntimeDiagnostics["sse"];
+  databaseConnection: RuntimeDiagnostics["databaseConnection"];
 };
 
 export type BuildStartupDiagnosticsInput = {
   snapshot: BootMetricsSnapshot;
   databaseUrl: string | undefined;
+  runtime: RuntimeDiagnostics;
   appDomain?: string | null;
   appUrl?: string | null;
   nodeEnv?: string | null;
@@ -42,7 +46,7 @@ export type BuildStartupDiagnosticsInput = {
 export function buildStartupDiagnosticsPayload(
   input: BuildStartupDiagnosticsInput,
 ): StartupDiagnosticsPayload {
-  const { snapshot } = input;
+  const { snapshot, runtime } = input;
   const ready = snapshot.ready;
 
   let startupDdlBatches: number | null = null;
@@ -54,6 +58,8 @@ export function buildStartupDiagnosticsPayload(
       snapshot.systemC.failures + (snapshot.systemD.failure ? 1 : 0);
   }
 
+  const build = resolveBuildInfo();
+
   return {
     ok: true,
     capturedAt: (input.now ?? new Date()).toISOString(),
@@ -63,7 +69,10 @@ export function buildStartupDiagnosticsPayload(
       appDomain: input.appDomain ?? process.env.APP_DOMAIN,
       appUrl: input.appUrl ?? process.env.APP_URL,
     }),
-    build: resolveBuildInfo(),
+    build: {
+      ...build,
+      gitBranch: runtime.process.gitBranch,
+    },
     database: maskDatabaseUrl(input.databaseUrl),
     startup: {
       ready,
@@ -74,10 +83,11 @@ export function buildStartupDiagnosticsPayload(
       startupDdlBatches,
       startupFailures,
     },
-    process: {
-      uptimeSeconds: Math.floor(process.uptime()),
-      pid: process.pid,
-      nodeEnv: process.env.NODE_ENV ?? "unknown",
-    },
+    process: runtime.process,
+    memory: runtime.memory,
+    eventLoopDelayMs: null,
+    redis: runtime.redis,
+    sse: runtime.sse,
+    databaseConnection: runtime.databaseConnection,
   };
 }
