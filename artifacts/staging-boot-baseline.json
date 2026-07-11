@@ -1,0 +1,465 @@
+﻿{
+    "service":  "bidwar-staging",
+    "serviceId":  "srv-d992mo57vvec73evcmgg",
+    "baseUrl":  "https://bidwar-staging.onrender.com",
+    "commitSha":  "08a8b51d3b4c0e0dcfc93aead5303cfea8322978",
+    "collectedAtUtc":  "2026-07-11T13:59:07.6336462Z",
+    "method":  "POST restart -\u003e wait for new database_startup_summary log -\u003e GET diagnostics/startup",
+    "cycles":  [
+                   {
+                       "cycle":  1,
+                       "restartedAtUtc":  "2026-07-11T13:55:35.7144630Z",
+                       "capturedAtUtc":  "2026-07-11T13:56:15.1401137Z",
+                       "logTimestamp":  "2026-07-11T13:56:02.515605082Z",
+                       "logStartupSummary":  "{\"event\":\"database_startup_summary\",\"systemC\":{\"executionTimeMs\":4723,\"createStatements\":35,\"alterStatements\":71,\"createIndexStatements\":83,\"dropStatements\":2,\"dmlStatements\":10,\"queryBatches\":24,\"failures\":0},\"systemD\":{\"executionTimeMs\":609,\"queryCount\":9,\"success\":true,\"failure\":false},\"totalDatabaseBootTimeMs\":6213}",
+                       "diagnostics":  {
+                                           "ok":  true,
+                                           "capturedAt":  "2026-07-11T13:56:15.375Z",
+                                           "environment":  "staging",
+                                           "build":  {
+                                                         "commitSha":  "08a8b51d3b4c0e0dcfc93aead5303cfea8322978",
+                                                         "commitShaShort":  "08a8b51",
+                                                         "buildTimestamp":  null,
+                                                         "source":  "render_env",
+                                                         "gitBranch":  "develop"
+                                                     },
+                                           "database":  {
+                                                            "hostMasked":  "ep-****.****.ap-southeast-1.aws.neon.tech",
+                                                            "databaseName":  "neondb",
+                                                            "sslModePresent":  true
+                                                        },
+                                           "startup":  {
+                                                           "ready":  true,
+                                                           "systemC":  {
+                                                                           "executionTimeMs":  4723,
+                                                                           "createStatements":  35,
+                                                                           "alterStatements":  71,
+                                                                           "createIndexStatements":  83,
+                                                                           "dropStatements":  2,
+                                                                           "dmlStatements":  10,
+                                                                           "queryBatches":  24,
+                                                                           "failures":  0
+                                                                       },
+                                                           "systemD":  {
+                                                                           "executionTimeMs":  609,
+                                                                           "queryCount":  9,
+                                                                           "success":  true,
+                                                                           "failure":  false
+                                                                       },
+                                                           "totalDatabaseBootTimeMs":  6213,
+                                                           "startupDdlBatches":  33,
+                                                           "startupFailures":  0
+                                                       },
+                                           "process":  {
+                                                           "serverStartTime":  "2026-07-11T13:55:48.810Z",
+                                                           "uptimeSeconds":  26,
+                                                           "uptimeHuman":  "26s",
+                                                           "pid":  52,
+                                                           "nodeVersion":  "v22.23.1",
+                                                           "nodeEnv":  "production",
+                                                           "gitBranch":  "develop"
+                                                       },
+                                           "memory":  {
+                                                          "rssBytes":  293232640,
+                                                          "heapUsedBytes":  196382560,
+                                                          "heapTotalBytes":  201125888,
+                                                          "rssMb":  279.6,
+                                                          "heapUsedMb":  187.3,
+                                                          "heapTotalMb":  191.8
+                                                      },
+                                           "eventLoopDelayMs":  null,
+                                           "redis":  {
+                                                         "configured":  true,
+                                                         "status":  "ready",
+                                                         "initAttempted":  true,
+                                                         "commandClientStatus":  "ready",
+                                                         "subscriberClientStatus":  "ready"
+                                                     },
+                                           "sse":  {
+                                                       "status":  "idle",
+                                                       "auctionClients":  0,
+                                                       "scoringClients":  0,
+                                                       "badmintonClients":  0,
+                                                       "totalClients":  0
+                                                   },
+                                           "databaseConnection":  {
+                                                                      "status":  "pool_idle",
+                                                                      "totalCount":  10,
+                                                                      "idleCount":  10,
+                                                                      "waitingCount":  0
+                                                                  }
+                                       },
+                       "crossCheck":  {
+                                          "logSystemCMs":  4723,
+                                          "diagSystemCMs":  4723,
+                                          "logTotalMs":  6213,
+                                          "diagTotalMs":  6213,
+                                          "match":  true
+                                      }
+                   },
+                   {
+                       "cycle":  2,
+                       "restartedAtUtc":  "2026-07-11T13:56:15.1575038Z",
+                       "capturedAtUtc":  "2026-07-11T13:56:54.1667590Z",
+                       "logTimestamp":  "2026-07-11T13:56:38.427894063Z",
+                       "logStartupSummary":  "{\"event\":\"database_startup_summary\",\"systemC\":{\"executionTimeMs\":4398,\"createStatements\":35,\"alterStatements\":71,\"createIndexStatements\":83,\"dropStatements\":2,\"dmlStatements\":10,\"queryBatches\":24,\"failures\":0},\"systemD\":{\"executionTimeMs\":695,\"queryCount\":9,\"success\":true,\"failure\":false},\"totalDatabaseBootTimeMs\":5998}",
+                       "diagnostics":  {
+                                           "ok":  true,
+                                           "capturedAt":  "2026-07-11T13:56:54.403Z",
+                                           "environment":  "staging",
+                                           "build":  {
+                                                         "commitSha":  "08a8b51d3b4c0e0dcfc93aead5303cfea8322978",
+                                                         "commitShaShort":  "08a8b51",
+                                                         "buildTimestamp":  null,
+                                                         "source":  "render_env",
+                                                         "gitBranch":  "develop"
+                                                     },
+                                           "database":  {
+                                                            "hostMasked":  "ep-****.****.ap-southeast-1.aws.neon.tech",
+                                                            "databaseName":  "neondb",
+                                                            "sslModePresent":  true
+                                                        },
+                                           "startup":  {
+                                                           "ready":  true,
+                                                           "systemC":  {
+                                                                           "executionTimeMs":  4398,
+                                                                           "createStatements":  35,
+                                                                           "alterStatements":  71,
+                                                                           "createIndexStatements":  83,
+                                                                           "dropStatements":  2,
+                                                                           "dmlStatements":  10,
+                                                                           "queryBatches":  24,
+                                                                           "failures":  0
+                                                                       },
+                                                           "systemD":  {
+                                                                           "executionTimeMs":  695,
+                                                                           "queryCount":  9,
+                                                                           "success":  true,
+                                                                           "failure":  false
+                                                                       },
+                                                           "totalDatabaseBootTimeMs":  5998,
+                                                           "startupDdlBatches":  33,
+                                                           "startupFailures":  0
+                                                       },
+                                           "process":  {
+                                                           "serverStartTime":  "2026-07-11T13:56:24.825Z",
+                                                           "uptimeSeconds":  29,
+                                                           "uptimeHuman":  "29s",
+                                                           "pid":  52,
+                                                           "nodeVersion":  "v22.23.1",
+                                                           "nodeEnv":  "production",
+                                                           "gitBranch":  "develop"
+                                                       },
+                                           "memory":  {
+                                                          "rssBytes":  267141120,
+                                                          "heapUsedBytes":  170134680,
+                                                          "heapTotalBytes":  174448640,
+                                                          "rssMb":  254.8,
+                                                          "heapUsedMb":  162.3,
+                                                          "heapTotalMb":  166.4
+                                                      },
+                                           "eventLoopDelayMs":  null,
+                                           "redis":  {
+                                                         "configured":  true,
+                                                         "status":  "ready",
+                                                         "initAttempted":  true,
+                                                         "commandClientStatus":  "ready",
+                                                         "subscriberClientStatus":  "ready"
+                                                     },
+                                           "sse":  {
+                                                       "status":  "idle",
+                                                       "auctionClients":  0,
+                                                       "scoringClients":  0,
+                                                       "badmintonClients":  0,
+                                                       "totalClients":  0
+                                                   },
+                                           "databaseConnection":  {
+                                                                      "status":  "pool_idle",
+                                                                      "totalCount":  10,
+                                                                      "idleCount":  10,
+                                                                      "waitingCount":  0
+                                                                  }
+                                       },
+                       "crossCheck":  {
+                                          "logSystemCMs":  4398,
+                                          "diagSystemCMs":  4398,
+                                          "logTotalMs":  5998,
+                                          "diagTotalMs":  5998,
+                                          "match":  true
+                                      }
+                   },
+                   {
+                       "cycle":  3,
+                       "restartedAtUtc":  "2026-07-11T13:56:54.1667590Z",
+                       "capturedAtUtc":  "2026-07-11T13:57:34.0989834Z",
+                       "logTimestamp":  "2026-07-11T13:57:18.25318573Z",
+                       "logStartupSummary":  "{\"event\":\"database_startup_summary\",\"systemC\":{\"executionTimeMs\":5098,\"createStatements\":35,\"alterStatements\":71,\"createIndexStatements\":83,\"dropStatements\":2,\"dmlStatements\":10,\"queryBatches\":24,\"failures\":0},\"systemD\":{\"executionTimeMs\":604,\"queryCount\":9,\"success\":true,\"failure\":false},\"totalDatabaseBootTimeMs\":6793}",
+                       "diagnostics":  {
+                                           "ok":  true,
+                                           "capturedAt":  "2026-07-11T13:57:34.310Z",
+                                           "environment":  "staging",
+                                           "build":  {
+                                                         "commitSha":  "08a8b51d3b4c0e0dcfc93aead5303cfea8322978",
+                                                         "commitShaShort":  "08a8b51",
+                                                         "buildTimestamp":  null,
+                                                         "source":  "render_env",
+                                                         "gitBranch":  "develop"
+                                                     },
+                                           "database":  {
+                                                            "hostMasked":  "ep-****.****.ap-southeast-1.aws.neon.tech",
+                                                            "databaseName":  "neondb",
+                                                            "sslModePresent":  true
+                                                        },
+                                           "startup":  {
+                                                           "ready":  true,
+                                                           "systemC":  {
+                                                                           "executionTimeMs":  5098,
+                                                                           "createStatements":  35,
+                                                                           "alterStatements":  71,
+                                                                           "createIndexStatements":  83,
+                                                                           "dropStatements":  2,
+                                                                           "dmlStatements":  10,
+                                                                           "queryBatches":  24,
+                                                                           "failures":  0
+                                                                       },
+                                                           "systemD":  {
+                                                                           "executionTimeMs":  604,
+                                                                           "queryCount":  9,
+                                                                           "success":  true,
+                                                                           "failure":  false
+                                                                       },
+                                                           "totalDatabaseBootTimeMs":  6793,
+                                                           "startupDdlBatches":  33,
+                                                           "startupFailures":  0
+                                                       },
+                                           "process":  {
+                                                           "serverStartTime":  "2026-07-11T13:57:04.150Z",
+                                                           "uptimeSeconds":  30,
+                                                           "uptimeHuman":  "30s",
+                                                           "pid":  52,
+                                                           "nodeVersion":  "v22.23.1",
+                                                           "nodeEnv":  "production",
+                                                           "gitBranch":  "develop"
+                                                       },
+                                           "memory":  {
+                                                          "rssBytes":  272093184,
+                                                          "heapUsedBytes":  170119184,
+                                                          "heapTotalBytes":  174972928,
+                                                          "rssMb":  259.5,
+                                                          "heapUsedMb":  162.2,
+                                                          "heapTotalMb":  166.9
+                                                      },
+                                           "eventLoopDelayMs":  null,
+                                           "redis":  {
+                                                         "configured":  true,
+                                                         "status":  "ready",
+                                                         "initAttempted":  true,
+                                                         "commandClientStatus":  "ready",
+                                                         "subscriberClientStatus":  "ready"
+                                                     },
+                                           "sse":  {
+                                                       "status":  "idle",
+                                                       "auctionClients":  0,
+                                                       "scoringClients":  0,
+                                                       "badmintonClients":  0,
+                                                       "totalClients":  0
+                                                   },
+                                           "databaseConnection":  {
+                                                                      "status":  "pool_idle",
+                                                                      "totalCount":  10,
+                                                                      "idleCount":  10,
+                                                                      "waitingCount":  0
+                                                                  }
+                                       },
+                       "crossCheck":  {
+                                          "logSystemCMs":  5098,
+                                          "diagSystemCMs":  5098,
+                                          "logTotalMs":  6793,
+                                          "diagTotalMs":  6793,
+                                          "match":  true
+                                      }
+                   },
+                   {
+                       "cycle":  4,
+                       "restartedAtUtc":  "2026-07-11T13:57:34.1000874Z",
+                       "capturedAtUtc":  "2026-07-11T13:58:29.1983421Z",
+                       "logTimestamp":  "2026-07-11T13:57:56.384410983Z",
+                       "logStartupSummary":  "{\"event\":\"database_startup_summary\",\"systemC\":{\"executionTimeMs\":4319,\"createStatements\":35,\"alterStatements\":71,\"createIndexStatements\":83,\"dropStatements\":2,\"dmlStatements\":10,\"queryBatches\":24,\"failures\":0},\"systemD\":{\"executionTimeMs\":598,\"queryCount\":9,\"success\":true,\"failure\":false},\"totalDatabaseBootTimeMs\":5800}",
+                       "diagnostics":  {
+                                           "ok":  true,
+                                           "capturedAt":  "2026-07-11T13:58:29.442Z",
+                                           "environment":  "staging",
+                                           "build":  {
+                                                         "commitSha":  "08a8b51d3b4c0e0dcfc93aead5303cfea8322978",
+                                                         "commitShaShort":  "08a8b51",
+                                                         "buildTimestamp":  null,
+                                                         "source":  "render_env",
+                                                         "gitBranch":  "develop"
+                                                     },
+                                           "database":  {
+                                                            "hostMasked":  "ep-****.****.ap-southeast-1.aws.neon.tech",
+                                                            "databaseName":  "neondb",
+                                                            "sslModePresent":  true
+                                                        },
+                                           "startup":  {
+                                                           "ready":  true,
+                                                           "systemC":  {
+                                                                           "executionTimeMs":  4319,
+                                                                           "createStatements":  35,
+                                                                           "alterStatements":  71,
+                                                                           "createIndexStatements":  83,
+                                                                           "dropStatements":  2,
+                                                                           "dmlStatements":  10,
+                                                                           "queryBatches":  24,
+                                                                           "failures":  0
+                                                                       },
+                                                           "systemD":  {
+                                                                           "executionTimeMs":  598,
+                                                                           "queryCount":  9,
+                                                                           "success":  true,
+                                                                           "failure":  false
+                                                                       },
+                                                           "totalDatabaseBootTimeMs":  5800,
+                                                           "startupDdlBatches":  33,
+                                                           "startupFailures":  0
+                                                       },
+                                           "process":  {
+                                                           "serverStartTime":  "2026-07-11T13:57:43.182Z",
+                                                           "uptimeSeconds":  46,
+                                                           "uptimeHuman":  "46s",
+                                                           "pid":  52,
+                                                           "nodeVersion":  "v22.23.1",
+                                                           "nodeEnv":  "production",
+                                                           "gitBranch":  "develop"
+                                                       },
+                                           "memory":  {
+                                                          "rssBytes":  291897344,
+                                                          "heapUsedBytes":  195717776,
+                                                          "heapTotalBytes":  200077312,
+                                                          "rssMb":  278.4,
+                                                          "heapUsedMb":  186.7,
+                                                          "heapTotalMb":  190.8
+                                                      },
+                                           "eventLoopDelayMs":  null,
+                                           "redis":  {
+                                                         "configured":  true,
+                                                         "status":  "ready",
+                                                         "initAttempted":  true,
+                                                         "commandClientStatus":  "ready",
+                                                         "subscriberClientStatus":  "ready"
+                                                     },
+                                           "sse":  {
+                                                       "status":  "idle",
+                                                       "auctionClients":  0,
+                                                       "scoringClients":  0,
+                                                       "badmintonClients":  0,
+                                                       "totalClients":  0
+                                                   },
+                                           "databaseConnection":  {
+                                                                      "status":  "pool_idle",
+                                                                      "totalCount":  2,
+                                                                      "idleCount":  2,
+                                                                      "waitingCount":  0
+                                                                  }
+                                       },
+                       "crossCheck":  {
+                                          "logSystemCMs":  4319,
+                                          "diagSystemCMs":  4319,
+                                          "logTotalMs":  5800,
+                                          "diagTotalMs":  5800,
+                                          "match":  true
+                                      }
+                   },
+                   {
+                       "cycle":  5,
+                       "restartedAtUtc":  "2026-07-11T13:58:29.1987529Z",
+                       "capturedAtUtc":  "2026-07-11T13:59:07.6295421Z",
+                       "logTimestamp":  "2026-07-11T13:58:54.831364987Z",
+                       "logStartupSummary":  "{\"event\":\"database_startup_summary\",\"systemC\":{\"executionTimeMs\":5202,\"createStatements\":35,\"alterStatements\":71,\"createIndexStatements\":83,\"dropStatements\":2,\"dmlStatements\":10,\"queryBatches\":24,\"failures\":0},\"systemD\":{\"executionTimeMs\":700,\"queryCount\":9,\"success\":true,\"failure\":false},\"totalDatabaseBootTimeMs\":6897}",
+                       "diagnostics":  {
+                                           "ok":  true,
+                                           "capturedAt":  "2026-07-11T13:59:07.872Z",
+                                           "environment":  "staging",
+                                           "build":  {
+                                                         "commitSha":  "08a8b51d3b4c0e0dcfc93aead5303cfea8322978",
+                                                         "commitShaShort":  "08a8b51",
+                                                         "buildTimestamp":  null,
+                                                         "source":  "render_env",
+                                                         "gitBranch":  "develop"
+                                                     },
+                                           "database":  {
+                                                            "hostMasked":  "ep-****.****.ap-southeast-1.aws.neon.tech",
+                                                            "databaseName":  "neondb",
+                                                            "sslModePresent":  true
+                                                        },
+                                           "startup":  {
+                                                           "ready":  true,
+                                                           "systemC":  {
+                                                                           "executionTimeMs":  5202,
+                                                                           "createStatements":  35,
+                                                                           "alterStatements":  71,
+                                                                           "createIndexStatements":  83,
+                                                                           "dropStatements":  2,
+                                                                           "dmlStatements":  10,
+                                                                           "queryBatches":  24,
+                                                                           "failures":  0
+                                                                       },
+                                                           "systemD":  {
+                                                                           "executionTimeMs":  700,
+                                                                           "queryCount":  9,
+                                                                           "success":  true,
+                                                                           "failure":  false
+                                                                       },
+                                                           "totalDatabaseBootTimeMs":  6897,
+                                                           "startupDdlBatches":  33,
+                                                           "startupFailures":  0
+                                                       },
+                                           "process":  {
+                                                           "serverStartTime":  "2026-07-11T13:58:39.731Z",
+                                                           "uptimeSeconds":  28,
+                                                           "uptimeHuman":  "28s",
+                                                           "pid":  52,
+                                                           "nodeVersion":  "v22.23.1",
+                                                           "nodeEnv":  "production",
+                                                           "gitBranch":  "develop"
+                                                       },
+                                           "memory":  {
+                                                          "rssBytes":  289705984,
+                                                          "heapUsedBytes":  196065864,
+                                                          "heapTotalBytes":  200863744,
+                                                          "rssMb":  276.3,
+                                                          "heapUsedMb":  187,
+                                                          "heapTotalMb":  191.6
+                                                      },
+                                           "eventLoopDelayMs":  null,
+                                           "redis":  {
+                                                         "configured":  true,
+                                                         "status":  "ready",
+                                                         "initAttempted":  true,
+                                                         "commandClientStatus":  "ready",
+                                                         "subscriberClientStatus":  "ready"
+                                                     },
+                                           "sse":  {
+                                                       "status":  "idle",
+                                                       "auctionClients":  0,
+                                                       "scoringClients":  0,
+                                                       "badmintonClients":  0,
+                                                       "totalClients":  0
+                                                   },
+                                           "databaseConnection":  {
+                                                                      "status":  "pool_idle",
+                                                                      "totalCount":  10,
+                                                                      "idleCount":  10,
+                                                                      "waitingCount":  0
+                                                                  }
+                                       },
+                       "crossCheck":  {
+                                          "logSystemCMs":  5202,
+                                          "diagSystemCMs":  5202,
+                                          "logTotalMs":  6897,
+                                          "diagTotalMs":  6897,
+                                          "match":  true
+                                      }
+                   }
+               ]
+}
