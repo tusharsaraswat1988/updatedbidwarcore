@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * SYSTEM B — MANUAL MIGRATE SCRIPT — FROZEN
+ * ============================================================================
+ * This file is frozen.
+ * Do not add new schema changes here.
+ * Future schema changes must follow the database governance process.
+ *
+ * Existing inline migration entries below remain active for production
+ * compatibility. Do not remove, refactor, or extend them with new feature DDL.
+ * ============================================================================
+ */
+
 import { loadAppEnv } from "@workspace/db/load-app-env";
 import pg from "pg";
 import { resolveDatabaseUrl } from "@workspace/db/database-url";

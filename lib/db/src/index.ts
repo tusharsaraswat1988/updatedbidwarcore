@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import { finalizeSystemCTracking, observeSystemCQuery } from "./boot-metrics";
 import { resolveDatabaseUrl } from "./database-url";
 import { ensureCoreSchema } from "./ensure-schema";
 import * as schema from "./schema";
@@ -29,21 +30,38 @@ setInterval(() => {
   });
 }, KEEP_ALIVE_INTERVAL_MS);
 
+/**
+ * ============================================================================
+ * SYSTEM C — RUNTIME DDL — FROZEN
+ * ============================================================================
+ * This file is frozen.
+ * Do not add new schema changes here.
+ * Future schema changes must follow the database governance process.
+ *
+ * Existing void pool.query DDL/DML below remains active for production
+ * compatibility. Do not remove, refactor, or extend it.
+ *
+ * Observability: systemCQuery wraps the same pool.query + SQL; metrics only.
+ * ============================================================================
+ */
+
+/** Same SQL and error handling as pool.query — metrics wrapper only. */
+function systemCQuery(sql: string) {
+  return observeSystemCQuery(sql, () => pool.query(sql));
+}
+
 /** Idempotent column adds so new fields persist without a manual migrate step. */
-void pool
-  .query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_photo_url text`)
+void systemCQuery(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_photo_url text`)
   .catch((err) => {
     console.error("[db] failed to ensure teams.owner_photo_url column:", err);
   });
 
-void pool
-  .query(`ALTER TABLE branding_settings ADD COLUMN IF NOT EXISTS main_logo_reverse_url text`)
+void systemCQuery(`ALTER TABLE branding_settings ADD COLUMN IF NOT EXISTS main_logo_reverse_url text`)
   .catch((err) => {
     console.error("[db] failed to ensure branding_settings.main_logo_reverse_url column:", err);
   });
 
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS branding_assets (
       id SERIAL PRIMARY KEY,
       asset_type TEXT NOT NULL,
@@ -65,32 +83,27 @@ void pool
     console.error("[db] failed to ensure branding_assets table:", err);
   });
 
-void pool
-  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email text`)
+void systemCQuery(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email text`)
   .catch((err) => {
     console.error("[db] failed to ensure players.email column:", err);
   });
 
-void pool
-  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gender text`)
+void systemCQuery(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gender text`)
   .catch((err) => {
     console.error("[db] failed to ensure players.gender column:", err);
   });
 
-void pool
-  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_size text`)
+void systemCQuery(`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_size text`)
   .catch((err) => {
     console.error("[db] failed to ensure players.jersey_size column:", err);
   });
 
-void pool
-  .query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`)
+void systemCQuery(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`)
   .catch((err) => {
     console.error("[db] failed to ensure teams.owner_email column:", err);
   });
 
-void pool
-  .query(`
+void systemCQuery(`
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS enable_registration_payment boolean NOT NULL DEFAULT false;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee integer;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS upi_id text;
@@ -114,8 +127,7 @@ void pool
   });
 
 /** Tournament-scoped player serial numbers (display Serial # — not global players.id). */
-void pool
-  .query(`
+void systemCQuery(`
     ALTER TABLE players ADD COLUMN IF NOT EXISTS serial_no integer;
 
     WITH ranked AS (
@@ -141,8 +153,7 @@ void pool
   });
 
 /** Normalized player specification values (multi-sport Sprint 1). */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS player_spec_values (
       id SERIAL PRIMARY KEY,
       player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -161,8 +172,7 @@ void pool
   });
 
 /** Per-sport profiles for global player identities (multi-sport Sprint 2). */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS player_sport_profiles (
       id SERIAL PRIMARY KEY,
       global_player_id TEXT NOT NULL REFERENCES global_players(id) ON DELETE CASCADE,
@@ -182,8 +192,7 @@ void pool
   });
 
 /** Ensure platform audit table exists (append-only investigation trail). */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS platform_audit_events (
       id BIGSERIAL PRIMARY KEY,
       occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -228,8 +237,7 @@ void pool
     console.error("[db] failed to ensure platform_audit_events table:", err);
   });
 
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS purse_boosters (
       id SERIAL PRIMARY KEY,
       local_uuid TEXT NOT NULL UNIQUE,
@@ -270,8 +278,7 @@ void pool
  *  new /bid security gate doesn't silently reject all bids for those teams.
  *  The organizer can view / override access codes from the Teams settings panel.
  */
-void pool
-  .query(`
+void systemCQuery(`
     UPDATE teams
     SET access_code = SUBSTRING(MD5(RANDOM()::TEXT), 1, 8)
     WHERE access_code IS NULL OR TRIM(access_code) = '';
@@ -280,8 +287,7 @@ void pool
     console.error("[db] failed to ensure purse_boosters table:", err);
   });
 
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS creative_jobs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tournament_id INTEGER NOT NULL,
@@ -311,8 +317,7 @@ void pool
   });
 
 /** Badminton tournament management tables */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS badminton_players (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,
@@ -500,8 +505,7 @@ void pool
   });
 
 /** Migrate legacy referee_name → umpire_name, then drop referee_name. */
-void pool
-  .query(`
+void systemCQuery(`
     DO $$
     BEGIN
       IF EXISTS (
@@ -523,8 +527,7 @@ void pool
   });
 
 /** Backfill missing per-match scorer PINs (legacy rows). */
-void pool
-  .query(`
+void systemCQuery(`
     UPDATE badminton_match_details
     SET scorer_pin = LPAD((1000 + floor(random() * 9000))::int::text, 4, '0')
     WHERE scorer_pin IS NULL OR btrim(scorer_pin) = '';
@@ -534,8 +537,7 @@ void pool
   });
 
 /** Master Sports Core — shared player/team/sponsor identity */
-void pool
-  .query(`
+void systemCQuery(`
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS first_name TEXT;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS last_name TEXT;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS display_name TEXT;
@@ -722,8 +724,7 @@ void pool
   });
 
 /** Cricket scoring Phase 1 — venues, officials, draws, groups, match squads */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS scoring_venues (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,
@@ -872,8 +873,7 @@ void pool
   });
 
 /** Website contact form submissions (public lead inbox). */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS contact_inquiries (
       id SERIAL PRIMARY KEY,
       full_name TEXT NOT NULL,
@@ -896,8 +896,7 @@ void pool
   });
 
 /** Google Sheets export OAuth tokens on organizer accounts. */
-void pool
-  .query(`
+void systemCQuery(`
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_refresh_token text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_access_token text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_token_expiry timestamptz;
@@ -908,8 +907,7 @@ void pool
   });
 
 /** Persistent Google Sheet sync — one sheet per tournament. */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS google_sheet_syncs (
       id SERIAL PRIMARY KEY,
       organizer_id INTEGER NOT NULL,
@@ -930,8 +928,7 @@ void pool
   });
 
 /** Admin in-app notification inbox and delivery settings. */
-void pool
-  .query(`
+void systemCQuery(`
     CREATE TABLE IF NOT EXISTS admin_notification_settings (
       id SERIAL PRIMARY KEY,
       admin_name TEXT NOT NULL DEFAULT '',
@@ -971,5 +968,8 @@ void pool
   .catch((err) => {
     console.error("[db] failed to ensure admin notification tables:", err);
   });
+
+// Metrics only: mark System C registration complete (does not await before listen).
+finalizeSystemCTracking();
 
 export * from "./schema";
