@@ -34,6 +34,8 @@ import {
 
   HubQuickAction,
 
+  EmptyState,
+
   hubPanelClass,
 
   hubCardClass,
@@ -120,7 +122,7 @@ export default function BadmintonAnalyticsPage() {
 
   const { data: categoryStats = [] } = useQuery({
 
-    queryKey: ["badminton-analytics-categories", tournamentId, categories.map((c) => c.id)],
+    queryKey: ["badminton-analytics-categories", tournamentId, categories.map((c) => c.id).sort((a,b)=>a-b).join(",")],
 
     queryFn: async () => {
 
@@ -209,6 +211,26 @@ export default function BadmintonAnalyticsPage() {
             ))}
 
           </div>
+
+        ) : (dashboard?.totalPlayers ?? 0) === 0 && matches.length === 0 ? (
+
+          <EmptyState
+
+            icon={Trophy}
+
+            title="No tournament activity yet"
+
+            desc="Analytics fill in as you add players, categories, and completed matches."
+
+            action={{
+
+              label: "Go to Command Center",
+
+              href: `/tournament/${tournamentId}/badminton`,
+
+            }}
+
+          />
 
         ) : (
 

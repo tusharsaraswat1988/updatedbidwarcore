@@ -91,21 +91,25 @@ export default function BadmintonResultsPage() {
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/matches`),
     enabled: !!tournamentId,
-    refetchInterval: 8_000,
+    staleTime: 30_000,
+    refetchInterval: (q) => {
+      const rows = q.state.data ?? [];
+      return rows.some((m) => m.status === "live" || m.status === "paused") ? 8_000 : false;
+    },
   });
 
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery<ResultsFixture[]>({
     queryKey: ["badminton-fixtures-all", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/fixtures`),
     enabled: !!tournamentId,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
   });
 
   const { data: collections = [] } = useQuery<ResultsCollection[]>({
     queryKey: ["badminton-fixture-collections", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/fixture-collections`),
     enabled: !!tournamentId,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
   });
 
   const { data: categories = [], isLoading: catsLoading } = useQuery<ResultsCategory[]>({
@@ -214,7 +218,11 @@ export default function BadmintonResultsPage() {
           <EmptyState
             icon={Trophy}
             title="No results yet"
-            desc="Completed matches will appear here automatically after scoring."
+            desc="Results appear after matches are scored. Create categories and schedule matches to get started."
+            action={{
+              label: "Go to Control Center",
+              href: `/tournament/${tournamentId}/badminton/control`,
+            }}
           />
         ) : (
           <>
