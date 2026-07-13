@@ -9,17 +9,9 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
+import { formatCategoryPhaseLabel } from "@/lib/badminton-ux";
 import { Trophy, Pencil, Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 
 interface BadmintonCategory {
@@ -261,62 +253,47 @@ function CategoryPanel({
         </button>
       </div>
 
-      <AlertDialog
+      <ConfirmActionDialog
         open={confirmDeleteOpen}
         onOpenChange={(open) => {
           setConfirmDeleteOpen(open);
           if (!open) setDeleteError("");
         }}
-      >
-        <AlertDialogContent className="sm:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-display">Delete category?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Delete <span className="text-foreground font-medium">{category.name}</span>?
-                  All entries for this category will be permanently removed. Fixture collections and
-                  linked matches must be cleared first if they exist.
-                </p>
-                <p>This cannot be undone.</p>
-                {deleteError ? <p className="text-red-400">{deleteError}</p> : null}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void handleConfirmDelete();
-              }}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? "Deleting…" : "Delete category"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete category?"
+        description={
+          <div className="space-y-2">
+            <p>
+              Delete <span className="text-foreground font-medium">{category.name}</span>?
+              All entries for this category will be permanently removed. Fixture collections and
+              linked matches must be cleared first if they exist.
+            </p>
+            <p>This cannot be undone.</p>
+          </div>
+        }
+        confirmLabel="Delete category"
+        busy={deleting}
+        error={deleteError || undefined}
+        onConfirm={() => void handleConfirmDelete()}
+      />
 
       {expanded && (
         <div className="border-t border-white/8 p-5 space-y-6">
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onEdit}
-              className="h-9 px-4 rounded-lg bg-white/8 hover:bg-white/12 text-white/70 text-xs font-semibold transition-colors"
+              className="min-h-11 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-colors"
             >
               Edit Category
             </button>
             <button
               onClick={() => setShowAddReg(true)}
-              className="h-9 px-4 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors border border-primary/25"
+              className="min-h-11 px-4 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors border border-primary/25"
             >
               + Add Entry
             </button>
             <Link
               href={`/tournament/${tournamentId}/badminton/fixtures?categoryId=${category.id}`}
-              className="h-9 px-4 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold transition-colors inline-flex items-center"
+              className="min-h-11 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold transition-colors inline-flex items-center"
             >
               Open Draw & Fixtures
             </Link>
@@ -356,7 +333,7 @@ function CategoryPanel({
                     {row.registration.status === "withdrawn" ? (
                       <button
                         type="button"
-                        className="text-[10px] uppercase tracking-wide text-emerald-400 hover:text-emerald-300"
+                        className="min-h-11 px-3 text-xs uppercase tracking-wide text-emerald-400 hover:text-emerald-300"
                         onClick={() =>
                           void badmintonFetch(
                             tournamentId,
@@ -370,7 +347,7 @@ function CategoryPanel({
                     ) : row.registration.status !== "disqualified" ? (
                       <button
                         type="button"
-                        className="text-[10px] uppercase tracking-wide text-amber-400 hover:text-amber-300"
+                        className="min-h-11 px-3 text-xs uppercase tracking-wide text-amber-400 hover:text-amber-300"
                         onClick={() =>
                           void badmintonFetch(
                             tournamentId,
@@ -668,14 +645,19 @@ function AddRegistrationModal({
 
 function PhaseBadge({ phase }: { phase: string }) {
   const styles: Record<string, string> = {
-    setup: "bg-white/10 text-white/50",
-    draw_generated: "bg-purple-500/15 text-purple-400",
+    setup: "bg-muted text-muted-foreground",
+    draw_generated: "bg-amber-500/15 text-amber-300",
     live: "bg-red-500/15 text-red-400",
-    completed: "bg-green-500/15 text-green-400",
+    completed: "bg-emerald-500/15 text-emerald-400",
   };
   return (
-    <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full", styles[phase] ?? styles.setup)}>
-      {phase.replace("_", " ")}
+    <span
+      className={cn(
+        "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full min-h-7 inline-flex items-center",
+        styles[phase] ?? styles.setup,
+      )}
+    >
+      {formatCategoryPhaseLabel(phase)}
     </span>
   );
 }

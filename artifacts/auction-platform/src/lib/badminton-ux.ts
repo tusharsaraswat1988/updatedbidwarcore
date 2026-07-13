@@ -1,9 +1,132 @@
 /**
- * Sprint A UX helpers — friendly errors + toast wrappers.
+ * Sprint A UX helpers — friendly errors + toast wrappers + RC1 status vocabulary.
  * No API / schema / scoring changes.
  */
 
 import { toast } from "@/hooks/use-toast";
+
+/** Minimum touch target for organizer tablet UI (10"). */
+export const TOUCH_TARGET_CLASS = "min-h-11 min-w-11";
+
+/**
+ * Canonical organizer status labels (RC1).
+ * Never invent synonyms on screens — map raw API values here.
+ */
+export type BadmintonStatusLabel =
+  | "Ready"
+  | "Live"
+  | "Paused"
+  | "Delayed"
+  | "Completed"
+  | "Walkover"
+  | "Retired"
+  | "Cancelled"
+  | "Scheduled"
+  | "Unscheduled";
+
+/** Match / scoring status → display label. */
+export function formatMatchStatusLabel(status: string | null | undefined): BadmintonStatusLabel {
+  switch ((status ?? "").toLowerCase()) {
+    case "live":
+    case "in_progress":
+      return "Live";
+    case "paused":
+      return "Paused";
+    case "completed":
+      return "Completed";
+    case "walkover":
+      return "Walkover";
+    case "retired":
+    case "retirement":
+      return "Retired";
+    case "cancelled":
+    case "canceled":
+      return "Cancelled";
+    case "scheduled":
+      return "Scheduled";
+    case "ready":
+      return "Ready";
+    default:
+      return "Scheduled";
+  }
+}
+
+/** Fixture / planning status → display label. */
+export function formatFixtureStatusLabel(status: string | null | undefined): BadmintonStatusLabel {
+  switch ((status ?? "").toLowerCase()) {
+    case "live":
+    case "in_progress":
+      return "Live";
+    case "completed":
+      return "Completed";
+    case "walkover":
+      return "Walkover";
+    case "cancelled":
+    case "canceled":
+      return "Cancelled";
+    case "ready":
+      return "Ready";
+    case "scheduled":
+      return "Scheduled";
+    case "unscheduled":
+      return "Unscheduled";
+    case "delayed":
+      return "Delayed";
+    default:
+      return formatMatchStatusLabel(status);
+  }
+}
+
+/** Court ops board status → display label (internal enums stay FINISHED/EMPTY). */
+export function formatCourtOpsStatusLabel(
+  status: "EMPTY" | "READY" | "LIVE" | "FINISHED" | "DELAYED" | string,
+): BadmintonStatusLabel | "Idle" {
+  switch (status) {
+    case "LIVE":
+      return "Live";
+    case "READY":
+      return "Ready";
+    case "DELAYED":
+      return "Delayed";
+    case "FINISHED":
+      return "Completed";
+    case "EMPTY":
+      return "Idle";
+    default:
+      return "Ready";
+  }
+}
+
+/** Category phase → display label. */
+export function formatCategoryPhaseLabel(phase: string | null | undefined): string {
+  switch ((phase ?? "").toLowerCase()) {
+    case "live":
+      return "Live";
+    case "completed":
+      return "Completed";
+    case "draw_generated":
+    case "setup":
+      return "Ready";
+    default:
+      return phase?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Ready";
+  }
+}
+
+/** Court entity status → display label. */
+export function formatCourtEntityStatusLabel(status: string | null | undefined): string {
+  switch ((status ?? "").toLowerCase()) {
+    case "in_use":
+    case "live":
+      return "Live";
+    case "available":
+    case "ready":
+      return "Ready";
+    case "maintenance":
+      return "Paused";
+    default:
+      return status?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Ready";
+  }
+}
 
 /** Map raw API / Error messages to organizer-facing copy. */
 export function friendlyBadmintonError(error: unknown, fallback = "Something went wrong"): string {
