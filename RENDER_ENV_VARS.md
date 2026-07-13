@@ -44,23 +44,29 @@ Use on the **staging** web service only. Staging auto-deploys when commits merge
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 
-# Neon STAGING — not production
-DATABASE_URL=postgresql://...@<neon-staging-host>/<db>?sslmode=require
+# Neon STAGING — separate database from production (set in Render dashboard)
+DATABASE_URL=postgresql://...@<staging-neon-host>/<db>?sslmode=require
 
-# Staging public URL (Render default or custom staging subdomain)
-APP_DOMAIN=bidwar-staging.onrender.com
-APP_URL=https://bidwar-staging.onrender.com
+# Optional safety: hostname substrings for this environment's Neon endpoint
+# NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
+# NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
+
+# Hostname must include "staging" only for human clarity; environment is BIDWAR_ENV only.
+APP_DOMAIN=<staging-host>.onrender.com
+APP_URL=https://<staging-host>.onrender.com
 APP_PUBLIC_SCHEME=https
 
-# Unique to staging — generate fresh values
 SESSION_SECRET=<openssl rand -hex 32>
 ADMIN_PASSWORD=<staging-only-password>
 
 SCORING=true
 LOG_LEVEL=info
 ```
+
+**Verify before deploy:** Render staging `DATABASE_URL` must be the staging Neon database (not production). Prefer setting both allow-list env vars so a mis-pasted production URL fails closed at boot.
 
 ### Staging integration guidance
 
@@ -85,12 +91,16 @@ Use on the **production** web service only. Production auto-deploys when commits
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=production
 SERVE_STATIC=true
 
-# Neon PRODUCTION
-DATABASE_URL=postgresql://...@<neon-production-host>/<db>?sslmode=require
+# Neon PRODUCTION — separate database from staging (set in Render dashboard)
+DATABASE_URL=postgresql://...@<production-neon-host>/<db>?sslmode=require
 
-# Production public site
+# Optional safety: hostname substrings for this environment's Neon endpoint
+# NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
+# NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
+
 APP_DOMAIN=bidwar.in,www.bidwar.in
 APP_URL=https://bidwar.in
 APP_PUBLIC_SCHEME=https
@@ -98,9 +108,12 @@ APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<unique-production-secret>
 ADMIN_PASSWORD=<strong-production-password>
 
+# Do NOT set SCHEMA_AUTO_HEAL=true on production
 SCORING=true
 LOG_LEVEL=info
 ```
+
+**Verify before deploy:** Render production `DATABASE_URL` must be the production Neon database (not staging). With allow-lists set, a mis-pasted staging URL fails closed; auto-heal cannot mutate hosts on `NEON_PRODUCTION_HOST_ALLOWLIST`.
 
 Add production Cloudinary, Google OAuth, Twilio, VAPID, BulkSMS, and Resend variables when those features are live. Register OAuth redirect URI: `https://bidwar.in/api/auth/google/callback`.
 
@@ -199,6 +212,7 @@ Use the full [staging](#staging-render-service-develop-branch) and [production](
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 DATABASE_URL=postgresql://...   # Neon staging
 APP_DOMAIN=your-staging.onrender.com
