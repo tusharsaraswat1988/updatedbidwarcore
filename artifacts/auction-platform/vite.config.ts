@@ -9,6 +9,7 @@ import {
   createViteDevProxies,
   ownerAppDevProxyPlugin,
   scoringAppDevProxyPlugin,
+  mobileAppDevProxyPlugin,
 } from "../../lib/api-base/src/vite-proxy.ts";
 import { brandingIconsDevPlugin } from "../../lib/api-base/src/vite-branding-icons-plugin.ts";
 import { bootSplashHtmlPlugin } from "../../lib/api-base/src/vite-boot-splash-html-plugin.ts";
@@ -70,6 +71,7 @@ export default defineConfig({
     tailwindcss(),
     scoringAppDevProxyPlugin(),
     ownerAppDevProxyPlugin(),
+    mobileAppDevProxyPlugin(),
     // Pre-compress JS/CSS/HTML/SVG/JSON with both Brotli and Gzip at build
     // time. The production server serves the .br / .gz sidecar files and sets
     // Content-Encoding accordingly, with no runtime CPU cost.

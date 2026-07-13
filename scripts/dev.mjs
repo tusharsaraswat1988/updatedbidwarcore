@@ -1,5 +1,5 @@
 /**
- * Start API + auction-platform + owner-app + scoring-app together with shared root .env.
+ * Start API + auction-platform + owner-app + scoring-app + mobile-app together with shared root .env.
  * Scoring is on by default (auction-platform redirects badminton/scoring routes there).
  * Opt out with DEV_ENABLE_SCORING=0 or `pnpm dev -- --no-scoring`.
  * Automatically frees stale dev ports before starting.
@@ -17,13 +17,14 @@ import {
 } from "./dev-ports.mjs";
 
 const { loaded, path: envPath, file } = loadRootEnv();
-const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT } =
+const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT, mobileApp: MOBILE_APP_PORT } =
   getDevPorts();
 
 const API_PORT_STR = String(API_PORT);
 const FRONTEND_PORT_STR = String(FRONTEND_PORT);
 const OWNER_APP_PORT_STR = String(OWNER_APP_PORT);
 const SCORING_APP_PORT_STR = String(SCORING_APP_PORT);
+const MOBILE_APP_PORT_STR = String(MOBILE_APP_PORT);
 
 /**
  * Scoring-app is required for badminton/cricket scoring URLs proxied via auction-platform.
@@ -81,6 +82,7 @@ function devEnv(overrides) {
     FRONTEND_PORT: FRONTEND_PORT_STR,
     OWNER_APP_PORT: OWNER_APP_PORT_STR,
     SCORING_APP_PORT: SCORING_APP_PORT_STR,
+    MOBILE_APP_PORT: MOBILE_APP_PORT_STR,
     API_DEV_PROXY_TARGET:
       process.env.API_DEV_PROXY_TARGET?.trim() ||
       `http://127.0.0.1:${API_PORT}`,
@@ -90,6 +92,9 @@ function devEnv(overrides) {
     SCORING_APP_DEV_PROXY_TARGET:
       process.env.SCORING_APP_DEV_PROXY_TARGET?.trim() ||
       `http://127.0.0.1:${SCORING_APP_PORT}`,
+    MOBILE_APP_DEV_PROXY_TARGET:
+      process.env.MOBILE_APP_DEV_PROXY_TARGET?.trim() ||
+      `http://127.0.0.1:${MOBILE_APP_PORT}`,
     ...overrides,
   };
 }
@@ -105,12 +110,12 @@ function isCoreStackRunning(stack) {
 }
 
 function isFullStackRunning(stack) {
-  return isCoreStackRunning(stack) && (!enableScoring || Boolean(stack.scoring));
+  return isCoreStackRunning(stack) && (!enableScoring || Boolean(stack.scoring)) && Boolean(stack.mobile);
 }
 
 function hasAnyDevProcess(stack) {
   return Boolean(
-    stack.api || stack.web || stack.owner || (enableScoring && stack.scoring),
+    stack.api || stack.web || stack.owner || stack.mobile || (enableScoring && stack.scoring),
   );
 }
 
@@ -171,6 +176,7 @@ const devPorts = [
     FRONTEND_PORT,
     OWNER_APP_PORT,
     SCORING_APP_PORT,
+    MOBILE_APP_PORT,
   ]),
 ];
 
@@ -186,7 +192,7 @@ console.log(
   `  Scoring:   ${enableScoring ? "enabled" : "disabled (opted out — use --scoring or DEV_ENABLE_SCORING=1)"}`,
 );
 
-const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT };
+const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT, mobileApp: MOBILE_APP_PORT };
 
 let startServers = true;
 
@@ -205,6 +211,7 @@ if (!forceStart) {
         (enableScoring
           ? `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/\n`
           : "") +
+        `  Mobile:    http://127.0.0.1:${FRONTEND_PORT}/mobile/\n` +
         "\n  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
         "  To force-kill existing processes: `pnpm dev -- --force`\n",
     );
@@ -220,7 +227,8 @@ if (!forceStart) {
           ? `  Scoring app (${SCORING_APP_PORT}): ${stack.scoring ? "running" : "NOT running"}\n`
           : stack.scoring
             ? `  Scoring app (${SCORING_APP_PORT}): running (will be stopped — scoring disabled)\n`
-            : ""),
+            : "") +
+        `  Mobile app (${MOBILE_APP_PORT}):   ${stack.mobile ? "running" : "NOT running"}\n`,
     );
     // Continue below — freePorts will stop orphaned processes and start fresh.
   }
@@ -256,11 +264,15 @@ if (startServers) {
       `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/tournament/1/score`,
     );
     console.log(
-      `             (direct) http://127.0.0.1:${SCORING_APP_PORT}/scoring-app/\n`,
+      `             (direct) http://127.0.0.1:${SCORING_APP_PORT}/scoring-app/`,
     );
-  } else {
-    console.log("");
   }
+  console.log(
+    `  Mobile:    http://127.0.0.1:${FRONTEND_PORT}/mobile/`,
+  );
+  console.log(
+    `             (direct) http://127.0.0.1:${MOBILE_APP_PORT}/mobile/\n`,
+  );
 
   console.log("Building API (one-time)…\n");
   try {
@@ -327,6 +339,14 @@ if (startServers) {
       { restartOnCrash: true },
     );
   }
+
+  run(
+    "mobile",
+    "pnpm",
+    ["--filter", "@workspace/mobile-app", "run", "dev"],
+    devEnv({ MOBILE_APP_PORT: MOBILE_APP_PORT_STR, PORT: MOBILE_APP_PORT_STR }),
+    { restartOnCrash: true },
+  );
 
   console.log("All dev processes started. Press Ctrl+C to stop.\n");
 }

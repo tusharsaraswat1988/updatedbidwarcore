@@ -50,6 +50,8 @@ export type SchemaGovernanceOptions = {
   autoHeal: boolean;
   environment: string;
   databaseType?: string;
+  /** Connection string used for isolation / production-heal gates. */
+  databaseUrl?: string;
   /** When true, log via console; callers may pass a logger. */
   log?: (msg: string, extra?: Record<string, unknown>) => void;
 };

@@ -26,6 +26,7 @@ const HOST_MANAGED_PUBLIC_KEYS = [
   "APP_PUBLIC_SCHEME",
   "APP_DOMAIN",
   "NODE_ENV",
+  "BIDWAR_ENV",
 ] as const;
 
 type HostManagedKey =

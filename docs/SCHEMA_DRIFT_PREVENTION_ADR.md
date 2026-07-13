@@ -22,9 +22,9 @@
 |------|-------------|
 | Drizzle is the **only** design SSOT | Contract/validator/heal SQL generated from `lib/db/src/schema/**` |
 | Every schema change ships a migration | CI rejects PRs that change schema without `lib/db/migrations/*.sql` |
-| Production never auto-mutates | `SCHEMA_AUTO_HEAL` defaults off when `NODE_ENV=production` |
+| Production never auto-mutates | `SCHEMA_AUTO_HEAL` defaults off for true production (`NODE_ENV=production` and not staging) |
 | Production fails closed | Startup validates; critical drift → log + print SQL → exit |
-| Dev/staging may heal | Idempotent `CREATE/ALTER/INDEX IF NOT EXISTS` only; never DROP/RENAME |
+| Dev/staging may heal | Idempotent `CREATE/ALTER/INDEX IF NOT EXISTS` only; never DROP/RENAME. Environment is **only** from required `BIDWAR_ENV` (`local`/`staging` heal; `production` validate-only) |
 | Ops visibility | `GET /api/admin/schema-health` |
 
 ## Migration workflow
@@ -63,9 +63,35 @@ If production refuses to start with a drift report:
 
 | Variable | Effect |
 |----------|--------|
-| `SCHEMA_AUTO_HEAL=true` | Force heal (dev/staging/empty DB only) |
+| `SCHEMA_AUTO_HEAL=true` | Request heal for local/staging — still blocked if `DATABASE_URL` matches `NEON_PRODUCTION_HOST_ALLOWLIST` (when set) |
 | `SCHEMA_AUTO_HEAL=false` | Force validate-only |
-| (unset) | Heal when `NODE_ENV !== "production"` |
+| `BIDWAR_ENV=local\|staging\|production` | **Required.** Sole environment selector (no NODE_ENV/hostname guessing) |
+| `SCHEMA_BOOT_TIMEOUT_MS` | Wall-clock budget for schema bootstrap (default `90000`); fail closed on timeout |
+| `NEON_PRODUCTION_HOST_ALLOWLIST` | Optional comma-separated hostname substrings for production Neon (ops-owned; no code defaults) |
+| `NEON_STAGING_HOST_ALLOWLIST` | Optional comma-separated hostname substrings for staging Neon (ops-owned; no code defaults) |
+| (unset heal flag) | Heal when env is staging/local/dev/test; production is validate-only |
+
+## Database isolation
+
+Local, staging, and production each use a **separate Neon database** supplied by that environment’s `DATABASE_URL` (Render / local `.env`).
+
+| App env (`BIDWAR_ENV`) | Auto-heal | Database |
+|------------------------|-----------|----------|
+| Local / development | Enabled | Local Neon via `DATABASE_URL` |
+| Staging | Enabled | Staging Neon via Render `DATABASE_URL` |
+| Production | Validate-only | Production Neon via Render `DATABASE_URL` |
+
+**Primary control:** required `BIDWAR_ENV` + the `DATABASE_URL` Render injects per service.
+
+Startup **fails immediately** if `BIDWAR_ENV` is missing or not one of `local|staging|production`.
+
+**Optional safety (recommended on Render):** set host allow-lists as env vars (not in code). When set:
+
+- Staging/local refuse to start if `DATABASE_URL` matches `NEON_PRODUCTION_HOST_ALLOWLIST`
+- Production refuses to start if `DATABASE_URL` matches `NEON_STAGING_HOST_ALLOWLIST` or is outside `NEON_PRODUCTION_HOST_ALLOWLIST`
+- Auto-heal never mutates a host on `NEON_PRODUCTION_HOST_ALLOWLIST`
+
+When allow-lists are unset, host fingerprint checks are skipped.
 
 ## Immediate P0 (completed)
 

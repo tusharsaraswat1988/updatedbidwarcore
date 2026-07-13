@@ -406,6 +406,21 @@ export default function BadmintonResultsPage() {
 
             {/* 5. Standings + future placeholders */}
             <section className="space-y-3">
+              <Link
+                href={`/tournament/${tournamentId}/badminton/summary`}
+                className={cn(
+                  hubCardClass,
+                  "block p-4 border-amber-500/25 bg-amber-500/5 hover:bg-amber-500/10 transition-colors",
+                )}
+              >
+                <p className="text-amber-200/70 text-[10px] font-bold uppercase tracking-widest">
+                  Next
+                </p>
+                <p className="text-white font-bold mt-1">Tournament Summary & Awards</p>
+                <p className="text-white/40 text-xs mt-0.5">
+                  Official closing page — champions, court performance, timeline, and awards.
+                </p>
+              </Link>
               <details className="group rounded-xl border border-dashed border-white/12 bg-white/[0.02] open:pb-3">
                 <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
                   <div>
@@ -414,7 +429,7 @@ export default function BadmintonResultsPage() {
                     </p>
                     <p className="text-white/70 text-sm font-semibold mt-0.5">Coming soon</p>
                     <p className="text-white/35 text-xs mt-0.5">
-                      League tables, rankings, awards, and statistics
+                      League tables and player rankings
                     </p>
                   </div>
                   <span className="text-white/30 text-xs group-open:hidden">Show</span>
@@ -423,8 +438,6 @@ export default function BadmintonResultsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pt-1">
                   <FuturePlaceholder title="League Standings" note="Round-robin tables — coming later" />
                   <FuturePlaceholder title="Player Rankings" note="Architecture reserved" />
-                  <FuturePlaceholder title="Awards" note="Architecture reserved" />
-                  <FuturePlaceholder title="Statistics" note="Architecture reserved" />
                 </div>
               </details>
             </section>

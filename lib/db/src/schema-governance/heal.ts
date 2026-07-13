@@ -1,9 +1,9 @@
-import type pg from "pg";
 import type { DriftReport } from "./types.js";
+import type { DbQueryable } from "./timeouts.js";
 
 /** Apply only idempotent additive SQL. Skips comments / guidance lines. */
 export async function applyIdempotentHeal(
-  pool: pg.Pool,
+  db: DbQueryable,
   report: DriftReport,
   log: (msg: string, extra?: Record<string, unknown>) => void,
 ): Promise<{ applied: string[]; failed: Array<{ sql: string; error: string }> }> {
@@ -28,7 +28,7 @@ export async function applyIdempotentHeal(
     }
 
     try {
-      await pool.query(trimmed);
+      await db.query(trimmed);
       applied.push(trimmed);
       log("[schema-governance] healed", { sql: trimmed });
     } catch (err) {

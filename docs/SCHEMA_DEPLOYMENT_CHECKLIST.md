@@ -12,8 +12,12 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 
 ## Staging
 
-- [ ] Apply migration SQL to staging database
+- [ ] Apply migration SQL to staging database (preferred) — or rely on staging auto-heal for additive `IF NOT EXISTS` gaps
+- [ ] Confirm staging identity: **`BIDWAR_ENV=staging` is set** on the Render staging service (required; no hostname/`NODE_ENV` fallback)
+- [ ] Confirm staging `DATABASE_URL` is the **staging** Neon database (Render env) — never paste production’s URL
+- [ ] Optional: set `NEON_STAGING_HOST_ALLOWLIST` / `NEON_PRODUCTION_HOST_ALLOWLIST` so a wrong URL fails closed
 - [ ] Deploy API to staging
+- [ ] Startup logs show `autoHealEnabled: true` (and `databaseRole` if allow-lists set), then schema OK / heal summary **before** HTTP listen
 - [ ] `GET /api/admin/schema-health` → `driftStatus: "ok"`, `critical: false`
 - [ ] Smoke: organizer login, Google login (if configured), tournament list
 
@@ -21,8 +25,10 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 
 - [ ] Apply **same** migration SQL to production **before** app rollout
 - [ ] Confirm column/table exists (`information_schema` / Neon SQL)
-- [ ] Deploy API (`NODE_ENV=production`, do **not** set `SCHEMA_AUTO_HEAL=true`)
-- [ ] Process stays up (startup validation passed)
+- [ ] Deploy API (`NODE_ENV=production`, `BIDWAR_ENV=production`, do **not** set `SCHEMA_AUTO_HEAL=true`)
+- [ ] Confirm production `DATABASE_URL` is the **production** Neon database (Render env) — never paste staging’s URL
+- [ ] Optional: set `NEON_PRODUCTION_HOST_ALLOWLIST` / `NEON_STAGING_HOST_ALLOWLIST`
+- [ ] Process stays up (startup validation passed; logs show `autoHealEnabled: false`)
 - [ ] `GET /api/admin/schema-health` (admin session) → ok
 - [ ] Verify:
   - [ ] `GET /api/auth/me` (session cookie)
