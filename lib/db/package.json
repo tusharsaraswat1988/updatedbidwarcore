@@ -8,11 +8,13 @@
     "./schema": "./src/schema/index.ts",
     "./database-url": "./src/database-url.ts",
     "./load-app-env": "./src/load-app-env.ts",
-    "./boot-metrics": "./src/boot-metrics.ts"
+    "./boot-metrics": "./src/boot-metrics.ts",
+    "./schema-governance": "./src/schema-governance/index.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "check-schema": "node --import tsx ../../scripts/check-schema-governance.mjs"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

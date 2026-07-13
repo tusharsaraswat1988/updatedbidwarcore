@@ -1,187 +1,199 @@
 # Schema Drift Migration Report
 
-Generated: 2026-07-13T15:02:38.329Z
-Production: BidWar Production Neon (`jolly-tree-42208228`)
+**Generated:** 2026-07-13  
+**Production:** Neon `jolly-tree-42208228` (BidWar Production)  
+**Sources compared:**
+- Drizzle schemas: `lib/db/src/schema/**/*.ts` (92 tables)
+- Boot DDL: `lib/db/src/ensure-schema.ts` (System D) + `lib/db/src/index.ts` (System C)
+- Live DB: `information_schema.columns` + `pg_indexes`
 
-## Summary
+**Machine-readable companion:** [`SCHEMA_DRIFT_REPORT.json`](./SCHEMA_DRIFT_REPORT.json)  
+**Re-run audits:** `node scripts/schema-drift-vs-prod.mjs`
 
-| Metric | Count |
-|--------|------:|
-| drizzleTables | 92 |
-| productionTables | 93 |
-| criticalColumnsMissingInProduction | 1 |
-| tablesWithCriticalDrift | 1 |
-| drizzleTablesAbsentInProduction | 0 |
-| productionTablesNotInDrizzle | 1 |
-| tablesWithNoBootDdlCoverage | 25 |
-| tablesWithPartialBootGaps | 10 |
-| namedIndexGaps | 65 |
+---
 
-## P0 — Columns in Drizzle but missing in production
+## Executive verdict
 
-These break `db.select().from(table)` (Drizzle emits all mapped columns).
+| Priority | Finding | Action |
+|----------|---------|--------|
+| **P0** | `tournaments.city` was in Drizzle, absent from production | **FIXED 2026-07-13** — column applied on Neon production; migration `0003_tournaments_city.sql` |
+| **P1** | 15 named indexes declared in Drizzle are missing in production | Optional `CREATE INDEX IF NOT EXISTS` (see below) |
+| **P2** | Boot DDL does not cover many legacy base columns/tables | Hygiene only — production already has them |
+| **Info** | Legacy `sessions` table exists in production, not in Drizzle | Leave as-is |
+| **Enums** | No `pgEnum` usage in Drizzle | Nothing to sync |
 
-### `tournaments` (`tournaments.ts`)
+**Tables:** 92+ in Drizzle ↔ 93 in production (extra = `sessions`).  
+**Critical column drift:** **0** after P0 fix.  
+**Governance:** see `docs/SCHEMA_DRIFT_PREVENTION_ADR.md`.
 
-| Column | In boot DDL? |
-|--------|--------------|
-| `city` | **no** |
+---
 
-## P0 — Tables in Drizzle but missing in production
+## P0 — Production column migration (RESOLVED)
 
-_None._
+### Drift (historical)
 
-## P1 — Proposed production migration SQL
+| Table | Column | Drizzle type | In production (now) | In boot DDL |
+|-------|--------|--------------|---------------------|-------------|
+| `tournaments` | `city` | `text("city")` nullable | **YES** | ensure path + migration |
+
+Added in commit `691c181` (2026-07-13) without a matching `ALTER TABLE … ADD COLUMN` ensure.  
+Any `db.select().from(tournamentsTable)` emits `city` → Postgres error → Express 500 HTML → Google OAuth catch redirects `?error=google_failed`.
+
+### Applied to production
 
 ```sql
--- Review types against Drizzle schema before applying.
-ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city /* TODO: confirm type from lib/db/src/schema/tournaments.ts */ text;
+-- P0: sync Drizzle tournaments.city → production (applied 2026-07-13)
+ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;
 ```
 
-## P2 — Boot DDL coverage gaps (ensure-schema / System C)
+### Apply to boot DDL (prevent regression)
 
-Tables with **zero** CREATE/ALTER coverage in boot DDL (rely on pre-existing prod or drizzle-kit):
+Add to a future governance/migration path (System D is marked frozen — prefer an approved migration; until then, adding this ensure is the practical fix):
 
-- `auction_bid_events` (auction_events.ts) — inProduction=true cols=15
-- `auction_player_events` (auction_events.ts) — inProduction=true cols=23
-- `auction_timer_events` (auction_events.ts) — inProduction=true cols=8
-- `bids` (bids.ts) — inProduction=true cols=6
-- `bot_sessions` (comm.ts) — inProduction=true cols=6
-- `categories` (categories.ts) — inProduction=true cols=11
-- `comm_logs` (comm.ts) — inProduction=true cols=15
-- `consent_blast_log` (comm.ts) — inProduction=true cols=5
-- `consent_tokens` (comm.ts) — inProduction=true cols=9
-- `display_auctions` (display-auctions.ts) — inProduction=true cols=18
-- `notification_logs` (notifications.ts) — inProduction=true cols=15
-- `otp_sessions` (comm.ts) — inProduction=true cols=8
-- `player_import_logs` (player_import_logs.ts) — inProduction=true cols=6
-- `role_spec_groups` (sports.ts) — inProduction=true cols=6
-- `role_spec_options` (sports.ts) — inProduction=true cols=5
-- `scoring_events` (scoring_events.ts) — inProduction=true cols=16
-- `scoring_sessions` (scoring_sessions.ts) — inProduction=true cols=9
-- `scoring_standings` (scoring_standings.ts) — inProduction=true cols=12
-- `settings` (settings.ts) — inProduction=true cols=2
-- `sms_notification_settings` (sms-settings.ts) — inProduction=true cols=9
-- `sport_roles` (sports.ts) — inProduction=true cols=5
-- `sports` (sports.ts) — inProduction=true cols=5
-- `wa_consent_events` (comm.ts) — inProduction=true cols=10
-- `wa_quality_log` (comm.ts) — inProduction=true cols=8
-- `wa_templates` (comm.ts) — inProduction=true cols=8
+```sql
+ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;
+```
 
-Partial gaps (table has some ensures, but these Drizzle columns are not in boot DDL):
+Also recommend ensuring these tournament columns that exist in production + Drizzle but are **not** in `ensure-schema.ts` / System C (fresh DB risk):
 
-### `auction_sessions`
+```sql
+ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auction_unit text NOT NULL DEFAULT 'rupee';
+-- registration_fields_json already ensured in System C (lib/db/src/index.ts)
+```
 
-`active_category_ids`, `break_ends_at`, `current_bid`, `current_bid_team_id`, `current_player_id`, `deferred_player_ids`, `display_overlay`, `display_player_filter`, `fortune_wheel_active`, `id`, `is_break`, `last_action`, `paused_time_remaining`, `sold_players_count`, `status`, `team_purse_view_active`, `timer_ends_at`, `timer_seconds`, `timer_type`, `tournament_id`, `unsold_players_count`, `updated_at`, `wheel_items_json`, `wheel_spinning`, `wheel_winner`
+---
 
-### `branding_settings`
+## P1 — Indexes in Drizzle missing from production
 
-`accent_color`, `app_icon_url`, `background_color`, `body_font`, `brand_name`, `created_at`, `danger_color`, `enable_watermark`, `heading_font`, `id`, `logo_animation_url`, `main_logo_url`, `mini_brand_text`, `mini_logo_url`, `powered_by_text`, `primary_color`, `secondary_color`, `show_branding_auction`, `show_branding_pdf`, `show_branding_public_links`, `show_powered_by_owner_app`, `show_powered_by_viewer`, `splash_screen_url`, `success_color`, `tagline`, `updated_at`, `watermark_opacity`, `watermark_position`, `watermark_text`
+These do **not** cause 500s; they affect query performance / uniqueness expectations.
 
-### `global_players`
+```sql
+-- communication
+CREATE INDEX IF NOT EXISTS ix_communication_assets_asset_type
+  ON communication_assets (asset_type);
+CREATE INDEX IF NOT EXISTS ix_communication_templates_event_type
+  ON communication_templates (event_type);
+CREATE INDEX IF NOT EXISTS ix_communication_templates_is_active
+  ON communication_templates (is_active);
+CREATE INDEX IF NOT EXISTS ix_communication_templates_is_draft
+  ON communication_templates (is_draft);
+CREATE INDEX IF NOT EXISTS ix_communication_template_versions_template_id
+  ON communication_template_versions (template_id);
+CREATE INDEX IF NOT EXISTS ix_communication_jobs_channel
+  ON communication_jobs (channel);
+CREATE INDEX IF NOT EXISTS ix_communication_jobs_template_id
+  ON communication_jobs (template_id);
+CREATE INDEX IF NOT EXISTS ix_communication_jobs_entity
+  ON communication_jobs (entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS ix_communication_jobs_next_retry_at
+  ON communication_jobs (next_retry_at);
+CREATE INDEX IF NOT EXISTS ix_communication_jobs_pending_reason
+  ON communication_jobs (pending_reason);
+CREATE INDEX IF NOT EXISTS ix_communication_jobs_bulk_campaign_id
+  ON communication_jobs (bulk_campaign_id);
+CREATE INDEX IF NOT EXISTS ix_communication_job_recipients_role
+  ON communication_job_recipients (recipient_role);
+CREATE INDEX IF NOT EXISTS ix_communication_logs_action
+  ON communication_logs (action);
+CREATE INDEX IF NOT EXISTS ix_communication_logs_recipient_email
+  ON communication_logs (recipient_email);
 
-`age`, `canonical_name`, `city`, `created_at`, `default_role`, `id`, `mobile_number`, `notes`, `photo_url`, `sport`, `updated_at`
+-- entity audit
+CREATE INDEX IF NOT EXISTS ix_audit_logs_tournament
+  ON audit_logs (tournament_id, performed_at);
+```
 
-### `organizers`
+Also add matching `CREATE INDEX IF NOT EXISTS` lines to boot DDL when governance allows.
 
-`created_at`, `email`, `google_email`, `google_id`, `id`, `license_status`, `max_tournaments`, `mobile`, `name`, `notes`, `password_hash`, `updated_at`
+**Note:** 50 other Drizzle-named indexes already exist in production but are not listed in boot DDL (boot coverage gap only — no prod action).
 
-### `players`
+---
 
-`achievements`, `age`, `availability_dates`, `base_price`, `batting_style`, `bowling_style`, `category_id`, `city`, `created_at`, `crichero_url`, `global_player_id`, `id`, `is_non_playing_member`, `jersey_number`, `mobile_number`, `name`, `photo_url`, `player_tag`, `player_tag_team_id`, `retained_price`, `role`, `sold_price`, `specialization`, `status`, `team_id`, `tournament_id`, `updated_at`, `whatsapp_consent`, `whatsapp_consent_at`, `whatsapp_consent_ip`, `whatsapp_consent_method`, `whatsapp_consent_org_id`
+## P2 — Boot DDL coverage (not production-breaking today)
 
-### `scoring_fixtures`
+### Tables with zero boot CREATE/ALTER coverage
 
-`away_team_id`, `created_at`, `fixture_number`, `format_json`, `home_team_id`, `id`, `result_summary`, `round_name`, `scheduled_at`, `sport_slug`, `status`, `tournament_id`, `updated_at`, `venue`, `winner_team_id`
+All **already exist in production**. Risk is **new empty databases** / restore from schema-only dumps.
 
-### `scoring_matches`
+| Table | Schema file | In production |
+|-------|-------------|---------------|
+| `auction_bid_events` | auction_events.ts | yes |
+| `auction_player_events` | auction_events.ts | yes |
+| `auction_timer_events` | auction_events.ts | yes |
+| `bids` | bids.ts | yes |
+| `bot_sessions` | comm.ts | yes |
+| `categories` | categories.ts | yes |
+| `comm_logs` | comm.ts | yes |
+| `consent_blast_log` | comm.ts | yes |
+| `consent_tokens` | comm.ts | yes |
+| `display_auctions` | display-auctions.ts | yes |
+| `notification_logs` | notifications.ts | yes |
+| `otp_sessions` | comm.ts | yes |
+| `player_import_logs` | player_import_logs.ts | yes |
+| `role_spec_groups` | sports.ts | yes |
+| `role_spec_options` | sports.ts | yes |
+| `scoring_events` | scoring_events.ts | yes |
+| `scoring_sessions` | scoring_sessions.ts | yes |
+| `scoring_standings` | scoring_standings.ts | yes |
+| `settings` | settings.ts | yes |
+| `sms_notification_settings` | sms-settings.ts | yes |
+| `sport_roles` | sports.ts | yes |
+| `sports` | sports.ts | yes |
+| `wa_consent_events` | comm.ts | yes |
+| `wa_quality_log` | comm.ts | yes |
+| `wa_templates` | comm.ts | yes |
 
-`away_side_json`, `away_team_id`, `completed_at`, `created_at`, `current_projection_version`, `fixture_id`, `home_side_json`, `home_team_id`, `id`, `match_kind`, `match_label`, `parent_match_id`, `result_summary`, `round_name`, `rules_json`, `scheduled_at`, `sequence_in_parent`, `sport_slug`, `started_at`, `status`, `summary_json`, `tournament_id`, `updated_at`, `venue`, `winner_team_id`
+### Partial boot coverage (noise filter)
 
-### `showcase_events`
+`ensure-schema` / System C only `ADD COLUMN` for **newer** fields. Base columns (`id`, `name`, `created_at`, …) on tables like `tournaments`, `players`, `organizers`, `teams` are intentionally not re-listed.  
 
-`active`, `alt_text`, `created_at`, `description`, `display_order`, `id`, `image_url`, `sport_name`, `tournament_name`, `updated_at`
+**True hygiene gaps** (in Drizzle + typically in prod, but never ensured in boot):
 
-### `teams`
+| Table | Columns missing from boot DDL (notable) |
+|-------|----------------------------------------|
+| `tournaments` | **`city`** (P0), `auction_unit` |
+| `organizers` | `google_id`, `google_email`, sheets token columns are partially covered in System C; core identity cols are legacy |
+| `branding_settings` | `main_logo_reverse_url` is in System C; most branding cols are legacy CREATE |
 
-`access_code`, `color`, `created_at`, `id`, `is_bidding_enabled`, `logo_url`, `name`, `owner_mobile`, `owner_name`, `purse`, `purse_used`, `short_code`, `tournament_id`, `updated_at`, `whatsapp_consent`, `whatsapp_consent_at`, `whatsapp_consent_ip`, `whatsapp_consent_method`, `whatsapp_consent_org_id`
+Do **not** treat every base column as a migration candidate — production already has them.
 
-### `tournaments`
+---
 
-`admin_locked`, `admin_locked_at`, `auction_code`, `auction_date`, `auction_time`, `auction_unit`, `audio_enabled`, `base_purse`, `bid_increment`, `bid_tier1_increment`, `bid_tier1_up_to`, `bid_tier2_increment`, `bid_tier2_up_to`, `bid_tier3_increment`, `bid_tiers`, `bid_timer_seconds`, `break_end_sound_enabled`, `break_end_sound_url`, `break_end_sound_volume`, `cheer_cooldown_seconds`, `cheer_message_presets`, `cheer_messages_enabled`, `city`, `countdown_sound_enabled`, `countdown_sound_url`, `countdown_sound_volume`, `created_at`, `id`, `last_reset_at`, `last_reset_by`, `license_granted_at`, `license_granted_by`, `license_status`, `logo_url`, `main_banner_enabled`, `main_banner_fit`, `main_banner_url`, `master_volume`, `match_dates`, `maximum_squad_size`, `min_bid`, `minimum_squad_size`, `name`, `organizer_email`, `organizer_id`, `organizer_mobile`, `organizer_name`, `organizer_password`, `player_selection_mode`, `registration_deadline`, `registration_limit`, `reset_count`, `sold_sound_enabled`, `sold_sound_url`, `sold_sound_volume`, `sponsor_logos`, `sport`, `sport_id`, `status`, `timer_seconds`, `updated_at`, `venue`
+## Informational
 
-## Indexes (named in Drizzle)
+### Production-only table: `sessions`
 
-| Table | Index | In prod | In boot |
-|-------|-------|---------|---------|
-| consent_tokens | ix_consent_tokens_token | true | false |
-| consent_tokens | ix_consent_tokens_mobile | true | false |
-| otp_sessions | ix_otp_sessions_mobile | true | false |
-| comm_logs | ix_comm_logs_tournament_id | true | false |
-| comm_logs | ix_comm_logs_recipient_mobile | true | false |
-| comm_logs | ix_comm_logs_sent_at | true | false |
-| comm_logs | ix_comm_logs_blast_id | true | false |
-| consent_blast_log | uq_consent_blast_log | true | false |
-| bot_sessions | ix_bot_sessions_mobile | true | false |
-| wa_consent_events | ix_wa_consent_events_mobile | true | false |
-| wa_consent_events | ix_wa_consent_events_event_at | true | false |
-| communication_assets | ix_communication_assets_asset_type | false | false |
-| communication_templates | ix_communication_templates_event_type | false | false |
-| communication_templates | ix_communication_templates_is_active | false | false |
-| communication_templates | ix_communication_templates_is_draft | false | false |
-| communication_template_versions | ix_communication_template_versions_template_id | false | false |
-| communication_jobs | ix_communication_jobs_channel | false | false |
-| communication_jobs | ix_communication_jobs_template_id | false | false |
-| communication_jobs | ix_communication_jobs_entity | false | false |
-| communication_jobs | ix_communication_jobs_next_retry_at | false | false |
-| communication_jobs | ix_communication_jobs_pending_reason | false | false |
-| communication_jobs | ix_communication_jobs_bulk_campaign_id | false | false |
-| communication_job_recipients | ix_communication_job_recipients_role | false | false |
-| communication_logs | ix_communication_logs_action | false | false |
-| communication_logs | ix_communication_logs_recipient_email | false | false |
-| audit_logs | ix_audit_logs_tournament | false | false |
-| global_players | ix_gp_mobile | true | false |
-| global_players | ix_gp_canonical_name | true | false |
-| notification_logs | ux_notification_logs_dedup_key | true | false |
-| notification_logs | ix_notification_logs_event_type | true | false |
-| notification_logs | ix_notification_logs_channel | true | false |
-| notification_logs | ix_notification_logs_status | true | false |
-| notification_logs | ix_notification_logs_tournament_id | true | false |
-| notification_logs | ix_notification_logs_created_at | true | false |
-| platform_audit_events | ix_audit_actor_time | true | false |
-| platform_audit_events | ix_audit_resource | true | false |
-| platform_audit_events | ix_audit_category_action_time | true | false |
-| platform_audit_events | ix_audit_alert_key | true | false |
-| platform_audit_events | ix_audit_severity | true | false |
-| players | ix_players_tournament_id | true | false |
-| players | ix_players_mobile_number | true | false |
-| players | ix_players_name | true | false |
-| players | ix_players_global_player_id | true | false |
-| player_import_logs | ix_pil_target_tournament | true | false |
-| player_import_logs | ix_pil_source_tournament | true | false |
-| player_import_logs | ix_pil_organizer | true | false |
-| purse_boosters | ux_purse_boosters_local_uuid | true | false |
-| purse_boosters | ix_purse_boosters_sync_pending | true | false |
-| scoring_events | uq_scoring_events_match_sequence | true | false |
-| scoring_events | ix_scoring_events_match_id | true | false |
-| scoring_events | ix_scoring_events_tournament_id | true | false |
-| scoring_fixtures | ix_scoring_fixtures_tournament_id | true | false |
-| scoring_fixtures | ix_scoring_fixtures_tournament_status | true | false |
-| scoring_matches | ix_scoring_matches_tournament_id | true | false |
-| scoring_matches | ix_scoring_matches_fixture_id | true | false |
-| scoring_matches | ix_scoring_matches_tournament_status | true | false |
-| scoring_sessions | uq_scoring_sessions_match_id | true | false |
-| scoring_standings | uq_scoring_standings_tournament_team | true | false |
-| scoring_standings | ix_scoring_standings_tournament_id | true | false |
-| sports | ix_sports_slug | true | false |
-| sport_roles | ix_sport_roles_sport_id | true | false |
-| role_spec_groups | ix_role_spec_groups_role_id | true | false |
-| role_spec_options | ix_role_spec_options_group_id | true | false |
-| teams | uq_teams_tournament_owner_mobile | true | false |
-| tournaments | ix_tournaments_auction_code | true | false |
+| Column | Type |
+|--------|------|
+| `sid` | varchar |
+| `sess` | json |
+| `expire` | timestamp |
 
-## Informational — production-only (not in Drizzle)
+Legacy session store. Not referenced by current JWT cookie auth (`bidwar_auth`). Safe to leave; optional later cleanup after confirming no traffic.
 
-Production tables not mapped in Drizzle: 1
+### Constraints / enums
 
-`sessions`
+- No Drizzle `pgEnum` definitions in the repo.
+- Unique indexes that exist in both Drizzle and production were not re-audited for column-order mismatches beyond name presence.
+- Foreign keys: boot DDL uses sparse `REFERENCES`; Drizzle often omits DB-level FKs. No P0 FK drift identified for the Google auth path.
+
+---
+
+## Recommended sync checklist
+
+1. **[P0] Production:** run `ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;`
+2. **[P0] Code:** add the same ensure to the approved migration / boot path so deploys cannot regress.
+3. **[P0 verify]:** `GET /api/auth/organizer-account/me` with a valid organizer cookie → 200 JSON (not HTML 500).
+4. **[P0 verify]:** Google Sign-In → `/organizer?google_ok=1` (not `?error=google_failed`).
+5. **[P1 optional]:** create the 15 missing communication/audit indexes.
+6. **[P2 later]:** governance pass to document legacy tables as “pre-provisioned” vs expand boot DDL for greenfield installs.
+
+---
+
+## Method notes
+
+- Drizzle column extraction parses `pgTable("…", { field: type("col") })` across all schema files.
+- Boot coverage = any `ADD COLUMN IF NOT EXISTS` or `CREATE TABLE IF NOT EXISTS (…)` in System C/D.
+- Production comparison uses live Neon `information_schema` / `pg_indexes`.
+- **Critical** = in Drizzle, missing in production (breaks SELECT *).  
+- **Boot gap** = in Drizzle, missing from boot DDL (may still be fine in prod).

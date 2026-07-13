@@ -1,0 +1,29 @@
+name: Schema governance
+
+on:
+  pull_request:
+    paths:
+      - "lib/db/**"
+      - "scripts/check-schema-governance.mjs"
+      - ".github/workflows/schema-governance.yml"
+
+jobs:
+  schema-migration-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Reject schema PRs without migrations
+        env:
+          SCHEMA_CI_BASE: origin/${{ github.base_ref }}
+        run: node --import tsx scripts/check-schema-governance.mjs

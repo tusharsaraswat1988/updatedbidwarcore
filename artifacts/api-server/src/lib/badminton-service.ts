@@ -445,6 +445,18 @@ async function persistBadmintonCommandEvents(
     if (err instanceof ScoringPlatformError) {
       throw new BadmintonServiceError(err.code ?? "PLATFORM_ERROR", err.message, err.status);
     }
+    // Unique (match_id, sequence) — concurrent start/score from two clients
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? String((err as { code: unknown }).code)
+        : "";
+    if (code === "23505") {
+      throw new BadmintonServiceError(
+        "CONCURRENT_UPDATE",
+        "Another operator updated this match at the same time. Refresh Match Control and try again.",
+        409,
+      );
+    }
     throw err;
   }
 }
@@ -662,7 +674,12 @@ export async function awardPoint(
   const state = await loadCurrentMatchState(matchId, tournamentId, meta);
   const result = cmdAwardPoint(state, winningSide, opts);
 
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -692,7 +709,12 @@ export async function undoLastPoint(
   }
 
   const result = cmdUndoLastPoint(state, undoTargets);
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -724,7 +746,12 @@ export async function handleTimeout(
       ? cmdStartTimeout(state, side, kind)
       : cmdEndTimeout(state);
 
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -750,7 +777,12 @@ export async function handleInterval(
   const state = replayBadmintonViaPlatform(meta, events);
 
   const result = action === "start" ? cmdStartInterval(state) : cmdEndInterval(state);
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -774,7 +806,12 @@ export async function handleCourtChangeAck(
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdAcknowledgeCourtChange(state);
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -884,7 +921,12 @@ async function persistCommandResult(
   result: { ok: true; events: Array<{ eventType: string; payload: Record<string, unknown> }> } | { ok: false; error: string },
   actor: Actor,
 ): Promise<BadmintonMatchState> {
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,

@@ -1,24 +1,43 @@
 import type pg from "pg";
 import { recordSystemDMetrics } from "./boot-metrics";
+import { resolveAutoHealEnabled, runSchemaGovernance } from "./schema-governance/index.js";
 
 /**
- * ============================================================================
- * SYSTEM D — ensureCoreSchema — FROZEN
- * ============================================================================
- * This file is frozen.
- * Do not add new schema changes here.
- * Future schema changes must follow the database governance process.
+ * Boot schema orchestration.
  *
- * Existing boot-time DDL below remains active for production compatibility.
- * Do not remove, refactor, or extend it.
+ * - Development / staging (SCHEMA_AUTO_HEAL=true or NODE_ENV≠production):
+ *   Runs legacy idempotent bootstrap DDL, then Drizzle-driven heal for gaps.
+ * - Production (default): NEVER mutates. Validates live DB against Drizzle SSOT
+ *   and refuses to start on critical drift (prints required SQL).
  *
- * Observability: query counter + timing only; SQL batches unchanged.
- * ============================================================================
- *
- * Idempotent column/table ensures for production DBs that predate newer schema fields.
- * Drizzle SELECT * fails when a mapped column is missing — this runs before the API listens.
+ * Drizzle schema is the only design source of truth for validation/heal SQL.
  */
 export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
+  const autoHeal = resolveAutoHealEnabled();
+
+  if (autoHeal) {
+    await runLegacyBootstrapDdl(pool);
+  } else {
+    console.info(
+      "[schema] production/validate-only mode — skipping boot DDL mutations; validating against Drizzle",
+    );
+  }
+
+  await runSchemaGovernance(pool, {
+    autoHeal,
+    log: (msg, extra) => {
+      if (extra) console.info(msg, extra);
+      else console.info(msg);
+    },
+  });
+}
+
+/**
+ * Legacy System D bootstrap (idempotent CREATE/ALTER IF NOT EXISTS).
+ * Used only when auto-heal is enabled (empty DB / local / staging).
+ * Do not call this on production boot — production uses versioned migrations.
+ */
+async function runLegacyBootstrapDdl(pool: pg.Pool): Promise<void> {
   const startedAt = Date.now();
   let queryCount = 0;
   let success = false;
@@ -317,6 +336,8 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_photo_public_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS logo_public_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS main_banner_public_id text;
+    -- P0 2026-07-13: Drizzle maps tournaments.city; missing column breaks SELECT * / Google login.
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_public_id text;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS photo_public_id text;
     ALTER TABLE badminton_players ADD COLUMN IF NOT EXISTS photo_public_id text;

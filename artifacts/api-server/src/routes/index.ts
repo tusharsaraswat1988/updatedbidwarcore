@@ -41,11 +41,13 @@ import googleSearchConsoleRouter from "./google-search-console";
 import academyLessonsRouter from "./academy-lessons";
 import academyPublicRouter from "./academy-public";
 import diagnosticsRouter from "./diagnostics";
+import schemaHealthRouter from "./schema-health";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(diagnosticsRouter);
+router.use(schemaHealthRouter);
 router.use(googleSheetsRouter);
 router.use(googleSearchConsoleRouter);
 router.use(pushRouter);
