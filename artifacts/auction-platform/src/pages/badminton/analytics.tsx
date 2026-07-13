@@ -34,6 +34,8 @@ import {
 
   HubQuickAction,
 
+  EmptyState,
+
   hubPanelClass,
 
   hubCardClass,
@@ -120,7 +122,7 @@ export default function BadmintonAnalyticsPage() {
 
   const { data: categoryStats = [] } = useQuery({
 
-    queryKey: ["badminton-analytics-categories", tournamentId, categories.map((c) => c.id)],
+    queryKey: ["badminton-analytics-categories", tournamentId, categories.map((c) => c.id).sort((a,b)=>a-b).join(",")],
 
     queryFn: async () => {
 
@@ -209,6 +211,26 @@ export default function BadmintonAnalyticsPage() {
             ))}
 
           </div>
+
+        ) : (dashboard?.totalPlayers ?? 0) === 0 && matches.length === 0 ? (
+
+          <EmptyState
+
+            icon={Trophy}
+
+            title="No tournament activity yet"
+
+            desc="Analytics fill in as you add players, categories, and completed matches."
+
+            action={{
+
+              label: "Go to Command Center",
+
+              href: `/tournament/${tournamentId}/badminton`,
+
+            }}
+
+          />
 
         ) : (
 
@@ -376,9 +398,9 @@ export default function BadmintonAnalyticsPage() {
 
                 <HubQuickAction icon={MapPin} title="Courts" desc="Court setup" href={`/tournament/${tournamentId}/badminton/courts`} />
 
-                <HubQuickAction icon={Trophy} title="Categories" desc="Event definitions" href={`/tournament/${tournamentId}/badminton/categories`} />
-                <HubQuickAction icon={ListTree} title="Draw & Fixtures" desc="Plan fixtures" href={`/tournament/${tournamentId}/badminton/fixtures`} />
-                <HubQuickAction icon={Calendar} title="Scheduling" desc="Courts & times" href={`/tournament/${tournamentId}/badminton/schedule`} />
+                <HubQuickAction icon={Trophy} title="Events" desc="Event definitions" href={`/tournament/${tournamentId}/badminton/categories`} />
+                <HubQuickAction icon={ListTree} title="Tournament Draw" desc="Plan fixtures" href={`/tournament/${tournamentId}/badminton/fixtures`} />
+                <HubQuickAction icon={Calendar} title="Court Schedule" desc="Courts & times" href={`/tournament/${tournamentId}/badminton/schedule`} />
 
                 <HubQuickAction icon={ClipboardList} title="Matches" desc="Schedule & live" href={`/tournament/${tournamentId}/badminton/matches`} />
                 <HubQuickAction icon={Radio} title="Control Center" desc="Live court ops" href={`/tournament/${tournamentId}/badminton/control`} />

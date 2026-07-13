@@ -44,6 +44,7 @@ import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { navigateAfterOrganizerAuth } from "@/lib/navigate-after-organizer-auth";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
@@ -805,7 +806,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
     const me = await checkOrganizerAccountAuth();
     if (me.loggedIn && me.organizer) {
       onSuccess(me.organizer, me.tournaments ?? []);
-      if (next && next.startsWith("/")) navigate(next);
+      if (next && next.startsWith("/")) navigateAfterOrganizerAuth(next, navigate);
       return true;
     }
     if (me.serverError) {
@@ -841,7 +842,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
       // second slow GET /me round-trip which is the main cause of the long spinner.
       if (r.organizer) {
         onSuccess(r.organizer, r.tournaments ?? []);
-        if (next && next.startsWith("/")) navigate(next);
+        if (next && next.startsWith("/")) navigateAfterOrganizerAuth(next, navigate);
         return;
       }
       // Fallback: login response didn't include organizer data (older server)
@@ -1699,6 +1700,8 @@ export default function OrganizerPortal() {
   useEffect(() => {
     void refresh().then((loggedIn) => {
       const params = new URLSearchParams(window.location.search);
+      // Preserve next BEFORE clearing google_ok query — required for /mobile return paths.
+      const next = params.get("next") ?? "";
       if (params.get("google_ok") === "1") {
         window.history.replaceState({}, "", "/organizer");
         if (!loggedIn) {
@@ -1709,22 +1712,20 @@ export default function OrganizerPortal() {
       }
       // If already logged in and there's a ?next= param, navigate only when access is confirmed.
       // Blind redirects to /tournament/:id caused an infinite loop with OrganizerGuard.
-      if (loggedIn) {
-        const next = new URLSearchParams(window.location.search).get("next") ?? "";
-        if (next && next.startsWith("/")) {
-          void (async () => {
-            const tournamentMatch = next.match(/^\/tournament\/(\d+)(?:\/|$)/);
-            if (tournamentMatch) {
-              const tid = parseInt(tournamentMatch[1], 10);
-              const canAccess = await checkOrganizerAuth(tid);
-              if (canAccess) {
-                navigate(next);
-              }
-              return;
+      // Cross-app paths (/mobile, /owner-app, /scoring-app) must use a full page load.
+      if (loggedIn && next.startsWith("/")) {
+        void (async () => {
+          const tournamentMatch = next.match(/^\/tournament\/(\d+)(?:\/|$)/);
+          if (tournamentMatch) {
+            const tid = parseInt(tournamentMatch[1], 10);
+            const canAccess = await checkOrganizerAuth(tid);
+            if (canAccess) {
+              navigateAfterOrganizerAuth(next, navigate);
             }
-            navigate(next);
-          })();
-        }
+            return;
+          }
+          navigateAfterOrganizerAuth(next, navigate);
+        })();
       }
     });
   }, []);

@@ -348,7 +348,7 @@ export function FormModal({
 
             aria-label="Close"
 
-            className="flex-none w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors"
+            className="flex-none min-h-11 min-w-11 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors"
 
           >
 
@@ -665,7 +665,7 @@ export function BtnPrimary({
 
       className={cn(
 
-        "inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 transition-all",
+        "inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 transition-all",
 
         className,
 
@@ -721,7 +721,7 @@ export function BtnSecondary({
 
       className={cn(
 
-        "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary text-secondary-foreground px-4 py-2.5 font-semibold text-sm hover-elevate active-elevate-2 disabled:opacity-50 transition-colors",
+        "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary text-secondary-foreground min-h-11 px-4 py-2.5 font-semibold text-sm hover-elevate active-elevate-2 disabled:opacity-50 transition-colors",
 
         className,
 

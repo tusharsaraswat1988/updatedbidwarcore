@@ -17,6 +17,7 @@ import { startMemoryDiagnostics } from "./lib/memory-diagnostics.js";
 const { port } = getRuntimeConfig();
 
 async function start() {
+  // Schema validate/heal must succeed before binding PORT.
   await ensureCoreSchema(pool);
   await brandingService.migrateLegacyBrandingAssets();
   await brandingService.refreshPlatformBrandingCache();
@@ -39,6 +40,9 @@ async function start() {
 }
 
 start().catch((err) => {
-  logger.error({ err }, "Failed to start server");
+  logger.error({ err }, "Failed to start server — schema/bootstrap refused start");
+  console.error(
+    "[bidwar] Startup aborted before HTTP listen. Fix schema drift (see SCHEMA DRIFT REPORT above, if printed) or DB connectivity, then redeploy.",
+  );
   process.exit(1);
 });

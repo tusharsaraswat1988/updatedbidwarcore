@@ -13,10 +13,16 @@ export {
   getSchemaHealthReport,
   runSchemaGovernance,
   resolveAutoHealEnabled,
+  resolveEffectiveAutoHeal,
   resolveEnvironment,
   formatDriftReportForConsole,
+  assertEnvironmentDatabaseIsolation,
+  classifyDatabaseRole,
+  gateAutoHealForDatabase,
+  isProductionDatabaseUrl,
+  isStagingDatabaseUrl,
 } from "./schema-governance/index.js";
-export type { DriftReport, SchemaContract } from "./schema-governance/index.js";
+export type { DriftReport, SchemaContract, DatabaseRole } from "./schema-governance/index.js";
 export { getBootMetricsSnapshot } from "./boot-metrics";
 export type { BootMetricsSnapshot, SystemCMetrics, SystemDMetrics } from "./boot-metrics";
 

@@ -158,7 +158,11 @@ export default function BadmintonMatchesPage() {
       return res.json();
     },
     enabled: !!tournamentId,
-    refetchInterval: 8_000,
+    staleTime: 8_000,
+    refetchInterval: (q) => {
+      const rows = q.state.data ?? [];
+      return rows.some((m) => m.status === "live" || m.status === "paused") ? 8_000 : false;
+    },
   });
 
   const filtered = matches.filter((m) => {

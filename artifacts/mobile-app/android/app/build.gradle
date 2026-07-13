@@ -1,0 +1,124 @@
+apply plugin: 'com.android.application'
+
+def PROD_SHELL = "https://bidwar.in/mobile/"
+def STAGING_SHELL = "https://bidwar-staging.onrender.com/mobile/"
+
+android {
+    namespace = "com.bidwar.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.bidwar.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 2
+        versionName "1.1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+        buildConfigField "String", "MOBILE_SHELL_URL", "\"${PROD_SHELL}\""
+        buildConfigField "boolean", "ENABLE_WEBVIEW_DEBUG", "false"
+    }
+    signingConfigs {
+        release {
+            def propsFile = rootProject.file('keystore/keystore.properties')
+            if (propsFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(propsFile))
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    buildTypes {
+        debug {
+            buildConfigField "String", "MOBILE_SHELL_URL", "\"${STAGING_SHELL}\""
+            buildConfigField "boolean", "ENABLE_WEBVIEW_DEBUG", "true"
+            debuggable true
+        }
+        release {
+            buildConfigField "String", "MOBILE_SHELL_URL", "\"${PROD_SHELL}\""
+            buildConfigField "boolean", "ENABLE_WEBVIEW_DEBUG", "false"
+            minifyEnabled true
+            shrinkResources true
+            debuggable false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (rootProject.file('keystore/keystore.properties').exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    packaging {
+        resources {
+            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+
+    // Firebase — infrastructure only (Messaging + Analytics + Crashlytics)
+    implementation platform('com.google.firebase:firebase-bom:33.16.0')
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-crashlytics'
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.exists() && servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+        apply plugin: 'com.google.firebase.crashlytics'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found; Firebase plugins not applied")
+}
+
+/**
+ * Rewrite capacitor.config.json server.url after assets merge.
+ * Debug → staging, Release → production (never ship staging in release).
+ */
+android.applicationVariants.configureEach { variant ->
+    def shellUrl = variant.buildType.name == "release" ? PROD_SHELL : STAGING_SHELL
+    def capitalize = { String s -> s.substring(0, 1).toUpperCase() + s.substring(1) }
+    tasks.named("merge${capitalize(variant.name)}Assets").configure {
+        doLast {
+            def assetsDir = outputDir.get().asFile
+            def configFile = new File(assetsDir, "capacitor.config.json")
+            if (!configFile.exists()) {
+                logger.warn("capacitor.config.json missing for ${variant.name} at ${configFile}")
+                return
+            }
+            def json = new groovy.json.JsonSlurper().parse(configFile)
+            if (json.server == null) json.server = [:]
+            json.server.url = shellUrl
+            json.server.cleartext = false
+            if (json.android == null) json.android = [:]
+            json.android.webContentsDebuggingEnabled = variant.buildType.name != "release"
+            configFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+            logger.lifecycle("Capacitor server.url for ${variant.name}: ${shellUrl}")
+        }
+    }
+}

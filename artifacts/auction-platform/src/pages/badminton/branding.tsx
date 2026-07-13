@@ -9,7 +9,9 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
-import { FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
+import { FormField, inputClass, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
@@ -308,16 +310,16 @@ export default function BadmintonBrandingPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Branding"
-        subtitle="Logo, colors, and scoreboard sponsors — how your tournament looks on display"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="branding"
+        headerActions={
           <div className="flex flex-col items-end gap-1">
             <BtnPrimary
               onClick={() => persistBranding(true)}
               disabled={saveMutation.isPending || isLoading}
             >
-              {saveMutation.isPending ? "Saving…" : "Save Branding"}
+              {saveMutation.isPending ? "Saving…" : "Save Details"}
             </BtnPrimary>
             <p className="text-muted-foreground text-xs">
               {saveError
@@ -328,8 +330,7 @@ export default function BadmintonBrandingPage() {
             </p>
           </div>
         }
-      />
-
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
         {isLoading ? (
           <div className="h-80 rounded-xl bg-muted animate-pulse" />
@@ -421,13 +422,13 @@ export default function BadmintonBrandingPage() {
             {/* Branding form */}
             <section className={cn(hubPanelClass, "space-y-5")}>
               <div>
-                <h2 className="text-foreground font-display font-bold text-lg">Tournament Branding</h2>
+                <h2 className="text-foreground font-display font-bold text-lg">Tournament identity</h2>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                  Set how your tournament appears on court-side displays.
+                  Name, venue, and organizer used on scoreboards and broadcasts.
                 </p>
               </div>
 
-              <FormField label="Display Name">
+              <FormField label="Tournament Name">
                 <input
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
@@ -435,6 +436,10 @@ export default function BadmintonBrandingPage() {
                   className={inputClass}
                 />
               </FormField>
+              <SetupTerm
+                term="Tournament Name"
+                meaning="shown on scoreboards, displays, and broadcasts."
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="Venue">
@@ -465,9 +470,9 @@ export default function BadmintonBrandingPage() {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <BtnPrimary type="button" onClick={() => setLogoEditorOpen(true)}>
+                    <BtnSecondary type="button" onClick={() => setLogoEditorOpen(true)}>
                       {form.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </BtnPrimary>
+                    </BtnSecondary>
                     {form.logoUrl && (
                       <BtnSecondary type="button" onClick={() => setForm((f) => ({ ...f, logoUrl: "", logoPublicId: "" }))}>
                         Remove
@@ -547,7 +552,7 @@ export default function BadmintonBrandingPage() {
                   {scoreBoardSponsor.logoUrl ? (
                     <img
                       src={scoreBoardSponsor.logoUrl}
-                      alt=""
+                      alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
                       className="w-20 h-20 rounded-xl object-contain bg-white p-2 border border-[#ffd700]/30"
                     />
                   ) : (
@@ -556,9 +561,9 @@ export default function BadmintonBrandingPage() {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <BtnPrimary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
+                    <BtnSecondary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
                       {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </BtnPrimary>
+                    </BtnSecondary>
                     {scoreBoardSponsor.logoUrl && (
                       <BtnSecondary type="button" onClick={() => setScoreBoardSponsor((s) => ({ ...s, logoUrl: null, logoPublicId: null }))}>
                         Remove
@@ -587,7 +592,7 @@ export default function BadmintonBrandingPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <BtnPrimary
+                <BtnSecondary
                   type="button"
                   onClick={() => {
                     setImportMessage("");
@@ -596,7 +601,7 @@ export default function BadmintonBrandingPage() {
                   disabled={importAuctionMutation.isPending || isLoading}
                 >
                   {importAuctionMutation.isPending ? "Importing…" : "Import branding"}
-                </BtnPrimary>
+                </BtnSecondary>
               </div>
 
               <p className="text-muted-foreground text-xs leading-relaxed">
@@ -647,6 +652,7 @@ export default function BadmintonBrandingPage() {
           setScoreBoardLogoEditorOpen(false);
         }}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }

@@ -1,20 +1,24 @@
 /**
- * Badminton Broadcast Center
+ * Tournament Broadcast Console
  * Route: /tournament/:id/badminton/broadcast
  *
- * Central place for display, OBS overlays, and scorer access — no raw URLs on the hub.
+ * Tournament-centric control surface: persistent Venue / OBS / Scorer / Results
+ * links that auto-follow Primary Broadcast. Does not change scoring or lifecycle.
  */
 
-import { useRoute, useLocation, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Radio, Shield } from "lucide-react";
-import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { useEffect, useMemo } from "react";
+import { useRoute, useLocation } from "wouter";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Monitor,
+  Radio,
+  Tablet,
+  Trophy,
+  CircleDot,
+} from "lucide-react";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { cn } from "@/lib/utils";
-import {
-  formatTeamPlayerVsLine,
-  identityFromSideInfo,
-} from "@/lib/team-player-identity";
+import { identityFromSideInfo } from "@/lib/team-player-identity";
 import {
   HubPageShell,
   PageHeader,
@@ -22,69 +26,97 @@ import {
   hubPanelClass,
   EmptyState,
 } from "@/components/badminton/page-chrome";
-import { BadmintonBroadcastActions } from "@/components/badminton/broadcast-actions";
-import { DarkSelect } from "@/components/badminton/form-ui";
-import { badmintonMatchControlPath } from "@/lib/badminton-routes";
+import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
+import { TeamPlayerVs } from "@/components/badminton/team-player-card";
+import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface MatchRow {
-  id: number;
-  status: string;
-  detail: Record<string, unknown> | null;
-  state: BadmintonMatchState | null;
-}
-
-function matchLabel(match: MatchRow): string {
-  const state = match.state;
-  const detail = match.detail ?? {};
-  if (state) {
-    return formatTeamPlayerVsLine(
-      identityFromSideInfo(state.leftSide, { preferShort: true }),
-      identityFromSideInfo(state.rightSide, { preferShort: true }),
-    );
-  }
-  return (detail.matchLabel as string | undefined) ?? `Match #${match.id}`;
-}
+import {
+  buildCourtBroadcastChips,
+  broadcastConsoleStatusLabel,
+  currentGameLabel,
+  currentScoreLabel,
+  deriveBroadcastConsoleStatus,
+  findUpNextMatch,
+  formatEstimatedStart,
+  listLiveMatches,
+  matchCategoryLabel,
+  matchCourtLabel,
+  matchIdentityLine,
+  resolvePrimaryBroadcastMatchId,
+  softFeedStatus,
+  type BroadcastConsoleMatch,
+} from "@/lib/badminton-broadcast-console";
 
 export default function BadmintonBroadcastPage() {
   const [, params] = useRoute("/tournament/:id/badminton/broadcast");
-  const tournamentId = parseInt(params?.id ?? "0");
-  const [location, navigate] = useLocation();
+  const tournamentId = parseInt(params?.id ?? "0", 10);
+  const [, navigate] = useLocation();
+  const qc = useQueryClient();
 
-  const selectedMatchId = (() => {
-    const q = location.split("?")[1] ?? "";
-    const match = new URLSearchParams(q).get("match");
-    return match ? parseInt(match, 10) : null;
-  })();
+  const { data: branding } = useBadmintonBranding(tournamentId);
 
-  const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
+  const { data: matches = [], isLoading } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/matches`),
     enabled: !!tournamentId,
+    refetchInterval: 6_000,
   });
 
-  const selectedMatch = selectedMatchId
-    ? matches.find((m) => m.id === selectedMatchId)
-    : matches.find((m) => m.status === "live") ?? matches[0];
+  const liveMatches = useMemo(() => listLiveMatches(matches), [matches]);
+  const primaryMatchId = useMemo(
+    () =>
+      resolvePrimaryBroadcastMatchId(matches, branding?.primaryBroadcastMatchId ?? null),
+    [matches, branding?.primaryBroadcastMatchId],
+  );
+  const primaryMatch = matches.find((m) => m.id === primaryMatchId) ?? null;
+  const upNext = useMemo(
+    () => findUpNextMatch(matches, primaryMatchId),
+    [matches, primaryMatchId],
+  );
+  const consoleStatus = deriveBroadcastConsoleStatus(liveMatches.length, !!upNext);
+  const feedStatus = softFeedStatus(!!primaryMatch);
+  const courtChips = useMemo(
+    () => buildCourtBroadcastChips(matches, primaryMatchId),
+    [matches, primaryMatchId],
+  );
 
-  const activeMatchId = selectedMatch?.id ?? null;
+  const setPrimaryMutation = useMutation({
+    mutationFn: (matchId: number) =>
+      badmintonFetch(tournamentId, `/primary-broadcast`, {
+        method: "PATCH",
+        body: JSON.stringify({ matchId }),
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(["badminton-branding", tournamentId], data);
+    },
+  });
+
+  // Keep stored primary in sync when only one court is live.
+  useEffect(() => {
+    if (!tournamentId || liveMatches.length !== 1) return;
+    const soleId = liveMatches[0].id;
+    if (branding?.primaryBroadcastMatchId === soleId) return;
+    if (branding === undefined) return;
+    setPrimaryMutation.mutate(soleId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-sync on sole-live transitions
+  }, [tournamentId, liveMatches.length, liveMatches[0]?.id, branding?.primaryBroadcastMatchId]);
 
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         eyebrow="Step 7 · Broadcast"
-        title="Broadcast Center"
-        subtitle="Displays, stream overlays, and scorer access for each match"
+        title="Tournament Broadcast Console"
+        subtitle="One Venue Display URL and one OBS Overlay URL for the whole tournament — they follow the live court automatically."
       />
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
         {isLoading ? (
-          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         ) : matches.length === 0 ? (
           <EmptyState
             icon={Radio}
             title="No matches to broadcast yet"
-            desc="Create and schedule matches first, then return here to set up displays and overlays."
+            desc="Create and schedule matches first, then return here for persistent venue and OBS links."
             action={{
               label: "Go to matches",
               onClick: () => navigate(`/tournament/${tournamentId}/badminton/matches`),
@@ -92,62 +124,226 @@ export default function BadmintonBroadcastPage() {
           />
         ) : (
           <>
-            <section className={cn(hubPanelClass, "space-y-4")}>
-              <div>
-                <h2 className="text-sm font-display font-bold text-foreground">Select match</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Choose which match you are setting up for the venue or stream.
-                </p>
-              </div>
-              <DarkSelect
-                value={activeMatchId ? String(activeMatchId) : ""}
-                onValueChange={(v) => navigate(`/tournament/${tournamentId}/badminton/broadcast?match=${v}`)}
-                placeholder="Choose a match…"
-                options={matches.map((m) => ({
-                  value: String(m.id),
-                  label: `${matchLabel(m)}${m.status === "live" ? " · LIVE" : ""}`,
-                }))}
+            {/* Status strip */}
+            <section className={cn(hubPanelClass, "p-4 flex flex-wrap items-center gap-3")}>
+              <StatusPill
+                active={consoleStatus === "live_active" || consoleStatus === "multi_live"}
+                label={broadcastConsoleStatusLabel(consoleStatus)}
+              />
+              <StatusPill label={`Overlay · ${feedStatus.overlay}`} />
+              <StatusPill label={`Venue Display · ${feedStatus.venue}`} />
+            </section>
+
+            {/* Persistent links */}
+            <section className="grid sm:grid-cols-2 gap-4">
+              <BroadcastLinkCard
+                kind="venue-display"
+                tournamentId={tournamentId}
+                title="Venue Display"
+                help="Displays scores on TVs inside the venue. Set once — it follows the Primary Broadcast match."
+                icon={Monitor}
+              />
+              <BroadcastLinkCard
+                kind="obs-overlay"
+                tournamentId={tournamentId}
+                title="OBS Overlay"
+                help="Used inside OBS Studio as a Browser Source. Persistent URL — never change it mid-tournament."
+                icon={Radio}
+              />
+              <BroadcastLinkCard
+                kind="scorer-home"
+                tournamentId={tournamentId}
+                title="Scorer Home"
+                help="Shared with umpires. One link + PIN for assigned courts and matches."
+                icon={Tablet}
+              />
+              <BroadcastLinkCard
+                kind="public-results"
+                tournamentId={tournamentId}
+                title="Public Results"
+                help="Tournament results page for players, parents, and the public board."
+                icon={Trophy}
               />
             </section>
 
-            {activeMatchId && selectedMatch && (
-              <section className="space-y-4">
-                <div className={cn(hubCardClass, "p-4 flex items-center justify-between gap-3")}>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-mono">Broadcasting</p>
-                    <p className="text-lg font-display font-bold text-foreground truncate">
-                      {matchLabel(selectedMatch)}
-                    </p>
-                    {selectedMatch.detail?.courtNumber ? (
-                      <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                        Court {String(selectedMatch.detail.courtNumber)}
-                      </p>
-                    ) : null}
-                    {selectedMatch.detail?.scorerPin ? (
-                      <p className="text-xs text-amber-300/90 font-mono mt-0.5">
-                        Scorer PIN {String(selectedMatch.detail.scorerPin)}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Link
-                    href={badmintonMatchControlPath(tournamentId, activeMatchId)}
-                    className="h-9 px-4 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-colors"
-                  >
-                    <Shield className="w-3.5 h-3.5" />
-                    Match Control
-                  </Link>
+            {/* Multi-court */}
+            {courtChips.length > 0 ? (
+              <section className={cn(hubPanelClass, "p-4 space-y-3")}>
+                <div>
+                  <h2 className="text-sm font-display font-bold text-foreground">Courts</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Overlay follows Primary Broadcast only. Simultaneous live courts do not auto-switch.
+                  </p>
                 </div>
-
-                <BadmintonBroadcastActions
-                  matchId={activeMatchId}
-                  tournamentId={tournamentId}
-                  matchLabel={matchLabel(selectedMatch)}
-                />
+                <div className="flex flex-wrap gap-2">
+                  {courtChips.map((chip) => (
+                    <div
+                      key={chip.key}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+                        chip.status === "LIVE"
+                          ? "border-red-500/40 bg-red-500/10 text-red-100"
+                          : "border-sky-500/35 bg-sky-500/10 text-sky-100",
+                      )}
+                    >
+                      <CircleDot className="w-3.5 h-3.5" />
+                      <span className="font-semibold">{chip.label}</span>
+                      <span className="uppercase tracking-wider font-mono opacity-80">
+                        {chip.status}
+                      </span>
+                      {chip.status === "LIVE" && liveMatches.length > 1 ? (
+                        chip.isPrimary ? (
+                          <span className="ml-1 rounded bg-amber-500/20 text-amber-100 px-1.5 py-0.5 font-bold uppercase tracking-wide">
+                            Primary
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={setPrimaryMutation.isPending || chip.matchId == null}
+                            onClick={() => chip.matchId != null && setPrimaryMutation.mutate(chip.matchId)}
+                            className="ml-1 rounded border border-white/15 px-1.5 py-0.5 font-semibold hover:bg-white/10 transition-colors disabled:opacity-50"
+                          >
+                            Set Primary
+                          </button>
+                        )
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </section>
-            )}
+            ) : null}
+
+            {/* NOW LIVE */}
+            <section className={cn(hubCardClass, "p-5 sm:p-6 border-red-500/25 bg-gradient-to-br from-red-500/10 via-transparent to-transparent")}>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex h-2.5 w-2.5 rounded-full",
+                      primaryMatch ? "bg-red-500 animate-pulse" : "bg-white/25",
+                    )}
+                  />
+                  <h2 className="text-xs font-mono uppercase tracking-[0.25em] text-red-200/90 font-bold">
+                    Now Live
+                  </h2>
+                </div>
+                {primaryMatch ? (
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-200/80">
+                    Primary Broadcast
+                  </span>
+                ) : null}
+              </div>
+
+              {primaryMatch?.state ? (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground font-mono">
+                    <span>{matchCourtLabel(primaryMatch)}</span>
+                    <span className="text-white/20">·</span>
+                    <span>{matchCategoryLabel(primaryMatch)}</span>
+                  </div>
+                  <TeamPlayerVs
+                    left={identityFromSideInfo(primaryMatch.state.leftSide)}
+                    right={identityFromSideInfo(primaryMatch.state.rightSide)}
+                    size="lg"
+                    tone="muted"
+                    layout="stack"
+                  />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <MetaBlock label="Current Game" value={currentGameLabel(primaryMatch.state)} />
+                    <MetaBlock label="Current Score" value={currentScoreLabel(primaryMatch.state)} />
+                    <MetaBlock label="Broadcast Status" value={broadcastConsoleStatusLabel(consoleStatus)} />
+                    <MetaBlock label="Overlay Status" value={feedStatus.overlay} />
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-lg font-display font-bold text-foreground/90">
+                    {consoleStatus === "waiting_next"
+                      ? "Waiting for next match"
+                      : "No live match"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+                    Venue Display and OBS Overlay stay on the same URLs. They will switch
+                    automatically when a match goes live.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* Up Next */}
+            <section className={cn(hubPanelClass, "p-5 space-y-3")}>
+              <h2 className="text-sm font-display font-bold text-foreground">Up Next</h2>
+              {upNext ? (
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <MetaBlock label="Next Match" value={matchCategoryLabel(upNext)} />
+                  <MetaBlock label="Court" value={matchCourtLabel(upNext)} />
+                  <MetaBlock label="Identity" value={matchIdentityLine(upNext)} />
+                  <MetaBlock
+                    label="Estimated Start"
+                    value={formatEstimatedStart(upNext.scheduledAt)}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No upcoming match queued.</p>
+              )}
+            </section>
+
+            {/* Help */}
+            <section className={cn(hubPanelClass, "p-5 space-y-3")}>
+              <h2 className="text-sm font-display font-bold text-foreground">How this works</h2>
+              <ul className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+                <li>
+                  <span className="text-foreground font-semibold">Venue Display</span>
+                  {" — "}
+                  Displays scores on TVs inside the venue.
+                </li>
+                <li>
+                  <span className="text-foreground font-semibold">OBS Overlay</span>
+                  {" — "}
+                  Used inside OBS Studio. Keep one Browser Source for the whole event.
+                </li>
+                <li>
+                  <span className="text-foreground font-semibold">Scorer Home</span>
+                  {" — "}
+                  Shared with umpires. They pick the court/match after entering the PIN.
+                </li>
+                <li>
+                  Operators never change display or overlay URLs mid-tournament. The console
+                  follows the live (or Primary) match.
+                </li>
+              </ul>
+            </section>
           </>
         )}
       </div>
     </HubPageShell>
+  );
+}
+
+function StatusPill({ label, active }: { label: string; active?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center min-h-8 px-3 rounded-full border text-[11px] font-semibold tracking-wide",
+        active
+          ? "border-red-500/40 bg-red-500/15 text-red-100"
+          : "border-white/10 bg-white/5 text-muted-foreground",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function MetaBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 min-w-0">
+      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+        {label}
+      </p>
+      <p className="text-sm font-semibold text-foreground truncate" title={value}>
+        {value}
+      </p>
+    </div>
   );
 }
