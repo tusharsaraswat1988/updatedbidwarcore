@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
-  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail,
+  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
 } from "lucide-react";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { HintLabel } from "@/components/ui/hint-label";
@@ -691,12 +691,18 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
 
 function GoogleSignupBlock({ next }: { next?: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className="text-xs text-center text-muted-foreground">Fastest way — use your Google account</p>
       <GoogleSignInButton next={next} prominent />
-      <p className="text-[10px] text-center text-muted-foreground/80">
-        New users verify mobile once after Google sign-in
-      </p>
+      <div
+        role="note"
+        className="flex gap-2.5 rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-3"
+      >
+        <Info className="w-4 h-4 shrink-0 text-primary mt-0.5" aria-hidden />
+        <p className="text-xs text-muted-foreground leading-relaxed text-left">
+          Google users will be asked to verify their mobile number after their first successful sign in.
+        </p>
+      </div>
     </div>
   );
 }
@@ -765,6 +771,14 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
       setTurnstileSiteKey(cfg.turnstileSiteKey);
     });
   }, []);
+
+  // Keep signup on a supported method — never leave UI on Mobile OTP when it is not enabled.
+  useEffect(() => {
+    if (!smsOtpEnabled && signupMethod === "mobile") {
+      setSignupMethod("email");
+      setSignupStep("form");
+    }
+  }, [smsOtpEnabled, signupMethod]);
 
   useEffect(() => {
     if (view !== "login") return;
@@ -1079,106 +1093,131 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="space-y-4"
+                  className="space-y-5"
                 >
-                  {/* Method selector */}
-                  <div className="flex rounded-lg bg-muted/20 p-0.5 border border-border/40">
-                    <button
-                      type="button"
-                      onClick={() => { setSignupMethod("email"); setSignupStep("form"); setError(""); }}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${signupMethod === "email" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      Email
-                    </button>
-                    {smsOtpEnabled ? (
+                  {/*
+                    Signup methods (extensible):
+                    - Always show Google + currently supported email form.
+                    - Method tabs appear only when Mobile OTP is actually enabled —
+                      never show a disabled / "coming soon" tab.
+                  */}
+                  {smsOtpEnabled ? (
+                    <div className="flex rounded-lg bg-muted/20 p-0.5 border border-border/40">
+                      <button
+                        type="button"
+                        onClick={() => { setSignupMethod("email"); setSignupStep("form"); setError(""); }}
+                        className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${signupMethod === "email" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        Email
+                      </button>
                       <button
                         type="button"
                         onClick={() => { setSignupMethod("mobile"); setSignupStep("form"); setError(""); }}
-                        className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${signupMethod === "mobile" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${signupMethod === "mobile" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       >
                         Mobile OTP
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="flex-1 py-1.5 text-xs font-semibold rounded-md text-muted-foreground/40 cursor-not-allowed"
-                        title="Mobile OTP signup is not yet available"
-                      >
-                        Mobile OTP
-                        <span className="ml-1 text-[10px] opacity-60">(coming soon)</span>
-                      </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : null}
 
+                  {/* Primary: Google */}
                   <GoogleSignupBlock next={next} />
+
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-                    <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or sign up with email</span></div>
+                    <div className="relative flex justify-center text-xs text-muted-foreground">
+                      <span className="bg-card px-2">
+                        {signupMethod === "mobile" && smsOtpEnabled ? "or sign up with mobile" : "or sign up with email"}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Email signup form */}
+                  {/* Email signup — current default path */}
                   {signupMethod === "email" && (
-                    <form onSubmit={handleSignupEmail} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
+                    <form onSubmit={handleSignupEmail} className="space-y-5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-medium">
+                          <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
+                        </Label>
                         <Input
+                          id="signup-name"
                           value={signupForm.name}
                           onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
                           placeholder="Your full name"
                           autoFocus
+                          required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-sm"><Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email *</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-medium">
+                          <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email
+                        </Label>
                         <Input
+                          id="signup-email"
                           type="email"
                           value={signupForm.email}
                           onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
                           placeholder="name@example.com"
                           autoComplete="username"
+                          required
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
-                          <div className="relative">
-                            <Input
-                              type={showSignupPw ? "text" : "password"}
-                              value={signupForm.password}
-                              onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                              placeholder="Min 6 chars"
-                              autoComplete="new-password"
-                              className="pr-10"
-                            />
-                            <button type="button" onClick={() => setShowSignupPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                              {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm">Confirm</Label>
-                          <div className="relative">
-                            <Input
-                              type={showSignupConfirm ? "text" : "password"}
-                              value={signupForm.confirmPassword}
-                              onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                              placeholder="Repeat"
-                              autoComplete="new-password"
-                              className="pr-10"
-                            />
-                            <button type="button" onClick={() => setShowSignupConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                              {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-medium">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="signup-password"
+                            type={showSignupPw ? "text" : "password"}
+                            value={signupForm.password}
+                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                            placeholder="At least 6 characters"
+                            autoComplete="new-password"
+                            className="pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignupPw(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={showSignupPw ? "Hide password" : "Show password"}
+                          >
+                            {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
                         </div>
                       </div>
-                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-medium">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="signup-confirm-password"
+                            type={showSignupConfirm ? "text" : "password"}
+                            value={signupForm.confirmPassword}
+                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                            placeholder="Re-enter your password"
+                            autoComplete="new-password"
+                            className="pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignupConfirm(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
+                          >
+                            {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
                       <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Create Account
                       </Button>
-                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed pt-1">
                         By continuing, you agree to BidWar{" "}
                         <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
                         {", "}
@@ -1190,74 +1229,101 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                     </form>
                   )}
 
-                  {/* Mobile OTP signup form (only shown when smsOtpEnabled) */}
+                  {/* Mobile OTP signup — only when SMS OTP is configured/enabled */}
                   {signupMethod === "mobile" && smsOtpEnabled && signupStep === "form" && (
-                    <form onSubmit={handleSignupSendOtp} className="space-y-4">
+                    <form onSubmit={handleSignupSendOtp} className="space-y-5">
                       <AuthStepIndicator step={1} total={2} />
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-mobile-name" className="flex items-center gap-2 text-sm font-medium">
+                          <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
+                        </Label>
                         <Input
+                          id="signup-mobile-name"
                           value={signupForm.name}
                           onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
                           placeholder="Your full name"
                           autoFocus
+                          required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile *</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-medium">
+                          <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile
+                        </Label>
                         <Input
+                          id="signup-mobile"
                           type="tel"
                           value={signupForm.mobile}
                           onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
                           placeholder="10-digit mobile (e.g. 9876543210)"
                           inputMode="numeric"
                           maxLength={10}
+                          required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Email (optional)</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-mobile-email" className="flex items-center gap-2 text-sm font-medium">
+                          <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email <span className="text-muted-foreground/70 font-normal">(optional)</span>
+                        </Label>
                         <Input
+                          id="signup-mobile-email"
                           type="email"
                           value={signupForm.email}
                           onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
                           placeholder="name@example.com"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
-                          <div className="relative">
-                            <Input
-                              type={showSignupPw ? "text" : "password"}
-                              value={signupForm.password}
-                              onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                              placeholder="Min 6 chars"
-                              autoComplete="new-password"
-                              className="pr-10"
-                            />
-                            <button type="button" onClick={() => setShowSignupPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                              {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm">Confirm</Label>
-                          <div className="relative">
-                            <Input
-                              type={showSignupConfirm ? "text" : "password"}
-                              value={signupForm.confirmPassword}
-                              onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                              placeholder="Repeat"
-                              autoComplete="new-password"
-                              className="pr-10"
-                            />
-                            <button type="button" onClick={() => setShowSignupConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                              {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-mobile-password" className="flex items-center gap-2 text-sm font-medium">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="signup-mobile-password"
+                            type={showSignupPw ? "text" : "password"}
+                            value={signupForm.password}
+                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                            placeholder="At least 6 characters"
+                            autoComplete="new-password"
+                            className="pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignupPw(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={showSignupPw ? "Hide password" : "Show password"}
+                          >
+                            {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
                         </div>
                       </div>
-                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-mobile-confirm" className="flex items-center gap-2 text-sm font-medium">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="signup-mobile-confirm"
+                            type={showSignupConfirm ? "text" : "password"}
+                            value={signupForm.confirmPassword}
+                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                            placeholder="Re-enter your password"
+                            autoComplete="new-password"
+                            className="pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignupConfirm(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
+                          >
+                            {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
                       <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Send OTP
@@ -1267,20 +1333,22 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
 
                   {/* OTP verification step */}
                   {signupMethod === "mobile" && smsOtpEnabled && signupStep === "otp" && (
-                    <form onSubmit={handleSignupVerify} className="space-y-4">
+                    <form onSubmit={handleSignupVerify} className="space-y-5">
                       <AuthStepIndicator step={2} total={2} />
                       <p className="text-sm text-muted-foreground">Enter the OTP sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>.</p>
-                      <div className="space-y-2">
-                        <Label className="text-sm">OTP</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-otp" className="text-sm font-medium">OTP</Label>
                         <Input
+                          id="signup-otp"
                           value={signupOtp}
                           onChange={e => setSignupOtp(e.target.value)}
                           placeholder="6-digit OTP"
                           maxLength={6}
                           autoFocus
+                          required
                         />
                       </div>
-                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
                       <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Verify & Create Account
