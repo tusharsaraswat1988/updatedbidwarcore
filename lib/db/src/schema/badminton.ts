@@ -129,6 +129,10 @@ export const badmintonCourtsTable = pgTable(
     streamUrl: text("stream_url"),
     /** Court has display screen connected. */
     hasDisplay: boolean("has_display").notNull().default(false),
+    /** Court-level scorer PIN — umpires inherit this for matches without a match PIN. */
+    scorerPin: text("scorer_pin"),
+    /** Optional display name for the assigned court scorer. */
+    scorerName: text("scorer_name"),
     metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

@@ -39,7 +39,8 @@ import {
 } from "@/components/badminton/page-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
-import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
@@ -131,6 +132,7 @@ export default function BadmintonMatchesPage() {
   const search = useSearch();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
+  const { toast } = useToast();
   const initialFixtureId = useMemo(() => {
     const raw = new URLSearchParams(search).get("fixture");
     if (!raw) return undefined;
@@ -195,6 +197,24 @@ export default function BadmintonMatchesPage() {
                 label={matchFormatChipLabel(scoringFormat.format, scoringFormat.presetId)}
               />
             ) : null}
+            <button
+              type="button"
+              className="min-h-11 px-3 rounded-lg border border-border bg-secondary text-secondary-foreground text-xs font-semibold hover-elevate"
+              onClick={() => {
+                const url = scoringAppPublicUrl(
+                  window.location.origin,
+                  badmintonScorerHomePath(tournamentId),
+                );
+                void navigator.clipboard.writeText(url).then(() => {
+                  toast({
+                    title: "Scorer Home copied",
+                    description: "Share this link + a PIN with court umpires.",
+                  });
+                });
+              }}
+            >
+              Copy Scorer Home
+            </button>
             <BtnPrimary onClick={() => setShowCreate(true)}>+ Create Match</BtnPrimary>
           </div>
         }
@@ -531,7 +551,7 @@ function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
     courtNumber: (detail.courtNumber as string | undefined) ?? "",
     courtId: (detail.courtId as number | null | undefined) ?? null,
     matchLabel: (detail.matchLabel as string | undefined) ?? "",
-    scorerPin: (detail.scorerPin as string | undefined) ?? suggestScorerPin(),
+    scorerPin: (detail.scorerPin as string | undefined) ?? "",
     umpireName: (detail.umpireName as string | undefined) ?? "",
     leftPlayer1: sideJsonToPlayerForm(left, 0),
     leftPlayer2: sideJsonToPlayerForm(left, 1),
@@ -715,8 +735,8 @@ function MatchFormModal({
         return;
       }
     }
-    if (form.scorerPin.trim().length < 4) {
-      setError("Scorer PIN must be at least 4 digits");
+    if (form.scorerPin.trim().length > 0 && form.scorerPin.trim().length < 4) {
+      setError("Scorer PIN must be at least 4 digits (or leave blank to inherit court PIN)");
       return;
     }
     setSaving(true);
@@ -754,13 +774,15 @@ function MatchFormModal({
         const err = await res.json().catch(() => ({ error: isEdit ? "Update failed" : "Create failed" }));
         throw new Error(typeof err.error === "string" ? err.error : isEdit ? "Update failed" : "Create failed");
       }
-      const saved = (await res.json()) as { id?: number; detail?: { scorerPin?: string } };
-      const pin = saved.detail?.scorerPin ?? form.scorerPin;
+      const saved = (await res.json()) as { id?: number; detail?: { scorerPin?: string | null } };
+      const pin = saved.detail?.scorerPin ?? form.scorerPin.trim();
       toast({
         title: isEdit ? "Match updated" : "Match created",
         description: isEdit
           ? undefined
-          : `Scorer PIN: ${pin}. Opening Match Control — start the match there.`,
+          : pin
+            ? `Scorer PIN: ${pin}. Opening Match Control — start the match there.`
+            : "Inherits court scorer PIN. Opening Match Control — start the match there.",
       });
       onSaved(isEdit ? undefined : saved.id);
     } catch (e) {
@@ -912,7 +934,7 @@ function MatchFormModal({
             </button>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            Unique per match — share with the court umpire only.
+            Leave blank to inherit the court PIN. A match PIN overrides the court PIN.
           </p>
         </FormField>
       </div>

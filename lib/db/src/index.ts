@@ -374,11 +374,15 @@ void systemCQuery(`
       sort_order SMALLINT NOT NULL DEFAULT 0,
       stream_url TEXT,
       has_display BOOLEAN NOT NULL DEFAULT FALSE,
+      scorer_pin TEXT,
+      scorer_name TEXT,
       meta_json JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_bc_tournament_id ON badminton_courts (tournament_id);
+    ALTER TABLE badminton_courts ADD COLUMN IF NOT EXISTS scorer_pin TEXT;
+    ALTER TABLE badminton_courts ADD COLUMN IF NOT EXISTS scorer_name TEXT;
 
     CREATE TABLE IF NOT EXISTS badminton_categories (
       id SERIAL PRIMARY KEY,
@@ -537,11 +541,15 @@ void systemCQuery(`
     console.error("[db] failed to migrate badminton_match_details referee_name:", err);
   });
 
-/** Backfill missing per-match scorer PINs (legacy rows). */
+/**
+ * Backfill missing per-match scorer PINs for legacy orphan matches only.
+ * Matches on a court may leave scorer_pin empty to inherit the court PIN.
+ */
 void systemCQuery(`
     UPDATE badminton_match_details
     SET scorer_pin = LPAD((1000 + floor(random() * 9000))::int::text, 4, '0')
-    WHERE scorer_pin IS NULL OR btrim(scorer_pin) = '';
+    WHERE (scorer_pin IS NULL OR btrim(scorer_pin) = '')
+      AND court_id IS NULL;
   `)
   .catch((err) => {
     console.error("[db] failed to backfill badminton_match_details scorer_pin:", err);

@@ -18,6 +18,7 @@ import {
   badmintonFixturesTable,
   badmintonAnalyticsTable,
   badmintonCategoriesTable,
+  badmintonCourtsTable,
   tournamentsTable,
   type ScoringSideJson,
 } from "@workspace/db";
@@ -58,6 +59,28 @@ import {
 import type { BadmintonEventEnvelope } from "@workspace/badminton-core";
 import type { ScoringEventEnvelope } from "@workspace/scoring-core";
 import { replayScoringMatchState } from "./scoring-platform";
+import {
+  mapMatchStatusToScorerHomeUi,
+  sideDisplayLabel,
+  pinUnlocksMatch,
+  buildScorerHomeView,
+  type ScorerHomeMatchCard,
+  type ScorerHomeSessionPayload,
+} from "./badminton-scorer-home";
+
+export type {
+  ScorerHomeMatchCard,
+  ScorerHomeUiStatus,
+  ScorerHomeCourtCard,
+  ScorerHomeSessionPayload,
+} from "./badminton-scorer-home";
+export {
+  mapMatchStatusToScorerHomeUi,
+  pinUnlocksMatch,
+  resolveEffectiveScorerPin,
+  buildScorerHomeView,
+  serializeBadmintonCourt,
+} from "./badminton-scorer-home";
 import { appendMatchEventBatch, type ScoringActor as PlatformActor } from "./scoring-platform/orchestrator";
 import { runBadmintonMasterStatisticsPipeline } from "./scoring-platform/projections";
 import { ScoringPlatformError } from "./scoring-platform/errors";
@@ -1057,9 +1080,20 @@ export async function verifyMatchScorerPin(
   matchId: number,
   pin: string,
 ): Promise<boolean> {
-  const [detail] = await db
-    .select({ scorerPin: badmintonMatchDetailsTable.scorerPin })
+  const [row] = await db
+    .select({
+      matchPin: badmintonMatchDetailsTable.scorerPin,
+      courtId: badmintonMatchDetailsTable.courtId,
+      courtPin: badmintonCourtsTable.scorerPin,
+    })
     .from(badmintonMatchDetailsTable)
+    .leftJoin(
+      badmintonCourtsTable,
+      and(
+        eq(badmintonCourtsTable.id, badmintonMatchDetailsTable.courtId),
+        eq(badmintonCourtsTable.tournamentId, tournamentId),
+      ),
+    )
     .where(
       and(
         eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
@@ -1068,7 +1102,178 @@ export async function verifyMatchScorerPin(
     )
     .limit(1);
 
-  return !!detail?.scorerPin && detail.scorerPin === pin;
+  if (!row) return false;
+  return pinUnlocksMatch({
+    pin,
+    matchPin: row.matchPin,
+    courtPin: row.courtPin,
+  }).ok;
+}
+
+function toScorerHomeMatchCard(input: {
+  match: typeof scoringMatchesTable.$inferSelect;
+  detail: typeof badmintonMatchDetailsTable.$inferSelect;
+  categoryName: string | null;
+  categoryCode: string | null;
+  courtName: string | null;
+  accessVia: "match_pin" | "court_pin";
+}): ScorerHomeMatchCard {
+  const { match, detail, categoryName, categoryCode, courtName, accessVia } = input;
+  const snapshot = detail.stateSnapshotJson as Record<string, unknown> | null;
+  const leftFromState =
+    snapshot?.leftSide && typeof snapshot.leftSide === "object"
+      ? (snapshot.leftSide as Record<string, unknown>)
+      : null;
+  const rightFromState =
+    snapshot?.rightSide && typeof snapshot.rightSide === "object"
+      ? (snapshot.rightSide as Record<string, unknown>)
+      : null;
+
+  const matchStatus =
+    (typeof snapshot?.matchStatus === "string" && snapshot.matchStatus) ||
+    match.status ||
+    "scheduled";
+  const ui = mapMatchStatusToScorerHomeUi(matchStatus);
+
+  const category =
+    (categoryCode && categoryCode.trim()) ||
+    (categoryName && categoryName.trim()) ||
+    (detail.roundName?.trim() ? detail.roundName.trim() : null) ||
+    (detail.matchLabel?.trim() ? detail.matchLabel.trim() : null);
+
+  return {
+    id: match.id,
+    category,
+    playerA: sideDisplayLabel(leftFromState ?? detail.leftSideJson),
+    playerB: sideDisplayLabel(rightFromState ?? detail.rightSideJson),
+    court: detail.courtNumber?.trim() || courtName?.trim() || null,
+    courtId: detail.courtId ?? null,
+    scheduledAt: match.scheduledAt ? new Date(match.scheduledAt).toISOString() : null,
+    status: ui.status,
+    matchStatus,
+    actionLabel: ui.actionLabel,
+    readOnly: ui.readOnly,
+    accessVia,
+  };
+}
+
+/**
+ * List matches this scorer PIN may open.
+ * Resolution: Match PIN (if set) → else Court PIN → else no access.
+ */
+export async function listMatchesForScorerPin(
+  tournamentId: number,
+  pin: string,
+): Promise<ScorerHomeMatchCard[]> {
+  const session = await openScorerHomeSession(tournamentId, pin);
+  return session.matches;
+}
+
+/**
+ * Scorer Home session — courts assigned this PIN + eligible matches.
+ */
+export async function openScorerHomeSession(
+  tournamentId: number,
+  pin: string,
+): Promise<ScorerHomeSessionPayload> {
+  const trimmed = pin.trim();
+  if (trimmed.length < 4) {
+    return { ok: false, matches: [], courts: [], view: "matches" };
+  }
+
+  const assignedCourts = await db
+    .select({
+      id: badmintonCourtsTable.id,
+      name: badmintonCourtsTable.name,
+      shortName: badmintonCourtsTable.shortName,
+      scorerName: badmintonCourtsTable.scorerName,
+      scorerPin: badmintonCourtsTable.scorerPin,
+    })
+    .from(badmintonCourtsTable)
+    .where(
+      and(
+        eq(badmintonCourtsTable.tournamentId, tournamentId),
+        eq(badmintonCourtsTable.scorerPin, trimmed),
+      ),
+    )
+    .orderBy(asc(badmintonCourtsTable.sortOrder), asc(badmintonCourtsTable.name));
+
+  const rows = await db
+    .select({
+      match: scoringMatchesTable,
+      detail: badmintonMatchDetailsTable,
+      categoryName: badmintonCategoriesTable.name,
+      categoryCode: badmintonCategoriesTable.code,
+      courtName: badmintonCourtsTable.name,
+      courtPin: badmintonCourtsTable.scorerPin,
+    })
+    .from(scoringMatchesTable)
+    .innerJoin(
+      badmintonMatchDetailsTable,
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    )
+    .leftJoin(
+      badmintonCategoriesTable,
+      and(
+        eq(badmintonCategoriesTable.id, badmintonMatchDetailsTable.categoryId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .leftJoin(
+      badmintonCourtsTable,
+      and(
+        eq(badmintonCourtsTable.id, badmintonMatchDetailsTable.courtId),
+        eq(badmintonCourtsTable.tournamentId, tournamentId),
+      ),
+    )
+    .where(
+      and(
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, "badminton"),
+      ),
+    )
+    .orderBy(asc(scoringMatchesTable.id));
+
+  const matches: ScorerHomeMatchCard[] = [];
+  for (const row of rows) {
+    const unlock = pinUnlocksMatch({
+      pin: trimmed,
+      matchPin: row.detail.scorerPin,
+      courtPin: row.courtPin,
+    });
+    if (!unlock.ok || !unlock.via) continue;
+    matches.push(
+      toScorerHomeMatchCard({
+        match: row.match,
+        detail: row.detail,
+        categoryName: row.categoryName,
+        categoryCode: row.categoryCode,
+        courtName: row.courtName,
+        accessVia: unlock.via,
+      }),
+    );
+  }
+
+  const viewPayload = buildScorerHomeView({
+    matches,
+    courts: assignedCourts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      shortName: c.shortName ?? null,
+      scorerName: c.scorerName ?? null,
+    })),
+  });
+
+  const ok = matches.length > 0 || assignedCourts.length > 0;
+  return {
+    ok,
+    matches: viewPayload.matches,
+    courts: viewPayload.courts,
+    view: viewPayload.view,
+  };
 }
 
 export async function getLiveBadmintonMatches(tournamentId: number) {
@@ -1124,7 +1329,40 @@ export async function createBadmintonMatch(input: {
 }) {
   await ensureBadmintonTournament(input.tournamentId);
 
-  const scorerPin = input.scorerPin?.trim() || generateMatchScorerPin();
+  // Scorer PIN resolution for new matches:
+  // - Explicit non-empty PIN → match override
+  // - Explicit empty → inherit court PIN when present, else auto-generate
+  // - Omitted + court has PIN → inherit (null)
+  // - Otherwise auto-generate (backward compatible)
+  let scorerPin: string | null;
+  async function courtHasPin(courtId: number): Promise<boolean> {
+    const [court] = await db
+      .select({ scorerPin: badmintonCourtsTable.scorerPin })
+      .from(badmintonCourtsTable)
+      .where(
+        and(
+          eq(badmintonCourtsTable.id, courtId),
+          eq(badmintonCourtsTable.tournamentId, input.tournamentId),
+        ),
+      )
+      .limit(1);
+    return !!(court?.scorerPin && court.scorerPin.trim().length >= 4);
+  }
+
+  if (input.scorerPin !== undefined) {
+    const trimmed = input.scorerPin.trim();
+    if (trimmed.length >= 4) {
+      scorerPin = trimmed;
+    } else if (input.courtId && (await courtHasPin(input.courtId))) {
+      scorerPin = null;
+    } else {
+      scorerPin = generateMatchScorerPin();
+    }
+  } else if (input.courtId && (await courtHasPin(input.courtId))) {
+    scorerPin = null;
+  } else {
+    scorerPin = generateMatchScorerPin();
+  }
 
   const homeSideJson = buildScoringSideFromBadmintonSide(input.leftSideJson);
   const awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
@@ -1265,8 +1503,12 @@ export async function updateBadmintonMatch(
     );
   }
 
-  if (input.scorerPin !== undefined && input.scorerPin.trim().length < 4) {
-    throw new BadmintonServiceError("INVALID_PIN", "Scorer PIN must be at least 4 digits", 400);
+  if (input.scorerPin !== undefined) {
+    const trimmed = input.scorerPin.trim();
+    // Empty PIN clears match override so the court PIN is inherited.
+    if (trimmed.length > 0 && trimmed.length < 4) {
+      throw new BadmintonServiceError("INVALID_PIN", "Scorer PIN must be at least 4 digits", 400);
+    }
   }
 
   const detailPatch: Partial<typeof badmintonMatchDetailsTable.$inferInsert> = {
@@ -1288,7 +1530,10 @@ export async function updateBadmintonMatch(
   }
   if (input.matchType !== undefined) detailPatch.matchType = input.matchType;
   if (input.umpireName !== undefined) detailPatch.umpireName = input.umpireName;
-  if (input.scorerPin !== undefined) detailPatch.scorerPin = input.scorerPin.trim();
+  if (input.scorerPin !== undefined) {
+    const trimmed = input.scorerPin.trim();
+    detailPatch.scorerPin = trimmed.length >= 4 ? trimmed : null;
+  }
   if (input.scheduledAt !== undefined) matchPatch.scheduledAt = input.scheduledAt;
 
   if (input.leftSideJson !== undefined) {
