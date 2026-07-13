@@ -15,7 +15,7 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 - [ ] Apply migration SQL to staging database (preferred) — or rely on staging auto-heal for additive `IF NOT EXISTS` gaps
 - [ ] Confirm staging identity: `BIDWAR_ENV=staging` and/or staging hostname in `APP_URL` / `APP_DOMAIN` (do **not** rely on `NODE_ENV` alone; Render staging is `NODE_ENV=production`)
 - [ ] Deploy API to staging
-- [ ] Process binds `PORT` quickly (listen-before-bootstrap); bootstrap logs show schema OK / heal summary
+- [ ] Startup completes schema validate/heal **before** HTTP listen; logs show schema OK / heal summary (or a clear SCHEMA DRIFT REPORT + exit on failure)
 - [ ] `GET /api/admin/schema-health` → `driftStatus: "ok"`, `critical: false`
 - [ ] Smoke: organizer login, Google login (if configured), tournament list
 

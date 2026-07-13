@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   resolveAutoHealEnabled,
   resolveEnvironment,
+  resolveSchemaBootTimeoutMs,
+  withTimeout,
+  DEFAULT_SCHEMA_BOOT_TIMEOUT_MS,
 } from "@workspace/db/schema-governance";
 
 const ENV_KEYS = [
@@ -10,6 +13,7 @@ const ENV_KEYS = [
   "NODE_ENV",
   "APP_DOMAIN",
   "APP_URL",
+  "SCHEMA_BOOT_TIMEOUT_MS",
 ] as const;
 
 const saved: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
@@ -86,5 +90,24 @@ describe("resolveEnvironment / resolveAutoHealEnabled (staging Render)", () => {
     process.env.SCHEMA_AUTO_HEAL = "true";
 
     expect(resolveAutoHealEnabled()).toBe(true);
+  });
+});
+
+describe("schema boot timeouts", () => {
+  stashEnv();
+  afterEach(() => {
+    clearEnv();
+    restoreEnv();
+  });
+
+  it("defaults SCHEMA_BOOT_TIMEOUT_MS to 90s", () => {
+    clearEnv();
+    expect(resolveSchemaBootTimeoutMs()).toBe(DEFAULT_SCHEMA_BOOT_TIMEOUT_MS);
+  });
+
+  it("rejects hanging work via withTimeout", async () => {
+    await expect(
+      withTimeout(new Promise(() => {}), 50, "timed out for test"),
+    ).rejects.toThrow("timed out for test");
   });
 });

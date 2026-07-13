@@ -1,40 +1,80 @@
 import type pg from "pg";
 import { recordSystemDMetrics } from "./boot-metrics";
 import { resolveAutoHealEnabled, runSchemaGovernance } from "./schema-governance/index.js";
+import {
+  resolveSchemaBootTimeoutMs,
+  withTimeout,
+  type DbQueryable,
+} from "./schema-governance/timeouts.js";
 
 /**
  * Boot schema orchestration.
  *
- * - Development / staging (SCHEMA_AUTO_HEAL=true, BIDWAR_ENV=staging, staging
- *   hostnames in APP_URL/APP_DOMAIN, or NODE_ENV≠production):
- *   Runs legacy idempotent bootstrap DDL, then Drizzle-driven heal for gaps.
- * - True production (default when NODE_ENV=production and not staging):
- *   NEVER mutates. Validates live DB against Drizzle SSOT and refuses to start
- *   on critical drift (prints required SQL).
+ * Order: validate/heal schema → then callers may start the HTTP server.
+ * Never bind PORT before this completes successfully.
  *
- * Note: Render staging typically uses NODE_ENV=production — do not treat that
- * alone as "true production" for auto-heal (see resolveAutoHealEnabled).
+ * - Development / staging (`BIDWAR_ENV=staging`, staging hostnames, or
+ *   `SCHEMA_AUTO_HEAL=true`): legacy bootstrap DDL + Drizzle-driven heal.
+ * - Production: validate-only; refuse to start on critical drift (prints SQL).
+ *
+ * Guardrails against hangs: wall-clock SCHEMA_BOOT_TIMEOUT_MS plus per-session
+ * statement_timeout / lock_timeout on a dedicated client.
  *
  * Drizzle schema is the only design source of truth for validation/heal SQL.
  */
 export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
-  const autoHeal = resolveAutoHealEnabled();
+  const timeoutMs = resolveSchemaBootTimeoutMs();
+  const startedAt = Date.now();
 
-  if (autoHeal) {
-    await runLegacyBootstrapDdl(pool);
-  } else {
-    console.info(
-      "[schema] production/validate-only mode — skipping boot DDL mutations; validating against Drizzle",
-    );
+  await withTimeout(
+    runEnsureCoreSchemaWithClient(pool),
+    timeoutMs,
+    `[schema] bootstrap timed out after ${timeoutMs}ms. ` +
+      `Check DATABASE_URL / Neon wake, lock contention, and SCHEMA_BOOT_TIMEOUT_MS. ` +
+      `Refusing to start HTTP server.`,
+  );
+
+  console.info(`[schema] bootstrap finished in ${Date.now() - startedAt}ms`);
+}
+
+async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
+  const connectTimeoutMs = pool.options.connectionTimeoutMillis || 20_000;
+  const client = await withTimeout(
+    pool.connect(),
+    connectTimeoutMs + 1_000,
+    `[schema] timed out acquiring a DB connection after ${connectTimeoutMs}ms. Refusing to start HTTP server.`,
+  );
+
+  try {
+    await client.query(`SET lock_timeout = '15s'`);
+    await client.query(`SET statement_timeout = '30s'`);
+
+    const autoHeal = resolveAutoHealEnabled();
+
+    if (autoHeal) {
+      await runLegacyBootstrapDdl(client);
+    } else {
+      console.info(
+        "[schema] production/validate-only mode — skipping boot DDL mutations; validating against Drizzle",
+      );
+    }
+
+    await runSchemaGovernance(client, {
+      autoHeal,
+      log: (msg, extra) => {
+        if (extra) console.info(msg, extra);
+        else console.info(msg);
+      },
+    });
+  } finally {
+    try {
+      await client.query("RESET lock_timeout");
+      await client.query("RESET statement_timeout");
+    } catch {
+      // ignore — connection may already be broken
+    }
+    client.release();
   }
-
-  await runSchemaGovernance(pool, {
-    autoHeal,
-    log: (msg, extra) => {
-      if (extra) console.info(msg, extra);
-      else console.info(msg);
-    },
-  });
 }
 
 /**
@@ -42,16 +82,16 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
  * Used only when auto-heal is enabled (empty DB / local / staging).
  * Do not call this on production boot — production uses versioned migrations.
  */
-async function runLegacyBootstrapDdl(pool: pg.Pool): Promise<void> {
+async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
   const startedAt = Date.now();
   let queryCount = 0;
   let success = false;
   let errorMessage: string | undefined;
 
-  /** Metrics wrapper — identical SQL passed through to pool.query. */
+  /** Metrics wrapper — identical SQL passed through to db.query. */
   const q = (sql: string) => {
     queryCount += 1;
-    return pool.query(sql);
+    return db.query(sql);
   };
 
   try {

@@ -66,7 +66,8 @@ If production refuses to start with a drift report:
 | `SCHEMA_AUTO_HEAL=true` | Force heal (dev/staging/empty DB only — never leave on true production) |
 | `SCHEMA_AUTO_HEAL=false` | Force validate-only |
 | `BIDWAR_ENV=staging` | Treat as staging → auto-heal on (even if `NODE_ENV=production`) |
-| (unset) | Heal when env is staging/local/dev/test, or when `NODE_ENV !== "production"` |
+| `SCHEMA_BOOT_TIMEOUT_MS` | Wall-clock budget for schema bootstrap (default `90000`); fail closed on timeout |
+| (unset heal flag) | Heal when env is staging/local/dev/test; production is validate-only |
 
 ## Immediate P0 (completed)
 

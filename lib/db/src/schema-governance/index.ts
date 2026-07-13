@@ -17,3 +17,11 @@ export {
   resolveEnvironment,
   formatDriftReportForConsole,
 } from "./orchestrate.js";
+export {
+  resolveSchemaBootTimeoutMs,
+  withTimeout,
+  DEFAULT_SCHEMA_BOOT_TIMEOUT_MS,
+  DEFAULT_SCHEMA_STATEMENT_TIMEOUT_MS,
+  DEFAULT_SCHEMA_LOCK_TIMEOUT_MS,
+} from "./timeouts.js";
+export type { DbQueryable } from "./timeouts.js";

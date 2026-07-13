@@ -4,17 +4,21 @@ import { diffSchema } from "./diff.js";
 import { applyIdempotentHeal } from "./heal.js";
 import { introspectLiveSchema, readMigrationLedger } from "./introspect.js";
 import type { DriftReport, SchemaGovernanceOptions } from "./types.js";
+import type { DbQueryable } from "./timeouts.js";
 
 /**
  * Staging Render services run NODE_ENV=production (same as prod).
- * Without this heuristic, validate-only mode skips boot DDL and refuses to
- * start on additive drift (e.g. tournaments.city) — process never binds PORT.
+ * Detect staging via BIDWAR_ENV / hostname — never NODE_ENV alone.
  */
 function looksLikeStagingHost(): boolean {
   const combined = `${process.env.APP_DOMAIN ?? ""} ${process.env.APP_URL ?? ""}`.toLowerCase();
   return combined.includes("staging") || combined.includes("bidwar-staging");
 }
 
+/**
+ * Auto-heal only for development and staging (or explicit SCHEMA_AUTO_HEAL).
+ * True production is always validate-only unless SCHEMA_AUTO_HEAL is forced.
+ */
 export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   if (explicit !== undefined) return explicit;
   const flag = process.env.SCHEMA_AUTO_HEAL?.trim().toLowerCase();
@@ -22,7 +26,7 @@ export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   if (flag === "false" || flag === "0" || flag === "no") return false;
 
   const env = resolveEnvironment().toLowerCase();
-  // Heal on staging/local/dev/test even when NODE_ENV=production (Render staging).
+  if (env === "production") return false;
   if (
     env === "staging" ||
     env === "development" ||
@@ -32,7 +36,7 @@ export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   ) {
     return true;
   }
-  // True production (or unknown + NODE_ENV=production): validate-only
+  // Unknown env: heal only outside NODE_ENV=production
   return process.env.NODE_ENV !== "production";
 }
 
@@ -68,18 +72,19 @@ export function formatDriftReportForConsole(report: DriftReport): string {
   for (const c of report.missingColumns) {
     lines.push(`  - ${c.table}.${c.column} (${c.expectedSqlType})`);
   }
-  lines.push("requiredSql:");
+  lines.push("requiredSql (apply via versioned migrations, then redeploy):");
   for (const sql of report.requiredSql) lines.push(`  ${sql}`);
   lines.push("=====================================");
   return lines.join("\n");
 }
 
 /**
- * Validate live DB against Drizzle SSOT. Optionally heal (non-prod).
+ * Validate live DB against Drizzle SSOT. Optionally heal (dev/staging only).
  * Throws if critical drift remains after the allowed action.
+ * Always prints the migration/drift report before refusing to start.
  */
 export async function runSchemaGovernance(
-  pool: pg.Pool,
+  db: DbQueryable,
   options: Partial<SchemaGovernanceOptions> = {},
 ): Promise<DriftReport> {
   const log = options.log ?? defaultLog;
@@ -88,8 +93,8 @@ export async function runSchemaGovernance(
   const databaseType = options.databaseType ?? "postgresql";
 
   const contract = buildSchemaContractFromDrizzle();
-  const live = await introspectLiveSchema(pool);
-  const ledger = await readMigrationLedger(pool);
+  const live = await introspectLiveSchema(db);
+  const ledger = await readMigrationLedger(db);
 
   let report = diffSchema(contract, live, {
     autoHealEnabled: autoHeal,
@@ -111,21 +116,23 @@ export async function runSchemaGovernance(
 
   if (!autoHeal) {
     throw new Error(
-      `Schema drift detected in ${environment}. Refusing to start. Apply the requiredSql above via versioned migrations, then redeploy.`,
+      `Schema drift detected in ${environment}. Refusing to start HTTP server. ` +
+        `Apply the requiredSql from the SCHEMA DRIFT REPORT above via versioned migrations (lib/db/migrations), then redeploy.`,
     );
   }
 
   log("[schema-governance] auto-heal enabled — applying idempotent additive SQL");
-  const { applied, failed } = await applyIdempotentHeal(pool, report, log);
+  const { applied, failed } = await applyIdempotentHeal(db, report, log);
   log("[schema-governance] heal summary", { applied: applied.length, failed: failed.length });
 
   if (failed.length) {
+    console.error(formatDriftReportForConsole(report));
     throw new Error(
-      `Schema auto-heal incomplete (${failed.length} failures). See logs. Refusing to start.`,
+      `Schema auto-heal incomplete (${failed.length} failures). See SCHEMA DRIFT REPORT and heal logs. Refusing to start HTTP server.`,
     );
   }
 
-  const liveAfter = await introspectLiveSchema(pool);
+  const liveAfter = await introspectLiveSchema(db);
   report = diffSchema(contract, liveAfter, {
     autoHealEnabled: autoHeal,
     environment,
@@ -136,7 +143,7 @@ export async function runSchemaGovernance(
   if (report.critical) {
     console.error(formatDriftReportForConsole(report));
     throw new Error(
-      "Schema drift remains after auto-heal (likely missing tables — apply versioned migrations). Refusing to start.",
+      "Schema drift remains after auto-heal (likely missing tables — apply versioned migrations). Refusing to start HTTP server.",
     );
   }
 
@@ -148,15 +155,15 @@ export async function runSchemaGovernance(
 
 /** Build a health payload without mutating. */
 export async function getSchemaHealthReport(
-  pool: pg.Pool,
+  db: DbQueryable,
   options: Partial<SchemaGovernanceOptions> = {},
 ): Promise<DriftReport> {
   const autoHeal = resolveAutoHealEnabled(options.autoHeal);
   const environment = options.environment ?? resolveEnvironment();
   const databaseType = options.databaseType ?? "postgresql";
   const contract = buildSchemaContractFromDrizzle();
-  const live = await introspectLiveSchema(pool);
-  const ledger = await readMigrationLedger(pool);
+  const live = await introspectLiveSchema(db);
+  const ledger = await readMigrationLedger(db);
   return diffSchema(contract, live, {
     autoHealEnabled: autoHeal,
     environment,
