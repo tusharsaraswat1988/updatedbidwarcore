@@ -238,6 +238,7 @@ if (serveStatic) {
   // Two levels up from dist/ reaches the artifacts/ root.
   const ownerDist   = path.resolve(__dirname, "../../owner-app/dist/public");
   const scoringDist = path.resolve(__dirname, "../../scoring-app/dist/public");
+  const mobileDist  = path.resolve(__dirname, "../../mobile-app/dist/public");
 
   assertServeStaticBuild(auctionDist);
 
@@ -362,6 +363,16 @@ if (serveStatic) {
         res.sendFile(path.join(scoringDist, "index.html"));
       });
       logger.info({ path: scoringDist }, "Static: scoring-app at /scoring-app");
+    }
+
+    // Shared mobile app (dual-auth shell) at /mobile/ — before auction catch-all
+    if (existsSync(mobileDist)) {
+      app.use("/mobile", expressStaticGzip(mobileDist, staticOpts));
+      app.use("/mobile", (_req: express.Request, res: express.Response) => {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.sendFile(path.join(mobileDist, "index.html"));
+      });
+      logger.info({ path: mobileDist }, "Static: mobile-app at /mobile");
     }
 
     // Canonical SPA entry is / — never serve the built index.html at /index.html.

@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-display: "Oswald", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+  --color-card: #18181b;
+  --color-card-foreground: #fafafa;
+  --color-border: #27272a;
+  --color-input: #3f3f46;
+  --color-muted: #27272a;
+  --color-muted-foreground: #71717a;
+  --color-primary: #f59e0b;
+  --color-primary-foreground: #000000;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fafafa;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: #09090b;
+  color: #fafafa;
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+.font-display {
+  font-family: "Oswald", system-ui, sans-serif;
+}
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top    { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}

@@ -30,6 +30,7 @@ export const ROBOTS_DISALLOW_PREFIXES = [
   "/dashboard",
   "/owner-app/",
   "/scoring-app/",
+  "/mobile/",
 ] as const;
 
 /** Explicit Allow entries for high-value commercial URLs (robots.txt hint). */

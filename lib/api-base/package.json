@@ -21,6 +21,7 @@
     "./owner-urls": "./src/owner-urls.ts",
     "./local-venue-urls": "./src/local-venue-urls.ts",
     "./mobile": "./src/mobile.ts",
+    "./mobile-app-urls": "./src/mobile-app-urls.ts",
     "./email": "./src/email.ts",
     "./player-gender": "./src/player-gender.ts",
     "./player-tag-label": "./src/player-tag-label.ts",

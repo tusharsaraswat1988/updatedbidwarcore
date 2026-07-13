@@ -7,7 +7,7 @@ import { loadRootEnv } from "./load-root-env.mjs";
 
 loadRootEnv();
 
-/** @returns {{ api: number; frontend: number; ownerApp: number; scoringApp: number }} */
+/** @returns {{ api: number; frontend: number; ownerApp: number; scoringApp: number; mobileApp: number }} */
 export function getDevPorts(env = process.env) {
   return {
     api: Number(env.API_PORT?.trim() || "8080"),
@@ -16,6 +16,7 @@ export function getDevPorts(env = process.env) {
     ),
     ownerApp: Number(env.OWNER_APP_PORT?.trim() || "5174"),
     scoringApp: Number(env.SCORING_APP_PORT?.trim() || "5175"),
+    mobileApp: Number(env.MOBILE_APP_PORT?.trim() || "5176"),
   };
 }
 
@@ -152,12 +153,12 @@ export async function waitForApiHealth(apiPort, timeoutMs = 45000) {
 }
 
 /**
- * @param {{ api: number; frontend: number; ownerApp: number; scoringApp: number }} ports
- * @returns {Promise<{ api: boolean; web: boolean; owner: boolean; scoring: boolean }>}
+ * @param {{ api: number; frontend: number; ownerApp: number; scoringApp: number; mobileApp: number }} ports
+ * @returns {Promise<{ api: boolean; web: boolean; owner: boolean; scoring: boolean; mobile: boolean }>}
  */
 export async function getDevStackStatus(ports) {
-  /** @type {{ api: boolean; web: boolean; owner: boolean; scoring: boolean }} */
-  const status = { api: false, web: false, owner: false, scoring: false };
+  /** @type {{ api: boolean; web: boolean; owner: boolean; scoring: boolean; mobile: boolean }} */
+  const status = { api: false, web: false, owner: false, scoring: false, mobile: false };
 
   async function probe(url, check) {
     const controller = new AbortController();
@@ -203,6 +204,15 @@ export async function getDevStackStatus(ports) {
       if (!res.ok) return false;
       const text = await res.text();
       return text.includes('id="root"') || text.includes("BidWar Scoring");
+    },
+  );
+
+  status.mobile = await probe(
+    `http://127.0.0.1:${ports.mobileApp}/mobile/`,
+    async (res) => {
+      if (!res.ok) return false;
+      const text = await res.text();
+      return text.includes('id="root"') || text.includes("BidWar");
     },
   );
 

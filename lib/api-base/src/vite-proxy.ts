@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT, DEFAULT_SCORING_DEV_PORT } from "./index";
+import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT, DEFAULT_SCORING_DEV_PORT, DEFAULT_MOBILE_DEV_PORT } from "./index";
 
 export type ViteApiProxyOptions = {
   target: string;
@@ -113,6 +113,18 @@ export function getDevScoringAppProxyTarget(): string {
 
   const port =
     process.env.SCORING_APP_PORT?.trim() || String(DEFAULT_SCORING_DEV_PORT);
+  return `http://127.0.0.1:${port}`;
+}
+
+/** Target for mobile-app Vite dev server. */
+export function getDevMobileAppProxyTarget(): string {
+  const raw =
+    process.env.MOBILE_APP_DEV_PROXY_TARGET?.trim() ||
+    process.env.VITE_DEV_MOBILE_APP_TARGET?.trim();
+  if (raw) return raw.replace(/\/+$/, "");
+
+  const port =
+    process.env.MOBILE_APP_PORT?.trim() || String(DEFAULT_MOBILE_DEV_PORT);
   return `http://127.0.0.1:${port}`;
 }
 
@@ -347,6 +359,120 @@ function scoringAppProxyUnavailableHtml(target: string): string {
 </html>`;
 }
 
+
+/** Same as owner-app rewrite but for `/mobile` dev proxy. */
+export function rewriteMobileAppHtmlAssets(html: string): string {
+  const prefix = (path: string) =>
+    path.startsWith("/mobile/") || path === "/mobile" ? path : `/mobile${path}`;
+
+  return html
+    .replace(
+      /(\s(?:src|href)=["'])(\.\/?(?:src\/|@)[^"']*)(["'])/g,
+      (_m, lead: string, path: string, tail: string) => {
+        const normalized = path.startsWith("./") ? path.slice(1) : path.startsWith(".") ? `/${path.slice(1)}` : path;
+        return `${lead}${prefix(normalized.startsWith("/") ? normalized : `/${normalized}`)}${tail}`;
+      },
+    )
+    .replace(
+      /(\s(?:src|href)=["'])(\/(?!mobile\/)(?:@|src\/|node_modules\/\.vite\/)[^"']*)(["'])/g,
+      (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`,
+    )
+    .replace(
+      /(from\s+["'])(\/(?!mobile\/)(?:@|src\/|node_modules\/\.vite\/)[^"']*)(["'])/g,
+      (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`,
+    );
+}
+
+/** Vite proxy: forwards `/mobile/*` to the mobile-app dev server. */
+export function createViteMobileAppProxy(): Record<string, ViteApiProxyOptions> {
+  const target = getDevMobileAppProxyTarget();
+  return {
+    "/mobile": {
+      target,
+      changeOrigin: true,
+      secure: false,
+      ws: true,
+      selfHandleResponse: true,
+      configure: (proxy) => {
+        proxy.on("error", (err, _req, res) => {
+          if (res && !res.headersSent && typeof res.writeHead === "function") {
+            const body = mobileAppProxyUnavailableHtml(target);
+            res.writeHead(502, {
+              "Content-Type": "text/html; charset=utf-8",
+              "Content-Length": String(Buffer.byteLength(body)),
+              "Cache-Control": "no-store",
+            });
+            res.end(body);
+            return;
+          }
+          console.error("[mobile-app proxy]", err);
+        });
+        proxy.on("proxyRes", (proxyRes, _req, res) => {
+          res.setHeader(
+            "Set-Cookie",
+            `${MOBILE_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
+          );
+
+          const contentType = proxyRes.headers["content-type"] ?? "";
+          const isHtml = contentType.includes("text/html");
+
+          if (!isHtml) {
+            res.statusCode = proxyRes.statusCode ?? 200;
+            copyProxyHeaders(proxyRes, res);
+            proxyRes.pipe(res);
+            return;
+          }
+
+          const chunks: Buffer[] = [];
+          proxyRes.on("data", (chunk: Buffer) => chunks.push(chunk));
+          proxyRes.on("end", () => {
+            let html = Buffer.concat(chunks).toString("utf8");
+            html = rewriteMobileAppHtmlAssets(html);
+
+            const body = Buffer.from(html, "utf8");
+            res.statusCode = proxyRes.statusCode ?? 200;
+            copyProxyHeaders(proxyRes, res);
+            res.setHeader("content-type", contentType);
+            res.setHeader("content-length", String(body.length));
+            res.end(body);
+          });
+        });
+      },
+    },
+  };
+}
+
+function mobileAppProxyUnavailableHtml(target: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mobile app unavailable</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #09090b; color: #fafafa; margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    main { max-width: 32rem; text-align: center; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+    p { color: #a1a1aa; line-height: 1.6; margin: 0 0 1rem; }
+    code { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Mobile app is not running</h1>
+    <p>
+      This page is proxied to the mobile-app dev server at
+      <code>${target}</code>, but nothing is listening there.
+    </p>
+    <p>
+      From the repo root, run <code>pnpm dev</code> or
+      <code>pnpm dev:restart</code> to start the full stack including mobile-app.
+    </p>
+  </main>
+</body>
+</html>`;
+}
+
 /** Combined dev proxies for apps that host owner-app behind the same origin. */
 export function createViteDevProxies(): Record<string, ViteApiProxyOptions> {
   const target = getDevApiProxyTarget();
@@ -361,6 +487,7 @@ export function createViteDevProxies(): Record<string, ViteApiProxyOptions> {
     ...createViteApiProxy(),
     ...createViteOwnerAppProxy(),
     ...createViteScoringAppProxy(),
+    ...createViteMobileAppProxy(),
     "/robots.txt": apiProxy,
     "/sitemap.xml": apiProxy,
     "/sitemap-index.xml": apiProxy,
@@ -417,10 +544,10 @@ function shouldProxyOwnerAppAsset(
   referer: string,
   cookieHeader: string | undefined,
 ): boolean {
-  if (pathname.startsWith("/owner-app") || pathname.startsWith("/scoring-app")) {
+  if (pathname.startsWith("/owner-app") || pathname.startsWith("/scoring-app") || pathname.startsWith("/mobile")) {
     return false;
   }
-  if (isScoringAppDevContext(referer, cookieHeader)) return false;
+  if (isScoringAppDevContext(referer, cookieHeader) || isMobileAppDevContext(referer, cookieHeader)) return false;
   if (!isOwnerAppDevContext(referer, cookieHeader)) return false;
   return isOwnerAppSharedAssetPath(pathname);
 }
@@ -438,7 +565,7 @@ function shouldProxyScoringAppAsset(
   referer: string,
   cookieHeader: string | undefined,
 ): boolean {
-  if (pathname.startsWith("/scoring-app") || pathname.startsWith("/owner-app")) {
+  if (pathname.startsWith("/scoring-app") || pathname.startsWith("/owner-app") || pathname.startsWith("/mobile")) {
     return false;
   }
   if (!isScoringAppDevContext(referer, cookieHeader)) return false;
@@ -452,6 +579,7 @@ function isAuctionHtmlNavigation(
   if (
     pathname.startsWith("/owner-app") ||
     pathname.startsWith("/scoring-app") ||
+    pathname.startsWith("/mobile") ||
     pathname.startsWith("/api")
   ) {
     return false;
@@ -523,6 +651,11 @@ export function ownerAppDevProxyPlugin(): Plugin {
           res.setHeader(
             "Set-Cookie",
             `${SCORING_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
+          );
+        } else if (pathname.startsWith("/mobile")) {
+          res.setHeader(
+            "Set-Cookie",
+            `${MOBILE_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
           );
         } else if (isAuctionHtmlNavigation(pathname, req.headers.accept)) {
           res.setHeader(
@@ -616,3 +749,47 @@ export function scoringAppDevProxyPlugin(): Plugin {
     },
   };
 }
+
+/**
+ * Proxies mobile-app Vite dev assets requested from root paths when the page
+ * was loaded via `/mobile/`.
+ */
+export function mobileAppDevProxyPlugin(): Plugin {
+  const target = new URL(getDevMobileAppProxyTarget());
+
+  return {
+    name: "bidwar-mobile-app-asset-proxy",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const pathname = raw.split("?")[0] ?? "/";
+
+        if (pathname.startsWith("/mobile")) {
+          res.setHeader(
+            "Set-Cookie",
+            `${MOBILE_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
+          );
+        }
+
+        next();
+      });
+
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const pathname = raw.split("?")[0] ?? "/";
+        const referer = req.headers.referer ?? "";
+
+        if (
+          !shouldProxyMobileAppAsset(pathname, referer, req.headers.cookie)
+        ) {
+          next();
+          return;
+        }
+
+        forwardHttp(req, res, target, next, "/mobile");
+      });
+    },
+  };
+}
+
