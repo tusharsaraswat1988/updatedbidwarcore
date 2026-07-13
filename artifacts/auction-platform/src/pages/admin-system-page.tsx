@@ -12,6 +12,7 @@ import {
 import { SystemLogsPanel } from "@/components/admin/system-logs-panel";
 import { DefaultAudioSettingsPanel } from "@/components/admin/default-audio-panel";
 import { DiagnosticsPanel } from "@/components/admin/diagnostics-panel";
+import { SearchConsolePanel } from "@/components/admin/search-console-panel";
 
 const systemTabs = [
   { id: "diagnostics", label: "Diagnostics", href: "/admin/settings/system/diagnostics" },
@@ -23,6 +24,7 @@ const systemTabs = [
   { id: "default-audio", label: "Default Audio", href: "/admin/settings/system/default-audio" },
   { id: "upcoming-display", label: "Upcoming Display", href: "/admin/settings/system/upcoming-display" },
   { id: "showcase", label: "Showcase Events", href: "/admin/settings/system/showcase" },
+  { id: "search-console", label: "Search Console", href: "/admin/settings/system/search-console" },
 ] as const;
 
 function getSection(pathname: string) {
@@ -34,6 +36,7 @@ function getSection(pathname: string) {
   if (pathname.includes("/default-audio")) return "default-audio";
   if (pathname.includes("/upcoming-display")) return "upcoming-display";
   if (pathname.includes("/showcase")) return "showcase";
+  if (pathname.includes("/search-console")) return "search-console";
   return "sms";
 }
 
@@ -73,6 +76,7 @@ export default function AdminSystemPage() {
           {section === "default-audio" && <DefaultAudioSettingsPanel />}
           {section === "upcoming-display" && <DisplayAuctionsPanel />}
           {section === "showcase" && <ShowcasePanel />}
+          {section === "search-console" && <SearchConsolePanel />}
         </div>
       </div>
     </AdminShell>

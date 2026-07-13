@@ -4,11 +4,18 @@
  * Tables:
  * - badminton_players        Extended player profiles
  * - badminton_courts         Physical courts in a tournament
- * - badminton_categories     Tournament draw categories (Men's Singles, etc.)
- * - badminton_registrations  Player entry to a category draw
- * - badminton_draws          Draw brackets / groups per category
- * - badminton_fixtures       Individual matches within a draw
+ * - badminton_categories     Tournament event definitions (Men's Singles, etc.)
+ * - badminton_registrations  Player entry to a category
+ * - badminton_draws          Fixture Collections (planning containers per category)
+ * - badminton_fixtures       Fixtures (Player A vs Player B) within a collection
  * - badminton_match_details  Extended match info beyond scoring_matches
+ *
+ * Product mapping (BidWar Scoring Architecture v1.0 — no Phase 1 rename):
+ *   Fixture Collection → badminton_draws
+ *   Fixture            → badminton_fixtures
+ *   Category           → badminton_categories
+ *
+ * @see docs/superpowers/specs/2026-07-13-draw-fixtures-module-design.md
  */
 
 import {
@@ -238,7 +245,11 @@ export const insertBadmintonRegistrationSchema = createInsertSchema(
 export type BadmintonRegistration = typeof badmintonRegistrationsTable.$inferSelect;
 export type InsertBadmintonRegistration = z.infer<typeof insertBadmintonRegistrationSchema>;
 
-// ─── Draw Brackets ──────────────────────────────────────────────────────────
+// ─── Fixture Collections (stored as badminton_draws) ─────────────────────────
+// Product: Fixture Collection. A "Draw" is one kind of collection (typically
+// auto-generated). Collections also cover manual lists, imports, practice, etc.
+// drawKind Phase 1 values: generated | imported | manual
+// Legacy rows may still use knockout_round (treat as generated).
 
 export const badmintonDrawsTable = pgTable(
   "badminton_draws",
@@ -246,17 +257,20 @@ export const badmintonDrawsTable = pgTable(
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
     categoryId: integer("category_id").notNull(),
-    /** Round name (e.g. "Round of 16", "Quarterfinal", "Group A"). */
+    /** Collection name (organizer-owned; e.g. "Main Draw", "Manual Fixtures"). */
     roundName: text("round_name").notNull(),
-    /** Round number (1 = first round). */
+    /** Round number (1 = first round) — meaningful for generated brackets. */
     roundNumber: smallint("round_number").notNull().default(1),
-    /** Total rounds in this draw. */
+    /** Total rounds in this collection (when applicable). */
     totalRounds: smallint("total_rounds"),
-    /** knockout_round | group | playoff */
+    /**
+     * Collection kind: generated | imported | manual
+     * Legacy: knockout_round | group | playoff (map knockout_round → generated in UI).
+     */
     drawKind: text("draw_kind").notNull().default("knockout_round"),
     /** Group identifier (for round-robin groups). */
     groupId: text("group_id"),
-    /** Draw status: pending | active | completed */
+    /** Collection status: pending | active | completed */
     status: text("status").notNull().default("pending"),
     metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -280,6 +294,7 @@ export type BadmintonDraw = typeof badmintonDrawsTable.$inferSelect;
 export type InsertBadmintonDraw = z.infer<typeof insertBadmintonDrawSchema>;
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
+// Product: Fixture = Player A vs Player B within a Fixture Collection (drawId).
 
 export const badmintonFixturesTable = pgTable(
   "badminton_fixtures",
@@ -287,12 +302,13 @@ export const badmintonFixturesTable = pgTable(
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
     categoryId: integer("category_id").notNull(),
+    /** Parent Fixture Collection (badminton_draws.id). Required — collections are real parents. */
     drawId: integer("draw_id").notNull(),
-    /** Position in the draw (e.g. slot 1 of QF). */
+    /** Position in the collection (e.g. slot 1 of QF). */
     slotNumber: smallint("slot_number"),
-    /** Registration ID for side A (null = TBD). */
+    /** Registration ID for side A (null = TBD / BYE). */
     registrationAId: integer("registration_a_id"),
-    /** Registration ID for side B (null = TBD). */
+    /** Registration ID for side B (null = TBD / BYE). */
     registrationBId: integer("registration_b_id"),
     /** Where winner advances to (fixture_id). */
     winnerAdvancesTo: integer("winner_advances_to"),
@@ -308,7 +324,8 @@ export const badmintonFixturesTable = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }),
     /** Actual end. */
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    /** Fixture status: scheduled | live | completed | cancelled | walkover */
+    /** Fixture planning status: unscheduled | scheduled | ready | walkover | cancelled;
+     * scoring: live | in_progress | completed. Default historically "scheduled" (legacy). */
     status: text("status").notNull().default("scheduled"),
     /** Winner registration ID. */
     winnerRegistrationId: integer("winner_registration_id"),

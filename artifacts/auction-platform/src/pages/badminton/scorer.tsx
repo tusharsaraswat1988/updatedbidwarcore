@@ -10,18 +10,12 @@ import { useState, useEffect } from "react";
 import { useSearch, useRoute } from "wouter";
 import { ScorerPanel } from "@/components/badminton/scorer-panel";
 import { UmpireAssistanceShell } from "@/components/badminton/umpire-assistance-shell";
-import {
-  DoublesPreMatchSetup,
-  SinglesPreMatchSetup,
-  isDoublesMatchType,
-} from "@/components/badminton/doubles-pre-match-setup";
 import { useBadmintonMatch, useBadmintonDirector, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { verifyBadmintonScorerPin } from "@/lib/badminton-api";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { FullscreenLayout } from "@/components/layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
-import { ScorerConsoleHeader } from "@/components/badminton/scorer-console-header";
 
 export default function BadmintonScorerPage() {
   const [, params] = useRoute("/badminton/:matchId/score");
@@ -161,37 +155,40 @@ export default function BadmintonScorerPage() {
 
   const state = data.state as BadmintonMatchState;
 
-  // If match is scheduled (not started), show pre-match setup
+  // Scheduled matches must start from Match Control — block umpire bypass.
   if (state.matchStatus === "scheduled") {
-    const matchType = ((data.detail as Record<string, unknown> | null)?.matchType as string) ?? state.matchKind;
-    const isDoubles = isDoublesMatchType(matchType);
+    const controlHref =
+      tournamentId > 0
+        ? `/tournament/${tournamentId}/badminton/matches/${matchId}/control`
+        : null;
 
     return (
       <FullscreenLayout>
-        <div className="relative flex flex-col min-h-[100dvh] bg-background">
-          <ScorerConsoleHeader
-            tournamentName={tournamentName}
-            courtNumber={courtNumber}
-            voiceEnabled={false}
-            onToggleVoice={() => {}}
-            showVoiceToggle={false}
-            showBrandMark={false}
-            className="relative z-10"
-          />
-          <div className="flex-1 flex flex-col min-h-0">
-            {isDoubles ? (
-              <DoublesPreMatchSetup
-                state={state}
-                detail={data.detail}
-                onStart={scorer.startMatch}
-              />
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="w-full max-w-md text-center space-y-4">
+            <h1 className="text-white text-xl font-bold">Match not started yet</h1>
+            <p className="text-white/55 text-sm">
+              The tournament director must start this match from Match Control before scoring
+              opens. This prevents starting the wrong court or opening scoring twice.
+            </p>
+            {controlHref ? (
+              <a
+                href={controlHref}
+                className="inline-flex items-center justify-center min-h-12 px-6 rounded-xl bg-amber-500/30 text-amber-50 font-bold"
+              >
+                Open Match Control
+              </a>
             ) : (
-              <SinglesPreMatchSetup detail={data.detail} onStart={scorer.startMatch} />
+              <p className="text-white/40 text-xs">Ask the organizer to start the match.</p>
             )}
+            <button
+              type="button"
+              onClick={() => setPinAccepted(false)}
+              className="block mx-auto mt-2 text-white/40 text-sm hover:text-white/70"
+            >
+              Back to PIN
+            </button>
           </div>
-          <footer className="shrink-0 border-t border-border bg-card/90 px-4 py-3 flex justify-center">
-            <BadmintonPublicBrandMark variant="footer" />
-          </footer>
         </div>
       </FullscreenLayout>
     );

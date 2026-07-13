@@ -12,7 +12,7 @@ import { useBidLifecycle } from "@/hooks/use-bid-lifecycle";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
-import { computeNextBidAmount, resolveRetainedSpend } from "@workspace/api-base";
+import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PlayerTagBadge } from "@/components/PlayerTagBadge";
@@ -33,6 +33,7 @@ const BIDWAR_AMBER = "#F59E0B";
 interface AuctionState {
   status?: string;
   licenseStatus?: string;
+  trialTeamIds?: number[] | null;
   currentPlayer?: {
     id?: number;
     serialNo?: number | null;
@@ -696,6 +697,7 @@ interface BidDisabledHint {
 function getBidDisabledHint(params: {
   isPaused: boolean;
   isActive: boolean;
+  isTrialRestricted: boolean;
   maxSquadReached: boolean;
   categoryLimitReached: boolean;
   categoryMax: number | null;
@@ -711,6 +713,12 @@ function getBidDisabledHint(params: {
   slotsRequired: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
 }): BidDisabledHint {
+  if (params.isTrialRestricted) {
+    return {
+      headline: "Trial locked",
+      subline: "Only the first 2 teams can bid — ask admin to activate the live license",
+    };
+  }
   if (params.isPaused) {
     return { headline: "Auction paused", subline: "The operator has paused bidding" };
   }
@@ -1706,11 +1714,17 @@ export function LiveBid({
     breakMessage,
   } = useBreakCountdownFromState(state);
 
+  const isTrialRestricted = !isTeamEligibleForTrialAuction(teamId, {
+    licenseStatus: state?.licenseStatus,
+    trialTeamIds: state?.trialTeamIds,
+  });
+
   const canBid =
     isActive && hasPlayer && timerActive && !isLeading && !isOnBreak &&
     maxAllowedBid >= nextBidAmount &&
     (team.isBiddingEnabled ?? true) &&
-    !maxSquadReached && !categoryLimitReached;
+    !maxSquadReached && !categoryLimitReached &&
+    !isTrialRestricted;
 
   // ── Sync failure detection ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1752,6 +1766,7 @@ export function LiveBid({
       ? getBidDisabledHint({
           isPaused,
           isActive,
+          isTrialRestricted,
           maxSquadReached,
           categoryLimitReached,
           categoryMax,
@@ -1770,6 +1785,7 @@ export function LiveBid({
       : null;
 
   const statusLabel =
+    isTrialRestricted ? "TRIAL" :
     isOnBreak ? "BREAK" :
     state?.status === "active"  ? "LIVE" :
     state?.status === "paused"  ? "PAUSED" :

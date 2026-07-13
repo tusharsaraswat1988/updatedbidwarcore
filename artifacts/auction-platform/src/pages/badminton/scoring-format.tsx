@@ -16,6 +16,7 @@ import {
   BtnSecondary,
   hubPanelClass,
   FormField,
+  FormError,
   inputClass,
 } from "@/components/badminton/page-chrome";
 import {
@@ -26,6 +27,7 @@ import {
   matchFormatChipLabel,
   matchFormatSummaryLines,
 } from "@/lib/match-format-display";
+import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { cn } from "@/lib/utils";
 import {
   BADMINTON_FORMAT_PRESETS,
@@ -157,13 +159,17 @@ export default function BadmintonScoringFormatPage() {
     setError("");
     try {
       await saveMutation.mutateAsync({ presetId, format });
+      toastSuccess("Match format saved", "New matches will use these rules.");
       if (andContinue) {
         setLocation(courtsHref);
         return;
       }
       setMessage("Match format saved. New matches will use these rules.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      const msg =
+        e instanceof Error ? e.message : "Could not save match format. Try again.";
+      setError(msg);
+      toastError(e, "Could not save match format");
     }
   }
 
@@ -388,8 +394,12 @@ export default function BadmintonScoringFormatPage() {
                   Courts
                 </Link>
               </p>
-              {message ? <p className="text-sm text-green-400">{message}</p> : null}
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {message ? (
+                <p className="text-sm text-emerald-400 font-medium" role="status">
+                  {message}
+                </p>
+              ) : null}
+              {error ? <FormError message={error} /> : null}
             </div>
           </>
         )}

@@ -25,24 +25,23 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
           <button
             type="button"
             onClick={() => window.history.back()}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+            className="inline-flex items-center gap-1 min-h-11 text-sm font-semibold text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
           >
-            <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <ChevronLeft className="w-4 h-4 shrink-0" aria-hidden />
             {back.label}
           </button>
         ) : (
           <Link
             href={back.href}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+            className="inline-flex items-center gap-1 min-h-11 text-sm font-semibold text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
           >
-            <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <ChevronLeft className="w-4 h-4 shrink-0" aria-hidden />
             {back.label}
           </Link>
         )}
 
         <div
           className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-none"
-          role="tablist"
           aria-label="Badminton sections"
         >
           {BADMINTON_HUB_NAV.map((item) => {
@@ -51,10 +50,9 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
               <Link
                 key={item.id}
                 href={item.href(tournamentId)}
-                role="tab"
-                aria-selected={active}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors border",
+                  "shrink-0 rounded-lg min-h-11 px-3 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors border inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   active
                     ? "bg-primary/15 text-primary border-primary/30"
                     : "bg-secondary/50 text-muted-foreground border-transparent hover:text-foreground hover:bg-accent hover:border-border",

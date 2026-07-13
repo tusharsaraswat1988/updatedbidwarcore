@@ -12,8 +12,10 @@ import { Link, useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
+import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { ChevronDown, MapPin } from "lucide-react";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
   EmptyState,
   FormField,
@@ -84,6 +86,8 @@ export default function BadmintonCourtsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editCourt, setEditCourt] = useState<BadmintonCourt | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BadmintonCourt | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const { data: branding } = useBadmintonBranding(tournamentId);
   const tournamentVenue = resolveTournamentVenue({ brandingVenue: branding?.venue });
@@ -97,7 +101,16 @@ export default function BadmintonCourtsPage() {
   const deleteMutation = useMutation({
     mutationFn: (courtId: number) =>
       badmintonFetch(tournamentId, `/courts/${courtId}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["badminton-courts", tournamentId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["badminton-courts", tournamentId] });
+      toastSuccess("Court deleted");
+      setDeleteTarget(null);
+      setDeleteError("");
+    },
+    onError: (e) => {
+      setDeleteError(e instanceof Error ? e.message : "Could not delete court");
+      toastError(e, "Could not delete court");
+    },
   });
 
   const sorted = [...courts].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
@@ -106,7 +119,7 @@ export default function BadmintonCourtsPage() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Courts"
-        subtitle={`${courts.length} court${courts.length !== 1 ? "s" : ""} configured`}
+        subtitle="Courts used for Scheduling and Control Center — add them before match day"
         actions={
           <BtnPrimary onClick={() => { setEditCourt(null); setShowForm(true); }}>
             + Add Court
@@ -116,7 +129,7 @@ export default function BadmintonCourtsPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-36 rounded-xl bg-muted animate-pulse" />
             ))}
@@ -128,9 +141,16 @@ export default function BadmintonCourtsPage() {
             desc={
               tournamentVenue
                 ? `Add courts at ${tournamentVenue} — e.g. Court 1, Court 2`
-                : "Add courts like Court 1, Court 2 (set the tournament venue in Branding first)"
+                : "Add courts like Court 1, Court 2. Tip: set the tournament venue in Branding first."
             }
-            action={{ label: "Add Court", onClick: () => setShowForm(true) }}
+            action={
+              tournamentVenue
+                ? { label: "Add Court", onClick: () => setShowForm(true) }
+                : {
+                    label: "Open Branding",
+                    href: `/tournament/${tournamentId}/badminton/branding`,
+                  }
+            }
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -141,9 +161,8 @@ export default function BadmintonCourtsPage() {
                 tournamentVenue={tournamentVenue}
                 onEdit={() => { setEditCourt(court); setShowForm(true); }}
                 onDelete={() => {
-                  if (window.confirm(`Delete ${court.name}?`)) {
-                    deleteMutation.mutate(court.id);
-                  }
+                  setDeleteError("");
+                  setDeleteTarget(court);
                 }}
               />
             ))}
@@ -161,12 +180,35 @@ export default function BadmintonCourtsPage() {
           onSaved={(opts) => {
             qc.invalidateQueries({ queryKey: ["badminton-courts", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+            toastSuccess(editCourt ? "Court updated" : "Court created");
             setShowForm(false);
             setEditCourt(null);
             opts?.continueToNext?.();
           }}
         />
       )}
+
+      <ConfirmActionDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete court?"
+        description={
+          <div className="space-y-2">
+            <p>
+              Delete <span className="text-foreground font-medium">{deleteTarget?.name}</span>?
+            </p>
+            <p>Fixtures scheduled on this court will need a new court assigned in Scheduling.</p>
+          </div>
+        }
+        confirmLabel="Delete court"
+        busy={deleteMutation.isPending}
+        error={deleteError}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+        }}
+      />
     </HubPageShell>
   );
 }
@@ -206,14 +248,14 @@ function CourtCard({
         <button
           type="button"
           onClick={onEdit}
-          className="flex-1 h-9 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors border border-border"
+          className="flex-1 min-h-11 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors border border-border"
         >
           Edit
         </button>
         <button
           type="button"
           onClick={onDelete}
-          className="h-9 px-4 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors border border-destructive/25"
+          className="min-h-11 px-4 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors border border-destructive/25"
         >
           Delete
         </button>

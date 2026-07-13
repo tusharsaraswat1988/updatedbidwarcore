@@ -45,7 +45,10 @@ export default function BadmintonTournamentHub() {
 
   const { data: fixtures = [] } = useQuery({
     queryKey: ["badminton-fixtures-all", tournamentId],
-    queryFn: () => badmintonFetch<Array<{ id: number }>>(tournamentId, `/fixtures`),
+    queryFn: () =>
+      badmintonFetch<
+        Array<{ id: number; courtId?: number | null; scheduledAt?: string | null }>
+      >(tournamentId, `/fixtures`),
     enabled: !!tournamentId,
     staleTime: 30_000,
   });
@@ -58,6 +61,9 @@ export default function BadmintonTournamentHub() {
   const liveCount = d.matchesLive ?? 0;
   const totalMatches =
     (d.matchesScheduled ?? 0) + liveCount + (d.matchesCompleted ?? 0);
+  const totalScheduledFixtures = fixtures.filter(
+    (f) => f.courtId != null && f.scheduledAt != null,
+  ).length;
 
   const setupItems = evaluateBadmintonSetup({
     brandingComplete: Boolean(branding?.displayName?.trim()),
@@ -66,6 +72,7 @@ export default function BadmintonTournamentHub() {
     scoringFormatConfigured: Boolean(scoringFormat?.configured),
     totalFixtures: fixtures.length,
     totalCourts: d.totalCourts ?? 0,
+    totalScheduledFixtures,
     totalMatches,
   });
 
@@ -116,15 +123,15 @@ export default function BadmintonTournamentHub() {
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     {isLive
-                      ? "Open Match Control or the umpire scorer from any live match below."
-                      : "Open Matches to start scoring, or Broadcast for displays and overlays."}
+                      ? "Use Control Center to run courts without jumping between Scheduling, Matches, and Scoring."
+                      : "Open Control Center for live court operations, or Matches to create the next match."}
                   </p>
                 </div>
               </div>
-              <Link href={`/tournament/${tournamentId}/badminton/matches`}>
+              <Link href={`/tournament/${tournamentId}/badminton/control`}>
                 <BtnPrimary className="w-full sm:w-auto shrink-0">
                   <Target className="w-4 h-4" />
-                  Open Matches
+                  Open Control Center
                 </BtnPrimary>
               </Link>
             </div>

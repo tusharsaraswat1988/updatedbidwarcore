@@ -7,7 +7,7 @@ export function badmintonHubPath(tournamentId: number) {
   return `/tournament/${tournamentId}/badminton`;
 }
 
-/** Tournament director panel — pause, retirement, walkover (organizer login). */
+/** Tournament director / pre-match Match Control (organizer login). */
 export function badmintonMatchControlPath(tournamentId: number, matchId: number) {
   return `/tournament/${tournamentId}/badminton/matches/${matchId}/control`;
 }
@@ -17,12 +17,21 @@ export function badmintonUmpireScorerPath(matchId: number, tournamentId: number)
   return `/badminton/${matchId}/score?tid=${tournamentId}`;
 }
 
+/** Results & Standings — read-only post-scoring layer. */
+export function badmintonResultsPath(tournamentId: number) {
+  return `${badmintonHubPath(tournamentId)}/results`;
+}
+
 export type BadmintonHubNavItem = {
   id: string;
   label: string;
   href: (tournamentId: number) => string;
   isActive: (pathname: string, tournamentId: number) => boolean;
 };
+
+function pathEndsWithSection(path: string, section: string): boolean {
+  return path.includes(`/badminton/${section}`);
+}
 
 /** Main organizer sections — shown on every badminton hub page. */
 export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
@@ -39,55 +48,77 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     id: "branding",
     label: "Branding",
     href: (tid) => `${badmintonHubPath(tid)}/branding`,
-    isActive: (path) => path.includes("/badminton/branding"),
+    isActive: (path) => pathEndsWithSection(path, "branding"),
   },
   {
     id: "players",
     label: "Players",
     href: (tid) => `${badmintonHubPath(tid)}/players`,
-    isActive: (path) => path.includes("/badminton/players"),
+    isActive: (path) => pathEndsWithSection(path, "players"),
   },
   {
     id: "categories",
     label: "Categories",
     href: (tid) => `${badmintonHubPath(tid)}/categories`,
-    isActive: (path) => path.includes("/badminton/categories"),
+    isActive: (path) => pathEndsWithSection(path, "categories"),
   },
   {
     id: "scoring_format",
     label: "Match Format",
     href: (tid) => `${badmintonHubPath(tid)}/scoring-format`,
-    isActive: (path) => path.includes("/badminton/scoring-format"),
+    isActive: (path) => pathEndsWithSection(path, "scoring-format"),
   },
   {
     id: "courts",
     label: "Courts",
     href: (tid) => `${badmintonHubPath(tid)}/courts`,
-    isActive: (path) => path.includes("/badminton/courts"),
+    isActive: (path) => pathEndsWithSection(path, "courts"),
   },
   {
     id: "fixtures",
     label: "Draw & Fixtures",
     href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
-    isActive: (path) => path.includes("/badminton/fixtures"),
+    isActive: (path) => pathEndsWithSection(path, "fixtures"),
+  },
+  {
+    id: "schedule",
+    label: "Scheduling",
+    href: (tid) => `${badmintonHubPath(tid)}/schedule`,
+    isActive: (path) => pathEndsWithSection(path, "schedule"),
   },
   {
     id: "matches",
     label: "Matches",
     href: (tid) => `${badmintonHubPath(tid)}/matches`,
-    isActive: (path) => path.includes("/badminton/matches"),
+    // Exclude Match Control deep link so Matches is not falsely active
+    isActive: (path) =>
+      /\/badminton\/matches\/?$/.test(path) ||
+      (/\/badminton\/matches/.test(path) && !/\/matches\/\d+\/control/.test(path)),
+  },
+  {
+    id: "control",
+    label: "Control Center",
+    href: (tid) => `${badmintonHubPath(tid)}/control`,
+    isActive: (path) =>
+      /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control"),
+  },
+  {
+    id: "results",
+    label: "Results",
+    href: (tid) => `${badmintonHubPath(tid)}/results`,
+    isActive: (path) => pathEndsWithSection(path, "results"),
   },
   {
     id: "broadcast",
     label: "Broadcast",
     href: (tid) => `${badmintonHubPath(tid)}/broadcast`,
-    isActive: (path) => path.includes("/badminton/broadcast"),
+    isActive: (path) => pathEndsWithSection(path, "broadcast"),
   },
   {
     id: "analytics",
     label: "Analytics",
     href: (tid) => `${badmintonHubPath(tid)}/analytics`,
-    isActive: (path) => path.includes("/badminton/analytics"),
+    isActive: (path) => pathEndsWithSection(path, "analytics"),
   },
 ];
 
@@ -96,16 +127,57 @@ export type BadmintonHubBackNav =
   | { kind: "history"; label: string };
 
 /**
- * Contextual back control for organizer hub pages.
- * Command Center uses browser history (no Auction exit link) until a
- * shared Tournaments landing page exists.
+ * Contextual back control — follows setup / ops workflow, avoids dead ends.
  */
 export function getBadmintonHubBackNav(tournamentId: number, pathname: string): BadmintonHubBackNav {
   const hub = badmintonHubPath(tournamentId);
-  const matches = `${hub}/matches`;
 
   if (/\/badminton\/matches\/\d+\/control/.test(pathname)) {
-    return { kind: "link", href: matches, label: "Back to Matches" };
+    return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
+  }
+
+  if (/\/badminton\/control\/?$/.test(pathname)) {
+    return { kind: "link", href: hub, label: "Back to Command Center" };
+  }
+
+  if (/\/badminton\/results\/?$/.test(pathname)) {
+    return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
+  }
+
+  if (/\/badminton\/schedule/.test(pathname)) {
+    return { kind: "link", href: `${hub}/fixtures`, label: "Back to Draw & Fixtures" };
+  }
+
+  if (/\/badminton\/fixtures/.test(pathname)) {
+    return { kind: "link", href: `${hub}/categories`, label: "Back to Categories" };
+  }
+
+  if (/\/badminton\/matches\/?$/.test(pathname) || /\/badminton\/matches\?/.test(pathname)) {
+    return { kind: "link", href: `${hub}/schedule`, label: "Back to Scheduling" };
+  }
+
+  if (/\/badminton\/courts/.test(pathname)) {
+    return { kind: "link", href: `${hub}/scoring-format`, label: "Back to Match Format" };
+  }
+
+  if (/\/badminton\/scoring-format/.test(pathname)) {
+    return { kind: "link", href: `${hub}/categories`, label: "Back to Categories" };
+  }
+
+  if (/\/badminton\/categories/.test(pathname)) {
+    return { kind: "link", href: `${hub}/players`, label: "Back to Players" };
+  }
+
+  if (/\/badminton\/players/.test(pathname)) {
+    return { kind: "link", href: `${hub}/branding`, label: "Back to Branding" };
+  }
+
+  if (/\/badminton\/branding/.test(pathname)) {
+    return { kind: "link", href: hub, label: "Back to Command Center" };
+  }
+
+  if (/\/badminton\/broadcast/.test(pathname) || /\/badminton\/analytics/.test(pathname)) {
+    return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
   }
 
   if (pathname === hub || pathname === `${hub}/`) {

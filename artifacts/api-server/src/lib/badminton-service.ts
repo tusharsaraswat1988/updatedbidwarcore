@@ -9,7 +9,7 @@
  */
 
 import { randomInt } from "node:crypto";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   scoringMatchesTable,
@@ -61,6 +61,10 @@ import { replayScoringMatchState } from "./scoring-platform";
 import { appendMatchEventBatch, type ScoringActor as PlatformActor } from "./scoring-platform/orchestrator";
 import { runBadmintonMasterStatisticsPipeline } from "./scoring-platform/projections";
 import { ScoringPlatformError } from "./scoring-platform/errors";
+import {
+  findOtherLiveMatchOnCourt,
+  friendlyBadmintonCommandMessage,
+} from "./badminton-ops";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -176,8 +180,8 @@ export async function loadTournamentBadmintonFormat(
  * Cascade (highest first):
  *   startOverride → match → category stage → category default → tournament → STANDARD_FORMAT
  *
- * Stage keys are system-generated (Draw Generator → fixture.stageKey).
- * From fixture: pass fixture.stageKey. Manual create: optional stage or null
+ * Stage keys are system-generated (Fixture Source Adapters → fixture.stageKey).
+ * From fixture: pass fixture.stageKey. Manual create (legacy): optional stage or null
  * (Exhibition / Friendly — no stage layer). Organizers never invent stage keys.
  *
  * Phase 1 passes stage contribution as null; Phase 2 loads CategoryStageFormatMap
@@ -490,6 +494,26 @@ async function updateSnapshot(
         ),
       );
 
+    const fixtureId = await getMatchFixtureId(matchId, tournamentId);
+    if (fixtureId) {
+      const fixtureStatus =
+        state.matchStatus === "walkover" ? "walkover" : "completed";
+      await db
+        .update(badmintonFixturesTable)
+        .set({
+          status: fixtureStatus,
+          completedAt: new Date(),
+          resultSummary: state.resultReason ?? state.matchStatus,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, fixtureId),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        );
+    }
+
     const [detail] = await db
       .select({
         leftSideJson: badmintonMatchDetailsTable.leftSideJson,
@@ -520,6 +544,23 @@ async function updateSnapshot(
           eq(scoringMatchesTable.status, "scheduled"),
         ),
       );
+
+    const fixtureId = await getMatchFixtureId(matchId, tournamentId);
+    if (fixtureId) {
+      await db
+        .update(badmintonFixturesTable)
+        .set({
+          status: "live",
+          startedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, fixtureId),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        );
+    }
   }
 }
 
@@ -552,13 +593,50 @@ export async function startBadmintonMatch(
   actor: Actor,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
+
+  // Idempotent retry: match already started (network double-submit / refresh)
+  if (state.matchStatus === "live" || state.matchStatus === "paused") {
+    return state;
+  }
+
+  const [detail] = await db
+    .select({ courtId: badmintonMatchDetailsTable.courtId })
+    .from(badmintonMatchDetailsTable)
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (detail?.courtId != null) {
+    const other = await findOtherLiveMatchOnCourt({
+      tournamentId,
+      courtId: detail.courtId,
+      excludeMatchId: matchId,
+    });
+    if (other) {
+      throw new BadmintonServiceError(
+        "COURT_BUSY",
+        `Court already has a live match (#${other.id}). Finish or force-end that match before starting another.`,
+        409,
+      );
+    }
+  }
+
   const result = cmdStartMatch(state, input);
 
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -717,13 +795,31 @@ export async function handleRetirement(
   reason?: string,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
+
+  if (state.matchStatus === "retired") {
+    const expectedWinner: BadmintonSide = retiringSide === "left" ? "right" : "left";
+    if (state.winnerSide && state.winnerSide !== expectedWinner) {
+      throw new BadmintonServiceError(
+        "ALREADY_TERMINAL",
+        "This match is already retired with a different winner. Refresh Match Control.",
+        409,
+      );
+    }
+    return state;
+  }
+
   const result = cmdDeclareRetirement(state, retiringSide, reason);
 
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -744,13 +840,30 @@ export async function handleWalkover(
   reason?: string,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
+
+  if (state.matchStatus === "walkover") {
+    if (state.winnerSide && state.winnerSide !== winningSide) {
+      throw new BadmintonServiceError(
+        "ALREADY_TERMINAL",
+        "This match already has a walkover with a different winner. Refresh Match Control.",
+        409,
+      );
+    }
+    return state;
+  }
+
   const result = cmdDeclareWalkover(state, winningSide, reason);
 
-  if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -981,58 +1094,77 @@ export async function createBadmintonMatch(input: {
     matchFormatJson: input.matchFormatJson,
   });
 
-  const [match] = await db
-    .insert(scoringMatchesTable)
-    .values({
-      tournamentId: input.tournamentId,
-      fixtureId: input.fixtureId ?? null,
-      sportSlug: "badminton",
-      matchKind: "team_match",
-      matchLabel: input.matchLabel ?? null,
-      roundName: input.roundName ?? null,
-      scheduledAt: input.scheduledAt ?? null,
-      status: "scheduled",
-      homeTeamId: 0,
-      awayTeamId: 0,
-      homeSideJson,
-      awaySideJson,
-      rulesJson: null,
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [match] = await tx
+      .insert(scoringMatchesTable)
+      .values({
+        tournamentId: input.tournamentId,
+        fixtureId: input.fixtureId ?? null,
+        sportSlug: "badminton",
+        matchKind: "team_match",
+        matchLabel: input.matchLabel ?? null,
+        roundName: input.roundName ?? null,
+        scheduledAt: input.scheduledAt ?? null,
+        status: "scheduled",
+        homeTeamId: 0,
+        awayTeamId: 0,
+        homeSideJson,
+        awaySideJson,
+        rulesJson: null,
+      })
+      .returning();
 
-  const [detail] = await db.insert(badmintonMatchDetailsTable).values({
-    scoringMatchId: match.id,
-    tournamentId: input.tournamentId,
-    categoryId: input.categoryId ?? null,
-    fixtureId: input.fixtureId ?? null,
-    courtId: input.courtId ?? null,
-    courtNumber: input.courtNumber ?? null,
-    matchNumber: input.matchNumber ?? null,
-    matchLabel: input.matchLabel ?? null,
-    roundName: input.roundName ?? null,
-    matchType: input.matchType,
-    matchFormatJson: resolvedFormat,
-    leftSideJson: input.leftSideJson,
-    rightSideJson: input.rightSideJson,
-    scorerPin,
-    scorerName: input.scorerName ?? null,
-    umpireName: input.umpireName ?? null,
-  }).returning();
+    const [detail] = await tx
+      .insert(badmintonMatchDetailsTable)
+      .values({
+        scoringMatchId: match.id,
+        tournamentId: input.tournamentId,
+        categoryId: input.categoryId ?? null,
+        fixtureId: input.fixtureId ?? null,
+        courtId: input.courtId ?? null,
+        courtNumber: input.courtNumber ?? null,
+        matchNumber: input.matchNumber ?? null,
+        matchLabel: input.matchLabel ?? null,
+        roundName: input.roundName ?? null,
+        matchType: input.matchType,
+        matchFormatJson: resolvedFormat,
+        leftSideJson: input.leftSideJson,
+        rightSideJson: input.rightSideJson,
+        scorerPin,
+        scorerName: input.scorerName ?? null,
+        umpireName: input.umpireName ?? null,
+      })
+      .returning();
 
-  // Fix: include tournamentId in fixture update to prevent cross-tenant fixture linkage
-  if (input.fixtureId) {
-    await db
-      .update(badmintonFixturesTable)
-      .set({ scoringMatchId: match.id, updatedAt: new Date() })
-      .where(
-        and(
-          eq(badmintonFixturesTable.id, input.fixtureId),
-          eq(badmintonFixturesTable.tournamentId, input.tournamentId), // <-- isolation guard
-        ),
-      );
-  }
+    // Atomic fixture claim — only one create can win; loser rolls back inserts.
+    if (input.fixtureId) {
+      const [linked] = await tx
+        .update(badmintonFixturesTable)
+        .set({
+          scoringMatchId: match.id,
+          status: "ready",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, input.fixtureId),
+            eq(badmintonFixturesTable.tournamentId, input.tournamentId),
+            isNull(badmintonFixturesTable.scoringMatchId),
+          ),
+        )
+        .returning({ id: badmintonFixturesTable.id });
 
-  return { match, detail };
+      if (!linked) {
+        throw new BadmintonServiceError(
+          "MATCH_EXISTS",
+          "A match was already created for this fixture. Open Matches or Match Control.",
+          409,
+        );
+      }
+    }
+
+    return { match, detail };
+  });
 }
 
 export async function updateBadmintonMatch(
@@ -1048,6 +1180,7 @@ export async function updateBadmintonMatch(
     rightSideJson?: Record<string, unknown>;
     scorerPin?: string;
     umpireName?: string | null;
+    scheduledAt?: Date | null;
   },
 ) {
   await ensureBadmintonTournament(tournamentId);
@@ -1082,6 +1215,14 @@ export async function updateBadmintonMatch(
     );
   }
 
+  if (input.scheduledAt !== undefined && rosterLocked) {
+    throw new BadmintonServiceError(
+      "MATCH_STARTED",
+      "Cannot delay a match after it has started.",
+      409,
+    );
+  }
+
   if (input.scorerPin !== undefined && input.scorerPin.trim().length < 4) {
     throw new BadmintonServiceError("INVALID_PIN", "Scorer PIN must be at least 4 digits", 400);
   }
@@ -1106,6 +1247,7 @@ export async function updateBadmintonMatch(
   if (input.matchType !== undefined) detailPatch.matchType = input.matchType;
   if (input.umpireName !== undefined) detailPatch.umpireName = input.umpireName;
   if (input.scorerPin !== undefined) detailPatch.scorerPin = input.scorerPin.trim();
+  if (input.scheduledAt !== undefined) matchPatch.scheduledAt = input.scheduledAt;
 
   if (input.leftSideJson !== undefined) {
     detailPatch.leftSideJson = input.leftSideJson;
@@ -1198,9 +1340,17 @@ export async function deleteBadmintonMatch(
     );
   }
 
+  // Restore fixture to scheduled (court/time kept) so operators can recreate the match.
   await db
     .update(badmintonFixturesTable)
-    .set({ scoringMatchId: null, updatedAt: new Date() })
+    .set({
+      scoringMatchId: null,
+      status: "scheduled",
+      startedAt: null,
+      completedAt: null,
+      resultSummary: null,
+      updatedAt: new Date(),
+    })
     .where(
       and(
         eq(badmintonFixturesTable.scoringMatchId, matchId),

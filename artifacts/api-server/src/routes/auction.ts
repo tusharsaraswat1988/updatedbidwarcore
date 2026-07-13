@@ -62,6 +62,8 @@ import {
   logTimerEvent,
 } from "../lib/auction-logger";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import { TRIAL_AUCTION_ELIGIBLE_TEAM_LIMIT, isAuctionLicenseActive } from "@workspace/api-base";
+import { assertTeamAllowedInTrialAuction } from "../lib/auction-trial";
 import {
   parseReAuctionStrategy,
   parseReAuctionStrategyFromRequest,
@@ -740,10 +742,10 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
   } catch { /* ignore */ }
 
   const licenseStatus = tournamentRow.licenseStatus ?? "trial";
-  const isTrialMode = licenseStatus !== "active";
+  const isTrialMode = !isAuctionLicenseActive(licenseStatus);
   let trialTeamIds: number[] | null = null;
   if (isTrialMode) {
-    trialTeamIds = teams.slice(0, 2).map((t) => t.id);
+    trialTeamIds = teams.slice(0, TRIAL_AUCTION_ELIGIBLE_TEAM_LIMIT).map((t) => t.id);
   }
 
   let deferredPlayerIds: number[] = [];
@@ -1587,19 +1589,8 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     }
   }
 
-  // Trial mode: only the first 2 teams (by ID) may bid
-  if (tournament?.licenseStatus !== "active") {
-    const trialTeams = await db
-      .select({ id: teamsTable.id })
-      .from(teamsTable)
-      .where(eq(teamsTable.tournamentId, tid))
-      .orderBy(asc(teamsTable.id))
-      .limit(2);
-    if (!trialTeams.some(t => t.id === teamId)) {
-      res.status(403).json({ error: "Trial mode: only the first 2 teams can bid. Contact admin to activate your license for a full auction." });
-      return;
-    }
-  }
+  // Trial mode: only the first N teams (by ID) may bid — same gate as manual-sell / owner panel
+  if (!(await assertTeamAllowedInTrialAuction(res, tournament, tid, teamId))) return;
 
   const protection = await computeTeamPurseProtection(tid, teamId, {
     team: { purse: team.purse, purseUsed: team.purseUsed },
@@ -1743,6 +1734,9 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     return;
   }
 
+  const [sellTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!(await assertTeamAllowedInTrialAuction(res, sellTournament, tid, session.currentBidTeamId))) return;
+
   // Phase 3 sell-race guard: if the operator sent expected values, verify that
   // the auction state still matches what they saw when they clicked SELL.
   // If a new bid arrived in flight, return 409 so the UI can confirm with the
@@ -1821,8 +1815,8 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     return { soldPlayer: txSoldPlayer, team: txTeam };
   });
 
-  // Tournament fetch is read-only; placed after commit so notifications use fresh data.
-  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  // Tournament already loaded for trial gate; reuse for notifications.
+  const tournament = sellTournament;
 
   // Fire-and-forget WhatsApp notification
   notifyPlayerSold({
@@ -1946,6 +1940,9 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   const teamBefore = await requireTeamInTournament(res, tid, teamId);
   if (!teamBefore) return;
 
+  const [manualSellTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!(await assertTeamAllowedInTrialAuction(res, manualSellTournament, tid, teamId))) return;
+
   // ── Purse validation ───────────────────────────────────────────────────────
   if (amount > 0) {
     const protection = await computeTeamPurseProtection(tid, teamId);
@@ -2002,8 +1999,8 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     return { soldPlayer: txSoldPlayer, team: txTeam, teamAfter: txTeamAfter };
   });
 
-  // Tournament fetch is read-only; after commit so notifications use fresh data.
-  const [manualTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  // Tournament already loaded for trial gate; reuse for notifications/audit.
+  const manualTournament = manualSellTournament;
 
   notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,

@@ -4,6 +4,9 @@
  *
  * Category → Fixture Collections → Fixtures
  * Planning only: Schedule / Create Match. No Start Match / Scoring / Live.
+ *
+ * Fixture Source Adapters (all write via shared backend writer):
+ *   Auto Generate | Manual Entry | Import (Phase 1 stub)
  */
 
 import { useState } from "react";
@@ -17,7 +20,16 @@ import {
   PageHeader,
   HubPageShell,
   hubCardClass,
+  FormModal,
+  FormField,
+  FormActions,
+  FormError,
+  DarkSelect,
+  inputClass,
+  BtnPrimary,
 } from "@/components/badminton/page-chrome";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
+import { toastError, toastSuccess } from "@/lib/badminton-ux";
 
 interface BadmintonCategory {
   id: number;
@@ -46,6 +58,8 @@ interface BadmintonFixture {
   registrationBId?: number | null;
   status: string;
   scoringMatchId?: number | null;
+  courtId?: number | null;
+  scheduledAt?: string | null;
 }
 
 interface RegistrationRow {
@@ -59,6 +73,8 @@ interface RegistrationRow {
   player1: { firstName: string; lastName: string; displayName?: string | null } | null;
   player2?: { firstName: string; lastName: string; displayName?: string | null } | null;
 }
+
+type ManualPair = { registrationAId: string; registrationBId: string };
 
 function collectionKindLabel(drawKind: string): string {
   if (drawKind === "manual") return "Manual";
@@ -117,11 +133,18 @@ export default function BadmintonFixturesPage() {
       <PageHeader
         title="Draw & Fixtures"
         subtitle="Plan who plays whom — generate, import, or create fixtures manually"
+        actions={
+          sorted.length > 0 ? (
+            <Link href={`/tournament/${tournamentId}/badminton/schedule`}>
+              <BtnPrimary type="button">Go to Scheduling</BtnPrimary>
+            </Link>
+          ) : null
+        }
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-3" aria-busy="true" aria-label="Loading fixtures">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
             ))}
@@ -130,12 +153,10 @@ export default function BadmintonFixturesPage() {
           <EmptyState
             icon={ListTree}
             title="No categories yet"
-            desc="Define events on Categories first, then return here to create fixtures."
+            desc="Define events on Categories first, then return here to create Draw & Fixtures."
             action={{
               label: "Open Categories",
-              onClick: () => {
-                window.location.href = `/tournament/${tournamentId}/badminton/categories`;
-              },
+              href: `/tournament/${tournamentId}/badminton/categories`,
             }}
           />
         ) : (
@@ -177,6 +198,9 @@ function CategoryFixturesPanel({
 }) {
   const qc = useQueryClient();
   const [generating, setGenerating] = useState(false);
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [showImportInfo, setShowImportInfo] = useState(false);
   const [error, setError] = useState("");
 
   const { data: registrations = [] } = useQuery<RegistrationRow[]>({
@@ -185,19 +209,23 @@ function CategoryFixturesPanel({
     enabled: expanded && !!tournamentId,
   });
 
-  const acceptedCount = registrations.filter((r) => r.registration.status === "accepted").length;
+  const accepted = registrations.filter((r) => r.registration.status === "accepted");
+  const acceptedCount = accepted.length;
   const isDoubles = category.matchType !== "singles";
   const regNameMap = new Map<number, string>();
   for (const row of registrations) {
     regNameMap.set(row.registration.id, registrationLabel(row, isDoubles));
   }
 
+  function invalidatePlanning() {
+    void qc.invalidateQueries({ queryKey: ["badminton-fixture-collections", tournamentId] });
+    void qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
+    void qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+  }
+
   async function handleAutoGenerate() {
     if (acceptedCount < 2) {
-      setError("Need at least 2 accepted entries to generate a draw");
-      return;
-    }
-    if (!window.confirm(`Generate knockout draw for ${category.name}? This cannot be undone.`)) {
+      setError("Add at least 2 accepted entries in Categories before generating a draw.");
       return;
     }
     setGenerating(true);
@@ -207,11 +235,16 @@ function CategoryFixturesPanel({
         method: "POST",
         body: JSON.stringify({}),
       });
-      void qc.invalidateQueries({ queryKey: ["badminton-fixture-collections", tournamentId] });
-      void qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
-      void qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+      toastSuccess("Fixtures generated", `${category.name} draw is ready to schedule.`);
+      setConfirmGenerate(false);
+      invalidatePlanning();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Draw generation failed");
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "Could not generate fixtures. Check entries and try again.";
+      setError(msg);
+      toastError(e, "Draw generation failed");
     } finally {
       setGenerating(false);
     }
@@ -248,37 +281,49 @@ function CategoryFixturesPanel({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => void handleAutoGenerate()}
+              onClick={() => {
+                setError("");
+                if (acceptedCount < 2) {
+                  setError("Add at least 2 accepted entries in Categories before generating a draw.");
+                  return;
+                }
+                setConfirmGenerate(true);
+              }}
               disabled={generating || acceptedCount < 2}
-              className="h-9 px-4 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-40 text-purple-300 text-xs font-semibold transition-colors"
+              className="min-h-11 px-4 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 disabled:opacity-40 text-purple-200 text-sm font-bold transition-colors"
+              title={acceptedCount < 2 ? "Need 2+ accepted entries" : "Generate knockout fixtures"}
             >
               {generating ? "Generating…" : "Auto Generate Draw"}
             </button>
             <button
               type="button"
-              disabled
-              title="Available in a following update"
-              className="h-9 px-4 rounded-lg bg-white/5 text-white/30 text-xs font-semibold cursor-not-allowed"
+              onClick={() => {
+                setError("");
+                setShowManual(true);
+              }}
+              disabled={acceptedCount < 1}
+              className="min-h-11 px-4 rounded-lg bg-white/8 hover:bg-white/12 disabled:opacity-40 text-white/80 text-xs font-semibold transition-colors"
             >
               Create Fixtures Manually
             </button>
             <button
               type="button"
-              disabled
-              title="Import coming soon"
-              className="h-9 px-4 rounded-lg bg-white/5 text-white/30 text-xs font-semibold cursor-not-allowed"
+              onClick={() => setShowImportInfo(true)}
+              className="min-h-11 px-4 rounded-lg bg-white/5 hover:bg-white/8 text-white/50 text-xs font-semibold transition-colors"
             >
               Import Existing Draw
             </button>
           </div>
 
-          {error ? <p className="text-red-400 text-sm">{error}</p> : null}
+          {error ? <FormError message={error} /> : null}
 
           {collections.length === 0 ? (
-            <p className="text-white/35 text-sm">
-              No fixture collections yet. Generate a draw, create fixtures manually, or import when
-              available.
-            </p>
+            <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-center space-y-2">
+              <p className="text-white/70 text-sm font-semibold">No fixture collections yet</p>
+              <p className="text-white/40 text-xs max-w-md mx-auto">
+                Generate a draw for this category, or create fixtures manually. Then open Scheduling to assign courts and times.
+              </p>
+            </div>
           ) : (
             collections.map((collection) => {
               const collectionFixtures = fixtures
@@ -316,7 +361,219 @@ function CategoryFixturesPanel({
           )}
         </div>
       ) : null}
+
+      {showManual ? (
+        <ManualFixturesModal
+          tournamentId={tournamentId}
+          category={category}
+          accepted={accepted}
+          isDoubles={isDoubles}
+          onClose={() => setShowManual(false)}
+          onSaved={() => {
+            toastSuccess("Fixtures created", "Open Scheduling to assign courts and times.");
+            setShowManual(false);
+            invalidatePlanning();
+          }}
+        />
+      ) : null}
+
+      {showImportInfo ? (
+        <ImportPlaceholderModal onClose={() => setShowImportInfo(false)} />
+      ) : null}
+
+      <ConfirmActionDialog
+        open={confirmGenerate}
+        onOpenChange={setConfirmGenerate}
+        title="Generate knockout draw?"
+        description={
+          <div className="space-y-2">
+            <p>
+              Create a knockout fixture collection for{" "}
+              <span className="text-foreground font-medium">{category.name}</span> using{" "}
+              {acceptedCount} accepted entries.
+            </p>
+            <p>You can schedule courts and times afterward in Scheduling.</p>
+          </div>
+        }
+        confirmLabel="Generate draw"
+        destructive={false}
+        busy={generating}
+        error={error}
+        onConfirm={() => void handleAutoGenerate()}
+      />
     </div>
+  );
+}
+
+function ManualFixturesModal({
+  tournamentId,
+  category,
+  accepted,
+  isDoubles,
+  onClose,
+  onSaved,
+}: {
+  tournamentId: number;
+  category: BadmintonCategory;
+  accepted: RegistrationRow[];
+  isDoubles: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [roundName, setRoundName] = useState("Manual Fixtures");
+  const [pairs, setPairs] = useState<ManualPair[]>([
+    { registrationAId: "", registrationBId: "" },
+  ]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const entryOptions = accepted.map((row) => ({
+    value: String(row.registration.id),
+    label: registrationLabel(row, isDoubles),
+  }));
+
+  function updatePair(index: number, field: keyof ManualPair, value: string) {
+    setPairs((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
+    );
+  }
+
+  async function handleSave() {
+    const fixtures = pairs
+      .map((p) => ({
+        registrationAId: p.registrationAId ? parseInt(p.registrationAId, 10) : null,
+        registrationBId: p.registrationBId ? parseInt(p.registrationBId, 10) : null,
+      }))
+      .filter((f) => f.registrationAId != null || f.registrationBId != null);
+
+    if (fixtures.length === 0) {
+      setError("Add at least one fixture with a player on either side");
+      return;
+    }
+    if (!roundName.trim()) {
+      setError("Collection name is required");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      await badmintonFetch(
+        tournamentId,
+        `/categories/${category.id}/fixture-collections/manual`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            roundName: roundName.trim(),
+            fixtures,
+          }),
+        },
+      );
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create fixtures");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <FormModal
+      title="Create Fixtures Manually"
+      subtitle={category.name}
+      onClose={onClose}
+      size="lg"
+    >
+      <FormField label="Collection name">
+        <input
+          value={roundName}
+          onChange={(e) => setRoundName(e.target.value)}
+          placeholder="Manual Fixtures"
+          className={inputClass}
+        />
+      </FormField>
+
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+          Fixtures (A vs B)
+        </p>
+        {pairs.map((pair, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto] gap-2 items-end"
+          >
+            <FormField label={`Side A · Fixture ${index + 1}`}>
+              <DarkSelect
+                value={pair.registrationAId || "none"}
+                onValueChange={(v) =>
+                  updatePair(index, "registrationAId", v === "none" ? "" : v)
+                }
+                options={[
+                  { value: "none", label: "Select entry…" },
+                  ...entryOptions,
+                ]}
+              />
+            </FormField>
+            <span className="text-white/30 text-xs pb-3 text-center hidden sm:block">vs</span>
+            <FormField label={`Side B · Fixture ${index + 1}`}>
+              <DarkSelect
+                value={pair.registrationBId || "none"}
+                onValueChange={(v) =>
+                  updatePair(index, "registrationBId", v === "none" ? "" : v)
+                }
+                options={[
+                  { value: "none", label: "Select entry…" },
+                  ...entryOptions,
+                ]}
+              />
+            </FormField>
+            <button
+              type="button"
+              disabled={pairs.length <= 1}
+              onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))}
+              className="h-11 px-3 rounded-xl text-xs text-white/40 hover:text-red-400 disabled:opacity-30"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() =>
+            setPairs((prev) => [...prev, { registrationAId: "", registrationBId: "" }])
+          }
+          className="text-xs font-semibold text-primary hover:underline"
+        >
+          + Add another fixture
+        </button>
+      </div>
+
+      <FormError message={error} />
+      <FormActions
+        onCancel={onClose}
+        onSubmit={() => void handleSave()}
+        submitLabel="Create collection"
+        saving={saving}
+      />
+    </FormModal>
+  );
+}
+
+function ImportPlaceholderModal({ onClose }: { onClose: () => void }) {
+  return (
+    <FormModal
+      title="Import Existing Draw"
+      subtitle="Coming in a later phase"
+      onClose={onClose}
+      size="md"
+    >
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Import will accept association draws, Excel sheets, CSV lists, and PDF brackets. In Phase 1
+        this is a placeholder only — no file is uploaded or parsed. When ready, Import will create a
+        Fixture Collection (kind: imported) through the same fixture writer as Auto and Manual.
+      </p>
+      <FormActions onCancel={onClose} onSubmit={onClose} submitLabel="Got it" saving={false} />
+    </FormModal>
   );
 }
 
@@ -361,13 +618,18 @@ function FixturePlanCard({
         <p className="text-white text-sm font-medium truncate">{sideB}</p>
       </div>
       {fixture.scoringMatchId ? (
-        <p className="mt-3 text-center text-white/40 text-xs">Match created — manage in Matches</p>
+        <a
+          href={`/tournament/${tournamentId}/badminton/matches/${fixture.scoringMatchId}/control`}
+          className="mt-3 block text-center text-amber-300 text-xs font-semibold hover:underline min-h-11 leading-[2.75rem]"
+        >
+          Match Control →
+        </a>
       ) : (
         <Link
-          href={`/tournament/${tournamentId}/badminton/matches?fixture=${fixture.id}`}
-          className="mt-3 block text-center text-[#4fc3f7] text-xs font-semibold hover:underline"
+          href={`/tournament/${tournamentId}/badminton/schedule?fixture=${fixture.id}`}
+          className="mt-3 block text-center text-[#4fc3f7] text-xs font-semibold hover:underline min-h-11 leading-[2.75rem]"
         >
-          Schedule / Create Match →
+          Open Scheduling →
         </Link>
       )}
     </div>

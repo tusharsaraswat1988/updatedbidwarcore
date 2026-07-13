@@ -89,7 +89,7 @@ router.get("/google/sheets/connect", (req, res) => {
 
   const next = sanitizeSheetsOAuthNext(req.query.next as string | undefined);
   const state = randomBytes(32).toString("hex");
-  setGoogleSheetsOAuthCookie(res, { state, next, ownerKey });
+  setGoogleSheetsOAuthCookie(res, { state, next, ownerKey, purpose: "sheets" });
 
   const redirectUri = buildPublicUrl(GOOGLE_OAUTH_CALLBACK_PATH);
   const params = new URLSearchParams({

@@ -5,6 +5,7 @@ export type BadmintonSetupStepId =
   | "scoring_format"
   | "courts"
   | "draws"
+  | "scheduling"
   | "matches";
 
 export type BadmintonSetupItemStatus = "completed" | "current" | "upcoming";
@@ -62,10 +63,17 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     href: (id) => `/tournament/${id}/badminton/fixtures`,
   },
   {
-    id: "matches",
+    id: "scheduling",
     order: 7,
-    label: "Schedule matches",
-    description: "Assign courts and times from your fixtures.",
+    label: "Scheduling",
+    description: "Assign courts, dates, and times to fixtures.",
+    href: (id) => `/tournament/${id}/badminton/schedule`,
+  },
+  {
+    id: "matches",
+    order: 8,
+    label: "Matches",
+    description: "Create matches from scheduled fixtures and run the tournament.",
     href: (id) => `/tournament/${id}/badminton/matches`,
   },
 ];
@@ -77,6 +85,8 @@ export interface BadmintonSetupSnapshot {
   scoringFormatConfigured: boolean;
   totalFixtures: number;
   totalCourts: number;
+  /** Fixtures with court + time assigned. */
+  totalScheduledFixtures: number;
   totalMatches: number;
 }
 
@@ -99,6 +109,7 @@ export function evaluateBadmintonSetup(snapshot: BadmintonSetupSnapshot): Badmin
     scoring_format: snapshot.scoringFormatConfigured,
     courts: snapshot.totalCourts > 0,
     draws: snapshot.totalFixtures > 0,
+    scheduling: snapshot.totalScheduledFixtures > 0,
     matches: snapshot.totalMatches > 0,
   };
 

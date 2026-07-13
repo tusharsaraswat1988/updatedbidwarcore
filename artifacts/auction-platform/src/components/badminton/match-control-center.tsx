@@ -247,7 +247,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy || !isLive}
                   onClick={() => runAction(() => director.retirement(retireSide, retireReason))}
-                  className="w-full h-9 rounded-lg bg-orange-600/80 hover:bg-orange-600 text-white text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-orange-600/80 hover:bg-orange-600 text-white text-xs font-bold disabled:opacity-40"
                 >
                   Declare Retirement
                 </button>
@@ -276,7 +276,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy}
                   onClick={() => runAction(() => director.walkover(walkoverSide, walkoverReason))}
-                  className="w-full h-9 rounded-lg bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-bold disabled:opacity-40"
                 >
                   Declare Walkover
                 </button>
@@ -302,7 +302,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy || !dqReason.trim()}
                   onClick={() => runAction(() => director.disqualification(dqSide, dqReason))}
-                  className="w-full h-9 rounded-lg bg-red-700/80 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-red-700/80 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-40"
                 >
                   Declare Disqualification
                 </button>
@@ -320,7 +320,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   type="button"
                   disabled={busy || !forceEndReason.trim() || (!isLive && !isPaused)}
                   onClick={() => runAction(() => director.forceEnd(forceEndReason))}
-                  className="w-full h-9 rounded-lg bg-slate-600/80 hover:bg-slate-600 text-white text-xs font-bold disabled:opacity-40"
+                  className="w-full min-h-11 rounded-lg bg-slate-600/80 hover:bg-slate-600 text-white text-xs font-bold disabled:opacity-40"
                 >
                   Force End Match
                 </button>
@@ -337,14 +337,14 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
           <div className="flex gap-2">
             <a
               href={`${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/report?format=json`}
-              className="flex-1 h-10 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
+              className="flex-1 min-h-11 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
               download
             >
               Download JSON
             </a>
             <a
               href={`${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/report?format=pdf`}
-              className="flex-1 h-10 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
+              className="flex-1 min-h-11 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
               download
             >
               Download PDF

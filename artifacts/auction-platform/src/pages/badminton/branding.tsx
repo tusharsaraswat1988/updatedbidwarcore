@@ -12,6 +12,7 @@ import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
 import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
+import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { getSponsorsByPriority, parseSponsorLogos, validateSponsorList, type SponsorLogo } from "@/lib/sponsor-logo";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { cn } from "@/lib/utils";
@@ -253,11 +254,11 @@ export default function BadmintonBrandingPage() {
 
     for (const f of files) {
       if (f.size > 5 * 1024 * 1024) {
-        alert("Each image must be under 5 MB");
+        toastError("Each image must be under 5 MB", "Upload blocked");
         return;
       }
       if (!f.type.startsWith("image/")) {
-        alert("Please choose JPG, PNG, or WEBP images");
+        toastError("Please choose JPG, PNG, or WEBP images", "Upload blocked");
         return;
       }
     }
@@ -281,20 +282,25 @@ export default function BadmintonBrandingPage() {
           .map(r => r.value);
         if (uploaded.length > 0) {
           setSponsorLogos(prev => [...prev, ...uploaded]);
+          toastSuccess(
+            uploaded.length === 1 ? "Sponsor logo uploaded" : `${uploaded.length} logos uploaded`,
+          );
         }
         if (uploaded.length < files.length) {
-          alert(
+          toastError(
             uploaded.length === 0
               ? "Sponsor logo upload failed"
               : `${uploaded.length} of ${files.length} logos uploaded. Some files failed.`,
+            "Upload incomplete",
           );
         }
       } else {
         const uploaded = await uploadOne(files[0]);
         setSponsorLogos(prev => prev.map((l, i) => (i === idx ? { ...l, url: uploaded.url } : l)));
+        toastSuccess("Sponsor logo updated");
       }
-    } catch {
-      alert("Sponsor logo upload failed");
+    } catch (e) {
+      toastError(e, "Sponsor logo upload failed");
     } finally {
       setSponsorUploadIdx(null);
     }
@@ -304,7 +310,7 @@ export default function BadmintonBrandingPage() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Branding"
-        subtitle="Logo, colors, and scoreboard sponsors"
+        subtitle="Logo, colors, and scoreboard sponsors — how your tournament looks on display"
         actions={
           <div className="flex flex-col items-end gap-1">
             <BtnPrimary
@@ -354,7 +360,7 @@ export default function BadmintonBrandingPage() {
                   {form.logoUrl ? (
                     <img
                       src={form.logoUrl}
-                      alt=""
+                      alt={form.displayName?.trim() ? `${form.displayName} logo` : "Tournament logo"}
                       className="w-20 h-20 rounded-xl object-contain bg-card border border-border p-1"
                       style={{ boxShadow: `0 0 32px ${form.primaryColor}33` }}
                     />
@@ -452,7 +458,7 @@ export default function BadmintonBrandingPage() {
               <FormField label="Tournament Logo">
                 <div className="flex items-center gap-4">
                   {form.logoUrl ? (
-                    <img src={form.logoUrl} alt="" className="w-16 h-16 rounded-xl object-contain bg-white/5 border border-white/10" />
+                    <img src={form.logoUrl} alt={form.displayName?.trim() ? `${form.displayName} logo` : "Tournament logo"} className="w-16 h-16 rounded-xl object-contain bg-white/5 border border-white/10" />
                   ) : (
                     <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 text-xs">
                       No logo

@@ -1,7 +1,7 @@
 /**
  * Badminton Categories — event definitions only.
  * Route: /tournament/:id/badminton/categories
- * Fixture creation lives in Draw & Fixtures.
+ * Fixture creation lives in Draw & Fixtures (Open Draw & Fixtures CTA).
  */
 
 import { useState } from "react";
@@ -79,7 +79,7 @@ export default function BadmintonCategoriesPage() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Categories"
-        subtitle={`${categories.length} categor${categories.length !== 1 ? "ies" : "y"}`}
+        subtitle="Events in this tournament — entries feed Draw & Fixtures"
         actions={
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
             + Add Category
@@ -113,7 +113,6 @@ export default function BadmintonCategoriesPage() {
               onDeleted={() => {
                 if (expandedId === cat.id) setExpandedId(null);
                 qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
-                qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
                 qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
               }}
               onRefresh={() => {
@@ -166,42 +165,12 @@ function CategoryPanel({
     enabled: expanded && !!tournamentId,
   });
 
-  const { data: fixtures = [] } = useQuery<BadmintonFixture[]>({
-    queryKey: ["badminton-fixtures", tournamentId, category.id],
-    queryFn: () => badmintonFetch(tournamentId, `/fixtures?categoryId=${category.id}`),
-    enabled: !!tournamentId,
-  });
-
-  const [generating, setGenerating] = useState(false);
-  const [drawError, setDrawError] = useState("");
   const [showAddReg, setShowAddReg] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   const acceptedCount = registrations.filter((r) => r.registration.status === "accepted").length;
-  const hasDraw = fixtures.length > 0;
-
-  async function handleGenerateDraw() {
-    if (acceptedCount < 2) {
-      setDrawError("Need at least 2 accepted entries to generate a draw");
-      return;
-    }
-    if (!window.confirm(`Generate knockout draw for ${category.name}? This cannot be undone.`)) return;
-    setGenerating(true);
-    setDrawError("");
-    try {
-      await badmintonFetch(tournamentId, `/categories/${category.id}/generate-draw`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      onRefresh();
-    } catch (e) {
-      setDrawError(e instanceof Error ? e.message : "Draw generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   async function handleConfirmDelete() {
     setDeleting(true);
@@ -218,13 +187,6 @@ function CategoryPanel({
   }
 
   const isDoublesEntry = category.matchType !== "singles";
-  const regNameMap = new Map<number, string>();
-  for (const row of registrations) {
-    regNameMap.set(
-      row.registration.id,
-      formatRegistrationEntryName(row, isDoublesEntry),
-    );
-  }
 
   return (
     <div className={cn(hubCardClass, "overflow-hidden")}>
@@ -313,15 +275,9 @@ function CategoryPanel({
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
                   Delete <span className="text-foreground font-medium">{category.name}</span>?
-                  All entries, draw fixtures, and bracket data for this category will be permanently
-                  removed.
+                  All entries for this category will be permanently removed. Fixture collections and
+                  linked matches must be cleared first if they exist.
                 </p>
-                {hasDraw ? (
-                  <p>
-                    This category has a generated draw. Linked matches must be deleted from the
-                    Matches page before this category can be removed.
-                  </p>
-                ) : null}
                 <p>This cannot be undone.</p>
                 {deleteError ? <p className="text-red-400">{deleteError}</p> : null}
               </div>
@@ -358,18 +314,13 @@ function CategoryPanel({
             >
               + Add Entry
             </button>
-            {!hasDraw && (
-              <button
-                onClick={handleGenerateDraw}
-                disabled={generating || acceptedCount < 2}
-                className="h-9 px-4 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-40 text-purple-300 text-xs font-semibold transition-colors"
-              >
-                {generating ? "Generating…" : "Generate Knockout Draw"}
-              </button>
-            )}
+            <Link
+              href={`/tournament/${tournamentId}/badminton/fixtures?categoryId=${category.id}`}
+              className="h-9 px-4 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold transition-colors inline-flex items-center"
+            >
+              Open Draw & Fixtures
+            </Link>
           </div>
-
-          {drawError && <p className="text-red-400 text-sm">{drawError}</p>}
 
           {/* Registrations */}
           <section>
@@ -436,27 +387,6 @@ function CategoryPanel({
               </div>
             )}
           </section>
-
-          {/* Draw / Fixtures */}
-          {hasDraw && (
-            <section>
-              <h4 className="text-white/50 text-xs font-bold uppercase tracking-widest mb-3">
-                Draw — Round 1 ({fixtures.length} fixture{fixtures.length !== 1 ? "s" : ""})
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {fixtures
-                  .sort((a, b) => (a.slotNumber ?? 0) - (b.slotNumber ?? 0))
-                  .map((fix) => (
-                    <FixtureCard
-                      key={fix.id}
-                      fixture={fix}
-                      regNameMap={regNameMap}
-                      tournamentId={tournamentId}
-                    />
-                  ))}
-              </div>
-            </section>
-          )}
         </div>
       )}
 
@@ -470,61 +400,6 @@ function CategoryPanel({
             setShowAddReg(false);
           }}
         />
-      )}
-    </div>
-  );
-}
-
-function FixtureCard({
-  fixture,
-  regNameMap,
-  tournamentId,
-}: {
-  fixture: BadmintonFixture;
-  regNameMap: Map<number, string>;
-  tournamentId: number;
-}) {
-  const sideA = fixture.registrationAId
-    ? regNameMap.get(fixture.registrationAId) ?? "TBD"
-    : "BYE";
-  const sideB = fixture.registrationBId
-    ? regNameMap.get(fixture.registrationBId) ?? "TBD"
-    : "BYE";
-
-  return (
-    <div className="rounded-xl bg-white/5 border border-white/8 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-white/30 text-xs font-bold">Match {fixture.slotNumber ?? "—"}</span>
-        <span className={cn(
-          "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-          fixture.status === "scheduled" ? "bg-blue-500/15 text-blue-400" :
-          fixture.status === "walkover" ? "bg-amber-500/15 text-amber-400" :
-          "bg-white/10 text-white/50",
-        )}>
-          {fixture.status}
-        </span>
-      </div>
-      <div className="space-y-1.5">
-        <p className="text-white text-sm font-medium truncate">{sideA}</p>
-        <p className="text-white/30 text-xs text-center">vs</p>
-        <p className="text-white text-sm font-medium truncate">{sideB}</p>
-      </div>
-      {fixture.scoringMatchId ? (
-        <a
-          href={`/badminton/${fixture.scoringMatchId}/score?tid=${tournamentId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 block text-center text-[#4fc3f7] text-xs font-semibold hover:underline"
-        >
-          Open Scorer →
-        </a>
-      ) : (
-        <Link
-          href={`/tournament/${tournamentId}/badminton/matches?fixture=${fixture.id}`}
-          className="mt-3 block text-center text-[#4fc3f7] text-xs font-semibold hover:underline"
-        >
-          Schedule Match →
-        </Link>
       )}
     </div>
   );

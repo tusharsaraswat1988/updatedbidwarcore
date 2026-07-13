@@ -155,7 +155,12 @@ export function EmptyState({
 
   desc: string;
 
-  action?: { label: string; onClick: () => void };
+  action?: {
+    label: string;
+    onClick?: () => void;
+    /** Prefer href for SPA navigation (avoids full reload). */
+    href?: string;
+  };
 
 }) {
 
@@ -173,15 +178,31 @@ export function EmptyState({
 
       <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">{desc}</p>
 
-      {action && (
+      {action ? (
 
         <div className="mt-6">
 
-          <BtnPrimary onClick={action.onClick}>{action.label}</BtnPrimary>
+          {action.href ? (
+
+            <Link href={action.href}>
+
+              <BtnPrimary type="button">{action.label}</BtnPrimary>
+
+            </Link>
+
+          ) : (
+
+            <BtnPrimary type="button" onClick={action.onClick}>
+
+              {action.label}
+
+            </BtnPrimary>
+
+          )}
 
         </div>
 
-      )}
+      ) : null}
 
     </div>
 
@@ -441,7 +462,11 @@ export function HubFilterTabs<T extends string>({
 
   return (
 
-    <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+    <div
+      className="flex items-center gap-2 mb-6 overflow-x-auto pb-1"
+      role="group"
+      aria-label="Filter matches"
+    >
 
       {tabs.map((tab) => (
 
@@ -449,11 +474,15 @@ export function HubFilterTabs<T extends string>({
 
           key={tab}
 
+          type="button"
+
           onClick={() => onChange(tab)}
+
+          aria-pressed={active === tab}
 
           className={cn(
 
-            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all border",
+            "flex items-center gap-1.5 min-h-11 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 
             active === tab
 
@@ -465,9 +494,12 @@ export function HubFilterTabs<T extends string>({
 
         >
 
-          {tab === liveTab && <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}
+          {tab === liveTab ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" aria-hidden />
+          ) : null}
 
           <span className="capitalize">{tab}</span>
+          {tab === liveTab ? <span className="sr-only"> live</span> : null}
 
           <span className={cn(
 
@@ -706,19 +738,28 @@ export function HubMatchCard({
           <div className="grid grid-cols-3 gap-2 mt-4">
             <Link
               href={badmintonMatchControlPath(tournamentId, matchId)}
-              className="h-9 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
+              className="min-h-11 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
             >
               Match Control
             </Link>
-            <Link
-              href={badmintonUmpireScorerPath(matchId, tournamentId)}
-              className="h-9 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
-            >
-              Umpire
-            </Link>
+            {isLive ? (
+              <Link
+                href={badmintonUmpireScorerPath(matchId, tournamentId)}
+                className="min-h-11 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
+              >
+                Umpire
+              </Link>
+            ) : (
+              <span
+                className="min-h-11 rounded-lg bg-muted/40 border border-border text-muted-foreground/50 text-[11px] font-semibold flex items-center justify-center text-center px-1"
+                title="Start from Match Control first"
+              >
+                Umpire
+              </span>
+            )}
             <Link
               href={badmintonBroadcastPath(tournamentId, matchId)}
-              className="h-9 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
+              className="min-h-11 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
             >
               Broadcast
             </Link>
