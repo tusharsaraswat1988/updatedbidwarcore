@@ -24,12 +24,24 @@ import {
   type MatchControlSnapshot,
 } from "@/lib/badminton-match-control";
 import { AlertCircle } from "lucide-react";
+import {
+  formatTeamPlayerLine,
+  identityFromFranchiseFields,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 
 function sideLabelFromJson(side: Record<string, unknown> | undefined, fallback: string): string {
   if (!side) return fallback;
   const label = typeof side.label === "string" ? side.label.trim() : "";
   const short = typeof side.shortLabel === "string" ? side.shortLabel.trim() : "";
-  return label || short || fallback;
+  const player = label || short || fallback;
+  const identity = identityFromFranchiseFields(player, {
+    franchiseName: typeof side.franchiseName === "string" ? side.franchiseName : undefined,
+    franchiseLogoUrl: typeof side.franchiseLogoUrl === "string" ? side.franchiseLogoUrl : undefined,
+    teamName: typeof side.teamName === "string" ? side.teamName : undefined,
+    teamLogoUrl: typeof side.teamLogoUrl === "string" ? side.teamLogoUrl : undefined,
+  }, typeof side.teamColor === "string" ? side.teamColor : undefined);
+  return formatTeamPlayerLine(identity);
 }
 
 type MatchListRow = {
@@ -181,7 +193,7 @@ export default function BadmintonMatchControlPage() {
           isPreMatch
             ? "Verify court, roster, and time — then Start Match"
             : state
-              ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel} — tournament director`
+              ? `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))} — tournament director`
               : "Loading…"
         }
         actions={formatLabel ? <ScoringFormatBadge label={formatLabel} /> : undefined}

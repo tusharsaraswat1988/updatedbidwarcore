@@ -1,8 +1,11 @@
 import { useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { getSidePlayerSlots } from "@workspace/badminton-core";
 import { DoublesCourtDisplay } from "@/components/badminton/doubles-court-display";
 import { cn } from "@/lib/utils";
+import {
+  formatTeamPlayerLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 
 interface DoublesScorerPanelProps {
   state: BadmintonMatchState;
@@ -24,8 +27,6 @@ export function DoublesScorerPanel({
   const [undoBusy, setUndoBusy] = useState(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
 
-  const leftPlayers = getSidePlayerSlots(state.leftSide);
-  const rightPlayers = getSidePlayerSlots(state.rightSide);
   const isTimeout = !!state.activeTimeout;
   const cannotScore = isTimeout || scoringBlocked || state.matchStatus !== "live";
 
@@ -52,8 +53,12 @@ export function DoublesScorerPanel({
     }
   }
 
-  const leftPairLabel = leftPlayers.map((p) => p.shortLabel || p.label).join(" / ");
-  const rightPairLabel = rightPlayers.map((p) => p.shortLabel || p.label).join(" / ");
+  const leftPairLabel = formatTeamPlayerLine(
+    identityFromSideInfo(state.leftSide, { preferShort: true }),
+  );
+  const rightPairLabel = formatTeamPlayerLine(
+    identityFromSideInfo(state.rightSide, { preferShort: true }),
+  );
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">

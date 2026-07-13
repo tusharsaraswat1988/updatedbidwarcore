@@ -127,8 +127,8 @@ export function PreMatchControlPanel({
             label="Match format"
             value={snapshot.matchFormatLabel}
           />
-          <InfoRow label="Players (left)" value={snapshot.leftLabel} />
-          <InfoRow label="Players (right)" value={snapshot.rightLabel} />
+          <InfoRow label="Team / Player (left)" value={snapshot.leftLabel} />
+          <InfoRow label="Team / Player (right)" value={snapshot.rightLabel} />
         </dl>
       </div>
 

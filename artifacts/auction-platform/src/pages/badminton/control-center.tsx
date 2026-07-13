@@ -34,6 +34,8 @@ import {
   type ControlMatch,
   type CourtOpsStatus,
 } from "@/lib/badminton-control-center";
+import { TeamPlayerVs } from "@/components/badminton/team-player-card";
+import { identityFromLooseSide } from "@/lib/team-player-identity";
 import { friendlyBadmintonError, formatCourtOpsStatusLabel } from "@/lib/badminton-ux";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -300,15 +302,25 @@ export default function BadmintonControlCenterPage() {
           >
             {ready.slice(0, 10).map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-white/6 last:border-0">
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-medium truncate flex items-center gap-2">
-                    {matchDisplayLabel(m)}
-                    {isDelayedMatch(m) ? (
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-orange-300 border border-orange-500/40 rounded px-1.5 py-0.5 flex-none">
-                        Delayed
-                      </span>
-                    ) : null}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  {m.state?.leftSide || m.state?.rightSide ? (
+                    <TeamPlayerVs
+                      left={identityFromLooseSide(m.state?.leftSide)}
+                      right={identityFromLooseSide(m.state?.rightSide)}
+                      size="xs"
+                      layout="inline"
+                      className="items-start"
+                    />
+                  ) : (
+                    <p className="text-white text-sm font-medium truncate flex items-center gap-2">
+                      {matchDisplayLabel(m)}
+                    </p>
+                  )}
+                  {isDelayedMatch(m) ? (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-orange-300 border border-orange-500/40 rounded px-1.5 py-0.5 inline-block mt-1">
+                      Delayed
+                    </span>
+                  ) : null}
                   <p className="text-white/35 text-xs">
                     {typeof m.detail?.courtNumber === "string" || typeof m.detail?.courtNumber === "number"
                       ? `Court ${m.detail.courtNumber}`
@@ -335,10 +347,20 @@ export default function BadmintonControlCenterPage() {
           >
             {recent.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-white/6 last:border-0">
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-medium truncate">
-                    {matchDisplayLabel(m)}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  {m.state?.leftSide || m.state?.rightSide ? (
+                    <TeamPlayerVs
+                      left={identityFromLooseSide(m.state?.leftSide)}
+                      right={identityFromLooseSide(m.state?.rightSide)}
+                      size="xs"
+                      layout="inline"
+                      className="items-start"
+                    />
+                  ) : (
+                    <p className="text-white text-sm font-medium truncate">
+                      {matchDisplayLabel(m)}
+                    </p>
+                  )}
                   <p className="text-white/35 text-xs">
                     {m.state
                       ? `${m.state.leftScore ?? 0}–${m.state.rightScore ?? 0}`
@@ -486,9 +508,19 @@ function CourtOpsCard({
           <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">
             {status === "FINISHED" ? "Last match" : "Current"}
           </p>
-          <p className="text-white font-medium truncate">
-            {currentMatch ? matchDisplayLabel(currentMatch) : "—"}
-          </p>
+          {currentMatch?.state?.leftSide || currentMatch?.state?.rightSide ? (
+            <TeamPlayerVs
+              left={identityFromLooseSide(currentMatch.state?.leftSide)}
+              right={identityFromLooseSide(currentMatch.state?.rightSide)}
+              size="xs"
+              layout="inline"
+              className="items-start"
+            />
+          ) : (
+            <p className="text-white font-medium truncate">
+              {currentMatch ? matchDisplayLabel(currentMatch) : "—"}
+            </p>
+          )}
           {currentMatch?.state && status === "LIVE" ? (
             <p className="text-white/55 text-xs tabular-nums mt-0.5">
               {currentMatch.state.leftScore ?? 0}–{currentMatch.state.rightScore ?? 0}
@@ -507,7 +539,17 @@ function CourtOpsCard({
           <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">
             Next
           </p>
-          <p className="text-white/85 font-medium truncate">{nextLabel}</p>
+          {nextMatch?.state?.leftSide || nextMatch?.state?.rightSide ? (
+            <TeamPlayerVs
+              left={identityFromLooseSide(nextMatch.state?.leftSide)}
+              right={identityFromLooseSide(nextMatch.state?.rightSide)}
+              size="xs"
+              layout="inline"
+              className="items-start"
+            />
+          ) : (
+            <p className="text-white/85 font-medium truncate">{nextLabel}</p>
+          )}
           {(nextMatch?.scheduledAt || nextFixture?.scheduledAt) && (
             <p className="text-white/40 text-xs mt-0.5">
               {formatTime(nextMatch?.scheduledAt ?? nextFixture?.scheduledAt)}

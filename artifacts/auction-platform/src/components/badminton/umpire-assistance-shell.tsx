@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { ScorerConsoleHeader } from "@/components/badminton/scorer-console-header";
+import { MatchIdentityStrip } from "@/components/badminton/match-identity-strip";
 import { UmpireMatchBanners } from "@/components/badminton/umpire-match-banners";
 import { UmpireStatusStrip } from "@/components/badminton/umpire-status-strip";
 import { UmpireIntervalModal } from "@/components/badminton/umpire-interval-modal";
@@ -16,6 +17,7 @@ interface UmpireAssistanceShellProps {
   state: BadmintonMatchState;
   tournamentName: string;
   courtNumber?: string;
+  categoryName?: string;
   onStartInterval: () => Promise<unknown>;
   onEndInterval: () => Promise<unknown>;
   onAcknowledgeCourtChange: () => Promise<unknown>;
@@ -30,6 +32,7 @@ export function UmpireAssistanceShell({
   state,
   tournamentName,
   courtNumber,
+  categoryName,
   onStartInterval,
   onEndInterval,
   onAcknowledgeCourtChange,
@@ -75,6 +78,12 @@ export function UmpireAssistanceShell({
         courtNumber={courtNumber}
         voiceEnabled={voiceEnabled}
         onToggleVoice={toggleVoice}
+      />
+
+      <MatchIdentityStrip
+        state={state}
+        courtNumber={courtNumber}
+        categoryName={categoryName}
       />
 
       <UmpireMatchBanners banners={snapshot.banners} />

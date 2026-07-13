@@ -25,12 +25,14 @@ import {
   listWonToday,
   outcomeLabel,
   winnerLabel,
+  winnerTeamFields,
   type ResultsCategory,
   type ResultsCollection,
   type ResultsFixture,
   type ResultsMatch,
 } from "@/lib/badminton-results";
 import { matchDisplayLabel } from "@/lib/badminton-control-center";
+import { formatTeamPlayerLine } from "@/lib/team-player-identity";
 import { ChampionCard } from "@/components/badminton/champion-card";
 import { CategoryStatusCard } from "@/components/badminton/category-status-card";
 import { BracketProgressPanel } from "@/components/badminton/bracket-progress-panel";
@@ -357,6 +359,15 @@ export default function BadmintonResultsPage() {
                       const catId =
                         typeof m.detail?.categoryId === "number" ? m.detail.categoryId : null;
                       const winner = winnerLabel(m);
+                      const winnerTeam = winnerTeamFields(m);
+                      const winnerDisplay = winner
+                        ? formatTeamPlayerLine({
+                            playerName: winner,
+                            teamName: winnerTeam.teamName,
+                            teamLogoUrl: winnerTeam.teamLogoUrl,
+                            teamColor: winnerTeam.teamColor,
+                          })
+                        : null;
                       const games = gameScoreLines(m);
                       return (
                         <li
@@ -371,8 +382,8 @@ export default function BadmintonResultsPage() {
                               {matchDisplayLabel(m)}
                             </p>
                             <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-white/40">
-                              {winner ? (
-                                <span className="text-emerald-400/90">Won by {winner}</span>
+                              {winnerDisplay ? (
+                                <span className="text-emerald-400/90">Won by {winnerDisplay}</span>
                               ) : null}
                               {outcomeLabel(m) !== "Completed" ? (
                                 <span className="text-amber-200/70">{outcomeLabel(m)}</span>

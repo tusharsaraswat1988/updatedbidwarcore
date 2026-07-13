@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { cn } from "@/lib/utils";
+import { identityFromSideInfo } from "@/lib/team-player-identity";
 import {
   HubPageShell,
   PageHeader,
@@ -27,7 +28,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
-import { identityFromSideInfo } from "@/lib/team-player-identity";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { Skeleton } from "@/components/ui/skeleton";
 import {

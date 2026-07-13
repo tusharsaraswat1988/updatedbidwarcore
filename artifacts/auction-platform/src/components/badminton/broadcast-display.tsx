@@ -11,9 +11,10 @@
 import { useState, useEffect, useRef } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { resolveFranchiseLogoUrl, resolveFranchiseName, isPairMatchKind, currentReceiverLabel, currentServerLabel } from "@workspace/badminton-core";
-import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
+import { SidePlayerPhotos } from "@/components/badminton/side-players";
 import { DoublesCourtDisplay } from "@/components/badminton/doubles-court-display";
 import { type ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { cn } from "@/lib/utils";
 import { DirectorStatusBanner } from "@/components/badminton/director-status-banner";
 import { BadmintonLedChyron, BadmintonLedTopStrip } from "@/components/badminton/badminton-led-chrome";
@@ -23,6 +24,10 @@ import {
   fixedScoreStyle,
   fixedServeStyle,
 } from "@/components/badminton/badminton-led-theme";
+import {
+  formatTeamPlayerLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 interface BroadcastDisplayProps {
@@ -98,7 +103,7 @@ export function BroadcastDisplay({
   const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
   const displayMatchName =
     matchLabel?.trim() ||
-    `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}`;
+    `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}`;
 
   return (
     <div
@@ -126,8 +131,8 @@ export function BroadcastDisplay({
         matchStatus={state.matchStatus}
         isTimeout={isTimeout}
         timeoutSide={state.activeTimeout?.side}
-        leftLabel={state.leftSide.shortLabel}
-        rightLabel={state.rightSide.shortLabel}
+        leftLabel={formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))}
+        rightLabel={formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}
         scoreBoardSponsor={scoreBoardSponsor}
       />
 
@@ -283,6 +288,7 @@ function PlayerBlock({
   const isLeft = side === "left";
   const franchiseName = resolveFranchiseName(info);
   const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
+  const identity = identityFromSideInfo(info);
 
   return (
     <div
@@ -313,19 +319,19 @@ function PlayerBlock({
         )}
       </div>
 
-      {/* Name + team + country */}
+      {/* Team → Player (+ country / sponsor) */}
       <div className={cn("flex flex-col gap-1", isLeft ? "items-start" : "items-end")}>
+        <TeamPlayerCard
+          identity={identity}
+          size="lg"
+          tone="led"
+          layout="stack"
+          align={isLeft ? "start" : "end"}
+          showBadge={Boolean(franchiseName)}
+          playerClassName="badminton-score-player-name"
+          teamClassName="font-semibold"
+        />
         <div className={cn("flex items-center gap-2", !isLeft && "flex-row-reverse")}>
-          {franchiseLogoUrl && (
-            <img
-              src={franchiseLogoUrl}
-              alt={franchiseName ?? "Franchise"}
-              loading="lazy"
-              decoding="async"
-              className="object-contain"
-              style={{ height: "calc(var(--score-player-meta) * 1.4)", width: "calc(var(--score-player-meta) * 1.4)" }}
-            />
-          )}
           {!franchiseLogoUrl && info.flagUrl && (
             <img
               src={info.flagUrl}
@@ -347,22 +353,6 @@ function PlayerBlock({
             />
           )}
         </div>
-        <SidePlayerNames
-          info={info}
-          matchKind={matchKind}
-          side={side}
-          stacked
-          className="badminton-score-player-name"
-        />
-        {franchiseName && (
-          <p className={cn(
-            "font-semibold uppercase tracking-[0.1em] text-white/40",
-          )}
-          style={{ fontSize: "var(--score-player-meta)" }}
-          >
-            Franchise: {franchiseName}
-          </p>
-        )}
         {info.countryName && (
           <p className={cn(
             "font-bold uppercase tracking-[0.15em]",
@@ -547,7 +537,7 @@ function GameWinOverlay({
   score,
 }: {
   side: "left" | "right";
-  player: { label: string; countryName?: string };
+  player: BadmintonMatchState["leftSide"];
   score: { winner: number; loser: number };
 }) {
   return (
@@ -563,7 +553,16 @@ function GameWinOverlay({
         )}
       >
         <p className="text-white/60 text-sm font-bold uppercase tracking-[0.3em] mb-2">Game Won</p>
-        <h2 className="text-4xl font-black text-white mb-3">{player.label}</h2>
+        <div className="mb-3 flex justify-center">
+          <TeamPlayerCard
+            identity={identityFromSideInfo(player)}
+            size="lg"
+            tone="led"
+            align="center"
+            playerClassName="text-4xl font-black text-white"
+            teamClassName="text-white/70"
+          />
+        </div>
         <div className="text-5xl font-black" style={fixedScoreStyle()}>
           {score.winner} – {score.loser}
         </div>
@@ -583,12 +582,13 @@ function MatchWinOverlay({
   games,
 }: {
   side: "left" | "right";
-  player: { label: string; countryName?: string; photoUrl?: string };
+  player: BadmintonMatchState["leftSide"];
   gamesLeft: number;
   gamesRight: number;
   games: BadmintonMatchState["games"];
 }) {
   const completedGames = games.filter((g) => g.phase === "completed");
+  const identity = identityFromSideInfo(player);
 
   return (
     <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/70 backdrop-blur-sm">
@@ -608,12 +608,21 @@ function MatchWinOverlay({
         {player.photoUrl && (
           <img
             src={player.photoUrl}
-            alt={player.label}
+            alt={identity.playerName}
             className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-[#ffd700]"
           />
         )}
 
-        <h1 className="text-5xl font-black text-white mb-2 leading-tight">{player.label}</h1>
+        <div className="mb-2 flex justify-center">
+          <TeamPlayerCard
+            identity={identity}
+            size="xl"
+            tone="led"
+            align="center"
+            playerClassName="text-5xl font-black text-white leading-tight"
+            teamClassName="text-white/70"
+          />
+        </div>
 
         {player.countryName && (
           <p className={cn(

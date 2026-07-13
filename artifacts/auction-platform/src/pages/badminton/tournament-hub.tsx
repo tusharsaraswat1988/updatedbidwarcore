@@ -11,6 +11,7 @@ import {
   Users, MapPin, Trophy, Calendar, Radio, CheckCircle2, Target,
 } from "lucide-react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { identityFromSideInfo } from "@/lib/team-player-identity";
 import {
   completeBadmintonSetupWizard,
   useBadmintonSetup,
@@ -201,6 +202,8 @@ export default function BadmintonTournamentHub() {
                     status="live"
                     leftLabel={state?.leftSide.shortLabel}
                     rightLabel={state?.rightSide.shortLabel}
+                    leftIdentity={state ? identityFromSideInfo(state.leftSide, { preferShort: true }) : undefined}
+                    rightIdentity={state ? identityFromSideInfo(state.rightSide, { preferShort: true }) : undefined}
                     leftScore={state?.leftScore}
                     rightScore={state?.rightScore}
                     currentGame={state?.currentGame}

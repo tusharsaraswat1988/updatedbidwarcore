@@ -236,12 +236,12 @@ export function MasterPlayerPicker({
                 size="md"
               />
               <div className="min-w-0 flex-1">
-                <span className="text-white font-medium text-sm truncate block">{p.displayName}</span>
                 {p.franchiseName ? (
-                  <span className="text-white/35 text-[10px] truncate block uppercase tracking-wide">
+                  <span className="text-white/45 text-[10px] font-bold uppercase tracking-wide truncate block">
                     {p.franchiseName}
                   </span>
                 ) : null}
+                <span className="text-white font-medium text-sm truncate block">{p.displayName}</span>
               </div>
               {pickingId === String(p.badmintonPlayerId) ? (
                 <Loader2 className="w-4 h-4 text-[#4fc3f7] animate-spin shrink-0" />
