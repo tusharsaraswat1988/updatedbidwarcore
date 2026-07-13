@@ -17,6 +17,11 @@ export function badmintonUmpireScorerPath(matchId: number, tournamentId: number)
   return `/badminton/${matchId}/score?tid=${tournamentId}`;
 }
 
+/** Recommended scorer entry — PIN once, then pick a match. */
+export function badmintonScorerHomePath(tournamentId: number) {
+  return `/badminton/scorer?tid=${tournamentId}`;
+}
+
 /** Results & Standings — read-only post-scoring layer. */
 export function badmintonResultsPath(tournamentId: number) {
   return `${badmintonHubPath(tournamentId)}/results`;

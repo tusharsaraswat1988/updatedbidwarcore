@@ -4,15 +4,24 @@
  *
  * PIN-protected scorer interface for court-side volunteers.
  * Optimized for mobile phones and tablets.
+ *
+ * PIN may come from: URL ?pin=, Scorer Home session, or manual entry.
+ * Existing direct URLs continue to work unchanged.
  */
 
 import { useState, useEffect } from "react";
-import { useSearch, useRoute } from "wouter";
+import { useSearch, useRoute, Link } from "wouter";
 import { ScorerPanel } from "@/components/badminton/scorer-panel";
 import { UmpireAssistanceShell } from "@/components/badminton/umpire-assistance-shell";
 import { useBadmintonMatch, useBadmintonDirector, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { verifyBadmintonScorerPin } from "@/lib/badminton-api";
+import {
+  clearBadmintonScorerSession,
+  getBadmintonScorerSession,
+  setBadmintonScorerSession,
+} from "@/lib/badminton-scorer-session";
+import { badmintonScorerHomePath } from "@/lib/badminton-routes";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { FullscreenLayout } from "@/components/layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
@@ -25,13 +34,15 @@ export default function BadmintonScorerPage() {
   const matchId = parseInt(params?.matchId ?? "0");
   const tournamentId = parseInt(searchParams.get("tid") ?? "0");
   const pin = searchParams.get("pin") ?? undefined;
+  const session = tournamentId > 0 ? getBadmintonScorerSession(tournamentId) : null;
+  const hasScorerHomeSession = !!session;
 
-  const [pinInput, setPinInput] = useState(pin ?? "");
+  const [pinInput, setPinInput] = useState(pin ?? session?.pin ?? "");
   const [pinAccepted, setPinAccepted] = useState(false);
   const [pinError, setPinError] = useState("");
   const [verifyingPin, setVerifyingPin] = useState(false);
 
-  async function submitPin(candidate: string) {
+  async function submitPin(candidate: string, persistSession = true) {
     if (candidate.length < 4) {
       setPinError("PIN must be at least 4 digits");
       return;
@@ -50,15 +61,20 @@ export default function BadmintonScorerPage() {
       }
       setPinInput(candidate);
       setPinAccepted(true);
+      if (persistSession) {
+        setBadmintonScorerSession(tournamentId, candidate);
+      }
     } finally {
       setVerifyingPin(false);
     }
   }
 
   useEffect(() => {
-    if (!pin || !tournamentId || !matchId || pinAccepted || verifyingPin) return;
-    void submitPin(pin);
-    // Only attempt URL pin once on initial load.
+    if (pinAccepted || verifyingPin || !tournamentId || !matchId) return;
+    const candidate = pin ?? session?.pin;
+    if (!candidate) return;
+    void submitPin(candidate, true);
+    // Only attempt URL/session pin once on initial load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,6 +130,14 @@ export default function BadmintonScorerPage() {
               >
                 {verifyingPin ? "Checking PIN…" : "Access Scorer"}
               </button>
+              {tournamentId > 0 ? (
+                <Link
+                  href={badmintonScorerHomePath(tournamentId)}
+                  className="block text-center text-white/40 text-sm hover:text-white/70 py-2"
+                >
+                  Open Scorer Home
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>
@@ -147,6 +171,14 @@ export default function BadmintonScorerPage() {
             >
               Try Again
             </button>
+            {tournamentId > 0 ? (
+              <Link
+                href={badmintonScorerHomePath(tournamentId)}
+                className="block mt-4 text-white/40 text-sm hover:text-white/70"
+              >
+                Back to Scorer Home
+              </Link>
+            ) : null}
           </div>
         </div>
       </FullscreenLayout>
@@ -181,9 +213,22 @@ export default function BadmintonScorerPage() {
             ) : (
               <p className="text-white/40 text-xs">Ask the organizer to start the match.</p>
             )}
+            {tournamentId > 0 ? (
+              <Link
+                href={badmintonScorerHomePath(tournamentId)}
+                className="block mx-auto mt-2 text-white/55 text-sm font-semibold hover:text-white/80"
+              >
+                Back to Scorer Home
+              </Link>
+            ) : null}
             <button
               type="button"
-              onClick={() => setPinAccepted(false)}
+              onClick={() => {
+                if (hasScorerHomeSession) {
+                  clearBadmintonScorerSession(tournamentId);
+                }
+                setPinAccepted(false);
+              }}
               className="block mx-auto mt-2 text-white/40 text-sm hover:text-white/70"
             >
               Back to PIN
@@ -196,31 +241,54 @@ export default function BadmintonScorerPage() {
 
   return (
     <FullscreenLayout>
-      <div className="h-[100dvh] overflow-hidden">
-        <UmpireAssistanceShell
-          state={state}
-          tournamentName={tournamentName}
-          courtNumber={courtNumber}
-          onAwardPoint={scorer.awardPoint}
-          onStartInterval={scorer.startInterval}
-          onEndInterval={scorer.endInterval}
-          onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
-        >
-          {({ scoringBlocked, onAwardPoint }) => (
-            <ScorerPanel
-              tournamentId={tournamentId}
-              matchId={matchId}
-              state={state}
-              onAwardPoint={onAwardPoint}
-              onUndo={scorer.undo}
-              onStartTimeout={scorer.startTimeout}
-              onEndTimeout={scorer.endTimeout}
-              onRetirement={director.retirement}
-              onWalkover={director.walkover}
-              scoringBlocked={scoringBlocked}
-            />
-          )}
-        </UmpireAssistanceShell>
+      <div className="h-[100dvh] overflow-hidden flex flex-col">
+        {tournamentId > 0 ? (
+          <div className="shrink-0 px-3 py-1.5 border-b border-border/60 bg-card/80 flex items-center justify-between gap-2">
+            <Link
+              href={badmintonScorerHomePath(tournamentId)}
+              className="min-h-10 inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              ← All matches
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                clearBadmintonScorerSession(tournamentId);
+                setPinAccepted(false);
+                setPinInput("");
+              }}
+              className="min-h-10 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Logout
+            </button>
+          </div>
+        ) : null}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <UmpireAssistanceShell
+            state={state}
+            tournamentName={tournamentName}
+            courtNumber={courtNumber}
+            onAwardPoint={scorer.awardPoint}
+            onStartInterval={scorer.startInterval}
+            onEndInterval={scorer.endInterval}
+            onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
+          >
+            {({ scoringBlocked, onAwardPoint }) => (
+              <ScorerPanel
+                tournamentId={tournamentId}
+                matchId={matchId}
+                state={state}
+                onAwardPoint={onAwardPoint}
+                onUndo={scorer.undo}
+                onStartTimeout={scorer.startTimeout}
+                onEndTimeout={scorer.endTimeout}
+                onRetirement={director.retirement}
+                onWalkover={director.walkover}
+                scoringBlocked={scoringBlocked}
+              />
+            )}
+          </UmpireAssistanceShell>
+        </div>
       </div>
     </FullscreenLayout>
   );

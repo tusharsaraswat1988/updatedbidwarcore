@@ -34,6 +34,7 @@ const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"))
 const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
 const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
 const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
+const BadmintonScorerHomePage = lazy(() => import("@/pages/badminton/scorer-home"));
 const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
 const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -54,6 +55,9 @@ function Router() {
       <Switch>
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
 
+        <Route path="/badminton/scorer">
+          {() => <ScoringFeatureGuard><BadmintonScorerHomePage /></ScoringFeatureGuard>}
+        </Route>
         <Route path="/badminton/:matchId/score">
           {() => <ScoringFeatureGuard><BadmintonScorerPage /></ScoringFeatureGuard>}
         </Route>

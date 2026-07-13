@@ -6,10 +6,10 @@
  * Orchestrates Scheduling → Matches → Scoring. Does not own new data.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, LayoutDashboard } from "lucide-react";
+import { AlertCircle, Copy, LayoutDashboard, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import {
@@ -17,6 +17,10 @@ import {
   badmintonResultsPath,
   badmintonUmpireScorerPath,
 } from "@/lib/badminton-routes";
+import {
+  badmintonQrImageUrl,
+  badmintonScorerHomePublicUrl,
+} from "@/lib/badminton-broadcast-urls";
 import {
   buildCourtBoard,
   fixtureSlotLabel,
@@ -31,12 +35,19 @@ import {
   type CourtOpsStatus,
 } from "@/lib/badminton-control-center";
 import { friendlyBadmintonError } from "@/lib/badminton-ux";
+import { useToast } from "@/hooks/use-toast";
 import {
   EmptyState,
   HubPageShell,
   PageHeader,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type CourtRow = {
   id: number;
@@ -378,12 +389,16 @@ function CourtOpsCard({
   row: ReturnType<typeof buildCourtBoard>[number];
   categoryName: Map<number, string>;
 }) {
+  const { toast } = useToast();
+  const [qrOpen, setQrOpen] = useState(false);
   const { court, status, currentMatch, nextMatch, nextFixture, readyOverflow } = row;
   const nextLabel = nextMatch
     ? matchDisplayLabel(nextMatch)
     : nextFixture
       ? fixtureSlotLabel(nextFixture, categoryName.get(nextFixture.categoryId))
       : "—";
+  const hasScorerPin = !!(court.hasScorerPin || (court.scorerPin && court.scorerPin.trim()));
+  const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
 
   return (
     <div
@@ -407,6 +422,49 @@ function CourtOpsCard({
         >
           {status}
         </span>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 space-y-1">
+        <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Scorer</p>
+        {hasScorerPin ? (
+          <>
+            <p className="text-white text-sm font-semibold">
+              {court.scorerName?.trim() || "Scorer assigned"}
+            </p>
+            <p className="text-sky-300/90 text-xs font-mono">
+              PIN configured{court.scorerPin ? ` · ${court.scorerPin}` : ""}
+            </p>
+          </>
+        ) : (
+          <p className="text-white/40 text-sm">No court PIN — set in Courts</p>
+        )}
+        <div className="flex flex-wrap gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(scorerHomeUrl).then(() => {
+                toast({
+                  title: "Scorer Home copied",
+                  description: hasScorerPin
+                    ? "Share with the court umpire along with the PIN."
+                    : "Set a court PIN in Courts, then share this link.",
+                });
+              });
+            }}
+            className="min-h-10 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            Copy Scorer Home
+          </button>
+          <button
+            type="button"
+            onClick={() => setQrOpen(true)}
+            className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            Show QR
+          </button>
+        </div>
       </div>
 
       {readyOverflow > 0 ? (
@@ -522,6 +580,29 @@ function CourtOpsCard({
           </>
         ) : null}
       </div>
+
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display">Scorer Home · {court.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-2">
+            <img
+              src={badmintonQrImageUrl(scorerHomeUrl)}
+              alt={`QR for Scorer Home — ${court.name}`}
+              className="rounded-lg border border-border"
+              width={240}
+              height={240}
+            />
+            <p className="text-xs text-muted-foreground text-center">
+              Scan to open Scorer Home. Court PIN still required.
+            </p>
+            <p className="text-[10px] text-muted-foreground/80 break-all text-center font-mono">
+              {scorerHomeUrl}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

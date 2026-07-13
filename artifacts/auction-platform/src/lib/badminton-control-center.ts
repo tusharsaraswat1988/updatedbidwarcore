@@ -11,6 +11,9 @@ export type ControlCourt = {
   name: string;
   shortName?: string | null;
   sortOrder: number;
+  scorerPin?: string | null;
+  scorerName?: string | null;
+  hasScorerPin?: boolean;
 };
 
 export type ControlMatch = {
