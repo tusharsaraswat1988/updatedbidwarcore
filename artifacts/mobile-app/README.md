@@ -21,6 +21,12 @@ Logging out one role never clears the other.
 
 Available on every login screen and in each role’s Settings.
 
-## Extending
+## Android (Capacitor)
 
-Add a module in `src/roles/registry.ts` and a route stack under `src/screens/<role>/`. Do not merge auth providers.
+Native Android shell: see [ANDROID.md](./ANDROID.md).
+
+```bash
+pnpm run android:build   # sync + debug APK + release APK/AAB
+```
+
+Package: `com.bidwar.app` · Min SDK 29 · Hosts the existing `/mobile` app (auth unchanged).
