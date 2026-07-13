@@ -7,8 +7,6 @@ import { CityAutocomplete } from "@/components/city-autocomplete";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   signupEmail,
-  signupSendOtp,
-  signupVerify,
   setOrganizerPassword,
   fetchAuthConfig,
   fetchLoginGuardStatus,
@@ -691,16 +689,20 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
 
 function GoogleSignupBlock({ next }: { next?: string }) {
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-center text-muted-foreground">Fastest way — use your Google account</p>
+    <div className="space-y-3.5">
+      <p className="text-xs text-center text-muted-foreground tracking-wide">
+        Fastest way — use your Google account
+      </p>
       <GoogleSignInButton next={next} prominent />
       <div
         role="note"
-        className="flex gap-2.5 rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-3"
+        className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3.5"
       >
-        <Info className="w-4 h-4 shrink-0 text-primary mt-0.5" aria-hidden />
-        <p className="text-xs text-muted-foreground leading-relaxed text-left">
-          Google users will be asked to verify their mobile number after their first successful sign in.
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Info className="h-3.5 w-3.5 text-primary" aria-hidden />
+        </div>
+        <p className="text-[13px] leading-relaxed text-muted-foreground text-left">
+          After your first Google sign-in, we&apos;ll ask you to verify your mobile number to secure your account.
         </p>
       </div>
     </div>
@@ -752,14 +754,8 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
   const logoAlt = getBrandLogoAlt(brandName);
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ name: "", email: "", mobile: "", password: "", confirmPassword: "" });
-  const [signupMethod, setSignupMethod] = useState<"email" | "mobile">("email");
-  const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
-  const [signupOtp, setSignupOtp] = useState("");
-  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
-  const [signupResending, setSignupResending] = useState(false);
+  const [signupForm, setSignupForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
 
-  const [smsOtpEnabled, setSmsOtpEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
   const [loginGuard, setLoginGuard] = useState<LoginGuardStatus | null>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
@@ -767,18 +763,9 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
 
   useEffect(() => {
     fetchAuthConfig().then(cfg => {
-      setSmsOtpEnabled(cfg.smsOtpEnabled);
       setTurnstileSiteKey(cfg.turnstileSiteKey);
     });
   }, []);
-
-  // Keep signup on a supported method — never leave UI on Mobile OTP when it is not enabled.
-  useEffect(() => {
-    if (!smsOtpEnabled && signupMethod === "mobile") {
-      setSignupMethod("email");
-      setSignupStep("form");
-    }
-  }, [smsOtpEnabled, signupMethod]);
 
   useEffect(() => {
     if (view !== "login") return;
@@ -813,12 +800,6 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
     }, 1000);
     return () => clearInterval(t);
   }, [cooldownSec, loginForm.identifier]);
-
-  useEffect(() => {
-    if (signupResendCooldown <= 0) return;
-    const t = setTimeout(() => setSignupResendCooldown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [signupResendCooldown]);
 
   async function finishAccountSession(): Promise<boolean> {
     const me = await checkOrganizerAccountAuth();
@@ -892,46 +873,8 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
     }
   }
 
-  async function handleSignupSendOtp(e: React.FormEvent) {
-    e.preventDefault();
-    const { name, mobile, email, password, confirmPassword } = signupForm;
-    if (!name || !mobile || !password) { setError("Name, mobile, and password are required."); return; }
-    const mobileResult = parseIndianMobile(mobile);
-    if (!mobileResult.ok) { setError(mobileResult.error); return; }
-    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
-    setLoading(true); setError("");
-    const r = await signupSendOtp({ name, mobile: mobileResult.normalized, email: email || undefined, password });
-    setLoading(false);
-    if (!r.success) { setError(r.error || "Signup failed"); return; }
-    setSignupForm(f => ({ ...f, mobile: mobileResult.normalized }));
-    setSignupStep("otp");
-    setSignupResendCooldown(30);
-  }
-
-  async function handleSignupVerify(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true); setError("");
-    try {
-      const r = await signupVerify(signupForm.mobile, signupOtp);
-      if (!r.success) { setError(r.error || "Verification failed"); return; }
-      await finishAccountSession();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSignupResend() {
-    if (signupResendCooldown > 0 || signupResending) return;
-    setSignupResending(true); setError("");
-    const r = await resendOtp(signupForm.mobile);
-    setSignupResending(false);
-    if (!r.success) { setError(r.error || "Failed to resend OTP"); return; }
-    setSignupResendCooldown(30);
-  }
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 py-10 bg-[#09090b]">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
       </div>
@@ -978,7 +921,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
         )}
 
         <Card className="border-border/50 bg-card/50">
-          <CardContent className="p-6">
+          <CardContent className={view === "signup" ? "p-6 sm:p-7" : "p-6"}>
             <AnimatePresence mode="wait">
               {view === "forgot" ? (
                 <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
@@ -1093,131 +1036,115 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="space-y-5"
+                  className="space-y-6"
                 >
-                  {/*
-                    Signup methods (extensible):
-                    - Always show Google + currently supported email form.
-                    - Method tabs appear only when Mobile OTP is actually enabled —
-                      never show a disabled / "coming soon" tab.
-                  */}
-                  {smsOtpEnabled ? (
-                    <div className="flex rounded-lg bg-muted/20 p-0.5 border border-border/40">
-                      <button
-                        type="button"
-                        onClick={() => { setSignupMethod("email"); setSignupStep("form"); setError(""); }}
-                        className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${signupMethod === "email" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                      >
-                        Email
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setSignupMethod("mobile"); setSignupStep("form"); setError(""); }}
-                        className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${signupMethod === "mobile" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                      >
-                        Mobile OTP
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {/* Primary: Google */}
+                  {/* Google — visually prominent path */}
                   <GoogleSignupBlock next={next} />
 
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                  <div className="relative py-0.5">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border/80" />
+                    </div>
                     <div className="relative flex justify-center text-xs text-muted-foreground">
-                      <span className="bg-card px-2">
-                        {signupMethod === "mobile" && smsOtpEnabled ? "or sign up with mobile" : "or sign up with email"}
-                      </span>
+                      <span className="bg-card px-3">or sign up with email</span>
                     </div>
                   </div>
 
-                  {/* Email signup — current default path */}
-                  {signupMethod === "email" && (
-                    <form onSubmit={handleSignupEmail} className="space-y-5">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-medium">
-                          <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
-                        </Label>
+                  {/* Email signup — primary CTA for this path */}
+                  <form onSubmit={handleSignupEmail} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-medium">
+                        <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
+                      </Label>
+                      <Input
+                        id="signup-name"
+                        value={signupForm.name}
+                        onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="Your full name"
+                        autoFocus
+                        required
+                        className="h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-medium">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email
+                      </Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        value={signupForm.email}
+                        onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="name@example.com"
+                        autoComplete="username"
+                        required
+                        className="h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-medium">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
+                      </Label>
+                      <div className="relative">
                         <Input
-                          id="signup-name"
-                          value={signupForm.name}
-                          onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
-                          placeholder="Your full name"
-                          autoFocus
+                          id="signup-password"
+                          type={showSignupPw ? "text" : "password"}
+                          value={signupForm.password}
+                          onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                          placeholder="At least 6 characters"
+                          autoComplete="new-password"
+                          className="h-11 pr-10"
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupPw(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={showSignupPw ? "Hide password" : "Show password"}
+                        >
+                          {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-medium">
-                          <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email
-                        </Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-medium">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
+                      </Label>
+                      <div className="relative">
                         <Input
-                          id="signup-email"
-                          type="email"
-                          value={signupForm.email}
-                          onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
-                          placeholder="name@example.com"
-                          autoComplete="username"
+                          id="signup-confirm-password"
+                          type={showSignupConfirm ? "text" : "password"}
+                          value={signupForm.confirmPassword}
+                          onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                          placeholder="Re-enter your password"
+                          autoComplete="new-password"
+                          className="h-11 pr-10"
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupConfirm(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
+                        >
+                          {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-medium">
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="signup-password"
-                            type={showSignupPw ? "text" : "password"}
-                            value={signupForm.password}
-                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                            placeholder="At least 6 characters"
-                            autoComplete="new-password"
-                            className="pr-10"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowSignupPw(v => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            aria-label={showSignupPw ? "Hide password" : "Show password"}
-                          >
-                            {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-medium">
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="signup-confirm-password"
-                            type={showSignupConfirm ? "text" : "password"}
-                            value={signupForm.confirmPassword}
-                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                            placeholder="Re-enter your password"
-                            autoComplete="new-password"
-                            className="pr-10"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowSignupConfirm(v => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
-                          >
-                            {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
-                      <Button type="submit" className="w-full" disabled={loading}>
+                    </div>
+
+                    {error ? (
+                      <p className="text-destructive text-sm flex items-start gap-1.5 pt-0.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>{error}</span>
+                      </p>
+                    ) : null}
+
+                    <div className="pt-2 space-y-3.5">
+                      <Button type="submit" className="w-full h-11" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Create Account
                       </Button>
-                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed pt-1">
+                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
                         By continuing, you agree to BidWar{" "}
                         <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
                         {", "}
@@ -1226,160 +1153,8 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                         <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
                         .
                       </p>
-                    </form>
-                  )}
-
-                  {/* Mobile OTP signup — only when SMS OTP is configured/enabled */}
-                  {signupMethod === "mobile" && smsOtpEnabled && signupStep === "form" && (
-                    <form onSubmit={handleSignupSendOtp} className="space-y-5">
-                      <AuthStepIndicator step={1} total={2} />
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-mobile-name" className="flex items-center gap-2 text-sm font-medium">
-                          <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
-                        </Label>
-                        <Input
-                          id="signup-mobile-name"
-                          value={signupForm.name}
-                          onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
-                          placeholder="Your full name"
-                          autoFocus
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-medium">
-                          <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile
-                        </Label>
-                        <Input
-                          id="signup-mobile"
-                          type="tel"
-                          value={signupForm.mobile}
-                          onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
-                          placeholder="10-digit mobile (e.g. 9876543210)"
-                          inputMode="numeric"
-                          maxLength={10}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-mobile-email" className="flex items-center gap-2 text-sm font-medium">
-                          <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email <span className="text-muted-foreground/70 font-normal">(optional)</span>
-                        </Label>
-                        <Input
-                          id="signup-mobile-email"
-                          type="email"
-                          value={signupForm.email}
-                          onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
-                          placeholder="name@example.com"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-mobile-password" className="flex items-center gap-2 text-sm font-medium">
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="signup-mobile-password"
-                            type={showSignupPw ? "text" : "password"}
-                            value={signupForm.password}
-                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                            placeholder="At least 6 characters"
-                            autoComplete="new-password"
-                            className="pr-10"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowSignupPw(v => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            aria-label={showSignupPw ? "Hide password" : "Show password"}
-                          >
-                            {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-mobile-confirm" className="flex items-center gap-2 text-sm font-medium">
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="signup-mobile-confirm"
-                            type={showSignupConfirm ? "text" : "password"}
-                            value={signupForm.confirmPassword}
-                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                            placeholder="Re-enter your password"
-                            autoComplete="new-password"
-                            className="pr-10"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowSignupConfirm(v => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
-                          >
-                            {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
-                      <Button type="submit" className="w-full" disabled={loading}>
-                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Send OTP
-                      </Button>
-                    </form>
-                  )}
-
-                  {/* OTP verification step */}
-                  {signupMethod === "mobile" && smsOtpEnabled && signupStep === "otp" && (
-                    <form onSubmit={handleSignupVerify} className="space-y-5">
-                      <AuthStepIndicator step={2} total={2} />
-                      <p className="text-sm text-muted-foreground">Enter the OTP sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>.</p>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-otp" className="text-sm font-medium">OTP</Label>
-                        <Input
-                          id="signup-otp"
-                          value={signupOtp}
-                          onChange={e => setSignupOtp(e.target.value)}
-                          placeholder="6-digit OTP"
-                          maxLength={6}
-                          autoFocus
-                          required
-                        />
-                      </div>
-                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
-                      <Button type="submit" className="w-full" disabled={loading}>
-                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Verify & Create Account
-                      </Button>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <button type="button" onClick={() => { setSignupStep("form"); setError(""); }} className="hover:text-foreground transition-colors">
-                          Back
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSignupResend}
-                          disabled={signupResendCooldown > 0 || signupResending}
-                          className="hover:text-foreground transition-colors disabled:opacity-40"
-                        >
-                          {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : signupResending ? "Sending..." : "Resend OTP"}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {signupMethod === "email" ? null : (
-                    <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-                      By continuing, you agree to BidWar{" "}
-                      <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-                      {", "}
-                      <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
-                      {", and "}
-                      <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
-                      .
-                    </p>
-                  )}
+                    </div>
+                  </form>
                 </motion.div>
               )}
             </AnimatePresence>
