@@ -21,6 +21,8 @@ export interface AuthClaims {
 export interface OAuthState {
   state?: string;
   next?: string;
+  /** Capacitor / native shell — OAuth must finish via custom-scheme handoff. */
+  nativeApp?: "android" | "ios";
   pendingGoogleProfile?: {
     name: string;
     email: string;
@@ -29,6 +31,14 @@ export interface OAuthState {
   };
   pendingGoogleMobile?: string;
 }
+
+/** Short-lived token bridging Chrome Custom Tabs → WebView session cookie. */
+export interface NativeGoogleHandoffClaims {
+  purpose: "google_native_handoff";
+  organizerAccountId: number;
+}
+
+const NATIVE_HANDOFF_EXPIRY = 2 * 60; // 2 minutes
 
 export interface OwnerSessionClaims {
   sessionId: string;
@@ -89,6 +99,35 @@ export function verifyOwnerSessionJwt(token: string): OwnerSessionClaims | null 
       typeof clean.sessionId !== "string" ||
       typeof clean.tournamentId !== "number" ||
       typeof clean.teamId !== "number"
+    ) {
+      return null;
+    }
+    return clean;
+  } catch {
+    return null;
+  }
+}
+
+export function signNativeGoogleHandoffJwt(organizerAccountId: number): string {
+  const claims: NativeGoogleHandoffClaims = {
+    purpose: "google_native_handoff",
+    organizerAccountId,
+  };
+  return jwt.sign(claims, getSecret(), { expiresIn: NATIVE_HANDOFF_EXPIRY });
+}
+
+export function verifyNativeGoogleHandoffJwt(token: string): NativeGoogleHandoffClaims | null {
+  try {
+    const payload = jwt.verify(token, getSecret()) as NativeGoogleHandoffClaims & {
+      exp?: unknown;
+      iat?: unknown;
+      nbf?: unknown;
+    };
+    const clean = stripJwtReservedFields(payload) as NativeGoogleHandoffClaims;
+    if (
+      clean.purpose !== "google_native_handoff" ||
+      typeof clean.organizerAccountId !== "number" ||
+      !Number.isFinite(clean.organizerAccountId)
     ) {
       return null;
     }

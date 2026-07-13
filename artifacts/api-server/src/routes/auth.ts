@@ -12,7 +12,7 @@ import {
   getLoginGuardStatus,
   recordLoginFailure,
 } from "../lib/login-attempt-guard";
-import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie, COOKIE_NAME } from "../lib/jwt";
+import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie, COOKIE_NAME, signNativeGoogleHandoffJwt, verifyNativeGoogleHandoffJwt } from "../lib/jwt";
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
@@ -1583,11 +1583,25 @@ function googleOAuthErrorRedirect(
   pendingNext: string | undefined,
   error: string,
   extraQuery = "",
+  nativeApp?: "android" | "ios",
 ): string {
+  if (nativeApp === "android" || nativeApp === "ios") {
+    return `bidwar://oauth-complete?error=${encodeURIComponent(error)}${extraQuery}`;
+  }
   if (pendingNext?.startsWith("/mobile")) {
     return `/mobile/organizer/login?error=${error}${extraQuery}`;
   }
   return `/organizer?error=${error}${extraQuery}`;
+}
+
+function parseNativeAppParam(raw: unknown): "android" | "ios" | undefined {
+  if (raw === "android" || raw === "ios") return raw;
+  return undefined;
+}
+
+function nativeOAuthSuccessRedirect(organizerAccountId: number): string {
+  const handoff = signNativeGoogleHandoffJwt(organizerAccountId);
+  return `bidwar://oauth-complete?handoff=${encodeURIComponent(handoff)}`;
 }
 
 async function issueOrganizerAuthCookie(
@@ -1619,6 +1633,7 @@ router.get("/auth/google", (req, res) => {
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
   const next = sanitizeOAuthNext(req.query.next as string | undefined);
+  const nativeApp = parseNativeAppParam(req.query.native_app);
 
   // Generate a random state token to prevent login CSRF
   const state = randomBytes(32).toString("hex");
@@ -1626,6 +1641,7 @@ router.get("/auth/google", (req, res) => {
   setOAuthCookie(res, {
     state,
     next,
+    nativeApp,
     pendingGoogleProfile: req.oauthState.pendingGoogleProfile,
     pendingGoogleMobile: req.oauthState.pendingGoogleMobile,
   });
@@ -1646,10 +1662,11 @@ router.get("/auth/google/callback", async (req, res) => {
   if (await tryCompleteGoogleSheetsOAuth(req, res)) return;
 
   const pendingNext = sanitizeOAuthNext(req.oauthState.next);
+  const nativeApp = parseNativeAppParam(req.oauthState.nativeApp);
   const code = req.query.code as string | undefined;
   const returnedState = req.query.state as string | undefined;
   if (!code) {
-    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_cancelled"));
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_cancelled", "", nativeApp));
     return;
   }
 
@@ -1657,7 +1674,7 @@ router.get("/auth/google/callback", async (req, res) => {
   const expectedState = req.oauthState.state;
   if (!expectedState || !returnedState || !safeCompare(expectedState, returnedState)) {
     clearOAuthCookie(res);
-    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_state_mismatch"));
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_state_mismatch", "", nativeApp));
     return;
   }
 
@@ -1666,7 +1683,7 @@ router.get("/auth/google/callback", async (req, res) => {
   // Must match the redirect_uri used in /auth/google (request host when trusted).
   const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
   if (!clientId || !clientSecret) {
-    res.redirect(googleOAuthErrorRedirect(pendingNext, "not_configured"));
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "not_configured", "", nativeApp));
     return;
   }
 
@@ -1698,7 +1715,7 @@ router.get("/auth/google/callback", async (req, res) => {
         process.env.NODE_ENV !== "production"
           ? `&oauth_redirect_uri=${encodeURIComponent(redirectUri)}`
           : "";
-      res.redirect(googleOAuthErrorRedirect(pendingNext, errCode, devHint));
+      res.redirect(googleOAuthErrorRedirect(pendingNext, errCode, devHint, nativeApp));
       return;
     }
 
@@ -1707,7 +1724,7 @@ router.get("/auth/google/callback", async (req, res) => {
     });
     const gUser = await userRes.json() as { email?: string; name?: string; id?: string };
     if (!gUser.email || !gUser.id) {
-      res.redirect(googleOAuthErrorRedirect(pendingNext, "no_email"));
+      res.redirect(googleOAuthErrorRedirect(pendingNext, "no_email", "", nativeApp));
       return;
     }
 
@@ -1726,6 +1743,12 @@ router.get("/auth/google/callback", async (req, res) => {
         organizer = linked;
       } else {
         // 3. New Google user — DO NOT create organizer record yet.
+        // Native shells cannot complete /complete-profile inside Custom Tabs safely yet.
+        if (nativeApp) {
+          clearOAuthCookie(res);
+          res.redirect(googleOAuthErrorRedirect(pendingNext, "needs_profile", "", nativeApp));
+          return;
+        }
         // Store pending Google profile in the OAuth cookie and redirect to /complete-profile
         // where the organizer's mobile will be collected and OTP-verified before
         // the organizer record is created. This ensures mobile is never null.
@@ -1746,12 +1769,18 @@ router.get("/auth/google/callback", async (req, res) => {
 
     if (!organizer) {
       clearOAuthCookie(res);
-      res.redirect(googleOAuthErrorRedirect(pendingNext, "google_failed"));
+      res.redirect(googleOAuthErrorRedirect(pendingNext, "google_failed", "", nativeApp));
       return;
     }
 
     clearOAuthCookie(res);
     await issueOrganizerAuthCookie(req, res, organizer.id);
+    if (nativeApp) {
+      // Chrome Custom Tabs cannot share cookies with the Capacitor WebView.
+      // Hand the session back via a short-lived deep-link token.
+      res.redirect(nativeOAuthSuccessRedirect(organizer.id));
+      return;
+    }
     // Cross-app destinations (e.g. /mobile/...) must be full-page landings, not /organizer?next=
     const successRedirect = (() => {
       if (pendingNext?.startsWith("/mobile")) {
@@ -1767,8 +1796,49 @@ router.get("/auth/google/callback", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
     clearOAuthCookie(res);
-    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_failed"));
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_failed", "", nativeApp));
   }
+});
+
+/**
+ * Capacitor Android/iOS: exchange the deep-link handoff token for a WebView session cookie.
+ * Custom Tabs hold Google OAuth cookies; the WebView must mint its own bidwar_auth cookie.
+ */
+router.post("/auth/google/native-handoff", async (req, res) => {
+  const handoff =
+    typeof req.body?.handoff === "string"
+      ? req.body.handoff
+      : typeof req.body?.token === "string"
+        ? req.body.token
+        : "";
+  if (!handoff) {
+    res.status(400).json({ error: "Missing handoff token" });
+    return;
+  }
+  const claims = verifyNativeGoogleHandoffJwt(handoff);
+  if (!claims) {
+    res.status(401).json({ error: "Invalid or expired handoff token" });
+    return;
+  }
+  const [organizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, claims.organizerAccountId));
+  if (!organizer) {
+    res.status(401).json({ error: "Organizer not found" });
+    return;
+  }
+  await issueOrganizerAuthCookie(req, res, organizer.id);
+  res.json({
+    ok: true,
+    organizer: {
+      id: organizer.id,
+      name: organizer.name,
+      email: organizer.email,
+      mobile: organizer.mobile,
+      photoUrl: organizer.photoUrl ?? null,
+    },
+  });
 });
 
 // ─── Organizer Account: Update profile (mobile) ───────────────────────────────

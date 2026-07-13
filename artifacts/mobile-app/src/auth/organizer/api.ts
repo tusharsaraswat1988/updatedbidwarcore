@@ -164,8 +164,41 @@ export async function logoutOrganizerAccount(): Promise<void> {
 }
 
 /** Existing Google OAuth entry — returns relative URL into API. */
-export function organizerGoogleSignInUrl(nextPath: string): string {
-  return `/api/auth/google?next=${encodeURIComponent(nextPath)}`;
+export function organizerGoogleSignInUrl(
+  nextPath: string,
+  opts?: { nativeApp?: "android" | "ios" },
+): string {
+  const params = new URLSearchParams({ next: nextPath });
+  if (opts?.nativeApp) params.set("native_app", opts.nativeApp);
+  return `/api/auth/google?${params.toString()}`;
+}
+
+/** Capacitor: exchange Custom Tabs handoff token for WebView session cookie. */
+export async function exchangeGoogleNativeHandoff(handoff: string): Promise<{
+  success: boolean;
+  error?: string;
+  organizer?: OrganizerInfo;
+}> {
+  try {
+    const r = await apiFetch("/auth/google/native-handoff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handoff }),
+    });
+    if (!r.ok) {
+      const d = (await r.json().catch(() => ({}))) as { error?: string };
+      return { success: false, error: d.error || "Google sign-in handoff failed" };
+    }
+    const d = (await r.json()) as { organizer?: OrganizerInfo };
+    if (d.organizer) {
+      markOrganizerSessionActive(toProfileCache(d.organizer));
+    } else {
+      markOrganizerSessionActive();
+    }
+    return { success: true, organizer: d.organizer };
+  } catch {
+    return { success: false, error: "Google sign-in handoff failed" };
+  }
 }
 
 function toProfileCache(o: OrganizerInfo): OrganizerProfileCache {

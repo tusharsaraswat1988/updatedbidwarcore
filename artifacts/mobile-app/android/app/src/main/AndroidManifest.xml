@@ -50,6 +50,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="www.bidwar.in" android:pathPrefix="/mobile" />
             </intent-filter>
+
+            <!-- Google OAuth return from Chrome Custom Tabs → WebView handoff -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bidwar" android:host="oauth-complete" />
+            </intent-filter>
         </activity>
 
         <!-- FCM infrastructure stub — no notification business logic yet -->
