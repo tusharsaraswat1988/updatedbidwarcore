@@ -34,7 +34,7 @@ import {
   type ControlMatch,
   type CourtOpsStatus,
 } from "@/lib/badminton-control-center";
-import { friendlyBadmintonError } from "@/lib/badminton-ux";
+import { friendlyBadmintonError, formatCourtOpsStatusLabel } from "@/lib/badminton-ux";
 import { useToast } from "@/hooks/use-toast";
 import {
   EmptyState,
@@ -114,7 +114,14 @@ export default function BadmintonControlCenterPage() {
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/matches`),
     enabled: !!tournamentId,
-    refetchInterval: 8_000,
+    staleTime: 15_000,
+    refetchInterval: (q) => {
+      const rows = q.state.data ?? [];
+      const needsPoll = rows.some(
+        (m) => m.status === "live" || m.status === "paused" || m.status === "scheduled",
+      );
+      return needsPoll ? 8_000 : false;
+    },
   });
 
   const {
@@ -127,7 +134,8 @@ export default function BadmintonControlCenterPage() {
     queryKey: ["badminton-fixtures-all", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/fixtures`),
     enabled: !!tournamentId,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const { data: categories = [] } = useQuery<CategoryRow[]>({
@@ -420,7 +428,7 @@ function CourtOpsCard({
             statusStyles(status),
           )}
         >
-          {status}
+          {formatCourtOpsStatusLabel(status)}
         </span>
       </div>
 
@@ -451,7 +459,7 @@ function CourtOpsCard({
                 });
               });
             }}
-            className="min-h-10 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
+            className="min-h-11 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
           >
             <Copy className="w-3.5 h-3.5" />
             Copy Scorer Home
@@ -459,7 +467,7 @@ function CourtOpsCard({
           <button
             type="button"
             onClick={() => setQrOpen(true)}
-            className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
+            className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
           >
             <QrCode className="w-3.5 h-3.5" />
             Show QR

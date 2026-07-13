@@ -9,6 +9,7 @@ import type { BadmintonMatchState, IncidentLogEntry } from "@workspace/badminton
 import { formatPauseReason } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
 import { BtnPrimary, DarkSelect, FormError, FormField, inputClass } from "@/components/badminton/page-chrome";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { useBadmintonDirector } from "@/hooks/use-badminton-match";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -18,6 +19,13 @@ type Props = {
   matchId: number;
   state: BadmintonMatchState;
 };
+
+type PendingOutcome =
+  | { kind: "retirement" }
+  | { kind: "walkover" }
+  | { kind: "disqualification" }
+  | { kind: "force_end" }
+  | null;
 
 function formatIncidentTime(iso: string): string {
   try {
@@ -50,6 +58,13 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const [dqSide, setDqSide] = useState<"left" | "right">("right");
   const [dqReason, setDqReason] = useState("");
   const [forceEndReason, setForceEndReason] = useState("");
+  const [pendingOutcome, setPendingOutcome] = useState<PendingOutcome>(null);
+
+  const isLive = state.matchStatus === "live";
+  const isPaused = state.matchStatus === "paused" || state.isPaused;
+  const isTerminal = ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(
+    state.matchStatus,
+  );
 
   const { data: incidentData } = useQuery<{ incidents: IncidentLogEntry[] }>({
     queryKey: ["badminton-incidents", tournamentId, matchId],
@@ -62,27 +77,55 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
       return res.json();
     },
     enabled: !!tournamentId && !!matchId,
-    refetchInterval: 5000,
+    staleTime: 10_000,
+    refetchInterval: isLive || isPaused ? 5_000 : false,
   });
 
   const incidents = incidentData?.incidents ?? [];
-  const isLive = state.matchStatus === "live";
-  const isPaused = state.matchStatus === "paused" || state.isPaused;
-  const isTerminal = ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(
-    state.matchStatus,
-  );
 
   async function runAction(action: () => Promise<unknown>) {
     setActionError("");
     setBusy(true);
     try {
       await action();
+      setPendingOutcome(null);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Action failed");
     } finally {
       setBusy(false);
     }
   }
+
+  const confirmCopy =
+    pendingOutcome?.kind === "retirement"
+      ? {
+          title: "Declare retirement?",
+          description: `This ends the match. ${retireSide === "left" ? "Left" : "Right"} side retires (${retireReason}). This cannot be undone from scoring.`,
+          confirmLabel: "Declare Retirement",
+          action: () => director.retirement(retireSide, retireReason),
+        }
+      : pendingOutcome?.kind === "walkover"
+        ? {
+            title: "Declare walkover?",
+            description: `Award the match to the ${walkoverSide === "left" ? "left" : "right"} side (${walkoverReason.replace(/_/g, " ")}). This cannot be undone from scoring.`,
+            confirmLabel: "Declare Walkover",
+            action: () => director.walkover(walkoverSide, walkoverReason),
+          }
+        : pendingOutcome?.kind === "disqualification"
+          ? {
+              title: "Declare disqualification?",
+              description: `Disqualify the ${dqSide === "left" ? "left" : "right"} side. Reason: ${dqReason.trim()}. This cannot be undone from scoring.`,
+              confirmLabel: "Declare Disqualification",
+              action: () => director.disqualification(dqSide, dqReason),
+            }
+          : pendingOutcome?.kind === "force_end"
+            ? {
+                title: "Force end match?",
+                description: `End the match immediately. Reason: ${forceEndReason.trim()}. Prefer Walkover or Retirement when those apply.`,
+                confirmLabel: "Force End Match",
+                action: () => director.forceEnd(forceEndReason),
+              }
+            : null;
 
   return (
     <div className="rounded-xl border border-primary/30 bg-card overflow-hidden">
@@ -246,8 +289,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 <button
                   type="button"
                   disabled={busy || !isLive}
-                  onClick={() => runAction(() => director.retirement(retireSide, retireReason))}
-                  className="w-full min-h-11 rounded-lg bg-orange-600/80 hover:bg-orange-600 text-white text-xs font-bold disabled:opacity-40"
+                  onClick={() => setPendingOutcome({ kind: "retirement" })}
+                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
                   Declare Retirement
                 </button>
@@ -275,8 +318,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => runAction(() => director.walkover(walkoverSide, walkoverReason))}
-                  className="w-full min-h-11 rounded-lg bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-bold disabled:opacity-40"
+                  onClick={() => setPendingOutcome({ kind: "walkover" })}
+                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
                   Declare Walkover
                 </button>
@@ -301,8 +344,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 <button
                   type="button"
                   disabled={busy || !dqReason.trim()}
-                  onClick={() => runAction(() => director.disqualification(dqSide, dqReason))}
-                  className="w-full min-h-11 rounded-lg bg-red-700/80 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-40"
+                  onClick={() => setPendingOutcome({ kind: "disqualification" })}
+                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
                   Declare Disqualification
                 </button>
@@ -319,8 +362,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 <button
                   type="button"
                   disabled={busy || !forceEndReason.trim() || (!isLive && !isPaused)}
-                  onClick={() => runAction(() => director.forceEnd(forceEndReason))}
-                  className="w-full min-h-11 rounded-lg bg-slate-600/80 hover:bg-slate-600 text-white text-xs font-bold disabled:opacity-40"
+                  onClick={() => setPendingOutcome({ kind: "force_end" })}
+                  className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
                   Force End Match
                 </button>
@@ -352,6 +395,21 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
           </div>
         </section>
       </div>
+
+      {confirmCopy ? (
+        <ConfirmActionDialog
+          open={pendingOutcome != null}
+          onOpenChange={(open) => {
+            if (!open) setPendingOutcome(null);
+          }}
+          title={confirmCopy.title}
+          description={confirmCopy.description}
+          confirmLabel={confirmCopy.confirmLabel}
+          busy={busy}
+          error={actionError || undefined}
+          onConfirm={() => runAction(confirmCopy.action)}
+        />
+      ) : null}
     </div>
   );
 }
