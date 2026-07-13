@@ -340,6 +340,41 @@ export async function updateBadmintonBranding(
   return getBadmintonBranding(updated!, updated!.scoringSettingsJson as Record<string, unknown>);
 }
 
+/** Set which LIVE match persistent Venue/OBS URLs follow (multi-court Primary Broadcast). */
+export async function updatePrimaryBroadcastMatchId(
+  tournamentId: number,
+  primaryMatchId: number | null,
+): Promise<BadmintonBranding> {
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) throw new Error("Tournament not found");
+
+  const currentSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const currentBroadcast = (currentSettings.broadcast ?? {}) as Record<string, unknown>;
+  const nextBroadcast = {
+    ...currentBroadcast,
+    primaryMatchId: primaryMatchId && primaryMatchId > 0 ? primaryMatchId : null,
+  };
+  const nextSettings = { ...currentSettings, broadcast: nextBroadcast };
+
+  await db
+    .update(tournamentsTable)
+    .set({ scoringSettingsJson: nextSettings })
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  const [updated] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  return getBadmintonBranding(updated!, updated!.scoringSettingsJson as Record<string, unknown>);
+}
+
 export async function importBrandingFromTournament(
   targetTournamentId: number,
   sourceTournamentId: number,

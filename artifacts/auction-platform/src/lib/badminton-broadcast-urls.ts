@@ -1,7 +1,14 @@
 import { scoringAppPath, scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
-import { badmintonScorerHomePath } from "@/lib/badminton-routes";
+import { LIVE_FOLLOW_MATCH_SEGMENT } from "@/lib/badminton-broadcast-console";
+import { badmintonResultsPath, badmintonScorerHomePath } from "@/lib/badminton-routes";
 
 export type BadmintonBroadcastKind = "display" | "overlay-compact" | "overlay-full" | "scorer";
+
+export type TournamentBroadcastLinkKind =
+  | "venue-display"
+  | "obs-overlay"
+  | "scorer-home"
+  | "public-results";
 
 export function badmintonBroadcastPath(tournamentId: number, matchId?: number) {
   const base = scoringAppPath(`/tournament/${tournamentId}/badminton/broadcast`);
@@ -14,6 +21,53 @@ export function badmintonScorerHomePublicUrl(
   origin = typeof window !== "undefined" ? window.location.origin : "",
 ) {
   return scoringAppPublicUrl(origin, badmintonScorerHomePath(tournamentId));
+}
+
+/** Persistent Venue Display — auto-follows Primary Broadcast / sole LIVE match. */
+export function badmintonTournamentDisplayUrl(
+  tournamentId: number,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+) {
+  return scoringAppPublicUrl(
+    origin,
+    `/badminton/${LIVE_FOLLOW_MATCH_SEGMENT}/display?tid=${tournamentId}`,
+  );
+}
+
+/** Persistent OBS Overlay — auto-follows Primary Broadcast / sole LIVE match. */
+export function badmintonTournamentOverlayUrl(
+  tournamentId: number,
+  type: "compact" | "full" = "compact",
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+) {
+  return scoringAppPublicUrl(
+    origin,
+    `/badminton/${LIVE_FOLLOW_MATCH_SEGMENT}/overlay?tid=${tournamentId}&type=${type}`,
+  );
+}
+
+export function badmintonTournamentResultsUrl(
+  tournamentId: number,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+) {
+  return scoringAppPublicUrl(origin, badmintonResultsPath(tournamentId));
+}
+
+export function badmintonTournamentBroadcastLinkUrl(
+  kind: TournamentBroadcastLinkKind,
+  tournamentId: number,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+) {
+  switch (kind) {
+    case "venue-display":
+      return badmintonTournamentDisplayUrl(tournamentId, origin);
+    case "obs-overlay":
+      return badmintonTournamentOverlayUrl(tournamentId, "compact", origin);
+    case "scorer-home":
+      return badmintonScorerHomePublicUrl(tournamentId, origin);
+    case "public-results":
+      return badmintonTournamentResultsUrl(tournamentId, origin);
+  }
 }
 
 export function badmintonBroadcastUrl(
