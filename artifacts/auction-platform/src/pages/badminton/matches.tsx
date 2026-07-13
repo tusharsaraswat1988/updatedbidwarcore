@@ -38,6 +38,7 @@ import {
   hubCardClass,
 } from "@/components/badminton/page-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
+import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
 import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -45,16 +46,7 @@ import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -74,6 +66,8 @@ interface FixtureOption {
   registrationBId?: number | null;
   scoringMatchId?: number | null;
   status: string;
+  courtId?: number | null;
+  scheduledAt?: string | null;
 }
 
 interface CategoryOption {
@@ -157,7 +151,7 @@ export default function BadmintonMatchesPage() {
       return res.json();
     },
     enabled: !!tournamentId,
-    refetchInterval: 10000,
+    refetchInterval: 8_000,
   });
 
   const filtered = matches.filter((m) => {
@@ -193,7 +187,7 @@ export default function BadmintonMatchesPage() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Matches"
-        subtitle="Match Control = tournament director · Umpire Scorer = court scoring (PIN)"
+        subtitle="Create matches from scheduled fixtures — then open Match Control to start"
         actions={
           <div className="flex items-center gap-3 flex-wrap">
             {scoringFormat?.configured && scoringFormat.format ? (
@@ -216,7 +210,7 @@ export default function BadmintonMatchesPage() {
         />
 
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-3" aria-busy="true" aria-label="Loading matches">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
             ))}
@@ -224,9 +218,37 @@ export default function BadmintonMatchesPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Target}
-            title="No matches yet"
-            desc="Create your first match to get started"
-            action={{ label: "Create Match", onClick: () => setShowCreate(true) }}
+            title={
+              filter === "all"
+                ? "No matches yet"
+                : filter === "live"
+                  ? "No live matches"
+                  : filter === "scheduled"
+                    ? "No scheduled matches"
+                    : "No completed matches"
+            }
+            desc={
+              filter === "all"
+                ? "Schedule fixtures first, then create a match to prepare Match Control and Live Scoring."
+                : filter === "live"
+                  ? "Start a match from Match Control when a court is ready."
+                  : filter === "scheduled"
+                    ? "Create a match from a scheduled fixture, or switch to All."
+                    : "Completed matches appear here after scoring finishes."
+            }
+            action={
+              filter === "all" || filter === "scheduled"
+                ? { label: "Create Match", onClick: () => setShowCreate(true) }
+                : filter === "live"
+                  ? {
+                      label: "Open Control Center",
+                      href: `/tournament/${tournamentId}/badminton/control`,
+                    }
+                  : {
+                      label: "View Results",
+                      href: `/tournament/${tournamentId}/badminton/results`,
+                    }
+            }
           />
         ) : (
           <div className="space-y-3">
@@ -237,7 +259,8 @@ export default function BadmintonMatchesPage() {
                 tournamentId={tournamentId}
                 onDelete={() => {
                   deleteMutation.mutate(match.id, {
-                    onError: (e) => window.alert(e.message),
+                    onError: (e) => toastError(e, "Could not delete match"),
+                    onSuccess: () => toastSuccess("Match deleted"),
                   });
                 }}
                 deleting={deleteMutation.isPending && deleteMutation.variables === match.id}
@@ -252,10 +275,13 @@ export default function BadmintonMatchesPage() {
           tournamentId={tournamentId}
           initialFixtureId={initialFixtureId}
           onClose={() => setShowCreate(false)}
-          onSaved={() => {
+          onSaved={(createdId) => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
             setShowCreate(false);
+            if (createdId != null) {
+              window.location.href = badmintonMatchControlPath(tournamentId, createdId);
+            }
           }}
         />
       )}
@@ -376,39 +402,59 @@ function MatchRow({
 
         <div className="flex items-center gap-2 flex-none">
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <a
-              href={badmintonMatchControlPath(tournamentId, match.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-9 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 text-xs font-semibold flex items-center transition-all"
-              title="Tournament director — pause, retirement, walkover"
-            >
-              Match Control
-            </a>
-            <a
-              href={badmintonUmpireScorerPath(match.id, tournamentId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-9 px-3 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center transition-colors"
-              title="Court umpire — scoring with PIN"
-            >
-              Umpire Scorer
-            </a>
+            {isLive ? (
+              <a
+                href={badmintonUmpireScorerPath(match.id, tournamentId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-11 px-4 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/35 text-red-200 text-sm font-bold flex items-center transition-colors"
+                title="Court umpire — scoring with PIN"
+              >
+                Open Scoring
+              </a>
+            ) : isCompleted ? (
+              <a
+                href={badmintonMatchControlPath(tournamentId, match.id)}
+                className="min-h-11 px-3 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold flex items-center transition-all"
+                title="View completed match"
+              >
+                View Match
+              </a>
+            ) : (
+              <a
+                href={badmintonMatchControlPath(tournamentId, match.id)}
+                className="min-h-11 px-4 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100 text-sm font-bold flex items-center transition-all"
+                title="Prepare match or open director controls — start from here, not the umpire scorer"
+              >
+                Match Control
+              </a>
+            )}
+            {isLive ? (
+              <a
+                href={badmintonMatchControlPath(tournamentId, match.id)}
+                className="min-h-11 px-3 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center transition-colors"
+                title="Tournament director controls"
+              >
+                Director
+              </a>
+            ) : null}
             <Link
               href={badmintonBroadcastPath(tournamentId, match.id)}
-              className="h-9 px-3 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary text-xs font-semibold flex items-center transition-colors"
+              className="min-h-11 px-3 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary text-xs font-semibold flex items-center transition-colors"
             >
               Broadcast
             </Link>
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              className="h-9 px-3 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              title="Edit match details"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Edit
-            </button>
+            {!isCompleted ? (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="min-h-11 px-3 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title="Edit match details"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            ) : null}
           </div>
 
           <div className="h-8 w-px bg-border/70 shrink-0" aria-hidden="true" />
@@ -423,7 +469,7 @@ function MatchRow({
                 : "Delete match"
             }
             aria-label="Delete match"
-            className="h-7 w-7 shrink-0 rounded-md border border-white/20 bg-white/10 text-white/90 hover:bg-white/20 hover:text-white flex items-center justify-center transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+            className="min-h-11 min-w-11 shrink-0 rounded-md border border-white/20 bg-white/10 text-white/90 hover:bg-white/20 hover:text-white flex items-center justify-center transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
           >
             {deleting ? (
               <span className="text-[10px] font-bold">…</span>
@@ -446,31 +492,30 @@ function MatchRow({
         />
       ) : null}
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent className="sm:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-display">Delete match?</AlertDialogTitle>
-            <AlertDialogDescription>
+      <ConfirmActionDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete this match?"
+        description={
+          <div className="space-y-2">
+            <p>
               {isCompleted
-                ? `Delete ${matchLabel}? All scores and history will be permanently removed.`
-                : `Delete ${matchLabel}? This cannot be undone.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel className="gap-1.5">
-              <X className="w-3.5 h-3.5" />
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? "Deleting…" : "Delete match"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                ? `Delete ${matchLabel}? Scores and history will be permanently removed.`
+                : `Delete ${matchLabel}? This removes the scoring match. The fixture can be used again to create a new match.`}
+            </p>
+            {!isCompleted && !isLive ? (
+              <p className="text-amber-200/90 text-xs">
+                Do not delete if an umpire may still open this match. Prefer Match Control for walkovers or delays.
+              </p>
+            ) : null}
+          </div>
+        }
+        confirmLabel={deleting ? "Deleting…" : "Delete match"}
+        busy={deleting}
+        onConfirm={() => {
+          handleConfirmDelete();
+        }}
+      />
     </div>
   );
 }
@@ -506,7 +551,7 @@ function MatchFormModal({
   match?: MatchRow;
   initialFixtureId?: number;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (createdId?: number) => void;
 }) {
   const { toast } = useToast();
   const isEdit = !!match;
@@ -535,6 +580,12 @@ function MatchFormModal({
     enabled: !isEdit && !!tournamentId,
   });
 
+  const { data: courts = [] } = useQuery<Array<{ id: number; name: string; shortName?: string | null }>>({
+    queryKey: ["badminton-courts", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/courts"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
   const selectedFixture = form.fixtureId
     ? fixtures.find((f) => String(f.id) === form.fixtureId)
     : undefined;
@@ -546,7 +597,23 @@ function MatchFormModal({
     enabled: !isEdit && !!selectedFixture?.categoryId,
   });
 
-  const availableFixtures = fixtures.filter((f) => !f.scoringMatchId);
+  const availableFixtures = fixtures.filter(
+    (f) =>
+      !f.scoringMatchId &&
+      f.courtId != null &&
+      f.scheduledAt != null &&
+      f.status !== "walkover" &&
+      f.status !== "cancelled",
+  );
+  const fixtureSelectList = useMemo(() => {
+    const selected = form.fixtureId
+      ? fixtures.find((f) => String(f.id) === form.fixtureId)
+      : undefined;
+    if (selected && !availableFixtures.some((f) => f.id === selected.id)) {
+      return [selected, ...availableFixtures];
+    }
+    return availableFixtures;
+  }, [availableFixtures, fixtures, form.fixtureId]);
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
     [categories],
@@ -589,10 +656,18 @@ function MatchFormModal({
       ? registrationSidePlayers(regB, playersById, pair)
       : { player1: emptySidePlayer(), player2: emptySidePlayer() };
 
+    const court = fixture.courtId
+      ? courts.find((c) => c.id === fixture.courtId)
+      : undefined;
+
     setForm((prev) => ({
       ...prev,
       categoryId: fixture.categoryId,
       matchType,
+      courtId: fixture.courtId ?? prev.courtId,
+      courtNumber: court
+        ? court.shortName?.trim() || court.name
+        : prev.courtNumber,
       matchLabel:
         prev.matchLabel.trim() ||
         `${category.name} · Match ${fixture.slotNumber ?? fixture.id}`,
@@ -606,6 +681,7 @@ function MatchFormModal({
     isEdit,
     form.fixtureId,
     fixtures,
+    courts,
     categoryById,
     playersById,
     registrationById,
@@ -678,15 +754,17 @@ function MatchFormModal({
         const err = await res.json().catch(() => ({ error: isEdit ? "Update failed" : "Create failed" }));
         throw new Error(typeof err.error === "string" ? err.error : isEdit ? "Update failed" : "Create failed");
       }
-      const saved = (await res.json()) as { detail?: { scorerPin?: string } };
+      const saved = (await res.json()) as { id?: number; detail?: { scorerPin?: string } };
       const pin = saved.detail?.scorerPin ?? form.scorerPin;
       toast({
         title: isEdit ? "Match updated" : "Match created",
-        description: isEdit ? undefined : `Scorer PIN for this match: ${pin}`,
+        description: isEdit
+          ? undefined
+          : `Scorer PIN: ${pin}. Opening Match Control — start the match there.`,
       });
-      onSaved();
+      onSaved(isEdit ? undefined : saved.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
+      setError(friendlyBadmintonError(e, isEdit ? "Could not update match" : "Could not create match"));
     } finally {
       setSaving(false);
     }
@@ -700,13 +778,13 @@ function MatchFormModal({
           ? rosterLocked
             ? "Update match name, court, umpire, or scorer PIN"
             : "Update match setup before it goes live"
-          : "Create a match yourself, or optionally link one to a generated draw slot"
+          : "Create a match from a fixture when possible. Manual match (no fixture) remains for legacy compatibility."
       }
       onClose={onClose}
       size="lg"
     >
       {!isEdit ? (
-        <FormField label="Draw fixture">
+        <FormField label="Fixture">
           <DarkSelect
             value={form.fixtureId || "none"}
             onValueChange={(fixtureId) => {
@@ -717,20 +795,33 @@ function MatchFormModal({
                 categoryId: null,
               }));
             }}
-            placeholder="Link to a draw slot (optional)"
+            placeholder="Link to a fixture (preferred)"
             options={[
-              { value: "none", label: "None — manual match" },
-              ...availableFixtures.map((fix) => {
+              // LEGACY COMPATIBILITY: match without fixtureId. Prefer fixture-based create.
+              { value: "none", label: "None — manual match (legacy)" },
+              ...fixtureSelectList.map((fix) => {
                 const category = categoryById.get(fix.categoryId);
+                const scheduled =
+                  fix.courtId != null && fix.scheduledAt != null;
                 return {
                   value: String(fix.id),
-                  label: `${category?.name ?? "Category"} · Match ${fix.slotNumber ?? fix.id}`,
+                  label: `${category?.name ?? "Category"} · Match ${fix.slotNumber ?? fix.id}${
+                    scheduled ? "" : " (not scheduled)"
+                  }`,
                 };
               }),
             ]}
           />
           <p className="text-xs text-muted-foreground mt-1.5">
-            Optional. Leave on <span className="text-foreground/80">None — manual match</span> to pick your own players and skip the draw entirely.
+            Only scheduled fixtures (court + time) appear here. Schedule them in{" "}
+            <Link
+              href={`/tournament/${tournamentId}/badminton/schedule`}
+              className="text-primary hover:underline"
+            >
+              Scheduling
+            </Link>
+            . <span className="text-foreground/80">None — manual match</span> is a temporary
+            compatibility path (match without a fixture).
           </p>
         </FormField>
       ) : null}

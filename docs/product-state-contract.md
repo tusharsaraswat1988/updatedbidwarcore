@@ -38,7 +38,7 @@ Valid transitions (and allowed reverse before Live) are defined in
 | **Meaning** | Tournament shell exists; not yet in organizer setup flow. |
 | **Allowed** | Create/edit core identity (name, sport, dates, venue); delete tournament; enter Setup. |
 | **Blocked** | Draw generation; match scheduling; starting matches; public live surfaces. |
-| **Editable modules** | Branding, Players, Categories, Tournament Match Format (all open). Draw Generation / Court Assignment N/A. |
+| **Editable modules** | Branding, Players, Categories, Tournament Match Format (all open). Draw & Fixtures / Court Assignment N/A. |
 
 ### Setup
 
@@ -46,17 +46,17 @@ Valid transitions (and allowed reverse before Live) are defined in
 |--|--|
 | **Meaning** | Organizer configures tournament before draws. |
 | **Allowed** | Edit branding, players/entries, categories, tournament default match format, courts definition; mark setup complete → Draw Ready when prerequisites met. |
-| **Blocked** | Generate/finalize draws as authoritative; schedule fixtures as live schedule; start matches. |
-| **Editable modules** | Branding, Players, Categories, Tournament Match Format — open. Draw Generation — prepare only (not finalize). Court Assignment — define courts only. |
+| **Blocked** | Generate/finalize fixture collections as authoritative; schedule fixtures as live schedule; start matches. |
+| **Editable modules** | Branding, Players, Categories, Tournament Match Format — open. Draw & Fixtures — prepare only (not finalize). Court Assignment — define courts only. |
 
 ### Draw Ready
 
 | | |
 |--|--|
-| **Meaning** | Draws may be generated; stage keys assigned by Draw Generator. |
-| **Allowed** | Run Draw Generator; review brackets/groups; regenerate draws (until Match Scheduling); proceed to Match Scheduling. |
-| **Blocked** | Start matches; treat schedule as final; change category structure that invalidates generated draws without regenerating. |
-| **Editable modules** | Branding — open. **Players — locked** (accepted entries freeze). **Categories — locked**. Tournament Match Format — still open until Ready To Start. Draw Generation — allowed. Court Assignment — define courts. |
+| **Meaning** | Fixture collections may be created; stage keys assigned by adapters that produce brackets. |
+| **Allowed** | Auto Generate / Manual / Import (when available); review collections; regenerate until Match Scheduling; proceed to Match Scheduling. |
+| **Blocked** | Start matches; treat schedule as final; change category structure that invalidates fixtures without recreating collections. |
+| **Editable modules** | Branding — open. **Players — locked** (accepted entries freeze). **Categories — locked**. Tournament Match Format — still open until Ready To Start. Draw & Fixtures — allowed. Court Assignment — define courts. |
 
 ### Match Scheduling
 
@@ -64,8 +64,8 @@ Valid transitions (and allowed reverse before Live) are defined in
 |--|--|
 | **Meaning** | Fixtures become matches; times/courts assigned. |
 | **Allowed** | Create matches from fixtures (stamp format from `fixture.stageKey`); schedule times; assign courts; move to Ready To Start when schedule is complete enough. |
-| **Blocked** | **Regenerate draws**; start tournament-wide Live; change categories/players in ways that orphan fixtures. |
-| **Editable modules** | Branding — open. Players / Categories — locked. Tournament Match Format — open until Ready To Start. **Draw Generation — locked**. Court Assignment — open. |
+| **Blocked** | **Regenerate / rewrite fixture collections**; start tournament-wide Live; change categories/players in ways that orphan fixtures. |
+| **Editable modules** | Branding — open. Players / Categories — locked. Tournament Match Format — open until Ready To Start. **Draw & Fixtures — locked**. Court Assignment — open. |
 
 ### Ready To Start
 
@@ -74,7 +74,7 @@ Valid transitions (and allowed reverse before Live) are defined in
 | **Meaning** | Schedule and courts ready; waiting for first live match / go-live. |
 | **Allowed** | Final court tweaks; mark matches Ready; start individual matches (→ tournament may enter Live); enter Live. |
 | **Blocked** | Draw regeneration; structural category/player edits; changing Tournament Default Match Format for the event. |
-| **Editable modules** | Branding — open (cosmetic). Players / Categories / **Tournament Match Format — locked**. Draw Generation — locked. Court Assignment — open until Live. |
+| **Editable modules** | Branding — open (cosmetic). Players / Categories / **Tournament Match Format — locked**. Draw & Fixtures — locked. Court Assignment — open until Live. |
 
 ### Live
 
@@ -197,7 +197,7 @@ Valid transitions: `MATCH_PRODUCT_TRANSITIONS`.
 | Players | **Draw Ready** | Accepted entries must not change under generated draws. |
 | Categories | **Draw Ready** | Structure frozen before / with authoritative draws. |
 | Tournament Match Format | **Ready To Start** | Default scoring rules freeze before go-live. Stage overrides for unstarted matches may be tightened later without changing this contract. |
-| Draw Generation | **Match Scheduling** | No regenerate once scheduling has started. |
+| Draw & Fixtures | **Match Scheduling** | No regenerate / rewrite collections once scheduling has started. |
 | Court Assignment | **Live** | Open through Match Scheduling and Ready To Start. |
 
 Match-level overlays:

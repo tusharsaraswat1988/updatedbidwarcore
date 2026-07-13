@@ -1,0 +1,959 @@
+{
+  "generatedAt": "2026-07-13T15:02:38.329Z",
+  "productionProject": "jolly-tree-42208228 (Bidwar Prduction Database)",
+  "summary": {
+    "drizzleTables": 92,
+    "productionTables": 93,
+    "criticalColumnsMissingInProduction": 1,
+    "tablesWithCriticalDrift": 1,
+    "drizzleTablesAbsentInProduction": 0,
+    "productionTablesNotInDrizzle": 1,
+    "tablesWithNoBootDdlCoverage": 25,
+    "tablesWithPartialBootGaps": 10,
+    "namedIndexGaps": 65
+  },
+  "critical": {
+    "columnsInDrizzleMissingInProduction": [
+      {
+        "table": "tournaments",
+        "file": "tournaments.ts",
+        "missingInProduction": [
+          "city"
+        ],
+        "alsoMissingFromBootDdl": [
+          "city"
+        ],
+        "ensuredInBootButMissingInProd": []
+      }
+    ],
+    "tablesInDrizzleMissingInProduction": []
+  },
+  "bootDdlCoverage": {
+    "tablesWithNoBootDdlCoverage": [
+      {
+        "table": "auction_bid_events",
+        "file": "auction_events.ts",
+        "inProduction": true,
+        "columnCount": 15
+      },
+      {
+        "table": "auction_player_events",
+        "file": "auction_events.ts",
+        "inProduction": true,
+        "columnCount": 23
+      },
+      {
+        "table": "auction_timer_events",
+        "file": "auction_events.ts",
+        "inProduction": true,
+        "columnCount": 8
+      },
+      {
+        "table": "bids",
+        "file": "bids.ts",
+        "inProduction": true,
+        "columnCount": 6
+      },
+      {
+        "table": "bot_sessions",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 6
+      },
+      {
+        "table": "categories",
+        "file": "categories.ts",
+        "inProduction": true,
+        "columnCount": 11
+      },
+      {
+        "table": "comm_logs",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 15
+      },
+      {
+        "table": "consent_blast_log",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 5
+      },
+      {
+        "table": "consent_tokens",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 9
+      },
+      {
+        "table": "display_auctions",
+        "file": "display-auctions.ts",
+        "inProduction": true,
+        "columnCount": 18
+      },
+      {
+        "table": "notification_logs",
+        "file": "notifications.ts",
+        "inProduction": true,
+        "columnCount": 15
+      },
+      {
+        "table": "otp_sessions",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 8
+      },
+      {
+        "table": "player_import_logs",
+        "file": "player_import_logs.ts",
+        "inProduction": true,
+        "columnCount": 6
+      },
+      {
+        "table": "role_spec_groups",
+        "file": "sports.ts",
+        "inProduction": true,
+        "columnCount": 6
+      },
+      {
+        "table": "role_spec_options",
+        "file": "sports.ts",
+        "inProduction": true,
+        "columnCount": 5
+      },
+      {
+        "table": "scoring_events",
+        "file": "scoring_events.ts",
+        "inProduction": true,
+        "columnCount": 16
+      },
+      {
+        "table": "scoring_sessions",
+        "file": "scoring_sessions.ts",
+        "inProduction": true,
+        "columnCount": 9
+      },
+      {
+        "table": "scoring_standings",
+        "file": "scoring_standings.ts",
+        "inProduction": true,
+        "columnCount": 12
+      },
+      {
+        "table": "settings",
+        "file": "settings.ts",
+        "inProduction": true,
+        "columnCount": 2
+      },
+      {
+        "table": "sms_notification_settings",
+        "file": "sms-settings.ts",
+        "inProduction": true,
+        "columnCount": 9
+      },
+      {
+        "table": "sport_roles",
+        "file": "sports.ts",
+        "inProduction": true,
+        "columnCount": 5
+      },
+      {
+        "table": "sports",
+        "file": "sports.ts",
+        "inProduction": true,
+        "columnCount": 5
+      },
+      {
+        "table": "wa_consent_events",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 10
+      },
+      {
+        "table": "wa_quality_log",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 8
+      },
+      {
+        "table": "wa_templates",
+        "file": "comm.ts",
+        "inProduction": true,
+        "columnCount": 8
+      }
+    ],
+    "columnsMissingFromBootOnCoveredTables": [
+      {
+        "table": "auction_sessions",
+        "file": "auction_sessions.ts",
+        "missingFromBootDdl": [
+          "active_category_ids",
+          "break_ends_at",
+          "current_bid",
+          "current_bid_team_id",
+          "current_player_id",
+          "deferred_player_ids",
+          "display_overlay",
+          "display_player_filter",
+          "fortune_wheel_active",
+          "id",
+          "is_break",
+          "last_action",
+          "paused_time_remaining",
+          "sold_players_count",
+          "status",
+          "team_purse_view_active",
+          "timer_ends_at",
+          "timer_seconds",
+          "timer_type",
+          "tournament_id",
+          "unsold_players_count",
+          "updated_at",
+          "wheel_items_json",
+          "wheel_spinning",
+          "wheel_winner"
+        ]
+      },
+      {
+        "table": "branding_settings",
+        "file": "branding.ts",
+        "missingFromBootDdl": [
+          "accent_color",
+          "app_icon_url",
+          "background_color",
+          "body_font",
+          "brand_name",
+          "created_at",
+          "danger_color",
+          "enable_watermark",
+          "heading_font",
+          "id",
+          "logo_animation_url",
+          "main_logo_url",
+          "mini_brand_text",
+          "mini_logo_url",
+          "powered_by_text",
+          "primary_color",
+          "secondary_color",
+          "show_branding_auction",
+          "show_branding_pdf",
+          "show_branding_public_links",
+          "show_powered_by_owner_app",
+          "show_powered_by_viewer",
+          "splash_screen_url",
+          "success_color",
+          "tagline",
+          "updated_at",
+          "watermark_opacity",
+          "watermark_position",
+          "watermark_text"
+        ]
+      },
+      {
+        "table": "global_players",
+        "file": "global_players.ts",
+        "missingFromBootDdl": [
+          "age",
+          "canonical_name",
+          "city",
+          "created_at",
+          "default_role",
+          "id",
+          "mobile_number",
+          "notes",
+          "photo_url",
+          "sport",
+          "updated_at"
+        ]
+      },
+      {
+        "table": "organizers",
+        "file": "organizers.ts",
+        "missingFromBootDdl": [
+          "created_at",
+          "email",
+          "google_email",
+          "google_id",
+          "id",
+          "license_status",
+          "max_tournaments",
+          "mobile",
+          "name",
+          "notes",
+          "password_hash",
+          "updated_at"
+        ]
+      },
+      {
+        "table": "players",
+        "file": "players.ts",
+        "missingFromBootDdl": [
+          "achievements",
+          "age",
+          "availability_dates",
+          "base_price",
+          "batting_style",
+          "bowling_style",
+          "category_id",
+          "city",
+          "created_at",
+          "crichero_url",
+          "global_player_id",
+          "id",
+          "is_non_playing_member",
+          "jersey_number",
+          "mobile_number",
+          "name",
+          "photo_url",
+          "player_tag",
+          "player_tag_team_id",
+          "retained_price",
+          "role",
+          "sold_price",
+          "specialization",
+          "status",
+          "team_id",
+          "tournament_id",
+          "updated_at",
+          "whatsapp_consent",
+          "whatsapp_consent_at",
+          "whatsapp_consent_ip",
+          "whatsapp_consent_method",
+          "whatsapp_consent_org_id"
+        ]
+      },
+      {
+        "table": "scoring_fixtures",
+        "file": "scoring_fixtures.ts",
+        "missingFromBootDdl": [
+          "away_team_id",
+          "created_at",
+          "fixture_number",
+          "format_json",
+          "home_team_id",
+          "id",
+          "result_summary",
+          "round_name",
+          "scheduled_at",
+          "sport_slug",
+          "status",
+          "tournament_id",
+          "updated_at",
+          "venue",
+          "winner_team_id"
+        ]
+      },
+      {
+        "table": "scoring_matches",
+        "file": "scoring_matches.ts",
+        "missingFromBootDdl": [
+          "away_side_json",
+          "away_team_id",
+          "completed_at",
+          "created_at",
+          "current_projection_version",
+          "fixture_id",
+          "home_side_json",
+          "home_team_id",
+          "id",
+          "match_kind",
+          "match_label",
+          "parent_match_id",
+          "result_summary",
+          "round_name",
+          "rules_json",
+          "scheduled_at",
+          "sequence_in_parent",
+          "sport_slug",
+          "started_at",
+          "status",
+          "summary_json",
+          "tournament_id",
+          "updated_at",
+          "venue",
+          "winner_team_id"
+        ]
+      },
+      {
+        "table": "showcase_events",
+        "file": "showcase.ts",
+        "missingFromBootDdl": [
+          "active",
+          "alt_text",
+          "created_at",
+          "description",
+          "display_order",
+          "id",
+          "image_url",
+          "sport_name",
+          "tournament_name",
+          "updated_at"
+        ]
+      },
+      {
+        "table": "teams",
+        "file": "teams.ts",
+        "missingFromBootDdl": [
+          "access_code",
+          "color",
+          "created_at",
+          "id",
+          "is_bidding_enabled",
+          "logo_url",
+          "name",
+          "owner_mobile",
+          "owner_name",
+          "purse",
+          "purse_used",
+          "short_code",
+          "tournament_id",
+          "updated_at",
+          "whatsapp_consent",
+          "whatsapp_consent_at",
+          "whatsapp_consent_ip",
+          "whatsapp_consent_method",
+          "whatsapp_consent_org_id"
+        ]
+      },
+      {
+        "table": "tournaments",
+        "file": "tournaments.ts",
+        "missingFromBootDdl": [
+          "admin_locked",
+          "admin_locked_at",
+          "auction_code",
+          "auction_date",
+          "auction_time",
+          "auction_unit",
+          "audio_enabled",
+          "base_purse",
+          "bid_increment",
+          "bid_tier1_increment",
+          "bid_tier1_up_to",
+          "bid_tier2_increment",
+          "bid_tier2_up_to",
+          "bid_tier3_increment",
+          "bid_tiers",
+          "bid_timer_seconds",
+          "break_end_sound_enabled",
+          "break_end_sound_url",
+          "break_end_sound_volume",
+          "cheer_cooldown_seconds",
+          "cheer_message_presets",
+          "cheer_messages_enabled",
+          "city",
+          "countdown_sound_enabled",
+          "countdown_sound_url",
+          "countdown_sound_volume",
+          "created_at",
+          "id",
+          "last_reset_at",
+          "last_reset_by",
+          "license_granted_at",
+          "license_granted_by",
+          "license_status",
+          "logo_url",
+          "main_banner_enabled",
+          "main_banner_fit",
+          "main_banner_url",
+          "master_volume",
+          "match_dates",
+          "maximum_squad_size",
+          "min_bid",
+          "minimum_squad_size",
+          "name",
+          "organizer_email",
+          "organizer_id",
+          "organizer_mobile",
+          "organizer_name",
+          "organizer_password",
+          "player_selection_mode",
+          "registration_deadline",
+          "registration_limit",
+          "reset_count",
+          "sold_sound_enabled",
+          "sold_sound_url",
+          "sold_sound_volume",
+          "sponsor_logos",
+          "sport",
+          "sport_id",
+          "status",
+          "timer_seconds",
+          "updated_at",
+          "venue"
+        ]
+      }
+    ]
+  },
+  "indexes": {
+    "drizzleNamedIndexesMissingInProdOrBoot": [
+      {
+        "table": "consent_tokens",
+        "index": "ix_consent_tokens_token",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "consent_tokens",
+        "index": "ix_consent_tokens_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "otp_sessions",
+        "index": "ix_otp_sessions_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "comm_logs",
+        "index": "ix_comm_logs_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "comm_logs",
+        "index": "ix_comm_logs_recipient_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "comm_logs",
+        "index": "ix_comm_logs_sent_at",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "comm_logs",
+        "index": "ix_comm_logs_blast_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "consent_blast_log",
+        "index": "uq_consent_blast_log",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "bot_sessions",
+        "index": "ix_bot_sessions_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "wa_consent_events",
+        "index": "ix_wa_consent_events_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "wa_consent_events",
+        "index": "ix_wa_consent_events_event_at",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "comm.ts"
+      },
+      {
+        "table": "communication_assets",
+        "index": "ix_communication_assets_asset_type",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_templates",
+        "index": "ix_communication_templates_event_type",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_templates",
+        "index": "ix_communication_templates_is_active",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_templates",
+        "index": "ix_communication_templates_is_draft",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_template_versions",
+        "index": "ix_communication_template_versions_template_id",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_jobs",
+        "index": "ix_communication_jobs_channel",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_jobs",
+        "index": "ix_communication_jobs_template_id",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_jobs",
+        "index": "ix_communication_jobs_entity",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_jobs",
+        "index": "ix_communication_jobs_next_retry_at",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_jobs",
+        "index": "ix_communication_jobs_pending_reason",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_jobs",
+        "index": "ix_communication_jobs_bulk_campaign_id",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_job_recipients",
+        "index": "ix_communication_job_recipients_role",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_logs",
+        "index": "ix_communication_logs_action",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "communication_logs",
+        "index": "ix_communication_logs_recipient_email",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "communication.ts"
+      },
+      {
+        "table": "audit_logs",
+        "index": "ix_audit_logs_tournament",
+        "inProduction": false,
+        "inBootDdl": false,
+        "file": "entity-audit-logs.ts"
+      },
+      {
+        "table": "global_players",
+        "index": "ix_gp_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "global_players.ts"
+      },
+      {
+        "table": "global_players",
+        "index": "ix_gp_canonical_name",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "global_players.ts"
+      },
+      {
+        "table": "notification_logs",
+        "index": "ux_notification_logs_dedup_key",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "notifications.ts"
+      },
+      {
+        "table": "notification_logs",
+        "index": "ix_notification_logs_event_type",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "notifications.ts"
+      },
+      {
+        "table": "notification_logs",
+        "index": "ix_notification_logs_channel",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "notifications.ts"
+      },
+      {
+        "table": "notification_logs",
+        "index": "ix_notification_logs_status",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "notifications.ts"
+      },
+      {
+        "table": "notification_logs",
+        "index": "ix_notification_logs_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "notifications.ts"
+      },
+      {
+        "table": "notification_logs",
+        "index": "ix_notification_logs_created_at",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "notifications.ts"
+      },
+      {
+        "table": "platform_audit_events",
+        "index": "ix_audit_actor_time",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "platform_audit.ts"
+      },
+      {
+        "table": "platform_audit_events",
+        "index": "ix_audit_resource",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "platform_audit.ts"
+      },
+      {
+        "table": "platform_audit_events",
+        "index": "ix_audit_category_action_time",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "platform_audit.ts"
+      },
+      {
+        "table": "platform_audit_events",
+        "index": "ix_audit_alert_key",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "platform_audit.ts"
+      },
+      {
+        "table": "platform_audit_events",
+        "index": "ix_audit_severity",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "platform_audit.ts"
+      },
+      {
+        "table": "players",
+        "index": "ix_players_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "players.ts"
+      },
+      {
+        "table": "players",
+        "index": "ix_players_mobile_number",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "players.ts"
+      },
+      {
+        "table": "players",
+        "index": "ix_players_name",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "players.ts"
+      },
+      {
+        "table": "players",
+        "index": "ix_players_global_player_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "players.ts"
+      },
+      {
+        "table": "player_import_logs",
+        "index": "ix_pil_target_tournament",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "player_import_logs.ts"
+      },
+      {
+        "table": "player_import_logs",
+        "index": "ix_pil_source_tournament",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "player_import_logs.ts"
+      },
+      {
+        "table": "player_import_logs",
+        "index": "ix_pil_organizer",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "player_import_logs.ts"
+      },
+      {
+        "table": "purse_boosters",
+        "index": "ux_purse_boosters_local_uuid",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "purse_boosters.ts"
+      },
+      {
+        "table": "purse_boosters",
+        "index": "ix_purse_boosters_sync_pending",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "purse_boosters.ts"
+      },
+      {
+        "table": "scoring_events",
+        "index": "uq_scoring_events_match_sequence",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_events.ts"
+      },
+      {
+        "table": "scoring_events",
+        "index": "ix_scoring_events_match_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_events.ts"
+      },
+      {
+        "table": "scoring_events",
+        "index": "ix_scoring_events_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_events.ts"
+      },
+      {
+        "table": "scoring_fixtures",
+        "index": "ix_scoring_fixtures_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_fixtures.ts"
+      },
+      {
+        "table": "scoring_fixtures",
+        "index": "ix_scoring_fixtures_tournament_status",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_fixtures.ts"
+      },
+      {
+        "table": "scoring_matches",
+        "index": "ix_scoring_matches_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_matches.ts"
+      },
+      {
+        "table": "scoring_matches",
+        "index": "ix_scoring_matches_fixture_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_matches.ts"
+      },
+      {
+        "table": "scoring_matches",
+        "index": "ix_scoring_matches_tournament_status",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_matches.ts"
+      },
+      {
+        "table": "scoring_sessions",
+        "index": "uq_scoring_sessions_match_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_sessions.ts"
+      },
+      {
+        "table": "scoring_standings",
+        "index": "uq_scoring_standings_tournament_team",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_standings.ts"
+      },
+      {
+        "table": "scoring_standings",
+        "index": "ix_scoring_standings_tournament_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "scoring_standings.ts"
+      },
+      {
+        "table": "sports",
+        "index": "ix_sports_slug",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "sports.ts"
+      },
+      {
+        "table": "sport_roles",
+        "index": "ix_sport_roles_sport_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "sports.ts"
+      },
+      {
+        "table": "role_spec_groups",
+        "index": "ix_role_spec_groups_role_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "sports.ts"
+      },
+      {
+        "table": "role_spec_options",
+        "index": "ix_role_spec_options_group_id",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "sports.ts"
+      },
+      {
+        "table": "teams",
+        "index": "uq_teams_tournament_owner_mobile",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "teams.ts"
+      },
+      {
+        "table": "tournaments",
+        "index": "ix_tournaments_auction_code",
+        "inProduction": true,
+        "inBootDdl": false,
+        "file": "tournaments.ts"
+      }
+    ]
+  },
+  "informational": {
+    "productionColumnsNotInDrizzle": [],
+    "productionTablesNotInDrizzle": [
+      "sessions"
+    ]
+  },
+  "proposedMigrationStatements": [
+    {
+      "priority": "P0",
+      "sql": "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city /* TODO: confirm type from lib/db/src/schema/tournaments.ts */ text;",
+      "reason": "Drizzle maps tournaments.city but production is missing it — SELECT * will 500"
+    }
+  ]
+}

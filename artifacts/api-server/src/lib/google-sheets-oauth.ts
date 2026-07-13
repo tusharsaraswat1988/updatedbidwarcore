@@ -5,11 +5,15 @@ import { getRuntimeConfig, getSessionSecret } from "./runtime-env";
 const COOKIE_NAME = "bidwar_google_sheets_oauth";
 const JWT_EXPIRY = 30 * 60;
 
+export type GoogleApiOAuthPurpose = "sheets" | "search_console";
+
 export interface GoogleSheetsOAuthState {
   state: string;
   next?: string;
-  /** Organizer account id or 0 for platform admin. */
+  /** Organizer account id key or `admin` for platform admin. */
   ownerKey: string;
+  /** Which Google API connect flow started this round-trip. Defaults to sheets. */
+  purpose?: GoogleApiOAuthPurpose;
 }
 
 function getSecret(): string {

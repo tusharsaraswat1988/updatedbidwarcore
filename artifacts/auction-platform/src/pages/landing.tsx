@@ -1656,6 +1656,7 @@ export default function Landing() {
                   { label: "Pricing", href: "#pricing" },
                   { label: "FAQ", href: "#faq" },
                   { label: "Auction Gallery", href: "#gallery" },
+                  { label: "BidWar Academy", href: "/academy" },
                   { label: "Blog & Guides", href: "/blog" },
                   { label: "Contact Us", href: "/contact" },
                 ].map(l => (

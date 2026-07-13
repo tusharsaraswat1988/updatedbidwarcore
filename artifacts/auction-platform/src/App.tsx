@@ -372,6 +372,7 @@ function Router() {
         <Route path="/admin/settings/system/default-audio" component={AdminSystemPage} />
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/search-console" component={AdminSystemPage} />
         <Route path="/admin/buzz-studio-dev" component={BuzzStudioDevPage} />
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
         <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
@@ -541,6 +542,10 @@ function Router() {
         <Route path="/tournament/:id/badminton/matches" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/courts" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/categories" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/fixtures" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/schedule" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/control" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/results" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/scoring-format" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/analytics" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/branding" component={RedirectToScoringApp} />

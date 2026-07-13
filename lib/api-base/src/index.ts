@@ -12,6 +12,13 @@ export {
 } from "./auction-bid";
 
 export {
+  TRIAL_AUCTION_ELIGIBLE_TEAM_LIMIT,
+  TRIAL_AUCTION_PARTICIPATION_ERROR,
+  isAuctionLicenseActive,
+  isTeamEligibleForTrialAuction,
+} from "./auction-trial";
+
+export {
   BID_ACK_TIMEOUT_MS,
   BID_WATCHDOG_MS,
   decideBidMutationApply,

@@ -1,4 +1,5 @@
 import { loadGoogleSheetsTokens, saveGoogleSheetsTokens } from "./google-sheets-token-store.js";
+import { GOOGLE_SHEETS_SCOPES } from "./google-oauth-scopes.js";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -8,10 +9,12 @@ const PLAYERS_TAB = "Players";
 const HEADER_BG = { red: 0.984, green: 0.749, blue: 0.141 };
 const HEADER_FG = { red: 0.039, green: 0.039, blue: 0.059 };
 
-export const GOOGLE_SHEETS_SCOPES = [
-  "https://www.googleapis.com/auth/spreadsheets",
-  "https://www.googleapis.com/auth/drive.file",
-].join(" ");
+export { GOOGLE_SHEETS_SCOPES };
+export {
+  GOOGLE_SEARCH_CONSOLE_SCOPE,
+  hasGoogleOAuthScope,
+  parseGoogleOAuthScopes,
+} from "./google-oauth-scopes.js";
 
 export class GoogleSheetsTokenExpiredError extends Error {
   constructor() {

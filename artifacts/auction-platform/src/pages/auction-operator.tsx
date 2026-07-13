@@ -87,6 +87,7 @@ import {
   MIN_AUCTION_TIMER_SECONDS,
   parseOperatorTimerSeconds,
 } from "@workspace/api-base/auction-timer";
+import { isAuctionLicenseActive, isTeamEligibleForTrialAuction } from "@workspace/api-base";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
@@ -591,11 +592,25 @@ export default function AuctionOperator() {
   }
   async function handleManualSell() {
     if (!manualTeamId || !manualAmount || controlsLocked || isPaused) return;
+    const teamId = parseInt(manualTeamId, 10);
+    if (
+      !isTeamEligibleForTrialAuction(teamId, {
+        licenseStatus,
+        trialTeamIds,
+      })
+    ) {
+      toast({
+        title: "Trial locked",
+        description: "Only the first 2 teams can receive players during trial. Activate the live license for full auction.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const result = await manualSellMut.mutateAsync({
         tournamentId,
         data: {
-          teamId: parseInt(manualTeamId),
+          teamId,
           amount: parseInt(manualAmount) || 0,
           ...(manualSellReason.trim() ? { reason: manualSellReason.trim() } : {}),
         },
@@ -958,7 +973,7 @@ export default function AuctionOperator() {
   const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
   const selectionMode = (state as any)?.playerSelectionMode ?? "sequential";
   const licenseStatus: string = (state as any)?.licenseStatus ?? "trial";
-  const isTrialMode = licenseStatus !== "active";
+  const isTrialMode = !isAuctionLicenseActive(licenseStatus);
   const trialTeamIds: number[] | null = (state as any)?.trialTeamIds ?? null;
   const deferredPlayerIds: number[] | null = (state as any)?.deferredPlayerIds ?? null;
   const currentCountdown = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null; musicMuted?: boolean } | null } | undefined)?.displayCountdown ?? null;
@@ -2031,7 +2046,10 @@ export default function AuctionOperator() {
                         const maxReached = maxSquad > 0 && bought >= maxSquad;
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid   = nextBidAmount;
-                        const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
+                        const isTrialRestricted = !isTeamEligibleForTrialAuction(team.id, {
+                          licenseStatus,
+                          trialTeamIds,
+                        });
                         const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !bidGateLocked;
                         return (
                           <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
@@ -2252,8 +2270,25 @@ export default function AuctionOperator() {
                 <Label className="text-xs text-muted-foreground">Team</Label>
                 <Select value={manualTeamId} onValueChange={setManualTeamId}>
                   <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
-                  <SelectContent>{(teams || []).map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {(teams || []).map((t) => {
+                      const trialLocked = !isTeamEligibleForTrialAuction(t.id, {
+                        licenseStatus,
+                        trialTeamIds,
+                      });
+                      return (
+                        <SelectItem key={t.id} value={String(t.id)} disabled={trialLocked}>
+                          {t.name}{trialLocked ? " (trial locked)" : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
                 </Select>
+                {isTrialMode ? (
+                  <p className="text-[10px] text-amber-400/80">
+                    Trial: only the first 2 teams can receive a manual sell.
+                  </p>
+                ) : null}
                 {manualTeamId ? (() => {
                   const purseData = teamPurses?.find(p => p.teamId === parseInt(manualTeamId, 10));
                   const maxAllowedBid = purseData?.maxAllowedBid ?? null;
@@ -2281,7 +2316,21 @@ export default function AuctionOperator() {
               </button>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setManualSellOpen(false)}>Cancel</Button>
-                <Button className="flex-1" disabled={!manualTeamId || !manualAmount || manualSellMut.isPending || controlsLocked || isPaused} onClick={handleManualSell}>
+                <Button
+                  className="flex-1"
+                  disabled={
+                    !manualTeamId ||
+                    !manualAmount ||
+                    manualSellMut.isPending ||
+                    controlsLocked ||
+                    isPaused ||
+                    !isTeamEligibleForTrialAuction(parseInt(manualTeamId, 10), {
+                      licenseStatus,
+                      trialTeamIds,
+                    })
+                  }
+                  onClick={handleManualSell}
+                >
                   {manualSellMut.isPending ? "Selling…" : "Confirm Sell"}
                 </Button>
               </div>

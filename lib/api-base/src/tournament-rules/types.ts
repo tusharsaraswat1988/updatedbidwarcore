@@ -43,24 +43,25 @@
  *
  * Draw stages are SYSTEM GENERATED:
  *   - Organizers never create, rename, or invent stage keys.
- *   - The Draw Generator assigns DrawStageKey values to fixtures
- *     (League, Round Robin, Pre Quarter, Quarter Final, Semi Final,
- *     Third Place, Final).
+ *   - Fixture Source Adapters that produce bracket structure (e.g. Auto Generate)
+ *     assign DrawStageKey values to fixtures (League, Round Robin, Pre Quarter,
+ *     Quarter Final, Semi Final, Third Place, Final).
  *   - Fixture.stageKey is the authoritative source for format inheritance
- *     when a match is created from a generated fixture.
+ *     when a match is created from a fixture.
  *
  * Organizer responsibility (per category, per stage):
  *   - "Use Tournament Default"  OR  "Override Match Format"
- *   - Never manually assign stage keys to generated-draw matches.
+ *   - Never manually assign stage keys to auto-generated fixtures.
  *
  * Match creation from fixture:
  *   Fixture.stageKey → resolve effective format → stamp match_format_json
  *   → freeze on MATCH_STARTED
  *
- * Manual match creation (outside generated draws):
+ * Manual match creation (legacy compatibility — prefer fixture-based create):
  *   - Optional Stage dropdown (system keys only).
  *   - Default = Exhibition / Friendly (no stage) → no stage layer;
  *     inherits category default then tournament default.
+ *   - Target architecture: Create Match → ensure Fixture → create Match from Fixture.
  *
  * Organizer UI language (Phase 3+): DRAW_STAGE_LABELS +
  * "Use Tournament Default" | "Override Match Format" — never "Stage Rule".
@@ -137,8 +138,9 @@ export function isTournamentFormatKey(value: unknown): value is TournamentFormat
  * Closed set of system-generated draw stage keys (WHERE a match belongs).
  * Independent of TournamentFormatKey (HOW the tournament is structured).
  * A stage always exists inside a category — never as a tournament-level entity.
- * Organizers never create or rename these; only the Draw Generator assigns them
- * to fixtures (and organizers may optionally pick one for manual matches).
+ * Organizers never create or rename these; Fixture Source Adapters that build
+ * brackets assign them to fixtures (organizers may optionally pick one for
+ * legacy manual matches without a fixture).
  *
  * String overlap with TournamentFormatKey (e.g. "league", "round_robin") is
  * intentional English reuse — typed separately; never treat them as the same.

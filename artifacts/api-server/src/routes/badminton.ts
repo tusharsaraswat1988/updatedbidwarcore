@@ -68,6 +68,21 @@ import {
   undoLastPoint,
   resolveFormatForMatchStart,
 } from "../lib/badminton-service";
+import { auditLog } from "../lib/audit-service";
+import {
+  consumePinVerifyAttempt,
+  friendlyBadmintonCommandMessage,
+} from "../lib/badminton-ops";
+import {
+  createFixtureCollection,
+  importFixtureCollectionStub,
+} from "../lib/fixture-collection-writer";
+import {
+  canCreateMatchFromFixture,
+  FixtureSchedulingError,
+  scheduleFixture,
+  unscheduleFixture,
+} from "../lib/fixture-scheduling";
 import { allocateTournamentInitials } from "../lib/master-sports/tournament-initials";
 import {
   buildSideJsonFromBadmintonPlayer,
@@ -1159,7 +1174,86 @@ router.get("/fixtures", async (req, res) => {
   res.json(fixtures);
 });
 
-/** Generate a knockout draw for a category. */
+/**
+ * Schedule a fixture — assign court + date/time.
+ * Sets planning status to scheduled (or ready if match already linked).
+ */
+router.patch("/fixtures/:fixtureId/schedule", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const fixtureId = parseId((req.params as MergedParams).fixtureId);
+  if (!fixtureId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    courtId: z.number().int().positive(),
+    scheduledAt: z.string().min(1),
+    allowCourtConflict: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const updated = await scheduleFixture({
+      tournamentId,
+      fixtureId,
+      courtId: parsed.data.courtId,
+      scheduledAt: new Date(parsed.data.scheduledAt),
+      allowCourtConflict: parsed.data.allowCourtConflict === true,
+    });
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.fixture_scheduled",
+      summary: `Fixture #${fixtureId} scheduled on court ${parsed.data.courtId}`,
+      tournamentId,
+      resource: { type: "badminton_fixture", id: fixtureId },
+      metadata: {
+        courtId: parsed.data.courtId,
+        scheduledAt: parsed.data.scheduledAt,
+        allowCourtConflict: parsed.data.allowCourtConflict === true,
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err instanceof FixtureSchedulingError) {
+      return void res.status(err.status).json({ error: err.message, code: err.code });
+    }
+    throw err;
+  }
+});
+
+/**
+ * Unschedule a fixture — clear court + time → unscheduled.
+ * Blocked if a match already exists.
+ */
+router.post("/fixtures/:fixtureId/unschedule", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const fixtureId = parseId((req.params as MergedParams).fixtureId);
+  if (!fixtureId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const updated = await unscheduleFixture(tournamentId, fixtureId);
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.fixture_unscheduled",
+      summary: `Fixture #${fixtureId} unscheduled`,
+      tournamentId,
+      resource: { type: "badminton_fixture", id: fixtureId },
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err instanceof FixtureSchedulingError) {
+      return void res.status(err.status).json({ error: err.message, code: err.code });
+    }
+    throw err;
+  }
+});
+
+/**
+ * Auto Generate adapter — wraps existing generate-draw for client compatibility.
+ * Internally calls the shared Fixture Collection writer (kind: generated).
+ * Does not create matches or start scoring.
+ */
 router.post("/categories/:catId/generate-draw", async (req, res) => {
   const tournamentId = await guardBadmintonWrite(req, res);
   if (!tournamentId) return;
@@ -1194,38 +1288,150 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
     return void res.status(400).json({ error: "Need at least 2 players to generate draw" });
   }
 
-  const fixtures = generateKnockoutDraw(tournamentId, catId, registrations);
+  const planned = generateKnockoutDraw(tournamentId, catId, registrations);
 
-  const [draw] = await db
-    .insert(badmintonDrawsTable)
-    .values({
-      tournamentId,
-      categoryId: catId,
-      roundName: "Main Draw",
-      roundNumber: 1,
-      totalRounds: Math.ceil(Math.log2(registrations.length)),
-      drawKind: "knockout_round",
-      status: "active",
-    })
-    .returning();
+  const { collection, fixtures: insertedFixtures } = await createFixtureCollection({
+    tournamentId,
+    categoryId: catId,
+    roundName: "Main Draw",
+    drawKind: "generated",
+    roundNumber: 1,
+    totalRounds: Math.ceil(Math.log2(registrations.length)),
+    status: "active",
+    metaJson: {
+      adapter: "auto_generate",
+      algorithm: "knockout",
+      // Legacy drawKind synonym for older clients / display
+      legacyDrawKind: "knockout_round",
+    },
+    fixtures: planned.map((f) => ({
+      slotNumber: f.slotNumber,
+      registrationAId: f.registrationAId,
+      registrationBId: f.registrationBId,
+      status: f.status,
+    })),
+    markCategoryLive: true,
+  });
 
-  const insertedFixtures = await db
-    .insert(badmintonFixturesTable)
-    .values(fixtures.map((f) => ({ ...f, drawId: draw.id })))
-    .returning();
+  // Compatibility: existing clients expect `{ draw, fixtures }`
+  res.status(201).json({
+    draw: collection,
+    collection,
+    fixtures: insertedFixtures,
+  });
+});
 
-  // Fix: include tournamentId in the WHERE to prevent cross-tenant category mutation.
-  await db
-    .update(badmintonCategoriesTable)
-    .set({ phase: "live", updatedAt: new Date() })
+/**
+ * Manual Fixture adapter — organizer enters A vs B pairs.
+ * Creates a Fixture Collection (kind: manual) via the shared writer.
+ * Does not create matches or start scoring.
+ */
+router.post("/categories/:catId/fixture-collections/manual", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    roundName: z.string().min(1).max(100).optional(),
+    fixtures: z
+      .array(
+        z.object({
+          registrationAId: z.number().int().nullable().optional(),
+          registrationBId: z.number().int().nullable().optional(),
+          slotNumber: z.number().int().positive().optional(),
+        }),
+      )
+      .min(1),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  const [category] = await db
+    .select()
+    .from(badmintonCategoriesTable)
     .where(
       and(
         eq(badmintonCategoriesTable.id, catId),
         eq(badmintonCategoriesTable.tournamentId, tournamentId),
       ),
-    );
+    )
+    .limit(1);
 
-  res.status(201).json({ draw, fixtures: insertedFixtures });
+  if (!category) return void res.status(404).json({ error: "category not found" });
+
+  const acceptedRegs = await db
+    .select({ id: badmintonRegistrationsTable.id })
+    .from(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        eq(badmintonRegistrationsTable.status, "accepted"),
+      ),
+    );
+  const acceptedIds = new Set(acceptedRegs.map((r) => r.id));
+
+  for (const [i, f] of parsed.data.fixtures.entries()) {
+    if (f.registrationAId != null && !acceptedIds.has(f.registrationAId)) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: registrationAId is not an accepted entry in this category`,
+      });
+    }
+    if (f.registrationBId != null && !acceptedIds.has(f.registrationBId)) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: registrationBId is not an accepted entry in this category`,
+      });
+    }
+    if (f.registrationAId == null && f.registrationBId == null) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: at least one side is required`,
+      });
+    }
+  }
+
+  const { collection, fixtures } = await createFixtureCollection({
+    tournamentId,
+    categoryId: catId,
+    roundName: parsed.data.roundName?.trim() || "Manual Fixtures",
+    drawKind: "manual",
+    roundNumber: 1,
+    totalRounds: 1,
+    status: "active",
+    metaJson: { adapter: "manual" },
+    fixtures: parsed.data.fixtures.map((f, index) => ({
+      slotNumber: f.slotNumber ?? index + 1,
+      registrationAId: f.registrationAId ?? null,
+      registrationBId: f.registrationBId ?? null,
+      status:
+        f.registrationAId != null && f.registrationBId != null ? "unscheduled" : "walkover",
+    })),
+  });
+
+  res.status(201).json({ collection, fixtures });
+});
+
+/**
+ * Import adapter — Phase 1 stub only (no parser / no processing).
+ */
+router.post("/categories/:catId/fixture-collections/import", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    importFixtureCollectionStub();
+  } catch (err) {
+    const e = err as { status?: number; code?: string; message?: string };
+    return void res.status(e.status ?? 501).json({
+      error: e.message ?? "Import not implemented",
+      code: e.code ?? "IMPORT_NOT_IMPLEMENTED",
+      message:
+        "Import Existing Draw is a Phase 1 placeholder. Excel/CSV/PDF parsers arrive in a later phase.",
+    });
+  }
 });
 
 // ─── Matches ──────────────────────────────────────────────────────────────────
@@ -1277,10 +1483,17 @@ router.post("/matches", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  // If fixtureId supplied, verify it belongs to this tournament.
+  let fixtureCourtId = parsed.data.courtId;
+  let fixtureScheduledAt = parsed.data.scheduledAt
+    ? new Date(parsed.data.scheduledAt)
+    : undefined;
+  let fixtureCategoryId = parsed.data.categoryId;
+
+  // Fixture-based create requires a scheduled fixture (court + time).
+  // No fixtureId = legacy manual match (temporary compatibility).
   if (parsed.data.fixtureId) {
     const [fix] = await db
-      .select({ id: badmintonFixturesTable.id })
+      .select()
       .from(badmintonFixturesTable)
       .where(
         and(
@@ -1291,19 +1504,49 @@ router.post("/matches", async (req, res) => {
       .limit(1);
 
     if (!fix) return void res.status(400).json({ error: "fixtureId not found in this tournament" });
+
+    const gate = canCreateMatchFromFixture(fix);
+    if (!gate.ok) {
+      return void res.status(400).json({ error: gate.error, code: "FIXTURE_NOT_SCHEDULED" });
+    }
+
+    fixtureCourtId = fixtureCourtId ?? fix.courtId ?? undefined;
+    fixtureScheduledAt = fixtureScheduledAt ?? (fix.scheduledAt ? new Date(fix.scheduledAt) : undefined);
+    fixtureCategoryId = fixtureCategoryId ?? fix.categoryId;
   }
 
-  const created = await createBadmintonMatch({
-    tournamentId,
-    ...parsed.data,
-    scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined,
-  });
+  try {
+    const created = await createBadmintonMatch({
+      tournamentId,
+      ...parsed.data,
+      categoryId: fixtureCategoryId,
+      courtId: fixtureCourtId,
+      scheduledAt: fixtureScheduledAt,
+    });
 
-  broadcastTournamentUpdate(tournamentId, { type: "match_created", matchId: created.match.id });
-  res.status(201).json({
-    ...created.match,
-    detail: serializeBadmintonMatchDetail(created.detail, { includeScorerPin: true }),
-  });
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.match_created",
+      summary: `Match #${created.match.id} created`,
+      tournamentId,
+      resource: { type: "badminton_match", id: created.match.id },
+      metadata: {
+        fixtureId: parsed.data.fixtureId ?? null,
+        courtId: fixtureCourtId ?? null,
+      },
+    });
+
+    broadcastTournamentUpdate(tournamentId, { type: "match_created", matchId: created.match.id });
+    res.status(201).json({
+      ...created.match,
+      detail: serializeBadmintonMatchDetail(created.detail, { includeScorerPin: true }),
+    });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
 });
 
 /**
@@ -1349,6 +1592,21 @@ router.post("/matches/:matchId/verify-pin", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  const ip =
+    (typeof req.headers["x-forwarded-for"] === "string"
+      ? req.headers["x-forwarded-for"].split(",")[0]?.trim()
+      : null) ||
+    req.socket.remoteAddress ||
+    "unknown";
+  const rateKey = `${tournamentId}:${matchId}:${ip}`;
+  if (!consumePinVerifyAttempt(rateKey)) {
+    return void res.status(429).json({
+      error: "Too many PIN attempts. Wait a minute and try again.",
+      code: "PIN_RATE_LIMIT",
+      ok: false,
+    });
+  }
+
   const ok = await verifyMatchScorerPin(tournamentId, matchId, parsed.data.pin);
   res.json({ ok });
 });
@@ -1370,13 +1628,22 @@ router.patch("/matches/:matchId", async (req, res) => {
     rightSideJson: z.record(z.unknown()).optional(),
     scorerPin: z.string().max(20).optional(),
     umpireName: z.string().max(100).nullable().optional(),
+    scheduledAt: z.string().min(1).nullable().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
   try {
-    const updated = await updateBadmintonMatch(matchId, tournamentId, parsed.data);
+    const updated = await updateBadmintonMatch(matchId, tournamentId, {
+      ...parsed.data,
+      scheduledAt:
+        parsed.data.scheduledAt === undefined
+          ? undefined
+          : parsed.data.scheduledAt
+            ? new Date(parsed.data.scheduledAt)
+            : null,
+    });
     broadcastTournamentUpdate(tournamentId, { type: "match_updated", matchId });
     res.json({
       ...updated,
@@ -1531,11 +1798,23 @@ router.post("/matches/:matchId/start", async (req, res) => {
       actorFrom(req, usedPin),
     );
 
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.match_started",
+      summary: `Match #${matchId} started`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+      metadata: { viaPin: usedPin },
+    });
+
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
+      return void res.status(e.status).json({
+        error: friendlyBadmintonCommandMessage(e.message),
+        code: e.code,
+      });
     }
     throw e;
   }
@@ -1708,11 +1987,22 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
       actorFrom(req, false),
       parsed.data.reason,
     );
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.match_retired",
+      summary: `Match #${matchId} retired (${parsed.data.retiringSide})`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+      metadata: { retiringSide: parsed.data.retiringSide, reason: parsed.data.reason ?? null },
+    });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
+      return void res.status(e.status).json({
+        error: friendlyBadmintonCommandMessage(e.message),
+        code: e.code,
+      });
     }
     throw e;
   }
@@ -1742,11 +2032,22 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
       actorFrom(req, false),
       parsed.data.reason,
     );
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.match_walkover",
+      summary: `Match #${matchId} walkover (${parsed.data.winningSide})`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+      metadata: { winningSide: parsed.data.winningSide, reason: parsed.data.reason ?? null },
+    });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
+      return void res.status(e.status).json({
+        error: friendlyBadmintonCommandMessage(e.message),
+        code: e.code,
+      });
     }
     throw e;
   }
@@ -2018,16 +2319,13 @@ router.get("/dashboard", async (req, res) => {
   });
 });
 
-// ─── Draw generator ───────────────────────────────────────────────────────────
+// ─── Auto Generate algorithm (planning only — fixtures via writer) ───────────
 
 function generateKnockoutDraw(
-  tournamentId: number,
-  categoryId: number,
+  _tournamentId: number,
+  _categoryId: number,
   registrations: Array<{ id: number; seedNumber: number | null }>,
 ): Array<{
-  tournamentId: number;
-  categoryId: number;
-  drawId: number;
   slotNumber: number;
   registrationAId: number | null;
   registrationBId: number | null;
@@ -2049,13 +2347,10 @@ function generateKnockoutDraw(
   const fixtures = [];
   for (let i = 0; i < bracketSize; i += 2) {
     fixtures.push({
-      tournamentId,
-      categoryId,
-      drawId: 0,
       slotNumber: Math.floor(i / 2) + 1,
       registrationAId: slots[i] ?? null,
       registrationBId: slots[i + 1] ?? null,
-      status: slots[i] && slots[i + 1] ? "scheduled" : "walkover",
+      status: slots[i] && slots[i + 1] ? "unscheduled" : "walkover",
     });
   }
   return fixtures;

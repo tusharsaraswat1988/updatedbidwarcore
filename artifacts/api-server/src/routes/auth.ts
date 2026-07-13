@@ -12,7 +12,7 @@ import {
   getLoginGuardStatus,
   recordLoginFailure,
 } from "../lib/login-attempt-guard";
-import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from "../lib/jwt";
+import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie, COOKIE_NAME } from "../lib/jwt";
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
@@ -216,11 +216,33 @@ router.post("/auth/admin/logout", (req, res) => {
 });
 
 router.get("/auth/admin/me", (req, res) => {
+  const hasAuthCookie = Boolean(req.cookies?.[COOKIE_NAME]);
   if (!req.jwtUser.isAdmin) {
-    res.json({ isAdmin: false, adminLevel: null });
+    req.log.info(
+      {
+        path: "/auth/admin/me",
+        hasAuthCookie,
+        isAdmin: false,
+        host: req.headers.host ?? null,
+      },
+      "admin/me — not an admin session",
+    );
+    res.json({
+      isAdmin: false,
+      adminLevel: null,
+      hasAuthCookie,
+      host: req.headers.host ?? null,
+      hint: "Log in at /admin/login on this same host, then retry.",
+      loginPath: "/admin/login",
+    });
     return;
   }
-  res.json({ isAdmin: true, adminLevel: req.jwtUser.adminLevel ?? "master" });
+  res.json({
+    isAdmin: true,
+    adminLevel: req.jwtUser.adminLevel ?? "master",
+    hasAuthCookie: true,
+    host: req.headers.host ?? null,
+  });
 });
 
 // ─── Unified /auth/me — returns current JWT claims without any DB lookup ───────

@@ -6,6 +6,8 @@ export interface StoredGoogleSheetsTokens {
   accessToken: string | null;
   tokenExpiry: Date | null;
   email: string | null;
+  /** Space-delimited scopes last granted by Google (used for incremental auth / re-consent). */
+  grantedScopes: string[] | null;
 }
 
 const ADMIN_SETTINGS_KEY = "google_sheets:admin";
@@ -20,6 +22,7 @@ function parseAdminTokens(raw: string | null | undefined): StoredGoogleSheetsTok
       accessToken: parsed.accessToken ?? null,
       tokenExpiry: parsed.tokenExpiry ? new Date(parsed.tokenExpiry) : null,
       email: parsed.email ?? null,
+      grantedScopes: Array.isArray(parsed.grantedScopes) ? parsed.grantedScopes : null,
     };
   } catch {
     return null;
@@ -51,6 +54,8 @@ export async function loadGoogleSheetsTokens(ownerKey: string): Promise<StoredGo
     accessToken: organizer.accessToken ?? null,
     tokenExpiry: organizer.tokenExpiry ?? null,
     email: organizer.email ?? null,
+    // Organizer columns do not persist scopes yet; treat as unknown.
+    grantedScopes: null,
   };
 }
 
@@ -64,6 +69,7 @@ export async function saveGoogleSheetsTokens(
       accessToken: tokens.accessToken,
       tokenExpiry: tokens.tokenExpiry?.toISOString() ?? null,
       email: tokens.email,
+      grantedScopes: tokens.grantedScopes,
     });
     await db
       .insert(settingsTable)

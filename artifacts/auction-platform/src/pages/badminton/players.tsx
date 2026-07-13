@@ -15,6 +15,8 @@ import {
   PLAYER_PHOTO_WIDTH,
 } from "@/lib/player-photo";
 import { badmintonFetch } from "@/lib/badminton-api";
+import { toastError, toastSuccess } from "@/lib/badminton-ux";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
@@ -94,6 +96,8 @@ export default function BadmintonPlayersPage() {
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editPlayer, setEditPlayer] = useState<BadmintonPlayer | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BadmintonPlayer | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const { data: players = [], isLoading } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
@@ -109,12 +113,25 @@ export default function BadmintonPlayersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (playerId: number) => {
-      await fetch(
+      const res = await fetch(
         `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${playerId}`,
         { method: "DELETE", credentials: "include" },
       );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Could not delete player");
+      }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
+      toastSuccess("Player deleted");
+      setDeleteTarget(null);
+      setDeleteError("");
+    },
+    onError: (e) => {
+      setDeleteError(e instanceof Error ? e.message : "Could not delete player");
+      toastError(e, "Could not delete player");
+    },
   });
 
   const teamOptions = useMemo(() => {
@@ -164,7 +181,7 @@ export default function BadmintonPlayersPage() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Players"
-        subtitle={`${players.length} registered`}
+        subtitle="Register players for category entries and fixtures"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
@@ -244,9 +261,8 @@ export default function BadmintonPlayersPage() {
                 player={player}
                 onEdit={() => { setEditPlayer(player); setShowForm(true); }}
                 onDelete={() => {
-                  if (window.confirm(`Delete ${playerFullName(player)}?`)) {
-                    deleteMutation.mutate(player.id);
-                  }
+                  setDeleteError("");
+                  setDeleteTarget(player);
                 }}
               />
             ))}
@@ -262,6 +278,7 @@ export default function BadmintonPlayersPage() {
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-match-roster", tournamentId] });
+            toastSuccess(editPlayer ? "Player updated" : "Player added");
             setShowForm(false);
             setEditPlayer(null);
           }}
@@ -276,10 +293,37 @@ export default function BadmintonPlayersPage() {
             qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-match-roster", tournamentId] });
             qc.invalidateQueries({ queryKey: ["master-players", tournamentId] });
+            toastSuccess("Players imported");
             setShowImport(false);
           }}
         />
       )}
+
+      <ConfirmActionDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete player?"
+        description={
+          <div className="space-y-2">
+            <p>
+              Delete{" "}
+              <span className="text-foreground font-medium">
+                {deleteTarget ? playerFullName(deleteTarget) : "this player"}
+              </span>
+              ?
+            </p>
+            <p>They will be removed from the roster. Category entries that use this player may need updating.</p>
+          </div>
+        }
+        confirmLabel="Delete player"
+        busy={deleteMutation.isPending}
+        error={deleteError}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+        }}
+      />
     </HubPageShell>
   );
 }
@@ -695,17 +739,19 @@ function PlayerCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <div className="flex flex-col gap-1">
           <button
+            type="button"
             onClick={onEdit}
-            className="w-8 h-8 rounded-md bg-secondary hover:bg-accent border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            className="min-h-11 min-w-11 rounded-md bg-secondary hover:bg-accent border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Edit player"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
+            type="button"
             onClick={onDelete}
-            className="w-8 h-8 rounded-md bg-destructive/10 hover:bg-destructive/20 border border-destructive/25 flex items-center justify-center text-destructive transition-colors"
+            className="min-h-11 min-w-11 rounded-md bg-destructive/10 hover:bg-destructive/20 border border-destructive/25 flex items-center justify-center text-destructive transition-colors"
             aria-label="Delete player"
           >
             <Trash2 className="w-3.5 h-3.5" />
