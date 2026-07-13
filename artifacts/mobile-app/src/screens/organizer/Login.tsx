@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Clock, Eye, EyeOff } from "lucide-react";
 import { useLocation } from "wouter";
+import { Capacitor } from "@capacitor/core";
 import { MOBILE_APP_BASE } from "@workspace/api-base/mobile-app-urls";
 import { AppShell, BrandMark } from "@/components/AppShell";
 import { SwitchRoleButton } from "@/components/SwitchRoleButton";
 import { useOrganizerAuth } from "@/auth/organizer/AuthContext";
 import {
+  exchangeGoogleNativeHandoff,
   fetchAuthConfig,
   fetchLoginGuardStatus,
   organizerGoogleSignInUrl,
@@ -22,6 +24,8 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
     "Google OAuth redirect URI is not registered. Add the Authorized redirect URI in Google Cloud Console.",
   not_configured: "Google login is not configured yet.",
   no_email: "Your Google account did not provide an email address.",
+  needs_profile:
+    "Finish creating your Organizer account once on bidwar.in (mobile number), then sign in here with Google.",
 };
 
 /**
@@ -60,6 +64,70 @@ export function OrganizerLoginScreen() {
       // Prefer full navigation to dashboard so the post-OAuth landing is authoritative.
       window.location.assign(`${MOBILE_APP_BASE}/organizer/dashboard?google_ok=1`);
     }
+
+    const handoff = params.get("google_handoff");
+    if (handoff) {
+      void (async () => {
+        setSubmitting(true);
+        const result = await exchangeGoogleNativeHandoff(handoff);
+        if (result.success) {
+          window.location.assign(`${MOBILE_APP_BASE}/organizer/dashboard?google_ok=1`);
+          return;
+        }
+        setError(result.error || "Google sign-in failed. Please try again.");
+        setSubmitting(false);
+      })();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let remove: (() => void) | undefined;
+    void (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        const { Browser } = await import("@capacitor/browser");
+        const handle = await App.addListener("appUrlOpen", ({ url }) => {
+          void (async () => {
+            try {
+              await Browser.close();
+            } catch {
+              // ignore
+            }
+            try {
+              const parsed = new URL(url);
+              if (parsed.protocol !== "bidwar:" || parsed.hostname !== "oauth-complete") return;
+              const handoff = parsed.searchParams.get("handoff");
+              const err = parsed.searchParams.get("error");
+              if (err) {
+                setError(GOOGLE_ERROR_MESSAGES[err] ?? "Google sign-in failed. Please try again.");
+                return;
+              }
+              if (!handoff) return;
+              setSubmitting(true);
+              const result = await exchangeGoogleNativeHandoff(handoff);
+              if (result.success) {
+                window.location.assign(`${MOBILE_APP_BASE}/organizer/dashboard?google_ok=1`);
+                return;
+              }
+              setError(result.error || "Google sign-in failed. Please try again.");
+              setSubmitting(false);
+            } catch {
+              setError("Google sign-in failed. Please try again.");
+              setSubmitting(false);
+            }
+          })();
+        });
+        remove = () => {
+          void handle.remove();
+        };
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => remove?.();
   }, []);
 
   useEffect(() => {
@@ -135,9 +203,25 @@ export function OrganizerLoginScreen() {
     setSubmitting(false);
   }
 
-  function handleGoogle() {
+  async function handleGoogle() {
     const next = `${MOBILE_APP_BASE}/organizer/dashboard`;
-    window.location.href = organizerGoogleSignInUrl(next);
+    const native = Capacitor.isNativePlatform();
+    const path = organizerGoogleSignInUrl(next, {
+      nativeApp: native ? "android" : undefined,
+    });
+    if (native) {
+      // Google blocks OAuth inside Android WebView (403 disallowed_useragent).
+      // Open the full OAuth round-trip in Chrome Custom Tabs, then return via bidwar://
+      try {
+        const { Browser } = await import("@capacitor/browser");
+        const absolute = new URL(path, window.location.origin).toString();
+        await Browser.open({ url: absolute });
+      } catch {
+        window.location.href = path;
+      }
+      return;
+    }
+    window.location.href = path;
   }
 
   return (
