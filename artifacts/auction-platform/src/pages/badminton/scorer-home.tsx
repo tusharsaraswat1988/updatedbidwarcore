@@ -28,6 +28,8 @@ import {
   badmintonScorerHomePath,
   badmintonUmpireScorerPath,
 } from "@/lib/badminton-routes";
+import { TeamPlayerVs } from "@/components/badminton/team-player-card";
+import { identityFromCombinedLabel } from "@/lib/team-player-identity";
 import { cn } from "@/lib/utils";
 
 function formatScheduledTime(iso: string | null): string {
@@ -89,9 +91,13 @@ function MatchSummary({
               {match.status === "LIVE" ? "LIVE" : match.status}
             </span>
           </div>
-          <p className="text-white text-lg font-black leading-tight">{match.playerA}</p>
-          <p className="text-white/35 text-[10px] font-bold uppercase tracking-[0.2em] my-1">vs</p>
-          <p className="text-white text-lg font-black leading-tight">{match.playerB}</p>
+          <TeamPlayerVs
+            left={identityFromCombinedLabel(match.playerA)}
+            right={identityFromCombinedLabel(match.playerB)}
+            size="sm"
+            layout="stack"
+            tone="led"
+          />
           <p className="text-white/40 text-xs mt-2">{formatScheduledTime(match.scheduledAt)}</p>
         </>
       ) : (
@@ -128,10 +134,14 @@ function MatchListCard({
           {match.status === "LIVE" ? "LIVE (Resume)" : match.status}
         </span>
       </div>
-      <div className="text-center py-3 space-y-1">
-        <p className="text-white text-xl font-black leading-tight break-words">{match.playerA}</p>
-        <p className="text-white/35 text-xs font-bold uppercase tracking-[0.2em]">vs</p>
-        <p className="text-white text-xl font-black leading-tight break-words">{match.playerB}</p>
+      <div className="text-center py-3">
+        <TeamPlayerVs
+          left={identityFromCombinedLabel(match.playerA)}
+          right={identityFromCombinedLabel(match.playerB)}
+          size="md"
+          layout="stack"
+          tone="led"
+        />
       </div>
       <p className="text-white/40 text-sm text-center mb-4">{formatScheduledTime(match.scheduledAt)}</p>
       <button

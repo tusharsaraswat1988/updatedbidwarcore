@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BtnPrimary, hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
 
@@ -539,6 +540,10 @@ export function HubMatchCard({
 
   rightLabel,
 
+  leftIdentity,
+
+  rightIdentity,
+
   leftScore,
 
   rightScore,
@@ -568,6 +573,10 @@ export function HubMatchCard({
   leftLabel?: string;
 
   rightLabel?: string;
+
+  leftIdentity?: import("@/lib/team-player-identity").TeamPlayerIdentity;
+
+  rightIdentity?: import("@/lib/team-player-identity").TeamPlayerIdentity;
 
   leftScore?: number;
 
@@ -671,7 +680,19 @@ export function HubMatchCard({
 
                 {servingSide === "left" && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
 
-                <p className="text-foreground font-semibold text-sm truncate">{leftLabel}</p>
+                {leftIdentity ? (
+                  <TeamPlayerCard
+                    identity={leftIdentity}
+                    size="xs"
+                    layout="inline"
+                    showBadge
+                    className="min-w-0"
+                    playerClassName="text-foreground font-semibold text-sm"
+                    teamClassName="text-primary/80"
+                  />
+                ) : (
+                  <p className="text-foreground font-semibold text-sm truncate">{leftLabel}</p>
+                )}
 
               </div>
 
@@ -715,7 +736,20 @@ export function HubMatchCard({
 
               <div className="flex items-center gap-1.5 mb-1 justify-end">
 
-                <p className="text-foreground font-semibold text-sm truncate">{rightLabel}</p>
+                {rightIdentity ? (
+                  <TeamPlayerCard
+                    identity={rightIdentity}
+                    size="xs"
+                    layout="inline"
+                    align="end"
+                    showBadge
+                    className="min-w-0"
+                    playerClassName="text-foreground font-semibold text-sm"
+                    teamClassName="text-primary/80"
+                  />
+                ) : (
+                  <p className="text-foreground font-semibold text-sm truncate">{rightLabel}</p>
+                )}
 
                 {servingSide === "right" && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
 

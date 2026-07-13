@@ -7,18 +7,17 @@
  */
 
 import { useEffect, useState } from "react";
-import { Link, useLocation, useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { Check } from "lucide-react";
 import {
   HubPageShell,
-  PageHeader,
-  BtnPrimary,
   BtnSecondary,
   hubPanelClass,
   FormField,
   FormError,
   inputClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import {
   useBadmintonScoringFormat,
   useSaveBadmintonScoringFormat,
@@ -159,28 +158,31 @@ export default function BadmintonScoringFormatPage() {
     setError("");
     try {
       await saveMutation.mutateAsync({ presetId, format });
-      toastSuccess("Match format saved", "New matches will use these rules.");
+      toastSuccess("Scoring rules saved", "New matches will use these rules.");
       if (andContinue) {
         setLocation(courtsHref);
         return;
       }
-      setMessage("Match format saved. New matches will use these rules.");
+      setMessage("Scoring rules saved. New matches will use these rules.");
     } catch (e) {
       const msg =
-        e instanceof Error ? e.message : "Could not save match format. Try again.";
+        e instanceof Error ? e.message : "Could not save scoring rules. Try again.";
       setError(msg);
-      toastError(e, "Could not save match format");
+      toastError(e, "Could not save scoring rules");
     }
   }
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        eyebrow="Tournament setup"
-        title="Match Format"
-        subtitle="How will matches be scored? Pick a preset — most organizers use Standard BWF."
-      />
-
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="scoring_format"
+        onContinue={() => {
+          void handleSave(true);
+        }}
+        continueLabel={saveMutation.isPending ? "Saving…" : "Continue"}
+        continueDisabled={saveMutation.isPending}
+      >
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
         {isLoading ? (
           <div className="h-48 rounded-xl bg-muted/20 animate-pulse" />
@@ -195,7 +197,7 @@ export default function BadmintonScoringFormatPage() {
             <div className={cn(hubPanelClass, "space-y-3")}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-bold uppercase tracking-widest text-primary">
-                  Current Match Format
+                  Current Scoring Rules
                 </h2>
                 <span className="text-[11px] font-semibold text-primary/80 border border-primary/20 rounded-md px-2 py-0.5">
                   {chipLabel}
@@ -369,31 +371,15 @@ export default function BadmintonScoringFormatPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-3 pt-1">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <BtnPrimary
-                  type="button"
-                  onClick={() => handleSave(true)}
-                  disabled={saveMutation.isPending}
-                  className="w-full sm:w-auto"
-                >
-                  {saveMutation.isPending ? "Saving…" : "Save & Continue"}
-                </BtnPrimary>
-                <BtnSecondary
-                  type="button"
-                  onClick={() => handleSave(false)}
-                  disabled={saveMutation.isPending}
-                  className="w-full sm:w-auto"
-                >
-                  Save Changes
-                </BtnSecondary>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Next setup step:{" "}
-                <Link href={courtsHref} className="text-primary hover:underline font-medium">
-                  Courts
-                </Link>
-              </p>
+              <div className="flex flex-col gap-3 pt-1">
+              <BtnSecondary
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={saveMutation.isPending}
+                className="w-full sm:w-auto"
+              >
+                Save Changes
+              </BtnSecondary>
               {message ? (
                 <p className="text-sm text-emerald-400 font-medium" role="status">
                   {message}
@@ -404,6 +390,7 @@ export default function BadmintonScoringFormatPage() {
           </>
         )}
       </div>
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }

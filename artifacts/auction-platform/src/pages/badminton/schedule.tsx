@@ -19,8 +19,12 @@ import { badmintonMatchControlPath } from "@/lib/badminton-routes";
 import { friendlyBadmintonError, formatFixtureStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
+  buildFranchiseLookupFromPlayers,
+  formatTeamPlayerLine,
+  identityFromRegistrationPlayers,
+} from "@/lib/team-player-identity";
+import {
   EmptyState,
-  PageHeader,
   HubPageShell,
   hubCardClass,
   FormModal,
@@ -31,6 +35,7 @@ import {
   inputClass,
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 
 interface BadmintonCourt {
   id: number;
@@ -64,10 +69,26 @@ interface BadmintonFixture {
 interface RegistrationRow {
   registration: {
     id: number;
+    player1Id?: number;
+    player2Id?: number | null;
     status: string;
   };
-  player1: { firstName: string; lastName: string; displayName?: string | null } | null;
-  player2?: { firstName: string; lastName: string; displayName?: string | null } | null;
+  player1: {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    displayName?: string | null;
+    franchiseName?: string | null;
+    franchiseLogoUrl?: string | null;
+  } | null;
+  player2?: {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    displayName?: string | null;
+    franchiseName?: string | null;
+    franchiseLogoUrl?: string | null;
+  } | null;
 }
 
 function playerLabel(
@@ -207,21 +228,49 @@ export default function BadmintonSchedulePage() {
     enabled: !!tournamentId && categoryIdsKey.length > 0,
   });
 
+  const { data: players = [] } = useQuery<
+    Array<{
+      id: number;
+      franchiseName?: string | null;
+      franchiseLogoUrl?: string | null;
+    }>
+  >({
+    queryKey: ["badminton-players", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/players`),
+    enabled: !!tournamentId,
+  });
+
+  const franchiseByPlayerId = useMemo(
+    () => buildFranchiseLookupFromPlayers(players),
+    [players],
+  );
+
   const sideLabelByRegId = useMemo(() => {
     const map = new Map<number, string>();
     for (const [catIdRaw, rows] of Object.entries(regsByCategory)) {
       const cat = categoryById.get(Number(catIdRaw));
       const doubles = cat?.matchType !== "singles";
       for (const row of rows) {
-        const a = playerLabel(row.player1);
-        map.set(
-          row.registration.id,
-          doubles ? `${a} / ${playerLabel(row.player2 ?? null)}` : a,
+        const playersForReg = [
+          row.player1
+            ? { ...row.player1, id: row.player1.id ?? row.registration.player1Id }
+            : null,
+          row.player2
+            ? {
+                ...row.player2,
+                id: row.player2.id ?? row.registration.player2Id ?? undefined,
+              }
+            : null,
+        ];
+        const identity = identityFromRegistrationPlayers(
+          doubles ? playersForReg : [playersForReg[0]],
+          franchiseByPlayerId,
         );
+        map.set(row.registration.id, formatTeamPlayerLine(identity));
       }
     }
     return map;
-  }, [regsByCategory, categoryById]);
+  }, [regsByCategory, categoryById, franchiseByPlayerId]);
 
   const courtById = useMemo(() => new Map(courts.map((c) => [c.id, c])), [courts]);
 
@@ -301,17 +350,13 @@ export default function BadmintonSchedulePage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Scheduling"
-        subtitle="Assign courts and times — then create matches from Control Center"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="scheduling"
+        continueHref={`/tournament/${tournamentId}/badminton`}
+        continueLabel="Continue to Ready"
+        headerActions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/tournament/${tournamentId}/badminton/control`}
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
-            >
-              Control Center
-            </Link>
             {courts.length === 0 ? (
               <Link href={`/tournament/${tournamentId}/badminton/courts`}>
                 <BtnPrimary type="button">Set up courts</BtnPrimary>
@@ -326,8 +371,7 @@ export default function BadmintonSchedulePage() {
             ) : null}
           </div>
         }
-      />
-
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
         {actionError ? <FormError message={actionError} /> : null}
 
@@ -354,9 +398,9 @@ export default function BadmintonSchedulePage() {
           <EmptyState
             icon={CalendarClock}
             title="No fixtures to schedule"
-            desc="Create fixtures in Draw & Fixtures first, then return here to assign courts and times."
+            desc="Create fixtures in Tournament Draw first, then return here to assign courts and times."
             action={{
-              label: "Open Draw & Fixtures",
+              label: "Open Tournament Draw",
               href: `/tournament/${tournamentId}/badminton/fixtures`,
             }}
           />
@@ -513,6 +557,7 @@ export default function BadmintonSchedulePage() {
         error={unscheduleError}
         onConfirm={() => void handleUnscheduleConfirm()}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }

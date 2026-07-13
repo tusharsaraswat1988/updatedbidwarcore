@@ -23,6 +23,11 @@ import {
 } from "@/components/badminton/pair-side-picker";
 import { CourtAutocomplete } from "@/components/badminton/court-autocomplete";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
+import {
+  formatTeamPlayerVsLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 import {
   BtnPrimary,
   DarkSelect,
@@ -332,7 +337,10 @@ function MatchRow({
   const isLive = match.status === "live";
   const isCompleted = match.status === "completed";
   const matchLabel = state
-    ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}`
+    ? formatTeamPlayerVsLine(
+        identityFromSideInfo(state.leftSide, { preferShort: true }),
+        identityFromSideInfo(state.rightSide, { preferShort: true }),
+      )
     : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
 
   function handleConfirmDelete() {
@@ -367,7 +375,13 @@ function MatchRow({
         <div className="flex-1 min-w-0">
           {state ? (
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-foreground font-semibold text-sm">{state.leftSide.shortLabel}</span>
+              <TeamPlayerCard
+                identity={identityFromSideInfo(state.leftSide, { preferShort: true })}
+                size="xs"
+                layout="inline"
+                className="min-w-0"
+                playerClassName="text-foreground font-semibold text-sm"
+              />
               <div className="flex items-center gap-1">
                 <span className={cn(
                   "text-xl font-display font-bold tabular-nums",
@@ -383,7 +397,13 @@ function MatchRow({
                   {state.rightScore}
                 </span>
               </div>
-              <span className="text-foreground font-semibold text-sm">{state.rightSide.shortLabel}</span>
+              <TeamPlayerCard
+                identity={identityFromSideInfo(state.rightSide, { preferShort: true })}
+                size="xs"
+                layout="inline"
+                className="min-w-0"
+                playerClassName="text-foreground font-semibold text-sm"
+              />
               <span className="text-muted-foreground text-xs font-mono">G{state.currentGame}</span>
             </div>
           ) : (

@@ -47,10 +47,17 @@ export type ScorerHomeSessionPayload = {
 
 export function sideDisplayLabel(side: Record<string, unknown> | null | undefined): string {
   if (!side) return "TBD";
-  if (typeof side.label === "string" && side.label.trim()) return side.label.trim();
-  if (typeof side.shortLabel === "string" && side.shortLabel.trim()) return side.shortLabel.trim();
-  if (typeof side.displayName === "string" && side.displayName.trim()) return side.displayName.trim();
-  return "TBD";
+  const player =
+    (typeof side.label === "string" && side.label.trim()) ||
+    (typeof side.shortLabel === "string" && side.shortLabel.trim()) ||
+    (typeof side.displayName === "string" && side.displayName.trim()) ||
+    "";
+  if (!player) return "TBD";
+  const team =
+    (typeof side.franchiseName === "string" && side.franchiseName.trim()) ||
+    (typeof side.teamName === "string" && side.teamName.trim()) ||
+    "";
+  return team ? `${team} · ${player}` : player;
 }
 
 export function mapMatchStatusToScorerHomeUi(rawStatus: string): {

@@ -15,9 +15,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { ListTree } from "lucide-react";
+import { TeamPlayerVs } from "@/components/badminton/team-player-card";
+import {
+  buildFranchiseLookupFromPlayers,
+  identityFromRegistrationPlayers,
+  type TeamPlayerIdentity,
+} from "@/lib/team-player-identity";
 import {
   EmptyState,
-  PageHeader,
   HubPageShell,
   hubCardClass,
   FormModal,
@@ -28,6 +33,7 @@ import {
   inputClass,
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 
@@ -70,8 +76,22 @@ interface RegistrationRow {
     seedNumber?: number | null;
     status: string;
   };
-  player1: { firstName: string; lastName: string; displayName?: string | null } | null;
-  player2?: { firstName: string; lastName: string; displayName?: string | null } | null;
+  player1: {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    displayName?: string | null;
+    franchiseName?: string | null;
+    franchiseLogoUrl?: string | null;
+  } | null;
+  player2?: {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    displayName?: string | null;
+    franchiseName?: string | null;
+    franchiseLogoUrl?: string | null;
+  } | null;
 }
 
 type ManualPair = { registrationAId: string; registrationBId: string };
@@ -130,18 +150,43 @@ export default function BadmintonFixturesPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Draw & Fixtures"
-        subtitle="Plan who plays whom — generate, import, or create fixtures manually"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="draws"
+        headerActions={
           sorted.length > 0 ? (
             <Link href={`/tournament/${tournamentId}/badminton/schedule`}>
-              <BtnPrimary type="button">Go to Scheduling</BtnPrimary>
+              <BtnPrimary type="button">Go to Court Schedule</BtnPrimary>
             </Link>
           ) : null
         }
-      />
-
+        guideExtras={
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              {
+                title: "Generate Automatically",
+                desc: "Software builds the draw from event entries.",
+              },
+              {
+                title: "Import Existing Draw",
+                desc: "Bring in a draw you already planned elsewhere.",
+              },
+              {
+                title: "Create Manually",
+                desc: "Enter each pairing yourself.",
+              },
+            ].map((option) => (
+              <div
+                key={option.title}
+                className="rounded-lg border border-border/70 bg-background/50 px-3 py-2.5"
+              >
+                <p className="text-xs font-semibold text-foreground">{option.title}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
+              </div>
+            ))}
+          </div>
+        }
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
         {isLoading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Loading fixtures">
@@ -152,10 +197,10 @@ export default function BadmintonFixturesPage() {
         ) : sorted.length === 0 ? (
           <EmptyState
             icon={ListTree}
-            title="No categories yet"
-            desc="Define events on Categories first, then return here to create Draw & Fixtures."
+            title="No events yet"
+            desc="Define events first, then return here to create the tournament draw."
             action={{
-              label: "Open Categories",
+              label: "Open Events",
               href: `/tournament/${tournamentId}/badminton/categories`,
             }}
           />
@@ -177,6 +222,7 @@ export default function BadmintonFixturesPage() {
           })
         )}
       </div>
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }
@@ -209,12 +255,38 @@ function CategoryFixturesPanel({
     enabled: expanded && !!tournamentId,
   });
 
+  const { data: players = [] } = useQuery<
+    Array<{
+      id: number;
+      franchiseName?: string | null;
+      franchiseLogoUrl?: string | null;
+    }>
+  >({
+    queryKey: ["badminton-players", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/players`),
+    enabled: expanded && !!tournamentId,
+  });
+
+  const franchiseByPlayerId = buildFranchiseLookupFromPlayers(players);
+
   const accepted = registrations.filter((r) => r.registration.status === "accepted");
   const acceptedCount = accepted.length;
   const isDoubles = category.matchType !== "singles";
-  const regNameMap = new Map<number, string>();
+  const regIdentityMap = new Map<number, TeamPlayerIdentity>();
   for (const row of registrations) {
-    regNameMap.set(row.registration.id, registrationLabel(row, isDoubles));
+    const playersForReg = [
+      row.player1 ? { ...row.player1, id: row.player1.id ?? row.registration.player1Id } : null,
+      row.player2
+        ? { ...row.player2, id: row.player2.id ?? row.registration.player2Id ?? undefined }
+        : null,
+    ];
+    regIdentityMap.set(
+      row.registration.id,
+      identityFromRegistrationPlayers(
+        isDoubles ? playersForReg : [playersForReg[0]],
+        franchiseByPlayerId,
+      ),
+    );
   }
 
   function invalidatePlanning() {
@@ -349,7 +421,7 @@ function CategoryFixturesPanel({
                         <FixturePlanCard
                           key={fixture.id}
                           fixture={fixture}
-                          regNameMap={regNameMap}
+                          regIdentityMap={regIdentityMap}
                           tournamentId={tournamentId}
                         />
                       ))}
@@ -579,19 +651,19 @@ function ImportPlaceholderModal({ onClose }: { onClose: () => void }) {
 
 function FixturePlanCard({
   fixture,
-  regNameMap,
+  regIdentityMap,
   tournamentId,
 }: {
   fixture: BadmintonFixture;
-  regNameMap: Map<number, string>;
+  regIdentityMap: Map<number, TeamPlayerIdentity>;
   tournamentId: number;
 }) {
   const sideA = fixture.registrationAId
-    ? (regNameMap.get(fixture.registrationAId) ?? "TBD")
-    : "BYE";
+    ? (regIdentityMap.get(fixture.registrationAId) ?? { playerName: "TBD" })
+    : { playerName: "BYE" };
   const sideB = fixture.registrationBId
-    ? (regNameMap.get(fixture.registrationBId) ?? "TBD")
-    : "BYE";
+    ? (regIdentityMap.get(fixture.registrationBId) ?? { playerName: "TBD" })
+    : { playerName: "BYE" };
 
   return (
     <div className="rounded-xl bg-white/5 border border-white/8 p-4">
@@ -612,11 +684,7 @@ function FixturePlanCard({
           {fixture.status}
         </span>
       </div>
-      <div className="space-y-1.5">
-        <p className="text-white text-sm font-medium truncate">{sideA}</p>
-        <p className="text-white/30 text-xs text-center">vs</p>
-        <p className="text-white text-sm font-medium truncate">{sideB}</p>
-      </div>
+      <TeamPlayerVs left={sideA} right={sideB} size="sm" layout="stack" tone="muted" />
       {fixture.scoringMatchId ? (
         <a
           href={`/tournament/${tournamentId}/badminton/matches/${fixture.scoringMatchId}/control`}

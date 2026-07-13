@@ -17,6 +17,8 @@ import {
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
+import { identityFromOrganizerPlayer } from "@/lib/team-player-identity";
 import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
@@ -36,11 +38,12 @@ import {
   FormModal,
   HubPageShell,
   inputClass,
-  PageHeader,
   SearchInput,
   AsyncLoadingPanel,
   hubCardClass,
+  hubPanelClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -146,6 +149,10 @@ export default function BadmintonPlayersPage() {
     }));
   }, [players]);
 
+  const importedPlayers = players.length;
+  const importedTeams = teamOptions.length;
+  const playersWithoutTeam = players.filter((p) => !p.franchiseName?.trim()).length;
+
   const filtersActive =
     genderFilter !== "all" || teamFilter !== "all" || search.trim().length > 0;
 
@@ -177,12 +184,40 @@ export default function BadmintonPlayersPage() {
     });
   }, [players, search, genderFilter, teamFilter]);
 
+  const playersByTeam = useMemo(() => {
+    const groups = new Map<
+      string,
+      { teamName: string; logoUrl: string | null; players: BadmintonPlayer[] }
+    >();
+
+    for (const player of filtered) {
+      const teamName = player.franchiseName?.trim() || "Players without Team";
+      const key = player.franchiseName?.trim() || "__none__";
+      const existing = groups.get(key);
+      if (existing) {
+        existing.players.push(player);
+      } else {
+        groups.set(key, {
+          teamName,
+          logoUrl: player.franchiseLogoUrl ?? null,
+          players: [player],
+        });
+      }
+    }
+
+    return [...groups.values()].sort((a, b) => {
+      if (a.teamName === "Players without Team") return 1;
+      if (b.teamName === "Players without Team") return -1;
+      return a.teamName.localeCompare(b.teamName);
+    });
+  }, [filtered]);
+
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Players"
-        subtitle="Register players for category entries and fixtures"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="players"
+        headerActions={
           <div className="flex items-center gap-2 flex-wrap">
             <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
             <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
@@ -190,9 +225,33 @@ export default function BadmintonPlayersPage() {
             </BtnPrimary>
           </div>
         }
-      />
-
+      >
       <div className="max-w-7xl mx-auto px-6 py-6">
+        {!isLoading && players.length > 0 ? (
+          <div className={cn(hubPanelClass, "mb-6")}>
+            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Players Imported</span>{" "}
+                <span className="font-semibold text-foreground tabular-nums">{importedPlayers}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Teams Imported</span>{" "}
+                <span className="font-semibold text-foreground tabular-nums">{importedTeams}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Players without Team</span>{" "}
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    playersWithoutTeam > 0 ? "text-amber-300" : "text-foreground",
+                  )}
+                >
+                  {playersWithoutTeam}
+                </span>
+              </p>
+            </div>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
           <SearchInput
             value={search}
@@ -254,17 +313,54 @@ export default function BadmintonPlayersPage() {
             action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((player) => (
-              <PlayerCard
-                key={player.id}
-                player={player}
-                onEdit={() => { setEditPlayer(player); setShowForm(true); }}
-                onDelete={() => {
-                  setDeleteError("");
-                  setDeleteTarget(player);
-                }}
-              />
+          <div className="space-y-8">
+            {playersByTeam.map((group) => (
+              <section key={group.teamName} className="space-y-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {group.logoUrl ? (
+                    <img
+                      src={group.logoUrl}
+                      alt=""
+                      className="w-7 h-7 rounded-md object-contain bg-white/90 border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+                      <Users className="w-3.5 h-3.5 text-primary" aria-hidden />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h2
+                      className={cn(
+                        "text-base font-display font-bold truncate",
+                        group.teamName === "Players without Team"
+                          ? "text-amber-300"
+                          : "text-foreground",
+                      )}
+                    >
+                      {group.teamName}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {group.players.length} player{group.players.length === 1 ? "" : "s"}
+                      {group.teamName !== "Players without Team"
+                        ? " · team identity from Auction"
+                        : " · add a team later if needed"}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.players.map((player) => (
+                    <PlayerCard
+                      key={player.id}
+                      player={player}
+                      onEdit={() => { setEditPlayer(player); setShowForm(true); }}
+                      onDelete={() => {
+                        setDeleteError("");
+                        setDeleteTarget(player);
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
@@ -324,6 +420,7 @@ export default function BadmintonPlayersPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }
@@ -667,6 +764,7 @@ function PlayerCard({
   const fullName = playerFullName(player);
   const initials = `${player.firstName.charAt(0)}${player.lastName.charAt(0)}`;
   const glowColor = "hsl(var(--primary))";
+  const teamName = player.franchiseName?.trim() || null;
 
   return (
     <div
@@ -676,6 +774,25 @@ function PlayerCard({
       )}
       style={{ boxShadow: `0 0 0 1px transparent, 0 0 24px ${glowColor}11` }}
     >
+      {teamName ? (
+        <div className="px-4 py-2 border-b border-border/70 bg-primary/5 flex items-center gap-2 min-w-0">
+          {player.franchiseLogoUrl ? (
+            <img
+              src={player.franchiseLogoUrl}
+              alt=""
+              className="w-5 h-5 rounded-sm object-contain flex-none bg-white/90"
+            />
+          ) : (
+            <Users className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+          )}
+          <p className="text-xs font-bold text-primary truncate">{teamName}</p>
+        </div>
+      ) : (
+        <div className="px-4 py-2 border-b border-border/70 bg-amber-500/5">
+          <p className="text-xs font-semibold text-amber-300/90">No team assigned</p>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 p-4">
         {player.photoUrl ? (
           <div
@@ -698,23 +815,14 @@ function PlayerCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="text-foreground font-display font-semibold text-base leading-tight truncate">
-            {fullName}
-          </p>
-          {player.franchiseName ? (
-            <p className="mt-1 flex items-center gap-1.5 min-w-0">
-              {player.franchiseLogoUrl ? (
-                <img
-                  src={player.franchiseLogoUrl}
-                  alt=""
-                  className="w-4 h-4 rounded-sm object-contain flex-none bg-white/90"
-                />
-              ) : null}
-              <span className="text-sm font-semibold text-primary truncate">
-                {player.franchiseName}
-              </span>
-            </p>
-          ) : null}
+          <TeamPlayerCard
+            identity={identityFromOrganizerPlayer(player)}
+            size="sm"
+            layout="stack"
+            showBadge={Boolean(player.franchiseName)}
+            playerClassName="text-foreground font-display font-semibold text-base"
+            teamClassName="text-primary"
+          />
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             {formatPlayerGender(player.gender) ? (
               <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">

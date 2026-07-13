@@ -91,6 +91,12 @@ export default function BadmintonScorerPage() {
     branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
   const matchDetail = data?.detail as Record<string, unknown> | null | undefined;
   const courtNumber = matchDetail?.courtNumber ? String(matchDetail.courtNumber) : undefined;
+  const categoryName =
+    typeof matchDetail?.categoryName === "string"
+      ? matchDetail.categoryName
+      : typeof matchDetail?.roundName === "string"
+        ? matchDetail.roundName
+        : undefined;
 
   if (!pinAccepted) {
     return (
@@ -268,6 +274,7 @@ export default function BadmintonScorerPage() {
             state={state}
             tournamentName={tournamentName}
             courtNumber={courtNumber}
+            categoryName={categoryName}
             onAwardPoint={scorer.awardPoint}
             onStartInterval={scorer.startInterval}
             onEndInterval={scorer.endInterval}

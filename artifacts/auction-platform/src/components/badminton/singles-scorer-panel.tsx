@@ -1,6 +1,10 @@
 import { useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
+import {
+  formatTeamPlayerLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 
 interface SinglesScorerPanelProps {
   state: BadmintonMatchState;
@@ -57,7 +61,7 @@ export function SinglesScorerPanel({
               "bg-[#0070f3] text-white active:scale-[0.98] disabled:opacity-40",
             )}
           >
-            + {state.leftSide.shortLabel}
+            + {formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))}
           </button>
           <button
             type="button"
@@ -68,7 +72,7 @@ export function SinglesScorerPanel({
               "bg-[#7c3aed] text-white active:scale-[0.98] disabled:opacity-40",
             )}
           >
-            + {state.rightSide.shortLabel}
+            + {formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}
           </button>
         </div>
         <button
