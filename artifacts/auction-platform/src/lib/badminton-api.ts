@@ -47,19 +47,38 @@ export type ScorerHomeMatchCard = {
   playerA: string;
   playerB: string;
   court: string | null;
+  courtId: number | null;
   scheduledAt: string | null;
   status: ScorerHomeUiStatus;
   matchStatus: string;
   actionLabel: "Start Scoring" | "Resume" | "Read Only";
   readOnly: boolean;
+  accessVia?: "match_pin" | "court_pin";
+};
+
+export type ScorerHomeCourtCard = {
+  id: number;
+  name: string;
+  shortName: string | null;
+  scorerName: string | null;
+  currentMatch: ScorerHomeMatchCard | null;
+  nextMatch: ScorerHomeMatchCard | null;
+  matches: ScorerHomeMatchCard[];
+};
+
+export type ScorerHomeSessionPayload = {
+  ok: boolean;
+  matches: ScorerHomeMatchCard[];
+  courts: ScorerHomeCourtCard[];
+  view: "court" | "courts" | "matches";
 };
 
 export async function openBadmintonScorerSession(
   tournamentId: number,
   pin: string,
-): Promise<{ ok: boolean; matches: ScorerHomeMatchCard[] }> {
+): Promise<ScorerHomeSessionPayload> {
   try {
-    return await badmintonFetch<{ ok: boolean; matches: ScorerHomeMatchCard[] }>(
+    return await badmintonFetch<ScorerHomeSessionPayload>(
       tournamentId,
       `/scorer/session`,
       { method: "POST", body: JSON.stringify({ pin }) },
@@ -70,17 +89,21 @@ export async function openBadmintonScorerSession(
   }
 }
 
+export async function fetchBadmintonScorerSession(
+  tournamentId: number,
+  pin: string,
+): Promise<ScorerHomeSessionPayload> {
+  return badmintonFetch<ScorerHomeSessionPayload>(tournamentId, `/scorer/matches`, {
+    method: "GET",
+    headers: { "x-scorer-pin": pin },
+  });
+}
+
+/** @deprecated Prefer fetchBadmintonScorerSession */
 export async function fetchBadmintonScorerMatches(
   tournamentId: number,
   pin: string,
 ): Promise<ScorerHomeMatchCard[]> {
-  const result = await badmintonFetch<{ matches: ScorerHomeMatchCard[] }>(
-    tournamentId,
-    `/scorer/matches`,
-    {
-      method: "GET",
-      headers: { "x-scorer-pin": pin },
-    },
-  );
+  const result = await fetchBadmintonScorerSession(tournamentId, pin);
   return result.matches ?? [];
 }

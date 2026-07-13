@@ -49,8 +49,9 @@ import {
   deleteBadmintonMatch,
   ensureBadmintonTournament,
   getLiveBadmintonMatches,
-  listMatchesForScorerPin,
+  openScorerHomeSession,
   serializeBadmintonMatchDetail,
+  serializeBadmintonCourt,
   verifyMatchScorerPin,
   handleRetirement,
   handleTimeout,
@@ -287,10 +288,7 @@ async function guardBadmintonScoring(
  *
  * Priority order:
  *  1. Tournament owner / admin  → always allowed
- *  2. Per-match scorer PIN      → only allows scoring on that specific match
- *
- * The PIN is looked up scoped to BOTH the tournamentId AND matchId,
- * preventing a PIN from one match authorising scoring on another.
+ *  2. Scorer PIN — Match PIN if set, else Court PIN (match overrides court)
  */
 async function canWriteScoring(
   req: Request,
@@ -302,21 +300,8 @@ async function canWriteScoring(
   const pinHeader = req.headers["x-scorer-pin"] as string | undefined;
   if (!pinHeader) return { ok: false };
 
-  // Scope PIN lookup to both tournamentId AND matchId.
-  const [detail] = await db
-    .select({ scorerPin: badmintonMatchDetailsTable.scorerPin })
-    .from(badmintonMatchDetailsTable)
-    .where(
-      and(
-        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),      // per-match
-        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),    // tenant guard
-      ),
-    )
-    .limit(1);
-
-  if (detail?.scorerPin && detail.scorerPin === pinHeader) {
-    return { ok: true, usedPin: true };
-  }
+  const ok = await verifyMatchScorerPin(tournamentId, matchId, pinHeader);
+  if (ok) return { ok: true, usedPin: true };
   return { ok: false };
 }
 
@@ -613,13 +598,18 @@ router.get("/courts", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
+  const includeScorerPin = isTournamentOwner(req, tournamentId);
   const courts = await db
     .select()
     .from(badmintonCourtsTable)
     .where(eq(badmintonCourtsTable.tournamentId, tournamentId))
     .orderBy(asc(badmintonCourtsTable.sortOrder), asc(badmintonCourtsTable.name));
 
-  res.json(courts);
+  res.json(
+    courts.map((court) =>
+      serializeBadmintonCourt(court as unknown as Record<string, unknown>, { includeScorerPin }),
+    ),
+  );
 });
 
 router.post("/courts", async (req, res) => {
@@ -633,17 +623,41 @@ router.post("/courts", async (req, res) => {
     sortOrder: z.number().int().optional(),
     streamUrl: z.string().max(500).optional(),
     hasDisplay: z.boolean().optional(),
+    scorerPin: z.string().max(20).optional(),
+    scorerName: z.string().max(100).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  const scorerPin =
+    parsed.data.scorerPin !== undefined
+      ? parsed.data.scorerPin.trim().length >= 4
+        ? parsed.data.scorerPin.trim()
+        : null
+      : null;
+  if (parsed.data.scorerPin !== undefined && parsed.data.scorerPin.trim().length > 0 && !scorerPin) {
+    return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+  }
+
   const [court] = await db
     .insert(badmintonCourtsTable)
-    .values({ tournamentId, ...parsed.data })
+    .values({
+      tournamentId,
+      name: parsed.data.name,
+      shortName: parsed.data.shortName,
+      location: parsed.data.location,
+      sortOrder: parsed.data.sortOrder,
+      streamUrl: parsed.data.streamUrl,
+      hasDisplay: parsed.data.hasDisplay,
+      scorerPin,
+      scorerName: parsed.data.scorerName?.trim() || null,
+    })
     .returning();
 
-  res.status(201).json(court);
+  res.status(201).json(
+    serializeBadmintonCourt(court as unknown as Record<string, unknown>, { includeScorerPin: true }),
+  );
 });
 
 router.patch("/courts/:courtId", async (req, res) => {
@@ -652,9 +666,43 @@ router.patch("/courts/:courtId", async (req, res) => {
   const courtId = parseId((req.params as MergedParams).courtId);
   if (!courtId) return void res.status(400).json({ error: "bad id" });
 
+  const schema = z.object({
+    name: z.string().min(1).max(100).optional(),
+    shortName: z.string().max(10).nullable().optional(),
+    location: z.string().max(200).nullable().optional(),
+    sortOrder: z.number().int().optional(),
+    streamUrl: z.string().max(500).nullable().optional(),
+    hasDisplay: z.boolean().optional(),
+    status: z.string().max(40).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
+    scorerName: z.string().max(100).nullable().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.data.name !== undefined) patch.name = parsed.data.name;
+  if (parsed.data.shortName !== undefined) patch.shortName = parsed.data.shortName;
+  if (parsed.data.location !== undefined) patch.location = parsed.data.location;
+  if (parsed.data.sortOrder !== undefined) patch.sortOrder = parsed.data.sortOrder;
+  if (parsed.data.streamUrl !== undefined) patch.streamUrl = parsed.data.streamUrl;
+  if (parsed.data.hasDisplay !== undefined) patch.hasDisplay = parsed.data.hasDisplay;
+  if (parsed.data.status !== undefined) patch.status = parsed.data.status;
+  if (parsed.data.scorerName !== undefined) {
+    patch.scorerName = parsed.data.scorerName?.trim() || null;
+  }
+  if (parsed.data.scorerPin !== undefined) {
+    const raw = parsed.data.scorerPin?.trim() ?? "";
+    if (raw.length > 0 && raw.length < 4) {
+      return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+    }
+    patch.scorerPin = raw.length >= 4 ? raw : null;
+  }
+
   const [court] = await db
     .update(badmintonCourtsTable)
-    .set({ ...req.body, updatedAt: new Date() })
+    .set(patch)
     .where(
       and(
         eq(badmintonCourtsTable.id, courtId),
@@ -664,8 +712,10 @@ router.patch("/courts/:courtId", async (req, res) => {
     .returning();
 
   if (!court) return void res.status(404).json({ error: "court not found" });
-  broadcastTournamentUpdate(tournamentId, { type: "court_updated", court });
-  res.json(court);
+  broadcastTournamentUpdate(tournamentId, { type: "court_updated", courtId });
+  res.json(
+    serializeBadmintonCourt(court as unknown as Record<string, unknown>, { includeScorerPin: true }),
+  );
 });
 
 router.delete("/courts/:courtId", async (req, res) => {
@@ -1625,8 +1675,8 @@ router.post("/matches/:matchId/verify-pin", async (req, res) => {
 });
 
 /**
- * Scorer Home — verify PIN once and list only matches assigned that PIN.
- * Does not expose organizer controls or raw PINs.
+ * Scorer Home — verify PIN once and return courts + eligible matches.
+ * Resolution: Match PIN → Court PIN → no access. Never exposes organizer controls.
  */
 router.post("/scorer/session", async (req, res) => {
   const tournamentId = tid(req);
@@ -1660,14 +1710,11 @@ router.post("/scorer/session", async (req, res) => {
     });
   }
 
-  const matches = await listMatchesForScorerPin(tournamentId, parsed.data.pin);
-  if (matches.length === 0) {
-    return void res.json({ ok: false, matches: [] });
-  }
-  res.json({ ok: true, matches });
+  const session = await openScorerHomeSession(tournamentId, parsed.data.pin);
+  res.json(session);
 });
 
-/** Refresh Scorer Home match list using the session PIN header. */
+/** Refresh Scorer Home using the session PIN header. */
 router.get("/scorer/matches", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
@@ -1687,11 +1734,11 @@ router.get("/scorer/matches", async (req, res) => {
     throw e;
   }
 
-  const matches = await listMatchesForScorerPin(tournamentId, pin);
-  if (matches.length === 0) {
+  const session = await openScorerHomeSession(tournamentId, pin);
+  if (!session.ok) {
     return void res.status(401).json({ error: "Invalid scorer PIN", code: "PIN_INVALID" });
   }
-  res.json({ matches });
+  res.json(session);
 });
 
 router.patch("/matches/:matchId", async (req, res) => {

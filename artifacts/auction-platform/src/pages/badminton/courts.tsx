@@ -44,6 +44,9 @@ interface BadmintonCourt {
   location?: string | null;
   status: string;
   sortOrder: number;
+  scorerPin?: string | null;
+  scorerName?: string | null;
+  hasScorerPin?: boolean;
 }
 
 /**
@@ -242,6 +245,14 @@ function CourtCard({
         {court.shortName && court.shortName !== court.name ? (
           <p className="text-muted-foreground text-sm">Label: {court.shortName}</p>
         ) : null}
+        {court.hasScorerPin || court.scorerPin ? (
+          <p className="text-xs text-sky-300/90 font-mono mt-1">
+            Scorer {court.scorerName ? `${court.scorerName} · ` : ""}
+            {court.scorerPin ? `PIN ${court.scorerPin}` : "PIN configured"}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-1">No court scorer PIN yet</p>
+        )}
       </div>
 
       <div className="flex gap-2 pt-1 mt-auto">
@@ -300,6 +311,8 @@ function CourtFormModal({
     shortName: court?.shortName ?? "",
     sortOrder: court?.sortOrder ?? nextSortOrder,
     status: court?.status ?? "available",
+    scorerPin: court?.scorerPin ?? "",
+    scorerName: court?.scorerName ?? "",
   });
   const [shortNameTouched, setShortNameTouched] = useState(Boolean(court?.shortName));
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -319,16 +332,22 @@ function CourtFormModal({
       setError("Court name is required");
       return;
     }
+    const pin = form.scorerPin.trim();
+    if (pin.length > 0 && pin.length < 4) {
+      setError("Scorer PIN must be at least 4 digits");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       const shortName =
         form.shortName.trim() || suggestCourtShortLabel(form.name) || undefined;
-      // Court = physical playing area only. Venue comes from Branding (read-only).
       const body: Record<string, unknown> = {
         name: form.name.trim(),
         shortName,
         sortOrder: form.sortOrder,
+        scorerPin: pin || null,
+        scorerName: form.scorerName.trim() || null,
       };
       if (court) {
         body.status = form.status;
@@ -395,6 +414,36 @@ function CourtFormModal({
           Examples: Court 1, Court 2, Court A, Center Court
         </p>
       </FormField>
+
+      <div className={cn(hubPanelClass, "space-y-4 !p-4")}>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Scorer Assignment
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            One umpire PIN for this court. Matches without their own PIN inherit it.
+          </p>
+        </div>
+        <FormField label="Scorer PIN">
+          <input
+            value={form.scorerPin}
+            onChange={(e) => setForm((p) => ({ ...p, scorerPin: e.target.value }))}
+            placeholder="4-digit PIN"
+            type="tel"
+            inputMode="numeric"
+            maxLength={8}
+            className={inputClass}
+          />
+        </FormField>
+        <FormField label="Scorer Name (optional)">
+          <input
+            value={form.scorerName}
+            onChange={(e) => setForm((p) => ({ ...p, scorerName: e.target.value }))}
+            placeholder="Court umpire"
+            className={inputClass}
+          />
+        </FormField>
+      </div>
 
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <CollapsibleTrigger
