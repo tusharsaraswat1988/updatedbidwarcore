@@ -42,7 +42,6 @@ import {
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
-import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -222,18 +221,6 @@ export default function BadmintonPlayersPage() {
             <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
               + Add Player
             </BtnPrimary>
-          </div>
-        }
-        guideExtras={
-          <div className="space-y-2">
-            <SetupTerm
-              term="Team"
-              meaning="auction franchise or squad the player belongs to — shown on scoreboards."
-            />
-            <SetupTerm
-              term="Players without team"
-              meaning="still play, but will not show a team name until assigned."
-            />
           </div>
         }
       >
@@ -775,6 +762,7 @@ function PlayerCard({
   const fullName = playerFullName(player);
   const initials = `${player.firstName.charAt(0)}${player.lastName.charAt(0)}`;
   const glowColor = "hsl(var(--primary))";
+  const teamName = player.franchiseName?.trim() || null;
 
   return (
     <div
@@ -784,6 +772,25 @@ function PlayerCard({
       )}
       style={{ boxShadow: `0 0 0 1px transparent, 0 0 24px ${glowColor}11` }}
     >
+      {teamName ? (
+        <div className="px-4 py-2 border-b border-border/70 bg-primary/5 flex items-center gap-2 min-w-0">
+          {player.franchiseLogoUrl ? (
+            <img
+              src={player.franchiseLogoUrl}
+              alt=""
+              className="w-5 h-5 rounded-sm object-contain flex-none bg-white/90"
+            />
+          ) : (
+            <Users className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+          )}
+          <p className="text-xs font-bold text-primary truncate">{teamName}</p>
+        </div>
+      ) : (
+        <div className="px-4 py-2 border-b border-border/70 bg-amber-500/5">
+          <p className="text-xs font-semibold text-amber-300/90">No team assigned</p>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 p-4">
         {player.photoUrl ? (
           <div
@@ -809,20 +816,6 @@ function PlayerCard({
           <p className="text-foreground font-display font-semibold text-base leading-tight truncate">
             {fullName}
           </p>
-          {player.franchiseName ? (
-            <p className="mt-1 flex items-center gap-1.5 min-w-0">
-              {player.franchiseLogoUrl ? (
-                <img
-                  src={player.franchiseLogoUrl}
-                  alt=""
-                  className="w-4 h-4 rounded-sm object-contain flex-none bg-white/90"
-                />
-              ) : null}
-              <span className="text-sm font-semibold text-primary truncate">
-                {player.franchiseName}
-              </span>
-            </p>
-          ) : null}
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             {formatPlayerGender(player.gender) ? (
               <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">

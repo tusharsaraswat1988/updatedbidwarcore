@@ -31,7 +31,6 @@ import {
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
-import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 
 interface BadmintonCourt {
   id: number;
@@ -321,16 +320,6 @@ export default function BadmintonSchedulePage() {
                 Schedule next fixture
               </BtnPrimary>
             ) : null}
-          </div>
-        }
-        guideExtras={
-          <div className="space-y-2">
-            <SetupTerm term="Where" meaning="which court the fixture uses." />
-            <SetupTerm term="When" meaning="the date and start time for that fixture." />
-            <SetupTerm
-              term="Scheduling"
-              meaning="happens after the draw — first who plays whom, then where and when."
-            />
           </div>
         }
       >

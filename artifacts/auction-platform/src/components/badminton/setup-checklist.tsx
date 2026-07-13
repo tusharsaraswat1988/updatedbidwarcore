@@ -8,6 +8,7 @@ import {
   setupProgress,
   type BadmintonSetupItem,
 } from "@/lib/badminton-setup-workflow";
+import { getTournamentStoryBeat } from "@/lib/tournament-story";
 
 export function BadmintonNextStepBanner({
   items,
@@ -18,6 +19,7 @@ export function BadmintonNextStepBanner({
 }) {
   const next = getNextSetupStep(items);
   if (!next) return null;
+  const beat = getTournamentStoryBeat(next.id);
 
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -26,9 +28,10 @@ export function BadmintonNextStepBanner({
           <ArrowRight className="w-5 h-5 text-primary" />
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">Next step</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-primary">Continue the story</p>
           <h2 className="text-base font-display font-bold text-foreground mt-0.5">{next.title}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{next.purpose}</p>
+          <p className="text-sm text-muted-foreground mt-1">{beat.whereAmI}</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{beat.happensNext}</p>
         </div>
       </div>
       <Link href={next.href(tournamentId)}>

@@ -18,7 +18,6 @@ import {
   inputClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
-import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import {
   useBadmintonScoringFormat,
   useSaveBadmintonScoringFormat,
@@ -183,16 +182,6 @@ export default function BadmintonScoringFormatPage() {
         }}
         continueLabel={saveMutation.isPending ? "Saving…" : "Continue"}
         continueDisabled={saveMutation.isPending}
-        guideExtras={
-          <div className="space-y-2">
-            <SetupTerm term="Points" meaning="how many points win a game (for example 21)." />
-            <SetupTerm term="Best of 3" meaning="first side to win 2 games wins the match." />
-            <SetupTerm
-              term="Scoring Rules"
-              meaning="saved once for the tournament; new matches use them automatically."
-            />
-          </div>
-        }
       >
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
         {isLoading ? (

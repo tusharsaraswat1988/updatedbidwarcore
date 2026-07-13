@@ -1,79 +1,105 @@
-import { ArrowRight, HelpCircle, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowRight, HelpCircle, Lightbulb, Sparkles, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hubPanelClass } from "@/components/badminton/form-ui";
-import type { BadmintonSetupStep } from "@/lib/badminton-setup-workflow";
+import {
+  HowThisConnects,
+  TournamentStoryRibbon,
+} from "@/components/badminton/how-this-connects";
+import { SetupHelpModeButton } from "@/components/badminton/setup-help-modal";
+import type { TournamentStoryBeat } from "@/lib/tournament-story";
 
 /**
- * Answers the three organizer questions for every setup step:
- * What is this? Why is it needed? What happens after this?
+ * Story Mode guide — every page answers:
+ * Where am I? Why am I here? What will this create? What happens next?
  */
 export function BadmintonSetupGuidePanel({
-  step,
+  beat,
   className,
   extras,
 }: {
-  step: BadmintonSetupStep;
+  beat: TournamentStoryBeat;
   className?: string;
-  /** Optional page-specific teaching content (diagrams, lists). */
   extras?: React.ReactNode;
 }) {
+  const questions = [
+    {
+      key: "where",
+      label: "Where am I?",
+      body: beat.whereAmI,
+      icon: Target,
+      tone: "text-primary",
+      iconBg: "bg-primary/15",
+    },
+    {
+      key: "why",
+      label: "Why am I here?",
+      body: beat.whyHere,
+      icon: Lightbulb,
+      tone: "text-amber-300/90",
+      iconBg: "bg-amber-500/15",
+      iconClass: "text-amber-300",
+    },
+    {
+      key: "creates",
+      label: "What will this create?",
+      body: beat.creates,
+      icon: Sparkles,
+      tone: "text-emerald-300/90",
+      iconBg: "bg-emerald-500/15",
+      iconClass: "text-emerald-300",
+    },
+    {
+      key: "next",
+      label: "What happens next?",
+      body: beat.happensNext,
+      icon: ArrowRight,
+      tone: "text-sky-300/90",
+      iconBg: "bg-sky-500/15",
+      iconClass: "text-sky-300",
+    },
+  ] as const;
+
   return (
-    <div className={cn(hubPanelClass, "space-y-4 border-primary/20 bg-primary/5", className)}>
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-primary/15 shrink-0">
-          <HelpCircle className="w-4 h-4 text-primary" aria-hidden />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">
-            What is this?
-          </p>
-          <p className="text-sm font-semibold text-foreground">{step.what}</p>
-        </div>
-      </div>
+    <div className={cn("space-y-4", className)}>
+      <TournamentStoryRibbon focus={beat.storyFocus} />
 
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-amber-500/15 shrink-0">
-          <Lightbulb className="w-4 h-4 text-amber-300" aria-hidden />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-300/90">
-            Why is it needed?
+      <div className={cn(hubPanelClass, "space-y-4 border-primary/20 bg-primary/5")}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
+            <HelpCircle className="w-3.5 h-3.5" aria-hidden />
+            Building your tournament
           </p>
-          <p className="text-sm text-muted-foreground">{step.why}</p>
+          <SetupHelpModeButton beat={beat} />
         </div>
-      </div>
 
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-sky-500/15 shrink-0">
-          <ArrowRight className="w-4 h-4 text-sky-300" aria-hidden />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {questions.map((q) => {
+            const Icon = q.icon;
+            return (
+              <div key={q.key} className="flex items-start gap-3 rounded-lg border border-border/50 bg-background/40 p-3">
+                <div className={cn("p-2 rounded-lg shrink-0", q.iconBg)}>
+                  <Icon
+                    className={cn("w-4 h-4", "iconClass" in q ? q.iconClass : "text-primary")}
+                    aria-hidden
+                  />
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <p className={cn("text-[11px] font-bold uppercase tracking-widest", q.tone)}>
+                    {q.label}
+                  </p>
+                  <p className="text-sm text-foreground/90 leading-snug">{q.body}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-bold uppercase tracking-widest text-sky-300/90">
-            What happens after this?
-          </p>
-          <p className="text-sm text-muted-foreground">{step.after}</p>
-        </div>
-      </div>
 
-      {step.examples?.length ? (
         <div className="pt-1 border-t border-border/60">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-            Examples
-          </p>
-          <ul className="flex flex-wrap gap-2">
-            {step.examples.map((example) => (
-              <li
-                key={example}
-                className="rounded-md border border-border/70 bg-background/50 px-2.5 py-1 text-xs font-medium text-foreground/90"
-              >
-                {example}
-              </li>
-            ))}
-          </ul>
+          <HowThisConnects steps={beat.connects} highlightLast />
         </div>
-      ) : null}
 
-      {extras ? <div className="pt-1 border-t border-border/60">{extras}</div> : null}
+        {extras ? <div className="pt-1 border-t border-border/60">{extras}</div> : null}
+      </div>
     </div>
   );
 }
@@ -96,11 +122,21 @@ export function SetupTerm({
 }
 
 export function SetupReadyCelebration({ className }: { className?: string }) {
+  const journey = [
+    "Tournament",
+    "Players",
+    "Events",
+    "Tournament Draw",
+    "Court Schedule",
+    "Live Operations",
+    "Champions",
+  ];
+
   return (
     <div
       className={cn(
         hubPanelClass,
-        "text-center space-y-3 border-green-500/30 bg-green-500/10",
+        "text-center space-y-4 border-green-500/30 bg-green-500/10",
         className,
       )}
     >
@@ -111,13 +147,22 @@ export function SetupReadyCelebration({ className }: { className?: string }) {
         🎉
       </p>
       <h2 className="text-xl font-display font-bold text-foreground">
-        Your tournament is ready.
+        Everything is ready.
       </h2>
-      <p className="text-sm text-muted-foreground max-w-md mx-auto">
-        Next you will operate the tournament from{" "}
-        <span className="font-semibold text-foreground">Control Center</span>
-        {" — "}the live desk for courts, scorers, and match day.
+      <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
+        You are no longer configuring the tournament.
+        <br />
+        Now you are operating the tournament.
       </p>
+
+      <div className="pt-2">
+        <HowThisConnects
+          title="Your complete journey"
+          steps={journey}
+          highlightLast
+          className="items-center text-left sm:text-center max-w-2xl mx-auto"
+        />
+      </div>
     </div>
   );
 }

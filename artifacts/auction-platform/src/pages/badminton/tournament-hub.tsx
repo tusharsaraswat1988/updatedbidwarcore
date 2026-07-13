@@ -30,6 +30,8 @@ import {
 } from "@/components/badminton/setup-checklist";
 import { BadmintonSetupWizardProgress } from "@/components/badminton/setup-wizard-progress";
 import { SetupReadyCelebration } from "@/components/badminton/setup-guide-panel";
+import { TournamentStoryRibbon } from "@/components/badminton/how-this-connects";
+import { getTournamentStoryBeat } from "@/lib/tournament-story";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,14 +76,14 @@ export default function BadmintonTournamentHub() {
       <HubPageShell tournamentId={tournamentId}>
         <BadmintonSetupWizardProgress items={items} tournamentId={tournamentId} />
         <PageHeader
-          eyebrow="Tournament Setup Wizard"
+          eyebrow="Tournament Setup Wizard · Story mode"
           title={atReady ? "Tournament Ready" : "Tournament Setup Wizard"}
           subtitle={
             atReady
-              ? "Your tournament is ready. Next you will operate from Control Center."
+              ? "Everything is ready. You are no longer configuring — now you are operating."
               : remaining === 1
-                ? "One step left — finish setup to make the tournament ready"
-                : `We will guide you through each step — ${remaining} remaining (${percent}%)`
+                ? "One step left — finish building your tournament story"
+                : `You are building a tournament — ${remaining} steps remaining (${percent}%)`
           }
           badge={atReady ? "Ready" : undefined}
         />
@@ -120,6 +122,13 @@ export default function BadmintonTournamentHub() {
             </>
           ) : (
             <>
+              <TournamentStoryRibbon
+                focus={
+                  getTournamentStoryBeat(
+                    items.find((i) => i.status === "current")?.id ?? "branding",
+                  ).storyFocus
+                }
+              />
               <BadmintonNextStepBanner items={items} tournamentId={tournamentId} />
               <BadmintonSetupChecklist items={items} tournamentId={tournamentId} />
             </>

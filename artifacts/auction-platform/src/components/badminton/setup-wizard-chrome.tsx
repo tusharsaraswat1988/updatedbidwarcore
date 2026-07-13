@@ -3,11 +3,12 @@ import { BadmintonSetupWizardProgress } from "@/components/badminton/setup-wizar
 import { BadmintonSetupWizardFooter } from "@/components/badminton/setup-wizard-footer";
 import { BadmintonSetupGuidePanel } from "@/components/badminton/setup-guide-panel";
 import { useBadmintonSetup } from "@/hooks/use-badminton-setup";
+import { getTournamentStoryBeat } from "@/lib/tournament-story";
 import type { BadmintonSetupStepId } from "@/lib/badminton-setup-workflow";
 
 /**
- * Shared wizard chrome: progress → title/purpose → teaching guide → page body → Continue/Back.
- * Owns the page header so every step answers What / Why / After in the same place.
+ * Shared wizard chrome with Tournament Story Mode:
+ * progress → title → story guide (Where/Why/Creates/Next + How this connects) → body → Continue.
  */
 export function BadmintonSetupWizardChrome({
   tournamentId,
@@ -38,6 +39,7 @@ export function BadmintonSetupWizardChrome({
 }) {
   const { items, getStep, isLoading, progress } = useBadmintonSetup(tournamentId);
   const step = getStep(stepId);
+  const beat = getTournamentStoryBeat(stepId);
 
   const showWizard = !progress.complete || stepId === "ready";
 
@@ -55,17 +57,17 @@ export function BadmintonSetupWizardChrome({
 
       {step ? (
         <PageHeader
-          eyebrow={`Step ${step.order} of 8`}
+          eyebrow={`Step ${step.order} of 8 · Story mode`}
           title={step.title}
-          subtitle={step.purpose}
+          subtitle={beat.whereAmI}
           badge={headerBadge}
           actions={headerActions}
         />
       ) : null}
 
-      {!hideGuide && !isLoading && step ? (
+      {!hideGuide && !isLoading ? (
         <div className="max-w-7xl mx-auto px-6 pt-6">
-          <BadmintonSetupGuidePanel step={step} extras={guideExtras} />
+          <BadmintonSetupGuidePanel beat={beat} extras={guideExtras} />
         </div>
       ) : null}
 

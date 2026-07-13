@@ -30,7 +30,6 @@ import {
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
-import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -130,31 +129,9 @@ export default function BadmintonCourtsPage() {
           </BtnPrimary>
         }
         guideExtras={
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm font-medium text-foreground">
-              <span className="rounded-md border border-border bg-background/60 px-2.5 py-1">
-                Court PIN
-              </span>
-              <span className="text-muted-foreground hidden sm:inline" aria-hidden>
-                ↓
-              </span>
-              <span className="rounded-md border border-border bg-background/60 px-2.5 py-1">
-                All matches on that court
-              </span>
-              <span className="text-muted-foreground hidden sm:inline" aria-hidden>
-                ↓
-              </span>
-              <span className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">
-                Match PIN overrides Court PIN
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              <SetupTerm term="Scorer" meaning="the umpire who enters points on the tablet." />
-              <SetupTerm term="Scorer PIN" meaning="the code the scorer enters to unlock scoring." />
-              <SetupTerm term="Display" meaning="court-side scoreboard view for spectators." />
-              <SetupTerm term="Broadcast" meaning="OBS / stream overlays that show the live score." />
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Scorer PIN belongs to the Court first. Matches inherit it unless a Match PIN overrides it.
+          </p>
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">

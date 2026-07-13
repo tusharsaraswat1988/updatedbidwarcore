@@ -28,7 +28,6 @@ import {
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
-import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 
@@ -142,38 +141,29 @@ export default function BadmintonFixturesPage() {
           ) : null
         }
         guideExtras={
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                {
-                  title: "Generate Automatically",
-                  desc: "Software builds the draw from event entries.",
-                },
-                {
-                  title: "Import Existing Draw",
-                  desc: "Bring in a draw you already planned elsewhere.",
-                },
-                {
-                  title: "Create Manually",
-                  desc: "Enter each pairing yourself.",
-                },
-              ].map((option) => (
-                <div
-                  key={option.title}
-                  className="rounded-lg border border-border/70 bg-background/50 px-3 py-2.5"
-                >
-                  <p className="text-xs font-semibold text-foreground">{option.title}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
-                </div>
-              ))}
-            </div>
-            <SetupTerm
-              term="Fixture"
-              meaning="one planned match in the draw (who plays whom) — before a court/time is assigned."
-            />
-            <p className="text-xs text-muted-foreground">
-              Every option creates the same tournament fixtures. Pick the path that is easiest for you.
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              {
+                title: "Generate Automatically",
+                desc: "Software builds the draw from event entries.",
+              },
+              {
+                title: "Import Existing Draw",
+                desc: "Bring in a draw you already planned elsewhere.",
+              },
+              {
+                title: "Create Manually",
+                desc: "Enter each pairing yourself.",
+              },
+            ].map((option) => (
+              <div
+                key={option.title}
+                className="rounded-lg border border-border/70 bg-background/50 px-3 py-2.5"
+              >
+                <p className="text-xs font-semibold text-foreground">{option.title}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
+              </div>
+            ))}
           </div>
         }
       >

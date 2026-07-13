@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
-import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 
 interface BadmintonCategory {
   id: number;
@@ -86,13 +85,6 @@ export default function BadmintonCategoriesPage() {
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
             + Add Event
           </BtnPrimary>
-        }
-        guideExtras={
-          <div className="space-y-2">
-            <SetupTerm term="Event" meaning="one competition in your tournament (for example Men's Singles)." />
-            <SetupTerm term="Draw" meaning="who plays whom inside that event — set in Tournament Draw." />
-            <SetupTerm term="Champion" meaning="the winner of that event when results are complete." />
-          </div>
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
