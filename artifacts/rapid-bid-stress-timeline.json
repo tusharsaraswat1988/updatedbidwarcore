@@ -1,0 +1,26 @@
+{
+  "label": "reproduce_vnbl_stale_http",
+  "passed": false,
+  "firstPermanentLockAt": 8401,
+  "failureMessage": "VNBL repro: client leader 1 != server 2 after stale HTTP ACK (gate off)",
+  "finalClientLeader": 1,
+  "finalServerLeader": 2,
+  "bidAckTimeoutMs": 8000,
+  "firstPermanentLock": {
+    "t": 8401,
+    "kind": "permanent_lock",
+    "teamId": 1,
+    "detail": "Wrong isLeading after stale HTTP (client=1 server=2) held past BID_ACK_TIMEOUT_MS",
+    "eventVersion": 1
+  },
+  "windowAroundFirstLock": [
+    {
+      "t": 8401,
+      "kind": "permanent_lock",
+      "teamId": 1,
+      "detail": "Wrong isLeading after stale HTTP (client=1 server=2) held past BID_ACK_TIMEOUT_MS",
+      "eventVersion": 1
+    }
+  ],
+  "eventCount": 6
+}

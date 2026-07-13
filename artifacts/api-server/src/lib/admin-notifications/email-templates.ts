@@ -118,7 +118,7 @@ export function renderAdminNotificationEmail<E extends AdminNotificationEventTyp
           { label: "Tournament Name", value: p.tournamentName },
           { label: "Sport", value: p.sport },
           { label: "Organiser", value: p.organizerName ?? "Unknown" },
-          { label: "City / Venue", value: p.city ?? "Not provided" },
+          { label: "City", value: p.city ?? "Not provided" },
           { label: "Created Time", value: formatTimestamp(p.createdAt) },
         ],
         timestamp: p.createdAt,

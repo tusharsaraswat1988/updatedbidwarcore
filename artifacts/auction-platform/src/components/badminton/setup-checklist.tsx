@@ -1,8 +1,8 @@
 import { Link } from "wouter";
-import { CheckCircle2, Circle, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
-import { BtnPrimary, hubPanelClass, hubCardClass } from "@/components/badminton/form-ui";
+import { BtnPrimary, hubPanelClass } from "@/components/badminton/form-ui";
 import {
   getNextSetupStep,
   setupProgress,
@@ -33,10 +33,99 @@ export function BadmintonNextStepBanner({
       </div>
       <Link href={next.href(tournamentId)}>
         <BtnPrimary className="w-full sm:w-auto shrink-0">
-          Continue setup
+          Continue
         </BtnPrimary>
       </Link>
     </div>
+  );
+}
+
+function SetupChecklistRow({
+  item,
+  tournamentId,
+}: {
+  item: BadmintonSetupItem;
+  tournamentId: number;
+}) {
+  const isCompleted = item.status === "completed";
+  const isCurrent = item.status === "current";
+  const isUpcoming = item.status === "upcoming";
+
+  const content = (
+    <>
+      <span
+        className={cn(
+          "text-[10px] font-mono w-4 shrink-0 mt-0.5",
+          isCurrent ? "text-primary font-bold" : "text-muted-foreground",
+        )}
+      >
+        {item.order}
+      </span>
+
+      {isCompleted ? (
+        <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" aria-hidden />
+      ) : isCurrent ? (
+        <ArrowRight className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden />
+      ) : (
+        <Lock className="w-3.5 h-3.5 text-muted-foreground/35 shrink-0 mt-0.5" aria-hidden />
+      )}
+
+      <div className="flex-1 min-w-0">
+        <p
+          className={cn(
+            "text-sm font-medium",
+            isCompleted && "text-green-400",
+            isCurrent && "text-foreground font-semibold",
+            isUpcoming && "text-muted-foreground/70",
+          )}
+        >
+          {item.label}
+        </p>
+        {isCurrent && (
+          <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+        )}
+        {isUpcoming && (
+          <p className="text-xs text-muted-foreground/60 mt-0.5">Waiting for previous step</p>
+        )}
+      </div>
+
+      {isCurrent && (
+        <span className="text-[10px] font-bold uppercase tracking-wider text-primary shrink-0 mt-0.5">
+          Current
+        </span>
+      )}
+    </>
+  );
+
+  const rowClass = cn(
+    "flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-colors",
+    isCompleted && "border-green-500/20 bg-green-500/5",
+    isCurrent && "border-primary/40 bg-primary/10 shadow-[0_0_0_1px] shadow-primary/10",
+    isUpcoming && "border-border/40 bg-muted/5 opacity-70",
+  );
+
+  if (isUpcoming) {
+    return (
+      <li className={rowClass} aria-disabled="true">
+        {content}
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <Link
+        href={item.href(tournamentId)}
+        className={cn(
+          rowClass,
+          "hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+          isCompleted && "hover:bg-green-500/10",
+        )}
+        aria-current={isCurrent ? "step" : undefined}
+      >
+        {content}
+      </Link>
+    </li>
   );
 }
 
@@ -47,9 +136,12 @@ export function BadmintonSetupChecklist({
   items: BadmintonSetupItem[];
   tournamentId: number;
 }) {
-  const { doneCount, total, percent, complete } = setupProgress(items);
+  const { doneCount, total, remaining, percent, complete } = setupProgress(items);
 
   if (complete) return null;
+
+  const remainingLabel =
+    remaining === 1 ? "Only 1 step remaining" : `Only ${remaining} steps remaining`;
 
   return (
     <div className={cn(hubPanelClass, "space-y-4")}>
@@ -59,49 +151,14 @@ export function BadmintonSetupChecklist({
           Setup progress
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Follow this order to get your tournament ready — {doneCount} of {total} complete ({percent}%)
+          {doneCount} of {total} completed · {remainingLabel}
         </p>
         <Progress value={percent} className="h-1.5 mt-2 max-w-md" />
       </div>
 
       <ol className="space-y-2">
-        {items.map((item, index) => (
-          <li
-            key={item.id}
-            className={cn(
-              "flex items-start gap-3 px-3 py-2.5 rounded-lg border",
-              item.done
-                ? "border-green-500/20 bg-green-500/5"
-                : index === items.findIndex((s) => !s.done)
-                  ? "border-primary/25 bg-primary/5"
-                  : "border-border/50 bg-muted/10",
-            )}
-          >
-            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0 mt-0.5">
-              {item.order}
-            </span>
-            {item.done ? (
-              <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-            ) : (
-              <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5" />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium", item.done ? "text-green-400" : "text-foreground")}>
-                {item.label}
-              </p>
-              {!item.done && (
-                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-              )}
-            </div>
-            {!item.done && (
-              <Link
-                href={item.href(tournamentId)}
-                className="text-xs text-primary hover:underline shrink-0 font-medium mt-0.5"
-              >
-                Go →
-              </Link>
-            )}
-          </li>
+        {items.map((item) => (
+          <SetupChecklistRow key={item.id} item={item} tournamentId={tournamentId} />
         ))}
       </ol>
     </div>

@@ -1,11 +1,37 @@
 import type pg from "pg";
+import { recordSystemDMetrics } from "./boot-metrics";
 
 /**
+ * ============================================================================
+ * SYSTEM D — ensureCoreSchema — FROZEN
+ * ============================================================================
+ * This file is frozen.
+ * Do not add new schema changes here.
+ * Future schema changes must follow the database governance process.
+ *
+ * Existing boot-time DDL below remains active for production compatibility.
+ * Do not remove, refactor, or extend it.
+ *
+ * Observability: query counter + timing only; SQL batches unchanged.
+ * ============================================================================
+ *
  * Idempotent column/table ensures for production DBs that predate newer schema fields.
  * Drizzle SELECT * fails when a mapped column is missing — this runs before the API listens.
  */
 export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
-  await pool.query(`
+  const startedAt = Date.now();
+  let queryCount = 0;
+  let success = false;
+  let errorMessage: string | undefined;
+
+  /** Metrics wrapper — identical SQL passed through to pool.query. */
+  const q = (sql: string) => {
+    queryCount += 1;
+    return pool.query(sql);
+  };
+
+  try {
+    await q(`
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS enable_registration_payment boolean NOT NULL DEFAULT false;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee integer;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS upi_id text;
@@ -39,7 +65,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_url text;
   `);
 
-  await pool.query(`
+  await q(`
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS random_draw_queue TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS obs_context_json TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS re_auction_strategy_json TEXT;
@@ -50,7 +76,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 0;
   `);
 
-  await pool.query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS branding_assets (
       id SERIAL PRIMARY KEY,
       asset_type TEXT NOT NULL,
@@ -69,7 +95,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
       ON branding_assets (asset_type);
   `);
 
-  await pool.query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS intelligence_archives (
       id SERIAL PRIMARY KEY,
       source_tournament_id INTEGER NOT NULL,
@@ -151,7 +177,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     );
   `);
 
-  await pool.query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS communication_assets (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
@@ -284,7 +310,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     );
   `);
 
-  await pool.query(`
+  await q(`
     ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_public_id text;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_screenshot_public_id text;
     ALTER TABLE teams ADD COLUMN IF NOT EXISTS logo_public_id text;
@@ -308,7 +334,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS auction_data_json jsonb;
   `);
 
-  await pool.query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS bulk_import_jobs (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,
@@ -483,7 +509,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
       ON photo_source_assets (drive_file_id);
   `);
 
-  await pool.query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS owner_sessions (
       id TEXT PRIMARY KEY,
       tournament_id INTEGER NOT NULL,
@@ -516,7 +542,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
       ON push_subscriptions (owner_session_id);
   `);
 
-  await pool.query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS academy_categories (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -554,4 +580,18 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_category_id ON academy_lessons (category_id);
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_display_order ON academy_lessons (display_order);
   `);
+    success = true;
+  } catch (err) {
+    errorMessage = err instanceof Error ? err.message : String(err);
+    throw err;
+  } finally {
+    // Non-blocking: summary prints once when System C has also settled.
+    recordSystemDMetrics({
+      executionTimeMs: Date.now() - startedAt,
+      queryCount,
+      success,
+      failure: !success,
+      errorMessage,
+    });
+  }
 }

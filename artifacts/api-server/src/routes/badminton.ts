@@ -66,6 +66,7 @@ import {
   replayMatch,
   startBadmintonMatch,
   undoLastPoint,
+  resolveFormatForMatchStart,
 } from "../lib/badminton-service";
 import { allocateTournamentInitials } from "../lib/master-sports/tournament-initials";
 import {
@@ -85,7 +86,6 @@ import {
   broadcastTournamentUpdate,
 } from "../lib/badminton-broadcast";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
-import { STANDARD_FORMAT } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
@@ -1112,7 +1112,30 @@ router.patch("/categories/:catId/registrations/:regId", async (req, res) => {
   res.json(updated);
 });
 
-// ─── Fixtures ────────────────────────────────────────────────────────────────
+// ─── Fixture Collections (badminton_draws) + Fixtures ─────────────────────────
+
+/** List Fixture Collections (stored in badminton_draws). */
+router.get("/fixture-collections", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  const categoryId = req.query.categoryId
+    ? parseId(req.query.categoryId as string)
+    : null;
+
+  const whereConditions = [eq(badmintonDrawsTable.tournamentId, tournamentId)];
+  if (categoryId) {
+    whereConditions.push(eq(badmintonDrawsTable.categoryId, categoryId));
+  }
+
+  const collections = await db
+    .select()
+    .from(badmintonDrawsTable)
+    .where(and(...whereConditions))
+    .orderBy(asc(badmintonDrawsTable.id));
+
+  res.json(collections);
+});
 
 router.get("/fixtures", async (req, res) => {
   const tournamentId = tid(req);
@@ -1492,12 +1515,18 @@ router.post("/matches/:matchId/start", async (req, res) => {
   }
 
   try {
+    const format = await resolveFormatForMatchStart(
+      matchId,
+      tournamentId,
+      parsed.data.format,
+    );
+
     const state = await startBadmintonMatch(
       matchId,
       tournamentId,
       {
         ...parsed.data,
-        format: parsed.data.format ?? STANDARD_FORMAT,
+        format,
       } as BadmintonMatchStartedPayload,
       actorFrom(req, usedPin),
     );

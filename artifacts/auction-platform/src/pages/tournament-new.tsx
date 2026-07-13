@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useToast } from "@/hooks/use-toast";
 import { SportSelect } from "@/components/sport-select";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { AUCTION_UNIT_OPTIONS, budgetFieldLabel, minValueFieldLabel, bidIncrementFieldLabel, normalizeAuctionUnit } from "@/lib/format";
 
@@ -22,6 +23,7 @@ const formSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   sport: z.string().min(1, "Select a sport"),
   auctionUnit: z.enum(["rupee", "points"]).default("rupee"),
+  city: z.string().min(1, "City is required"),
   venue: z.string().optional(),
   auctionDate: z.string().optional(),
   auctionTime: z.string().optional(),
@@ -76,6 +78,7 @@ export default function NewTournament() {
     defaultValues: {
       name: "",
       sport: "cricket",
+      city: "",
       venue: "",
       auctionDate: "",
       auctionTime: "",
@@ -185,6 +188,25 @@ export default function NewTournament() {
 
                     <FormField
                       control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City *</FormLabel>
+                          <FormControl>
+                            <CityAutocomplete
+                              value={field.value}
+                              onChange={field.onChange}
+                              placeholder="Start typing city name"
+                              minChars={3}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
                       name="auctionDate"
                       render={({ field }) => (
                         <FormItem>
@@ -224,7 +246,7 @@ export default function NewTournament() {
                         <FormItem>
                           <FormLabel>Venue (Optional)</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. Grand Hotel, Mumbai" {...field} />
+                            <Input placeholder="e.g. Grand Hotel Stadium" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

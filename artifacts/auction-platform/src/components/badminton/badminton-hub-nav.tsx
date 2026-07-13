@@ -1,6 +1,6 @@
 /**
  * Sticky navigation for all badminton organizer hub pages —
- * contextual back link + quick jumps to every main section.
+ * contextual back control + quick jumps to every main section.
  */
 
 import { ChevronLeft } from "lucide-react";
@@ -21,13 +21,24 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
       aria-label="Badminton tournament navigation"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 space-y-2.5">
-        <Link
-          href={back.href}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-        >
-          <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          {back.label}
-        </Link>
+        {back.kind === "history" ? (
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+          >
+            <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            {back.label}
+          </button>
+        ) : (
+          <Link
+            href={back.href}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+          >
+            <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            {back.label}
+          </Link>
+        )}
 
         <div
           className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-none"

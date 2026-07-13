@@ -9,7 +9,11 @@ import { Target, X, Pencil } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { isPairMatchKind, mergeDoublesSideJson } from "@workspace/badminton-core";
+import {
+  isPairMatchKind,
+  mergeDoublesSideJson,
+  parseBadmintonMatchFormat,
+} from "@workspace/badminton-core";
 import {
   PairSidePicker,
   emptySidePlayer,
@@ -18,6 +22,7 @@ import {
   type SidePlayerForm,
 } from "@/components/badminton/pair-side-picker";
 import { CourtAutocomplete } from "@/components/badminton/court-autocomplete";
+import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import {
   BtnPrimary,
   DarkSelect,
@@ -36,6 +41,8 @@ import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
 import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
 import { badmintonFetch } from "@/lib/badminton-api";
+import { matchFormatChipLabel } from "@/lib/match-format-display";
+import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -138,6 +145,7 @@ export default function BadmintonMatchesPage() {
   }, [search]);
   const [showCreate, setShowCreate] = useState(!!initialFixtureId);
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "completed">("all");
+  const { data: scoringFormat } = useBadmintonScoringFormat(tournamentId);
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
     queryKey: ["badminton-matches", tournamentId],
@@ -187,7 +195,14 @@ export default function BadmintonMatchesPage() {
         title="Matches"
         subtitle="Match Control = tournament director · Umpire Scorer = court scoring (PIN)"
         actions={
-          <BtnPrimary onClick={() => setShowCreate(true)}>+ Create Match</BtnPrimary>
+          <div className="flex items-center gap-3 flex-wrap">
+            {scoringFormat?.configured && scoringFormat.format ? (
+              <ScoringFormatBadge
+                label={matchFormatChipLabel(scoringFormat.format, scoringFormat.presetId)}
+              />
+            ) : null}
+            <BtnPrimary onClick={() => setShowCreate(true)}>+ Create Match</BtnPrimary>
+          </div>
         }
       />
 
@@ -340,6 +355,17 @@ function MatchRow({
                 {(detail.matchType as string).replace("_", " ")}
               </Badge>
             ) : null}
+            {(() => {
+              const fmt =
+                state?.format ?? parseBadmintonMatchFormat(detail.matchFormatJson);
+              if (!fmt) return null;
+              return (
+                <ScoringFormatBadge
+                  label={matchFormatChipLabel(fmt)}
+                  className="text-[10px] py-0.5 px-2"
+                />
+              );
+            })()}
             {detail.scorerPin ? (
               <span className="text-muted-foreground text-xs font-mono" title="Share with court umpire">
                 PIN {String(detail.scorerPin)}

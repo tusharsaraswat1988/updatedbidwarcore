@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { SportSelect } from "@/components/sport-select";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   signupEmail,
@@ -55,7 +56,7 @@ type OrganizerInfo = {
 };
 type Tournament = {
   id: number; name: string; sport: string; status: string;
-  licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string;
+  licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string;
 };
 
 // ─── Tournament License Badge ─────────────────────────────────────────────────
@@ -124,6 +125,7 @@ function CreateTournamentModal({
   const [form, setForm] = useState({
     name: "",
     sport: "cricket",
+    city: "",
     venue: "",
     auctionDate: "",
     timeHour: "",
@@ -144,7 +146,7 @@ function CreateTournamentModal({
     setCreatedTournamentId(null);
     setWizardStep(1);
     setForm({
-      name: "", sport: "cricket", venue: "", auctionDate: "",
+      name: "", sport: "cricket", city: "", venue: "", auctionDate: "",
       timeHour: "", timeMinute: "00", timePeriod: "PM",
       basePurse: "", minBid: "", bidIncrement: "",
     });
@@ -169,6 +171,7 @@ function CreateTournamentModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Tournament name is required."); return; }
+    if (!form.city.trim()) { setError("City is required."); return; }
     if (!form.basePurse || parseInt(form.basePurse, 10) <= 0) {
       setError("Team budget (purse) is required.");
       return;
@@ -188,6 +191,7 @@ function CreateTournamentModal({
     const r = await createOrganizerTournament({
       name: form.name.trim(),
       sport: form.sport,
+      city: form.city.trim(),
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
       auctionTime: auctionTime || undefined,
@@ -257,22 +261,29 @@ function CreateTournamentModal({
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Sport</Label>
-                    <SportSelect
-                      value={form.sport}
-                      onValueChange={(v) => setForm((f) => ({ ...f, sport: v }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Venue</Label>
-                    <Input
-                      value={form.venue}
-                      onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
-                      placeholder="Stadium name or city"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Sport</Label>
+                  <SportSelect
+                    value={form.sport}
+                    onValueChange={(v) => setForm((f) => ({ ...f, sport: v }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>City *</Label>
+                  <CityAutocomplete
+                    value={form.city}
+                    onChange={v => setForm(f => ({ ...f, city: v }))}
+                    placeholder="Start typing city name"
+                    minChars={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Venue</Label>
+                  <Input
+                    value={form.venue}
+                    onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+                    placeholder="Stadium or ground name"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Auction Date</Label>
@@ -396,6 +407,7 @@ function CreateTournamentModal({
                     className="flex-1"
                     onClick={() => {
                       if (!form.name.trim()) { setError("Tournament name is required."); return; }
+                      if (!form.city.trim()) { setError("City is required."); return; }
                       setError("");
                       setWizardStep(2);
                     }}
@@ -1444,7 +1456,7 @@ function OrganizerDashboard({
   const filteredTournaments = tournaments.filter(t => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return t.name.toLowerCase().includes(q) || t.sport.toLowerCase().includes(q) || (t.venue || "").toLowerCase().includes(q);
+    return t.name.toLowerCase().includes(q) || t.sport.toLowerCase().includes(q) || (t.city || "").toLowerCase().includes(q) || (t.venue || "").toLowerCase().includes(q);
   });
 
   const statusColor: Record<string, string> = {
@@ -1701,7 +1713,7 @@ function OrganizerDashboard({
                         </p>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
+                        {[t.city, t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
                       </p>
                       <div className="pt-2 border-t border-border/40">
                         <button

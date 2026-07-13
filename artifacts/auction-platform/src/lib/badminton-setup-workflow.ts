@@ -2,11 +2,12 @@ export type BadmintonSetupStepId =
   | "branding"
   | "players"
   | "categories"
-  | "draws"
+  | "scoring_format"
   | "courts"
-  | "matches"
-  | "broadcast"
-  | "analytics";
+  | "draws"
+  | "matches";
+
+export type BadmintonSetupItemStatus = "completed" | "current" | "upcoming";
 
 export interface BadmintonSetupStep {
   id: BadmintonSetupStepId;
@@ -16,6 +17,7 @@ export interface BadmintonSetupStep {
   href: (tournamentId: number) => string;
 }
 
+/** Ordered setup flow — ends at Matches. Broadcast/Analytics are ops, not setup. */
 export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
   {
     id: "branding",
@@ -39,39 +41,32 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     href: (id) => `/tournament/${id}/badminton/categories`,
   },
   {
-    id: "draws",
+    id: "scoring_format",
     order: 4,
-    label: "Generate draws",
-    description: "Build knockout fixtures from accepted entries.",
-    href: (id) => `/tournament/${id}/badminton/categories`,
+    label: "Match format",
+    description: "Choose Best of 3 · 21, Fast Match, or custom rules.",
+    href: (id) => `/tournament/${id}/badminton/scoring-format`,
   },
   {
     id: "courts",
     order: 5,
     label: "Set up courts",
-    description: "Add courts and optional stream URLs.",
+    description: "Add courts where matches will be played.",
     href: (id) => `/tournament/${id}/badminton/courts`,
   },
   {
-    id: "matches",
+    id: "draws",
     order: 6,
-    label: "Schedule matches",
-    description: "Create matches and assign courts.",
-    href: (id) => `/tournament/${id}/badminton/matches`,
+    label: "Draw & Fixtures",
+    description: "Create fixture collections — generate, import, or enter matches manually.",
+    href: (id) => `/tournament/${id}/badminton/fixtures`,
   },
   {
-    id: "broadcast",
+    id: "matches",
     order: 7,
-    label: "Configure broadcast",
-    description: "Open displays, overlays, and scorer access.",
-    href: (id) => `/tournament/${id}/badminton/broadcast`,
-  },
-  {
-    id: "analytics",
-    order: 8,
-    label: "Review analytics",
-    description: "Track progress once play begins.",
-    href: (id) => `/tournament/${id}/badminton/analytics`,
+    label: "Schedule matches",
+    description: "Assign courts and times from your fixtures.",
+    href: (id) => `/tournament/${id}/badminton/matches`,
   },
 ];
 
@@ -79,44 +74,64 @@ export interface BadmintonSetupSnapshot {
   brandingComplete: boolean;
   totalPlayers: number;
   totalCategories: number;
+  scoringFormatConfigured: boolean;
   totalFixtures: number;
   totalCourts: number;
   totalMatches: number;
-  matchesCompleted: number;
 }
 
 export interface BadmintonSetupItem extends BadmintonSetupStep {
+  /** True only when this step and every prerequisite are complete. */
   done: boolean;
+  locked: boolean;
+  status: BadmintonSetupItemStatus;
 }
 
+/**
+ * Evaluates setup with strict sequential dependencies.
+ * A step cannot be marked done (or unlocked) until all previous steps are done.
+ */
 export function evaluateBadmintonSetup(snapshot: BadmintonSetupSnapshot): BadmintonSetupItem[] {
-  const totalMatches = snapshot.totalMatches;
-
-  const doneById: Record<BadmintonSetupStepId, boolean> = {
+  const rawDone: Record<BadmintonSetupStepId, boolean> = {
     branding: snapshot.brandingComplete,
     players: snapshot.totalPlayers > 0,
     categories: snapshot.totalCategories > 0,
-    draws: snapshot.totalFixtures > 0,
+    scoring_format: snapshot.scoringFormatConfigured,
     courts: snapshot.totalCourts > 0,
-    matches: totalMatches > 0,
-    broadcast: totalMatches > 0,
-    analytics: snapshot.matchesCompleted > 0,
+    draws: snapshot.totalFixtures > 0,
+    matches: snapshot.totalMatches > 0,
   };
 
-  return BADMINTON_SETUP_STEPS.map((step) => ({
-    ...step,
-    done: doneById[step.id],
-  }));
+  const items: BadmintonSetupItem[] = [];
+  let chainBroken = false;
+
+  for (const step of BADMINTON_SETUP_STEPS) {
+    if (chainBroken) {
+      items.push({ ...step, done: false, locked: true, status: "upcoming" });
+      continue;
+    }
+
+    if (rawDone[step.id]) {
+      items.push({ ...step, done: true, locked: false, status: "completed" });
+      continue;
+    }
+
+    items.push({ ...step, done: false, locked: false, status: "current" });
+    chainBroken = true;
+  }
+
+  return items;
 }
 
 export function getNextSetupStep(items: BadmintonSetupItem[]): BadmintonSetupItem | null {
-  return items.find((item) => !item.done) ?? null;
+  return items.find((item) => item.status === "current") ?? null;
 }
 
 export function setupProgress(items: BadmintonSetupItem[]) {
   const doneCount = items.filter((i) => i.done).length;
   const total = items.length;
+  const remaining = total - doneCount;
   const percent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const complete = doneCount === total;
-  return { doneCount, total, percent, complete };
+  return { doneCount, total, remaining, percent, complete };
 }

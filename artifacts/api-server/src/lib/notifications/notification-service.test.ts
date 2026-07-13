@@ -20,7 +20,8 @@ describe("email templates", () => {
       auctionCode: "SU42",
       auctionDate: "2026-06-15",
       auctionTime: "18:00",
-      venue: "Mumbai",
+      city: "Mumbai",
+      venue: "Wankhede Stadium",
       organizerName: "Rahul",
       appUrl: "https://bidwar.in",
       tournamentId: 42,
@@ -28,6 +29,8 @@ describe("email templates", () => {
     expect(result.subject).toContain("Summer League 2026");
     expect(result.html).toContain("SU42");
     expect(result.html).toContain("Cricket");
+    expect(result.html).toContain("Mumbai");
+    expect(result.html).toContain("Wankhede Stadium");
     expect(result.html).toContain("Your Tournament Is Now Live on BidWar");
     expect(result.html).toContain("Open Tournament Dashboard");
     expect(result.html).toContain("https://bidwar.in/tournament/42");

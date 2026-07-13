@@ -119,6 +119,11 @@ export interface Tournament {
   auctionCode?: string | null;
   /** @nullable */
   venue?: string | null;
+  /**
+   * City where the tournament is held (separate from venue)
+   * @nullable
+   */
+  city?: string | null;
   /** @nullable */
   auctionDate?: string | null;
   /** @nullable */
@@ -241,17 +246,6 @@ export interface Tournament {
    * @nullable
    */
   scoringPin?: string | null;
-  /** Per-tournament module feature flags — resolved from features_json */
-  features?: {
-    buzzStudio?: boolean;
-    allowCreativeDownloads?: boolean;
-    allowPlayerDownloads?: boolean;
-    watermarkRequired?: boolean;
-    ownerApp?: boolean;
-    scoring?: boolean;
-    sponsorshipHub?: boolean;
-    analytics?: boolean;
-  } | null;
   createdAt: string;
 }
 
@@ -295,6 +289,8 @@ export interface TournamentInput {
   name: string;
   sport: string;
   venue?: string;
+  /** City where the tournament is held (required on create) */
+  city: string;
   auctionDate?: string;
   organizerName?: string;
   organizerMobile?: string;
@@ -401,6 +397,8 @@ export interface TournamentUpdate {
   name?: string;
   sport?: string;
   venue?: string;
+  /** City where the tournament is held */
+  city?: string;
   auctionDate?: string;
   auctionTime?: string | null;
   organizerName?: string;
@@ -556,6 +554,7 @@ export interface ScoutTeam {
   slotsRequired: number;
   playersBought: number;
   maximumSquadSize: number;
+  /** Maximum single bid allowed (alias of maxAllowedBid for scout UI) */
   maxBidCapacity: number;
   players: ScoutSquadPlayer[];
 }
@@ -718,7 +717,6 @@ export const PlayerStatus = {
   sold: "sold",
   unsold: "unsold",
   retained: "retained",
-  withdrawn: "withdrawn",
 } as const;
 
 /**
@@ -1307,13 +1305,16 @@ export interface TeamPurse {
   purseRemaining: number;
   playersBought: number;
   reservePurse: number;
-  /** Current spendable after today's reserve — not the bidding limit. */
+  /** Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid. */
   spendablePurse: number;
   slotsRequired: number;
+  /** Squad count immediately after this bid succeeds (playersBought + 1) */
   futurePlayersBought?: number;
+  /** Mandatory slots still open after this bid succeeds */
   futureSlotsRequired?: number;
+  /** Reserve held after this bid succeeds (futureSlotsRequired × minBid) */
   futureReservePurse?: number;
-  /** Maximum single bid allowed for the next purchase. */
+  /** Maximum single bid allowed (purseRemaining - futureReservePurse) */
   maxAllowedBid?: number;
   lowestBasePrice: number;
   minimumSquadSize: number;
@@ -1323,6 +1324,27 @@ export interface TeamPurse {
   topPlayerName?: string | null;
   /** @nullable */
   topPlayerAmount?: number | null;
+}
+
+export type PresentationContextContext =
+  (typeof PresentationContextContext)[keyof typeof PresentationContextContext];
+
+export const PresentationContextContext = {
+  auction: "auction",
+  top5: "top5",
+  team: "team",
+} as const;
+
+/**
+ * Explicit on-air presentation context — independent of operator UI navigation
+ */
+export interface PresentationContext {
+  context?: PresentationContextContext;
+  /**
+   * Team highlighted in team presentation. Null cycles all teams.
+   * @nullable
+   */
+  selectedTeamId?: number | null;
 }
 
 export interface AuctionState {
@@ -1399,28 +1421,7 @@ export interface AuctionState {
   ledPurseBoosterOverlay?: LedPurseBoosterOverlay | null;
   /** Live team purse snapshot embedded for realtime sync without separate HTTP refetch */
   teamPurses?: TeamPurse[];
-  /**
-   * ISO timestamp of last auction activity — used for connection staleness detection
-   * @nullable
-   */
-  lastAuctionActivityAt?: string | null;
-  /** Explicit on-air presentation context for OBS and displays */
   presentationContext?: PresentationContext;
-}
-
-export type PresentationContextKind =
-  (typeof PresentationContextKind)[keyof typeof PresentationContextKind];
-
-export const PresentationContextKind = {
-  auction: "auction",
-  top5: "top5",
-  team: "team",
-} as const;
-
-export interface PresentationContext {
-  context?: PresentationContextKind;
-  /** @nullable */
-  selectedTeamId?: number | null;
 }
 
 export type SetPresentationContextBodyContext =
@@ -1432,11 +1433,11 @@ export const SetPresentationContextBodyContext = {
   team: "team",
 } as const;
 
-export type SetPresentationContextBody = {
+export interface SetPresentationContextBody {
   context?: SetPresentationContextBodyContext;
   /** @nullable */
   selectedTeamId?: number | null;
-};
+}
 
 export type ApplyPurseBoosterRequestTarget =
   (typeof ApplyPurseBoosterRequestTarget)[keyof typeof ApplyPurseBoosterRequestTarget];
@@ -1452,7 +1453,10 @@ export interface ApplyPurseBoosterRequest {
   teamId?: number;
   /** @minimum 1 */
   amount: number;
-  /** @minLength 10 */
+  /**
+   * Optional; auto-generated in audit log when omitted
+   * @minLength 10
+   */
   reason?: string;
   showOnLed?: boolean;
 }
@@ -1538,9 +1542,7 @@ export interface RegistrationStatus {
   deadline?: string | null;
   /** Tournament lifecycle status (setup, active, completed) */
   tournamentStatus?: string;
-  /**
-   * When registration is closed, existing players may still update photo and sports
-   * specs only while this is true (tournament still in setup).
+  /** When registration is closed, existing players may still update photo and sports specs only while this is true (tournament still in setup).
    */
   profileUpdatesAllowed?: boolean;
   /** Whether registration fee collection is enabled */
@@ -1985,6 +1987,7 @@ export interface TeamReportPlayer {
   categoryName?: string | null;
   /** @nullable */
   categoryColor?: string | null;
+  basePrice?: number;
   /** @nullable */
   soldPrice?: number | null;
   /** @nullable */
@@ -2002,6 +2005,7 @@ export type TeamReportDataTournament = {
   licenseStatus: string;
   minimumSquadSize: number;
   maximumSquadSize: number;
+  auctionUnit?: string;
 };
 
 export type TeamReportDataTeam = {
@@ -2025,6 +2029,35 @@ export type TeamReportDataPurgeSummary = {
   remainingPurse: number;
 };
 
+export type TeamReportDataAuctionRulesCategoryMinBidsItem = {
+  name: string;
+  minBid: number;
+};
+
+export type TeamReportDataAuctionRules = {
+  /** @nullable */
+  minBid?: number | null;
+  auctionUnit?: string;
+  playersChooseBaseValue?: boolean;
+  categoryMinBids?: TeamReportDataAuctionRulesCategoryMinBidsItem[];
+  bidIncrementLines?: string[];
+  /** @nullable */
+  minimumSquadSize?: number | null;
+  /** @nullable */
+  maximumSquadSize?: number | null;
+};
+
+export type TeamReportDataSponsorsItem = {
+  name: string;
+  /** @nullable */
+  type?: string | null;
+};
+
+export type TeamReportDataPlatform = {
+  brandName?: string;
+  websiteUrl?: string;
+};
+
 export type TeamReportDataCategoriesItem = {
   id: number;
   name: string;
@@ -2043,6 +2076,9 @@ export interface TeamReportData {
   tournament: TeamReportDataTournament;
   team: TeamReportDataTeam;
   purgeSummary: TeamReportDataPurgeSummary;
+  auctionRules?: TeamReportDataAuctionRules;
+  sponsors?: TeamReportDataSponsorsItem[];
+  platform?: TeamReportDataPlatform;
   retainedPlayers: TeamReportPlayer[];
   preSoldPlayers: TeamReportPlayer[];
   nonPlayingMembers: TeamReportPlayer[];

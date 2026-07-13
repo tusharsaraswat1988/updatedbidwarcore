@@ -1,5 +1,5 @@
 import { BLOG_POSTS_META, getAllBlogUrls, getPostSitemapLastmod } from "@workspace/blog-data";
-import { ALL_PUBLIC_PATHS, BASE_URL, type PageMeta } from "./page-meta.js";
+import { ALL_PUBLIC_PATHS, getBaseUrl, type PageMeta } from "./page-meta.js";
 import { buildCanonical, safeLastmod } from "./seo-canonical.js";
 import { isCricketPublicPath } from "./cricket-page-meta.js";
 import { isAcademyPublicPath } from "./academy-page-meta.js";
@@ -237,7 +237,8 @@ export function isKnownLegalSlug(pathname: string): boolean {
   return KNOWN_LEGAL_SLUGS.has(match[1]!);
 }
 
-export function buildRobotsTxt(host: string = "bidwar.in"): string {
+export function buildRobotsTxt(): string {
+  const origin = getBaseUrl();
   const lines = [
     "User-agent: *",
     "Allow: /",
@@ -249,7 +250,7 @@ export function buildRobotsTxt(host: string = "bidwar.in"): string {
     ...ROBOTS_ALLOW_PATHS.map((path) => `Allow: ${path}`),
     "",
     `# Submit only this URL in Google Search Console`,
-    `Sitemap: https://${host}/sitemap-index.xml`,
+    `Sitemap: ${origin}/sitemap-index.xml`,
   ];
   return lines.join("\n");
 }
@@ -337,38 +338,38 @@ function escapeXml(value: string): string {
 
 function resolveImageUrl(image: string): string {
   if (image.startsWith("http://") || image.startsWith("https://")) return image;
-  return `${BASE_URL}${image.startsWith("/") ? image : `/${image}`}`;
+  return `${getBaseUrl()}${image.startsWith("/") ? image : `/${image}`}`;
 }
 
 export function buildSitemapPages(): string {
   const today = safeLastmod(new Date())!;
 
   const urls: SitemapEntry[] = [
-    entry(`${BASE_URL}/`, "weekly", "1.0", today),
-    entry(`${BASE_URL}/upcoming-auctions`, "daily", "0.8", today),
-    entry(`${BASE_URL}/contact`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/auction-tips`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/legal/terms`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/licensing`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/privacy`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/acceptable-use`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/disclaimer`, "yearly", "0.3"),
-    entry(`${BASE_URL}/legal/refund`, "yearly", "0.3"),
-    entry(`${BASE_URL}/sports-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/cricket-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/badminton-scoring-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/franchise-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/player-auction-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/sports-league-management-software`, "monthly", "0.9", today),
-    entry(`${BASE_URL}/football-player-auction`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/kabaddi-auction-platform`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/tournament-auction-platform`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/basketball-auction-software`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/badminton-auction-platform`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/volleyball-player-auction`, "monthly", "0.8", today),
-    entry(`${BASE_URL}/esports-auction-system`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/business-league-auction`, "monthly", "0.7", today),
-    entry(`${BASE_URL}/live-player-bidding`, "monthly", "0.7", today),
+    entry(`${getBaseUrl()}/`, "weekly", "1.0", today),
+    entry(`${getBaseUrl()}/upcoming-auctions`, "daily", "0.8", today),
+    entry(`${getBaseUrl()}/contact`, "monthly", "0.7", today),
+    entry(`${getBaseUrl()}/auction-tips`, "monthly", "0.7", today),
+    entry(`${getBaseUrl()}/legal/terms`, "yearly", "0.3"),
+    entry(`${getBaseUrl()}/legal/licensing`, "yearly", "0.3"),
+    entry(`${getBaseUrl()}/legal/privacy`, "yearly", "0.3"),
+    entry(`${getBaseUrl()}/legal/acceptable-use`, "yearly", "0.3"),
+    entry(`${getBaseUrl()}/legal/disclaimer`, "yearly", "0.3"),
+    entry(`${getBaseUrl()}/legal/refund`, "yearly", "0.3"),
+    entry(`${getBaseUrl()}/sports-auction-software`, "monthly", "0.9", today),
+    entry(`${getBaseUrl()}/cricket-auction-software`, "monthly", "0.9", today),
+    entry(`${getBaseUrl()}/badminton-scoring-software`, "monthly", "0.9", today),
+    entry(`${getBaseUrl()}/franchise-auction-software`, "monthly", "0.9", today),
+    entry(`${getBaseUrl()}/player-auction-software`, "monthly", "0.9", today),
+    entry(`${getBaseUrl()}/sports-league-management-software`, "monthly", "0.9", today),
+    entry(`${getBaseUrl()}/football-player-auction`, "monthly", "0.8", today),
+    entry(`${getBaseUrl()}/kabaddi-auction-platform`, "monthly", "0.8", today),
+    entry(`${getBaseUrl()}/tournament-auction-platform`, "monthly", "0.8", today),
+    entry(`${getBaseUrl()}/basketball-auction-software`, "monthly", "0.8", today),
+    entry(`${getBaseUrl()}/badminton-auction-platform`, "monthly", "0.8", today),
+    entry(`${getBaseUrl()}/volleyball-player-auction`, "monthly", "0.8", today),
+    entry(`${getBaseUrl()}/esports-auction-system`, "monthly", "0.7", today),
+    entry(`${getBaseUrl()}/business-league-auction`, "monthly", "0.7", today),
+    entry(`${getBaseUrl()}/live-player-bidding`, "monthly", "0.7", today),
   ];
 
   return renderUrlset(urls);
@@ -383,7 +384,7 @@ export async function buildSitemapAcademy(): Promise<string> {
     // DB unavailable or academy tables not migrated — still emit /academy index URL.
   }
   const urls: SitemapEntry[] = [
-    entry(`${BASE_URL}/academy`, "weekly", "0.85", today),
+    entry(`${getBaseUrl()}/academy`, "weekly", "0.85", today),
     ...lessonEntries.map((e) => entry(e.loc, "monthly", "0.75", e.lastmod)),
   ];
   return renderUrlset(urls);
@@ -393,7 +394,7 @@ export function buildSitemapBlog(): string {
   const today = safeLastmod(new Date())!;
 
   const urls: SitemapEntry[] = [
-    entry(`${BASE_URL}/blog`, "weekly", "0.8", today),
+    entry(`${getBaseUrl()}/blog`, "weekly", "0.8", today),
     ...BLOG_POSTS_META.map((p) =>
       entry(p.canonical, "monthly", "0.7", getPostSitemapLastmod(p)),
     ),
@@ -433,11 +434,11 @@ export function buildSitemapIndex(): string {
   const today = safeLastmod(new Date())!;
 
   return renderSitemapIndex([
-    { loc: `${BASE_URL}/sitemap-pages.xml`, lastmod: today },
-    { loc: `${BASE_URL}/sitemap-academy.xml`, lastmod: today },
-    { loc: `${BASE_URL}/sitemap-blog.xml`, lastmod: today },
-    { loc: `${BASE_URL}/sitemap-taxonomy.xml`, lastmod: today },
-    { loc: `${BASE_URL}/sitemap-images.xml`, lastmod: today },
+    { loc: `${getBaseUrl()}/sitemap-pages.xml`, lastmod: today },
+    { loc: `${getBaseUrl()}/sitemap-academy.xml`, lastmod: today },
+    { loc: `${getBaseUrl()}/sitemap-blog.xml`, lastmod: today },
+    { loc: `${getBaseUrl()}/sitemap-taxonomy.xml`, lastmod: today },
+    { loc: `${getBaseUrl()}/sitemap-images.xml`, lastmod: today },
   ]);
 }
 
@@ -517,7 +518,7 @@ export async function auditSitemapDiscovery(
   const academyLocs = extractSitemapLocs(academyXml);
   const indexChildLocs = extractSitemapLocs(indexXml);
 
-  const expectedChildLocs = SITEMAP_CHILD_FILES.map((file) => `${BASE_URL}/${file}`);
+  const expectedChildLocs = SITEMAP_CHILD_FILES.map((file) => `${getBaseUrl()}/${file}`);
   const orphanChildSitemaps = expectedChildLocs.filter((loc) => !indexChildLocs.includes(loc));
 
   const duplicateLocs = [
@@ -532,10 +533,10 @@ export async function auditSitemapDiscovery(
   const missingBlogArticles = articleCanonicals.filter((url) => !combinedLocs.includes(url));
 
   const canonicalMismatches = BLOG_POSTS_META
-    .filter((p) => p.canonical !== `${BASE_URL}/blog/${p.slug}`)
+    .filter((p) => p.canonical !== `${getBaseUrl()}/blog/${p.slug}`)
     .map((p) => `${p.slug}: ${p.canonical}`);
 
-  const exampleUrl = `${BASE_URL}/blog/${exampleArticleSlug}`;
+  const exampleUrl = `${getBaseUrl()}/blog/${exampleArticleSlug}`;
 
   const validXml =
     pagesXml.startsWith("<?xml") &&
@@ -556,12 +557,12 @@ export async function auditSitemapDiscovery(
     duplicateLocs: [...new Set(duplicateLocs)],
     missingBlogArticles,
     canonicalMismatches,
-    includesHomepage: combinedLocs.includes(`${BASE_URL}/`),
-    includesBlogIndex: blogLocs.includes(`${BASE_URL}/blog`),
+    includesHomepage: combinedLocs.includes(`${getBaseUrl()}/`),
+    includesBlogIndex: blogLocs.includes(`${getBaseUrl()}/blog`),
     includesAllArticles: missingBlogArticles.length === 0,
     includesCategoryPages: taxonomyLocs.some((u) => u.includes("/blog/category/")),
     includesAuthorPages: taxonomyLocs.some((u) => u.includes("/blog/author/")),
-    includesLandingPages: pagesLocs.includes(`${BASE_URL}/sports-auction-software`),
+    includesLandingPages: pagesLocs.includes(`${getBaseUrl()}/sports-auction-software`),
     exampleArticlePresent: combinedLocs.includes(exampleUrl) && blogLocs.includes(exampleUrl),
     validXml,
   };

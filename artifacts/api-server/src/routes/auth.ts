@@ -405,6 +405,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
     sport: z.string().default("cricket"),
+    city: z.string().trim().min(1, "City is required"),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().optional(),
@@ -444,6 +445,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     sport: d.sport,
     sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,
+    city: d.city,
     venue: d.venue,
     auctionDate: d.auctionDate,
     auctionTime: d.auctionTime ?? null,
@@ -468,6 +470,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     auctionCode: t.auctionCode,
     auctionDate: t.auctionDate,
     auctionTime: t.auctionTime,
+    city: t.city,
     venue: t.venue,
     organizerName: t.organizerName,
     organizerEmail: t.organizerEmail,
@@ -649,6 +652,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       id: tournament.id,
       name: tournament.name,
       sport: tournament.sport,
+      city: tournament.city,
       venue: tournament.venue,
       auctionDate: tournament.auctionDate,
       auctionTime: tournament.auctionTime ?? null,
@@ -724,6 +728,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const schema = z.object({
     name: z.string().optional(),
     sport: z.string().optional(),
+    city: z.string().trim().min(1).optional(),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().nullable().optional(),
@@ -796,6 +801,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     }
   }
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
+  if (d.city !== undefined) updates.city = d.city;
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
@@ -1213,6 +1219,7 @@ router.post("/auth/organizer-account/login", async (req, res) => {
       sport: t.sport,
       status: t.status,
       licenseStatus: t.licenseStatus,
+      city: t.city ?? null,
       venue: t.venue ?? null,
       auctionDate: t.auctionDate ?? null,
       auctionTime: t.auctionTime ?? null,
@@ -1242,6 +1249,7 @@ router.get("/auth/organizer-account/me", async (req, res) => {
       sport: t.sport,
       status: t.status,
       licenseStatus: t.licenseStatus,
+      city: t.city ?? null,
       venue: t.venue,
       auctionDate: t.auctionDate,
       auctionTime: t.auctionTime ?? null,
@@ -1307,6 +1315,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
     sport: z.string().default("cricket"),
+    city: z.string().trim().min(1, "City is required"),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().optional(),
@@ -1349,6 +1358,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     sport: d.sport,
     sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,
+    city: d.city,
     venue: d.venue ?? null,
     auctionDate: d.auctionDate ?? null,
     auctionTime: d.auctionTime ?? null,
@@ -1373,6 +1383,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     auctionCode: tournament.auctionCode,
     auctionDate: tournament.auctionDate,
     auctionTime: tournament.auctionTime,
+    city: tournament.city,
     venue: tournament.venue,
     organizerName: tournament.organizerName,
     organizerEmail: tournament.organizerEmail,

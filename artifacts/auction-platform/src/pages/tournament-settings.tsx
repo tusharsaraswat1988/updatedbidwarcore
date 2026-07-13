@@ -17,6 +17,7 @@ import { BannerFrame } from "@/components/display/banner-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -46,6 +47,7 @@ import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor, SponsorLogosToolbar } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { AUCTION_UNIT_OPTIONS, bidIncrementFieldLabel, budgetFieldLabel, minValueFieldLabel, normalizeAuctionUnit } from "@/lib/format";
 import type { AuctionUnit } from "@/lib/format";
@@ -151,6 +153,7 @@ export default function TournamentSettings() {
     const initialForm = {
       name: t.name,
       sport: t.sport,
+      city: t.city || "",
       venue: t.venue || "",
       auctionDate: t.auctionDate || "",
       auctionTime: t.auctionTime || "",
@@ -497,6 +500,9 @@ export default function TournamentSettings() {
     if (!(editForm.name as string)?.trim()) {
       return "Tournament name is required";
     }
+    if (!(editForm.city as string)?.trim()) {
+      return "City is required";
+    }
     if (!Number(editForm.basePurse) || Number(editForm.basePurse) <= 0) {
       return "Team budget is required";
     }
@@ -567,6 +573,7 @@ export default function TournamentSettings() {
           reason: DEFAULT_SETTINGS_AUDIT_REASON,
           name: editForm.name as string,
           sport: editForm.sport as string,
+          city: (editForm.city as string).trim() || undefined,
           venue: editForm.venue as string || undefined,
           auctionDate: editForm.auctionDate as string || undefined,
           auctionTime: editForm.auctionTime as string || undefined,
@@ -851,13 +858,22 @@ export default function TournamentSettings() {
 
             <SettingsCard
               title="Event Details"
-              description="Venue and auction schedule for your live event."
+              description="City, venue, and auction schedule for your live event."
               icon={<Building2 className="w-4 h-4 text-muted-foreground" />}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> City *</Label>
+                  <CityAutocomplete
+                    value={editForm.city as string || ""}
+                    onChange={city => setEditForm(f => ({ ...f, city }))}
+                    placeholder="Start typing city name"
+                    minChars={3}
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Venue</Label>
-                  <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium name" />
+                  <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium or ground name" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
@@ -870,7 +886,11 @@ export default function TournamentSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Time</Label>
-                  <Input type="time" value={editForm.auctionTime as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionTime: e.target.value }))} placeholder="14:00" />
+                  <TimePicker
+                    value={editForm.auctionTime as string || ""}
+                    onChange={auctionTime => setEditForm(f => ({ ...f, auctionTime }))}
+                    placeholder="Select time"
+                  />
                   <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
                 </div>
               </div>

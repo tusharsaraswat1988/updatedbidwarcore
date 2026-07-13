@@ -30,6 +30,7 @@ import {
   listVenues,
 } from "@/lib/scoring-foundation-api";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { scoringPath, cricketPublicPath } from "@/lib/tournament-navigation";
 import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
 
@@ -39,7 +40,7 @@ export default function ScoringSchedulePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: tournament } = useGetTournament(tournamentId, {
+  const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teams } = useListTeams(tournamentId, {
@@ -158,6 +159,21 @@ export default function ScoringSchedulePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (tournament?.sport === "badminton") {
+    return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
+  }
+
+  if (tournamentLoading) {
+    return (
+      <ScorerShell tournamentId={tournamentId} title="Schedule" backHref={`/tournament/${tournamentId}`}>
+        <div className="p-4 space-y-3">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </ScorerShell>
+    );
   }
 
   if (!scoringActive) {

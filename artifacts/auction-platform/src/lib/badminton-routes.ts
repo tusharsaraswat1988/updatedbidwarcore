@@ -54,10 +54,22 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     isActive: (path) => path.includes("/badminton/categories"),
   },
   {
+    id: "scoring_format",
+    label: "Match Format",
+    href: (tid) => `${badmintonHubPath(tid)}/scoring-format`,
+    isActive: (path) => path.includes("/badminton/scoring-format"),
+  },
+  {
     id: "courts",
     label: "Courts",
     href: (tid) => `${badmintonHubPath(tid)}/courts`,
     isActive: (path) => path.includes("/badminton/courts"),
+  },
+  {
+    id: "fixtures",
+    label: "Draw & Fixtures",
+    href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
+    isActive: (path) => path.includes("/badminton/fixtures"),
   },
   {
     id: "matches",
@@ -79,19 +91,28 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
 ];
 
-export function getBadmintonHubBackNav(tournamentId: number, pathname: string) {
+export type BadmintonHubBackNav =
+  | { kind: "link"; href: string; label: string }
+  | { kind: "history"; label: string };
+
+/**
+ * Contextual back control for organizer hub pages.
+ * Command Center uses browser history (no Auction exit link) until a
+ * shared Tournaments landing page exists.
+ */
+export function getBadmintonHubBackNav(tournamentId: number, pathname: string): BadmintonHubBackNav {
   const hub = badmintonHubPath(tournamentId);
   const matches = `${hub}/matches`;
 
   if (/\/badminton\/matches\/\d+\/control/.test(pathname)) {
-    return { href: matches, label: "Back to Matches" };
+    return { kind: "link", href: matches, label: "Back to Matches" };
   }
 
   if (pathname === hub || pathname === `${hub}/`) {
-    return { href: `/tournament/${tournamentId}`, label: "Back to Auction Hub" };
+    return { kind: "history", label: "Back" };
   }
 
-  return { href: hub, label: "Back to Command Center" };
+  return { kind: "link", href: hub, label: "Back to Command Center" };
 }
 
 export const BADMINTON_ROUTE_LOADING_CLASS = "min-h-screen bg-background dark";

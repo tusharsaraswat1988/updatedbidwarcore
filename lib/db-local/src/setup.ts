@@ -7,6 +7,7 @@ export async function setupTables(client: Client): Promise<void> {
       name TEXT NOT NULL,
       sport TEXT NOT NULL DEFAULT 'cricket',
       venue TEXT,
+      city TEXT,
       auction_date TEXT,
       organizer_name TEXT,
       organizer_mobile TEXT,
@@ -204,6 +205,7 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE tournaments ADD COLUMN cheer_heat_meter_enabled INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tournaments ADD COLUMN cheer_fan_battle_enabled INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tournaments ADD COLUMN auction_unit TEXT NOT NULL DEFAULT 'rupee'",
+    "ALTER TABLE tournaments ADD COLUMN city TEXT",
     `CREATE TABLE IF NOT EXISTS venue_snapshots (
       key TEXT PRIMARY KEY,
       payload TEXT NOT NULL,

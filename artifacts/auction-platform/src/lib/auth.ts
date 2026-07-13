@@ -84,7 +84,7 @@ export async function listAdminTournaments(): Promise<AdminTournamentRow[]> {
 // ─── Admin tournament CRUD ────────────────────────────────────────────────────
 
 export async function createAdminTournament(data: {
-  name: string; sport: string; venue?: string; auctionDate?: string; auctionTime?: string;
+  name: string; sport: string; city: string; venue?: string; auctionDate?: string; auctionTime?: string;
   organizerName?: string; organizerMobile?: string; organizerEmail?: string;
   organizerPassword?: string; basePurse?: number; minBid?: number;
   timerSeconds?: number; bidTimerSeconds?: number;
@@ -130,7 +130,7 @@ export async function updateAdminTournament(
   tournamentId: number,
   data: Partial<{
     name: string; sport: string; organizerName: string; organizerMobile: string;
-    organizerEmail: string; organizerPassword: string; venue: string; auctionDate: string;
+    organizerEmail: string; organizerPassword: string; city: string; venue: string; auctionDate: string;
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
     localModeEnabled: boolean; scoringEnabled: boolean; reason: string;
@@ -214,7 +214,7 @@ export async function unlockTournament(tournamentId: number): Promise<{ success:
 
 export type AdminTournamentDetail = {
   tournament: {
-    id: number; name: string; sport: string; venue: string | null;
+    id: number; name: string; sport: string; city: string | null; venue: string | null;
     auctionDate: string | null; auctionTime: string | null; organizerId: number | null;
     organizerName: string | null;
     organizerMobile: string | null; organizerEmail: string | null;
@@ -361,7 +361,7 @@ export async function loginOrganizerAccount(
   success: boolean;
   error?: string;
   organizer?: OrganizerInfo;
-  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
+  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string }>;
   loginGuard?: LoginGuardStatus;
 }> {
   try {
@@ -385,7 +385,7 @@ export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
   serverError?: boolean;
   organizer?: OrganizerInfo;
-  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
+  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string }>;
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/me");
@@ -430,7 +430,7 @@ export async function changeOrganizerPassword(data: {
 }
 
 export async function createOrganizerTournament(data: {
-  name: string; sport?: string; venue?: string; auctionDate?: string; auctionTime?: string;
+  name: string; sport?: string; city: string; venue?: string; auctionDate?: string; auctionTime?: string;
   basePurse?: number; minimumSquadSize?: number; minBid?: number; bidIncrement?: number;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {

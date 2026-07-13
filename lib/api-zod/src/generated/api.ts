@@ -45,6 +45,10 @@ export const ListTournamentsResponseItem = zod.object({
     .nullish()
     .describe("Auto-generated 8-char code e.g. RC732504"),
   venue: zod.string().nullish(),
+  city: zod
+    .string()
+    .nullish()
+    .describe("City where the tournament is held (separate from venue)"),
   auctionDate: zod.string().nullish(),
   auctionTime: zod.string().nullish(),
   organizerName: zod.string().nullish(),
@@ -209,6 +213,9 @@ export const CreateTournamentBody = zod.object({
   name: zod.string(),
   sport: zod.string(),
   venue: zod.string().optional(),
+  city: zod
+    .string()
+    .describe("City where the tournament is held (required on create)"),
   auctionDate: zod.string().optional(),
   organizerName: zod.string().optional(),
   organizerMobile: zod.string().optional(),
@@ -271,6 +278,10 @@ export const GetTournamentResponse = zod.object({
     .nullish()
     .describe("Auto-generated 8-char code e.g. RC732504"),
   venue: zod.string().nullish(),
+  city: zod
+    .string()
+    .nullish()
+    .describe("City where the tournament is held (separate from venue)"),
   auctionDate: zod.string().nullish(),
   auctionTime: zod.string().nullish(),
   organizerName: zod.string().nullish(),
@@ -438,6 +449,7 @@ export const UpdateTournamentBody = zod.object({
   name: zod.string().optional(),
   sport: zod.string().optional(),
   venue: zod.string().optional(),
+  city: zod.string().optional().describe("City where the tournament is held"),
   auctionDate: zod.string().optional(),
   auctionTime: zod.string().nullish(),
   organizerName: zod.string().optional(),
@@ -532,6 +544,10 @@ export const UpdateTournamentResponse = zod.object({
     .nullish()
     .describe("Auto-generated 8-char code e.g. RC732504"),
   venue: zod.string().nullish(),
+  city: zod
+    .string()
+    .nullish()
+    .describe("City where the tournament is held (separate from venue)"),
   auctionDate: zod.string().nullish(),
   auctionTime: zod.string().nullish(),
   organizerName: zod.string().nullish(),
@@ -726,6 +742,10 @@ export const ExportTournamentForLocalResponse = zod.object({
       .nullish()
       .describe("Auto-generated 8-char code e.g. RC732504"),
     venue: zod.string().nullish(),
+    city: zod
+      .string()
+      .nullish()
+      .describe("City where the tournament is held (separate from venue)"),
     auctionDate: zod.string().nullish(),
     auctionTime: zod.string().nullish(),
     organizerName: zod.string().nullish(),
@@ -1197,7 +1217,11 @@ export const GetTeamScoutResponse = zod.object({
       slotsRequired: zod.number(),
       playersBought: zod.number(),
       maximumSquadSize: zod.number(),
-      maxBidCapacity: zod.number(),
+      maxBidCapacity: zod
+        .number()
+        .describe(
+          "Maximum single bid allowed (alias of maxAllowedBid for scout UI)",
+        ),
       players: zod.array(
         zod.object({
           id: zod.number(),
@@ -1678,7 +1702,7 @@ export const GetRegistrationStatusResponse = zod.object({
     .boolean()
     .optional()
     .describe(
-      "When registration is closed, existing players may still update photo and sports specs only while this is true (tournament still in setup).",
+      "When registration is closed, existing players may still update photo and sports specs only while this is true (tournament still in setup).\n",
     ),
   enableRegistrationPayment: zod
     .boolean()
@@ -2507,6 +2531,8 @@ export const GetAuctionStateParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const getAuctionStateResponsePresentationContextContextDefault = `auction`;
+
 export const GetAuctionStateResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
@@ -2799,8 +2825,34 @@ export const GetAuctionStateResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -2813,6 +2865,22 @@ export const GetAuctionStateResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(getAuctionStateResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -2821,6 +2889,8 @@ export const GetAuctionStateResponse = zod.object({
 export const StartAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const startAuctionResponsePresentationContextContextDefault = `auction`;
 
 export const StartAuctionResponse = zod.object({
   tournamentId: zod.number(),
@@ -3114,8 +3184,34 @@ export const StartAuctionResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -3128,6 +3224,22 @@ export const StartAuctionResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(startAuctionResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -3136,6 +3248,8 @@ export const StartAuctionResponse = zod.object({
 export const PauseAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const pauseAuctionResponsePresentationContextContextDefault = `auction`;
 
 export const PauseAuctionResponse = zod.object({
   tournamentId: zod.number(),
@@ -3429,8 +3543,34 @@ export const PauseAuctionResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -3442,6 +3582,22 @@ export const PauseAuctionResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(pauseAuctionResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -3456,6 +3612,8 @@ export const NextPlayerBody = zod.object({
   playerId: zod.number().optional(),
   mode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
+
+export const nextPlayerResponsePresentationContextContextDefault = `auction`;
 
 export const NextPlayerResponse = zod.object({
   tournamentId: zod.number(),
@@ -3749,8 +3907,34 @@ export const NextPlayerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -3762,6 +3946,22 @@ export const NextPlayerResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(nextPlayerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -3780,6 +3980,8 @@ export const PlaceBidBody = zod.object({
     .optional()
     .describe("Team access code — required if the team has one configured"),
 });
+
+export const placeBidResponsePresentationContextContextDefault = `auction`;
 
 export const PlaceBidResponse = zod.object({
   tournamentId: zod.number(),
@@ -4073,8 +4275,34 @@ export const PlaceBidResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -4087,6 +4315,22 @@ export const PlaceBidResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(placeBidResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -4095,6 +4339,8 @@ export const PlaceBidResponse = zod.object({
 export const SellPlayerParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const sellPlayerResponsePresentationContextContextDefault = `auction`;
 
 export const SellPlayerResponse = zod.object({
   tournamentId: zod.number(),
@@ -4388,8 +4634,34 @@ export const SellPlayerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -4401,6 +4673,22 @@ export const SellPlayerResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(sellPlayerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -4419,6 +4707,8 @@ export const ManualSellBody = zod.object({
     .optional()
     .describe("Optional audit reason for manual sell"),
 });
+
+export const manualSellResponsePresentationContextContextDefault = `auction`;
 
 export const ManualSellResponse = zod.object({
   tournamentId: zod.number(),
@@ -4712,8 +5002,34 @@ export const ManualSellResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -4726,6 +5042,22 @@ export const ManualSellResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(manualSellResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -4734,6 +5066,8 @@ export const ManualSellResponse = zod.object({
 export const MarkUnsoldParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const markUnsoldResponsePresentationContextContextDefault = `auction`;
 
 export const MarkUnsoldResponse = zod.object({
   tournamentId: zod.number(),
@@ -5027,8 +5361,34 @@ export const MarkUnsoldResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -5040,6 +5400,22 @@ export const MarkUnsoldResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(markUnsoldResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -5058,6 +5434,8 @@ export const ReAuctionPlayerBody = zod.object({
     .optional()
     .describe("Optional audit reason for re-auction"),
 });
+
+export const reAuctionPlayerResponsePresentationContextContextDefault = `auction`;
 
 export const ReAuctionPlayerResponse = zod.object({
   tournamentId: zod.number(),
@@ -5351,8 +5729,34 @@ export const ReAuctionPlayerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -5364,6 +5768,22 @@ export const ReAuctionPlayerResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(reAuctionPlayerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -5390,6 +5810,8 @@ export const ReAuctionAllUnsoldBody = zod.object({
       "Required when strategy is fixed — same starting bid for every unsold player",
     ),
 });
+
+export const reAuctionAllUnsoldResponsePresentationContextContextDefault = `auction`;
 
 export const ReAuctionAllUnsoldResponse = zod.object({
   tournamentId: zod.number(),
@@ -5683,8 +6105,34 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -5696,6 +6144,22 @@ export const ReAuctionAllUnsoldResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(reAuctionAllUnsoldResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -5712,6 +6176,8 @@ export const ConcludeAuctionBody = zod.object({
     .optional()
     .describe("When true, conclude even if unsold players remain"),
 });
+
+export const concludeAuctionResponsePresentationContextContextDefault = `auction`;
 
 export const ConcludeAuctionResponse = zod.object({
   tournamentId: zod.number(),
@@ -6005,8 +6471,34 @@ export const ConcludeAuctionResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -6019,6 +6511,22 @@ export const ConcludeAuctionResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(concludeAuctionResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -6027,6 +6535,8 @@ export const ConcludeAuctionResponse = zod.object({
 export const UndoLastActionParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const undoLastActionResponsePresentationContextContextDefault = `auction`;
 
 export const UndoLastActionResponse = zod.object({
   tournamentId: zod.number(),
@@ -6320,8 +6830,34 @@ export const UndoLastActionResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -6333,6 +6869,22 @@ export const UndoLastActionResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(undoLastActionResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -6360,6 +6912,8 @@ export const ResetTrialAuctionBody = zod.object({
     .optional()
     .describe("organizer for operator panel; admin for super admin panel"),
 });
+
+export const resetTrialAuctionResponsePresentationContextContextDefault = `auction`;
 
 export const ResetTrialAuctionResponse = zod.object({
   tournamentId: zod.number(),
@@ -6653,8 +7207,34 @@ export const ResetTrialAuctionResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -6666,6 +7246,22 @@ export const ResetTrialAuctionResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(resetTrialAuctionResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -6679,6 +7275,8 @@ export const SetDisplayOverlayParams = zod.object({
 export const SetDisplayOverlayBody = zod.object({
   mode: zod.enum(["off", "team", "player", "top5", "banner"]),
 });
+
+export const setDisplayOverlayResponsePresentationContextContextDefault = `auction`;
 
 export const SetDisplayOverlayResponse = zod.object({
   tournamentId: zod.number(),
@@ -6972,8 +7570,34 @@ export const SetDisplayOverlayResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -6985,6 +7609,388 @@ export const SetDisplayOverlayResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(setDisplayOverlayResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
+});
+
+/**
+ * @summary Set explicit on-air presentation context for OBS and displays
+ */
+export const SetPresentationContextParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const SetPresentationContextBody = zod.object({
+  context: zod.enum(["auction", "top5", "team"]).optional(),
+  selectedTeamId: zod.number().nullish(),
+});
+
+export const setPresentationContextResponsePresentationContextContextDefault = `auction`;
+
+export const SetPresentationContextResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      serialNo: zod
+        .number()
+        .describe(
+          "Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial",
+        ),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      specifications: zod
+        .array(
+          zod.object({
+            specGroupId: zod.number(),
+            groupName: zod.string(),
+            value: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)",
+        ),
+      age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  currentBidTeamLogoUrl: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  bidTimerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
+  lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  mainRoundExhausted: zod
+    .boolean()
+    .optional()
+    .describe("True when no available players remain but unsold players exist"),
+  bidExtensionEnabled: zod.boolean().optional(),
+  bidExtensionThresholdSeconds: zod.number().optional(),
+  bidExtensionSeconds: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+  displayOverlay: zod
+    .union([
+      zod.literal("team"),
+      zod.literal("player"),
+      zod.literal("top5"),
+      zod.literal("banner"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
+      musicMuted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, break music is silenced on LED displays while the countdown continues",
+        ),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+      expiresAt: zod.coerce.date().optional(),
+    })
+    .nullish(),
+  ledPurseBoosterOverlay: zod
+    .object({
+      batchId: zod.string(),
+      replayKey: zod.number(),
+      expiresAt: zod.coerce.date(),
+      durationMs: zod.number(),
+      target: zod.enum(["single", "all"]),
+      boosterAmount: zod.number(),
+      teams: zod.array(
+        zod.object({
+          teamId: zod.number(),
+          teamName: zod.string(),
+          shortCode: zod.string(),
+          color: zod.string(),
+          logoUrl: zod.string().nullish(),
+          previousCapacity: zod.number(),
+          boosterAmount: zod.number(),
+          newCapacity: zod.number(),
+        }),
+      ),
+    })
+    .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
+        slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(
+          setPresentationContextResponsePresentationContextContextDefault,
+        ),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -7000,6 +8006,8 @@ export const SetDisplayPlayerFilterBody = zod.object({
   categoryId: zod.number().nullish(),
   teamId: zod.number().nullish(),
 });
+
+export const setDisplayPlayerFilterResponsePresentationContextContextDefault = `auction`;
 
 export const SetDisplayPlayerFilterResponse = zod.object({
   tournamentId: zod.number(),
@@ -7293,8 +8301,34 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -7306,6 +8340,24 @@ export const SetDisplayPlayerFilterResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(
+          setDisplayPlayerFilterResponsePresentationContextContextDefault,
+        ),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -7377,6 +8429,8 @@ export const SyncFortuneWheelBody = zod.object({
     .optional(),
   winner: zod.string().nullish(),
 });
+
+export const syncFortuneWheelResponsePresentationContextContextDefault = `auction`;
 
 export const SyncFortuneWheelResponse = zod.object({
   tournamentId: zod.number(),
@@ -7670,8 +8724,34 @@ export const SyncFortuneWheelResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -7683,6 +8763,22 @@ export const SyncFortuneWheelResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(syncFortuneWheelResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -7696,6 +8792,8 @@ export const SetCategoryFilterParams = zod.object({
 export const SetCategoryFilterBody = zod.object({
   categoryIds: zod.array(zod.number()).nullish(),
 });
+
+export const setCategoryFilterResponsePresentationContextContextDefault = `auction`;
 
 export const SetCategoryFilterResponse = zod.object({
   tournamentId: zod.number(),
@@ -7989,8 +9087,34 @@ export const SetCategoryFilterResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -8002,6 +9126,22 @@ export const SetCategoryFilterResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(setCategoryFilterResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -8027,6 +9167,8 @@ export const SetBreakTimerBody = zod.object({
     ),
   message: zod.string().optional(),
 });
+
+export const setBreakTimerResponsePresentationContextContextDefault = `auction`;
 
 export const SetBreakTimerResponse = zod.object({
   tournamentId: zod.number(),
@@ -8320,8 +9462,34 @@ export const SetBreakTimerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -8333,6 +9501,22 @@ export const SetBreakTimerResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(setBreakTimerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -8352,6 +9536,8 @@ export const StartTimerBody = zod.object({
     .min(startTimerBodySecondsMin)
     .max(startTimerBodySecondsMax),
 });
+
+export const startTimerResponsePresentationContextContextDefault = `auction`;
 
 export const StartTimerResponse = zod.object({
   tournamentId: zod.number(),
@@ -8645,8 +9831,34 @@ export const StartTimerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -8659,6 +9871,22 @@ export const StartTimerResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(startTimerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -8667,6 +9895,8 @@ export const StartTimerResponse = zod.object({
 export const StopTimerParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const stopTimerResponsePresentationContextContextDefault = `auction`;
 
 export const StopTimerResponse = zod.object({
   tournamentId: zod.number(),
@@ -8960,8 +10190,34 @@ export const StopTimerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -8974,6 +10230,22 @@ export const StopTimerResponse = zod.object({
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(stopTimerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
+    ),
 });
 
 /**
@@ -8982,6 +10254,8 @@ export const StopTimerResponse = zod.object({
 export const DeferPlayerParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
+
+export const deferPlayerResponsePresentationContextContextDefault = `auction`;
 
 export const DeferPlayerResponse = zod.object({
   tournamentId: zod.number(),
@@ -9275,8 +10549,34 @@ export const DeferPlayerResponse = zod.object({
         purseRemaining: zod.number(),
         playersBought: zod.number(),
         reservePurse: zod.number(),
-        spendablePurse: zod.number(),
+        spendablePurse: zod
+          .number()
+          .describe(
+            "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+          ),
         slotsRequired: zod.number(),
+        futurePlayersBought: zod
+          .number()
+          .optional()
+          .describe(
+            "Squad count immediately after this bid succeeds (playersBought + 1)",
+          ),
+        futureSlotsRequired: zod
+          .number()
+          .optional()
+          .describe("Mandatory slots still open after this bid succeeds"),
+        futureReservePurse: zod
+          .number()
+          .optional()
+          .describe(
+            "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+          ),
+        maxAllowedBid: zod
+          .number()
+          .optional()
+          .describe(
+            "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+          ),
         lowestBasePrice: zod.number(),
         minimumSquadSize: zod.number(),
         maximumSquadSize: zod.number(),
@@ -9288,6 +10588,22 @@ export const DeferPlayerResponse = zod.object({
     .optional()
     .describe(
       "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
+  presentationContext: zod
+    .object({
+      context: zod
+        .enum(["auction", "top5", "team"])
+        .default(deferPlayerResponsePresentationContextContextDefault),
+      selectedTeamId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Explicit on-air presentation context — independent of operator UI navigation",
     ),
 });
 
@@ -9376,8 +10692,34 @@ export const GetTeamPursesResponseItem = zod.object({
   purseRemaining: zod.number(),
   playersBought: zod.number(),
   reservePurse: zod.number(),
-  spendablePurse: zod.number(),
+  spendablePurse: zod
+    .number()
+    .describe(
+      "Current spendable after today's reserve (purseRemaining - reservePurse). Not the bidding limit — use maxAllowedBid.",
+    ),
   slotsRequired: zod.number(),
+  futurePlayersBought: zod
+    .number()
+    .optional()
+    .describe(
+      "Squad count immediately after this bid succeeds (playersBought + 1)",
+    ),
+  futureSlotsRequired: zod
+    .number()
+    .optional()
+    .describe("Mandatory slots still open after this bid succeeds"),
+  futureReservePurse: zod
+    .number()
+    .optional()
+    .describe(
+      "Reserve held after this bid succeeds (futureSlotsRequired × minBid)",
+    ),
+  maxAllowedBid: zod
+    .number()
+    .optional()
+    .describe(
+      "Maximum single bid allowed (purseRemaining - futureReservePurse)",
+    ),
   lowestBasePrice: zod.number(),
   minimumSquadSize: zod.number(),
   maximumSquadSize: zod.number(),
@@ -9466,7 +10808,11 @@ export const ApplyPurseBoosterBody = zod.object({
   target: zod.enum(["single", "all"]),
   teamId: zod.number().optional().describe("Required when target is single"),
   amount: zod.number().min(1),
-  reason: zod.string().min(applyPurseBoosterBodyReasonMin).optional(),
+  reason: zod
+    .string()
+    .min(applyPurseBoosterBodyReasonMin)
+    .optional()
+    .describe("Optional; auto-generated in audit log when omitted"),
   showOnLed: zod.boolean().default(applyPurseBoosterBodyShowOnLedDefault),
 });
 
@@ -9967,6 +11313,7 @@ export const GetTeamReportResponse = zod.object({
     licenseStatus: zod.string(),
     minimumSquadSize: zod.number(),
     maximumSquadSize: zod.number(),
+    auctionUnit: zod.string().optional(),
   }),
   team: zod.object({
     id: zod.number(),
@@ -9985,6 +11332,38 @@ export const GetTeamReportResponse = zod.object({
     preSoldSpend: zod.number(),
     remainingPurse: zod.number(),
   }),
+  auctionRules: zod
+    .object({
+      minBid: zod.number().nullish(),
+      auctionUnit: zod.string().optional(),
+      playersChooseBaseValue: zod.boolean().optional(),
+      categoryMinBids: zod
+        .array(
+          zod.object({
+            name: zod.string(),
+            minBid: zod.number(),
+          }),
+        )
+        .optional(),
+      bidIncrementLines: zod.array(zod.string()).optional(),
+      minimumSquadSize: zod.number().nullish(),
+      maximumSquadSize: zod.number().nullish(),
+    })
+    .optional(),
+  sponsors: zod
+    .array(
+      zod.object({
+        name: zod.string(),
+        type: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  platform: zod
+    .object({
+      brandName: zod.string().optional(),
+      websiteUrl: zod.string().optional(),
+    })
+    .optional(),
   retainedPlayers: zod.array(
     zod.object({
       id: zod.number(),
@@ -10011,6 +11390,7 @@ export const GetTeamReportResponse = zod.object({
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
+      basePrice: zod.number().optional(),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.string(),
@@ -10043,6 +11423,7 @@ export const GetTeamReportResponse = zod.object({
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
+      basePrice: zod.number().optional(),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.string(),
@@ -10075,6 +11456,7 @@ export const GetTeamReportResponse = zod.object({
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
+      basePrice: zod.number().optional(),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.string(),

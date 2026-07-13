@@ -12,6 +12,8 @@ export const tournamentsTable = pgTable("tournaments", {
   // Unique 8-char auction code e.g. "RC732504" (Phase 1)
   auctionCode: text("auction_code"),
   venue: text("venue"),
+  /** City where the tournament / auction is held — separate from venue (stadium/ground). */
+  city: text("city"),
   auctionDate: text("auction_date"),
   auctionTime: text("auction_time"), // 24h format, e.g. "14:00"
   organizerName: text("organizer_name"),

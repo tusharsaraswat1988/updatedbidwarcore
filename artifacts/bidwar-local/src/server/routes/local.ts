@@ -95,7 +95,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       cloudBaseUrl: z.string().url().optional(),
       tournament: z.object({
         id: z.number(), name: z.string(), sport: z.string(),
-        venue: z.string().nullish(), auctionDate: z.string().nullish(),
+        city: z.string().nullish(), venue: z.string().nullish(), auctionDate: z.string().nullish(),
         organizerName: z.string().nullish(), organizerMobile: z.string().nullish(),
         organizerEmail: z.string().nullish(), logoUrl: z.string().nullish(),
         sponsorLogos: z.string().nullish(), basePurse: z.number(), minBid: z.number(),
@@ -173,7 +173,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     if (existing.length > 0) {
       localTid = existing[0].id;
       await db.update(tournamentsTable).set({
-        name: t.name, sport: t.sport, venue: t.venue ?? null, auctionDate: t.auctionDate ?? null,
+        name: t.name, sport: t.sport, city: t.city ?? null, venue: t.venue ?? null, auctionDate: t.auctionDate ?? null,
         organizerName: t.organizerName ?? null, organizerMobile: t.organizerMobile ?? null,
         logoUrl: rw(t.logoUrl ?? null), sponsorLogos: rewriteSponsorLogos(t.sponsorLogos, mediaMap),
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
@@ -190,7 +190,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       }).where(eq(tournamentsTable.id, localTid));
     } else {
       const [inserted] = await db.insert(tournamentsTable).values({
-        name: t.name, sport: t.sport, venue: t.venue ?? null, auctionDate: t.auctionDate ?? null,
+        name: t.name, sport: t.sport, city: t.city ?? null, venue: t.venue ?? null, auctionDate: t.auctionDate ?? null,
         organizerName: t.organizerName ?? null, organizerMobile: t.organizerMobile ?? null,
         logoUrl: rw(t.logoUrl ?? null), sponsorLogos: rewriteSponsorLogos(t.sponsorLogos, mediaMap),
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,

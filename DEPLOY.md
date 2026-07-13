@@ -1,8 +1,90 @@
-# BidWar — Production Deployment Guide
+# BidWar — Deployment Guide
 
-This guide covers deploying BidWar on Railway, Render, DigitalOcean, a plain VPS (Ubuntu), and Hostinger Business Hosting.
+This guide covers deploying BidWar on **Render** (primary), Railway, DigitalOcean, a plain VPS (Ubuntu), and Hostinger Business Hosting.
 
-The app runs as a **single Node.js process** on port 3000. With `SERVE_STATIC=true` it also serves the pre-built React frontends from the same process — no separate web server or Vite dev server is needed in production.
+The app runs as a **single Node.js process**. With `SERVE_STATIC=true` it also serves the pre-built React frontends from the same process — no separate web server or Vite dev server is needed in production.
+
+---
+
+## Engineering workflow (Render + Neon)
+
+BidWar uses a **two-environment** pipeline:
+
+```
+develop → staging → validation → release → main → production
+```
+
+Full diagram: [RELEASE_PROCESS.md](./RELEASE_PROCESS.md#deployment-pipeline).
+
+| Stage | Git branch | Render service | Database |
+|-------|------------|----------------|----------|
+| **staging** | `develop` | Staging web service | Neon staging |
+| **production** | `main` | Production web service | Neon production |
+
+**Governance docs:**
+
+| Document | Purpose |
+|----------|---------|
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Branch strategy, `main` protection, PR workflow |
+| [RELEASE_PROCESS.md](./RELEASE_PROCESS.md) | Releases, auction safety, hotfixes, incident levels |
+| [RUNBOOK.md](./RUNBOOK.md) | Daily rules, auction day, restarts, incidents |
+| [STAGING_CHECKLIST.md](./STAGING_CHECKLIST.md) | Validation before release PR |
+| [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) | Verification after production deploy |
+| [RENDER_ENV_VARS.md](./RENDER_ENV_VARS.md) | Env vars per Render service |
+
+**Rules:**
+
+- Never open a release PR to `main` without staging validation and [Promotion Gate](./STAGING_CHECKLIST.md#promotion-gate).
+- Never deploy production during a live auction ([Auction Release Safety](./RELEASE_PROCESS.md#auction-release-safety)).
+- Never share `DATABASE_URL`, `SESSION_SECRET`, or integration keys between staging and production.
+- Local development uses `.env` and a **development** database — not Neon production.
+
+---
+
+## Render — two services (staging + production)
+
+Create **two** Render Web Services from the same GitHub repository (`updatedbidwarcore`).
+
+### Staging service
+
+| Setting | Value |
+|---------|-------|
+| **Name** | e.g. `bidwar-staging` |
+| **Branch** | `develop` |
+| **Auto-Deploy** | On |
+| **Build command** | `NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy` |
+| **Start command** | `node --enable-source-maps artifacts/api-server/dist/index.mjs` |
+| **Database** | Neon staging connection string in `DATABASE_URL` |
+| **Public URL** | Staging hostname (e.g. `bidwar-staging.onrender.com`) |
+
+Environment variables: see [RENDER_ENV_VARS.md — Staging](./RENDER_ENV_VARS.md#staging-render-service-develop-branch).
+
+After each push to `develop`, complete [STAGING_CHECKLIST.md](./STAGING_CHECKLIST.md) before promoting to `main`.
+
+### Production service
+
+| Setting | Value |
+|---------|-------|
+| **Name** | e.g. `bidwar-production` |
+| **Branch** | `main` |
+| **Auto-Deploy** | On (pause only during incidents — see [RELEASE_PROCESS.md](./RELEASE_PROCESS.md)) |
+| **Build command** | Same as staging |
+| **Start command** | Same as staging |
+| **Database** | Neon **production** connection string in `DATABASE_URL` |
+| **Public URL** | `https://bidwar.in` (custom domain on Render) |
+
+Environment variables: see [RENDER_ENV_VARS.md — Production](./RENDER_ENV_VARS.md#production-render-service-main-branch).
+
+After each deploy from `main`, complete [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md).
+
+### Render deploy flow (summary)
+
+1. Merge PR to `develop` → **staging** auto-deploys → validation ([STAGING_CHECKLIST.md](./STAGING_CHECKLIST.md)).
+2. Release PR `develop` → `main` (after [Promotion Gate](./STAGING_CHECKLIST.md#promotion-gate) and [Auction Release Safety](./RELEASE_PROCESS.md#auction-release-safety)).
+3. Merge → **production** auto-deploys → [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md).
+4. Hotfix: `hotfix/*` → `main` → backport `develop` ([RELEASE_PROCESS.md](./RELEASE_PROCESS.md)).
+
+Operations: [RUNBOOK.md](./RUNBOOK.md).
 
 ---
 
@@ -87,25 +169,20 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
 
 ---
 
-## Render
+## Render (single-service reference)
+
+For the **recommended two-service setup**, see [Render — two services](#render--two-services-staging--production) above.
+
+To create one service manually:
 
 1. **New Web Service → Connect Git repository**.
 2. Set:
    - **Build command**: `NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy`
    - **Start command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
    - **Environment**: `Node`
-3. Add environment variables under **Environment**:
-   ```
-   NODE_ENV=production
-   SERVE_STATIC=true
-   DATABASE_URL=<your postgres url>
-   APP_DOMAIN=<your-app>.onrender.com
-   SESSION_SECRET=<openssl rand -hex 32>
-   ADMIN_PASSWORD=<strong password>
-   SCORING=true
-   ```
-   `SCORING=true` enables cricket and badminton scoring in the UI and API. Without it, scoring menus stay hidden and scoring routes return 404. Legacy alias: `ENABLE_BADMINTON=true` when `SCORING` is unset.
-4. Deploy. Render assigns a `.onrender.com` domain automatically.
+   - **Branch**: `develop` (staging) or `main` (production)
+3. Add environment variables — use the **staging** or **production** template in [RENDER_ENV_VARS.md](./RENDER_ENV_VARS.md).
+4. Deploy. Render assigns a `.onrender.com` domain automatically (add custom domain for production).
 
 ---
 
@@ -314,7 +391,16 @@ The `nginx.conf.example` already includes a dedicated location block for the SSE
 
 ## After first deploy
 
-1. Open `https://yourdomain.com` — the BidWar dashboard loads.
-2. Log in with your `ADMIN_PASSWORD` to create the first tournament.
-3. Test SMS by sending a viewer link from the Tournament Hub.
-4. Test the LED display by starting a test auction on a second screen.
+**Staging (first time on `develop`):**
+
+1. Open staging `APP_URL` — admin login loads.
+2. Log in with staging `ADMIN_PASSWORD`.
+3. Create a test tournament; run [STAGING_CHECKLIST.md](./STAGING_CHECKLIST.md).
+
+**Production (first time on `main`):**
+
+1. Open `https://bidwar.in` — the BidWar dashboard loads.
+2. Log in with production `ADMIN_PASSWORD`.
+3. Run [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md).
+4. Test SMS with an internal recipient only.
+5. Test the LED display on a second screen before any live customer auction.

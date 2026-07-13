@@ -145,6 +145,8 @@ function resolveJobFromPayload<E extends NotificationEventType>(
         tournament_name: p.tournamentName,
         auction_name: p.tournamentName,
         auction_date: p.auctionDate,
+        city: p.city,
+        venue: p.venue,
         organiser_name: p.organizerName,
         email: p.organizerEmail,
         phone: p.organizerMobile,

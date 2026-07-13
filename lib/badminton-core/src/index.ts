@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./match-format";
 export * from "./side-utils";
 export * from "./franchise";
 export * from "./events/badminton";

@@ -88,3 +88,54 @@ export function markRedisUnavailable(err: unknown, context: string): void {
   }
   logger.warn({ err, context }, "Redis operation failed — falling back to in-memory locks and SSE on this instance");
 }
+
+/** Read-only Redis status for diagnostics (no ping; uses existing in-memory flags). */
+export function getRedisDiagnosticsStatus(): {
+  configured: boolean;
+  status: "disabled" | "ready" | "unavailable" | "unknown";
+  initAttempted: boolean;
+  commandClientStatus: string | null;
+  subscriberClientStatus: string | null;
+} {
+  let configured = false;
+  try {
+    configured = isRedisEnabled();
+  } catch {
+    configured = Boolean(process.env.REDIS_URL?.trim());
+  }
+
+  if (!configured) {
+    return {
+      configured: false,
+      status: "disabled",
+      initAttempted,
+      commandClientStatus: null,
+      subscriberClientStatus: null,
+    };
+  }
+
+  if (redisUnavailable) {
+    return {
+      configured: true,
+      status: "unavailable",
+      initAttempted,
+      commandClientStatus: commandClient?.status ?? null,
+      subscriberClientStatus: subscriberClient?.status ?? null,
+    };
+  }
+
+  const commandClientStatus = commandClient?.status ?? null;
+  const subscriberClientStatus = subscriberClient?.status ?? null;
+  const status =
+    commandClientStatus === "ready" || subscriberClientStatus === "ready"
+      ? "ready"
+      : "unknown";
+
+  return {
+    configured: true,
+    status,
+    initAttempted,
+    commandClientStatus,
+    subscriberClientStatus,
+  };
+}

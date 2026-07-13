@@ -9,6 +9,8 @@ import {
   importMasterPlayersToBadminton,
   buildSideJsonFromMasterPlayer,
   getBadmintonSettings,
+  getBadmintonScoringFormat,
+  saveBadmintonScoringFormat,
   loadBadmintonBranding,
   updateBadmintonBranding,
   importBrandingFromTournament,
@@ -179,6 +181,74 @@ router.get("/settings", async (req, res) => {
   }
 
   res.json(getBadmintonSettings(tournament.scoringSettingsJson as Record<string, unknown>));
+});
+
+/** GET tournament scoring format (UI: "Scoring Format") */
+router.get("/scoring-format", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  res.json(getBadmintonScoringFormat(tournament.scoringSettingsJson as Record<string, unknown>));
+});
+
+/** PUT tournament scoring format — organizers only */
+router.put("/scoring-format", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    presetId: z.enum(["standard_bwf", "fast_match", "single_game", "custom"]),
+    format: z.object({
+      totalGames: z.number().int(),
+      pointsPerGame: z.number().int(),
+      deuceAt: z.number().int(),
+      maxPoints: z.number().int(),
+      midGameSideChange: z.boolean(),
+    }),
+    options: z
+      .object({
+        suddenDeath: z.boolean().optional(),
+      })
+      .optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid scoring format" });
+    return;
+  }
+
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const updated = await saveBadmintonScoringFormat(tournamentId, parsed.data);
+  res.json(getBadmintonScoringFormat(updated));
 });
 
 /** GET tournament branding for scoreboard / display surfaces */

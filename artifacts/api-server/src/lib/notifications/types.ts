@@ -45,6 +45,7 @@ export type TournamentCreatedPayload = {
   auctionCode: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
+  city: string | null;
   venue: string | null;
   organizerName: string | null;
   organizerEmail: string | null;

@@ -183,6 +183,7 @@ export function CreateTournamentModal({
   const [form, setForm] = useState({
     name: "",
     sport: "cricket",
+    city: "",
     venue: "",
     auctionDate: "",
     auctionTime: "",
@@ -207,6 +208,10 @@ export function CreateTournamentModal({
       setError("Tournament name is required");
       return;
     }
+    if (!form.city.trim()) {
+      setError("City is required");
+      return;
+    }
     let organizerMobile: string | undefined;
     if (form.organizerMobile.trim()) {
       const mobileResult = parseIndianMobile(form.organizerMobile);
@@ -221,6 +226,7 @@ export function CreateTournamentModal({
     const r = await createAdminTournament({
       name: form.name.trim(),
       sport: form.sport,
+      city: form.city.trim(),
       venue: form.venue || undefined,
       auctionDate: form.auctionDate || undefined,
       auctionTime: form.auctionTime || undefined,
@@ -273,11 +279,21 @@ export function CreateTournamentModal({
                 />
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">City *</Label>
+                <CityAutocomplete
+                  value={form.city}
+                  onChange={(v) => setForm((p) => ({ ...p, city: v }))}
+                  placeholder="Start typing city"
+                  minChars={3}
+                  showHint={false}
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Venue</Label>
                 <Input
                   value={form.venue}
                   onChange={f("venue")}
-                  placeholder="Stadium / City"
+                  placeholder="Stadium / ground name"
                 />
               </div>
               <div className="space-y-1.5">
@@ -497,6 +513,7 @@ function DetailPanel({
       setEditForm({
         name: d.tournament.name,
         sport: d.tournament.sport,
+        city: d.tournament.city || "",
         venue: d.tournament.venue || "",
         auctionDate: d.tournament.auctionDate || "",
         auctionTime: d.tournament.auctionTime || "",
@@ -578,6 +595,13 @@ function DetailPanel({
     const ef = editForm;
     if (ef.name) payload.name = ef.name as string;
     if (ef.sport) payload.sport = ef.sport as string;
+    const city = String(ef.city ?? "").trim();
+    if (!city) {
+      flash("City is required", false);
+      setSaving(false);
+      return;
+    }
+    payload.city = city;
     if (ef.venue !== undefined) payload.venue = ef.venue as string;
     if (ef.auctionDate !== undefined)
       payload.auctionDate = ef.auctionDate as string;
@@ -927,6 +951,21 @@ function DetailPanel({
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">
+                      City
+                    </Label>
+                    <CityAutocomplete
+                      value={(editForm.city as string) || ""}
+                      onChange={(v) =>
+                        setEditForm((f) => ({ ...f, city: v }))
+                      }
+                      placeholder="Start typing city"
+                      minChars={3}
+                      showHint={false}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
                       Venue
                     </Label>
                     <Input
@@ -1188,6 +1227,7 @@ function DetailPanel({
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
                     {[
                       ["Sport", t.sport.toUpperCase()],
+                      ["City", t.city || "—"],
                       ["Venue", t.venue || "—"],
                       ["Auction Date", t.auctionDate || "—"],
                       [

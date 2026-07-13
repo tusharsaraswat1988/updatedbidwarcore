@@ -1,6 +1,7 @@
 /**
- * Start API + auction-platform + owner-app together with shared root .env and dev defaults.
- * Scoring-app is off by default (incomplete module) — enable with DEV_ENABLE_SCORING=1 or `pnpm dev -- --scoring`.
+ * Start API + auction-platform + owner-app + scoring-app together with shared root .env.
+ * Scoring is on by default (auction-platform redirects badminton/scoring routes there).
+ * Opt out with DEV_ENABLE_SCORING=0 or `pnpm dev -- --no-scoring`.
  * Automatically frees stale dev ports before starting.
  * Usage: pnpm dev   (from repository root)
  */
@@ -24,11 +25,20 @@ const FRONTEND_PORT_STR = String(FRONTEND_PORT);
 const OWNER_APP_PORT_STR = String(OWNER_APP_PORT);
 const SCORING_APP_PORT_STR = String(SCORING_APP_PORT);
 
-/** Scoring module is incomplete — keep it out of the default local stack to save RAM. */
-const enableScoring =
-  process.argv.includes("--scoring") ||
-  /^(1|true|yes|on)$/i.test(process.env.DEV_ENABLE_SCORING?.trim() || "");
+/**
+ * Scoring-app is required for badminton/cricket scoring URLs proxied via auction-platform.
+ * Default on; opt out with --no-scoring or DEV_ENABLE_SCORING=0|false|off.
+ */
+function resolveEnableScoring() {
+  if (process.argv.includes("--no-scoring")) return false;
+  if (process.argv.includes("--scoring")) return true;
+  const flag = process.env.DEV_ENABLE_SCORING?.trim();
+  if (flag && /^(0|false|no|off)$/i.test(flag)) return false;
+  if (flag && /^(1|true|yes|on)$/i.test(flag)) return true;
+  return true;
+}
 
+const enableScoring = resolveEnableScoring();
 /** Local dev public origin — always overrides production APP_* from .env so OAuth stays on localhost. */
 function resolveDevPublicEnv(frontendPort) {
   const explicit = process.env.DEV_PUBLIC_ORIGIN?.trim()?.replace(/\/+$/, "");
@@ -173,7 +183,7 @@ if (loaded) {
   );
 }
 console.log(
-  `  Scoring:   ${enableScoring ? "enabled" : "disabled (set DEV_ENABLE_SCORING=1 or pass --scoring to enable)"}`,
+  `  Scoring:   ${enableScoring ? "enabled" : "disabled (opted out — use --scoring or DEV_ENABLE_SCORING=1)"}`,
 );
 
 const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT };

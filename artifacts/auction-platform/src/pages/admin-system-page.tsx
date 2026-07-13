@@ -11,8 +11,10 @@ import {
 } from "@/pages/admin";
 import { SystemLogsPanel } from "@/components/admin/system-logs-panel";
 import { DefaultAudioSettingsPanel } from "@/components/admin/default-audio-panel";
+import { DiagnosticsPanel } from "@/components/admin/diagnostics-panel";
 
 const systemTabs = [
+  { id: "diagnostics", label: "Diagnostics", href: "/admin/settings/system/diagnostics" },
   { id: "audit-logs", label: "Audit Logs", href: "/admin/settings/system/audit-logs" },
   { id: "sms", label: "SMS Notifications", href: "/admin/settings/system/sms" },
   { id: "session-lock", label: "Session Lock", href: "/admin/settings/system/session-lock" },
@@ -24,6 +26,7 @@ const systemTabs = [
 ] as const;
 
 function getSection(pathname: string) {
+  if (pathname.includes("/diagnostics")) return "diagnostics";
   if (pathname.includes("/audit-logs")) return "audit-logs";
   if (pathname.includes("/session-lock")) return "session-lock";
   if (pathname.includes("/installer")) return "installer";
@@ -61,6 +64,7 @@ export default function AdminSystemPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-card/70">
+          {section === "diagnostics" && <DiagnosticsPanel />}
           {section === "audit-logs" && <SystemLogsPanel />}
           {section === "sms" && <SmsSettingsPanel />}
           {section === "session-lock" && <AdminSessionLockPanel />}

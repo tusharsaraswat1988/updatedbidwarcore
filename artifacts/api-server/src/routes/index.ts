@@ -39,10 +39,12 @@ import adminNotificationsRouter from "./admin-notifications";
 import googleSheetsRouter from "./google-sheets";
 import academyLessonsRouter from "./academy-lessons";
 import academyPublicRouter from "./academy-public";
+import diagnosticsRouter from "./diagnostics";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(diagnosticsRouter);
 router.use(googleSheetsRouter);
 router.use(pushRouter);
 router.use(healthRouter);

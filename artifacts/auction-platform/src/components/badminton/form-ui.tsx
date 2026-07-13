@@ -78,7 +78,7 @@ export function HubPageShell({
 
   className?: string;
 
-  /** Links “Auction Hub” in the BidWar brand bar back to the main tournament dashboard. */
+  /** Passed through to the organizer shell / brand bar (no Auction exit link). */
 
   tournamentId?: number;
 

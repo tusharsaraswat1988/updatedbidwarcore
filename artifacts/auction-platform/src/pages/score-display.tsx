@@ -4,6 +4,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { ScoreDisplayShell } from "@/components/scoring/score-display-shell";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { FullscreenLayout } from "@/components/layout";
@@ -18,6 +19,10 @@ export default function ScoreDisplayPage() {
   });
 
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
+
+  if (tournament?.sport === "badminton") {
+    return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
+  }
 
   if (isLoading) {
     return (

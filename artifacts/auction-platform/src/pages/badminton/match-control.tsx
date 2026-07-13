@@ -7,7 +7,10 @@ import { useRoute } from "wouter";
 import { HubPageShell, PageHeader } from "@/components/badminton/page-chrome";
 import { MatchControlCenter } from "@/components/badminton/match-control-center";
 import { DirectorStatusBanner } from "@/components/badminton/director-status-banner";
+import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import { parseBadmintonMatchFormat } from "@workspace/badminton-core";
+import { matchFormatChipLabel } from "@/lib/match-format-display";
 
 export default function BadmintonMatchControlPage() {
   const [, params] = useRoute("/tournament/:id/badminton/matches/:matchId/control");
@@ -16,6 +19,12 @@ export default function BadmintonMatchControlPage() {
 
   const { data, isLoading, error } = useBadmintonMatch(tournamentId, matchId);
   const state = data?.state;
+  const detail = data?.detail as Record<string, unknown> | undefined;
+  const format =
+    state?.format ??
+    parseBadmintonMatchFormat(detail?.matchFormatJson) ??
+    null;
+  const formatLabel = format ? matchFormatChipLabel(format) : null;
 
   return (
     <HubPageShell tournamentId={tournamentId}>
@@ -26,6 +35,7 @@ export default function BadmintonMatchControlPage() {
             ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel} — tournament director (not umpire scoring)`
             : "Loading…"
         }
+        actions={formatLabel ? <ScoringFormatBadge label={formatLabel} /> : undefined}
       />
 
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">

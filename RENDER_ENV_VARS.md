@@ -1,9 +1,23 @@
 # Render Deployment — Environment Variables
 
-Configure these under **Environment** in the Render Web Service dashboard.
+Configure these under **Environment** in each Render Web Service dashboard.
+
+BidWar runs **two Render services** from one repository:
+
+| Service | Git branch | Neon database | Docs |
+|---------|------------|---------------|------|
+| **Staging** | `develop` | Staging | [Staging template](#staging-render-service-develop-branch) |
+| **Production** | `main` | Production | [Production template](#production-render-service-main-branch) |
+
+**Never copy production secrets into staging** (or vice versa). See [docs/STAGING_ENVIRONMENT_AUDIT.md](./docs/STAGING_ENVIRONMENT_AUDIT.md).
+
 Render injects `PORT` automatically; you do not need to set it unless overriding.
 
-Build command (copy exactly into Render **Settings → Build Command**):
+**Release workflow:** [RELEASE_PROCESS.md](./RELEASE_PROCESS.md) · **Runbook:** [RUNBOOK.md](./RUNBOOK.md) · **Checklists:** [STAGING_CHECKLIST.md](./STAGING_CHECKLIST.md) · [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md)
+
+**Auction rule:** Do not deploy **production** during a live auction. See [Auction Release Safety](./RELEASE_PROCESS.md#auction-release-safety).
+
+Build command (copy exactly into Render **Settings → Build Command** for **both** services):
 
 ```bash
 NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy
@@ -24,7 +38,79 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 ---
 
-## Required
+## Staging Render service (`develop` branch)
+
+Use on the **staging** web service only. Staging auto-deploys when commits merge to `develop`.
+
+```env
+NODE_ENV=production
+SERVE_STATIC=true
+
+# Neon STAGING — not production
+DATABASE_URL=postgresql://...@<neon-staging-host>/<db>?sslmode=require
+
+# Staging public URL (Render default or custom staging subdomain)
+APP_DOMAIN=bidwar-staging.onrender.com
+APP_URL=https://bidwar-staging.onrender.com
+APP_PUBLIC_SCHEME=https
+
+# Unique to staging — generate fresh values
+SESSION_SECRET=<openssl rand -hex 32>
+ADMIN_PASSWORD=<staging-only-password>
+
+SCORING=true
+LOG_LEVEL=info
+```
+
+### Staging integration guidance
+
+| Integration | Recommendation |
+|-------------|----------------|
+| `EMAIL_ENABLED` | `false` or separate Resend sandbox key |
+| `GOOGLE_CLIENT_ID` | Separate OAuth client with **staging** callback URI registered |
+| `CLOUDINARY_*` | Separate folder prefix or sub-account |
+| `TWILIO_*` / `BULKSMS_*` | Sandbox / test credentials only |
+| `VAPID_*` | Staging-only keys or omit (push disabled) |
+| `GITHUB_PAT` | Omit on staging (avoids triggering `main` workflows) |
+| `REDIS_URL` | Staging-only instance, or omit for single-node in-memory SSE |
+| `CORS_ORIGINS` | Usually omit — derived from `APP_DOMAIN` |
+
+Validate with [STAGING_CHECKLIST.md](./STAGING_CHECKLIST.md) before promoting to `main`.
+
+---
+
+## Production Render service (`main` branch)
+
+Use on the **production** web service only. Production auto-deploys when commits merge to `main`.
+
+```env
+NODE_ENV=production
+SERVE_STATIC=true
+
+# Neon PRODUCTION
+DATABASE_URL=postgresql://...@<neon-production-host>/<db>?sslmode=require
+
+# Production public site
+APP_DOMAIN=bidwar.in,www.bidwar.in
+APP_URL=https://bidwar.in
+APP_PUBLIC_SCHEME=https
+
+SESSION_SECRET=<unique-production-secret>
+ADMIN_PASSWORD=<strong-production-password>
+
+SCORING=true
+LOG_LEVEL=info
+```
+
+Add production Cloudinary, Google OAuth, Twilio, VAPID, BulkSMS, and Resend variables when those features are live. Register OAuth redirect URI: `https://bidwar.in/api/auth/google/callback`.
+
+Verify with [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) after every deploy.
+
+---
+
+## Variable reference (both environments)
+
+### Required
 
 | Name | Required | Example format | Source | What breaks if missing |
 |------|----------|----------------|--------|------------------------|
@@ -42,7 +128,7 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 ---
 
-## Optional — recommended for production features
+### Optional — recommended for production features
 
 | Name | Required | Example format | Source | What breaks if missing |
 |------|----------|----------------|--------|------------------------|
@@ -82,12 +168,11 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `RATE_LIMIT_CHEER_MAX` | No | `30` | Dashboard | Defaults to 30 |
 | `RATE_LIMIT_PUSH_SUBSCRIBE_MAX` | No | `5` | Dashboard | Defaults to 5 |
 | `RATE_LIMIT_OWNER_LOOKUP_MAX` | No | `15` | Dashboard | Defaults to 15 |
-| `SCORING` | No | `true` | Dashboard | When unset/false, all sport scoring modules are hidden (cricket + badminton APIs return 404, UI gated). Set `true` on deployments that host live scoring. Legacy alias: `ENABLE_BADMINTON=true` when `SCORING` is unset. |
-| `ENABLE_BADMINTON` | No | `true` | Dashboard | **Deprecated** — use `SCORING=true` instead. Still honored when `SCORING` is not set. |
+| `SCORING` | No | `true` | Dashboard | Sport scoring modules; when unset/false, scoring routes return 404. Legacy alias: `ENABLE_BADMINTON` when `SCORING` unset. |
 
 ---
 
-## Do not set on Render
+### Do not set on Render
 
 | Name | Why |
 |------|-----|
@@ -106,17 +191,34 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 ---
 
-## Minimal Render starter set
+## Minimal starter sets (legacy quick reference)
+
+Use the full [staging](#staging-render-service-develop-branch) and [production](#production-render-service-main-branch) templates above. Minimal sets:
+
+**Staging:**
 
 ```env
 NODE_ENV=production
 SERVE_STATIC=true
-DATABASE_URL=postgresql://...
-APP_DOMAIN=your-service.onrender.com
-APP_URL=https://your-service.onrender.com
+DATABASE_URL=postgresql://...   # Neon staging
+APP_DOMAIN=your-staging.onrender.com
+APP_URL=https://your-staging.onrender.com
+APP_PUBLIC_SCHEME=https
+SESSION_SECRET=<openssl rand -hex 32>
+ADMIN_PASSWORD=<staging-password>
+```
+
+**Production:**
+
+```env
+NODE_ENV=production
+SERVE_STATIC=true
+DATABASE_URL=postgresql://...   # Neon production
+APP_DOMAIN=bidwar.in,www.bidwar.in
+APP_URL=https://bidwar.in
 APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<openssl rand -hex 32>
 ADMIN_PASSWORD=<strong-password>
 ```
 
-Add Cloudinary, Google OAuth, Twilio, VAPID, and BulkSMS variables when you need those features.
+Add Cloudinary, Google OAuth, Twilio, VAPID, and BulkSMS variables when you need those features on the target environment.

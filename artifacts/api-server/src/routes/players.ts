@@ -102,6 +102,7 @@ async function resolveSheetOrganizerId(req: Request, tournamentId: number): Prom
 async function fetchTournamentBidConfig(tid: number) {
   const [tournament] = await db
     .select({
+      sport: tournamentsTable.sport,
       bidValueMode: tournamentsTable.bidValueMode,
       minBid: tournamentsTable.minBid,
       bidValueOptions: tournamentsTable.bidValueOptions,
@@ -963,6 +964,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
 
   const bidConfig = await fetchTournamentBidConfig(tid);
   if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+  const isCricketTournament = (bidConfig.sport ?? "cricket") === "cricket";
 
   let created = 0;
   let failed = 0;
@@ -1032,7 +1034,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         achievements: pd.achievements ?? null,
         mobileNumber: bulkMobile,
         email: bulkEmailParsed.email,
-        cricheroUrl: pd.cricheroUrl ?? null,
+        cricheroUrl: isCricketTournament ? (pd.cricheroUrl ?? null) : null,
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
         status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
