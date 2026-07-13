@@ -1,17 +1,15 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
- * BidWar Android shell (Capacitor).
+ * BidWar Android shell (Capacitor) — Phase 3 production config.
  *
- * Loads the deployed /mobile web app so Organizer + Team Owner auth,
- * Google OAuth cookies, and deep links stay identical to the browser.
+ * Default server URL is **production**. Debug APKs override to staging
+ * at Gradle assemble time (see android/app/build.gradle).
  *
- * Override at build time:
- *   CAPACITOR_SERVER_URL=https://bidwar.in/mobile/
+ * Optional override: CAPACITOR_SERVER_URL=https://…
  */
 const serverUrl = (
-  process.env.CAPACITOR_SERVER_URL?.trim() ||
-  "https://bidwar-staging.onrender.com/mobile/"
+  process.env.CAPACITOR_SERVER_URL?.trim() || "https://bidwar.in/mobile/"
 ).replace(/\/*$/, "/");
 
 const config: CapacitorConfig = {
@@ -23,19 +21,21 @@ const config: CapacitorConfig = {
     cleartext: false,
     androidScheme: "https",
     allowNavigation: [
-      "bidwar-staging.onrender.com",
       "bidwar.in",
       "www.bidwar.in",
+      "bidwar-staging.onrender.com",
       "*.google.com",
       "accounts.google.com",
       "*.googleapis.com",
       "*.gstatic.com",
+      "*.googleusercontent.com",
     ],
   },
   android: {
     allowMixedContent: false,
     backgroundColor: "#09090b",
-    webContentsDebuggingEnabled: process.env.NODE_ENV !== "production",
+    // Release builds force this off in MainActivity + BuildConfig.
+    webContentsDebuggingEnabled: false,
   },
   plugins: {
     SplashScreen: {

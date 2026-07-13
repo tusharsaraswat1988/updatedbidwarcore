@@ -1,7 +1,6 @@
 /**
- * Capacitor native shell bootstrap.
- * Does NOT change Organizer / Team Owner authentication — only wires
- * Android chrome when Capacitor plugins are present in the loaded page.
+ * Capacitor native shell bootstrap (Phase 3).
+ * Auth logic untouched — chrome, network, and update prompts only.
  */
 import { Capacitor } from "@capacitor/core";
 
@@ -18,12 +17,19 @@ export async function initNativeShell(): Promise<void> {
     await StatusBar.setBackgroundColor({ color: "#09090b" });
     await StatusBar.setOverlaysWebView({ overlay: true });
   } catch {
-    // StatusBar may be unavailable until plugins sync
+    // ignore
   }
 
   try {
     const { SplashScreen } = await import("@capacitor/splash-screen");
     await SplashScreen.hide();
+  } catch {
+    // ignore
+  }
+
+  try {
+    const { Keyboard } = await import("@capacitor/keyboard");
+    await Keyboard.setResizeMode({ mode: "body" as never });
   } catch {
     // ignore
   }
@@ -37,11 +43,16 @@ export async function initNativeShell(): Promise<void> {
       }
       void App.exitApp();
     });
+
+    App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive && !navigator.onLine) {
+        console.info("[BidWar] Resumed while offline");
+      }
+    });
   } catch {
     // Native MainActivity also handles hardware back
   }
 
-  // FCM infrastructure only — do not request notification permission yet.
   if (isNativeAndroid()) {
     try {
       const { PushNotifications } = await import("@capacitor/push-notifications");
@@ -52,7 +63,7 @@ export async function initNativeShell(): Promise<void> {
         console.warn("[BidWar] FCM registration error", err.error);
       });
     } catch {
-      // Requires real google-services.json from Firebase Console
+      // Requires real google-services.json
     }
   }
 }
