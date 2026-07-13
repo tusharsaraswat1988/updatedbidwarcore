@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { AppShell } from "@/components/AppShell";
 import { SwitchRoleButton } from "@/components/SwitchRoleButton";
@@ -5,7 +6,21 @@ import { useTeamOwnerAuth } from "@/auth/team-owner/AuthContext";
 
 export function TeamOwnerSettingsScreen() {
   const [, setLocation] = useLocation();
-  const { context, logout } = useTeamOwnerAuth();
+  const { isAuthenticated, context, logout } = useTeamOwnerAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLocation("/team-owner/login");
+    }
+  }, [isAuthenticated, setLocation]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   async function handleLogout() {
     await logout();

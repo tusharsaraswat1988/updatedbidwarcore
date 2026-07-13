@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { AppShell, BrandMark } from "@/components/AppShell";
 import { SwitchRoleButton } from "@/components/SwitchRoleButton";
@@ -9,13 +9,19 @@ import { useTeamOwnerAuth } from "@/auth/team-owner/AuthContext";
 import {
   establishOwnerWithoutCode,
   lookupOwnerTeams,
+  parseOwnerDeepLink,
+  resolveAfterMobileLookup,
+  type OwnerOnboardingEntry,
 } from "@/auth/team-owner/api";
 
 /**
  * Step 1 — Enter Mobile Number (same Team Owner auth as web owner-app).
+ * Supports ?tournamentId=&teamId= deep links identical to owner-app /join.
  */
 export function TeamOwnerMobileEntryScreen() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const deepLink = useMemo(() => parseOwnerDeepLink(search), [search]);
   const {
     mobile,
     setMobile,
@@ -33,6 +39,34 @@ export function TeamOwnerMobileEntryScreen() {
       setLocation(`/team-owner/panel/${context.tournamentId}/${context.teamId}`);
     }
   }, [isAuthenticated, context, setLocation]);
+
+  async function openResolvedEntry(entry: OwnerOnboardingEntry, allEntries: OwnerOnboardingEntry[], normalizedMobile: string) {
+    if (entry.requiresAccessCode) {
+      setOnboardingEntries(allEntries);
+      setLocation(`/team-owner/access-code/${entry.tournamentId}/${entry.teamId}`);
+      return;
+    }
+
+    const ok = await establishOwnerWithoutCode(entry, normalizedMobile);
+    if (!ok) {
+      setError("Could not open team session. Try again.");
+      setLoading(false);
+      return;
+    }
+
+    clearOnboarding();
+    setContext({
+      tournamentId: entry.tournamentId,
+      teamId: entry.teamId,
+      tournamentName: entry.tournamentName,
+      teamName: entry.teamName,
+      teamShortCode: entry.teamShortCode,
+      teamColor: entry.teamColor,
+      teamLogoUrl: entry.teamLogoUrl,
+      mobile: normalizedMobile,
+    });
+    setLocation(`/team-owner/panel/${entry.tournamentId}/${entry.teamId}`);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,30 +91,9 @@ export function TeamOwnerMobileEntryScreen() {
         return;
       }
 
-      if (entries.length === 1) {
-        const entry = entries[0]!;
-        if (entry.requiresAccessCode) {
-          setOnboardingEntries(entries);
-          setLocation(`/team-owner/access-code/${entry.tournamentId}/${entry.teamId}`);
-          return;
-        }
-        const ok = await establishOwnerWithoutCode(entry, parsed.normalized);
-        if (!ok) {
-          setError("Could not open team session. Try again.");
-          setLoading(false);
-          return;
-        }
-        setContext({
-          tournamentId: entry.tournamentId,
-          teamId: entry.teamId,
-          tournamentName: entry.tournamentName,
-          teamName: entry.teamName,
-          teamShortCode: entry.teamShortCode,
-          teamColor: entry.teamColor,
-          teamLogoUrl: entry.teamLogoUrl,
-          mobile: parsed.normalized,
-        });
-        setLocation(`/team-owner/panel/${entry.tournamentId}/${entry.teamId}`);
+      const resolved = resolveAfterMobileLookup(entries, deepLink);
+      if (resolved.kind === "route") {
+        await openResolvedEntry(resolved.entry, entries, parsed.normalized);
         return;
       }
 
@@ -111,6 +124,11 @@ export function TeamOwnerMobileEntryScreen() {
               <p className="text-[#71717a] text-base mt-2 leading-relaxed">
                 Enter the mobile number registered with your team
               </p>
+              {deepLink ? (
+                <p className="text-amber-400/90 text-sm mt-3 font-semibold">
+                  Team link detected — verify your mobile to continue.
+                </p>
+              ) : null}
             </div>
           </div>
 

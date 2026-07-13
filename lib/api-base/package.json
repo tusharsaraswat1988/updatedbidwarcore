@@ -19,6 +19,7 @@
     "./purse-booster-led": "./src/purse-booster-led.ts",
     "./owner-auth": "./src/owner-auth.ts",
     "./owner-urls": "./src/owner-urls.ts",
+    "./owner-onboarding": "./src/owner-onboarding.ts",
     "./local-venue-urls": "./src/local-venue-urls.ts",
     "./mobile": "./src/mobile.ts",
     "./mobile-app-urls": "./src/mobile-app-urls.ts",

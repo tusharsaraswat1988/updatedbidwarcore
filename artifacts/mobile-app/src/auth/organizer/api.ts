@@ -11,6 +11,7 @@ export type OrganizerInfo = {
   email: string | null;
   mobile: string;
   photoUrl?: string | null;
+  needsMobile?: boolean;
 };
 
 export type OrganizerTournament = {
@@ -25,14 +26,57 @@ export type OrganizerTournament = {
   createdAt: string;
 };
 
+/** Mirrors auction-platform LoginGuardStatus — production login hardening. */
 export type LoginGuardStatus = {
-  tier: string;
+  tier: "normal" | "captcha" | "cooldown";
   failures: number;
   cooldownRemainingSec: number;
   captchaRequired: boolean;
+  captcha?: { captchaId: string; question: string };
+  turnstileSiteKey?: string;
 };
 
-/** Reuses existing Organizer account login API — no backend changes. */
+export async function fetchAuthConfig(): Promise<{
+  smsOtpEnabled: boolean;
+  turnstileSiteKey: string | null;
+}> {
+  try {
+    const r = await apiFetch("/auth/config");
+    if (!r.ok) return { smsOtpEnabled: false, turnstileSiteKey: null };
+    const d = (await r.json()) as { smsOtpEnabled?: boolean; turnstileSiteKey?: string | null };
+    return {
+      smsOtpEnabled: !!d.smsOtpEnabled,
+      turnstileSiteKey: d.turnstileSiteKey ?? null,
+    };
+  } catch {
+    return { smsOtpEnabled: false, turnstileSiteKey: null };
+  }
+}
+
+export async function fetchLoginGuardStatus(identifier: string): Promise<LoginGuardStatus> {
+  try {
+    const q = encodeURIComponent(identifier);
+    const r = await apiFetch(`/auth/organizer-account/login/status?identifier=${q}`);
+    if (!r.ok) {
+      return {
+        tier: "normal",
+        failures: 0,
+        cooldownRemainingSec: 0,
+        captchaRequired: false,
+      };
+    }
+    return r.json();
+  } catch {
+    return {
+      tier: "normal",
+      failures: 0,
+      cooldownRemainingSec: 0,
+      captchaRequired: false,
+    };
+  }
+}
+
+/** Reuses existing Organizer account login API — same payload as organizer portal. */
 export async function loginOrganizerAccount(
   identifier: string,
   password: string,
@@ -87,6 +131,7 @@ export async function checkOrganizerAccountAuth(): Promise<{
       clearOrganizerSessionMarkers();
       return { loggedIn: false };
     }
+    // 5xx / other errors: do NOT treat as logged out (avoids session flash / false logout)
     if (!r.ok) return { loggedIn: false, serverError: true };
     const d = (await r.json()) as {
       loggedIn?: boolean;

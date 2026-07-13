@@ -7,15 +7,26 @@ import { useOrganizerAuth } from "@/auth/organizer/AuthContext";
 
 export function OrganizerDashboardScreen() {
   const [, setLocation] = useLocation();
-  const { isLoading, isLoggedIn, organizer, tournaments } = useOrganizerAuth();
+  const { isLoading, isLoggedIn, organizer, tournaments, serverError, refresh } =
+    useOrganizerAuth();
+
+  // Google OAuth returns here with ?google_ok=1 after full-page redirect from /api/auth/google.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google_ok") !== "1") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("google_ok");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
-    if (!isLoading && !isLoggedIn) {
+    if (!isLoading && !isLoggedIn && !serverError) {
       setLocation("/organizer/login");
     }
-  }, [isLoading, isLoggedIn, setLocation]);
+  }, [isLoading, isLoggedIn, serverError, setLocation]);
 
-  if (isLoading || !isLoggedIn) {
+  if (isLoading || (!isLoggedIn && !serverError)) {
     return (
       <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />

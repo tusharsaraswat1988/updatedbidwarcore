@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { AppShell } from "@/components/AppShell";
 import { SwitchRoleButton } from "@/components/SwitchRoleButton";
@@ -5,7 +6,21 @@ import { useOrganizerAuth } from "@/auth/organizer/AuthContext";
 
 export function OrganizerSettingsScreen() {
   const [, setLocation] = useLocation();
-  const { organizer, logout } = useOrganizerAuth();
+  const { isLoading, isLoggedIn, organizer, logout, serverError } = useOrganizerAuth();
+
+  useEffect(() => {
+    if (!isLoading && !isLoggedIn && !serverError) {
+      setLocation("/organizer/login");
+    }
+  }, [isLoading, isLoggedIn, serverError, setLocation]);
+
+  if (isLoading || (!isLoggedIn && !serverError)) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   async function handleLogout() {
     await logout();
@@ -26,6 +41,12 @@ export function OrganizerSettingsScreen() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+        {serverError && !isLoggedIn ? (
+          <p className="text-amber-400 text-sm">
+            Could not refresh your session. Showing cached account details — try again shortly.
+          </p>
+        ) : null}
+
         <section className="space-y-2">
           <p className="text-xs uppercase tracking-wider text-[#52525b] font-semibold">Account</p>
           <div className="rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-4">
