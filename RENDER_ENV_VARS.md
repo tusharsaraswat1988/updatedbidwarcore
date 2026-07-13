@@ -54,9 +54,12 @@ DATABASE_URL=postgresql://...@<staging-neon-host>/<db>?sslmode=require
 # NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
 # NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
 
-# Hostname must include "staging" only for human clarity; environment is BIDWAR_ENV only.
-APP_DOMAIN=<staging-host>.onrender.com
-APP_URL=https://<staging-host>.onrender.com
+# Staging public URL — CRITICAL: Do NOT copy production values here.
+# Wrong APP_URL=https://bidwar.in makes Google login redirect to production
+# after account selection (redirect_uri becomes https://bidwar.in/api/auth/google/callback).
+# Hostname should include "staging" for clarity; environment identity is BIDWAR_ENV.
+APP_DOMAIN=bidwar-staging.onrender.com
+APP_URL=https://bidwar-staging.onrender.com
 APP_PUBLIC_SCHEME=https
 
 SESSION_SECRET=<openssl rand -hex 32>
@@ -68,12 +71,27 @@ LOG_LEVEL=info
 
 **Verify before deploy:** Render staging `DATABASE_URL` must be the staging Neon database (not production). Prefer setting both allow-list env vars so a mis-pasted production URL fails closed at boot.
 
+### Staging Google OAuth (required for Google login)
+
+1. In Render staging env, set `APP_URL` / `APP_DOMAIN` to the **staging** host (see above). Never set them to `bidwar.in`.
+2. In Google Cloud Console → Credentials → OAuth 2.0 Client, add Authorized redirect URI:
+   - `https://bidwar-staging.onrender.com/api/auth/google/callback`
+3. Prefer a **separate** OAuth client for staging (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`), or share production’s client only if both redirect URIs are registered.
+
+Verify after deploy:
+
+```bash
+curl -sI "https://bidwar-staging.onrender.com/api/auth/google" | grep -i location
+# Location must contain redirect_uri=https%3A%2F%2Fbidwar-staging.onrender.com%2Fapi%2Fauth%2Fgoogle%2Fcallback
+# NOT bidwar.in
+```
+
 ### Staging integration guidance
 
 | Integration | Recommendation |
 |-------------|----------------|
 | `EMAIL_ENABLED` | `false` or separate Resend sandbox key |
-| `GOOGLE_CLIENT_ID` | Separate OAuth client with **staging** callback URI registered |
+| `GOOGLE_CLIENT_ID` | Separate OAuth client with **staging** callback URI registered (`…/api/auth/google/callback`) |
 | `CLOUDINARY_*` | Separate folder prefix or sub-account |
 | `TWILIO_*` / `BULKSMS_*` | Sandbox / test credentials only |
 | `VAPID_*` | Staging-only keys or omit (push disabled) |
