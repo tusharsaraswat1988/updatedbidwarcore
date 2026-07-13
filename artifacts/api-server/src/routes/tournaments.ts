@@ -109,6 +109,7 @@ router.get("/tournaments", async (req, res) => {
 const tournamentInputSchema = z.object({
   name: z.string().min(1),
   sport: z.string().default("cricket"),
+  city: z.string().trim().min(1, "City is required"),
   venue: z.string().optional(),
   auctionDate: z.string().optional(),
   auctionTime: z.string().nullable().optional(),
@@ -194,6 +195,7 @@ router.post("/tournaments", async (req, res) => {
       sport: d.sport,
       sportId: await resolveSportIdBySlug(d.sport),
       auctionCode,
+      city: d.city,
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
       auctionTime: d.auctionTime ?? null,
@@ -226,6 +228,7 @@ router.post("/tournaments", async (req, res) => {
     auctionCode: tournament.auctionCode,
     auctionDate: tournament.auctionDate,
     auctionTime: tournament.auctionTime,
+    city: tournament.city,
     venue: tournament.venue,
     organizerName: tournament.organizerName,
     organizerEmail: tournament.organizerEmail,
@@ -258,6 +261,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const schema = z.object({
     name: z.string().optional(),
     sport: z.string().optional(),
+    city: z.string().trim().min(1).optional(),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().nullable().optional(),
@@ -390,6 +394,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     updates.sportId = await resolveSportIdBySlug(d.sport);
   }
   if (d.venue !== undefined) updates.venue = d.venue;
+  if (d.city !== undefined) updates.city = d.city;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;

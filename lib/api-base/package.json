@@ -50,6 +50,7 @@
     "./cloudinary-media": "./src/cloudinary-media.ts",
     "./auction-data": "./src/auction-data/index.ts",
     "./tournament-workbook": "./src/tournament-workbook/index.ts",
+    "./tournament-rules": "./src/tournament-rules/index.ts",
     "./team-report-rules": "./src/team-report-rules.ts"
   },
   "devDependencies": {

@@ -75,6 +75,7 @@ import type {
   SetBreakTimerBody,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
+  SetPresentationContextBody,
   ShowcaseEvent,
   ShowcaseEventInput,
   Team,
@@ -4033,6 +4034,94 @@ export const useSetDisplayOverlay = <
   TContext
 > => {
   return useMutation(getSetDisplayOverlayMutationOptions(options));
+};
+
+/**
+ * @summary Set explicit on-air presentation context for OBS and displays
+ */
+export const getSetPresentationContextUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/presentation-context`;
+};
+
+export const setPresentationContext = async (
+  tournamentId: number,
+  setPresentationContextBody: SetPresentationContextBody,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSetPresentationContextUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPresentationContextBody),
+  });
+};
+
+export const getSetPresentationContextMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPresentationContext>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetPresentationContextBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setPresentationContext>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetPresentationContextBody> },
+  TContext
+> => {
+  const mutationKey = ["setPresentationContext"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setPresentationContext>>,
+    { tournamentId: number; data: BodyType<SetPresentationContextBody> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return setPresentationContext(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetPresentationContextMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPresentationContext>>
+>;
+export type SetPresentationContextMutationBody =
+  BodyType<SetPresentationContextBody>;
+export type SetPresentationContextMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set explicit on-air presentation context for OBS and displays
+ */
+export const useSetPresentationContext = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPresentationContext>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetPresentationContextBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setPresentationContext>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetPresentationContextBody> },
+  TContext
+> => {
+  return useMutation(getSetPresentationContextMutationOptions(options));
 };
 
 /**

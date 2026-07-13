@@ -56,6 +56,7 @@ export const BMW_SHEETS: WorkbookSheetDefinition[] = [
       { key: "logo", label: "Logo", type: "photo_url", editability: "editable", entity: "tournament", column: "logoUrl" },
       { key: "banner", label: "Banner", type: "photo_url", editability: "editable", entity: "tournament", column: "mainBannerUrl" },
       { key: "venue", label: "Venue", type: "string", editability: "editable", entity: "tournament", column: "venue" },
+      { key: "city", label: "City", type: "string", editability: "editable", entity: "tournament", column: "city" },
       { key: "description", label: "Description", type: "string", editability: "editable" },
       { key: "auctionDate", label: "Auction Date", type: "date", editability: "editable", entity: "tournament", column: "auctionDate" },
       { key: "matchDates", label: "Match Dates", type: "string", editability: "editable", entity: "tournament", column: "matchDates" },

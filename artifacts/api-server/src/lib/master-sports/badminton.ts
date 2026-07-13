@@ -20,6 +20,17 @@ import {
 } from "@workspace/db";
 import type { BadmintonMatchKind, BadmintonMatchState } from "@workspace/badminton-core";
 import {
+  STANDARD_FORMAT,
+  parseBadmintonMatchFormat,
+  formatBadmintonMatchLabel,
+  normalizeBadmintonFormat,
+  isBadmintonFormatPresetId,
+} from "@workspace/badminton-core";
+import {
+  readTournamentRulesFromSettings,
+  type TournamentRulesConfig,
+} from "@workspace/api-base/tournament-rules";
+import {
   ensureTournamentInitials,
   allocateTournamentInitials,
 } from "./tournament-initials";
@@ -82,6 +93,23 @@ export type BadmintonTournamentSettings = {
   linkedAuctionTournamentId?: number;
 };
 
+export type BadmintonScoringFormatResponse = {
+  sport: "badminton";
+  presetId: string;
+  format: {
+    totalGames: number;
+    pointsPerGame: number;
+    deuceAt: number;
+    maxPoints: number;
+    midGameSideChange: boolean;
+  };
+  label: string;
+  configured: boolean;
+  options?: {
+    suddenDeath?: boolean;
+  };
+};
+
 export function isLicensedBadmintonTournament(
   licenseStatus: string | null | undefined,
 ): boolean {
@@ -99,6 +127,82 @@ export function getBadmintonSettings(
         ? raw.linkedAuctionTournamentId
         : undefined,
   };
+}
+
+/** Read Scoring Format (tournamentRules) for badminton tournaments. */
+export function getBadmintonScoringFormat(
+  scoringSettingsJson: Record<string, unknown> | null | undefined,
+): BadmintonScoringFormatResponse {
+  const rules = readTournamentRulesFromSettings(scoringSettingsJson);
+  if (rules && rules.sport === "badminton") {
+    const format = parseBadmintonMatchFormat(rules.format) ?? STANDARD_FORMAT;
+    const presetId = isBadmintonFormatPresetId(rules.presetId)
+      ? rules.presetId
+      : "custom";
+    return {
+      sport: "badminton",
+      presetId,
+      format,
+      label: formatBadmintonMatchLabel(format, presetId),
+      configured: true,
+      ...(rules.options ? { options: rules.options } : {}),
+    };
+  }
+
+  return {
+    sport: "badminton",
+    presetId: "standard_bwf",
+    format: STANDARD_FORMAT,
+    label: formatBadmintonMatchLabel(STANDARD_FORMAT, "standard_bwf"),
+    configured: false,
+  };
+}
+
+/** Persist Scoring Format under scoring_settings_json.tournamentRules. */
+export async function saveBadmintonScoringFormat(
+  tournamentId: number,
+  input: {
+    presetId: string;
+    format: {
+      totalGames: number;
+      pointsPerGame: number;
+      deuceAt: number;
+      maxPoints: number;
+      midGameSideChange: boolean;
+    };
+    options?: { suddenDeath?: boolean };
+  },
+): Promise<Record<string, unknown>> {
+  const format = normalizeBadmintonFormat(input.format);
+  const presetId = isBadmintonFormatPresetId(input.presetId)
+    ? input.presetId
+    : "custom";
+
+  const tournamentRules: TournamentRulesConfig = {
+    sport: "badminton",
+    presetId,
+    format,
+    ...(input.options ? { options: input.options } : {}),
+  };
+
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const current = (tournament?.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const updated = {
+    ...current,
+    tournamentRules,
+  };
+
+  await db
+    .update(tournamentsTable)
+    .set({ scoringSettingsJson: updated })
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  return updated;
 }
 
 export async function loadBadmintonBranding(

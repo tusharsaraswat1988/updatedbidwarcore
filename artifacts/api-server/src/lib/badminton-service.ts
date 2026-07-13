@@ -17,6 +17,7 @@ import {
   badmintonMatchDetailsTable,
   badmintonFixturesTable,
   badmintonAnalyticsTable,
+  badmintonCategoriesTable,
   tournamentsTable,
   type ScoringSideJson,
 } from "@workspace/db";
@@ -45,8 +46,15 @@ import {
   deriveIncidentLog,
   STANDARD_FORMAT,
   getUndoTargetSequences,
+  parseBadmintonMatchFormat,
+  type BadmintonMatchFormat,
   type MatchPauseReason,
 } from "@workspace/badminton-core";
+import {
+  resolveInheritedFormat,
+  readTournamentRulesFromSettings,
+  type DrawStageKey,
+} from "@workspace/api-base/tournament-rules";
 import type { BadmintonEventEnvelope } from "@workspace/badminton-core";
 import type { ScoringEventEnvelope } from "@workspace/scoring-core";
 import { replayScoringMatchState } from "./scoring-platform";
@@ -140,10 +148,113 @@ type InternalMatchMeta = {
   matchId: number;
   tournamentId: number;
   matchKind: "singles" | "doubles" | "mixed_doubles";
-  format?: typeof STANDARD_FORMAT;
+  format?: BadmintonMatchFormat;
 };
 
 type Actor = { type: string; id?: string | null };
+
+/** Load tournament default BadmintonMatchFormat from scoring_settings_json. */
+export async function loadTournamentBadmintonFormat(
+  tournamentId: number,
+): Promise<BadmintonMatchFormat | null> {
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const rules = readTournamentRulesFromSettings(
+    tournament?.scoringSettingsJson as Record<string, unknown> | null,
+  );
+  if (!rules || rules.sport !== "badminton") return null;
+  return parseBadmintonMatchFormat(rules.format);
+}
+
+/**
+ * Resolve format for a new or starting match.
+ *
+ * Cascade (highest first):
+ *   startOverride → match → category stage → category default → tournament → STANDARD_FORMAT
+ *
+ * Stage keys are system-generated (Draw Generator → fixture.stageKey).
+ * From fixture: pass fixture.stageKey. Manual create: optional stage or null
+ * (Exhibition / Friendly — no stage layer). Organizers never invent stage keys.
+ *
+ * Phase 1 passes stage contribution as null; Phase 2 loads CategoryStageFormatMap
+ * for `stageKey` when present and stamps match_format_json at create.
+ *
+ * Live matches freeze format in MATCH_STARTED — this only applies before/at start.
+ */
+export async function resolveBadmintonMatchFormat(input: {
+  tournamentId: number;
+  categoryId?: number | null;
+  /**
+   * System DrawStageKey from fixture (generated) or optional manual dropdown.
+   * null / omitted = Exhibition / Friendly — no stage cascade layer.
+   */
+  stageKey?: DrawStageKey | null;
+  matchFormatJson?: unknown;
+  startOverride?: unknown;
+}): Promise<BadmintonMatchFormat> {
+  void input.stageKey; // reserved for Phase 2 category stage-map lookup
+  let categoryFormat: BadmintonMatchFormat | null = null;
+  if (input.categoryId) {
+    const [category] = await db
+      .select({ matchFormatJson: badmintonCategoriesTable.matchFormatJson })
+      .from(badmintonCategoriesTable)
+      .where(
+        and(
+          eq(badmintonCategoriesTable.id, input.categoryId),
+          eq(badmintonCategoriesTable.tournamentId, input.tournamentId),
+        ),
+      )
+      .limit(1);
+    categoryFormat = parseBadmintonMatchFormat(category?.matchFormatJson) ?? null;
+  }
+
+  const tournamentFormat = await loadTournamentBadmintonFormat(input.tournamentId);
+  const resolved = resolveInheritedFormat({
+    tournament: tournamentFormat,
+    category: categoryFormat,
+    stage: null,
+    match: parseBadmintonMatchFormat(input.matchFormatJson),
+    startOverride: parseBadmintonMatchFormat(input.startOverride),
+  });
+
+  return resolved ?? STANDARD_FORMAT;
+}
+
+/**
+ * Resolve format used when starting a match.
+ * startOverride (body) wins; otherwise match → stage → category → tournament → STANDARD.
+ * Once MATCH_STARTED is written, that event format is frozen for the match lifetime.
+ */
+export async function resolveFormatForMatchStart(
+  matchId: number,
+  tournamentId: number,
+  startOverride?: unknown,
+): Promise<BadmintonMatchFormat> {
+  const [detail] = await db
+    .select({
+      matchFormatJson: badmintonMatchDetailsTable.matchFormatJson,
+      categoryId: badmintonMatchDetailsTable.categoryId,
+    })
+    .from(badmintonMatchDetailsTable)
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  return resolveBadmintonMatchFormat({
+    tournamentId,
+    categoryId: detail?.categoryId,
+    matchFormatJson: detail?.matchFormatJson,
+    startOverride,
+  });
+}
 
 // ── Core helpers ──────────────────────────────────────────────────────────────
 
@@ -206,7 +317,11 @@ export async function getMatchMeta(
   if (!match) return null;
 
   const [detail] = await db
-    .select({ matchType: badmintonMatchDetailsTable.matchType })
+    .select({
+      matchType: badmintonMatchDetailsTable.matchType,
+      matchFormatJson: badmintonMatchDetailsTable.matchFormatJson,
+      categoryId: badmintonMatchDetailsTable.categoryId,
+    })
     .from(badmintonMatchDetailsTable)
     .where(
       and(
@@ -216,11 +331,17 @@ export async function getMatchMeta(
     )
     .limit(1);
 
+  const format = await resolveBadmintonMatchFormat({
+    tournamentId: expectedTournamentId,
+    categoryId: detail?.categoryId,
+    matchFormatJson: detail?.matchFormatJson,
+  });
+
   return {
     matchId: match.id,
     tournamentId: match.tournamentId,
     matchKind: (detail?.matchType ?? "singles") as InternalMatchMeta["matchKind"],
-    format: STANDARD_FORMAT,
+    format,
   };
 }
 
@@ -853,6 +974,13 @@ export async function createBadmintonMatch(input: {
   const homeSideJson = buildScoringSideFromBadmintonSide(input.leftSideJson);
   const awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
 
+  // Stamp a copy of the resolved format onto the match (frozen further at MATCH_STARTED).
+  const resolvedFormat = await resolveBadmintonMatchFormat({
+    tournamentId: input.tournamentId,
+    categoryId: input.categoryId,
+    matchFormatJson: input.matchFormatJson,
+  });
+
   const [match] = await db
     .insert(scoringMatchesTable)
     .values({
@@ -883,7 +1011,7 @@ export async function createBadmintonMatch(input: {
     matchLabel: input.matchLabel ?? null,
     roundName: input.roundName ?? null,
     matchType: input.matchType,
-    matchFormatJson: input.matchFormatJson ?? null,
+    matchFormatJson: resolvedFormat,
     leftSideJson: input.leftSideJson,
     rightSideJson: input.rightSideJson,
     scorerPin,

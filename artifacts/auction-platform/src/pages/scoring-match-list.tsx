@@ -49,6 +49,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
+import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath, openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +75,7 @@ export default function ScoringMatchListPage() {
   const tournamentId = parseInt(params?.id || "0");
   const { toast } = useToast();
 
-  const { data: tournament } = useGetTournament(tournamentId, {
+  const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teams } = useListTeams(tournamentId, {
@@ -216,6 +217,10 @@ export default function ScoringMatchListPage() {
     </div>
   );
 
+  if (tournament?.sport === "badminton") {
+    return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
+  }
+
   return (
     <CricketOrganizerPageShell tournamentId={tournamentId}>
       <PageHeader
@@ -227,7 +232,7 @@ export default function ScoringMatchListPage() {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10 space-y-8">
-        {featuresLoading || isLoading ? (
+        {featuresLoading || tournamentLoading || (scoringActive && isLoading) ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Array.from({ length: 4 }).map((_, i) => (

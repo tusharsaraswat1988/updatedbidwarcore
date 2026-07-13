@@ -1,15 +1,38 @@
 /**
  * Badminton Courts Management
  * Route: /tournament/:id/badminton/courts
+ *
+ * Venue vs Court:
+ * - Venue = tournament location (from Branding today; future Venue entity can replace).
+ * - Court = physical playing court inside that venue.
  */
 
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { Link, useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { MapPin } from "lucide-react";
-import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, CheckboxRow, hubCardClass } from "@/components/badminton/page-chrome";
+import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
+import { ChevronDown, MapPin } from "lucide-react";
+import {
+  EmptyState,
+  FormField,
+  inputClass,
+  PageHeader,
+  HubPageShell,
+  BtnPrimary,
+  DarkSelect,
+  FormActions,
+  FormError,
+  FormModal,
+  hubCardClass,
+  hubPanelClass,
+} from "@/components/badminton/page-chrome";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface BadmintonCourt {
   id: number;
@@ -19,8 +42,39 @@ interface BadmintonCourt {
   location?: string | null;
   status: string;
   sortOrder: number;
-  streamUrl?: string | null;
-  hasDisplay: boolean;
+}
+
+/**
+ * Resolve the tournament venue for court UX.
+ * Today: Branding.venue. Tomorrow: swap for a Venue entity without changing call sites.
+ */
+function resolveTournamentVenue(input: {
+  brandingVenue?: string | null;
+}): string | null {
+  const venue = input.brandingVenue?.trim();
+  return venue || null;
+}
+
+/** Short label for scoreboards — e.g. "Court 1" → "C1". */
+function suggestCourtShortLabel(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "";
+  const courtNum = trimmed.match(/^(?:court|c)\s*[-#.]?\s*(\d+)$/i);
+  if (courtNum) return `C${courtNum[1]}`;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return words
+      .map((w) => w[0] ?? "")
+      .join("")
+      .toUpperCase()
+      .slice(0, 6);
+  }
+  return trimmed.slice(0, 6);
+}
+
+function nextCourtSortOrder(courts: BadmintonCourt[]): number {
+  if (courts.length === 0) return 1;
+  return Math.max(...courts.map((c) => c.sortOrder)) + 1;
 }
 
 export default function BadmintonCourtsPage() {
@@ -30,6 +84,9 @@ export default function BadmintonCourtsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editCourt, setEditCourt] = useState<BadmintonCourt | null>(null);
+
+  const { data: branding } = useBadmintonBranding(tournamentId);
+  const tournamentVenue = resolveTournamentVenue({ brandingVenue: branding?.venue });
 
   const { data: courts = [], isLoading } = useQuery<BadmintonCourt[]>({
     queryKey: ["badminton-courts", tournamentId],
@@ -57,7 +114,7 @@ export default function BadmintonCourtsPage() {
         }
       />
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -68,7 +125,11 @@ export default function BadmintonCourtsPage() {
           <EmptyState
             icon={MapPin}
             title="No courts yet"
-            desc="Add courts so you can assign matches and stream URLs"
+            desc={
+              tournamentVenue
+                ? `Add courts at ${tournamentVenue} — e.g. Court 1, Court 2`
+                : "Add courts like Court 1, Court 2 (set the tournament venue in Branding first)"
+            }
             action={{ label: "Add Court", onClick: () => setShowForm(true) }}
           />
         ) : (
@@ -77,6 +138,7 @@ export default function BadmintonCourtsPage() {
               <CourtCard
                 key={court.id}
                 court={court}
+                tournamentVenue={tournamentVenue}
                 onEdit={() => { setEditCourt(court); setShowForm(true); }}
                 onDelete={() => {
                   if (window.confirm(`Delete ${court.name}?`)) {
@@ -93,12 +155,15 @@ export default function BadmintonCourtsPage() {
         <CourtFormModal
           tournamentId={tournamentId}
           court={editCourt}
+          tournamentVenue={tournamentVenue}
+          nextSortOrder={nextCourtSortOrder(courts)}
           onClose={() => { setShowForm(false); setEditCourt(null); }}
-          onSaved={() => {
+          onSaved={(opts) => {
             qc.invalidateQueries({ queryKey: ["badminton-courts", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
             setShowForm(false);
             setEditCourt(null);
+            opts?.continueToNext?.();
           }}
         />
       )}
@@ -108,52 +173,45 @@ export default function BadmintonCourtsPage() {
 
 function CourtCard({
   court,
+  tournamentVenue,
   onEdit,
   onDelete,
 }: {
   court: BadmintonCourt;
+  tournamentVenue: string | null;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   return (
     <div className={cn(hubCardClass, "p-5 flex flex-col gap-3")}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-display font-bold text-foreground">{court.shortName || court.name}</span>
-            <StatusBadge status={court.status} />
-          </div>
-          {court.shortName && court.shortName !== court.name && (
-            <p className="text-muted-foreground text-sm mt-0.5">{court.name}</p>
-          )}
-        </div>
-        {court.hasDisplay && (
-          <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-1 rounded-full border border-primary/25">
-            Display
+      <div className="min-w-0 space-y-1">
+        {tournamentVenue ? (
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+            <span className="truncate">{tournamentVenue}</span>
+          </p>
+        ) : null}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-2xl font-display font-bold text-foreground">
+            {court.name}
           </span>
-        )}
+          <StatusBadge status={court.status} />
+        </div>
+        {court.shortName && court.shortName !== court.name ? (
+          <p className="text-muted-foreground text-sm">Label: {court.shortName}</p>
+        ) : null}
       </div>
-
-      {court.location && (
-        <p className="text-muted-foreground text-sm flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5 text-primary" /> {court.location}
-        </p>
-      )}
-
-      {court.streamUrl && (
-        <p className="text-muted-foreground text-xs truncate font-mono" title={court.streamUrl}>
-          Stream: {court.streamUrl}
-        </p>
-      )}
 
       <div className="flex gap-2 pt-1 mt-auto">
         <button
+          type="button"
           onClick={onEdit}
           className="flex-1 h-9 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors border border-border"
         >
           Edit
         </button>
         <button
+          type="button"
           onClick={onDelete}
           className="h-9 px-4 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors border border-destructive/25"
         >
@@ -180,37 +238,41 @@ function StatusBadge({ status }: { status: string }) {
 function CourtFormModal({
   tournamentId,
   court,
+  tournamentVenue,
+  nextSortOrder,
   onClose,
   onSaved,
 }: {
   tournamentId: number;
   court: BadmintonCourt | null;
+  tournamentVenue: string | null;
+  nextSortOrder: number;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (opts?: { continueToNext?: () => void }) => void;
 }) {
+  const [, setLocation] = useLocation();
+  const isEdit = Boolean(court);
+
   const [form, setForm] = useState({
     name: court?.name ?? "",
     shortName: court?.shortName ?? "",
-    location: court?.location ?? "",
-    sortOrder: court?.sortOrder ?? 0,
-    streamUrl: court?.streamUrl ?? "",
-    hasDisplay: court?.hasDisplay ?? false,
+    sortOrder: court?.sortOrder ?? nextSortOrder,
     status: court?.status ?? "available",
   });
+  const [shortNameTouched, setShortNameTouched] = useState(Boolean(court?.shortName));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const f = (key: "name" | "shortName" | "location" | "streamUrl" | "sortOrder") => ({
-    value: key === "sortOrder" ? form.sortOrder : form[key],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const val = e.target.type === "number"
-        ? parseInt(e.target.value, 10) || 0
-        : e.target.value;
-      setForm((prev) => ({ ...prev, [key]: val }));
-    },
-  });
+  function setName(name: string) {
+    setForm((prev) => ({
+      ...prev,
+      name,
+      shortName: shortNameTouched ? prev.shortName : suggestCourtShortLabel(name),
+    }));
+  }
 
-  async function handleSave() {
+  async function handleSave(andContinue: boolean) {
     if (!form.name.trim()) {
       setError("Court name is required");
       return;
@@ -218,13 +280,13 @@ function CourtFormModal({
     setSaving(true);
     setError("");
     try {
+      const shortName =
+        form.shortName.trim() || suggestCourtShortLabel(form.name) || undefined;
+      // Court = physical playing area only. Venue comes from Branding (read-only).
       const body: Record<string, unknown> = {
         name: form.name.trim(),
-        shortName: form.shortName.trim() || undefined,
-        location: form.location.trim() || undefined,
+        shortName,
         sortOrder: form.sortOrder,
-        streamUrl: form.streamUrl.trim() || undefined,
-        hasDisplay: form.hasDisplay,
       };
       if (court) {
         body.status = form.status;
@@ -238,7 +300,11 @@ function CourtFormModal({
           body: JSON.stringify(body),
         });
       }
-      onSaved();
+      onSaved({
+        continueToNext: andContinue
+          ? () => setLocation(`/tournament/${tournamentId}/badminton/categories`)
+          : undefined,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
@@ -248,62 +314,138 @@ function CourtFormModal({
 
   return (
     <FormModal
-      title={court ? "Edit Court" : "Add Court"}
-      subtitle="Configure court details for match assignment"
+      title={isEdit ? "Edit Court" : "Add Court"}
+      subtitle="A court is a playing area inside the tournament venue"
       onClose={onClose}
       size="md"
     >
+      <div className={cn(hubPanelClass, "space-y-1 !p-3")}>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Tournament Venue
+        </p>
+        {tournamentVenue ? (
+          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+            {tournamentVenue}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Not set yet —{" "}
+            <Link
+              href={`/tournament/${tournamentId}/badminton/branding`}
+              className="text-primary hover:underline font-medium"
+            >
+              set venue in Branding
+            </Link>
+          </p>
+        )}
+      </div>
+
       <FormField label="Court Name *">
-        <input {...f("name")} placeholder="Court 1" className={inputClass} />
+        <input
+          value={form.name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Court 1"
+          className={inputClass}
+          autoFocus
+        />
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          Examples: Court 1, Court 2, Court A, Center Court
+        </p>
       </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Short Label">
-          <input {...f("shortName")} placeholder="C1" maxLength={10} className={inputClass} />
-        </FormField>
-        <FormField label="Sort Order">
-          <input {...f("sortOrder")} type="number" min={0} className={inputClass} />
-        </FormField>
-      </div>
-
-      <FormField label="Location / Hall">
-        <input {...f("location")} placeholder="Main Hall" className={inputClass} />
-      </FormField>
-
-      <FormField label="Stream URL (OBS)">
-        <input {...f("streamUrl")} placeholder="https://…" className={inputClass} />
-      </FormField>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField label="Status">
-          <DarkSelect
-            value={form.status}
-            onValueChange={(status) => setForm((p) => ({ ...p, status }))}
-            options={[
-              { value: "available", label: "Available" },
-              { value: "in_use", label: "In Use" },
-              { value: "maintenance", label: "Maintenance" },
-            ]}
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <CollapsibleTrigger
+          type="button"
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg border border-border/60",
+            "bg-muted/20 px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground",
+            "hover:text-foreground hover:border-border transition-colors",
+          )}
+        >
+          <span>Advanced settings</span>
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 shrink-0 transition-transform",
+              advancedOpen && "rotate-180",
+            )}
+            aria-hidden
           />
-        </FormField>
-        <FormField label="Options">
-          <CheckboxRow
-            checked={form.hasDisplay}
-            onChange={(hasDisplay) => setForm((p) => ({ ...p, hasDisplay }))}
-            label="Has display screen"
-            description="Enable court-side LED display"
-          />
-        </FormField>
-      </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Short Label">
+              <input
+                value={form.shortName}
+                onChange={(e) => {
+                  setShortNameTouched(true);
+                  setForm((p) => ({ ...p, shortName: e.target.value }));
+                }}
+                placeholder="C1"
+                maxLength={10}
+                className={inputClass}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Shown on scoreboards. Filled in automatically from the court name.
+              </p>
+            </FormField>
+            <FormField label="Sort Order">
+              <input
+                type="number"
+                min={0}
+                value={form.sortOrder}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    sortOrder: parseInt(e.target.value, 10) || 0,
+                  }))
+                }
+                className={inputClass}
+              />
+            </FormField>
+          </div>
+
+          <FormField label="Court Status">
+            <DarkSelect
+              value={form.status}
+              onValueChange={(status) => setForm((p) => ({ ...p, status }))}
+              options={[
+                { value: "available", label: "Available" },
+                { value: "in_use", label: "In Use" },
+                { value: "maintenance", label: "Maintenance" },
+              ]}
+            />
+          </FormField>
+        </CollapsibleContent>
+      </Collapsible>
 
       <FormError message={error} />
 
-      <FormActions
-        onCancel={onClose}
-        onSubmit={handleSave}
-        submitLabel={court ? "Save Changes" : "Add Court"}
-        saving={saving}
-      />
+      {isEdit ? (
+        <FormActions
+          onCancel={onClose}
+          onSubmit={() => handleSave(false)}
+          submitLabel="Save Court"
+          saving={saving}
+        />
+      ) : (
+        <div className="flex flex-col gap-2 pt-1">
+          <FormActions
+            onCancel={onClose}
+            onSubmit={() => handleSave(true)}
+            submitLabel="Save & Continue"
+            saving={saving}
+          />
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => handleSave(false)}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors py-1"
+          >
+            Save Court only
+          </button>
+        </div>
+      )}
     </FormModal>
   );
 }

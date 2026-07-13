@@ -11,6 +11,8 @@ type CityAutocompleteProps = {
   className?: string;
   showHint?: boolean;
   disabled?: boolean;
+  /** Minimum typed characters before suggestions open. Default 2; tournament forms use 3. */
+  minChars?: number;
 };
 
 export function CityAutocomplete({
@@ -21,12 +23,13 @@ export function CityAutocomplete({
   className,
   showHint = true,
   disabled = false,
+  minChars = 2,
 }: CityAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(() => searchIndianCities(value), [value]);
-  const showDropdown = !disabled && open && value.trim().length >= 2 && suggestions.length > 0;
+  const showDropdown = !disabled && open && value.trim().length >= minChars && suggestions.length > 0;
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
@@ -79,7 +82,9 @@ export function CityAutocomplete({
         )}
       </div>
       {showHint ? (
-        <p className="text-xs text-muted-foreground mt-1.5">Type city name for suggestions</p>
+        <p className="text-xs text-muted-foreground mt-1.5">
+          Type at least {minChars} letters for city suggestions
+        </p>
       ) : null}
     </div>
   );

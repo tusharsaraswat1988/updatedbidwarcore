@@ -21,6 +21,7 @@ export type SportSpecCatalog = {
   allGroupNames: string[];
 };
 
+/** Shared identity/contact columns — cricket-only fields are added separately. */
 const BASE_HEADERS = [
   "name",
   "basePrice",
@@ -34,7 +35,14 @@ const BASE_HEADERS = [
   "mobileNumber",
   "email",
   "availabilityDates",
-  "cricheroUrl",
+] as const;
+
+const CRICKET_ONLY_HEADERS = ["cricheroUrl"] as const;
+
+const LEGACY_CRICKET_SPEC_HEADERS = [
+  "battingStyle",
+  "bowlingStyle",
+  "specialization",
 ] as const;
 
 /** Legacy CSV headers mapped to positional slots when role spec groups exist. */
@@ -51,12 +59,159 @@ const LEGACY_SPEC_ALIASES: Record<string, number> = {
   role_spec: 2,
 };
 
+type ExampleProfile = {
+  name: string;
+  basePrice: string;
+  role: string;
+  city: string;
+  age: string;
+  gender: string;
+  jerseyNumber: string;
+  jerseySize: string;
+  achievements: string;
+  mobileNumber: string;
+  email: string;
+  availabilityDates: string;
+  cricheroUrl?: string;
+  /** Example values keyed by slugified group name */
+  specs?: Record<string, string>;
+};
+
+const EXAMPLE_BY_SPORT: Record<string, ExampleProfile> = {
+  cricket: {
+    name: "Rohit Sharma",
+    basePrice: "1000000",
+    role: "Batsman",
+    city: "Mumbai",
+    age: "36",
+    gender: "M",
+    jerseyNumber: "45",
+    jerseySize: "L",
+    achievements: "IPL Winner",
+    mobileNumber: "9876543210",
+    email: "rohit@example.com",
+    availabilityDates: "18-20 March",
+    cricheroUrl: "https://crichero.com/rohit",
+    specs: {
+      batting_hand: "Right-hand",
+      bowling_style: "Right Arm Medium",
+      bowling_arm: "Right-arm",
+      battingstyle: "Right Hand",
+      bowlingstyle: "Right Arm Medium",
+      specialization: "Top order",
+    },
+  },
+  football: {
+    name: "Sunil Chhetri",
+    basePrice: "500000",
+    role: "Forward",
+    city: "Bengaluru",
+    age: "39",
+    gender: "M",
+    jerseyNumber: "11",
+    jerseySize: "M",
+    achievements: "National team captain",
+    mobileNumber: "9876543210",
+    email: "sunil@example.com",
+    availabilityDates: "All dates",
+    specs: { preferred_foot: "Right" },
+  },
+  badminton: {
+    name: "Animesh Thakur",
+    basePrice: "100000",
+    role: "Singles Player",
+    city: "Delhi",
+    age: "28",
+    gender: "M",
+    jerseyNumber: "7",
+    jerseySize: "M",
+    achievements: "District champion",
+    mobileNumber: "9876543210",
+    email: "animesh@example.com",
+    availabilityDates: "All dates",
+    specs: {
+      playing_hand: "Left Hand",
+      playing_style: "Attacking",
+      experience: "Intermediate",
+      court_preference: "Indoor",
+    },
+  },
+  kabaddi: {
+    name: "Pardeep Narwal",
+    basePrice: "500000",
+    role: "Raider",
+    city: "Hisar",
+    age: "27",
+    gender: "M",
+    jerseyNumber: "9",
+    jerseySize: "M",
+    achievements: "Pro Kabaddi star",
+    mobileNumber: "9876543210",
+    email: "pardeep@example.com",
+    availabilityDates: "All dates",
+  },
+  volleyball: {
+    name: "Amit Kumar",
+    basePrice: "200000",
+    role: "Outside Hitter",
+    city: "Chennai",
+    age: "24",
+    gender: "M",
+    jerseyNumber: "4",
+    jerseySize: "L",
+    achievements: "State champion",
+    mobileNumber: "9876543210",
+    email: "amit@example.com",
+    availabilityDates: "All dates",
+  },
+  esports: {
+    name: "Pro Player",
+    basePrice: "150000",
+    role: "Fragger",
+    city: "Hyderabad",
+    age: "21",
+    gender: "M",
+    jerseyNumber: "1",
+    jerseySize: "M",
+    achievements: "LAN finalist",
+    mobileNumber: "9876543210",
+    email: "pro@example.com",
+    availabilityDates: "All dates",
+  },
+  other: {
+    name: "Player One",
+    basePrice: "100000",
+    role: "Player",
+    city: "Delhi",
+    age: "25",
+    gender: "M",
+    jerseyNumber: "10",
+    jerseySize: "M",
+    achievements: "",
+    mobileNumber: "9876543210",
+    email: "player@example.com",
+    availabilityDates: "All dates",
+  },
+};
+
 function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function slugifyHeader(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+export function isCricketSport(sportSlug: string | null | undefined): boolean {
+  return (sportSlug?.trim().toLowerCase() || "cricket") === "cricket";
+}
+
+export function buildBaseCsvHeaders(sportSlug: string | null | undefined): string[] {
+  const headers: string[] = [...BASE_HEADERS];
+  if (isCricketSport(sportSlug)) {
+    headers.push(...CRICKET_ONLY_HEADERS);
+  }
+  return headers;
 }
 
 export async function fetchSportSpecCatalog(sportSlug: string): Promise<SportSpecCatalog> {
@@ -101,54 +256,52 @@ export async function fetchSportSpecCatalog(sportSlug: string): Promise<SportSpe
 }
 
 export function buildCsvTemplateHeaders(catalog: SportSpecCatalog | null): string {
+  const sportSlug = catalog?.sportSlug ?? "cricket";
+  const base = buildBaseCsvHeaders(sportSlug);
   const specCols = catalog?.allGroupNames.map(slugifyHeader) ?? [
-    "battingStyle",
-    "bowlingStyle",
-    "specialization",
+    ...LEGACY_CRICKET_SPEC_HEADERS,
   ];
-  return [...BASE_HEADERS, ...specCols].join(",");
+  return [...base, ...specCols].join(",");
 }
 
 export function buildCsvTemplateExampleRow(catalog: SportSpecCatalog | null): string {
-  if (catalog?.sportSlug === "badminton") {
-    return [
-      "Animesh Thakur",
-      "100000",
-      "Singles Player",
-      "Delhi",
-      "28",
-      "M",
-      "7",
-      "M",
-      "District champion",
-      "9876543210",
-      "animesh@example.com",
-      "All dates",
-      "",
-      "Left Hand",
-      "Attacking",
-      "Intermediate",
-      "Indoor",
-    ].join(",");
+  const sportSlug = catalog?.sportSlug ?? "cricket";
+  const example =
+    EXAMPLE_BY_SPORT[sportSlug] ?? EXAMPLE_BY_SPORT.other!;
+
+  const cells: string[] = [
+    example.name,
+    example.basePrice,
+    example.role,
+    example.city,
+    example.age,
+    example.gender,
+    example.jerseyNumber,
+    example.jerseySize,
+    example.achievements,
+    example.mobileNumber,
+    example.email,
+    example.availabilityDates,
+  ];
+
+  if (isCricketSport(sportSlug)) {
+    cells.push(example.cricheroUrl ?? "");
   }
-  return [
-    "Rohit Sharma",
-    "1000000",
-    "Batsman",
-    "Mumbai",
-    "36",
-    "M",
-    "45",
-    "L",
-    "IPL Winner",
-    "9876543210",
-    "rohit@example.com",
-    "18-20 March",
-    "https://crichero.com/rohit",
-    "Right Hand",
-    "Right Arm Medium",
-    "Top order",
-  ].join(",");
+
+  if (catalog?.allGroupNames.length) {
+    for (const groupName of catalog.allGroupNames) {
+      const slug = slugifyHeader(groupName);
+      cells.push(example.specs?.[slug] ?? "");
+    }
+  } else if (isCricketSport(sportSlug)) {
+    cells.push(
+      example.specs?.battingstyle ?? "Right Hand",
+      example.specs?.bowlingstyle ?? "Right Arm Medium",
+      example.specs?.specialization ?? "Top order",
+    );
+  }
+
+  return cells.join(",");
 }
 
 export type ParsedBulkPlayer = {
@@ -175,7 +328,7 @@ function resolveSpecValueForGroup(
   group: SpecGroupDef,
   groupIndex: number,
   row: Record<string, string>,
-  headers: string[],
+  _headers: string[],
 ): string | undefined {
   const slug = slugifyHeader(group.groupName);
   const direct =
@@ -201,6 +354,7 @@ export function parsePlayerCsv(
   if (lines.length < 2) return [];
 
   const headers = lines[0]!.split(",").map(normalizeHeader);
+  const allowCrichero = isCricketSport(catalog?.sportSlug);
 
   return lines.slice(1).map((line) => {
     const vals = line.split(",").map((v) => v.trim());
@@ -233,6 +387,8 @@ export function parsePlayerCsv(
     const mobileParsed = mobileRaw ? parseIndianMobile(mobileRaw) : null;
 
     const genderRaw = (row["gender"] || "").trim().toUpperCase();
+    const cricheroRaw =
+      row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined;
 
     return {
       name: row["name"] || "Unknown",
@@ -249,7 +405,7 @@ export function parsePlayerCsv(
       email: row["email"] || undefined,
       availabilityDates:
         row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
-      cricheroUrl: row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined,
+      cricheroUrl: allowCrichero ? cricheroRaw : undefined,
       battingStyle: legacySlots[0] || undefined,
       bowlingStyle: legacySlots[1] || undefined,
       specialization: legacySlots[2] || undefined,

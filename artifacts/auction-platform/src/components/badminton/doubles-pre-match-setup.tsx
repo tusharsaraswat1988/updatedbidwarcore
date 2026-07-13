@@ -1,12 +1,31 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { STANDARD_FORMAT, getSidePlayerSlots, isPairMatchKind } from "@workspace/badminton-core";
+import type { BadmintonMatchFormat, BadmintonMatchState } from "@workspace/badminton-core";
+import {
+  STANDARD_FORMAT,
+  getSidePlayerSlots,
+  isPairMatchKind,
+  parseBadmintonMatchFormat,
+} from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
 import { hubCardClass, BtnPrimary } from "@/components/badminton/form-ui";
 import { sideJsonToStartSide } from "@/components/badminton/pair-side-picker";
+import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
+import { matchFormatChipLabel } from "@/lib/match-format-display";
 
 type SetupStep = "toss_winner" | "toss_decision" | "first_server" | "first_receiver" | "confirm";
+
+function resolveStartFormat(
+  detail: unknown,
+  state?: BadmintonMatchState | null,
+): BadmintonMatchFormat {
+  const d = detail as Record<string, unknown> | null;
+  return (
+    parseBadmintonMatchFormat(d?.matchFormatJson) ??
+    state?.format ??
+    STANDARD_FORMAT
+  );
+}
 
 export function DoublesPreMatchSetup({
   state,
@@ -26,6 +45,8 @@ export function DoublesPreMatchSetup({
   const rightSide = sideJsonToStartSide(rightSideJson);
   const leftPlayers = getSidePlayerSlots(leftSide);
   const rightPlayers = getSidePlayerSlots(rightSide);
+  const matchFormat = resolveStartFormat(detail, state);
+  const formatLabel = matchFormatChipLabel(matchFormat);
 
   const [step, setStep] = useState<SetupStep>("toss_winner");
   const [tossWinner, setTossWinner] = useState<"left" | "right" | null>(null);
@@ -72,7 +93,7 @@ export function DoublesPreMatchSetup({
     try {
       await onStart({
         matchKind: matchType,
-        format: STANDARD_FORMAT,
+        format: matchFormat,
         leftSide,
         rightSide,
         firstServer: servingSide,
@@ -112,6 +133,9 @@ export function DoublesPreMatchSetup({
             </span>
           </div>
           <h1 className="text-foreground font-display font-bold text-xl">Match Toss</h1>
+          <div className="flex justify-center">
+            <ScoringFormatBadge label={formatLabel} />
+          </div>
           <p className="text-base font-semibold text-foreground">
             {step === "toss_winner" && "Who won the toss?"}
             {step === "toss_decision" && "What did the toss winner choose?"}
@@ -377,6 +401,8 @@ export function SinglesPreMatchSetup({
 
   const leftSide = sideJsonToStartSide(leftSideJson);
   const rightSide = sideJsonToStartSide(rightSideJson);
+  const matchFormat = resolveStartFormat(detail);
+  const formatLabel = matchFormatChipLabel(matchFormat);
 
   const [firstServer, setFirstServer] = useState<"left" | "right">("left");
   const [starting, setStarting] = useState(false);
@@ -388,7 +414,7 @@ export function SinglesPreMatchSetup({
     try {
       await onStart({
         matchKind: matchType,
-        format: STANDARD_FORMAT,
+        format: matchFormat,
         leftSide,
         rightSide,
         firstServer,
@@ -405,6 +431,9 @@ export function SinglesPreMatchSetup({
       <div className="space-y-6">
         <div className="text-center space-y-3">
           <h1 className="text-foreground font-display font-bold text-xl tracking-tight">Ready to Start</h1>
+          <div className="flex justify-center">
+            <ScoringFormatBadge label={formatLabel} />
+          </div>
           <p className="text-lg sm:text-xl font-display font-bold text-foreground">
             Who serves first?
           </p>

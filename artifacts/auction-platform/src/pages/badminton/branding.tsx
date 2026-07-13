@@ -574,9 +574,9 @@ export default function BadmintonBrandingPage() {
             {/* Import auction branding into badminton display */}
             <section className={cn(hubPanelClass, "space-y-5 lg:col-span-2")}>
               <div>
-                <h2 className="text-foreground font-display font-bold text-lg">Import from Auction Settings</h2>
+                <h2 className="text-foreground font-display font-bold text-lg">Import tournament branding</h2>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                  Pull this tournament&apos;s Auction Hub logo, venue, organizer, and sponsor logos into badminton LED/OBS branding.
+                  Pull this tournament&apos;s logo, venue, organizer, and sponsor logos into LED/OBS branding.
                 </p>
               </div>
 
@@ -589,12 +589,12 @@ export default function BadmintonBrandingPage() {
                   }}
                   disabled={importAuctionMutation.isPending || isLoading}
                 >
-                  {importAuctionMutation.isPending ? "Importing…" : "Import Auction Branding"}
+                  {importAuctionMutation.isPending ? "Importing…" : "Import branding"}
                 </BtnPrimary>
               </div>
 
               <p className="text-muted-foreground text-xs leading-relaxed">
-                Uses this tournament only — not another event. Sponsor logos copy into badminton storage; auction panel sponsors stay unchanged.
+                Uses this tournament only — not another event. Sponsor logos copy into badminton storage; existing panel sponsors stay unchanged.
               </p>
 
               {importMessage && (

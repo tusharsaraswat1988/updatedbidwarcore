@@ -116,6 +116,7 @@ export default function TournamentHub() {
           </div>
           <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
             {tournament?.sport?.toUpperCase()}
+            {tournament?.city && <span>· {tournament.city}</span>}
             {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
             {tournament?.venue && <span>· {tournament.venue}</span>}
             <span>· {budgetLabel}: {formatAmount(tournament?.basePurse)}</span>

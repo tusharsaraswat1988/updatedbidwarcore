@@ -31,6 +31,7 @@ import { openScoreDisplay } from "@/lib/tournament-navigation";
 import { Button } from "@/components/ui/button";
 import { Monitor, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
+import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 export default function ScoringMatchPage() {
@@ -40,7 +41,7 @@ export default function ScoringMatchPage() {
   const matchId = parseInt(params?.matchId || "0");
   const { toast } = useToast();
 
-  const { data: tournament } = useGetTournament(tournamentId, {
+  const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
@@ -235,7 +236,11 @@ export default function ScoringMatchPage() {
     </CricketOrganizerPageShell>
   );
 
-  if (featuresLoading || (isPending && !data)) {
+  if (tournament?.sport === "badminton") {
+    return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
+  }
+
+  if (featuresLoading || tournamentLoading || (isPending && !data)) {
     return loadingShell;
   }
 

@@ -27,7 +27,7 @@ import {
 import { localMediaUrlSchema, zodFirstError } from "../lib/local-url-schema.js";
 
 const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
-  id: t.id, name: t.name, sport: t.sport, venue: t.venue, auctionDate: t.auctionDate,
+  id: t.id, name: t.name, sport: t.sport, city: t.city, venue: t.venue, auctionDate: t.auctionDate,
   organizerName: t.organizerName, organizerMobile: t.organizerMobile, organizerEmail: t.organizerEmail,
   logoUrl: resolveOfflineUrl(t.logoUrl), sponsorLogos: resolveOfflineSponsorLogos(t.sponsorLogos),
   auctionUnit: normalizeAuctionUnit(t.auctionUnit),
@@ -58,6 +58,7 @@ export function createTournamentsRouter(db: LocalDb) {
     const schema = z.object({
       name: z.string().min(1),
       sport: z.string().default("cricket"),
+      city: z.string().trim().min(1).optional(),
       venue: z.string().optional(),
       auctionDate: z.string().optional(),
       basePurse: z.number().int().optional(),
@@ -69,7 +70,7 @@ export function createTournamentsRouter(db: LocalDb) {
 
     const [row] = await db.insert(tournamentsTable).values({
       name: d.name, sport: d.sport ?? "cricket",
-      venue: d.venue ?? null, auctionDate: d.auctionDate ?? null,
+      city: d.city ?? null, venue: d.venue ?? null, auctionDate: d.auctionDate ?? null,
       basePurse: d.basePurse ?? 10000000,
       bidTiers: DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
       timerSeconds: d.timerSeconds ?? DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
@@ -94,6 +95,7 @@ export function createTournamentsRouter(db: LocalDb) {
       name: z.string().min(1).max(200).optional(),
       sport: z.string().max(60).optional(),
       venue: z.string().max(200).nullable().optional(),
+      city: z.string().max(120).nullable().optional(),
       auctionDate: z.string().max(30).nullable().optional(),
       organizerName: z.string().max(120).nullable().optional(),
       organizerMobile: z.string().max(20).nullable().optional(),
@@ -167,6 +169,7 @@ export function createTournamentsRouter(db: LocalDb) {
     if (d.name !== undefined) updates.name = d.name;
     if (d.sport !== undefined) updates.sport = d.sport;
     if (d.venue !== undefined) updates.venue = d.venue;
+    if (d.city !== undefined) updates.city = d.city;
     if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
     if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
     if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;

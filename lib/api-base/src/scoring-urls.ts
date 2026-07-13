@@ -7,8 +7,11 @@ export function scoringAppPath(path: string): string {
   return `${SCORING_APP_BASE}${normalized}`;
 }
 
-/** Default organizer entry — cricket match list / scorer hub. */
-export function scoringAppHomePath(tournamentId: number): string {
+/** Default organizer entry — sport-aware hub (cricket match list or badminton command center). */
+export function scoringAppHomePath(tournamentId: number, sport?: string | null): string {
+  if (sport === "badminton") {
+    return scoringAppPath(`/tournament/${tournamentId}/badminton`);
+  }
   return scoringAppPath(`/tournament/${tournamentId}/score`);
 }
 
@@ -17,9 +20,13 @@ export function scoringAppPublicUrl(origin: string, path: string): string {
   return `${origin.replace(/\/+$/, "")}${scoringAppPath(path)}`;
 }
 
-export function openScoringApp(tournamentId: number): void {
+export function openScoringApp(tournamentId: number, sport?: string | null): void {
   const browserWindow = globalThis as typeof globalThis & {
     open?: (url: string, target?: string, features?: string) => void;
   };
-  browserWindow.open?.(scoringAppHomePath(tournamentId), "_blank", "noopener,noreferrer");
+  browserWindow.open?.(
+    scoringAppHomePath(tournamentId, sport),
+    "_blank",
+    "noopener,noreferrer",
+  );
 }

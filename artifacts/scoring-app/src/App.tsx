@@ -1,9 +1,10 @@
 import { lazy, Suspense } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter } from "wouter";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
+import { ScoringAppTournamentHomeRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { useLocation } from "wouter";
@@ -24,6 +25,7 @@ const BadmintonMatchesPage = lazy(() => import("@/pages/badminton/matches"));
 const BadmintonMatchControlPage = lazy(() => import("@/pages/badminton/match-control"));
 const BadmintonCourtsPage = lazy(() => import("@/pages/badminton/courts"));
 const BadmintonCategoriesPage = lazy(() => import("@/pages/badminton/categories"));
+const BadmintonScoringFormatPage = lazy(() => import("@/pages/badminton/scoring-format"));
 const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"));
 const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
 const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
@@ -154,6 +156,16 @@ function Router() {
             );
           }}
         </Route>
+        <Route path="/tournament/:id/badminton/scoring-format">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonScoringFormatPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
         <Route path="/tournament/:id/badminton/analytics">
           {(params) => {
             const tid = parseInt(params?.id || "0");
@@ -196,7 +208,10 @@ function Router() {
         </Route>
 
         <Route path="/tournament/:id">
-          {(params) => <Redirect to={`/tournament/${params?.id}/score`} replace />}
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <ScoringAppTournamentHomeRedirect tournamentId={tid} />;
+          }}
         </Route>
 
         <Route component={NotFound} />

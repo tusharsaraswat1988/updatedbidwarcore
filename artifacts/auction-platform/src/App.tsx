@@ -541,6 +541,7 @@ function Router() {
         <Route path="/tournament/:id/badminton/matches" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/courts" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/categories" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/scoring-format" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/analytics" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/branding" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/broadcast" component={RedirectToScoringApp} />

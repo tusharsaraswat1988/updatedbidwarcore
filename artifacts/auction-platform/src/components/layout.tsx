@@ -274,7 +274,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 {scoringPlatform && tournament?.scoringEnabled && !localVenue ? (
                   <button
                     type="button"
-                    onClick={() => openScoringApp(tournamentId)}
+                    onClick={() => openScoringApp(tournamentId, tournament?.sport)}
                     title={`Open ${scoringNavLabel} in a new tab`}
                     className={`flex items-center rounded-md transition-colors font-medium ${
                       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"

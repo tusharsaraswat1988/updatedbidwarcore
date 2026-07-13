@@ -28,6 +28,7 @@ export function publicTournamentSerializer(
     sportId: t.sportId ?? null,
     auctionCode: t.auctionCode ?? null,
     venue: t.venue,
+    city: t.city ?? null,
     auctionDate: t.auctionDate,
     auctionTime: t.auctionTime ?? null,
     organizerName: t.organizerName,

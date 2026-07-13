@@ -5,6 +5,7 @@ export const tournamentsTable = sqliteTable("tournaments", {
   name: text("name").notNull(),
   sport: text("sport").notNull().default("cricket"),
   venue: text("venue"),
+  city: text("city"),
   auctionDate: text("auction_date"),
   organizerName: text("organizer_name"),
   organizerMobile: text("organizer_mobile"),

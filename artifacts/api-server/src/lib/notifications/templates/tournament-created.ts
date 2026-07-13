@@ -17,6 +17,7 @@ export type TournamentCreatedTemplateParams = {
   auctionCode: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
+  city: string | null;
   venue: string | null;
   organizerName: string | null;
   appUrl: string;
@@ -72,6 +73,10 @@ export function tournamentCreatedEmail(params: TournamentCreatedTemplateParams):
     `${formatDate(params.auctionDate)}${params.auctionTime ? ` · ${params.auctionTime}` : ""}`,
   );
   const dashboardUrl = resolveTournamentDashboardUrl(params.appUrl, params.tournamentId);
+
+  const cityRow = params.city
+    ? detailRow("City", escapeHtml(params.city))
+    : detailRow("City", `<span style="color:${C.muted};">Not set yet</span>`);
 
   const venueRow = params.venue
     ? detailRow("Venue", escapeHtml(params.venue), true)
@@ -145,6 +150,7 @@ export function tournamentCreatedEmail(params: TournamentCreatedTemplateParams):
               ${detailRow("Sport", sport)}
               ${detailRow("Auction Code", auctionCode)}
               ${detailRow("Auction Date", auctionWhen)}
+              ${cityRow}
               ${venueRow}
             </table>
           </td>

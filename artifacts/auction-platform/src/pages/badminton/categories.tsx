@@ -1,6 +1,7 @@
 /**
- * Badminton Categories & Draw Management
+ * Badminton Categories — event definitions only.
  * Route: /tournament/:id/badminton/categories
+ * Fixture creation lives in Draw & Fixtures.
  */
 
 import { useState } from "react";
@@ -57,17 +58,6 @@ interface RegistrationRow {
   player2?: BadmintonPlayer | null;
 }
 
-interface BadmintonFixture {
-  id: number;
-  categoryId: number;
-  drawId: number;
-  slotNumber?: number | null;
-  registrationAId?: number | null;
-  registrationBId?: number | null;
-  status: string;
-  scoringMatchId?: number | null;
-}
-
 export default function BadmintonCategoriesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/categories");
   const tournamentId = parseInt(params?.id ?? "0");
@@ -88,7 +78,7 @@ export default function BadmintonCategoriesPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        title="Categories & Draws"
+        title="Categories"
         subtitle={`${categories.length} categor${categories.length !== 1 ? "ies" : "y"}`}
         actions={
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
@@ -108,7 +98,7 @@ export default function BadmintonCategoriesPage() {
           <EmptyState
             icon={Trophy}
             title="No categories yet"
-            desc="Create draw categories like Men's Singles U-19, Women's Doubles, etc."
+            desc="Create events like Men's Singles U-19, Women's Doubles, etc."
             action={{ label: "Add Category", onClick: () => setShowForm(true) }}
           />
         ) : (
@@ -128,7 +118,6 @@ export default function BadmintonCategoriesPage() {
               }}
               onRefresh={() => {
                 qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
-                qc.invalidateQueries({ queryKey: ["badminton-fixtures", tournamentId, cat.id] });
                 qc.invalidateQueries({ queryKey: ["badminton-registrations", tournamentId, cat.id] });
                 qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
               }}

@@ -491,6 +491,12 @@ const migrations: Array<{ label: string; sql: string }> = [
       CREATE INDEX IF NOT EXISTS ix_academy_lessons_display_order ON academy_lessons (display_order);
     `,
   },
+  {
+    label: "tournaments_city",
+    sql: `
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;
+    `,
+  },
 ];
 
 for (const m of migrations) {

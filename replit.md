@@ -7,7 +7,7 @@ A full-stack broadcast-quality live sports auction system for cricket, football,
 **Local split dev (recommended):**
 
 1. Copy `.env.example` → `.env` and set `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_PASSWORD`, etc.
-2. From repo root: **`pnpm dev`** — starts API (`API_PORT` / default **8080**), auction UI (`FRONTEND_PORT` / default **3000**), and owner app (`OWNER_APP_PORT` / default **5174**) with root `.env` loaded automatically.
+2. From repo root: **`pnpm dev`** — starts API (`API_PORT` / default **8080**), auction UI (`FRONTEND_PORT` / default **3000**), owner app (`OWNER_APP_PORT` / default **5174**), and scoring app (`SCORING_APP_PORT` / default **5175**) with root `.env` loaded automatically. Opt out of scoring with `DEV_ENABLE_SCORING=0` or `pnpm dev -- --no-scoring`.
 3. Open http://localhost:3000/admin/login (Vite proxies `/api` to the API).
 4. `pnpm run verify:local` — smoke test (run while `pnpm dev` is up).
 

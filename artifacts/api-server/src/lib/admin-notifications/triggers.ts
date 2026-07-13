@@ -19,7 +19,7 @@ export function notifyAdminTournamentCreated(tournament: Tournament): void {
     sport: tournament.sport,
     organizerName: tournament.organizerName,
     organizerId: tournament.organizerId,
-    city: tournament.venue ?? null,
+    city: tournament.city ?? null,
     createdAt: tournament.createdAt?.toISOString() ?? new Date().toISOString(),
   });
 }

@@ -2229,6 +2229,9 @@ components:
           description: "Auto-generated 8-char code e.g. RC732504"
         venue:
           type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+          description: "City where the tournament is held (separate from venue)"
         auctionDate:
           type: ["string", "null"]
         auctionTime:
@@ -2414,7 +2417,7 @@ components:
 
     TournamentInput:
       type: object
-      required: [name, sport]
+      required: [name, sport, city]
       properties:
         name:
           type: string
@@ -2422,6 +2425,9 @@ components:
           type: string
         venue:
           type: string
+        city:
+          type: string
+          description: "City where the tournament is held (required on create)"
         auctionDate:
           type: string
         organizerName:
@@ -2506,6 +2512,9 @@ components:
           type: string
         venue:
           type: string
+        city:
+          type: string
+          description: "City where the tournament is held"
         auctionDate:
           type: string
         auctionTime:
