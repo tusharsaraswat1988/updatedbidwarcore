@@ -14,6 +14,7 @@ export {
   runSchemaGovernance,
   getSchemaHealthReport,
   resolveAutoHealEnabled,
+  resolveEffectiveAutoHeal,
   resolveEnvironment,
   formatDriftReportForConsole,
 } from "./orchestrate.js";
@@ -25,3 +26,14 @@ export {
   DEFAULT_SCHEMA_LOCK_TIMEOUT_MS,
 } from "./timeouts.js";
 export type { DbQueryable } from "./timeouts.js";
+export {
+  assertEnvironmentDatabaseIsolation,
+  classifyDatabaseRole,
+  gateAutoHealForDatabase,
+  isProductionDatabaseUrl,
+  isStagingDatabaseUrl,
+  parseDatabaseHostname,
+  DEFAULT_PRODUCTION_DB_HOST_MARKERS,
+  DEFAULT_STAGING_DB_HOST_MARKERS,
+} from "./database-identity.js";
+export type { DatabaseRole } from "./database-identity.js";

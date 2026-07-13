@@ -63,11 +63,30 @@ If production refuses to start with a drift report:
 
 | Variable | Effect |
 |----------|--------|
-| `SCHEMA_AUTO_HEAL=true` | Force heal (dev/staging/empty DB only — never leave on true production) |
+| `SCHEMA_AUTO_HEAL=true` | Request heal for local/staging only — **ignored** when `DATABASE_URL` matches production Neon |
 | `SCHEMA_AUTO_HEAL=false` | Force validate-only |
 | `BIDWAR_ENV=staging` | Treat as staging → auto-heal on (even if `NODE_ENV=production`) |
 | `SCHEMA_BOOT_TIMEOUT_MS` | Wall-clock budget for schema bootstrap (default `90000`); fail closed on timeout |
-| (unset heal flag) | Heal when env is staging/local/dev/test; production is validate-only |
+| `NEON_PRODUCTION_HOST_MARKERS` | Comma-separated host fingerprints that identify production Neon (default includes `ep-late-math-aohd4iep`) |
+| `NEON_STAGING_HOST_MARKERS` | Comma-separated host fingerprints that identify staging Neon (default includes `ep-long-sky-aorboyzr`) |
+| (unset heal flag) | Heal when env is staging/local/dev/test **and** DATABASE_URL is not production |
+
+## Database isolation (hard rules)
+
+Local, staging, and production each use a **separate Neon project/database**.
+
+| App env | Auto-heal | Neon |
+|---------|-----------|------|
+| Local / development | Enabled | Dev Neon only |
+| Staging (`BIDWAR_ENV=staging`) | Enabled | Staging Neon only (`old-art-20161659` / `ep-long-sky-aorboyzr`) |
+| Production | Validate-only | Production Neon only (`jolly-tree-42208228` / `ep-late-math-aohd4iep`) |
+
+Startup **refuses to start** if:
+
+- Staging/local `DATABASE_URL` matches production Neon fingerprints
+- Production `DATABASE_URL` matches staging Neon fingerprints
+
+Auto-heal / boot DDL **never mutates** production Neon, even if `SCHEMA_AUTO_HEAL=true` is set by mistake.
 
 ## Immediate P0 (completed)
 

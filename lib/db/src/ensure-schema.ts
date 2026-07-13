@@ -1,6 +1,16 @@
 import type pg from "pg";
 import { recordSystemDMetrics } from "./boot-metrics";
-import { resolveAutoHealEnabled, runSchemaGovernance } from "./schema-governance/index.js";
+import { resolveDatabaseUrl } from "./database-url";
+import {
+  resolveEffectiveAutoHeal,
+  resolveEnvironment,
+  runSchemaGovernance,
+} from "./schema-governance/index.js";
+import {
+  assertEnvironmentDatabaseIsolation,
+  classifyDatabaseRole,
+  gateAutoHealForDatabase,
+} from "./schema-governance/database-identity.js";
 import {
   resolveSchemaBootTimeoutMs,
   withTimeout,
@@ -13,14 +23,16 @@ import {
  * Order: validate/heal schema → then callers may start the HTTP server.
  * Never bind PORT before this completes successfully.
  *
- * - Development / staging (`BIDWAR_ENV=staging`, staging hostnames, or
- *   `SCHEMA_AUTO_HEAL=true`): legacy bootstrap DDL + Drizzle-driven heal.
+ * - Local / staging: auto-heal (separate Neon DBs only).
  * - Production: validate-only; refuse to start on critical drift (prints SQL).
+ *
+ * Hard rules:
+ * - Auto-heal never mutates production Neon (host fingerprint gate).
+ * - Staging/local refuse to start if DATABASE_URL points at production Neon.
+ * - Production refuses to start if DATABASE_URL points at staging Neon.
  *
  * Guardrails against hangs: wall-clock SCHEMA_BOOT_TIMEOUT_MS plus per-session
  * statement_timeout / lock_timeout on a dedicated client.
- *
- * Drizzle schema is the only design source of truth for validation/heal SQL.
  */
 export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
   const timeoutMs = resolveSchemaBootTimeoutMs();
@@ -38,6 +50,20 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
 }
 
 async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
+  const databaseUrl = resolveDatabaseUrl();
+  const environment = resolveEnvironment();
+  assertEnvironmentDatabaseIsolation(environment, databaseUrl);
+
+  const desiredHeal = resolveEffectiveAutoHeal(undefined, databaseUrl);
+  // Belt-and-suspenders: never run legacy DDL against production Neon.
+  const autoHeal = gateAutoHealForDatabase(desiredHeal, databaseUrl);
+
+  console.info("[schema] boot policy", {
+    environment,
+    databaseRole: classifyDatabaseRole(databaseUrl),
+    autoHealEnabled: autoHeal,
+  });
+
   const connectTimeoutMs = pool.options.connectionTimeoutMillis || 20_000;
   const client = await withTimeout(
     pool.connect(),
@@ -49,18 +75,18 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
     await client.query(`SET lock_timeout = '15s'`);
     await client.query(`SET statement_timeout = '30s'`);
 
-    const autoHeal = resolveAutoHealEnabled();
-
     if (autoHeal) {
       await runLegacyBootstrapDdl(client);
     } else {
       console.info(
-        "[schema] production/validate-only mode — skipping boot DDL mutations; validating against Drizzle",
+        "[schema] validate-only mode — skipping boot DDL mutations; validating against Drizzle",
       );
     }
 
     await runSchemaGovernance(client, {
       autoHeal,
+      environment,
+      databaseUrl,
       log: (msg, extra) => {
         if (extra) console.info(msg, extra);
         else console.info(msg);

@@ -47,8 +47,10 @@ NODE_ENV=production
 BIDWAR_ENV=staging
 SERVE_STATIC=true
 
-# Neon STAGING — not production
-DATABASE_URL=postgresql://...@<neon-staging-host>/<db>?sslmode=require
+# Neon STAGING ONLY — must NOT be production (jolly-tree / ep-late-math-aohd4iep)
+# Expected project: BidWar Staging (old-art-20161659)
+# Expected host contains: ep-long-sky-aorboyzr
+DATABASE_URL=postgresql://...@ep-long-sky-aorboyzr-pooler....neon.tech/neondb?sslmode=require
 
 # Staging public URL (Render default or custom staging subdomain)
 # Hostname must include "staging" (or set BIDWAR_ENV=staging) so schema auto-heal stays on.
@@ -63,6 +65,8 @@ ADMIN_PASSWORD=<staging-only-password>
 SCORING=true
 LOG_LEVEL=info
 ```
+
+**Verify before deploy:** In Render → staging service → Environment, confirm `DATABASE_URL` host contains `ep-long-sky-aorboyzr` (or your current staging pooler) and does **not** contain `ep-late-math-aohd4iep`. Startup fails closed if staging points at production Neon.
 
 ### Staging integration guidance
 
@@ -87,10 +91,13 @@ Use on the **production** web service only. Production auto-deploys when commits
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=production
 SERVE_STATIC=true
 
-# Neon PRODUCTION
-DATABASE_URL=postgresql://...@<neon-production-host>/<db>?sslmode=require
+# Neon PRODUCTION ONLY — must NOT be staging (old-art / ep-long-sky-aorboyzr)
+# Expected project: Bidwar Production (jolly-tree-42208228)
+# Expected host contains: ep-late-math-aohd4iep
+DATABASE_URL=postgresql://...@ep-late-math-aohd4iep-pooler....neon.tech/neondb?sslmode=require
 
 # Production public site
 APP_DOMAIN=bidwar.in,www.bidwar.in
@@ -100,9 +107,12 @@ APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<unique-production-secret>
 ADMIN_PASSWORD=<strong-production-password>
 
+# Do NOT set SCHEMA_AUTO_HEAL=true on production
 SCORING=true
 LOG_LEVEL=info
 ```
+
+**Verify before deploy:** In Render → production service → Environment, confirm `DATABASE_URL` host contains `ep-late-math-aohd4iep` and does **not** contain `ep-long-sky-aorboyzr`. Production is validate-only; auto-heal cannot mutate this database.
 
 Add production Cloudinary, Google OAuth, Twilio, VAPID, BulkSMS, and Resend variables when those features are live. Register OAuth redirect URI: `https://bidwar.in/api/auth/google/callback`.
 

@@ -5,6 +5,12 @@ import { applyIdempotentHeal } from "./heal.js";
 import { introspectLiveSchema, readMigrationLedger } from "./introspect.js";
 import type { DriftReport, SchemaGovernanceOptions } from "./types.js";
 import type { DbQueryable } from "./timeouts.js";
+import {
+  assertEnvironmentDatabaseIsolation,
+  classifyDatabaseRole,
+  gateAutoHealForDatabase,
+} from "./database-identity.js";
+import { resolveDatabaseUrl } from "../database-url.js";
 
 /**
  * Staging Render services run NODE_ENV=production (same as prod).
@@ -16,8 +22,8 @@ function looksLikeStagingHost(): boolean {
 }
 
 /**
- * Auto-heal only for development and staging (or explicit SCHEMA_AUTO_HEAL).
- * True production is always validate-only unless SCHEMA_AUTO_HEAL is forced.
+ * Desired auto-heal from env flags only (before production-DB hard gate).
+ * Local + staging: on. Production: off.
  */
 export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   if (explicit !== undefined) return explicit;
@@ -38,6 +44,17 @@ export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   }
   // Unknown env: heal only outside NODE_ENV=production
   return process.env.NODE_ENV !== "production";
+}
+
+/**
+ * Effective auto-heal after production Neon hard gate.
+ * Never returns true when DATABASE_URL matches production.
+ */
+export function resolveEffectiveAutoHeal(
+  explicit?: boolean,
+  databaseUrl: string = resolveDatabaseUrl(),
+): boolean {
+  return gateAutoHealForDatabase(resolveAutoHealEnabled(explicit), databaseUrl);
 }
 
 export function resolveEnvironment(): string {
@@ -88,8 +105,10 @@ export async function runSchemaGovernance(
   options: Partial<SchemaGovernanceOptions> = {},
 ): Promise<DriftReport> {
   const log = options.log ?? defaultLog;
-  const autoHeal = resolveAutoHealEnabled(options.autoHeal);
   const environment = options.environment ?? resolveEnvironment();
+  const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl();
+  assertEnvironmentDatabaseIsolation(environment, databaseUrl);
+  const autoHeal = resolveEffectiveAutoHeal(options.autoHeal, databaseUrl);
   const databaseType = options.databaseType ?? "postgresql";
 
   const contract = buildSchemaContractFromDrizzle();
@@ -108,6 +127,7 @@ export async function runSchemaGovernance(
       expectedSchemaVersion: report.expectedSchemaVersion,
       environment,
       autoHealEnabled: autoHeal,
+      databaseRole: classifyDatabaseRole(databaseUrl),
     });
     return report;
   }
@@ -118,6 +138,13 @@ export async function runSchemaGovernance(
     throw new Error(
       `Schema drift detected in ${environment}. Refusing to start HTTP server. ` +
         `Apply the requiredSql from the SCHEMA DRIFT REPORT above via versioned migrations (lib/db/migrations), then redeploy.`,
+    );
+  }
+
+  // Final hard stop before any mutation — production Neon must never be healed.
+  if (!gateAutoHealForDatabase(true, databaseUrl)) {
+    throw new Error(
+      `Schema auto-heal blocked: DATABASE_URL matches production Neon. Refusing to mutate. Apply versioned migrations instead.`,
     );
   }
 
@@ -158,8 +185,9 @@ export async function getSchemaHealthReport(
   db: DbQueryable,
   options: Partial<SchemaGovernanceOptions> = {},
 ): Promise<DriftReport> {
-  const autoHeal = resolveAutoHealEnabled(options.autoHeal);
   const environment = options.environment ?? resolveEnvironment();
+  const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl();
+  const autoHeal = resolveEffectiveAutoHeal(options.autoHeal, databaseUrl);
   const databaseType = options.databaseType ?? "postgresql";
   const contract = buildSchemaContractFromDrizzle();
   const live = await introspectLiveSchema(db);
