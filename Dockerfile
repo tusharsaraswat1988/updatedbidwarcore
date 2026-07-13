@@ -5,7 +5,8 @@
 # Run:    docker run -p 3000:3000 --env-file .env bidwar
 #
 # The final image runs a single Node process that serves both the API and the
-# pre-built Vite frontends (auction-platform at / and owner-app at /owner-app/).
+# pre-built Vite frontends (auction-platform at /, owner-app at /owner-app/,
+# scoring-app at /scoring-app/, and mobile-app at /mobile/).
 
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS builder
@@ -80,6 +81,8 @@ COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 # Pre-built Vite frontends (Brotli + Gzip compressed assets)
 COPY --from=builder /app/artifacts/auction-platform/dist/public ./artifacts/auction-platform/dist/public
 COPY --from=builder /app/artifacts/owner-app/dist/public        ./artifacts/owner-app/dist/public
+COPY --from=builder /app/artifacts/scoring-app/dist/public      ./artifacts/scoring-app/dist/public
+COPY --from=builder /app/artifacts/mobile-app/dist/public       ./artifacts/mobile-app/dist/public
 
 EXPOSE 3000
 
