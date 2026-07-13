@@ -16,7 +16,28 @@ import { startMemoryDiagnostics } from "./lib/memory-diagnostics.js";
 
 const { port } = getRuntimeConfig();
 
+/**
+ * Bind PORT before schema/bootstrap work.
+ * Render (and similar hosts) scan for an open port; if ensureCoreSchema or
+ * Neon cold-start takes too long, the deploy fails with "no open ports"
+ * even when the process is still healthy and working.
+ */
+function listen(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    app.listen(port, "0.0.0.0", (err?: Error) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 async function start() {
+  await listen();
+  logger.info({ port }, "Server listening — running bootstrap");
+
   await ensureCoreSchema(pool);
   await brandingService.migrateLegacyBrandingAssets();
   await brandingService.refreshPlatformBrandingCache();
@@ -25,17 +46,11 @@ async function start() {
   await initRedisClients();
   await startAuctionEventSubscriber();
 
-  app.listen(port, "0.0.0.0", (err) => {
-    if (err) {
-      logger.error({ err }, "Error listening on port");
-      process.exit(1);
-    }
-    logger.info({ port }, "Server listening");
-    startConsentBlastScheduler();
-    startCreativeRenderWorker();
-    startCommunicationWorker();
-    startMemoryDiagnostics();
-  });
+  logger.info({ port }, "Bootstrap complete");
+  startConsentBlastScheduler();
+  startCreativeRenderWorker();
+  startCommunicationWorker();
+  startMemoryDiagnostics();
 }
 
 start().catch((err) => {

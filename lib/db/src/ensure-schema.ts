@@ -5,10 +5,15 @@ import { resolveAutoHealEnabled, runSchemaGovernance } from "./schema-governance
 /**
  * Boot schema orchestration.
  *
- * - Development / staging (SCHEMA_AUTO_HEAL=true or NODE_ENV≠production):
+ * - Development / staging (SCHEMA_AUTO_HEAL=true, BIDWAR_ENV=staging, staging
+ *   hostnames in APP_URL/APP_DOMAIN, or NODE_ENV≠production):
  *   Runs legacy idempotent bootstrap DDL, then Drizzle-driven heal for gaps.
- * - Production (default): NEVER mutates. Validates live DB against Drizzle SSOT
- *   and refuses to start on critical drift (prints required SQL).
+ * - True production (default when NODE_ENV=production and not staging):
+ *   NEVER mutates. Validates live DB against Drizzle SSOT and refuses to start
+ *   on critical drift (prints required SQL).
+ *
+ * Note: Render staging typically uses NODE_ENV=production — do not treat that
+ * alone as "true production" for auto-heal (see resolveAutoHealEnabled).
  *
  * Drizzle schema is the only design source of truth for validation/heal SQL.
  */

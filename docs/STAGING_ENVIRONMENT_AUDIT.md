@@ -486,6 +486,7 @@ Use on **Render staging** (values are placeholders):
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 # DATABASE_URL — Neon staging branch only
 APP_DOMAIN=<staging-host>.onrender.com
@@ -493,6 +494,10 @@ APP_URL=https://<staging-host>.onrender.com
 APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<unique-staging-secret>
 ADMIN_PASSWORD=<unique-staging-password>
+
+# Schema: staging auto-heals additive drift (BIDWAR_ENV / staging hostname).
+# Optional explicit override:
+# SCHEMA_AUTO_HEAL=true
 
 # Recommended staging isolation
 EMAIL_ENABLED=false

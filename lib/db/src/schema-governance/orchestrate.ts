@@ -5,17 +5,43 @@ import { applyIdempotentHeal } from "./heal.js";
 import { introspectLiveSchema, readMigrationLedger } from "./introspect.js";
 import type { DriftReport, SchemaGovernanceOptions } from "./types.js";
 
+/**
+ * Staging Render services run NODE_ENV=production (same as prod).
+ * Without this heuristic, validate-only mode skips boot DDL and refuses to
+ * start on additive drift (e.g. tournaments.city) — process never binds PORT.
+ */
+function looksLikeStagingHost(): boolean {
+  const combined = `${process.env.APP_DOMAIN ?? ""} ${process.env.APP_URL ?? ""}`.toLowerCase();
+  return combined.includes("staging") || combined.includes("bidwar-staging");
+}
+
 export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   if (explicit !== undefined) return explicit;
   const flag = process.env.SCHEMA_AUTO_HEAL?.trim().toLowerCase();
   if (flag === "true" || flag === "1" || flag === "yes") return true;
   if (flag === "false" || flag === "0" || flag === "no") return false;
-  // Default: heal outside production only
+
+  const env = resolveEnvironment().toLowerCase();
+  // Heal on staging/local/dev/test even when NODE_ENV=production (Render staging).
+  if (
+    env === "staging" ||
+    env === "development" ||
+    env === "dev" ||
+    env === "local" ||
+    env === "test"
+  ) {
+    return true;
+  }
+  // True production (or unknown + NODE_ENV=production): validate-only
   return process.env.NODE_ENV !== "production";
 }
 
 export function resolveEnvironment(): string {
-  if (process.env.BIDWAR_ENV?.trim()) return process.env.BIDWAR_ENV.trim();
+  const bidwarEnv = process.env.BIDWAR_ENV?.trim();
+  if (bidwarEnv) return bidwarEnv;
+
+  if (looksLikeStagingHost()) return "staging";
+
   if (process.env.NODE_ENV === "production") return "production";
   if (process.env.NODE_ENV === "test") return "test";
   return "development";

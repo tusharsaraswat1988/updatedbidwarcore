@@ -44,12 +44,14 @@ Use on the **staging** web service only. Staging auto-deploys when commits merge
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 
 # Neon STAGING — not production
 DATABASE_URL=postgresql://...@<neon-staging-host>/<db>?sslmode=require
 
 # Staging public URL (Render default or custom staging subdomain)
+# Hostname must include "staging" (or set BIDWAR_ENV=staging) so schema auto-heal stays on.
 APP_DOMAIN=bidwar-staging.onrender.com
 APP_URL=https://bidwar-staging.onrender.com
 APP_PUBLIC_SCHEME=https
@@ -199,6 +201,7 @@ Use the full [staging](#staging-render-service-develop-branch) and [production](
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 DATABASE_URL=postgresql://...   # Neon staging
 APP_DOMAIN=your-staging.onrender.com

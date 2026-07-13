@@ -22,9 +22,9 @@
 |------|-------------|
 | Drizzle is the **only** design SSOT | Contract/validator/heal SQL generated from `lib/db/src/schema/**` |
 | Every schema change ships a migration | CI rejects PRs that change schema without `lib/db/migrations/*.sql` |
-| Production never auto-mutates | `SCHEMA_AUTO_HEAL` defaults off when `NODE_ENV=production` |
+| Production never auto-mutates | `SCHEMA_AUTO_HEAL` defaults off for true production (`NODE_ENV=production` and not staging) |
 | Production fails closed | Startup validates; critical drift → log + print SQL → exit |
-| Dev/staging may heal | Idempotent `CREATE/ALTER/INDEX IF NOT EXISTS` only; never DROP/RENAME |
+| Dev/staging may heal | Idempotent `CREATE/ALTER/INDEX IF NOT EXISTS` only; never DROP/RENAME. Staging is detected via `BIDWAR_ENV=staging` or staging hostnames in `APP_URL`/`APP_DOMAIN` (Render staging still uses `NODE_ENV=production`) |
 | Ops visibility | `GET /api/admin/schema-health` |
 
 ## Migration workflow
@@ -63,9 +63,10 @@ If production refuses to start with a drift report:
 
 | Variable | Effect |
 |----------|--------|
-| `SCHEMA_AUTO_HEAL=true` | Force heal (dev/staging/empty DB only) |
+| `SCHEMA_AUTO_HEAL=true` | Force heal (dev/staging/empty DB only — never leave on true production) |
 | `SCHEMA_AUTO_HEAL=false` | Force validate-only |
-| (unset) | Heal when `NODE_ENV !== "production"` |
+| `BIDWAR_ENV=staging` | Treat as staging → auto-heal on (even if `NODE_ENV=production`) |
+| (unset) | Heal when env is staging/local/dev/test, or when `NODE_ENV !== "production"` |
 
 ## Immediate P0 (completed)
 
