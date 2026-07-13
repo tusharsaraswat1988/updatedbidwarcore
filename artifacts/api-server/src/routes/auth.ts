@@ -16,7 +16,11 @@ import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie, COOKI
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
-import { buildPublicUrl, getAdminDataPassword, getAdminPassword } from "../lib/runtime-env";
+import {
+  buildPublicUrlForRequest,
+  getAdminDataPassword,
+  getAdminPassword,
+} from "../lib/runtime-env";
 import { tryCompleteGoogleSheetsOAuth } from "../lib/google-sheets-oauth-callback.js";
 import {
   DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
@@ -1610,7 +1614,8 @@ async function issueOrganizerAuthCookie(
 router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
-  const redirectUri = buildPublicUrl("/api/auth/google/callback");
+  // Prefer the trusted request host so staging never sends Google back to production.
+  const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
   const next = sanitizeOAuthNext(req.query.next as string | undefined);
@@ -1658,7 +1663,8 @@ router.get("/auth/google/callback", async (req, res) => {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = buildPublicUrl("/api/auth/google/callback");
+  // Must match the redirect_uri used in /auth/google (request host when trusted).
+  const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
   if (!clientId || !clientSecret) {
     res.redirect(googleOAuthErrorRedirect(pendingNext, "not_configured"));
     return;

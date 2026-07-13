@@ -1,4 +1,4 @@
-import type pg from "pg";
+import type { DbQueryable } from "./timeouts.js";
 
 export type LiveColumn = {
   table: string;
@@ -13,15 +13,15 @@ export type LiveSchema = {
   indexes: Set<string>;
 };
 
-export async function introspectLiveSchema(pool: pg.Pool): Promise<LiveSchema> {
-  const tablesRes = await pool.query<{ table_name: string }>(
+export async function introspectLiveSchema(db: DbQueryable): Promise<LiveSchema> {
+  const tablesRes = await db.query<{ table_name: string }>(
     `SELECT table_name
      FROM information_schema.tables
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   );
   const tables = new Set(tablesRes.rows.map((r) => r.table_name));
 
-  const colsRes = await pool.query<{ table_name: string; column_name: string }>(
+  const colsRes = await db.query<{ table_name: string; column_name: string }>(
     `SELECT table_name, column_name
      FROM information_schema.columns
      WHERE table_schema = 'public'`,
@@ -32,7 +32,7 @@ export async function introspectLiveSchema(pool: pg.Pool): Promise<LiveSchema> {
     columns.get(row.table_name)!.add(row.column_name);
   }
 
-  const idxRes = await pool.query<{ indexname: string }>(
+  const idxRes = await db.query<{ indexname: string }>(
     `SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`,
   );
   const indexes = new Set(idxRes.rows.map((r) => r.indexname));
@@ -40,13 +40,13 @@ export async function introspectLiveSchema(pool: pg.Pool): Promise<LiveSchema> {
   return { tables, columns, indexes };
 }
 
-export async function readMigrationLedger(pool: pg.Pool): Promise<{
+export async function readMigrationLedger(db: DbQueryable): Promise<{
   lastMigrationApplied: string | null;
   appliedLabels: string[];
 }> {
   // Prefer drizzle ledger when present; fall back to none.
   try {
-    const drizzle = await pool.query<{ id: number; hash: string; created_at: string }>(
+    const drizzle = await db.query<{ id: number; hash: string; created_at: string }>(
       `SELECT id, hash, created_at::text
        FROM drizzle.__drizzle_migrations
        ORDER BY created_at DESC
@@ -63,7 +63,7 @@ export async function readMigrationLedger(pool: pg.Pool): Promise<{
   }
 
   try {
-    const legacy = await pool.query<{ hash: string }>(
+    const legacy = await db.query<{ hash: string }>(
       `SELECT hash FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 20`,
     );
     if (legacy.rows.length) {
