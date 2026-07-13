@@ -13,6 +13,7 @@ import {
   saveBadmintonScoringFormat,
   loadBadmintonBranding,
   updateBadmintonBranding,
+  updatePrimaryBroadcastMatchId,
   importBrandingFromTournament,
   importAuctionBrandingToBadminton,
   importPlayersFromTournament,
@@ -266,6 +267,32 @@ router.get("/branding", async (req, res) => {
   }
 
   res.json(branding);
+});
+
+/** PATCH Primary Broadcast match for persistent Venue Display / OBS Overlay follow. */
+router.patch("/primary-broadcast", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    matchId: z.number().int().positive().nullable(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  try {
+    const branding = await updatePrimaryBroadcastMatchId(tournamentId, parsed.data.matchId);
+    res.json(branding);
+  } catch (e) {
+    res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
+  }
 });
 
 /** PATCH tournament branding (scorer-only tournaments without auction) */

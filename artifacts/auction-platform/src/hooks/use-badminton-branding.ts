@@ -19,6 +19,8 @@ export interface BadmintonBranding {
   primaryColor: string;
   accentColor: string;
   scoreBoardSponsor: ScoreBoardSponsor | null;
+  /** Organizer-selected LIVE match for persistent Venue/OBS follow URLs. */
+  primaryBroadcastMatchId?: number | null;
 }
 
 export function useBadmintonBranding(tournamentId: number) {

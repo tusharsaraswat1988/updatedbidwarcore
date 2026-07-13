@@ -33,5 +33,17 @@ describe("badminton sponsor logo isolation", () => {
     );
 
     expect(branding.sponsorLogos).toBe('[{"url":"https://badminton"}]');
+    expect(branding.primaryBroadcastMatchId).toBeNull();
+  });
+
+  it("exposes primary broadcast match from scoring settings broadcast block", () => {
+    const branding = getBadmintonBranding(
+      { name: "League" },
+      {
+        branding: {},
+        broadcast: { primaryMatchId: 42 },
+      },
+    );
+    expect(branding.primaryBroadcastMatchId).toBe(42);
   });
 });

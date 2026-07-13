@@ -1,6 +1,8 @@
 /**
  * Badminton OBS Overlay Page
  * Route: /badminton/:matchId/overlay?tid=YYY&type=compact&...
+ *
+ * When matchId is `live`, follows Primary Broadcast / sole LIVE match automatically.
  */
 
 import { useMemo, type CSSProperties } from "react";
@@ -9,20 +11,23 @@ import { BadmintonOverlay, overlayPlacementClass } from "@/components/badminton/
 import { BadmintonLedChyron } from "@/components/badminton/badminton-led-chrome";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { DISPLAY_THEMES } from "@/lib/display-theme";
 import { displayThemeToPickerState, resolveStageTheme } from "@/lib/led-stage-theme";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
+import { isLiveFollowMatchId } from "@/lib/badminton-broadcast-console";
 
 export default function BadmintonOverlayPage() {
   const [, params] = useRoute("/badminton/:matchId/overlay");
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
 
-  const matchId = parseInt(params?.matchId ?? "0");
-  const tournamentId = parseInt(searchParams.get("tid") ?? "0");
+  const followMode = isLiveFollowMatchId(params?.matchId);
+  const matchId = followMode ? 0 : parseInt(params?.matchId ?? "0", 10);
+  const tournamentId = parseInt(searchParams.get("tid") ?? "0", 10);
   const type = (searchParams.get("type") ?? "compact") as
     | "compact"
     | "full"
@@ -31,8 +36,12 @@ export default function BadmintonOverlayPage() {
     | "sponsor";
   const courtNumber = searchParams.get("court") ?? undefined;
   const sponsorParam = searchParams.get("sponsors") ?? "";
-  const { data } = useBadmintonMatch(tournamentId, matchId);
+
+  const fixedMatch = useBadmintonMatch(tournamentId, followMode ? 0 : matchId);
+  const liveFollow = useBadmintonLiveFollow(followMode ? tournamentId : 0);
   const { data: branding } = useBadmintonBranding(tournamentId);
+
+  const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
 
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? undefined;
