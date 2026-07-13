@@ -1578,6 +1578,18 @@ function sanitizeOAuthNext(raw: string | undefined): string | undefined {
   return raw;
 }
 
+/** Return Google OAuth errors to the originating app (e.g. /mobile login) when possible. */
+function googleOAuthErrorRedirect(
+  pendingNext: string | undefined,
+  error: string,
+  extraQuery = "",
+): string {
+  if (pendingNext?.startsWith("/mobile")) {
+    return `/mobile/organizer/login?error=${error}${extraQuery}`;
+  }
+  return `/organizer?error=${error}${extraQuery}`;
+}
+
 async function issueOrganizerAuthCookie(
   req: import("express").Request,
   res: import("express").Response,
@@ -1633,16 +1645,19 @@ router.get("/auth/google", (req, res) => {
 router.get("/auth/google/callback", async (req, res) => {
   if (await tryCompleteGoogleSheetsOAuth(req, res)) return;
 
+  const pendingNext = sanitizeOAuthNext(req.oauthState.next);
   const code = req.query.code as string | undefined;
   const returnedState = req.query.state as string | undefined;
-  if (!code) { res.redirect("/organizer?error=google_cancelled"); return; }
+  if (!code) {
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_cancelled"));
+    return;
+  }
 
   // Validate state to prevent login CSRF attacks
   const expectedState = req.oauthState.state;
-  const pendingNext = sanitizeOAuthNext(req.oauthState.next);
   if (!expectedState || !returnedState || !safeCompare(expectedState, returnedState)) {
     clearOAuthCookie(res);
-    res.redirect("/organizer?error=google_state_mismatch");
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_state_mismatch"));
     return;
   }
 
@@ -1650,7 +1665,10 @@ router.get("/auth/google/callback", async (req, res) => {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   // Must match the redirect_uri used in /auth/google (request host when trusted).
   const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
-  if (!clientId || !clientSecret) { res.redirect("/organizer?error=not_configured"); return; }
+  if (!clientId || !clientSecret) {
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "not_configured"));
+    return;
+  }
 
   try {
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -1680,7 +1698,7 @@ router.get("/auth/google/callback", async (req, res) => {
         process.env.NODE_ENV !== "production"
           ? `&oauth_redirect_uri=${encodeURIComponent(redirectUri)}`
           : "";
-      res.redirect(`/organizer?error=${errCode}${devHint}`);
+      res.redirect(googleOAuthErrorRedirect(pendingNext, errCode, devHint));
       return;
     }
 
@@ -1688,7 +1706,10 @@ router.get("/auth/google/callback", async (req, res) => {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     const gUser = await userRes.json() as { email?: string; name?: string; id?: string };
-    if (!gUser.email || !gUser.id) { res.redirect("/organizer?error=no_email"); return; }
+    if (!gUser.email || !gUser.id) {
+      res.redirect(googleOAuthErrorRedirect(pendingNext, "no_email"));
+      return;
+    }
 
     // 1. Try to find by googleId (returning user)
     let [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.googleId, gUser.id));
@@ -1725,20 +1746,28 @@ router.get("/auth/google/callback", async (req, res) => {
 
     if (!organizer) {
       clearOAuthCookie(res);
-      res.redirect("/organizer?error=google_failed");
+      res.redirect(googleOAuthErrorRedirect(pendingNext, "google_failed"));
       return;
     }
 
     clearOAuthCookie(res);
     await issueOrganizerAuthCookie(req, res, organizer.id);
-    const successRedirect = pendingNext
-      ? `/organizer?google_ok=1&next=${encodeURIComponent(pendingNext)}`
-      : "/organizer?google_ok=1";
+    // Cross-app destinations (e.g. /mobile/...) must be full-page landings, not /organizer?next=
+    const successRedirect = (() => {
+      if (pendingNext?.startsWith("/mobile")) {
+        return pendingNext.includes("?")
+          ? `${pendingNext}&google_ok=1`
+          : `${pendingNext}?google_ok=1`;
+      }
+      return pendingNext
+        ? `/organizer?google_ok=1&next=${encodeURIComponent(pendingNext)}`
+        : "/organizer?google_ok=1";
+    })();
     res.redirect(successRedirect);
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
     clearOAuthCookie(res);
-    res.redirect("/organizer?error=google_failed");
+    res.redirect(googleOAuthErrorRedirect(pendingNext, "google_failed"));
   }
 });
 
