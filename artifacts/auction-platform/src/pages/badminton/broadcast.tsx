@@ -12,6 +12,10 @@ import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { cn } from "@/lib/utils";
 import {
+  formatTeamPlayerVsLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
+import {
   HubPageShell,
   PageHeader,
   hubCardClass,
@@ -34,7 +38,10 @@ function matchLabel(match: MatchRow): string {
   const state = match.state;
   const detail = match.detail ?? {};
   if (state) {
-    return `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}`;
+    return formatTeamPlayerVsLine(
+      identityFromSideInfo(state.leftSide, { preferShort: true }),
+      identityFromSideInfo(state.rightSide, { preferShort: true }),
+    );
   }
   return (detail.matchLabel as string | undefined) ?? `Match #${match.id}`;
 }

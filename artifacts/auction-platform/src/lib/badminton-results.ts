@@ -59,6 +59,10 @@ export type ChampionInfo = {
   categoryId: number;
   categoryName: string;
   winnerLabel: string;
+  /** Auction franchise when present on the winning side. */
+  winnerTeamName?: string | null;
+  winnerTeamLogoUrl?: string | null;
+  winnerTeamColor?: string | null;
   roundLabel: string;
   gamesWonLine: string;
   gameScoreLines: string[];
@@ -136,6 +140,31 @@ export function winnerLabel(m: ResultsMatch): string | null {
   if (!side || !m.state) return null;
   const info = side === "left" ? m.state.leftSide : m.state.rightSide;
   return info.label?.trim() || info.shortLabel?.trim() || null;
+}
+
+export function winnerTeamFields(m: ResultsMatch): {
+  teamName: string | null;
+  teamLogoUrl: string | null;
+  teamColor: string | null;
+} {
+  const side = m.state?.winnerSide;
+  if (!side || !m.state) {
+    return { teamName: null, teamLogoUrl: null, teamColor: null };
+  }
+  const info = side === "left" ? m.state.leftSide : m.state.rightSide;
+  const teamName =
+    info.franchiseName?.trim() ||
+    info.teamName?.trim() ||
+    null;
+  const teamLogoUrl =
+    info.franchiseLogoUrl?.trim() ||
+    info.teamLogoUrl?.trim() ||
+    null;
+  return {
+    teamName,
+    teamLogoUrl,
+    teamColor: info.teamColor?.trim() || null,
+  };
 }
 
 export function gamesWonLine(m: ResultsMatch): string {
@@ -264,11 +293,15 @@ export function detectCategoryChampion(
   if (!winner) return null;
 
   const round = roundLabelOf(finalMatch) || "Final";
+  const team = winnerTeamFields(finalMatch);
 
   return {
     categoryId: category.id,
     categoryName: category.code?.trim() || category.name,
     winnerLabel: winner,
+    winnerTeamName: team.teamName,
+    winnerTeamLogoUrl: team.teamLogoUrl,
+    winnerTeamColor: team.teamColor,
     roundLabel: round,
     gamesWonLine: gamesWonLine(finalMatch),
     gameScoreLines: gameScoreLines(finalMatch),

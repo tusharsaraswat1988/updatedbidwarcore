@@ -19,6 +19,11 @@ import { badmintonMatchControlPath } from "@/lib/badminton-routes";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
+  buildFranchiseLookupFromPlayers,
+  formatTeamPlayerLine,
+  identityFromRegistrationPlayers,
+} from "@/lib/team-player-identity";
+import {
   EmptyState,
   PageHeader,
   HubPageShell,
@@ -64,10 +69,26 @@ interface BadmintonFixture {
 interface RegistrationRow {
   registration: {
     id: number;
+    player1Id?: number;
+    player2Id?: number | null;
     status: string;
   };
-  player1: { firstName: string; lastName: string; displayName?: string | null } | null;
-  player2?: { firstName: string; lastName: string; displayName?: string | null } | null;
+  player1: {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    displayName?: string | null;
+    franchiseName?: string | null;
+    franchiseLogoUrl?: string | null;
+  } | null;
+  player2?: {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    displayName?: string | null;
+    franchiseName?: string | null;
+    franchiseLogoUrl?: string | null;
+  } | null;
 }
 
 function playerLabel(
@@ -207,21 +228,49 @@ export default function BadmintonSchedulePage() {
     enabled: !!tournamentId && categoryIdsKey.length > 0,
   });
 
+  const { data: players = [] } = useQuery<
+    Array<{
+      id: number;
+      franchiseName?: string | null;
+      franchiseLogoUrl?: string | null;
+    }>
+  >({
+    queryKey: ["badminton-players", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/players`),
+    enabled: !!tournamentId,
+  });
+
+  const franchiseByPlayerId = useMemo(
+    () => buildFranchiseLookupFromPlayers(players),
+    [players],
+  );
+
   const sideLabelByRegId = useMemo(() => {
     const map = new Map<number, string>();
     for (const [catIdRaw, rows] of Object.entries(regsByCategory)) {
       const cat = categoryById.get(Number(catIdRaw));
       const doubles = cat?.matchType !== "singles";
       for (const row of rows) {
-        const a = playerLabel(row.player1);
-        map.set(
-          row.registration.id,
-          doubles ? `${a} / ${playerLabel(row.player2 ?? null)}` : a,
+        const playersForReg = [
+          row.player1
+            ? { ...row.player1, id: row.player1.id ?? row.registration.player1Id }
+            : null,
+          row.player2
+            ? {
+                ...row.player2,
+                id: row.player2.id ?? row.registration.player2Id ?? undefined,
+              }
+            : null,
+        ];
+        const identity = identityFromRegistrationPlayers(
+          doubles ? playersForReg : [playersForReg[0]],
+          franchiseByPlayerId,
         );
+        map.set(row.registration.id, formatTeamPlayerLine(identity));
       }
     }
     return map;
-  }, [regsByCategory, categoryById]);
+  }, [regsByCategory, categoryById, franchiseByPlayerId]);
 
   const courtById = useMemo(() => new Map(courts.map((c) => [c.id, c])), [courts]);
 

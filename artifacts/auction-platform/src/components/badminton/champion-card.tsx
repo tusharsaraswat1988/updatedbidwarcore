@@ -1,11 +1,13 @@
 /**
  * Champion celebration card — surfaced when a category is finished.
+ * Shows Team → Player when auction franchise data exists on the winner.
  */
 
 import { Trophy } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { hubCardClass } from "@/components/badminton/page-chrome";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
 import type { ChampionInfo } from "@/lib/badminton-results";
 
@@ -32,7 +34,21 @@ export function ChampionCard({
             Champion
           </p>
           <p className="text-white/50 text-sm mt-0.5">{champion.categoryName}</p>
-          <p className="text-white font-bold text-2xl sm:text-3xl mt-1 truncate">{champion.winnerLabel}</p>
+          <div className="mt-2">
+            <TeamPlayerCard
+              identity={{
+                playerName: champion.winnerLabel,
+                teamName: champion.winnerTeamName,
+                teamLogoUrl: champion.winnerTeamLogoUrl,
+                teamColor: champion.winnerTeamColor,
+              }}
+              size="lg"
+              tone="muted"
+              layout="stack"
+              playerClassName="text-white font-bold text-2xl sm:text-3xl"
+              teamClassName="text-amber-200/80"
+            />
+          </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <span className="text-white/55">{champion.roundLabel}</span>
             <span className="text-emerald-300 font-semibold">{champion.gamesWonLine}</span>
@@ -42,9 +58,13 @@ export function ChampionCard({
           </div>
           {champion.gameScoreLines.length > 0 ? (
             <p className="text-white/40 text-sm mt-1 font-mono tracking-wide">
-              {champion.gameScoreLines.join("  ·  ")}
+              Final score · {champion.gameScoreLines.join("  ·  ")}
             </p>
-          ) : null}
+          ) : (
+            <p className="text-white/40 text-sm mt-1 font-mono tracking-wide">
+              Final score · {champion.gamesWonLine}
+            </p>
+          )}
           <Link
             href={badmintonMatchControlPath(tournamentId, champion.matchId)}
             className="inline-block mt-3 text-[#4fc3f7] text-xs font-semibold hover:underline"

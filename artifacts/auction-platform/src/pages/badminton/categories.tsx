@@ -44,6 +44,8 @@ interface BadmintonPlayer {
   lastName: string;
   displayName?: string | null;
   gender?: string | null;
+  franchiseName?: string | null;
+  franchiseLogoUrl?: string | null;
 }
 
 interface RegistrationRow {
@@ -165,11 +167,18 @@ function CategoryPanel({
     enabled: expanded && !!tournamentId,
   });
 
+  const { data: playersForLabels = [] } = useQuery<BadmintonPlayer[]>({
+    queryKey: ["badminton-players", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/players`),
+    enabled: expanded && !!tournamentId,
+  });
+
   const [showAddReg, setShowAddReg] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  const playerById = new Map(playersForLabels.map((p) => [p.id, p]));
   const acceptedCount = registrations.filter((r) => r.registration.status === "accepted").length;
 
   async function handleConfirmDelete() {
@@ -345,7 +354,7 @@ function CategoryPanel({
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-white text-sm font-medium truncate">
-                        {formatRegistrationEntryName(row, isDoublesEntry)}
+                        {formatRegistrationEntryName(row, isDoublesEntry, playerById)}
                       </p>
                       <p className="text-white/30 text-xs capitalize">
                         {row.registration.seedNumber
@@ -681,12 +690,25 @@ function PhaseBadge({ phase }: { phase: string }) {
 }
 
 function formatPlayerName(p: BadmintonPlayer): string {
-  return p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
+  const name = p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
+  const team = p.franchiseName?.trim();
+  return team ? `${team} · ${name}` : name;
 }
 
-function formatRegistrationEntryName(row: RegistrationRow, isDoubles: boolean): string {
-  const name1 = row.player1?.id ? formatPlayerName(row.player1) : null;
-  const name2 = row.player2?.id ? formatPlayerName(row.player2) : null;
+function formatRegistrationEntryName(
+  row: RegistrationRow,
+  isDoubles: boolean,
+  playerById?: Map<number, BadmintonPlayer>,
+): string {
+  const enrich = (p: BadmintonPlayer | null | undefined) => {
+    if (!p?.id) return p ?? null;
+    const fromList = playerById?.get(p.id);
+    return fromList ? { ...p, franchiseName: fromList.franchiseName ?? p.franchiseName, franchiseLogoUrl: fromList.franchiseLogoUrl ?? p.franchiseLogoUrl } : p;
+  };
+  const p1 = enrich(row.player1);
+  const p2 = enrich(row.player2);
+  const name1 = p1?.id ? formatPlayerName(p1) : null;
+  const name2 = p2?.id ? formatPlayerName(p2) : null;
 
   if (isDoubles) {
     if (name1 && name2) return `${name1} / ${name2}`;

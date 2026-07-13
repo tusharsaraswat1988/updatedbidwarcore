@@ -17,6 +17,8 @@ import {
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
+import { identityFromOrganizerPlayer } from "@/lib/team-player-identity";
 import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
@@ -698,23 +700,14 @@ function PlayerCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="text-foreground font-display font-semibold text-base leading-tight truncate">
-            {fullName}
-          </p>
-          {player.franchiseName ? (
-            <p className="mt-1 flex items-center gap-1.5 min-w-0">
-              {player.franchiseLogoUrl ? (
-                <img
-                  src={player.franchiseLogoUrl}
-                  alt=""
-                  className="w-4 h-4 rounded-sm object-contain flex-none bg-white/90"
-                />
-              ) : null}
-              <span className="text-sm font-semibold text-primary truncate">
-                {player.franchiseName}
-              </span>
-            </p>
-          ) : null}
+          <TeamPlayerCard
+            identity={identityFromOrganizerPlayer(player)}
+            size="sm"
+            layout="stack"
+            showBadge={Boolean(player.franchiseName)}
+            playerClassName="text-foreground font-display font-semibold text-base"
+            teamClassName="text-primary"
+          />
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             {formatPlayerGender(player.gender) ? (
               <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">

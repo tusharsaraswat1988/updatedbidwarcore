@@ -16,14 +16,24 @@ export type ControlCourt = {
   hasScorerPin?: boolean;
 };
 
+export type ControlMatchSide = {
+  shortLabel?: string;
+  label?: string;
+  franchiseName?: string;
+  franchiseLogoUrl?: string;
+  teamName?: string;
+  teamLogoUrl?: string;
+  teamColor?: string;
+};
+
 export type ControlMatch = {
   id: number;
   status: string;
   scheduledAt?: string | null;
   detail: Record<string, unknown> | null;
   state: {
-    leftSide?: { shortLabel?: string; label?: string };
-    rightSide?: { shortLabel?: string; label?: string };
+    leftSide?: ControlMatchSide;
+    rightSide?: ControlMatchSide;
     leftScore?: number;
     rightScore?: number;
     currentGame?: number;
@@ -124,12 +134,23 @@ export function findCourtScheduleConflicts(
 
 export function matchDisplayLabel(m: ControlMatch): string {
   if (m.state?.leftSide || m.state?.rightSide) {
-    const left = m.state.leftSide?.shortLabel || m.state.leftSide?.label || "—";
-    const right = m.state.rightSide?.shortLabel || m.state.rightSide?.label || "—";
+    // Lazy import avoided — keep string helper self-contained for list labels.
+    const left = formatSideWithTeam(m.state.leftSide);
+    const right = formatSideWithTeam(m.state.rightSide);
     return `${left} vs ${right}`;
   }
   const label = m.detail?.matchLabel;
   return typeof label === "string" && label.trim() ? label.trim() : `Match #${m.id}`;
+}
+
+function formatSideWithTeam(side: ControlMatchSide | undefined): string {
+  if (!side) return "—";
+  const player = side.shortLabel?.trim() || side.label?.trim() || "—";
+  const team =
+    side.franchiseName?.trim() ||
+    side.teamName?.trim() ||
+    "";
+  return team ? `${team} · ${player}` : player;
 }
 
 export function fixtureSlotLabel(

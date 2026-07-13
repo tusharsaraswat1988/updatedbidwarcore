@@ -17,17 +17,17 @@
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { useEffect, useRef, useState } from "react";
 import {
-  resolveFranchiseLogoUrl,
-  resolveFranchiseName,
   isPairMatchKind,
   currentReceiverLabel,
   currentServerLabel,
 } from "@workspace/badminton-core";
-import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
+import { SidePlayerPhotos } from "@/components/badminton/side-players";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { DirectorStatusBanner } from "@/components/badminton/director-status-banner";
 import { cn } from "@/lib/utils";
 import { SponsorCarousel } from "@/components/display/sponsor-carousel";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
+import { identityFromSideInfo, formatTeamPlayerLine, type TeamPlayerIdentity } from "@/lib/team-player-identity";
 import {
   BIDWAR_BROADCAST_YELLOW,
   BIDWAR_BROADCAST_YELLOW_BORDER,
@@ -161,8 +161,10 @@ function CompactOverlay({
   const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
   const displayMatchName =
     matchLabel?.trim() ||
-    `${state.leftSide.label} vs ${state.rightSide.label}`;
+    `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}`;
   const flashSide = useServeSideFlash(state.servingSide);
+  const leftIdentity = identityFromSideInfo(state.leftSide, { preferShort: true });
+  const rightIdentity = identityFromSideInfo(state.rightSide, { preferShort: true });
 
   return (
     <div
@@ -190,9 +192,14 @@ function CompactOverlay({
           <div className="w-2 h-2 rounded-full bg-[#ffd700] flex-none animate-pulse relative z-10" />
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-white font-black text-base leading-tight truncate">
-            {state.leftSide.label}
-          </p>
+          <TeamPlayerCard
+            identity={leftIdentity}
+            size="xs"
+            tone="led"
+            layout="inline"
+            playerClassName="text-white font-black text-base"
+            teamClassName="text-white/55"
+          />
           {state.leftSide.countryCode && (
             <p className="text-white/45 text-[10px] font-semibold uppercase tracking-widest">
               {state.leftSide.countryCode}
@@ -252,9 +259,15 @@ function CompactOverlay({
           <div className="w-2 h-2 rounded-full bg-[#ffd700] flex-none animate-pulse relative z-10" />
         )}
         <div className="flex-1 min-w-0 text-right">
-          <p className="text-white font-black text-base leading-tight truncate">
-            {state.rightSide.label}
-          </p>
+          <TeamPlayerCard
+            identity={rightIdentity}
+            size="xs"
+            tone="led"
+            layout="inline"
+            align="end"
+            playerClassName="text-white font-black text-base"
+            teamClassName="text-white/55"
+          />
           {state.rightSide.countryCode && (
             <p className="text-white/45 text-[10px] font-semibold uppercase tracking-widest">
               {state.rightSide.countryCode}
@@ -342,7 +355,7 @@ function FullOverlay({
         <div className="flex items-stretch min-h-[52px]">
           <FullOverlaySide
             align="left"
-            playerLabel={state.leftSide.label}
+            identity={identityFromSideInfo(state.leftSide)}
             score={state.leftScore}
             gamesWon={state.gamesLeft}
             isServing={state.servingSide === "left"}
@@ -355,7 +368,7 @@ function FullOverlay({
 
           <FullOverlaySide
             align="right"
-            playerLabel={state.rightSide.label}
+            identity={identityFromSideInfo(state.rightSide)}
             score={state.rightScore}
             gamesWon={state.gamesRight}
             isServing={state.servingSide === "right"}
@@ -417,7 +430,7 @@ function FullOverlayCompletedSets({
 
 function FullOverlaySide({
   align,
-  playerLabel,
+  identity,
   score,
   gamesWon,
   isServing,
@@ -426,7 +439,7 @@ function FullOverlaySide({
   format,
 }: {
   align: "left" | "right";
-  playerLabel: string;
+  identity: TeamPlayerIdentity;
   score: number;
   gamesWon: number;
   isServing: boolean;
@@ -465,15 +478,17 @@ function FullOverlaySide({
         <div className="w-2 shrink-0" />
       )}
 
-      <span
-        className={cn(
-          "font-black text-white text-sm sm:text-base min-w-0 flex-1 truncate",
-          isRight ? "text-right" : "text-left",
-        )}
-        title={playerLabel}
-      >
-        {playerLabel}
-      </span>
+      <div className="min-w-0 flex-1">
+        <TeamPlayerCard
+          identity={identity}
+          size="xs"
+          tone="led"
+          layout="inline"
+          align={isRight ? "end" : "start"}
+          playerClassName="text-white font-black text-sm sm:text-base"
+          teamClassName="text-white/50"
+        />
+      </div>
 
       <div className={cn("flex items-center gap-0.5 shrink-0", isRight && "flex-row-reverse")}>
         {Array.from({ length: format.totalGames }).map((_, i) => (
@@ -563,8 +578,7 @@ function IntroCard({
   roundName?: string;
 }) {
   const isLeft = side === "left";
-  const franchiseName = resolveFranchiseName(info);
-  const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
+  const identity = identityFromSideInfo(info);
 
   return (
     <div
@@ -586,20 +600,15 @@ function IntroCard({
       </div>
 
       <div className="px-4 pt-2 pb-4">
-        <SidePlayerNames
-          info={info}
-          matchKind={matchKind}
-          side={side}
-          stacked
-          className="text-base"
+        <TeamPlayerCard
+          identity={identity}
+          size="sm"
+          tone="led"
+          layout="stack"
+          align={isLeft ? "start" : "end"}
+          playerClassName="text-base font-bold"
         />
-        {franchiseName && (
-          <p className="text-white/40 text-[10px] font-medium mt-0.5">Franchise: {franchiseName}</p>
-        )}
         <div className="flex items-center gap-2 mt-1">
-          {franchiseLogoUrl && (
-            <img src={franchiseLogoUrl} alt="" loading="lazy" className="h-4 w-4 object-contain" />
-          )}
           {info.sponsorLogoUrl && (
             <img src={info.sponsorLogoUrl} alt="" loading="lazy" className="h-3 w-auto object-contain opacity-70" />
           )}
@@ -634,6 +643,7 @@ function WinnerOverlay({
   const winner = state.winnerSide === "left" ? state.leftSide : state.rightSide;
   const isLeft = state.winnerSide === "left";
   const completedGames = state.games.filter((g) => g.phase === "completed");
+  const identity = identityFromSideInfo(winner);
 
   return (
     <div
@@ -656,12 +666,21 @@ function WinnerOverlay({
         {winner.photoUrl && (
           <img
             src={winner.photoUrl}
-            alt={winner.label}
+            alt={identity.playerName}
             className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-4 border-[#ffd700]/50"
           />
         )}
 
-        <h2 className="text-3xl font-black text-white mb-1">{winner.label}</h2>
+        <div className="mb-1 flex justify-center">
+          <TeamPlayerCard
+            identity={identity}
+            size="xl"
+            tone="led"
+            align="center"
+            playerClassName="text-3xl font-black text-white"
+            teamClassName="text-white/55"
+          />
+        </div>
 
         {winner.countryName && (
           <p className={cn(

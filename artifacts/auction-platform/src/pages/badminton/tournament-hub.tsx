@@ -13,6 +13,7 @@ import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { badmintonFetch } from "@/lib/badminton-api";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { identityFromSideInfo } from "@/lib/team-player-identity";
 import {
   evaluateBadmintonSetup,
   setupProgress,
@@ -156,6 +157,8 @@ export default function BadmintonTournamentHub() {
                         status="live"
                         leftLabel={state?.leftSide.shortLabel}
                         rightLabel={state?.rightSide.shortLabel}
+                        leftIdentity={state ? identityFromSideInfo(state.leftSide, { preferShort: true }) : undefined}
+                        rightIdentity={state ? identityFromSideInfo(state.rightSide, { preferShort: true }) : undefined}
                         leftScore={state?.leftScore}
                         rightScore={state?.rightScore}
                         currentGame={state?.currentGame}
