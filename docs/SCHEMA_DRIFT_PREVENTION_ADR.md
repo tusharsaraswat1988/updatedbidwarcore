@@ -63,30 +63,33 @@ If production refuses to start with a drift report:
 
 | Variable | Effect |
 |----------|--------|
-| `SCHEMA_AUTO_HEAL=true` | Request heal for local/staging only — **ignored** when `DATABASE_URL` matches production Neon |
+| `SCHEMA_AUTO_HEAL=true` | Request heal for local/staging — still blocked if `DATABASE_URL` matches `NEON_PRODUCTION_HOST_ALLOWLIST` (when set) |
 | `SCHEMA_AUTO_HEAL=false` | Force validate-only |
-| `BIDWAR_ENV=staging` | Treat as staging → auto-heal on (even if `NODE_ENV=production`) |
+| `BIDWAR_ENV=local\|staging\|production` | Primary environment selector (do not rely on `NODE_ENV` alone on Render) |
 | `SCHEMA_BOOT_TIMEOUT_MS` | Wall-clock budget for schema bootstrap (default `90000`); fail closed on timeout |
-| `NEON_PRODUCTION_HOST_MARKERS` | Comma-separated host fingerprints that identify production Neon (default includes `ep-late-math-aohd4iep`) |
-| `NEON_STAGING_HOST_MARKERS` | Comma-separated host fingerprints that identify staging Neon (default includes `ep-long-sky-aorboyzr`) |
-| (unset heal flag) | Heal when env is staging/local/dev/test **and** DATABASE_URL is not production |
+| `NEON_PRODUCTION_HOST_ALLOWLIST` | Optional comma-separated hostname substrings for production Neon (ops-owned; no code defaults) |
+| `NEON_STAGING_HOST_ALLOWLIST` | Optional comma-separated hostname substrings for staging Neon (ops-owned; no code defaults) |
+| (unset heal flag) | Heal when env is staging/local/dev/test; production is validate-only |
 
-## Database isolation (hard rules)
+## Database isolation
 
-Local, staging, and production each use a **separate Neon project/database**.
+Local, staging, and production each use a **separate Neon database** supplied by that environment’s `DATABASE_URL` (Render / local `.env`).
 
-| App env | Auto-heal | Neon |
-|---------|-----------|------|
-| Local / development | Enabled | Dev Neon only |
-| Staging (`BIDWAR_ENV=staging`) | Enabled | Staging Neon only (`old-art-20161659` / `ep-long-sky-aorboyzr`) |
-| Production | Validate-only | Production Neon only (`jolly-tree-42208228` / `ep-late-math-aohd4iep`) |
+| App env (`BIDWAR_ENV`) | Auto-heal | Database |
+|------------------------|-----------|----------|
+| Local / development | Enabled | Local Neon via `DATABASE_URL` |
+| Staging | Enabled | Staging Neon via Render `DATABASE_URL` |
+| Production | Validate-only | Production Neon via Render `DATABASE_URL` |
 
-Startup **refuses to start** if:
+**Primary control:** `BIDWAR_ENV` + the `DATABASE_URL` Render injects per service.
 
-- Staging/local `DATABASE_URL` matches production Neon fingerprints
-- Production `DATABASE_URL` matches staging Neon fingerprints
+**Optional safety (recommended on Render):** set host allow-lists as env vars (not in code). When set:
 
-Auto-heal / boot DDL **never mutates** production Neon, even if `SCHEMA_AUTO_HEAL=true` is set by mistake.
+- Staging/local refuse to start if `DATABASE_URL` matches `NEON_PRODUCTION_HOST_ALLOWLIST`
+- Production refuses to start if `DATABASE_URL` matches `NEON_STAGING_HOST_ALLOWLIST` or is outside `NEON_PRODUCTION_HOST_ALLOWLIST`
+- Auto-heal never mutates a host on `NEON_PRODUCTION_HOST_ALLOWLIST`
+
+When allow-lists are unset, host fingerprint checks are skipped.
 
 ## Immediate P0 (completed)
 

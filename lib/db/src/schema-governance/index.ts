@@ -33,7 +33,7 @@ export {
   isProductionDatabaseUrl,
   isStagingDatabaseUrl,
   parseDatabaseHostname,
-  DEFAULT_PRODUCTION_DB_HOST_MARKERS,
-  DEFAULT_STAGING_DB_HOST_MARKERS,
+  resolveProductionHostAllowList,
+  resolveStagingHostAllowList,
 } from "./database-identity.js";
 export type { DatabaseRole } from "./database-identity.js";

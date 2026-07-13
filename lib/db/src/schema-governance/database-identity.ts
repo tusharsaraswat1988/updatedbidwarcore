@@ -1,44 +1,36 @@
 import { resolveDatabaseUrl } from "../database-url.js";
 
 /**
- * Neon project / pooler host markers for BidWar environments.
- * Host fingerprints only (no credentials). Override via env if Neon endpoints change.
+ * Optional DATABASE_URL host allow-lists (infrastructure config, not code).
  *
- * Source of truth (ops verified): STAGING_CERTIFICATION_REPORT.md
- * - Production project jolly-tree-42208228 → ep-late-math-aohd4iep
- * - Staging project old-art-20161659 → ep-long-sky-aorboyzr
+ * Set on Render / local `.env` when you want an extra safety check beyond
+ * BIDWAR_ENV + the DATABASE_URL Render already injects:
+ *
+ *   NEON_PRODUCTION_HOST_ALLOWLIST=substring,of,production,pooler,host
+ *   NEON_STAGING_HOST_ALLOWLIST=substring,of,staging,pooler,host
+ *
+ * When unset, isolation host checks are skipped — environment selection is
+ * driven only by BIDWAR_ENV / SCHEMA_AUTO_HEAL / APP_URL heuristics.
  */
-export const DEFAULT_PRODUCTION_DB_HOST_MARKERS = [
-  "ep-late-math-aohd4iep",
-  "jolly-tree-42208228",
-] as const;
 
-export const DEFAULT_STAGING_DB_HOST_MARKERS = [
-  "ep-long-sky-aorboyzr",
-  "old-art-20161659",
-] as const;
-
-function parseMarkerList(
-  raw: string | undefined,
-  defaults: readonly string[],
-): string[] {
-  if (!raw?.trim()) return [...defaults];
+function parseAllowList(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
   return raw
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 }
 
-export function resolveProductionDbHostMarkers(
-  raw: string | undefined = process.env.NEON_PRODUCTION_HOST_MARKERS,
+export function resolveProductionHostAllowList(
+  raw: string | undefined = process.env.NEON_PRODUCTION_HOST_ALLOWLIST,
 ): string[] {
-  return parseMarkerList(raw, DEFAULT_PRODUCTION_DB_HOST_MARKERS);
+  return parseAllowList(raw);
 }
 
-export function resolveStagingDbHostMarkers(
-  raw: string | undefined = process.env.NEON_STAGING_HOST_MARKERS,
+export function resolveStagingHostAllowList(
+  raw: string | undefined = process.env.NEON_STAGING_HOST_ALLOWLIST,
 ): string[] {
-  return parseMarkerList(raw, DEFAULT_STAGING_DB_HOST_MARKERS);
+  return parseAllowList(raw);
 }
 
 /** Extract hostname from a postgres connection string (no credentials returned). */
@@ -50,7 +42,6 @@ export function parseDatabaseHostname(databaseUrl: string): string | null {
     const host = new URL(parseable).hostname.trim().toLowerCase();
     return host || null;
   } catch {
-    // Fallback for unusual URLs: user:pass@host:port/db
     const at = trimmed.lastIndexOf("@");
     if (at < 0) return null;
     const rest = trimmed.slice(at + 1);
@@ -60,44 +51,63 @@ export function parseDatabaseHostname(databaseUrl: string): string | null {
   }
 }
 
-function hostMatchesMarkers(hostname: string | null, markers: string[]): boolean {
-  if (!hostname) return false;
-  return markers.some((marker) => hostname.includes(marker));
+function hostMatchesAllowList(hostname: string | null, allowList: string[]): boolean {
+  if (!hostname || allowList.length === 0) return false;
+  return allowList.some((marker) => hostname.includes(marker));
 }
 
+/** True when PRODUCTION allow-list is configured and DATABASE_URL host matches it. */
 export function isProductionDatabaseUrl(
   databaseUrl: string,
-  markers: string[] = resolveProductionDbHostMarkers(),
+  allowList: string[] = resolveProductionHostAllowList(),
 ): boolean {
-  return hostMatchesMarkers(parseDatabaseHostname(databaseUrl), markers);
+  return hostMatchesAllowList(parseDatabaseHostname(databaseUrl), allowList);
 }
 
+/** True when STAGING allow-list is configured and DATABASE_URL host matches it. */
 export function isStagingDatabaseUrl(
   databaseUrl: string,
-  markers: string[] = resolveStagingDbHostMarkers(),
+  allowList: string[] = resolveStagingHostAllowList(),
 ): boolean {
-  return hostMatchesMarkers(parseDatabaseHostname(databaseUrl), markers);
+  return hostMatchesAllowList(parseDatabaseHostname(databaseUrl), allowList);
 }
 
-export type DatabaseRole = "production" | "staging" | "other";
+export type DatabaseRole = "production" | "staging" | "other" | "unclassified";
 
+/**
+ * Classify DATABASE_URL using optional env allow-lists only.
+ * With no allow-lists configured → `unclassified` (trust BIDWAR_ENV + Render URL).
+ */
 export function classifyDatabaseRole(databaseUrl: string): DatabaseRole {
-  if (isProductionDatabaseUrl(databaseUrl)) return "production";
-  if (isStagingDatabaseUrl(databaseUrl)) return "staging";
+  const productionAllow = resolveProductionHostAllowList();
+  const stagingAllow = resolveStagingHostAllowList();
+  if (productionAllow.length === 0 && stagingAllow.length === 0) {
+    return "unclassified";
+  }
+  if (isProductionDatabaseUrl(databaseUrl, productionAllow)) return "production";
+  if (isStagingDatabaseUrl(databaseUrl, stagingAllow)) return "staging";
   return "other";
 }
 
 /**
- * Fail closed when app environment and Neon endpoint disagree.
- * Prevents staging/local from using production DATABASE_URL (and the reverse).
+ * Optional fail-closed check when allow-lists are configured in env.
+ * Does nothing when allow-lists are unset (BIDWAR_ENV + Render DATABASE_URL only).
  */
 export function assertEnvironmentDatabaseIsolation(
   environment: string,
   databaseUrl: string = resolveDatabaseUrl(),
 ): void {
   const env = environment.trim().toLowerCase();
-  const role = classifyDatabaseRole(databaseUrl);
   const host = parseDatabaseHostname(databaseUrl) ?? "(unparseable)";
+  const productionAllow = resolveProductionHostAllowList();
+  const stagingAllow = resolveStagingHostAllowList();
+
+  if (productionAllow.length === 0 && stagingAllow.length === 0) {
+    return;
+  }
+
+  const matchesProduction = isProductionDatabaseUrl(databaseUrl, productionAllow);
+  const matchesStaging = isStagingDatabaseUrl(databaseUrl, stagingAllow);
 
   const nonProdEnvs = new Set([
     "staging",
@@ -107,39 +117,54 @@ export function assertEnvironmentDatabaseIsolation(
     "test",
   ]);
 
-  if (nonProdEnvs.has(env) && role === "production") {
+  if (nonProdEnvs.has(env) && matchesProduction) {
     throw new Error(
-      `[schema] DATABASE_URL isolation breach: environment=${env} but connection host ` +
-        `"${host}" matches production Neon. Auto-heal and boot mutations are blocked. ` +
-        `Fix the Render/local DATABASE_URL to the ${env} Neon project/branch ` +
-        `(not production jolly-tree / ep-late-math-aohd4iep).`,
+      `[schema] DATABASE_URL isolation breach: environment=${env} but host "${host}" ` +
+        `matches NEON_PRODUCTION_HOST_ALLOWLIST. Fix DATABASE_URL to this environment's Neon database.`,
     );
   }
 
-  if (env === "production" && role === "staging") {
+  if (env === "production" && matchesStaging) {
     throw new Error(
-      `[schema] DATABASE_URL isolation breach: environment=production but connection host ` +
-        `"${host}" matches staging Neon. Fix the production Render DATABASE_URL to the ` +
-        `production Neon project (jolly-tree / ep-late-math-aohd4iep), not staging.`,
+      `[schema] DATABASE_URL isolation breach: environment=production but host "${host}" ` +
+        `matches NEON_STAGING_HOST_ALLOWLIST. Fix DATABASE_URL to the production Neon database.`,
+    );
+  }
+
+  // Positive allow-list: when configured for this env, DATABASE_URL must match it.
+  if (env === "production" && productionAllow.length > 0 && !matchesProduction) {
+    throw new Error(
+      `[schema] DATABASE_URL isolation breach: environment=production but host "${host}" ` +
+        `is not on NEON_PRODUCTION_HOST_ALLOWLIST. Update DATABASE_URL or the allow-list.`,
+    );
+  }
+
+  if (env === "staging" && stagingAllow.length > 0 && !matchesStaging) {
+    throw new Error(
+      `[schema] DATABASE_URL isolation breach: environment=staging but host "${host}" ` +
+        `is not on NEON_STAGING_HOST_ALLOWLIST. Update DATABASE_URL or the allow-list.`,
     );
   }
 }
 
 /**
- * Hard gate: never mutate production Neon via schema auto-heal / boot DDL.
- * Returns false (validate-only) when DATABASE_URL is production, even if
- * SCHEMA_AUTO_HEAL=true was set by mistake.
+ * Never mutate a DB identified as production by NEON_PRODUCTION_HOST_ALLOWLIST.
+ * When that allow-list is unset, heal is controlled only by BIDWAR_ENV / SCHEMA_AUTO_HEAL.
  */
 export function gateAutoHealForDatabase(
   desiredAutoHeal: boolean,
   databaseUrl: string = resolveDatabaseUrl(),
 ): boolean {
   if (!desiredAutoHeal) return false;
-  if (!isProductionDatabaseUrl(databaseUrl)) return true;
+
+  const productionAllow = resolveProductionHostAllowList();
+  if (productionAllow.length === 0) return true;
+
+  if (!isProductionDatabaseUrl(databaseUrl, productionAllow)) return true;
 
   const host = parseDatabaseHostname(databaseUrl) ?? "(unparseable)";
   console.error(
-    `[schema] REFUSING auto-heal: DATABASE_URL host "${host}" is production Neon. ` +
+    `[schema] REFUSING auto-heal: DATABASE_URL host "${host}" matches NEON_PRODUCTION_HOST_ALLOWLIST. ` +
       `Forcing validate-only. Production schema changes must use versioned migrations.`,
   );
   return false;

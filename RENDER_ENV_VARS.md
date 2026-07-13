@@ -47,18 +47,18 @@ NODE_ENV=production
 BIDWAR_ENV=staging
 SERVE_STATIC=true
 
-# Neon STAGING ONLY — must NOT be production (jolly-tree / ep-late-math-aohd4iep)
-# Expected project: BidWar Staging (old-art-20161659)
-# Expected host contains: ep-long-sky-aorboyzr
-DATABASE_URL=postgresql://...@ep-long-sky-aorboyzr-pooler....neon.tech/neondb?sslmode=require
+# Neon STAGING — separate database from production (set in Render dashboard)
+DATABASE_URL=postgresql://...@<staging-neon-host>/<db>?sslmode=require
 
-# Staging public URL (Render default or custom staging subdomain)
-# Hostname must include "staging" (or set BIDWAR_ENV=staging) so schema auto-heal stays on.
-APP_DOMAIN=bidwar-staging.onrender.com
-APP_URL=https://bidwar-staging.onrender.com
+# Optional safety: hostname substrings for this environment's Neon endpoint
+# NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
+# NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
+
+# Staging public URL
+APP_DOMAIN=<staging-host>.onrender.com
+APP_URL=https://<staging-host>.onrender.com
 APP_PUBLIC_SCHEME=https
 
-# Unique to staging — generate fresh values
 SESSION_SECRET=<openssl rand -hex 32>
 ADMIN_PASSWORD=<staging-only-password>
 
@@ -66,7 +66,7 @@ SCORING=true
 LOG_LEVEL=info
 ```
 
-**Verify before deploy:** In Render → staging service → Environment, confirm `DATABASE_URL` host contains `ep-long-sky-aorboyzr` (or your current staging pooler) and does **not** contain `ep-late-math-aohd4iep`. Startup fails closed if staging points at production Neon.
+**Verify before deploy:** Render staging `DATABASE_URL` must be the staging Neon database (not production). Prefer setting both allow-list env vars so a mis-pasted production URL fails closed at boot.
 
 ### Staging integration guidance
 
@@ -94,12 +94,13 @@ NODE_ENV=production
 BIDWAR_ENV=production
 SERVE_STATIC=true
 
-# Neon PRODUCTION ONLY — must NOT be staging (old-art / ep-long-sky-aorboyzr)
-# Expected project: Bidwar Production (jolly-tree-42208228)
-# Expected host contains: ep-late-math-aohd4iep
-DATABASE_URL=postgresql://...@ep-late-math-aohd4iep-pooler....neon.tech/neondb?sslmode=require
+# Neon PRODUCTION — separate database from staging (set in Render dashboard)
+DATABASE_URL=postgresql://...@<production-neon-host>/<db>?sslmode=require
 
-# Production public site
+# Optional safety: hostname substrings for this environment's Neon endpoint
+# NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
+# NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
+
 APP_DOMAIN=bidwar.in,www.bidwar.in
 APP_URL=https://bidwar.in
 APP_PUBLIC_SCHEME=https
@@ -112,7 +113,7 @@ SCORING=true
 LOG_LEVEL=info
 ```
 
-**Verify before deploy:** In Render → production service → Environment, confirm `DATABASE_URL` host contains `ep-late-math-aohd4iep` and does **not** contain `ep-long-sky-aorboyzr`. Production is validate-only; auto-heal cannot mutate this database.
+**Verify before deploy:** Render production `DATABASE_URL` must be the production Neon database (not staging). With allow-lists set, a mis-pasted staging URL fails closed; auto-heal cannot mutate hosts on `NEON_PRODUCTION_HOST_ALLOWLIST`.
 
 Add production Cloudinary, Google OAuth, Twilio, VAPID, BulkSMS, and Resend variables when those features are live. Register OAuth redirect URI: `https://bidwar.in/api/auth/google/callback`.
 

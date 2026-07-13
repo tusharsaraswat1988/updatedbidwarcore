@@ -14,9 +14,10 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 
 - [ ] Apply migration SQL to staging database (preferred) — or rely on staging auto-heal for additive `IF NOT EXISTS` gaps
 - [ ] Confirm staging identity: `BIDWAR_ENV=staging` and/or staging hostname in `APP_URL` / `APP_DOMAIN` (do **not** rely on `NODE_ENV` alone; Render staging is `NODE_ENV=production`)
-- [ ] Confirm staging `DATABASE_URL` is the **staging** Neon project/host (`ep-long-sky-aorboyzr` / `old-art-20161659`) — never production (`ep-late-math-aohd4iep`)
+- [ ] Confirm staging `DATABASE_URL` is the **staging** Neon database (Render env) — never paste production’s URL
+- [ ] Optional: set `NEON_STAGING_HOST_ALLOWLIST` / `NEON_PRODUCTION_HOST_ALLOWLIST` so a wrong URL fails closed
 - [ ] Deploy API to staging
-- [ ] Startup logs show `databaseRole: staging`, `autoHealEnabled: true`, then schema OK / heal summary **before** HTTP listen
+- [ ] Startup logs show `autoHealEnabled: true` (and `databaseRole` if allow-lists set), then schema OK / heal summary **before** HTTP listen
 - [ ] `GET /api/admin/schema-health` → `driftStatus: "ok"`, `critical: false`
 - [ ] Smoke: organizer login, Google login (if configured), tournament list
 
@@ -25,8 +26,9 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 - [ ] Apply **same** migration SQL to production **before** app rollout
 - [ ] Confirm column/table exists (`information_schema` / Neon SQL)
 - [ ] Deploy API (`NODE_ENV=production`, `BIDWAR_ENV=production`, do **not** set `SCHEMA_AUTO_HEAL=true`)
-- [ ] Confirm production `DATABASE_URL` is production Neon (`ep-late-math-aohd4iep` / `jolly-tree-42208228`) — never staging
-- [ ] Process stays up (startup validation passed; logs show `databaseRole: production`, `autoHealEnabled: false`)
+- [ ] Confirm production `DATABASE_URL` is the **production** Neon database (Render env) — never paste staging’s URL
+- [ ] Optional: set `NEON_PRODUCTION_HOST_ALLOWLIST` / `NEON_STAGING_HOST_ALLOWLIST`
+- [ ] Process stays up (startup validation passed; logs show `autoHealEnabled: false`)
 - [ ] `GET /api/admin/schema-health` (admin session) → ok
 - [ ] Verify:
   - [ ] `GET /api/auth/me` (session cookie)
