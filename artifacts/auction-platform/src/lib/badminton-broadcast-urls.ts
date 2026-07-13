@@ -38,3 +38,11 @@ export function badmintonBroadcastUrl(
 export function badmintonQrImageUrl(targetUrl: string, size = 240) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(targetUrl)}`;
 }
+
+/** Persistent organizer Tournament Summary & Awards page. */
+export function badmintonTournamentSummaryUrl(
+  tournamentId: number,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+) {
+  return scoringAppPublicUrl(origin, `/tournament/${tournamentId}/badminton/summary`);
+}

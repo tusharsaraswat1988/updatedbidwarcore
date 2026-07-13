@@ -27,6 +27,11 @@ export function badmintonResultsPath(tournamentId: number) {
   return `${badmintonHubPath(tournamentId)}/results`;
 }
 
+/** Tournament Summary & Awards — official closing page. */
+export function badmintonSummaryPath(tournamentId: number) {
+  return `${badmintonHubPath(tournamentId)}/summary`;
+}
+
 export type BadmintonHubNavItem = {
   id: string;
   label: string;
@@ -114,6 +119,12 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     isActive: (path) => pathEndsWithSection(path, "results"),
   },
   {
+    id: "summary",
+    label: "Summary",
+    href: (tid) => `${badmintonHubPath(tid)}/summary`,
+    isActive: (path) => pathEndsWithSection(path, "summary"),
+  },
+  {
     id: "broadcast",
     label: "Broadcast",
     href: (tid) => `${badmintonHubPath(tid)}/broadcast`,
@@ -147,6 +158,10 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
 
   if (/\/badminton\/results\/?$/.test(pathname)) {
     return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
+  }
+
+  if (/\/badminton\/summary\/?$/.test(pathname)) {
+    return { kind: "link", href: `${hub}/results`, label: "Back to Results" };
   }
 
   if (/\/badminton\/schedule/.test(pathname)) {
