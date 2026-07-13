@@ -7,6 +7,7 @@ import { hubCardClass } from "@/components/badminton/form-ui";
 import {
   badmintonBroadcastUrl,
   badmintonQrImageUrl,
+  badmintonScorerHomePublicUrl,
   type BadmintonBroadcastKind,
 } from "@/lib/badminton-broadcast-urls";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
@@ -51,9 +52,9 @@ const OUTPUTS: BroadcastOutput[] = [
   {
     kind: "scorer",
     title: "Umpire scorer",
-    description: "Court-side scoring tablet for the umpire. Requires match PIN.",
+    description: "Per-match scoring link (compatibility). Prefer Scorer Home below for day-of use.",
     icon: Tablet,
-    openLabel: "Open umpire scorer",
+    openLabel: "Open match scorer",
   },
 ];
 
@@ -90,19 +91,23 @@ export function BadmintonBroadcastActions({
   }
 
   function shareScorerAccess() {
-    const url = badmintonBroadcastUrl("scorer", matchId, tournamentId);
+    const homeUrl = badmintonScorerHomePublicUrl(tournamentId);
+    const directUrl = badmintonBroadcastUrl("scorer", matchId, tournamentId);
     const label = matchLabel ?? `Match #${matchId}`;
     const message = [
-      `Umpire scorer access — ${label}`,
-      url,
+      `Umpire Scorer Home — ${label}`,
+      homeUrl,
       "",
-      "For the court umpire only. Enter the PIN set when creating this match.",
-      "Match Control (pause, retirement) is separate — use the organizer Matches page.",
+      "Enter the match PIN once, then choose which match to score.",
+      "Assign the same PIN to every match this umpire should open.",
+      "",
+      `Direct match link (optional): ${directUrl}`,
+      "Match Control (pause, retirement) stays with the organizer.",
     ].join("\n");
     navigator.clipboard.writeText(message).then(() => {
       toast({
         title: "Scorer access copied",
-        description: "Share the message with your court official via WhatsApp or email.",
+        description: "Share Scorer Home + PIN with your court official.",
       });
     });
   }
@@ -129,6 +134,50 @@ export function BadmintonBroadcastActions({
             <Shield className="w-3.5 h-3.5" />
             Open Match Control
           </Link>
+        </div>
+
+        <div className={cn(hubCardClass, "p-4 border-sky-500/25 bg-sky-500/5")}>
+          <div className="flex items-start gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-sky-500/15 shrink-0">
+              <Tablet className="w-4 h-4 text-sky-300" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Scorer Home (recommended)</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                One link + PIN. Umpire picks which assigned match to score. Reuse the same PIN across
+                that umpire&apos;s matches.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <BtnPrimary
+              type="button"
+              onClick={() =>
+                window.open(badmintonScorerHomePublicUrl(tournamentId), "_blank", "noopener,noreferrer")
+              }
+              className="gap-1.5"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open Scorer Home
+            </BtnPrimary>
+            <BtnSecondary
+              type="button"
+              onClick={() => {
+                const url = badmintonScorerHomePublicUrl(tournamentId);
+                navigator.clipboard.writeText(url).then(() => {
+                  toast({ title: "Link copied", description: "Scorer Home link is on your clipboard." });
+                });
+              }}
+              className="gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              Copy Scorer Home
+            </BtnSecondary>
+            <BtnSecondary type="button" onClick={shareScorerAccess} className="gap-1.5">
+              <Share2 className="w-3.5 h-3.5" />
+              Share with PIN tips
+            </BtnSecondary>
+          </div>
         </div>
 
         {OUTPUTS.map((output) => {

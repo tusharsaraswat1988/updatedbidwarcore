@@ -38,3 +38,49 @@ export async function verifyBadmintonScorerPin(
     return false;
   }
 }
+
+export type ScorerHomeUiStatus = "READY" | "LIVE" | "PAUSED" | "COMPLETED";
+
+export type ScorerHomeMatchCard = {
+  id: number;
+  category: string | null;
+  playerA: string;
+  playerB: string;
+  court: string | null;
+  scheduledAt: string | null;
+  status: ScorerHomeUiStatus;
+  matchStatus: string;
+  actionLabel: "Start Scoring" | "Resume" | "Read Only";
+  readOnly: boolean;
+};
+
+export async function openBadmintonScorerSession(
+  tournamentId: number,
+  pin: string,
+): Promise<{ ok: boolean; matches: ScorerHomeMatchCard[] }> {
+  try {
+    return await badmintonFetch<{ ok: boolean; matches: ScorerHomeMatchCard[] }>(
+      tournamentId,
+      `/scorer/session`,
+      { method: "POST", body: JSON.stringify({ pin }) },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Request failed";
+    throw new Error(message);
+  }
+}
+
+export async function fetchBadmintonScorerMatches(
+  tournamentId: number,
+  pin: string,
+): Promise<ScorerHomeMatchCard[]> {
+  const result = await badmintonFetch<{ matches: ScorerHomeMatchCard[] }>(
+    tournamentId,
+    `/scorer/matches`,
+    {
+      method: "GET",
+      headers: { "x-scorer-pin": pin },
+    },
+  );
+  return result.matches ?? [];
+}

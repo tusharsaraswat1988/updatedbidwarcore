@@ -58,6 +58,17 @@ import {
 import type { BadmintonEventEnvelope } from "@workspace/badminton-core";
 import type { ScoringEventEnvelope } from "@workspace/scoring-core";
 import { replayScoringMatchState } from "./scoring-platform";
+import {
+  mapMatchStatusToScorerHomeUi,
+  sideDisplayLabel,
+  type ScorerHomeMatchCard,
+} from "./badminton-scorer-home";
+
+export type {
+  ScorerHomeMatchCard,
+  ScorerHomeUiStatus,
+} from "./badminton-scorer-home";
+export { mapMatchStatusToScorerHomeUi } from "./badminton-scorer-home";
 import { appendMatchEventBatch, type ScoringActor as PlatformActor } from "./scoring-platform/orchestrator";
 import { runBadmintonMasterStatisticsPipeline } from "./scoring-platform/projections";
 import { ScoringPlatformError } from "./scoring-platform/errors";
@@ -1069,6 +1080,87 @@ export async function verifyMatchScorerPin(
     .limit(1);
 
   return !!detail?.scorerPin && detail.scorerPin === pin;
+}
+
+/**
+ * List matches this scorer PIN may open. PIN is matched against per-match
+ * `scorer_pin` only — never returns organizer controls or the PIN itself.
+ * Organizers assign the same PIN to multiple matches for one umpire.
+ */
+export async function listMatchesForScorerPin(
+  tournamentId: number,
+  pin: string,
+): Promise<ScorerHomeMatchCard[]> {
+  const trimmed = pin.trim();
+  if (trimmed.length < 4) return [];
+
+  const rows = await db
+    .select({
+      match: scoringMatchesTable,
+      detail: badmintonMatchDetailsTable,
+      categoryName: badmintonCategoriesTable.name,
+      categoryCode: badmintonCategoriesTable.code,
+    })
+    .from(scoringMatchesTable)
+    .innerJoin(
+      badmintonMatchDetailsTable,
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    )
+    .leftJoin(
+      badmintonCategoriesTable,
+      and(
+        eq(badmintonCategoriesTable.id, badmintonMatchDetailsTable.categoryId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .where(
+      and(
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, "badminton"),
+        eq(badmintonMatchDetailsTable.scorerPin, trimmed),
+      ),
+    )
+    .orderBy(asc(scoringMatchesTable.id));
+
+  return rows.map(({ match, detail, categoryName, categoryCode }) => {
+    const snapshot = detail.stateSnapshotJson as Record<string, unknown> | null;
+    const leftFromState =
+      snapshot?.leftSide && typeof snapshot.leftSide === "object"
+        ? (snapshot.leftSide as Record<string, unknown>)
+        : null;
+    const rightFromState =
+      snapshot?.rightSide && typeof snapshot.rightSide === "object"
+        ? (snapshot.rightSide as Record<string, unknown>)
+        : null;
+
+    const matchStatus =
+      (typeof snapshot?.matchStatus === "string" && snapshot.matchStatus) ||
+      match.status ||
+      "scheduled";
+    const ui = mapMatchStatusToScorerHomeUi(matchStatus);
+
+    const category =
+      (categoryCode && categoryCode.trim()) ||
+      (categoryName && categoryName.trim()) ||
+      (detail.roundName?.trim() ? detail.roundName.trim() : null) ||
+      (detail.matchLabel?.trim() ? detail.matchLabel.trim() : null);
+
+    return {
+      id: match.id,
+      category,
+      playerA: sideDisplayLabel(leftFromState ?? detail.leftSideJson),
+      playerB: sideDisplayLabel(rightFromState ?? detail.rightSideJson),
+      court: detail.courtNumber?.trim() || null,
+      scheduledAt: match.scheduledAt ? new Date(match.scheduledAt).toISOString() : null,
+      status: ui.status,
+      matchStatus,
+      actionLabel: ui.actionLabel,
+      readOnly: ui.readOnly,
+    };
+  });
 }
 
 export async function getLiveBadmintonMatches(tournamentId: number) {

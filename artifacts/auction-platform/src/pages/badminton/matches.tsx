@@ -39,7 +39,8 @@ import {
 } from "@/components/badminton/page-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
-import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
@@ -131,6 +132,7 @@ export default function BadmintonMatchesPage() {
   const search = useSearch();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
+  const { toast } = useToast();
   const initialFixtureId = useMemo(() => {
     const raw = new URLSearchParams(search).get("fixture");
     if (!raw) return undefined;
@@ -195,6 +197,24 @@ export default function BadmintonMatchesPage() {
                 label={matchFormatChipLabel(scoringFormat.format, scoringFormat.presetId)}
               />
             ) : null}
+            <button
+              type="button"
+              className="min-h-11 px-3 rounded-lg border border-border bg-secondary text-secondary-foreground text-xs font-semibold hover-elevate"
+              onClick={() => {
+                const url = scoringAppPublicUrl(
+                  window.location.origin,
+                  badmintonScorerHomePath(tournamentId),
+                );
+                void navigator.clipboard.writeText(url).then(() => {
+                  toast({
+                    title: "Scorer Home copied",
+                    description: "Share this link + a PIN with court umpires.",
+                  });
+                });
+              }}
+            >
+              Copy Scorer Home
+            </button>
             <BtnPrimary onClick={() => setShowCreate(true)}>+ Create Match</BtnPrimary>
           </div>
         }
@@ -912,7 +932,7 @@ function MatchFormModal({
             </button>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            Unique per match — share with the court umpire only.
+            Share via Scorer Home. Reuse the same PIN on every match this umpire should open.
           </p>
         </FormField>
       </div>

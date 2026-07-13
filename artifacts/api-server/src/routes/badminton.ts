@@ -49,6 +49,7 @@ import {
   deleteBadmintonMatch,
   ensureBadmintonTournament,
   getLiveBadmintonMatches,
+  listMatchesForScorerPin,
   serializeBadmintonMatchDetail,
   verifyMatchScorerPin,
   handleRetirement,
@@ -1621,6 +1622,76 @@ router.post("/matches/:matchId/verify-pin", async (req, res) => {
 
   const ok = await verifyMatchScorerPin(tournamentId, matchId, parsed.data.pin);
   res.json({ ok });
+});
+
+/**
+ * Scorer Home — verify PIN once and list only matches assigned that PIN.
+ * Does not expose organizer controls or raw PINs.
+ */
+router.post("/scorer/session", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({ pin: z.string().min(4).max(20) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    await ensureBadmintonTournament(tournamentId);
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
+    }
+    throw e;
+  }
+
+  const ip =
+    (typeof req.headers["x-forwarded-for"] === "string"
+      ? req.headers["x-forwarded-for"].split(",")[0]?.trim()
+      : null) ||
+    req.socket.remoteAddress ||
+    "unknown";
+  const rateKey = `scorer-home:${tournamentId}:${ip}`;
+  if (!consumePinVerifyAttempt(rateKey)) {
+    return void res.status(429).json({
+      error: "Too many PIN attempts. Wait a minute and try again.",
+      code: "PIN_RATE_LIMIT",
+      ok: false,
+    });
+  }
+
+  const matches = await listMatchesForScorerPin(tournamentId, parsed.data.pin);
+  if (matches.length === 0) {
+    return void res.json({ ok: false, matches: [] });
+  }
+  res.json({ ok: true, matches });
+});
+
+/** Refresh Scorer Home match list using the session PIN header. */
+router.get("/scorer/matches", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  const pinHeader = req.headers["x-scorer-pin"];
+  const pin = typeof pinHeader === "string" ? pinHeader.trim() : "";
+  if (pin.length < 4) {
+    return void res.status(401).json({ error: "Scorer PIN required", code: "PIN_REQUIRED" });
+  }
+
+  try {
+    await ensureBadmintonTournament(tournamentId);
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+
+  const matches = await listMatchesForScorerPin(tournamentId, pin);
+  if (matches.length === 0) {
+    return void res.status(401).json({ error: "Invalid scorer PIN", code: "PIN_INVALID" });
+  }
+  res.json({ matches });
 });
 
 router.patch("/matches/:matchId", async (req, res) => {
