@@ -8,6 +8,15 @@ import * as schema from "./schema";
 const { Pool } = pg;
 
 export { ensureCoreSchema } from "./ensure-schema";
+export {
+  buildSchemaContractFromDrizzle,
+  getSchemaHealthReport,
+  runSchemaGovernance,
+  resolveAutoHealEnabled,
+  resolveEnvironment,
+  formatDriftReportForConsole,
+} from "./schema-governance/index.js";
+export type { DriftReport, SchemaContract } from "./schema-governance/index.js";
 export { getBootMetricsSnapshot } from "./boot-metrics";
 export type { BootMetricsSnapshot, SystemCMetrics, SystemDMetrics } from "./boot-metrics";
 

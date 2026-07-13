@@ -199,7 +199,10 @@ async function guardBadmintonDirector(
   }
   if (!(await guardBadmintonTournament(tournamentId, res))) return null;
   if (!isTournamentDirector(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden — tournament director access required" });
+    res.status(403).json({
+      error: "Tournament director or organizer access required. Scorer PIN cannot do this.",
+      code: "DIRECTOR_FORBIDDEN",
+    });
     return null;
   }
   return { tournamentId };
@@ -210,7 +213,10 @@ function respondBadmintonServiceError(
   err: unknown,
 ): boolean {
   if (err instanceof BadmintonServiceError) {
-    res.status(err.status).json({ error: err.message, code: err.code });
+    res.status(err.status).json({
+      error: friendlyBadmintonCommandMessage(err.message),
+      code: err.code,
+    });
     return true;
   }
   return false;
@@ -242,7 +248,10 @@ async function guardBadmintonWrite(
   }
   if (!(await guardBadmintonTournament(tournamentId, res))) return null;
   if (!isTournamentOwner(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
+    res.status(403).json({
+      error: "Organizer access required. Scorer PIN cannot change fixtures, matches, or courts.",
+      code: "ORGANIZER_FORBIDDEN",
+    });
     return null;
   }
   return tournamentId;
@@ -263,7 +272,10 @@ async function guardBadmintonScoring(
 
   const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) {
-    res.status(403).json({ error: "forbidden" });
+    res.status(403).json({
+      error: "Organizer login or this match’s scorer PIN is required.",
+      code: "SCORING_FORBIDDEN",
+    });
     return null;
   }
   return { tournamentId, usedPin: auth.usedPin };
@@ -1666,6 +1678,14 @@ router.delete("/matches/:matchId", async (req, res) => {
 
   try {
     await deleteBadmintonMatch(matchId, tournamentId);
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.match_deleted",
+      summary: `Match #${matchId} deleted`,
+      severity: "warning",
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+    });
     broadcastTournamentUpdate(tournamentId, { type: "match_deleted", matchId });
     res.status(204).send();
   } catch (e) {

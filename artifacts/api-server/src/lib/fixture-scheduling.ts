@@ -76,7 +76,10 @@ export function canCreateMatchFromFixture(fixture: {
   scoringMatchId?: number | null;
 }): { ok: true } | { ok: false; error: string } {
   if (fixture.scoringMatchId != null) {
-    return { ok: false, error: "Match already created for this fixture" };
+    return {
+      ok: false,
+      error: "A match already exists for this fixture. Open Matches or Match Control.",
+    };
   }
   if (fixture.status === "walkover") {
     return { ok: false, error: "Walkover fixtures cannot create a match" };
@@ -87,7 +90,7 @@ export function canCreateMatchFromFixture(fixture: {
   if (!isFixtureScheduled(fixture)) {
     return {
       ok: false,
-      error: "Fixture must be scheduled (court and time) before creating a match",
+      error: "Assign a court and time in Scheduling before creating a match",
     };
   }
   return { ok: true };
@@ -290,7 +293,7 @@ export async function markFixtureReady(
   fixtureId: number,
   scoringMatchId: number,
 ): Promise<void> {
-  await db
+  const [linked] = await db
     .update(badmintonFixturesTable)
     .set({
       scoringMatchId,
@@ -301,6 +304,16 @@ export async function markFixtureReady(
       and(
         eq(badmintonFixturesTable.id, fixtureId),
         eq(badmintonFixturesTable.tournamentId, tournamentId),
+        isNull(badmintonFixturesTable.scoringMatchId),
       ),
+    )
+    .returning({ id: badmintonFixturesTable.id });
+
+  if (!linked) {
+    throw new FixtureSchedulingError(
+      "A match was already created for this fixture. Open Matches or Match Control.",
+      409,
+      "MATCH_EXISTS",
     );
+  }
 }
