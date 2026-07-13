@@ -20,7 +20,6 @@ import { friendlyBadmintonError, formatFixtureStatusLabel, toastError, toastSucc
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
   EmptyState,
-  PageHeader,
   HubPageShell,
   hubCardClass,
   FormModal,
@@ -31,6 +30,7 @@ import {
   inputClass,
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 
 interface BadmintonCourt {
   id: number;
@@ -301,17 +301,13 @@ export default function BadmintonSchedulePage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Scheduling"
-        subtitle="Assign courts and times — then create matches from Control Center"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="scheduling"
+        continueHref={`/tournament/${tournamentId}/badminton`}
+        continueLabel="Continue to Ready"
+        headerActions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/tournament/${tournamentId}/badminton/control`}
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
-            >
-              Control Center
-            </Link>
             {courts.length === 0 ? (
               <Link href={`/tournament/${tournamentId}/badminton/courts`}>
                 <BtnPrimary type="button">Set up courts</BtnPrimary>
@@ -326,8 +322,7 @@ export default function BadmintonSchedulePage() {
             ) : null}
           </div>
         }
-      />
-
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
         {actionError ? <FormError message={actionError} /> : null}
 
@@ -354,9 +349,9 @@ export default function BadmintonSchedulePage() {
           <EmptyState
             icon={CalendarClock}
             title="No fixtures to schedule"
-            desc="Create fixtures in Draw & Fixtures first, then return here to assign courts and times."
+            desc="Create fixtures in Tournament Draw first, then return here to assign courts and times."
             action={{
-              label: "Open Draw & Fixtures",
+              label: "Open Tournament Draw",
               href: `/tournament/${tournamentId}/badminton/fixtures`,
             }}
           />
@@ -513,6 +508,7 @@ export default function BadmintonSchedulePage() {
         error={unscheduleError}
         onConfirm={() => void handleUnscheduleConfirm()}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }

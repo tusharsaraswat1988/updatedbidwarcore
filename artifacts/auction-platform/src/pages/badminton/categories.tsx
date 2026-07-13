@@ -12,7 +12,8 @@ import { badmintonFetch } from "@/lib/badminton-api";
 import { formatCategoryPhaseLabel } from "@/lib/badminton-ux";
 import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
-import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 
 interface BadmintonCategory {
   id: number;
@@ -69,16 +70,15 @@ export default function BadmintonCategoriesPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Categories"
-        subtitle="Events in this tournament — entries feed Draw & Fixtures"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="categories"
+        headerActions={
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
-            + Add Category
+            + Add Event
           </BtnPrimary>
         }
-      />
-
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
         {isLoading ? (
           <div className="space-y-3">
@@ -89,9 +89,9 @@ export default function BadmintonCategoriesPage() {
         ) : sorted.length === 0 ? (
           <EmptyState
             icon={Trophy}
-            title="No categories yet"
-            desc="Create events like Men's Singles U-19, Women's Doubles, etc."
-            action={{ label: "Add Category", onClick: () => setShowForm(true) }}
+            title="No events yet"
+            desc="Create events like Men's Singles, Women's Doubles, Mixed Doubles."
+            action={{ label: "Add Event", onClick: () => setShowForm(true) }}
           />
         ) : (
           sorted.map((cat) => (
@@ -130,6 +130,7 @@ export default function BadmintonCategoriesPage() {
           }}
         />
       )}
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }
@@ -283,7 +284,7 @@ function CategoryPanel({
               onClick={onEdit}
               className="min-h-11 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-colors"
             >
-              Edit Category
+              Edit Event
             </button>
             <button
               onClick={() => setShowAddReg(true)}
@@ -295,7 +296,7 @@ function CategoryPanel({
               href={`/tournament/${tournamentId}/badminton/fixtures?categoryId=${category.id}`}
               className="min-h-11 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold transition-colors inline-flex items-center"
             >
-              Open Draw & Fixtures
+              Open Tournament Draw
             </Link>
           </div>
 
@@ -415,7 +416,7 @@ function CategoryFormModal({
 
   async function handleSave() {
     if (!form.name.trim()) {
-      setError("Category name is required");
+      setError("Event name is required");
       return;
     }
     setSaving(true);
@@ -453,13 +454,13 @@ function CategoryFormModal({
 
   return (
     <FormModal
-      title={category ? "Edit Category" : "Add Category"}
-      subtitle="Define draw category settings"
+      title={category ? "Edit Event" : "Add Event"}
+      subtitle="An Event is one competition — for example Men's Singles. It later gets a Draw, Schedule, and Champion."
       onClose={onClose}
       size="lg"
     >
-      <FormField label="Category Name *">
-        <input {...f("name")} placeholder="Men's Singles U-19" className={inputClass} />
+      <FormField label="Event Name *">
+        <input {...f("name")} placeholder="Men's Singles" className={inputClass} />
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
@@ -526,7 +527,7 @@ function CategoryFormModal({
       <FormActions
         onCancel={onClose}
         onSubmit={handleSave}
-        submitLabel={category ? "Save Changes" : "Add Category"}
+        submitLabel={category ? "Save Changes" : "Add Event"}
         saving={saving}
       />
     </FormModal>

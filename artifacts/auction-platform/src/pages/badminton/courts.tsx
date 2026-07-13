@@ -20,7 +20,6 @@ import {
   EmptyState,
   FormField,
   inputClass,
-  PageHeader,
   HubPageShell,
   BtnPrimary,
   DarkSelect,
@@ -30,6 +29,7 @@ import {
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import {
   Collapsible,
   CollapsibleContent,
@@ -120,16 +120,20 @@ export default function BadmintonCourtsPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Courts"
-        subtitle="Courts used for Scheduling and Control Center — add them before match day"
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="courts"
+        headerActions={
           <BtnPrimary onClick={() => { setEditCourt(null); setShowForm(true); }}>
             + Add Court
           </BtnPrimary>
         }
-      />
-
+        guideExtras={
+          <p className="text-xs text-muted-foreground">
+            Scorer PIN belongs to the Court first. Matches inherit it unless a Match PIN overrides it.
+          </p>
+        }
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
@@ -212,6 +216,7 @@ export default function BadmintonCourtsPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }
@@ -368,7 +373,7 @@ function CourtFormModal({
       }
       onSaved({
         continueToNext: andContinue
-          ? () => setLocation(`/tournament/${tournamentId}/badminton/categories`)
+          ? () => setLocation(`/tournament/${tournamentId}/badminton/fixtures`)
           : undefined,
       });
     } catch (e) {
@@ -426,7 +431,8 @@ function CourtFormModal({
             Scorer Assignment
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            One umpire PIN for this court. Matches without their own PIN inherit it.
+            Default Scorer PIN for this court — umpires use it to open scoring.
+            Matches without their own PIN inherit it. A Match PIN overrides this Court PIN.
           </p>
         </div>
         <FormField label="Scorer PIN">

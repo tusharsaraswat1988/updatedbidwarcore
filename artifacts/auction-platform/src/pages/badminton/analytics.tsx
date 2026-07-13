@@ -398,9 +398,9 @@ export default function BadmintonAnalyticsPage() {
 
                 <HubQuickAction icon={MapPin} title="Courts" desc="Court setup" href={`/tournament/${tournamentId}/badminton/courts`} />
 
-                <HubQuickAction icon={Trophy} title="Categories" desc="Event definitions" href={`/tournament/${tournamentId}/badminton/categories`} />
-                <HubQuickAction icon={ListTree} title="Draw & Fixtures" desc="Plan fixtures" href={`/tournament/${tournamentId}/badminton/fixtures`} />
-                <HubQuickAction icon={Calendar} title="Scheduling" desc="Courts & times" href={`/tournament/${tournamentId}/badminton/schedule`} />
+                <HubQuickAction icon={Trophy} title="Events" desc="Event definitions" href={`/tournament/${tournamentId}/badminton/categories`} />
+                <HubQuickAction icon={ListTree} title="Tournament Draw" desc="Plan fixtures" href={`/tournament/${tournamentId}/badminton/fixtures`} />
+                <HubQuickAction icon={Calendar} title="Court Schedule" desc="Courts & times" href={`/tournament/${tournamentId}/badminton/schedule`} />
 
                 <HubQuickAction icon={ClipboardList} title="Matches" desc="Schedule & live" href={`/tournament/${tournamentId}/badminton/matches`} />
                 <HubQuickAction icon={Radio} title="Control Center" desc="Live court ops" href={`/tournament/${tournamentId}/badminton/control`} />
