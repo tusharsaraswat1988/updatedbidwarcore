@@ -14,6 +14,9 @@ import { TeamOwnerAccessCodeScreen } from "@/screens/team-owner/AccessCode";
 import { TeamOwnerPanelScreen } from "@/screens/team-owner/Panel";
 import { TeamOwnerSettingsScreen } from "@/screens/team-owner/Settings";
 import { setLastSelectedRole } from "@/lib/role-preference";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 
 /** Explicit base — do not use import.meta.env.BASE_URL (is "/" in Vite dev). */
 const BASE = MOBILE_APP_BASE.replace(/\/$/, "");
@@ -60,11 +63,15 @@ function Router() {
 export default function App() {
   return (
     <WouterRouter base={BASE}>
-      <OrganizerAuthProvider>
-        <TeamOwnerAuthProvider>
-          <Router />
-        </TeamOwnerAuthProvider>
-      </OrganizerAuthProvider>
+      <AppErrorBoundary>
+        <OrganizerAuthProvider>
+          <TeamOwnerAuthProvider>
+            <OfflineBanner />
+            <UpdatePrompt />
+            <Router />
+          </TeamOwnerAuthProvider>
+        </OrganizerAuthProvider>
+      </AppErrorBoundary>
     </WouterRouter>
   );
 }

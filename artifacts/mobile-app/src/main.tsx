@@ -2,9 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
+import { initNativeShell } from "./native/initNativeShell";
 import "./index.css";
 
 document.documentElement.classList.add("dark");
+
+void initNativeShell();
 
 const queryClient = new QueryClient({
   defaultOptions: {
