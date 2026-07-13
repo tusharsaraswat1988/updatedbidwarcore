@@ -1,10 +1,16 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import type { IncomingHttpHeaders } from "node:http";
 import {
   isCorsOriginAllowed as checkCorsOrigin,
   mergeDevCorsOrigins,
   parseOriginList,
 } from "@workspace/api-base/dev-cors";
+import {
+  correctStagingPublicOriginMismatch,
+  resolveRenderExternalOrigin,
+  resolveTrustedRequestOrigin,
+} from "./public-origin-guard.js";
 
 export type RuntimeConfig = {
   nodeEnv: string;
@@ -100,8 +106,26 @@ function buildCachedConfig(): RuntimeConfig {
     process.env.NEON_DATABASE_URL?.trim() ||
     process.env.DATABASE_URL!.trim();
 
-  const appHosts = parseCommaList(process.env.APP_DOMAIN);
-  const appUrlOrigin = parseAppUrlOrigin(process.env.APP_URL);
+  let appHosts = parseCommaList(process.env.APP_DOMAIN);
+  let appUrlOrigin = parseAppUrlOrigin(process.env.APP_URL);
+
+  // Staging Render + production APP_URL sends Google OAuth to bidwar.in.
+  // Detect and correct before deriving publicOrigin / CORS.
+  const stagingCorrection = correctStagingPublicOriginMismatch({
+    appUrlOrigin,
+    appHosts,
+    renderExternalOrigin: resolveRenderExternalOrigin(),
+  });
+  for (const warning of stagingCorrection.warnings) {
+    console.error(`[bidwar] ${warning}`);
+  }
+  if (stagingCorrection.publicOrigin) {
+    appUrlOrigin = stagingCorrection.publicOrigin;
+  }
+  if (stagingCorrection.appHosts) {
+    appHosts = stagingCorrection.appHosts;
+  }
+
   const publicScheme = appUrlOrigin
     ? schemeFromOrigin(appUrlOrigin)
     : defaultPublicScheme(isProduction);
@@ -303,6 +327,44 @@ export function getPublicOrigin(): string {
 export function buildPublicUrl(pathname: string): string {
   const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
   return `${getPublicOrigin()}${path}`;
+}
+
+function requestHostFromHeaders(headers: IncomingHttpHeaders): string | undefined {
+  const xfh = headers["x-forwarded-host"];
+  const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
+  const fromXfh = rawXfh.split(",")[0]?.trim();
+  if (fromXfh) return fromXfh;
+  const host = headers.host;
+  return Array.isArray(host) ? host[0] : host;
+}
+
+/**
+ * Public origin for the current request when Host is in APP_DOMAIN;
+ * otherwise the canonical APP_URL origin. Prefer this for OAuth redirect_uri
+ * so login round-trips stay on the host the user started from.
+ */
+export function getRequestPublicOrigin(headers: IncomingHttpHeaders): string {
+  const { appHosts, publicScheme, publicOrigin } = getRuntimeConfig();
+  return resolveTrustedRequestOrigin({
+    requestHost: requestHostFromHeaders(headers),
+    appHosts,
+    publicScheme,
+    publicOrigin,
+  });
+}
+
+/** Absolute public URL scoped to the trusted request host when possible. */
+export function buildPublicUrlForRequest(
+  headers: IncomingHttpHeaders,
+  pathname: string,
+): string {
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return `${getRequestPublicOrigin(headers)}${path}`;
+}
+
+/** Test-only: clear the cached runtime config between cases. */
+export function resetRuntimeConfigForTests(): void {
+  cached = null;
 }
 
 export function getCorsOrigins(): string[] {
