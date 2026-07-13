@@ -1,29 +1,43 @@
-import type pg from "pg";
+import { resolveDatabaseUrl } from "../database-url.js";
 import { buildSchemaContractFromDrizzle } from "./contract.js";
-import { diffSchema } from "./diff.js";
-import { applyIdempotentHeal } from "./heal.js";
-import { introspectLiveSchema, readMigrationLedger } from "./introspect.js";
-import type { DriftReport, SchemaGovernanceOptions } from "./types.js";
-import type { DbQueryable } from "./timeouts.js";
 import {
   assertEnvironmentDatabaseIsolation,
   classifyDatabaseRole,
   gateAutoHealForDatabase,
 } from "./database-identity.js";
-import { resolveDatabaseUrl } from "../database-url.js";
+import { diffSchema } from "./diff.js";
+import { applyIdempotentHeal } from "./heal.js";
+import { introspectLiveSchema, readMigrationLedger } from "./introspect.js";
+import type { DriftReport, SchemaGovernanceOptions } from "./types.js";
+import type { DbQueryable } from "./timeouts.js";
+
+export const BIDWAR_ENVIRONMENTS = ["local", "staging", "production"] as const;
+export type BidwarEnvName = (typeof BIDWAR_ENVIRONMENTS)[number];
 
 /**
- * Staging Render services run NODE_ENV=production (same as prod).
- * Detect staging via BIDWAR_ENV / hostname — never NODE_ENV alone.
+ * Required: BIDWAR_ENV=local|staging|production
+ * No guessing from NODE_ENV, APP_URL, or hostnames.
  */
-function looksLikeStagingHost(): boolean {
-  const combined = `${process.env.APP_DOMAIN ?? ""} ${process.env.APP_URL ?? ""}`.toLowerCase();
-  return combined.includes("staging") || combined.includes("bidwar-staging");
+export function resolveEnvironment(): BidwarEnvName {
+  const raw = process.env.BIDWAR_ENV?.trim();
+  if (!raw) {
+    throw new Error(
+      "[bidwar] BIDWAR_ENV is required. Set BIDWAR_ENV=local|staging|production. " +
+        "Do not rely on NODE_ENV or hostname detection.",
+    );
+  }
+  const env = raw.toLowerCase();
+  if (!BIDWAR_ENVIRONMENTS.includes(env as BidwarEnvName)) {
+    throw new Error(
+      `[bidwar] Invalid BIDWAR_ENV="${raw}". Allowed values: local, staging, production.`,
+    );
+  }
+  return env as BidwarEnvName;
 }
 
 /**
- * Desired auto-heal from env flags only (before production-DB hard gate).
- * Local + staging: on. Production: off.
+ * Auto-heal from BIDWAR_ENV (and optional SCHEMA_AUTO_HEAL override).
+ * local + staging → on; production → off.
  */
 export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   if (explicit !== undefined) return explicit;
@@ -31,41 +45,18 @@ export function resolveAutoHealEnabled(explicit?: boolean): boolean {
   if (flag === "true" || flag === "1" || flag === "yes") return true;
   if (flag === "false" || flag === "0" || flag === "no") return false;
 
-  const env = resolveEnvironment().toLowerCase();
-  if (env === "production") return false;
-  if (
-    env === "staging" ||
-    env === "development" ||
-    env === "dev" ||
-    env === "local" ||
-    env === "test"
-  ) {
-    return true;
-  }
-  // Unknown env: heal only outside NODE_ENV=production
-  return process.env.NODE_ENV !== "production";
+  const env = resolveEnvironment();
+  return env === "local" || env === "staging";
 }
 
 /**
- * Effective auto-heal after production Neon hard gate.
- * Never returns true when DATABASE_URL matches production.
+ * Effective auto-heal after optional production allow-list gate.
  */
 export function resolveEffectiveAutoHeal(
   explicit?: boolean,
   databaseUrl: string = resolveDatabaseUrl(),
 ): boolean {
   return gateAutoHealForDatabase(resolveAutoHealEnabled(explicit), databaseUrl);
-}
-
-export function resolveEnvironment(): string {
-  const bidwarEnv = process.env.BIDWAR_ENV?.trim();
-  if (bidwarEnv) return bidwarEnv;
-
-  if (looksLikeStagingHost()) return "staging";
-
-  if (process.env.NODE_ENV === "production") return "production";
-  if (process.env.NODE_ENV === "test") return "test";
-  return "development";
 }
 
 function defaultLog(msg: string, extra?: Record<string, unknown>): void {
@@ -96,7 +87,7 @@ export function formatDriftReportForConsole(report: DriftReport): string {
 }
 
 /**
- * Validate live DB against Drizzle SSOT. Optionally heal (dev/staging only).
+ * Validate live DB against Drizzle SSOT. Optionally heal (local/staging only).
  * Throws if critical drift remains after the allowed action.
  * Always prints the migration/drift report before refusing to start.
  */
@@ -141,10 +132,10 @@ export async function runSchemaGovernance(
     );
   }
 
-  // Final hard stop before any mutation — production Neon must never be healed.
   if (!gateAutoHealForDatabase(true, databaseUrl)) {
     throw new Error(
-      `Schema auto-heal blocked: DATABASE_URL matches production Neon. Refusing to mutate. Apply versioned migrations instead.`,
+      `Schema auto-heal blocked: DATABASE_URL matches NEON_PRODUCTION_HOST_ALLOWLIST. ` +
+        `Refusing to mutate. Apply versioned migrations instead.`,
     );
   }
 

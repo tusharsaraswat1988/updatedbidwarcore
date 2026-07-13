@@ -17,7 +17,9 @@ export {
   resolveEffectiveAutoHeal,
   resolveEnvironment,
   formatDriftReportForConsole,
+  BIDWAR_ENVIRONMENTS,
 } from "./orchestrate.js";
+export type { BidwarEnvName } from "./orchestrate.js";
 export {
   resolveSchemaBootTimeoutMs,
   withTimeout,

@@ -23,16 +23,15 @@ import {
  * Order: validate/heal schema → then callers may start the HTTP server.
  * Never bind PORT before this completes successfully.
  *
- * - Local / staging: auto-heal (separate Neon DBs only).
- * - Production: validate-only; refuse to start on critical drift (prints SQL).
+ * Environment selection (simple, required):
+ * 1. BIDWAR_ENV=local|staging|production (required — fail if missing)
+ * 2. DATABASE_URL from Render / .env
+ * 3. Optional NEON_*_HOST_ALLOWLIST safety guard
  *
- * Hard rules:
- * - Auto-heal never mutates production Neon (host fingerprint gate).
- * - Staging/local refuse to start if DATABASE_URL points at production Neon.
- * - Production refuses to start if DATABASE_URL points at staging Neon.
+ * - local / staging: auto-heal
+ * - production: validate-only
  *
- * Guardrails against hangs: wall-clock SCHEMA_BOOT_TIMEOUT_MS plus per-session
- * statement_timeout / lock_timeout on a dedicated client.
+ * Hang guardrails: SCHEMA_BOOT_TIMEOUT_MS + per-session lock/statement timeouts.
  */
 export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
   const timeoutMs = resolveSchemaBootTimeoutMs();

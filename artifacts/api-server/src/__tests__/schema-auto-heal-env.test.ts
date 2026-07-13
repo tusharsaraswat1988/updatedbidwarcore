@@ -58,41 +58,48 @@ function withAllowLists() {
   process.env.NEON_STAGING_HOST_ALLOWLIST = "ep-staging-example";
 }
 
-describe("resolveEnvironment / resolveAutoHealEnabled", () => {
+describe("BIDWAR_ENV required environment selection", () => {
   stashEnv();
   afterEach(() => {
     clearEnv();
     restoreEnv();
   });
 
-  it("enables auto-heal for BIDWAR_ENV=staging even when NODE_ENV=production", () => {
+  it("fails when BIDWAR_ENV is missing", () => {
+    clearEnv();
+    process.env.NODE_ENV = "production";
+    process.env.APP_DOMAIN = "app-staging.onrender.com";
+    expect(() => resolveEnvironment()).toThrow(/BIDWAR_ENV is required/);
+  });
+
+  it("fails when BIDWAR_ENV is invalid", () => {
+    clearEnv();
+    process.env.BIDWAR_ENV = "development";
+    expect(() => resolveEnvironment()).toThrow(/Invalid BIDWAR_ENV/);
+  });
+
+  it("does not infer staging from APP_DOMAIN when BIDWAR_ENV is missing", () => {
+    clearEnv();
+    process.env.NODE_ENV = "production";
+    process.env.APP_DOMAIN = "bidwar-staging.onrender.com";
+    process.env.APP_URL = "https://bidwar-staging.onrender.com";
+    expect(() => resolveEnvironment()).toThrow(/BIDWAR_ENV is required/);
+  });
+
+  it("enables auto-heal for BIDWAR_ENV=staging", () => {
     clearEnv();
     process.env.NODE_ENV = "production";
     process.env.BIDWAR_ENV = "staging";
-    process.env.APP_DOMAIN = "example.com";
-    process.env.APP_URL = "https://example.com";
 
     expect(resolveEnvironment()).toBe("staging");
     expect(resolveAutoHealEnabled()).toBe(true);
     expect(resolveEffectiveAutoHeal(undefined, STAGING_URL)).toBe(true);
   });
 
-  it("enables auto-heal when APP_DOMAIN looks like staging", () => {
-    clearEnv();
-    process.env.NODE_ENV = "production";
-    process.env.APP_DOMAIN = "app-staging.onrender.com";
-    process.env.APP_URL = "https://app-staging.onrender.com";
-
-    expect(resolveEnvironment()).toBe("staging");
-    expect(resolveEffectiveAutoHeal(undefined, STAGING_URL)).toBe(true);
-  });
-
-  it("keeps validate-only when BIDWAR_ENV/production heuristics say production", () => {
+  it("keeps validate-only for BIDWAR_ENV=production", () => {
     clearEnv();
     process.env.NODE_ENV = "production";
     process.env.BIDWAR_ENV = "production";
-    process.env.APP_DOMAIN = "example.com";
-    process.env.APP_URL = "https://example.com";
 
     expect(resolveEnvironment()).toBe("production");
     expect(resolveEffectiveAutoHeal(undefined, PROD_URL)).toBe(false);
@@ -100,7 +107,6 @@ describe("resolveEnvironment / resolveAutoHealEnabled", () => {
 
   it("honors SCHEMA_AUTO_HEAL=false even on staging", () => {
     clearEnv();
-    process.env.NODE_ENV = "production";
     process.env.BIDWAR_ENV = "staging";
     process.env.SCHEMA_AUTO_HEAL = "false";
 
@@ -110,7 +116,6 @@ describe("resolveEnvironment / resolveAutoHealEnabled", () => {
   it("blocks heal against production allow-list even if SCHEMA_AUTO_HEAL=true", () => {
     clearEnv();
     withAllowLists();
-    process.env.NODE_ENV = "production";
     process.env.BIDWAR_ENV = "staging";
     process.env.SCHEMA_AUTO_HEAL = "true";
 
@@ -121,18 +126,15 @@ describe("resolveEnvironment / resolveAutoHealEnabled", () => {
 
   it("allows heal when no production allow-list is configured", () => {
     clearEnv();
-    process.env.NODE_ENV = "development";
     process.env.BIDWAR_ENV = "local";
     process.env.SCHEMA_AUTO_HEAL = "true";
 
-    // Without allow-list, host fingerprints are not consulted.
     expect(classifyDatabaseRole(PROD_URL)).toBe("unclassified");
     expect(resolveEffectiveAutoHeal(undefined, PROD_URL)).toBe(true);
   });
 
   it("enables local auto-heal", () => {
     clearEnv();
-    process.env.NODE_ENV = "development";
     process.env.BIDWAR_ENV = "local";
 
     expect(resolveEffectiveAutoHeal(undefined, LOCAL_URL)).toBe(true);

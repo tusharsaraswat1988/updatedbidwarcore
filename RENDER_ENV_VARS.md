@@ -54,7 +54,7 @@ DATABASE_URL=postgresql://...@<staging-neon-host>/<db>?sslmode=require
 # NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
 # NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
 
-# Staging public URL
+# Hostname must include "staging" only for human clarity; environment is BIDWAR_ENV only.
 APP_DOMAIN=<staging-host>.onrender.com
 APP_URL=https://<staging-host>.onrender.com
 APP_PUBLIC_SCHEME=https

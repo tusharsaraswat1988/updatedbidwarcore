@@ -154,6 +154,17 @@ export function assertRuntimeEnv(): RuntimeConfig {
 
   const isProduction = nodeEnv === "production";
 
+  const bidwarEnv = process.env.BIDWAR_ENV?.trim().toLowerCase();
+  if (!bidwarEnv) {
+    errors.push(
+      "BIDWAR_ENV is required (local|staging|production). Do not rely on NODE_ENV or hostname detection.",
+    );
+  } else if (!["local", "staging", "production"].includes(bidwarEnv)) {
+    errors.push(
+      `BIDWAR_ENV must be local, staging, or production (got: ${process.env.BIDWAR_ENV})`,
+    );
+  }
+
   const portRaw = process.env.PORT?.trim();
   if (!portRaw) {
     errors.push("PORT is required (set by your host or in .env)");

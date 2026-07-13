@@ -13,7 +13,7 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 ## Staging
 
 - [ ] Apply migration SQL to staging database (preferred) — or rely on staging auto-heal for additive `IF NOT EXISTS` gaps
-- [ ] Confirm staging identity: `BIDWAR_ENV=staging` and/or staging hostname in `APP_URL` / `APP_DOMAIN` (do **not** rely on `NODE_ENV` alone; Render staging is `NODE_ENV=production`)
+- [ ] Confirm staging identity: **`BIDWAR_ENV=staging` is set** on the Render staging service (required; no hostname/`NODE_ENV` fallback)
 - [ ] Confirm staging `DATABASE_URL` is the **staging** Neon database (Render env) — never paste production’s URL
 - [ ] Optional: set `NEON_STAGING_HOST_ALLOWLIST` / `NEON_PRODUCTION_HOST_ALLOWLIST` so a wrong URL fails closed
 - [ ] Deploy API to staging

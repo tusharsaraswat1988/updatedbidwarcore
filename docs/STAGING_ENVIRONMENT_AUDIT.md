@@ -495,7 +495,7 @@ APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<unique-staging-secret>
 ADMIN_PASSWORD=<unique-staging-password>
 
-# Schema: staging auto-heals additive drift (BIDWAR_ENV / staging hostname).
+# Schema: staging auto-heals additive drift when BIDWAR_ENV=staging.
 # Optional explicit override:
 # SCHEMA_AUTO_HEAL=true
 

@@ -10,7 +10,7 @@ import { resolveDatabaseUrl } from "../database-url.js";
  *   NEON_STAGING_HOST_ALLOWLIST=substring,of,staging,pooler,host
  *
  * When unset, isolation host checks are skipped — environment selection is
- * driven only by BIDWAR_ENV / SCHEMA_AUTO_HEAL / APP_URL heuristics.
+ * driven only by BIDWAR_ENV + DATABASE_URL (optional allow-lists when set).
  */
 
 function parseAllowList(raw: string | undefined): string[] {
@@ -109,24 +109,18 @@ export function assertEnvironmentDatabaseIsolation(
   const matchesProduction = isProductionDatabaseUrl(databaseUrl, productionAllow);
   const matchesStaging = isStagingDatabaseUrl(databaseUrl, stagingAllow);
 
-  const nonProdEnvs = new Set([
-    "staging",
-    "development",
-    "dev",
-    "local",
-    "test",
-  ]);
+  const nonProdEnvs = new Set(["staging", "local"]);
 
   if (nonProdEnvs.has(env) && matchesProduction) {
     throw new Error(
-      `[schema] DATABASE_URL isolation breach: environment=${env} but host "${host}" ` +
+      `[schema] DATABASE_URL isolation breach: BIDWAR_ENV=${env} but host "${host}" ` +
         `matches NEON_PRODUCTION_HOST_ALLOWLIST. Fix DATABASE_URL to this environment's Neon database.`,
     );
   }
 
   if (env === "production" && matchesStaging) {
     throw new Error(
-      `[schema] DATABASE_URL isolation breach: environment=production but host "${host}" ` +
+      `[schema] DATABASE_URL isolation breach: BIDWAR_ENV=production but host "${host}" ` +
         `matches NEON_STAGING_HOST_ALLOWLIST. Fix DATABASE_URL to the production Neon database.`,
     );
   }
@@ -134,14 +128,14 @@ export function assertEnvironmentDatabaseIsolation(
   // Positive allow-list: when configured for this env, DATABASE_URL must match it.
   if (env === "production" && productionAllow.length > 0 && !matchesProduction) {
     throw new Error(
-      `[schema] DATABASE_URL isolation breach: environment=production but host "${host}" ` +
+      `[schema] DATABASE_URL isolation breach: BIDWAR_ENV=production but host "${host}" ` +
         `is not on NEON_PRODUCTION_HOST_ALLOWLIST. Update DATABASE_URL or the allow-list.`,
     );
   }
 
   if (env === "staging" && stagingAllow.length > 0 && !matchesStaging) {
     throw new Error(
-      `[schema] DATABASE_URL isolation breach: environment=staging but host "${host}" ` +
+      `[schema] DATABASE_URL isolation breach: BIDWAR_ENV=staging but host "${host}" ` +
         `is not on NEON_STAGING_HOST_ALLOWLIST. Update DATABASE_URL or the allow-list.`,
     );
   }
