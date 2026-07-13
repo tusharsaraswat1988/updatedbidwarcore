@@ -10,6 +10,7 @@ import {
   correctStagingPublicOriginMismatch,
   resolveRenderExternalOrigin,
   resolveTrustedRequestOrigin,
+  stagingProductionUrlConflictError,
 } from "./public-origin-guard.js";
 
 export type RuntimeConfig = {
@@ -109,12 +110,13 @@ function buildCachedConfig(): RuntimeConfig {
   let appHosts = parseCommaList(process.env.APP_DOMAIN);
   let appUrlOrigin = parseAppUrlOrigin(process.env.APP_URL);
 
-  // Staging Render + production APP_URL sends Google OAuth to bidwar.in.
+  // Staging + production APP_URL sends Google OAuth to bidwar.in.
   // Detect and correct before deriving publicOrigin / CORS.
   const stagingCorrection = correctStagingPublicOriginMismatch({
     appUrlOrigin,
     appHosts,
     renderExternalOrigin: resolveRenderExternalOrigin(),
+    bidwarEnv: process.env.BIDWAR_ENV,
   });
   for (const warning of stagingCorrection.warnings) {
     console.error(`[bidwar] ${warning}`);
@@ -299,6 +301,16 @@ export function assertRuntimeEnv(): RuntimeConfig {
       `[bidwar] Production public origin must be https (got: ${cached.publicOrigin}). ` +
         "Set APP_URL=https://your-domain in the host dashboard.",
     );
+    process.exit(1);
+  }
+
+  const stagingUrlConflict = stagingProductionUrlConflictError({
+    bidwarEnv: process.env.BIDWAR_ENV,
+    publicOrigin: cached.publicOrigin,
+    appHosts: cached.appHosts,
+  });
+  if (stagingUrlConflict) {
+    console.error(`[bidwar] ${stagingUrlConflict}`);
     process.exit(1);
   }
 

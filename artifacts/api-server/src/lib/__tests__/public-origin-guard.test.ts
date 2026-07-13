@@ -5,6 +5,7 @@ import {
   isStagingLikeHost,
   resolveRenderExternalOrigin,
   resolveTrustedRequestOrigin,
+  stagingProductionUrlConflictError,
 } from "../public-origin-guard.js";
 
 describe("isStagingLikeHost", () => {
@@ -60,8 +61,21 @@ describe("correctStagingPublicOriginMismatch", () => {
     expect(result.warnings.join(" ")).toContain("APP_URL");
   });
 
+  it("overrides production APP_URL when BIDWAR_ENV=staging", () => {
+    const result = correctStagingPublicOriginMismatch({
+      bidwarEnv: "staging",
+      appUrlOrigin: "https://bidwar.in",
+      appHosts: ["bidwar.in"],
+      renderExternalOrigin: "https://bidwar-staging.onrender.com",
+    });
+
+    expect(result.publicOrigin).toBe("https://bidwar-staging.onrender.com");
+    expect(result.appHosts).toEqual(["bidwar-staging.onrender.com"]);
+  });
+
   it("does not change a correctly configured staging service", () => {
     const result = correctStagingPublicOriginMismatch({
+      bidwarEnv: "staging",
       appUrlOrigin: "https://bidwar-staging.onrender.com",
       appHosts: ["bidwar-staging.onrender.com"],
       renderExternalOrigin: "https://bidwar-staging.onrender.com",
@@ -74,6 +88,7 @@ describe("correctStagingPublicOriginMismatch", () => {
 
   it("does not override production Render custom domains", () => {
     const result = correctStagingPublicOriginMismatch({
+      bidwarEnv: "production",
       appUrlOrigin: "https://bidwar.in",
       appHosts: ["bidwar.in", "www.bidwar.in"],
       // Production services often still have an onrender.com external URL
@@ -82,6 +97,28 @@ describe("correctStagingPublicOriginMismatch", () => {
 
     expect(result.publicOrigin).toBeNull();
     expect(result.appHosts).toBeNull();
+  });
+});
+
+describe("stagingProductionUrlConflictError", () => {
+  it("errors when staging still points at bidwar.in", () => {
+    expect(
+      stagingProductionUrlConflictError({
+        bidwarEnv: "staging",
+        publicOrigin: "https://bidwar.in",
+        appHosts: ["bidwar.in"],
+      }),
+    ).toMatch(/bidwar\.in/);
+  });
+
+  it("returns null for correct staging config", () => {
+    expect(
+      stagingProductionUrlConflictError({
+        bidwarEnv: "staging",
+        publicOrigin: "https://bidwar-staging.onrender.com",
+        appHosts: ["bidwar-staging.onrender.com"],
+      }),
+    ).toBeNull();
   });
 });
 
