@@ -24,11 +24,8 @@ const config: CapacitorConfig = {
       "bidwar.in",
       "www.bidwar.in",
       "bidwar-staging.onrender.com",
-      "*.google.com",
-      "accounts.google.com",
-      "*.googleapis.com",
-      "*.gstatic.com",
-      "*.googleusercontent.com",
+      // Google OAuth must open in Chrome Custom Tabs — never keep it in the WebView
+      // (Error 403: disallowed_useragent).
     ],
   },
   android: {

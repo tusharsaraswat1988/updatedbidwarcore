@@ -1,0 +1,48 @@
+{
+	"appId": "com.bidwar.app",
+	"appName": "BidWar",
+	"webDir": "dist/public",
+	"server": {
+		"url": "https://bidwar.in/mobile/",
+		"cleartext": false,
+		"androidScheme": "https",
+		"allowNavigation": [
+			"bidwar.in",
+			"www.bidwar.in",
+			"bidwar-staging.onrender.com"
+		]
+	},
+	"android": {
+		"allowMixedContent": false,
+		"backgroundColor": "#09090b",
+		"webContentsDebuggingEnabled": false
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 0,
+			"launchAutoHide": true,
+			"backgroundColor": "#09090b",
+			"showSpinner": false,
+			"androidSplashResourceName": "splash",
+			"androidScaleType": "CENTER_CROP",
+			"splashFullScreen": true,
+			"splashImmersive": true
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"backgroundColor": "#09090b",
+			"overlaysWebView": true
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		},
+		"Keyboard": {
+			"resize": "body",
+			"resizeOnFullScreen": true
+		}
+	}
+}

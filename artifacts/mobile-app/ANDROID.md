@@ -63,6 +63,14 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 
 Replace `android/app/google-services.json` with a real Firebase Android app for `com.bidwar.app` before production push/analytics.
 
+### Google Sign-In (Android)
+
+Google blocks OAuth inside the WebView (`403 disallowed_useragent`). The shell opens
+`/api/auth/google?native_app=android` in Chrome Custom Tabs and returns via
+`bidwar://oauth-complete?handoff=…`, which the WebView exchanges for a session cookie.
+
+Requires the API + mobile web build that includes the native handoff routes.
+
 ## Production checklist
 
 - [x] Release URL = `https://bidwar.in/mobile/`
