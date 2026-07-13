@@ -19,7 +19,15 @@ export interface BadmintonSetupStep {
   title: string;
   /** One-line purpose under the title */
   purpose: string;
-  /** Helper copy explaining why this step exists */
+  /** What is this? */
+  what: string;
+  /** Why is it needed? */
+  why: string;
+  /** What happens after this? */
+  after: string;
+  /** Optional concrete examples for non-experts */
+  examples?: string[];
+  /** Helper copy explaining why this step exists (legacy / checklist) */
   helperText: string;
   /** Why this step is required when incomplete */
   requiredWhy: string;
@@ -35,11 +43,14 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 1,
     label: "Tournament",
     title: "Tournament Details",
-    purpose: "Set the name, logo, venue, and organizer for this tournament.",
-    helperText:
-      "This information appears on scoreboards and helps players recognize your event.",
+    purpose: "This creates the basic identity of your tournament.",
+    what: "Tournament Details create the basic identity of your tournament — name, logo, venue, and organizer.",
+    why: "Players, fixtures, schedules, and broadcasts will all use this information so everyone recognizes the same event.",
+    after: "After this step you will import players.",
+    examples: ["Summer Open 2026", "City Sports Complex", "Organizer name on scoreboards"],
+    helperText: "Players, fixtures, schedules and broadcasts will all use this information.",
     missingLabel: "Tournament name is missing",
-    requiredWhy: "A display name is required so scoreboards and public pages can identify the event.",
+    requiredWhy: "A tournament name is required so scoreboards and public pages can identify the event.",
     href: (id) => `/tournament/${id}/badminton/branding`,
   },
   {
@@ -47,9 +58,13 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 2,
     label: "Players",
     title: "Players",
-    purpose: "Confirm who will compete in this tournament.",
+    purpose: "Players are the people who will participate.",
+    what: "Players are the people who will participate in your tournament.",
+    why: "If imported from Auction, their teams will automatically be available throughout scoring — you do not re-enter team names later.",
+    after: "After this step you will create Events — the competitions those players enter.",
+    examples: ["Imported from Auction", "Walk-in player added manually"],
     helperText:
-      "Players imported from Auction can now be assigned to tournament events.",
+      "If imported from Auction, their teams will automatically be available throughout scoring.",
     missingLabel: "No players registered yet",
     requiredWhy: "You need at least one player before you can create events and draws.",
     href: (id) => `/tournament/${id}/badminton/players`,
@@ -59,11 +74,14 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 3,
     label: "Events",
     title: "Events",
-    purpose: "Events define what competitions will be played.",
-    helperText:
-      "Examples: Men's Singles, Women's Singles, Mixed Doubles.",
+    purpose: "Events define which competitions will be played.",
+    what: "Events define which competitions will be played in this tournament.",
+    why: "Each Event later gets its own Draw (who plays whom), Court Schedule (when/where), and Champion.",
+    after: "After this step you will set Scoring Rules — how matches are won.",
+    examples: ["Men's Singles", "Women's Doubles", "Mixed Doubles"],
+    helperText: "Each Event will later get a Draw, a Schedule, and a Champion.",
     missingLabel: "No events created yet",
-    requiredWhy: "Events tell the draw which competitions to build fixtures for.",
+    requiredWhy: "Events tell the draw which competitions to build — without events there is nothing to play.",
     href: (id) => `/tournament/${id}/badminton/categories`,
   },
   {
@@ -71,10 +89,14 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 4,
     label: "Scoring Rules",
     title: "Scoring Rules",
-    purpose: "These rules apply to matches in this tournament.",
-    helperText: "Examples: 21 Points, 15 Points, Best of 3.",
+    purpose: "Scoring Rules decide how matches are won.",
+    what: "Scoring Rules decide how matches are won — points per game and how many games.",
+    why: "These rules automatically apply to matches so every court scores the same way.",
+    after: "After this step you will add Courts — where matches will be played.",
+    examples: ["21 Points", "15 Points", "Best of 3 Games"],
+    helperText: "These rules will automatically apply to matches.",
     missingLabel: "Scoring rules not saved",
-    requiredWhy: "Matches need a scoring format before umpires can start scoring.",
+    requiredWhy: "Matches need scoring rules before umpires can start scoring.",
     href: (id) => `/tournament/${id}/badminton/scoring-format`,
   },
   {
@@ -82,9 +104,13 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 5,
     label: "Courts",
     title: "Courts",
-    purpose: "Court setup also defines scorer assignment.",
+    purpose: "Courts are where matches will be played.",
+    what: "Courts are the physical playing areas where matches will be played.",
+    why: "Each Court may have a Scorer, Scorer PIN, Display, and Broadcast so match day runs without confusion.",
+    after: "After this step you will create the Tournament Draw — who plays whom.",
+    examples: ["Court 1", "Court 2", "Center Court"],
     helperText:
-      "Each court can have a default Scorer PIN. Matches inherit that PIN unless a match PIN overrides it.",
+      "Court PIN applies to all matches on that court. A Match PIN overrides the Court PIN.",
     missingLabel: "No courts added yet",
     requiredWhy: "Scheduling needs at least one court to assign where matches are played.",
     href: (id) => `/tournament/${id}/badminton/courts`,
@@ -94,11 +120,14 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 6,
     label: "Tournament Draw",
     title: "Tournament Draw",
-    purpose: "This determines who plays whom.",
-    helperText:
-      "Generate Automatically, Import Existing Draw, or Create Manually.",
-    missingLabel: "No draw or fixtures yet",
-    requiredWhy: "Fixtures are required before you can assign courts and times.",
+    purpose: "Tournament Draw decides who plays whom.",
+    what: "Tournament Draw decides who plays whom in each Event.",
+    why: "Every option — Generate Automatically, Import Existing Draw, or Create Manually — creates the same kind of tournament fixtures (the list of planned matches).",
+    after: "After this step you will build the Court Schedule — where and when each fixture is played.",
+    examples: ["Generate Automatically", "Import Existing Draw", "Create Manually"],
+    helperText: "Every option creates the same tournament fixtures.",
+    missingLabel: "No draw yet",
+    requiredWhy: "You need a draw (fixtures) before you can assign courts and times.",
     href: (id) => `/tournament/${id}/badminton/fixtures`,
   },
   {
@@ -106,9 +135,12 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 7,
     label: "Court Schedule",
     title: "Court Schedule",
-    purpose: "Assign courts and times before matches begin.",
-    helperText:
-      "This determines where and when each match will be played.",
+    purpose: "Court Schedule decides where and when each fixture will be played.",
+    what: "Court Schedule decides where and when each fixture will be played.",
+    why: "Scheduling happens AFTER the draw — first you know who plays whom, then you place those fixtures on courts and times.",
+    after: "After this step your tournament is Ready — then you operate from Control Center.",
+    examples: ["Court 1 · 10:00 AM", "Court 2 · 10:30 AM"],
+    helperText: "Scheduling happens after the draw.",
     missingLabel: "No fixtures scheduled yet",
     requiredWhy: "At least one fixture needs a court and time before the tournament is ready.",
     href: (id) => `/tournament/${id}/badminton/schedule`,
@@ -118,10 +150,13 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     order: 8,
     label: "Ready",
     title: "Tournament Ready",
-    purpose: "Review setup, then open live operations.",
-    helperText: "When every step is complete, your tournament is ready to run.",
+    purpose: "Your tournament is ready to operate.",
+    what: "Setup is complete — branding, players, events, scoring, courts, draw, and schedule are in place.",
+    why: "Control Center is the live desk where you run courts, scorers, and match day without hunting through setup pages.",
+    after: "Open Control Center to operate the tournament.",
+    helperText: "Next you will operate the tournament from Control Center.",
     missingLabel: "Setup is not finished",
-    requiredWhy: "Finish the earlier steps before opening live operations.",
+    requiredWhy: "Finish the earlier steps before opening Control Center.",
     href: (id) => `/tournament/${id}/badminton`,
   },
 ];

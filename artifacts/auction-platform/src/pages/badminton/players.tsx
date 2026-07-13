@@ -36,13 +36,13 @@ import {
   FormModal,
   HubPageShell,
   inputClass,
-  PageHeader,
   SearchInput,
   AsyncLoadingPanel,
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -183,14 +183,40 @@ export default function BadmintonPlayersPage() {
     });
   }, [players, search, genderFilter, teamFilter]);
 
+  const playersByTeam = useMemo(() => {
+    const groups = new Map<
+      string,
+      { teamName: string; logoUrl: string | null; players: BadmintonPlayer[] }
+    >();
+
+    for (const player of filtered) {
+      const teamName = player.franchiseName?.trim() || "Players without Team";
+      const key = player.franchiseName?.trim() || "__none__";
+      const existing = groups.get(key);
+      if (existing) {
+        existing.players.push(player);
+      } else {
+        groups.set(key, {
+          teamName,
+          logoUrl: player.franchiseLogoUrl ?? null,
+          players: [player],
+        });
+      }
+    }
+
+    return [...groups.values()].sort((a, b) => {
+      if (a.teamName === "Players without Team") return 1;
+      if (b.teamName === "Players without Team") return -1;
+      return a.teamName.localeCompare(b.teamName);
+    });
+  }, [filtered]);
+
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="players">
-      <PageHeader
-        eyebrow="Step 2 of 8"
-        title="Players"
-        subtitle="Confirm who will compete in this tournament."
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="players"
+        headerActions={
           <div className="flex items-center gap-2 flex-wrap">
             <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
             <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
@@ -198,32 +224,45 @@ export default function BadmintonPlayersPage() {
             </BtnPrimary>
           </div>
         }
-      />
-
+        guideExtras={
+          <div className="space-y-2">
+            <SetupTerm
+              term="Team"
+              meaning="auction franchise or squad the player belongs to — shown on scoreboards."
+            />
+            <SetupTerm
+              term="Players without team"
+              meaning="still play, but will not show a team name until assigned."
+            />
+          </div>
+        }
+      >
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className={cn(hubPanelClass, "mb-6 space-y-2")}>
-          <p className="text-sm text-muted-foreground">
-            Players imported from Auction can now be assigned to tournament events.
-          </p>
-          {!isLoading && players.length > 0 ? (
-            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        {!isLoading && players.length > 0 ? (
+          <div className={cn(hubPanelClass, "mb-6")}>
+            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
               <p>
-                <span className="text-muted-foreground">Imported Players</span>{" "}
-                <span className="font-semibold text-foreground">{importedPlayers}</span>
+                <span className="text-muted-foreground">Players Imported</span>{" "}
+                <span className="font-semibold text-foreground tabular-nums">{importedPlayers}</span>
               </p>
               <p>
-                <span className="text-muted-foreground">Imported Teams</span>{" "}
-                <span className="font-semibold text-foreground">{importedTeams}</span>
+                <span className="text-muted-foreground">Teams Imported</span>{" "}
+                <span className="font-semibold text-foreground tabular-nums">{importedTeams}</span>
               </p>
-              {playersWithoutTeam > 0 ? (
-                <p>
-                  <span className="text-muted-foreground">Players without team</span>{" "}
-                  <span className="font-semibold text-amber-300">{playersWithoutTeam}</span>
-                </p>
-              ) : null}
+              <p>
+                <span className="text-muted-foreground">Players without Team</span>{" "}
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    playersWithoutTeam > 0 ? "text-amber-300" : "text-foreground",
+                  )}
+                >
+                  {playersWithoutTeam}
+                </span>
+              </p>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
           <SearchInput
             value={search}
@@ -285,17 +324,54 @@ export default function BadmintonPlayersPage() {
             action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((player) => (
-              <PlayerCard
-                key={player.id}
-                player={player}
-                onEdit={() => { setEditPlayer(player); setShowForm(true); }}
-                onDelete={() => {
-                  setDeleteError("");
-                  setDeleteTarget(player);
-                }}
-              />
+          <div className="space-y-8">
+            {playersByTeam.map((group) => (
+              <section key={group.teamName} className="space-y-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {group.logoUrl ? (
+                    <img
+                      src={group.logoUrl}
+                      alt=""
+                      className="w-7 h-7 rounded-md object-contain bg-white/90 border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+                      <Users className="w-3.5 h-3.5 text-primary" aria-hidden />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h2
+                      className={cn(
+                        "text-base font-display font-bold truncate",
+                        group.teamName === "Players without Team"
+                          ? "text-amber-300"
+                          : "text-foreground",
+                      )}
+                    >
+                      {group.teamName}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {group.players.length} player{group.players.length === 1 ? "" : "s"}
+                      {group.teamName !== "Players without Team"
+                        ? " · team identity from Auction"
+                        : " · add a team later if needed"}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.players.map((player) => (
+                    <PlayerCard
+                      key={player.id}
+                      player={player}
+                      onEdit={() => { setEditPlayer(player); setShowForm(true); }}
+                      onDelete={() => {
+                        setDeleteError("");
+                        setDeleteTarget(player);
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}

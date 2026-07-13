@@ -20,7 +20,6 @@ import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminto
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
   EmptyState,
-  PageHeader,
   HubPageShell,
   hubCardClass,
   FormModal,
@@ -30,9 +29,9 @@ import {
   DarkSelect,
   inputClass,
   BtnPrimary,
-  hubPanelClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 
 interface BadmintonCourt {
   id: number;
@@ -308,12 +307,7 @@ export default function BadmintonSchedulePage() {
         stepId="scheduling"
         continueHref={`/tournament/${tournamentId}/badminton`}
         continueLabel="Continue to Ready"
-      >
-      <PageHeader
-        eyebrow="Step 7 of 8"
-        title="Court Schedule"
-        subtitle="Assign courts and times before matches begin."
-        actions={
+        headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {courts.length === 0 ? (
               <Link href={`/tournament/${tournamentId}/badminton/courts`}>
@@ -329,12 +323,18 @@ export default function BadmintonSchedulePage() {
             ) : null}
           </div>
         }
-      />
-
+        guideExtras={
+          <div className="space-y-2">
+            <SetupTerm term="Where" meaning="which court the fixture uses." />
+            <SetupTerm term="When" meaning="the date and start time for that fixture." />
+            <SetupTerm
+              term="Scheduling"
+              meaning="happens after the draw — first who plays whom, then where and when."
+            />
+          </div>
+        }
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
-        <div className={cn(hubPanelClass, "text-sm text-muted-foreground")}>
-          This determines where and when each match will be played.
-        </div>
         {actionError ? <FormError message={actionError} /> : null}
 
         {isLoading ? (

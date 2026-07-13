@@ -11,7 +11,6 @@ import { useLocation, useRoute } from "wouter";
 import { Check } from "lucide-react";
 import {
   HubPageShell,
-  PageHeader,
   BtnSecondary,
   hubPanelClass,
   FormField,
@@ -19,6 +18,7 @@ import {
   inputClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import {
   useBadmintonScoringFormat,
   useSaveBadmintonScoringFormat,
@@ -183,17 +183,18 @@ export default function BadmintonScoringFormatPage() {
         }}
         continueLabel={saveMutation.isPending ? "Saving…" : "Continue"}
         continueDisabled={saveMutation.isPending}
+        guideExtras={
+          <div className="space-y-2">
+            <SetupTerm term="Points" meaning="how many points win a game (for example 21)." />
+            <SetupTerm term="Best of 3" meaning="first side to win 2 games wins the match." />
+            <SetupTerm
+              term="Scoring Rules"
+              meaning="saved once for the tournament; new matches use them automatically."
+            />
+          </div>
+        }
       >
-      <PageHeader
-        eyebrow="Step 4 of 8"
-        title="Scoring Rules"
-        subtitle="These rules apply to matches in this tournament."
-      />
-
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-        <p className="text-sm text-muted-foreground">
-          Examples: 21 Points, 15 Points, Best of 3.
-        </p>
         {isLoading ? (
           <div className="h-48 rounded-xl bg-muted/20 animate-pulse" />
         ) : (

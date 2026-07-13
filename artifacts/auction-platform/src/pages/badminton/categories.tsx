@@ -20,8 +20,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 
 interface BadmintonCategory {
   id: number;
@@ -78,22 +79,23 @@ export default function BadmintonCategoriesPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="categories">
-      <PageHeader
-        eyebrow="Step 3 of 8"
-        title="Events"
-        subtitle="Events define what competitions will be played."
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="categories"
+        headerActions={
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
             + Add Event
           </BtnPrimary>
         }
-      />
-
+        guideExtras={
+          <div className="space-y-2">
+            <SetupTerm term="Event" meaning="one competition in your tournament (for example Men's Singles)." />
+            <SetupTerm term="Draw" meaning="who plays whom inside that event — set in Tournament Draw." />
+            <SetupTerm term="Champion" meaning="the winner of that event when results are complete." />
+          </div>
+        }
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Examples: Men&apos;s Singles, Women&apos;s Singles, Mixed Doubles.
-        </p>
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -313,7 +315,7 @@ function CategoryPanel({
               onClick={onEdit}
               className="h-9 px-4 rounded-lg bg-white/8 hover:bg-white/12 text-white/70 text-xs font-semibold transition-colors"
             >
-              Edit Category
+              Edit Event
             </button>
             <button
               onClick={() => setShowAddReg(true)}
@@ -445,7 +447,7 @@ function CategoryFormModal({
 
   async function handleSave() {
     if (!form.name.trim()) {
-      setError("Category name is required");
+      setError("Event name is required");
       return;
     }
     setSaving(true);
@@ -483,13 +485,13 @@ function CategoryFormModal({
 
   return (
     <FormModal
-      title={category ? "Edit Category" : "Add Category"}
-      subtitle="Define draw category settings"
+      title={category ? "Edit Event" : "Add Event"}
+      subtitle="An Event is one competition — for example Men's Singles. It later gets a Draw, Schedule, and Champion."
       onClose={onClose}
       size="lg"
     >
-      <FormField label="Category Name *">
-        <input {...f("name")} placeholder="Men's Singles U-19" className={inputClass} />
+      <FormField label="Event Name *">
+        <input {...f("name")} placeholder="Men's Singles" className={inputClass} />
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
@@ -556,7 +558,7 @@ function CategoryFormModal({
       <FormActions
         onCancel={onClose}
         onSubmit={handleSave}
-        submitLabel={category ? "Save Changes" : "Add Category"}
+        submitLabel={category ? "Save Changes" : "Add Event"}
         saving={saving}
       />
     </FormModal>

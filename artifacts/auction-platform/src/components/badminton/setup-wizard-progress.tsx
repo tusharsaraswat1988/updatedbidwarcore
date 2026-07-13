@@ -1,11 +1,12 @@
 import { Link } from "wouter";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BadmintonSetupItem } from "@/lib/badminton-setup-workflow";
 
 /**
- * Horizontal / wrap step progress for the Tournament Setup Wizard.
- * Completed = green, current = primary highlight, future = muted.
+ * Visual setup flow at the top of every wizard page.
+ * Completed = green, current = primary, future = muted.
+ * Connectors read as a downward flow (Tournament → … → Ready).
  */
 export function BadmintonSetupWizardProgress({
   items,
@@ -19,7 +20,7 @@ export function BadmintonSetupWizardProgress({
       className="border-b border-border bg-card/40"
       aria-label="Tournament setup progress"
     >
-      <ol className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-1 overflow-x-auto scrollbar-none">
+      <ol className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-0.5 overflow-x-auto scrollbar-none">
         {items.map((item, index) => {
           const isCompleted = item.status === "completed";
           const isCurrent = item.status === "current";
@@ -31,8 +32,8 @@ export function BadmintonSetupWizardProgress({
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-colors",
                 isCompleted && "bg-green-500/15 text-green-400",
-                isCurrent && "bg-primary/15 text-primary ring-1 ring-primary/35",
-                isUpcoming && "text-muted-foreground/55",
+                isCurrent && "bg-primary/15 text-primary ring-1 ring-primary/40 shadow-[0_0_0_1px] shadow-primary/10",
+                isUpcoming && "text-muted-foreground/50",
               )}
             >
               {isCompleted ? (
@@ -41,7 +42,7 @@ export function BadmintonSetupWizardProgress({
                 <span
                   className={cn(
                     "font-mono text-[10px] w-3.5 text-center",
-                    isCurrent ? "text-primary" : "text-muted-foreground/50",
+                    isCurrent ? "text-primary font-bold" : "text-muted-foreground/45",
                   )}
                 >
                   {item.order}
@@ -52,7 +53,7 @@ export function BadmintonSetupWizardProgress({
           );
 
           return (
-            <li key={item.id} className="flex items-center gap-1 shrink-0">
+            <li key={item.id} className="flex items-center gap-0.5 shrink-0">
               {isUpcoming ? (
                 <span aria-disabled="true">{chip}</span>
               ) : (
@@ -67,11 +68,13 @@ export function BadmintonSetupWizardProgress({
               {showConnector ? (
                 <span
                   className={cn(
-                    "w-3 sm:w-5 h-px shrink-0",
-                    isCompleted ? "bg-green-500/40" : "bg-border",
+                    "flex flex-col items-center justify-center w-4 sm:w-6 shrink-0 text-[10px] leading-none",
+                    isCompleted ? "text-green-500/55" : "text-muted-foreground/35",
                   )}
                   aria-hidden
-                />
+                >
+                  <ChevronDown className="w-3.5 h-3.5 -my-0.5" />
+                </span>
               ) : null}
             </li>
           );

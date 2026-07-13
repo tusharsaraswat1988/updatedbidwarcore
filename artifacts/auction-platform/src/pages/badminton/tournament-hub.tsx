@@ -29,6 +29,7 @@ import {
   BadmintonNextStepBanner,
 } from "@/components/badminton/setup-checklist";
 import { BadmintonSetupWizardProgress } from "@/components/badminton/setup-wizard-progress";
+import { SetupReadyCelebration } from "@/components/badminton/setup-guide-panel";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,7 +78,7 @@ export default function BadmintonTournamentHub() {
           title={atReady ? "Tournament Ready" : "Tournament Setup Wizard"}
           subtitle={
             atReady
-              ? "Everything is in place — open live operations when you are ready to run the day."
+              ? "Your tournament is ready. Next you will operate from Control Center."
               : remaining === 1
                 ? "One step left — finish setup to make the tournament ready"
                 : `We will guide you through each step — ${remaining} remaining (${percent}%)`
@@ -88,6 +89,7 @@ export default function BadmintonTournamentHub() {
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
           {atReady ? (
             <>
+              <SetupReadyCelebration />
               <div className={cn(hubPanelClass, "flex flex-col sm:flex-row sm:items-center gap-4")}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="p-2.5 rounded-lg bg-green-500/15 shrink-0">
@@ -95,19 +97,19 @@ export default function BadmintonTournamentHub() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-widest text-green-400">
-                      Tournament Ready
+                      What happens next
                     </p>
                     <h2 className="text-base font-display font-bold text-foreground mt-0.5">
-                      Setup is complete
+                      Operate from Control Center
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Command Center becomes your organizer home after this. Open live operations to run courts and matches.
+                      Control Center is your live desk for courts, scorers, and match day. Command Center becomes your organizer home after this.
                     </p>
                   </div>
                 </div>
                 <BtnPrimary className="w-full sm:w-auto shrink-0" onClick={openLiveOperations}>
                   <Target className="w-4 h-4" />
-                  Open Live Operations
+                  Open Control Center
                 </BtnPrimary>
               </div>
               <BadmintonSetupChecklist
@@ -163,10 +165,10 @@ export default function BadmintonTournamentHub() {
             </div>
           </div>
           <Link href={`/tournament/${tournamentId}/badminton/control`}>
-            <BtnPrimary className="w-full sm:w-auto shrink-0">
-              <Target className="w-4 h-4" />
-              Open Live Operations
-            </BtnPrimary>
+                <BtnPrimary className="w-full sm:w-auto shrink-0">
+                  <Target className="w-4 h-4" />
+                  Open Control Center
+                </BtnPrimary>
           </Link>
         </div>
 

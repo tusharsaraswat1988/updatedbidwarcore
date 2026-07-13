@@ -20,7 +20,6 @@ import {
   EmptyState,
   FormField,
   inputClass,
-  PageHeader,
   HubPageShell,
   BtnPrimary,
   DarkSelect,
@@ -31,6 +30,7 @@ import {
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -121,27 +121,43 @@ export default function BadmintonCourtsPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="courts">
-      <PageHeader
-        eyebrow="Step 5 of 8"
-        title="Courts"
-        subtitle="Court setup also defines scorer assignment."
-        actions={
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="courts"
+        headerActions={
           <BtnPrimary onClick={() => { setEditCourt(null); setShowForm(true); }}>
             + Add Court
           </BtnPrimary>
         }
-      />
-
+        guideExtras={
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm font-medium text-foreground">
+              <span className="rounded-md border border-border bg-background/60 px-2.5 py-1">
+                Court PIN
+              </span>
+              <span className="text-muted-foreground hidden sm:inline" aria-hidden>
+                ↓
+              </span>
+              <span className="rounded-md border border-border bg-background/60 px-2.5 py-1">
+                All matches on that court
+              </span>
+              <span className="text-muted-foreground hidden sm:inline" aria-hidden>
+                ↓
+              </span>
+              <span className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">
+                Match PIN overrides Court PIN
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <SetupTerm term="Scorer" meaning="the umpire who enters points on the tablet." />
+              <SetupTerm term="Scorer PIN" meaning="the code the scorer enters to unlock scoring." />
+              <SetupTerm term="Display" meaning="court-side scoreboard view for spectators." />
+              <SetupTerm term="Broadcast" meaning="OBS / stream overlays that show the live score." />
+            </div>
+          </div>
+        }
+      >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        <div className={cn(hubPanelClass, "space-y-2")}>
-          <p className="text-sm text-muted-foreground">
-            Court → Default Scorer PIN → Inherited by matches.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Match PIN overrides Court PIN. Set a court PIN so umpires can open Scorer Home without a per-match code.
-          </p>
-        </div>
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -433,8 +449,8 @@ function CourtFormModal({
             Scorer Assignment
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Default Scorer PIN for this court. Matches without their own PIN inherit it.
-            A match PIN overrides this court PIN.
+            Default Scorer PIN for this court — umpires use it to open scoring.
+            Matches without their own PIN inherit it. A Match PIN overrides this Court PIN.
           </p>
         </div>
         <FormField label="Scorer PIN">
