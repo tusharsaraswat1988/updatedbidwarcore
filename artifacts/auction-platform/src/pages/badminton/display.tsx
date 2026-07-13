@@ -1,12 +1,15 @@
 /**
  * Badminton Broadcast Display Page
  * Route: /badminton/:matchId/display?tid=YYY
+ *
+ * When matchId is `live`, follows Primary Broadcast / sole LIVE match automatically.
  */
 
 import { useEffect, useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
 import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { FullscreenLayout } from "@/components/layout";
 import { DisplayStageViewport } from "@/components/display/display-stage-viewport";
@@ -16,6 +19,7 @@ import { DevThemePicker } from "@/components/display/v1/DevThemePicker";
 import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { loadDisplayFonts } from "@/lib/load-display-fonts";
+import { isLiveFollowMatchId } from "@/lib/badminton-broadcast-console";
 
 function LedStandby({ message }: { message: string }) {
   return (
@@ -55,23 +59,29 @@ type BadmintonMatchDetailMeta = {
   matchType?: string;
 };
 
-export default function BadmintonDisplayPage() {
-  const [, params] = useRoute("/badminton/:matchId/display");
-  const search = useSearch();
-  const searchParams = new URLSearchParams(search);
-
-  const matchId = parseInt(params?.matchId ?? "0");
-  const tournamentId = parseInt(searchParams.get("tid") ?? "0");
-  const courtNumber = searchParams.get("court") ?? undefined;
-
-  useEffect(() => {
-    loadDisplayFonts();
-  }, []);
-
-  const { data, isLoading } = useBadmintonMatch(tournamentId, matchId);
+function DisplayStage({
+  tournamentId,
+  matchId,
+  courtNumber,
+  followMode,
+}: {
+  tournamentId: number;
+  matchId: number;
+  courtNumber?: string;
+  followMode: boolean;
+}) {
+  const fixedMatch = useBadmintonMatch(tournamentId, followMode ? 0 : matchId);
+  const liveFollow = useBadmintonLiveFollow(followMode ? tournamentId : 0);
   const { data: branding } = useBadmintonBranding(tournamentId);
+
+  const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
+  const isLoading = followMode
+    ? liveFollow.matchesLoading || (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
+    : fixedMatch.isLoading;
   const matchDetail = data?.detail as BadmintonMatchDetailMeta | null | undefined;
 
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
 
@@ -93,15 +103,21 @@ export default function BadmintonDisplayPage() {
     };
   }, [branding?.accentColor, branding?.primaryColor]);
 
+  const standbyMessage = followMode
+    ? liveFollow.primaryMatchId
+      ? "Connecting to live match…"
+      : "Waiting for live match…"
+    : isLoading
+      ? "Connecting to match…"
+      : "Match not available";
+
   return (
     <FullscreenLayout>
       <DisplayStageViewport>
         <StageThemeProvider initialTheme={initialTheme}>
           <StageFrame>
-            {isLoading ? (
-              <LedStandby message="Connecting to match…" />
-            ) : !data?.state ? (
-              <LedStandby message="Match not available" />
+            {isLoading || !data?.state ? (
+              <LedStandby message={standbyMessage} />
             ) : (
               <BroadcastDisplay
                 state={data.state as BadmintonMatchState}
@@ -120,5 +136,29 @@ export default function BadmintonDisplayPage() {
         </StageThemeProvider>
       </DisplayStageViewport>
     </FullscreenLayout>
+  );
+}
+
+export default function BadmintonDisplayPage() {
+  const [, params] = useRoute("/badminton/:matchId/display");
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+
+  const followMode = isLiveFollowMatchId(params?.matchId);
+  const matchId = followMode ? 0 : parseInt(params?.matchId ?? "0", 10);
+  const tournamentId = parseInt(searchParams.get("tid") ?? "0", 10);
+  const courtNumber = searchParams.get("court") ?? undefined;
+
+  useEffect(() => {
+    loadDisplayFonts();
+  }, []);
+
+  return (
+    <DisplayStage
+      tournamentId={tournamentId}
+      matchId={matchId}
+      courtNumber={courtNumber}
+      followMode={followMode}
+    />
   );
 }

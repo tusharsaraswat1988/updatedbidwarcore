@@ -50,7 +50,9 @@ export function ConfirmActionDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:gap-0">
-          <AlertDialogCancel disabled={busy}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy} className="min-h-11">
+            {cancelLabel}
+          </AlertDialogCancel>
           <AlertDialogAction
             disabled={busy}
             onClick={(e) => {
@@ -59,8 +61,8 @@ export function ConfirmActionDialog({
             }}
             className={
               destructive
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : undefined
+                ? "min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "min-h-11"
             }
           >
             {busy ? "Working…" : confirmLabel}

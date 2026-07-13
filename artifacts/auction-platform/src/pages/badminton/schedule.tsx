@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { findCourtScheduleConflicts } from "@/lib/badminton-control-center";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
-import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
+import { friendlyBadmintonError, formatFixtureStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
   EmptyState,
@@ -569,7 +569,7 @@ function FixtureScheduleCard({
                   : "bg-white/10 text-white/50",
             )}
           >
-            {status.replace(/_/g, " ")}
+            {formatFixtureStatusLabel(status)}
           </span>
         </div>
         <p className="text-white/50 text-sm truncate">

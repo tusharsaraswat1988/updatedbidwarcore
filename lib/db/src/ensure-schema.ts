@@ -1,35 +1,105 @@
 import type pg from "pg";
 import { recordSystemDMetrics } from "./boot-metrics";
-import { resolveAutoHealEnabled, runSchemaGovernance } from "./schema-governance/index.js";
+import { resolveDatabaseUrl } from "./database-url";
+import {
+  resolveEffectiveAutoHeal,
+  resolveEnvironment,
+  runSchemaGovernance,
+} from "./schema-governance/index.js";
+import {
+  assertEnvironmentDatabaseIsolation,
+  classifyDatabaseRole,
+  gateAutoHealForDatabase,
+} from "./schema-governance/database-identity.js";
+import {
+  resolveSchemaBootTimeoutMs,
+  withTimeout,
+  type DbQueryable,
+} from "./schema-governance/timeouts.js";
 
 /**
  * Boot schema orchestration.
  *
- * - Development / staging (SCHEMA_AUTO_HEAL=true or NODE_ENV≠production):
- *   Runs legacy idempotent bootstrap DDL, then Drizzle-driven heal for gaps.
- * - Production (default): NEVER mutates. Validates live DB against Drizzle SSOT
- *   and refuses to start on critical drift (prints required SQL).
+ * Order: validate/heal schema → then callers may start the HTTP server.
+ * Never bind PORT before this completes successfully.
  *
- * Drizzle schema is the only design source of truth for validation/heal SQL.
+ * Environment selection (simple, required):
+ * 1. BIDWAR_ENV=local|staging|production (required — fail if missing)
+ * 2. DATABASE_URL from Render / .env
+ * 3. Optional NEON_*_HOST_ALLOWLIST safety guard
+ *
+ * - local / staging: auto-heal
+ * - production: validate-only
+ *
+ * Hang guardrails: SCHEMA_BOOT_TIMEOUT_MS + per-session lock/statement timeouts.
  */
 export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
-  const autoHeal = resolveAutoHealEnabled();
+  const timeoutMs = resolveSchemaBootTimeoutMs();
+  const startedAt = Date.now();
 
-  if (autoHeal) {
-    await runLegacyBootstrapDdl(pool);
-  } else {
-    console.info(
-      "[schema] production/validate-only mode — skipping boot DDL mutations; validating against Drizzle",
-    );
-  }
+  await withTimeout(
+    runEnsureCoreSchemaWithClient(pool),
+    timeoutMs,
+    `[schema] bootstrap timed out after ${timeoutMs}ms. ` +
+      `Check DATABASE_URL / Neon wake, lock contention, and SCHEMA_BOOT_TIMEOUT_MS. ` +
+      `Refusing to start HTTP server.`,
+  );
 
-  await runSchemaGovernance(pool, {
-    autoHeal,
-    log: (msg, extra) => {
-      if (extra) console.info(msg, extra);
-      else console.info(msg);
-    },
+  console.info(`[schema] bootstrap finished in ${Date.now() - startedAt}ms`);
+}
+
+async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
+  const databaseUrl = resolveDatabaseUrl();
+  const environment = resolveEnvironment();
+  assertEnvironmentDatabaseIsolation(environment, databaseUrl);
+
+  const desiredHeal = resolveEffectiveAutoHeal(undefined, databaseUrl);
+  // Belt-and-suspenders: never run legacy DDL against production Neon.
+  const autoHeal = gateAutoHealForDatabase(desiredHeal, databaseUrl);
+
+  console.info("[schema] boot policy", {
+    environment,
+    databaseRole: classifyDatabaseRole(databaseUrl),
+    autoHealEnabled: autoHeal,
   });
+
+  const connectTimeoutMs = pool.options.connectionTimeoutMillis || 20_000;
+  const client = await withTimeout(
+    pool.connect(),
+    connectTimeoutMs + 1_000,
+    `[schema] timed out acquiring a DB connection after ${connectTimeoutMs}ms. Refusing to start HTTP server.`,
+  );
+
+  try {
+    await client.query(`SET lock_timeout = '15s'`);
+    await client.query(`SET statement_timeout = '30s'`);
+
+    if (autoHeal) {
+      await runLegacyBootstrapDdl(client);
+    } else {
+      console.info(
+        "[schema] validate-only mode — skipping boot DDL mutations; validating against Drizzle",
+      );
+    }
+
+    await runSchemaGovernance(client, {
+      autoHeal,
+      environment,
+      databaseUrl,
+      log: (msg, extra) => {
+        if (extra) console.info(msg, extra);
+        else console.info(msg);
+      },
+    });
+  } finally {
+    try {
+      await client.query("RESET lock_timeout");
+      await client.query("RESET statement_timeout");
+    } catch {
+      // ignore — connection may already be broken
+    }
+    client.release();
+  }
 }
 
 /**
@@ -37,16 +107,16 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
  * Used only when auto-heal is enabled (empty DB / local / staging).
  * Do not call this on production boot — production uses versioned migrations.
  */
-async function runLegacyBootstrapDdl(pool: pg.Pool): Promise<void> {
+async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
   const startedAt = Date.now();
   let queryCount = 0;
   let success = false;
   let errorMessage: string | undefined;
 
-  /** Metrics wrapper — identical SQL passed through to pool.query. */
+  /** Metrics wrapper — identical SQL passed through to db.query. */
   const q = (sql: string) => {
     queryCount += 1;
-    return pool.query(sql);
+    return db.query(sql);
   };
 
   try {

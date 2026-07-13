@@ -156,6 +156,9 @@ export const DEFAULT_OWNER_DEV_PORT = 5174;
 /** Default Vite dev port for scoring-app. */
 export const DEFAULT_SCORING_DEV_PORT = 5175;
 
+/** Default Vite dev port for shared mobile-app (dual-auth shell). */
+export const DEFAULT_MOBILE_DEV_PORT = 5176;
+
 /**
  * Resolve a path for browser fetch/EventSource.
  * Accepts `/auth/...` (appends API_PREFIX) or `/api/...` (unchanged).

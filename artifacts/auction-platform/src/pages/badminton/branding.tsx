@@ -470,9 +470,9 @@ export default function BadmintonBrandingPage() {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <BtnPrimary type="button" onClick={() => setLogoEditorOpen(true)}>
+                    <BtnSecondary type="button" onClick={() => setLogoEditorOpen(true)}>
                       {form.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </BtnPrimary>
+                    </BtnSecondary>
                     {form.logoUrl && (
                       <BtnSecondary type="button" onClick={() => setForm((f) => ({ ...f, logoUrl: "", logoPublicId: "" }))}>
                         Remove
@@ -552,7 +552,7 @@ export default function BadmintonBrandingPage() {
                   {scoreBoardSponsor.logoUrl ? (
                     <img
                       src={scoreBoardSponsor.logoUrl}
-                      alt=""
+                      alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
                       className="w-20 h-20 rounded-xl object-contain bg-white p-2 border border-[#ffd700]/30"
                     />
                   ) : (
@@ -561,9 +561,9 @@ export default function BadmintonBrandingPage() {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <BtnPrimary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
+                    <BtnSecondary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
                       {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </BtnPrimary>
+                    </BtnSecondary>
                     {scoreBoardSponsor.logoUrl && (
                       <BtnSecondary type="button" onClick={() => setScoreBoardSponsor((s) => ({ ...s, logoUrl: null, logoPublicId: null }))}>
                         Remove
@@ -592,7 +592,7 @@ export default function BadmintonBrandingPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <BtnPrimary
+                <BtnSecondary
                   type="button"
                   onClick={() => {
                     setImportMessage("");
@@ -601,7 +601,7 @@ export default function BadmintonBrandingPage() {
                   disabled={importAuctionMutation.isPending || isLoading}
                 >
                   {importAuctionMutation.isPending ? "Importing…" : "Import branding"}
-                </BtnPrimary>
+                </BtnSecondary>
               </div>
 
               <p className="text-muted-foreground text-xs leading-relaxed">

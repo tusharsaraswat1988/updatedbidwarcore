@@ -44,17 +44,24 @@ Use on the **staging** web service only. Staging auto-deploys when commits merge
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 
-# Neon STAGING — not production
-DATABASE_URL=postgresql://...@<neon-staging-host>/<db>?sslmode=require
+# Neon STAGING — separate database from production (set in Render dashboard)
+DATABASE_URL=postgresql://...@<staging-neon-host>/<db>?sslmode=require
 
-# Staging public URL (Render default or custom staging subdomain)
+# Optional safety: hostname substrings for this environment's Neon endpoint
+# NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
+# NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
+
+# Staging public URL — CRITICAL: Do NOT copy production values here.
+# Wrong APP_URL=https://bidwar.in makes Google login redirect to production
+# after account selection (redirect_uri becomes https://bidwar.in/api/auth/google/callback).
+# Hostname should include "staging" for clarity; environment identity is BIDWAR_ENV.
 APP_DOMAIN=bidwar-staging.onrender.com
 APP_URL=https://bidwar-staging.onrender.com
 APP_PUBLIC_SCHEME=https
 
-# Unique to staging — generate fresh values
 SESSION_SECRET=<openssl rand -hex 32>
 ADMIN_PASSWORD=<staging-only-password>
 
@@ -62,12 +69,29 @@ SCORING=true
 LOG_LEVEL=info
 ```
 
+**Verify before deploy:** Render staging `DATABASE_URL` must be the staging Neon database (not production). Prefer setting both allow-list env vars so a mis-pasted production URL fails closed at boot.
+
+### Staging Google OAuth (required for Google login)
+
+1. In Render staging env, set `APP_URL` / `APP_DOMAIN` to the **staging** host (see above). Never set them to `bidwar.in`.
+2. In Google Cloud Console → Credentials → OAuth 2.0 Client, add Authorized redirect URI:
+   - `https://bidwar-staging.onrender.com/api/auth/google/callback`
+3. Prefer a **separate** OAuth client for staging (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`), or share production’s client only if both redirect URIs are registered.
+
+Verify after deploy:
+
+```bash
+curl -sI "https://bidwar-staging.onrender.com/api/auth/google" | grep -i location
+# Location must contain redirect_uri=https%3A%2F%2Fbidwar-staging.onrender.com%2Fapi%2Fauth%2Fgoogle%2Fcallback
+# NOT bidwar.in
+```
+
 ### Staging integration guidance
 
 | Integration | Recommendation |
 |-------------|----------------|
 | `EMAIL_ENABLED` | `false` or separate Resend sandbox key |
-| `GOOGLE_CLIENT_ID` | Separate OAuth client with **staging** callback URI registered |
+| `GOOGLE_CLIENT_ID` | Separate OAuth client with **staging** callback URI registered (`…/api/auth/google/callback`) |
 | `CLOUDINARY_*` | Separate folder prefix or sub-account |
 | `TWILIO_*` / `BULKSMS_*` | Sandbox / test credentials only |
 | `VAPID_*` | Staging-only keys or omit (push disabled) |
@@ -85,12 +109,16 @@ Use on the **production** web service only. Production auto-deploys when commits
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=production
 SERVE_STATIC=true
 
-# Neon PRODUCTION
-DATABASE_URL=postgresql://...@<neon-production-host>/<db>?sslmode=require
+# Neon PRODUCTION — separate database from staging (set in Render dashboard)
+DATABASE_URL=postgresql://...@<production-neon-host>/<db>?sslmode=require
 
-# Production public site
+# Optional safety: hostname substrings for this environment's Neon endpoint
+# NEON_PRODUCTION_HOST_ALLOWLIST=<production-pooler-substring>
+# NEON_STAGING_HOST_ALLOWLIST=<staging-pooler-substring>
+
 APP_DOMAIN=bidwar.in,www.bidwar.in
 APP_URL=https://bidwar.in
 APP_PUBLIC_SCHEME=https
@@ -98,9 +126,12 @@ APP_PUBLIC_SCHEME=https
 SESSION_SECRET=<unique-production-secret>
 ADMIN_PASSWORD=<strong-production-password>
 
+# Do NOT set SCHEMA_AUTO_HEAL=true on production
 SCORING=true
 LOG_LEVEL=info
 ```
+
+**Verify before deploy:** Render production `DATABASE_URL` must be the production Neon database (not staging). With allow-lists set, a mis-pasted staging URL fails closed; auto-heal cannot mutate hosts on `NEON_PRODUCTION_HOST_ALLOWLIST`.
 
 Add production Cloudinary, Google OAuth, Twilio, VAPID, BulkSMS, and Resend variables when those features are live. Register OAuth redirect URI: `https://bidwar.in/api/auth/google/callback`.
 
@@ -199,6 +230,7 @@ Use the full [staging](#staging-render-service-develop-branch) and [production](
 
 ```env
 NODE_ENV=production
+BIDWAR_ENV=staging
 SERVE_STATIC=true
 DATABASE_URL=postgresql://...   # Neon staging
 APP_DOMAIN=your-staging.onrender.com

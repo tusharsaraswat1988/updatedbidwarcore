@@ -11,6 +11,8 @@ export type BadmintonBranding = {
   primaryColor: string;
   accentColor: string;
   scoreBoardSponsor: ScoreBoardSponsor | null;
+  /** Organizer-selected LIVE match for persistent Venue/OBS follow URLs. */
+  primaryBroadcastMatchId: number | null;
 };
 
 export type ScoreBoardSponsor = {
@@ -48,6 +50,19 @@ export function resolveBadmintonSponsorLogos(
   return tournamentSponsorLogos ?? null;
 }
 
+function parsePrimaryBroadcastMatchId(
+  scoringSettingsJson: Record<string, unknown> | null | undefined,
+): number | null {
+  const broadcast = (scoringSettingsJson?.broadcast ?? {}) as Record<string, unknown>;
+  const raw = broadcast.primaryMatchId;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
+    const n = parseInt(raw.trim(), 10);
+    return n > 0 ? n : null;
+  }
+  return null;
+}
+
 export function getBadmintonBranding(
   tournament: {
     name: string;
@@ -77,5 +92,6 @@ export function getBadmintonBranding(
         ? raw.accentColor.trim()
         : "#4fc3f7",
     scoreBoardSponsor: parseScoreBoardSponsor(raw.scoreBoardSponsor),
+    primaryBroadcastMatchId: parsePrimaryBroadcastMatchId(scoringSettingsJson),
   };
 }

@@ -635,9 +635,13 @@ export function HubMatchCard({
 
             <Badge variant="secondary" className="text-green-400 border-green-500/30 bg-green-500/10">Completed</Badge>
 
+          ) : status === "paused" ? (
+
+            <Badge variant="outline" className="text-amber-300 border-amber-500/30 bg-amber-500/10">Paused</Badge>
+
           ) : (
 
-            <Badge variant="outline">Scheduled</Badge>
+            <Badge variant="outline">{status === "ready" ? "Ready" : "Scheduled"}</Badge>
 
           )}
 

@@ -12,7 +12,7 @@ import { Link, useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { toastError, toastSuccess } from "@/lib/badminton-ux";
+import { formatCourtEntityStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { ChevronDown, MapPin } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
@@ -282,13 +282,18 @@ function CourtCard({
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    available: "bg-green-500/15 text-green-400",
+    available: "bg-emerald-500/15 text-emerald-400",
     in_use: "bg-red-500/15 text-red-400",
-    maintenance: "bg-amber-500/15 text-amber-400",
+    maintenance: "bg-amber-500/15 text-amber-300",
   };
   return (
-    <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full", styles[status] ?? "bg-white/10 text-white/50")}>
-      {status.replace("_", " ")}
+    <span
+      className={cn(
+        "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full min-h-7 inline-flex items-center",
+        styles[status] ?? "bg-muted text-muted-foreground",
+      )}
+    >
+      {formatCourtEntityStatusLabel(status)}
     </span>
   );
 }
@@ -508,7 +513,7 @@ function CourtFormModal({
               onValueChange={(status) => setForm((p) => ({ ...p, status }))}
               options={[
                 { value: "available", label: "Available" },
-                { value: "in_use", label: "In Use" },
+                { value: "in_use", label: "Live" },
                 { value: "maintenance", label: "Maintenance" },
               ]}
             />

@@ -66,7 +66,7 @@ Reference: [RENDER_ENV_VARS.md — Staging](./RENDER_ENV_VARS.md#staging-render-
 | 3.1 | Admin login succeeds with staging `ADMIN_PASSWORD` | ☐ |
 | 3.2 | Session persists across page refresh (cookie set, not immediate logout) | ☐ |
 | 3.3 | Logout clears session | ☐ |
-| 3.4 | Google OAuth (if enabled): redirect uses staging `APP_URL` callback; login completes | ☐ |
+| 3.4 | Google OAuth (if enabled): `curl -sI <APP_URL>/api/auth/google` Location has `redirect_uri` for **staging** host (not `bidwar.in`); login completes on staging | ☐ |
 | 3.5 | Organizer login / tournament-scoped auth works for a test tournament | ☐ |
 
 ---
