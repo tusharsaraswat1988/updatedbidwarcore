@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 
 interface BadmintonCategory {
   id: number;
@@ -77,17 +78,22 @@ export default function BadmintonCategoriesPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
+      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="categories">
       <PageHeader
-        title="Categories"
-        subtitle="Events in this tournament — entries feed Draw & Fixtures"
+        eyebrow="Step 3 of 8"
+        title="Events"
+        subtitle="Events define what competitions will be played."
         actions={
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
-            + Add Category
+            + Add Event
           </BtnPrimary>
         }
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Examples: Men&apos;s Singles, Women&apos;s Singles, Mixed Doubles.
+        </p>
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -97,9 +103,9 @@ export default function BadmintonCategoriesPage() {
         ) : sorted.length === 0 ? (
           <EmptyState
             icon={Trophy}
-            title="No categories yet"
-            desc="Create events like Men's Singles U-19, Women's Doubles, etc."
-            action={{ label: "Add Category", onClick: () => setShowForm(true) }}
+            title="No events yet"
+            desc="Create events like Men's Singles, Women's Doubles, Mixed Doubles."
+            action={{ label: "Add Event", onClick: () => setShowForm(true) }}
           />
         ) : (
           sorted.map((cat) => (
@@ -138,6 +144,7 @@ export default function BadmintonCategoriesPage() {
           }}
         />
       )}
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }
@@ -318,7 +325,7 @@ function CategoryPanel({
               href={`/tournament/${tournamentId}/badminton/fixtures?categoryId=${category.id}`}
               className="h-9 px-4 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold transition-colors inline-flex items-center"
             >
-              Open Draw & Fixtures
+              Open Tournament Draw
             </Link>
           </div>
 

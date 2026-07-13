@@ -27,13 +27,14 @@ export function BadmintonNextStepBanner({
         </div>
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-widest text-primary">Next step</p>
-          <h2 className="text-base font-display font-bold text-foreground mt-0.5">{next.label}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{next.description}</p>
+          <h2 className="text-base font-display font-bold text-foreground mt-0.5">{next.title}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{next.purpose}</p>
         </div>
       </div>
       <Link href={next.href(tournamentId)}>
         <BtnPrimary className="w-full sm:w-auto shrink-0">
           Continue
+          <ArrowRight className="w-4 h-4" aria-hidden />
         </BtnPrimary>
       </Link>
     </div>
@@ -79,10 +80,10 @@ function SetupChecklistRow({
             isUpcoming && "text-muted-foreground/70",
           )}
         >
-          {item.label}
+          {item.title}
         </p>
         {isCurrent && (
-          <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{item.purpose}</p>
         )}
         {isUpcoming && (
           <p className="text-xs text-muted-foreground/60 mt-0.5">Waiting for previous step</p>
@@ -132,13 +133,16 @@ function SetupChecklistRow({
 export function BadmintonSetupChecklist({
   items,
   tournamentId,
+  /** When true, always show the checklist (Ready step review). */
+  forceShow,
 }: {
   items: BadmintonSetupItem[];
   tournamentId: number;
+  forceShow?: boolean;
 }) {
   const { doneCount, total, remaining, percent, complete } = setupProgress(items);
 
-  if (complete) return null;
+  if (complete && !forceShow) return null;
 
   const remainingLabel =
     remaining === 1 ? "Only 1 step remaining" : `Only ${remaining} steps remaining`;
@@ -148,10 +152,12 @@ export function BadmintonSetupChecklist({
       <div>
         <h2 className="text-base font-display font-bold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-primary" />
-          Setup progress
+          {complete ? "Readiness checklist" : "Setup progress"}
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {doneCount} of {total} completed · {remainingLabel}
+          {complete
+            ? "All setup steps are complete"
+            : `${doneCount} of ${total} completed · ${remainingLabel}`}
         </p>
         <Progress value={percent} className="h-1.5 mt-2 max-w-md" />
       </div>

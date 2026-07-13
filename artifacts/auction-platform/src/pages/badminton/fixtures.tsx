@@ -27,7 +27,9 @@ import {
   DarkSelect,
   inputClass,
   BtnPrimary,
+  hubPanelClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 
@@ -130,19 +132,29 @@ export default function BadmintonFixturesPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
+      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="draws">
       <PageHeader
-        title="Draw & Fixtures"
-        subtitle="Plan who plays whom — generate, import, or create fixtures manually"
+        eyebrow="Step 6 of 8"
+        title="Tournament Draw"
+        subtitle="This determines who plays whom."
         actions={
           sorted.length > 0 ? (
             <Link href={`/tournament/${tournamentId}/badminton/schedule`}>
-              <BtnPrimary type="button">Go to Scheduling</BtnPrimary>
+              <BtnPrimary type="button">Go to Court Schedule</BtnPrimary>
             </Link>
           ) : null
         }
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+        <div className={cn(hubPanelClass, "space-y-1")}>
+          <p className="text-sm text-muted-foreground">
+            Choose how to build the draw for each event:
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Generate Automatically · Import Existing Draw · Create Manually
+          </p>
+        </div>
         {isLoading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Loading fixtures">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -152,10 +164,10 @@ export default function BadmintonFixturesPage() {
         ) : sorted.length === 0 ? (
           <EmptyState
             icon={ListTree}
-            title="No categories yet"
-            desc="Define events on Categories first, then return here to create Draw & Fixtures."
+            title="No events yet"
+            desc="Define events first, then return here to create the tournament draw."
             action={{
-              label: "Open Categories",
+              label: "Open Events",
               href: `/tournament/${tournamentId}/badminton/categories`,
             }}
           />
@@ -177,6 +189,7 @@ export default function BadmintonFixturesPage() {
           })
         )}
       </div>
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }

@@ -51,7 +51,7 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "branding",
-    label: "Branding",
+    label: "Tournament Details",
     href: (tid) => `${badmintonHubPath(tid)}/branding`,
     isActive: (path) => pathEndsWithSection(path, "branding"),
   },
@@ -63,13 +63,13 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "categories",
-    label: "Categories",
+    label: "Events",
     href: (tid) => `${badmintonHubPath(tid)}/categories`,
     isActive: (path) => pathEndsWithSection(path, "categories"),
   },
   {
     id: "scoring_format",
-    label: "Match Format",
+    label: "Scoring Rules",
     href: (tid) => `${badmintonHubPath(tid)}/scoring-format`,
     isActive: (path) => pathEndsWithSection(path, "scoring-format"),
   },
@@ -81,13 +81,13 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "fixtures",
-    label: "Draw & Fixtures",
+    label: "Tournament Draw",
     href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
     isActive: (path) => pathEndsWithSection(path, "fixtures"),
   },
   {
     id: "schedule",
-    label: "Scheduling",
+    label: "Court Schedule",
     href: (tid) => `${badmintonHubPath(tid)}/schedule`,
     isActive: (path) => pathEndsWithSection(path, "schedule"),
   },
@@ -150,23 +150,23 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (/\/badminton\/schedule/.test(pathname)) {
-    return { kind: "link", href: `${hub}/fixtures`, label: "Back to Draw & Fixtures" };
+    return { kind: "link", href: `${hub}/fixtures`, label: "Back to Tournament Draw" };
   }
 
   if (/\/badminton\/fixtures/.test(pathname)) {
-    return { kind: "link", href: `${hub}/categories`, label: "Back to Categories" };
+    return { kind: "link", href: `${hub}/courts`, label: "Back to Courts" };
   }
 
   if (/\/badminton\/matches\/?$/.test(pathname) || /\/badminton\/matches\?/.test(pathname)) {
-    return { kind: "link", href: `${hub}/schedule`, label: "Back to Scheduling" };
+    return { kind: "link", href: `${hub}/schedule`, label: "Back to Court Schedule" };
   }
 
   if (/\/badminton\/courts/.test(pathname)) {
-    return { kind: "link", href: `${hub}/scoring-format`, label: "Back to Match Format" };
+    return { kind: "link", href: `${hub}/scoring-format`, label: "Back to Scoring Rules" };
   }
 
   if (/\/badminton\/scoring-format/.test(pathname)) {
-    return { kind: "link", href: `${hub}/categories`, label: "Back to Categories" };
+    return { kind: "link", href: `${hub}/categories`, label: "Back to Events" };
   }
 
   if (/\/badminton\/categories/.test(pathname)) {
@@ -174,11 +174,11 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (/\/badminton\/players/.test(pathname)) {
-    return { kind: "link", href: `${hub}/branding`, label: "Back to Branding" };
+    return { kind: "link", href: `${hub}/branding`, label: "Back to Tournament Details" };
   }
 
   if (/\/badminton\/branding/.test(pathname)) {
-    return { kind: "link", href: hub, label: "Back to Command Center" };
+    return { kind: "link", href: hub, label: "Back" };
   }
 
   if (/\/badminton\/broadcast/.test(pathname) || /\/badminton\/analytics/.test(pathname)) {

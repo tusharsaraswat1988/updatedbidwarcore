@@ -40,7 +40,9 @@ import {
   SearchInput,
   AsyncLoadingPanel,
   hubCardClass,
+  hubPanelClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -146,6 +148,10 @@ export default function BadmintonPlayersPage() {
     }));
   }, [players]);
 
+  const importedPlayers = players.length;
+  const importedTeams = teamOptions.length;
+  const playersWithoutTeam = players.filter((p) => !p.franchiseName?.trim()).length;
+
   const filtersActive =
     genderFilter !== "all" || teamFilter !== "all" || search.trim().length > 0;
 
@@ -179,9 +185,11 @@ export default function BadmintonPlayersPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
+      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="players">
       <PageHeader
+        eyebrow="Step 2 of 8"
         title="Players"
-        subtitle="Register players for category entries and fixtures"
+        subtitle="Confirm who will compete in this tournament."
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
@@ -193,6 +201,29 @@ export default function BadmintonPlayersPage() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className={cn(hubPanelClass, "mb-6 space-y-2")}>
+          <p className="text-sm text-muted-foreground">
+            Players imported from Auction can now be assigned to tournament events.
+          </p>
+          {!isLoading && players.length > 0 ? (
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              <p>
+                <span className="text-muted-foreground">Imported Players</span>{" "}
+                <span className="font-semibold text-foreground">{importedPlayers}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Imported Teams</span>{" "}
+                <span className="font-semibold text-foreground">{importedTeams}</span>
+              </p>
+              {playersWithoutTeam > 0 ? (
+                <p>
+                  <span className="text-muted-foreground">Players without team</span>{" "}
+                  <span className="font-semibold text-amber-300">{playersWithoutTeam}</span>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
           <SearchInput
             value={search}
@@ -324,6 +355,7 @@ export default function BadmintonPlayersPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }

@@ -10,6 +10,7 @@ import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
+import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
@@ -308,16 +309,18 @@ export default function BadmintonBrandingPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
+      <BadmintonSetupWizardChrome tournamentId={tournamentId} stepId="branding">
       <PageHeader
-        title="Branding"
-        subtitle="Logo, colors, and scoreboard sponsors — how your tournament looks on display"
+        eyebrow="Step 1 of 8"
+        title="Tournament Details"
+        subtitle="Set the name, logo, venue, and organizer for this tournament."
         actions={
           <div className="flex flex-col items-end gap-1">
             <BtnPrimary
               onClick={() => persistBranding(true)}
               disabled={saveMutation.isPending || isLoading}
             >
-              {saveMutation.isPending ? "Saving…" : "Save Branding"}
+              {saveMutation.isPending ? "Saving…" : "Save Details"}
             </BtnPrimary>
             <p className="text-muted-foreground text-xs">
               {saveError
@@ -331,6 +334,9 @@ export default function BadmintonBrandingPage() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
+        <p className="text-sm text-muted-foreground max-w-3xl">
+          This information appears on scoreboards and helps players recognize your event.
+        </p>
         {isLoading ? (
           <div className="h-80 rounded-xl bg-muted animate-pulse" />
         ) : (
@@ -427,7 +433,7 @@ export default function BadmintonBrandingPage() {
                 </p>
               </div>
 
-              <FormField label="Display Name">
+              <FormField label="Tournament Name">
                 <input
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
@@ -647,6 +653,7 @@ export default function BadmintonBrandingPage() {
           setScoreBoardLogoEditorOpen(false);
         }}
       />
+      </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
 }
