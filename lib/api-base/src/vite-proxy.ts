@@ -502,6 +502,7 @@ export function createViteDevProxies(): Record<string, ViteApiProxyOptions> {
 
 const OWNER_APP_DEV_COOKIE = "bidwar-dev-app=owner";
 const SCORING_APP_DEV_COOKIE = "bidwar-dev-app=scoring";
+const MOBILE_APP_DEV_COOKIE = "bidwar-dev-app=mobile";
 const OWNER_APP_MANIFEST_PATH = "/owner-app/manifest.webmanifest";
 
 /** Shared Vite dev paths that collide with auction-platform. */
@@ -568,7 +569,37 @@ function shouldProxyScoringAppAsset(
   if (pathname.startsWith("/scoring-app") || pathname.startsWith("/owner-app") || pathname.startsWith("/mobile")) {
     return false;
   }
+  if (isOwnerAppDevContext(referer, cookieHeader) || isMobileAppDevContext(referer, cookieHeader)) {
+    return false;
+  }
   if (!isScoringAppDevContext(referer, cookieHeader)) return false;
+  return isOwnerAppSharedAssetPath(pathname);
+}
+
+function isMobileAppDevContext(
+  referer: string,
+  cookieHeader: string | undefined,
+): boolean {
+  if (referer.includes("/mobile")) return true;
+  return parseCookies(cookieHeader)["bidwar-dev-app"] === "mobile";
+}
+
+function shouldProxyMobileAppAsset(
+  pathname: string,
+  referer: string,
+  cookieHeader: string | undefined,
+): boolean {
+  if (
+    pathname.startsWith("/mobile") ||
+    pathname.startsWith("/owner-app") ||
+    pathname.startsWith("/scoring-app")
+  ) {
+    return false;
+  }
+  if (isOwnerAppDevContext(referer, cookieHeader) || isScoringAppDevContext(referer, cookieHeader)) {
+    return false;
+  }
+  if (!isMobileAppDevContext(referer, cookieHeader)) return false;
   return isOwnerAppSharedAssetPath(pathname);
 }
 

@@ -38,8 +38,13 @@ import { sendEmail } from "../lib/notifications/providers/email-provider.js";
 
 const router: IRouter = Router();
 
-/** Platform-internal module — Super Admin only. Not exposed to organisers or data-entry admins. */
-router.use(requireMasterAdmin);
+/**
+ * Platform-internal module — Super Admin only.
+ * MUST be path-scoped. A bare `router.use(requireMasterAdmin)` would run for
+ * every API request (this router is mounted at `/`) and block organizers with
+ * "Super Admin access required" on badminton/auction saves.
+ */
+router.use("/auth/admin/communication-center", requireMasterAdmin);
 
 function adminLabel(_req: Request): string {
   return "master_admin";

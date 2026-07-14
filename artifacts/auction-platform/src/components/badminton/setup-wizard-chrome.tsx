@@ -1,14 +1,11 @@
 import { PageHeader } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardProgress } from "@/components/badminton/setup-wizard-progress";
 import { BadmintonSetupWizardFooter } from "@/components/badminton/setup-wizard-footer";
-import { BadmintonSetupGuidePanel } from "@/components/badminton/setup-guide-panel";
 import { useBadmintonSetup } from "@/hooks/use-badminton-setup";
-import { getTournamentStoryBeat } from "@/lib/tournament-story";
 import type { BadmintonSetupStepId } from "@/lib/badminton-setup-workflow";
 
 /**
- * Shared wizard chrome with Tournament Story Mode:
- * progress → title → story guide (Where/Why/Creates/Next + How this connects) → body → Continue.
+ * Lightweight setup chrome for SportsShell pages.
+ * Sidebar owns navigation — no story guide, no progress ribbon, no duplicate hub chips.
  */
 export function BadmintonSetupWizardChrome({
   tournamentId,
@@ -19,10 +16,12 @@ export function BadmintonSetupWizardChrome({
   continueLabel,
   continueDisabled,
   hideFooter,
-  guideExtras,
-  hideGuide,
   headerActions,
   headerBadge,
+  /** @deprecated Story guide removed — kept for call-site compatibility. */
+  guideExtras: _guideExtras,
+  /** @deprecated Story guide removed — kept for call-site compatibility. */
+  hideGuide: _hideGuide,
 }: {
   tournamentId: number;
   stepId: BadmintonSetupStepId;
@@ -37,9 +36,8 @@ export function BadmintonSetupWizardChrome({
   headerActions?: React.ReactNode;
   headerBadge?: string;
 }) {
-  const { items, getStep, isLoading, progress } = useBadmintonSetup(tournamentId);
+  const { getStep, isLoading, progress } = useBadmintonSetup(tournamentId);
   const step = getStep(stepId);
-  const beat = getTournamentStoryBeat(stepId);
 
   const showWizard = !progress.complete || stepId === "ready";
 
@@ -49,26 +47,14 @@ export function BadmintonSetupWizardChrome({
 
   return (
     <>
-      {!isLoading ? (
-        <BadmintonSetupWizardProgress items={items} tournamentId={tournamentId} />
-      ) : (
-        <div className="h-12 border-b border-border bg-muted/10 animate-pulse" aria-hidden />
-      )}
-
       {step ? (
         <PageHeader
-          eyebrow={`Step ${step.order} of 8 · Story mode`}
+          eyebrow={isLoading ? undefined : `Setup · Step ${step.order} of 8`}
           title={step.title}
-          subtitle={beat.whereAmI}
+          subtitle={step.purpose}
           badge={headerBadge}
           actions={headerActions}
         />
-      ) : null}
-
-      {!hideGuide && !isLoading ? (
-        <div className="max-w-7xl mx-auto px-6 pt-6">
-          <BadmintonSetupGuidePanel beat={beat} extras={guideExtras} />
-        </div>
       ) : null}
 
       {children}

@@ -409,39 +409,51 @@ describe("Tenant isolation — service layer contract", () => {
     expect(stateFromPureEvents.leftScore).toBe(3);
   });
 
-  it("isTournamentOwner logic: tournament-specific grant required", () => {
-    // This tests the JWT claim structure that isTournamentOwner checks.
-    // organizer[tournamentId] must be true; organizerAccountId alone is not enough.
+  it("isTournamentOwner logic: JWT grant or matching account ownership", () => {
+    // Mirrors isTournamentOrganizer / resolveIsTournamentOwner:
+    // - admin always passes
+    // - organizer[tournamentId] JWT grant passes
+    // - organizerAccountId alone (no matching tournament.organizerId) fails
+    // - organizerAccountId === tournament.organizerId passes
+    // - JWT grant for a different tournament fails
 
     const tournamentId = 42;
+    const tournamentOrganizerId = 999;
 
-    // Scenario 1: admin always passes
-    const adminClaims = { isAdmin: true };
-    const adminPasses = adminClaims.isAdmin === true;
+    const adminPasses = { isAdmin: true }.isAdmin === true;
     expect(adminPasses).toBe(true);
 
-    // Scenario 2: organizerAccountId alone does NOT grant access (new behaviour)
     const broadOrganizerClaims = { isAdmin: false, organizerAccountId: 999 };
-    const broadOrganizerGranted =
-      !!(broadOrganizerClaims as Record<string, unknown> as { organizer?: Record<string, boolean> })
-        .organizer?.[String(tournamentId)];
-    expect(broadOrganizerGranted).toBe(false); // MUST fail
+    const broadWithoutOwnerMatch =
+      !!(broadOrganizerClaims as { organizer?: Record<string, boolean> }).organizer?.[
+        String(tournamentId)
+      ];
+    expect(broadWithoutOwnerMatch).toBe(false);
 
-    // Scenario 3: tournament-specific organizer grant passes
+    const accountOwnerMatch =
+      broadOrganizerClaims.organizerAccountId != null &&
+      tournamentOrganizerId != null &&
+      broadOrganizerClaims.organizerAccountId === tournamentOrganizerId;
+    expect(accountOwnerMatch).toBe(true);
+
+    const wrongAccount = { isAdmin: false, organizerAccountId: 111 };
+    const wrongAccountMatch =
+      wrongAccount.organizerAccountId != null &&
+      tournamentOrganizerId != null &&
+      wrongAccount.organizerAccountId === tournamentOrganizerId;
+    expect(wrongAccountMatch).toBe(false);
+
     const specificOrganizerClaims = {
       isAdmin: false,
       organizer: { [String(tournamentId)]: true as const },
     };
-    const specificGranted = !!specificOrganizerClaims.organizer?.[String(tournamentId)];
-    expect(specificGranted).toBe(true); // MUST pass
+    expect(!!specificOrganizerClaims.organizer?.[String(tournamentId)]).toBe(true);
 
-    // Scenario 4: organizer for a different tournament cannot access this one
     const wrongTournamentClaims: { isAdmin: false; organizer: Record<string, boolean> } = {
       isAdmin: false,
       organizer: { "99": true },
     };
-    const wrongTournamentGranted = !!wrongTournamentClaims.organizer?.[String(tournamentId)];
-    expect(wrongTournamentGranted).toBe(false); // MUST fail
+    expect(!!wrongTournamentClaims.organizer?.[String(tournamentId)]).toBe(false);
   });
 
   it("scorer PIN must be matched per-match, not tournament-wide", () => {

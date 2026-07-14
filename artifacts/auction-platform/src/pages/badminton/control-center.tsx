@@ -183,7 +183,7 @@ export default function BadmintonControlCenterPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        title="Control Center"
+        title="Operator Panel"
         subtitle="Live · Ready · Delayed · Empty — run the day from here"
         badge={liveCount > 0 ? `${liveCount} Live` : delayedCount > 0 ? `${delayedCount} Delayed` : undefined}
         actions={

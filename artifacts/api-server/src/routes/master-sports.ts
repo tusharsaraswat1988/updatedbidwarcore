@@ -40,7 +40,17 @@ router.get("/master-players", async (req, res) => {
     return;
   }
 
-  const items = await listMasterPlayersForBadminton(tournamentId);
+  const rawSource = req.query.sourceTournamentId;
+  const sourceOverride =
+    rawSource !== undefined && rawSource !== null && String(rawSource).trim() !== ""
+      ? parseInt(String(rawSource), 10)
+      : undefined;
+  const sourceTournamentId =
+    sourceOverride !== undefined && Number.isFinite(sourceOverride) && sourceOverride > 0
+      ? sourceOverride
+      : undefined;
+
+  const items = await listMasterPlayersForBadminton(tournamentId, sourceTournamentId);
   res.json(items);
 });
 
@@ -55,6 +65,7 @@ router.post("/import-master-players", async (req, res) => {
 
   const schema = z.object({
     masterPlayerIds: z.array(z.string().min(1)).min(1),
+    sourceTournamentId: z.number().int().positive().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -66,6 +77,7 @@ router.post("/import-master-players", async (req, res) => {
     const result = await importMasterPlayersToBadminton(
       tournamentId,
       parsed.data.masterPlayerIds,
+      parsed.data.sourceTournamentId,
     );
     res.json(result);
   } catch (e) {

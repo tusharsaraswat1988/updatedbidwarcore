@@ -1,9 +1,9 @@
 /**
- * Badminton Tournament Command Center / Setup Wizard landing
+ * Badminton Tournament Command Center / Setup landing
  * Route: /tournament/:id/badminton
  *
- * Incomplete setup → Tournament Setup Wizard (default first-time experience)
- * Setup complete → Tournament Command Center (organizer home)
+ * Incomplete setup → checklist + next step
+ * Setup complete → Tournament Command Center
  */
 
 import { useRoute, Link, useLocation } from "wouter";
@@ -29,10 +29,6 @@ import {
   BadmintonSetupChecklist,
   BadmintonNextStepBanner,
 } from "@/components/badminton/setup-checklist";
-import { BadmintonSetupWizardProgress } from "@/components/badminton/setup-wizard-progress";
-import { SetupReadyCelebration } from "@/components/badminton/setup-guide-panel";
-import { TournamentStoryRibbon } from "@/components/badminton/how-this-connects";
-import { getTournamentStoryBeat } from "@/lib/tournament-story";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,49 +66,43 @@ export default function BadmintonTournamentHub() {
     setLocation(`/tournament/${tournamentId}/badminton/control`);
   }
 
-  // First-time / incomplete → Setup Wizard landing (not Command Center)
   if (!setupComplete) {
     const atReady = ready;
     return (
       <HubPageShell tournamentId={tournamentId}>
-        <BadmintonSetupWizardProgress items={items} tournamentId={tournamentId} />
         <PageHeader
-          eyebrow="Tournament Setup Wizard · Story mode"
-          title={atReady ? "Tournament Ready" : "Tournament Setup Wizard"}
+          eyebrow="Setup"
+          title={atReady ? "Tournament Ready" : "Tournament Setup"}
           subtitle={
             atReady
-              ? "Everything is ready. You are no longer configuring — now you are operating."
+              ? "Setup is complete — open the Operator Panel to run the tournament."
               : remaining === 1
-                ? "One step left — finish building your tournament story"
-                : `You are building a tournament — ${remaining} steps remaining (${percent}%)`
+                ? "One step left to finish setup"
+                : `${remaining} steps remaining (${percent}%)`
           }
           badge={atReady ? "Ready" : undefined}
         />
 
-        <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
           {atReady ? (
             <>
-              <SetupReadyCelebration />
               <div className={cn(hubPanelClass, "flex flex-col sm:flex-row sm:items-center gap-4")}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="p-2.5 rounded-lg bg-green-500/15 shrink-0">
                     <CheckCircle2 className="w-5 h-5 text-green-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-widest text-green-400">
-                      What happens next
-                    </p>
-                    <h2 className="text-base font-display font-bold text-foreground mt-0.5">
-                      Operate from Control Center
+                    <h2 className="text-base font-display font-bold text-foreground">
+                      Ready to operate
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Control Center is your live desk for courts, scorers, and match day. Command Center becomes your organizer home after this.
+                      Use the Operator Panel for live courts, scorers, and match day.
                     </p>
                   </div>
                 </div>
                 <BtnPrimary className="w-full sm:w-auto shrink-0" onClick={openLiveOperations}>
                   <Target className="w-4 h-4" />
-                  Open Control Center
+                  Open Operator Panel
                 </BtnPrimary>
               </div>
               <BadmintonSetupChecklist
@@ -123,13 +113,6 @@ export default function BadmintonTournamentHub() {
             </>
           ) : (
             <>
-              <TournamentStoryRibbon
-                focus={
-                  getTournamentStoryBeat(
-                    items.find((i) => i.status === "current")?.id ?? "branding",
-                  ).storyFocus
-                }
-              />
               <BadmintonNextStepBanner items={items} tournamentId={tournamentId} />
               <BadmintonSetupChecklist items={items} tournamentId={tournamentId} />
             </>
@@ -139,16 +122,15 @@ export default function BadmintonTournamentHub() {
     );
   }
 
-  // Setup complete → Command Center is the default organizer home
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        eyebrow="Tournament Ready"
-        title="Tournament Command Center"
+        eyebrow="Dashboard"
+        title="Tournament Dashboard"
         subtitle={
           isLive
-            ? "Matches are in progress — run courts, broadcast, and operations from here"
-            : "Setup complete — run matches, broadcast, and operations from the tabs above"
+            ? "Matches in progress — run courts and broadcast from the Operator Panel"
+            : "Setup complete — manage matches and operations from the sidebar"
         }
         badge={isLive ? `${liveCount} Live` : "Ready"}
         actions={formatLabel ? <ScoringFormatBadge label={formatLabel} /> : undefined}
@@ -169,16 +151,16 @@ export default function BadmintonTournamentHub() {
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {isLive
-                  ? "Use Control Center to run courts without jumping between Scheduling, Matches, and Scoring."
-                  : "Open live operations for court control, or Matches to create the next match."}
+                  ? "Use the Operator Panel to run courts without jumping between pages."
+                  : "Open the Operator Panel for court control, or Matches to create the next match."}
               </p>
             </div>
           </div>
           <Link href={`/tournament/${tournamentId}/badminton/control`}>
-                <BtnPrimary className="w-full sm:w-auto shrink-0">
-                  <Target className="w-4 h-4" />
-                  Open Control Center
-                </BtnPrimary>
+            <BtnPrimary className="w-full sm:w-auto shrink-0">
+              <Target className="w-4 h-4" />
+              Open Operator Panel
+            </BtnPrimary>
           </Link>
         </div>
 

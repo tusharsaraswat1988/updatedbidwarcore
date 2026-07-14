@@ -46,22 +46,25 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         // per-tournament login gate. Sending them to /organizer?next=… causes an
         // infinite loop because the portal auto-navigates back to `next`.
         if (account.loggedIn) {
+          const loginPath = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
           if (inScoringApp) {
-            window.location.href = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
+            window.location.href = loginPath;
             return;
           }
-          navigate(`/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`);
+          navigate(loginPath);
           return;
         }
 
+        // No organizer account — always use regular signup/login (incl. scoring-app).
+        const organizerPath = `/organizer?next=${encodeURIComponent(returnTo)}`;
         if (inScoringApp) {
-          window.location.href = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
+          window.location.href = organizerPath;
           return;
         }
-        navigate(`/organizer?next=${encodeURIComponent(location)}`);
+        navigate(organizerPath);
       })();
     }
-  }, [isLoggedIn, isLoading, tournamentId, navigate, location, inScoringApp]);
+  }, [isLoggedIn, isLoading, tournamentId, navigate, inScoringApp]);
 
   if (isLoading) {
     if (badmintonRoute || inScoringApp) {
@@ -120,7 +123,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
     }
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 text-sm text-muted-foreground">
-        Redirecting to tournament login…
+        Redirecting to sign in…
       </div>
     );
   }
