@@ -22,7 +22,7 @@ import {
   DoublesPreMatchSetup,
   SinglesPreMatchSetup,
 } from "@/components/badminton/doubles-pre-match-setup";
-import { badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import {
   buildMatchControlWarnings,
   buildStartPayloadFromPreMatchToss,
@@ -74,7 +74,7 @@ export function PreMatchControlPanel({
   snapshot: MatchControlSnapshot;
   peerMatches?: MatchControlPeerMatch[];
   onRefresh: () => void;
-  /** Match/court PIN shown to organizers so they can share with the umpire. */
+  /** Match/court PIN shown to organizers so they can share with the scorer. */
   scorerPin?: string | null;
 }) {
   const scorer = useBadmintonScorer(snapshot.tournamentId, snapshot.matchId);
@@ -189,19 +189,19 @@ export function PreMatchControlPanel({
           />
           <InfoRow label="Team / Player (left)" value={snapshot.leftLabel} />
           <InfoRow label="Team / Player (right)" value={snapshot.rightLabel} />
-          {pinHint ? <InfoRow label="Umpire scorer PIN" value={pinHint} /> : null}
+          {pinHint ? <InfoRow label="Scorer PIN" value={pinHint} /> : null}
         </dl>
         {pinHint ? (
           <p className="text-white/45 text-xs">
             Share PIN <span className="text-white font-semibold tracking-wider">{pinHint}</span> with
-            the court umpire — or open{" "}
+            the court scorer — or open{" "}
             <Link
-              href={badmintonUmpireScorerPath(snapshot.matchId, snapshot.tournamentId)}
+              href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
               className="text-[#4fc3f7] font-semibold hover:underline"
             >
               Live Scoring
             </Link>{" "}
-            after start (umpire enters this PIN).
+            after start (scorer enters this PIN).
           </p>
         ) : null}
       </div>

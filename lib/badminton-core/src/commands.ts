@@ -252,7 +252,7 @@ export function cmdEndInterval(state: BadmintonMatchState): CommandResult {
   ]);
 }
 
-/** Record umpire acknowledgement of court change at deciding-game interval. */
+/** Record scorer acknowledgement of court change at deciding-game interval. */
 export function cmdAcknowledgeCourtChange(state: BadmintonMatchState): CommandResult {
   if (state.matchStatus !== "live") return err("Match not live");
   if (!isDecidingGame(state.currentGame, state.format.totalGames)) {

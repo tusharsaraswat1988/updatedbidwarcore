@@ -30,10 +30,10 @@ interface BroadcastOutput {
 const OUTPUTS: BroadcastOutput[] = [
   {
     kind: "display",
-    title: "Venue display",
+    title: "Venue Scoreboard Display",
     description: "Full-screen scoreboard for LED walls and projectors.",
     icon: Monitor,
-    openLabel: "Open display",
+    openLabel: "Open scoreboard",
   },
   {
     kind: "overlay-compact",
@@ -51,7 +51,7 @@ const OUTPUTS: BroadcastOutput[] = [
   },
   {
     kind: "scorer",
-    title: "Umpire scorer",
+    title: "Scorer",
     description: "Per-match scoring link (compatibility). Prefer Scorer Home below for day-of use.",
     icon: Tablet,
     openLabel: "Open match scorer",
@@ -95,11 +95,11 @@ export function BadmintonBroadcastActions({
     const directUrl = badmintonBroadcastUrl("scorer", matchId, tournamentId);
     const label = matchLabel ?? `Match #${matchId}`;
     const message = [
-      `Umpire Scorer Home — ${label}`,
+      `Scorer Home — ${label}`,
       homeUrl,
       "",
       "Enter the match PIN once, then choose which match to score.",
-      "Assign the same PIN to every match this umpire should open.",
+      "Assign the same PIN to every match this scorer should open.",
       "",
       `Direct match link (optional): ${directUrl}`,
       "Match Control (pause, retirement) stays with the organizer.",
@@ -123,7 +123,7 @@ export function BadmintonBroadcastActions({
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Match Control</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Tournament director panel — pause, retirement, walkover. Separate from umpire scoring.
+                Tournament director panel — pause, retirement, walkover. Separate from live scoring.
               </p>
             </div>
           </div>
@@ -144,8 +144,8 @@ export function BadmintonBroadcastActions({
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Scorer Home (recommended)</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                One link + PIN. Umpire picks which assigned match to score. Reuse the same PIN across
-                that umpire&apos;s matches.
+                One link + PIN. Scorer picks which assigned match to score. Reuse the same PIN across
+                that scorer&apos;s matches.
               </p>
             </div>
           </div>

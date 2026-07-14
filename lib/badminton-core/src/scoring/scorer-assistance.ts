@@ -1,5 +1,5 @@
 /**
- * Umpire assistance — read-only derivations for operator UI.
+ * Scorer assistance — read-only derivations for operator UI.
  * Does not mutate match state or scoring logic.
  */
 
@@ -19,7 +19,7 @@ import {
 } from "../reducer/state";
 import { opposingSide } from "./doubles-court";
 
-export type UmpireBannerKind =
+export type ScorerBannerKind =
   | "game_point"
   | "match_point"
   | "interval_due"
@@ -27,14 +27,14 @@ export type UmpireBannerKind =
   | "game_completed"
   | "match_completed";
 
-export type UmpireBanner = {
-  kind: UmpireBannerKind;
+export type ScorerBanner = {
+  kind: ScorerBannerKind;
   side?: BadmintonSide;
   label: string;
   emoji: string;
 };
 
-export type UmpireConfidencePanel = {
+export type ScorerConfidencePanel = {
   currentGame: number;
   leftScore: number;
   rightScore: number;
@@ -45,12 +45,12 @@ export type UmpireConfidencePanel = {
   gamesRight: number;
 };
 
-export type UmpireAssistanceSnapshot = {
+export type ScorerAssistanceSnapshot = {
   serverLabel: string;
   receiverLabel: string;
   serviceCourt: string | null;
-  banners: UmpireBanner[];
-  panel: UmpireConfidencePanel;
+  banners: ScorerBanner[];
+  panel: ScorerConfidencePanel;
   gamePointSide: BadmintonSide | null;
   matchPointSide: BadmintonSide | null;
   intervalDue: boolean;
@@ -178,7 +178,7 @@ export function isCourtChangeRequired(state: BadmintonMatchState): boolean {
 }
 
 export function deriveVoiceAssistPrompts(
-  snapshot: UmpireAssistanceSnapshot,
+  snapshot: ScorerAssistanceSnapshot,
 ): VoiceAssistPrompt[] {
   const prompts: VoiceAssistPrompt[] = [];
   if (snapshot.matchPointSide) {
@@ -191,13 +191,13 @@ export function deriveVoiceAssistPrompts(
   return prompts;
 }
 
-export function deriveUmpireAssistance(
+export function deriveScorerAssistance(
   state: BadmintonMatchState,
   opts?: {
     courtChangeAcknowledged?: boolean;
     readyToScore?: boolean;
   },
-): UmpireAssistanceSnapshot {
+): ScorerAssistanceSnapshot {
   const serverLabel = resolveServerLabel(state);
   const receiverLabel = resolveReceiverLabel(state);
   const serviceCourt = resolveServiceCourt(state);
@@ -210,7 +210,7 @@ export function deriveUmpireAssistance(
   const courtChangeAcknowledged = opts?.courtChangeAcknowledged ?? false;
   const readyToScore = opts?.readyToScore ?? true;
 
-  const banners: UmpireBanner[] = [];
+  const banners: ScorerBanner[] = [];
 
   if (state.matchStatus === "completed" || state.matchStatus === "walkover") {
     banners.push({
@@ -255,7 +255,7 @@ export function deriveUmpireAssistance(
     }
   }
 
-  let scoringBlockReason: UmpireAssistanceSnapshot["scoringBlockReason"] = null;
+  let scoringBlockReason: ScorerAssistanceSnapshot["scoringBlockReason"] = null;
   if (state.isPaused || state.matchStatus === "paused") {
     scoringBlockReason = "paused";
   } else if (state.inInterval) {

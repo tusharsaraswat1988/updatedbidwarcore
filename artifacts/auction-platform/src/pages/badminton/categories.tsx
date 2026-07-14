@@ -14,6 +14,15 @@ import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import {
+  MatchFormatPicker,
+  matchFormatJsonFromPicker,
+  matchFormatPickerFromStored,
+  type MatchFormatPickerValue,
+} from "@/components/badminton/match-format-picker";
+import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
+import { matchFormatChipLabel } from "@/lib/match-format-display";
+import { parseBadmintonMatchFormat } from "@workspace/badminton-core";
 
 interface BadmintonCategory {
   id: number;
@@ -29,6 +38,7 @@ interface BadmintonCategory {
   maxPlayers?: number | null;
   entryFee?: number | null;
   colorCode?: string | null;
+  matchFormatJson?: Record<string, unknown> | null;
 }
 
 interface BadmintonPlayer {
@@ -220,6 +230,10 @@ function CategoryPanel({
                 {category.ageGroup ? ` · ${category.ageGroup}` : ""}
                 {category.gender ? ` · ${category.gender}` : ""}
                 {" · "}{category.drawType.replace("_", " ")}
+                {(() => {
+                  const fmt = parseBadmintonMatchFormat(category.matchFormatJson);
+                  return fmt ? ` · ${matchFormatChipLabel(fmt)}` : "";
+                })()}
               </p>
             </div>
           </div>
@@ -403,6 +417,11 @@ function CategoryFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { data: tournamentFormat } = useBadmintonScoringFormat(tournamentId);
+  const tournamentInheritLabel = tournamentFormat
+    ? `Tournament: ${matchFormatChipLabel(tournamentFormat.format, tournamentFormat.presetId)}`
+    : "Tournament default (BWF Standard · 21)";
+
   const [form, setForm] = useState({
     name: category?.name ?? "",
     code: category?.code ?? "",
@@ -414,6 +433,9 @@ function CategoryFormModal({
     maxPlayers: category?.maxPlayers ?? "",
     colorCode: category?.colorCode ?? "#F59E0B",
   });
+  const [formatPicker, setFormatPicker] = useState<MatchFormatPickerValue>(() =>
+    matchFormatPickerFromStored(category?.matchFormatJson),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -431,6 +453,7 @@ function CategoryFormModal({
     setSaving(true);
     setError("");
     try {
+      const matchFormatJson = matchFormatJsonFromPicker(formatPicker);
       const body = {
         name: form.name.trim(),
         code: form.code.trim() || undefined,
@@ -441,6 +464,8 @@ function CategoryFormModal({
         numSeeds: parseInt(String(form.numSeeds), 10) || 0,
         maxPlayers: form.maxPlayers ? parseInt(String(form.maxPlayers), 10) : undefined,
         colorCode: form.colorCode || undefined,
+        // null clears category override (inherit tournament)
+        matchFormatJson: matchFormatJson ?? null,
       };
       if (category) {
         await badmintonFetch(tournamentId, `/categories/${category.id}`, {
@@ -450,7 +475,11 @@ function CategoryFormModal({
       } else {
         await badmintonFetch(tournamentId, `/categories`, {
           method: "POST",
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            ...body,
+            // omit null on create — inherit tournament
+            matchFormatJson: matchFormatJson ?? undefined,
+          }),
         });
       }
       onSaved();
@@ -530,6 +559,13 @@ function CategoryFormModal({
       <FormField label="Max Players">
         <input {...f("maxPlayers")} type="number" min={2} placeholder="Unlimited" className={inputClass} />
       </FormField>
+
+      <MatchFormatPicker
+        value={formatPicker}
+        onChange={setFormatPicker}
+        inheritLabel={tournamentInheritLabel}
+        inheritOptionLabel="Use tournament default"
+      />
 
       <FormError message={error} />
 

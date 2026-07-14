@@ -1186,32 +1186,21 @@ export async function listMatchesForScorerPin(
 }
 
 /**
- * Scorer Home session — courts assigned this PIN + eligible matches.
+ * Scorer Home for authenticated scorers — all tournament matches (no PIN filter).
+ * Court/match PIN soft-deprecated; assignment can plug in later without changing JWT.
  */
-export async function openScorerHomeSession(
+export async function openScorerHomeForTournament(
   tournamentId: number,
-  pin: string,
 ): Promise<ScorerHomeSessionPayload> {
-  const trimmed = pin.trim();
-  if (trimmed.length < 4) {
-    return { ok: false, matches: [], courts: [], view: "matches" };
-  }
-
-  const assignedCourts = await db
+  const courts = await db
     .select({
       id: badmintonCourtsTable.id,
       name: badmintonCourtsTable.name,
       shortName: badmintonCourtsTable.shortName,
       scorerName: badmintonCourtsTable.scorerName,
-      scorerPin: badmintonCourtsTable.scorerPin,
     })
     .from(badmintonCourtsTable)
-    .where(
-      and(
-        eq(badmintonCourtsTable.tournamentId, tournamentId),
-        eq(badmintonCourtsTable.scorerPin, trimmed),
-      ),
-    )
+    .where(eq(badmintonCourtsTable.tournamentId, tournamentId))
     .orderBy(asc(badmintonCourtsTable.sortOrder), asc(badmintonCourtsTable.name));
 
   const rows = await db
@@ -1221,7 +1210,6 @@ export async function openScorerHomeSession(
       categoryName: badmintonCategoriesTable.name,
       categoryCode: badmintonCategoriesTable.code,
       courtName: badmintonCourtsTable.name,
-      courtPin: badmintonCourtsTable.scorerPin,
     })
     .from(scoringMatchesTable)
     .innerJoin(
@@ -1253,29 +1241,20 @@ export async function openScorerHomeSession(
     )
     .orderBy(asc(scoringMatchesTable.id));
 
-  const matches: ScorerHomeMatchCard[] = [];
-  for (const row of rows) {
-    const unlock = pinUnlocksMatch({
-      pin: trimmed,
-      matchPin: row.detail.scorerPin,
-      courtPin: row.courtPin,
-    });
-    if (!unlock.ok || !unlock.via) continue;
-    matches.push(
-      toScorerHomeMatchCard({
-        match: row.match,
-        detail: row.detail,
-        categoryName: row.categoryName,
-        categoryCode: row.categoryCode,
-        courtName: row.courtName,
-        accessVia: unlock.via,
-      }),
-    );
-  }
+  const matches: ScorerHomeMatchCard[] = rows.map((row) =>
+    toScorerHomeMatchCard({
+      match: row.match,
+      detail: row.detail,
+      categoryName: row.categoryName,
+      categoryCode: row.categoryCode,
+      courtName: row.courtName,
+      accessVia: "court_pin",
+    }),
+  );
 
   const viewPayload = buildScorerHomeView({
     matches,
-    courts: assignedCourts.map((c) => ({
+    courts: courts.map((c) => ({
       id: c.id,
       name: c.name,
       shortName: c.shortName ?? null,
@@ -1283,13 +1262,22 @@ export async function openScorerHomeSession(
     })),
   });
 
-  const ok = matches.length > 0 || assignedCourts.length > 0;
   return {
-    ok,
+    ok: matches.length > 0 || courts.length > 0,
     matches: viewPayload.matches,
     courts: viewPayload.courts,
     view: viewPayload.view,
   };
+}
+
+/**
+ * @deprecated Court/match PIN auth removed. Use openScorerHomeForTournament.
+ */
+export async function openScorerHomeSession(
+  tournamentId: number,
+  _pin: string,
+): Promise<ScorerHomeSessionPayload> {
+  return openScorerHomeForTournament(tournamentId);
 }
 
 export async function getLiveBadmintonMatches(tournamentId: number) {
@@ -1340,7 +1328,6 @@ export async function createBadmintonMatch(input: {
   rightSideJson: Record<string, unknown>;
   scorerPin?: string;
   scorerName?: string;
-  umpireName?: string;
   /** Optional toss recorded at create — null clears. */
   preMatchTossJson?: Record<string, unknown> | null;
   scheduledAt?: Date;
@@ -1443,7 +1430,6 @@ export async function createBadmintonMatch(input: {
         rightSideJson: input.rightSideJson,
         scorerPin,
         scorerName: input.scorerName ?? null,
-        umpireName: input.umpireName ?? null,
         preMatchTossJson: input.preMatchTossJson ?? null,
       })
       .returning();
@@ -1491,7 +1477,9 @@ export async function updateBadmintonMatch(
     leftSideJson?: Record<string, unknown>;
     rightSideJson?: Record<string, unknown>;
     scorerPin?: string;
-    umpireName?: string | null;
+    scorerName?: string | null;
+    /** Stamp override; null clears stamp only when rebuilding — prefer resolve on create. */
+    matchFormatJson?: Record<string, unknown> | null;
     preMatchTossJson?: Record<string, unknown> | null;
     scheduledAt?: Date | null;
   },
@@ -1520,11 +1508,12 @@ export async function updateBadmintonMatch(
     (input.matchType !== undefined ||
       input.leftSideJson !== undefined ||
       input.rightSideJson !== undefined ||
-      input.preMatchTossJson !== undefined)
+      input.preMatchTossJson !== undefined ||
+      input.matchFormatJson !== undefined)
   ) {
     throw new BadmintonServiceError(
       "MATCH_STARTED",
-      "Cannot change players, match type, or toss after the match has started.",
+      "Cannot change players, match type, toss, or scoring format after the match has started.",
       409,
     );
   }
@@ -1563,7 +1552,33 @@ export async function updateBadmintonMatch(
     matchPatch.roundName = input.roundName;
   }
   if (input.matchType !== undefined) detailPatch.matchType = input.matchType;
-  if (input.umpireName !== undefined) detailPatch.umpireName = input.umpireName;
+  if (input.scorerName !== undefined) detailPatch.scorerName = input.scorerName;
+  if (input.matchFormatJson !== undefined) {
+    if (input.matchFormatJson === null) {
+      // Re-resolve from category → tournament when clearing an override.
+      const [detailRow] = await db
+        .select({
+          categoryId: badmintonMatchDetailsTable.categoryId,
+        })
+        .from(badmintonMatchDetailsTable)
+        .where(
+          and(
+            eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+            eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+      detailPatch.matchFormatJson = await resolveBadmintonMatchFormat({
+        tournamentId,
+        categoryId: detailRow?.categoryId ?? null,
+      });
+    } else {
+      detailPatch.matchFormatJson = await resolveBadmintonMatchFormat({
+        tournamentId,
+        matchFormatJson: input.matchFormatJson,
+      });
+    }
+  }
   if (input.scorerPin !== undefined) {
     const trimmed = input.scorerPin.trim();
     detailPatch.scorerPin = trimmed.length >= 4 ? trimmed : null;

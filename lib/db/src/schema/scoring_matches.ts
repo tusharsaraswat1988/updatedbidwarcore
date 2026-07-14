@@ -42,7 +42,6 @@ export const scoringMatchesTable = pgTable(
     venueId: integer("venue_id"),
     venue: text("venue"),
     officialsJson: jsonb("officials_json").$type<{
-      umpires?: number[];
       scorers?: number[];
       matchReferee?: number | null;
     }>(),

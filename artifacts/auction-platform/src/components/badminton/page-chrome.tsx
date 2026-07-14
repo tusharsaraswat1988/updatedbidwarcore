@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { BtnPrimary, hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
-import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { badmintonMatchControlPath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 
 
 
@@ -782,17 +782,17 @@ export function HubMatchCard({
             </Link>
             {isLive ? (
               <Link
-                href={badmintonUmpireScorerPath(matchId, tournamentId)}
+                href={badmintonScorerMatchPath(matchId, tournamentId)}
                 className="min-h-11 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
               >
-                Umpire
+                Scorer
               </Link>
             ) : (
               <span
                 className="min-h-11 rounded-lg bg-muted/40 border border-border text-muted-foreground/50 text-[11px] font-semibold flex items-center justify-center text-center px-1"
                 title="Start from Match Control first"
               >
-                Umpire
+                Scorer
               </span>
             )}
             <Link

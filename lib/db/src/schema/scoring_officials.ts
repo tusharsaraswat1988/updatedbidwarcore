@@ -15,8 +15,8 @@ export const scoringOfficialsTable = pgTable(
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
     name: text("name").notNull(),
-    /** umpire | scorer | referee | match_referee */
-    role: text("role").notNull().default("umpire"),
+    /** scorer | referee | match_referee */
+    role: text("role").notNull().default("scorer"),
     mobile: text("mobile"),
     email: text("email"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

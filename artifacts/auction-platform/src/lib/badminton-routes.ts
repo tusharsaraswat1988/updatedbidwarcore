@@ -12,8 +12,8 @@ export function badmintonMatchControlPath(tournamentId: number, matchId: number)
   return `/tournament/${tournamentId}/badminton/matches/${matchId}/control`;
 }
 
-/** Umpire scoring tablet — PIN-protected, share with court official. */
-export function badmintonUmpireScorerPath(matchId: number, tournamentId: number) {
+/** Scorer tablet — PIN-protected, share with court scorer. */
+export function badmintonScorerMatchPath(matchId: number, tournamentId: number) {
   return `/badminton/${matchId}/score?tid=${tournamentId}`;
 }
 
@@ -109,8 +109,16 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     id: "control",
     label: "Operator Panel",
     href: (tid) => `${badmintonHubPath(tid)}/control`,
-    isActive: (path) =>
-      /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control"),
+    isActive: (path) => {
+      const onControl =
+        /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control");
+      if (!onControl) return false;
+      if (typeof window !== "undefined") {
+        const focus = new URLSearchParams(window.location.search).get("focus");
+        if (focus === "broadcast") return false;
+      }
+      return true;
+    },
   },
   {
     id: "results",
@@ -127,8 +135,14 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   {
     id: "broadcast",
     label: "Display & Broadcast",
-    href: (tid) => `${badmintonHubPath(tid)}/broadcast`,
-    isActive: (path) => pathEndsWithSection(path, "broadcast"),
+    href: (tid) => `${badmintonHubPath(tid)}/control?focus=broadcast`,
+    isActive: (path) => {
+      if (pathEndsWithSection(path, "broadcast")) return true;
+      const onControl =
+        /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control");
+      if (!onControl || typeof window === "undefined") return false;
+      return new URLSearchParams(window.location.search).get("focus") === "broadcast";
+    },
   },
   {
     id: "analytics",

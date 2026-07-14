@@ -1,7 +1,7 @@
 /**
- * Umpire assistance — automated verification for singles, doubles, mixed doubles.
+ * Scorer assistance — automated verification for singles, doubles, mixed doubles.
  *
- * Generates: lib/badminton-core/test-reports/umpire-assistance-report.txt
+ * Generates: lib/badminton-core/test-reports/scorer-assistance-report.txt
  */
 
 import { describe, expect, it } from "vitest";
@@ -23,7 +23,7 @@ import { createInitialBadmintonState } from "../reducer/state";
 import type { BadmintonMatchMeta, BadmintonMatchState, BadmintonSide } from "../types";
 import { STANDARD_FORMAT } from "../types";
 import {
-  deriveUmpireAssistance,
+  deriveScorerAssistance,
   deriveVoiceAssistPrompts,
   detectGamePointSide,
   detectMatchPointSide,
@@ -31,10 +31,10 @@ import {
   isIntervalDue,
   resolveReceiverLabel,
   resolveServerLabel,
-} from "./umpire-assistance";
+} from "./scorer-assistance";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPORT_PATH = join(__dirname, "../../test-reports/umpire-assistance-report.txt");
+const REPORT_PATH = join(__dirname, "../../test-reports/scorer-assistance-report.txt");
 
 const META: BadmintonMatchMeta = {
   matchId: 1,
@@ -117,7 +117,7 @@ function applyCommands(
       eventType: event.eventType,
       eventVersion: 1,
       sequence: seq,
-      actorType: "scorer",
+      actorType: "scorer_pin",
       payload: event.payload,
     });
   }
@@ -135,7 +135,7 @@ function applyCommands(
         eventType: event.eventType,
         eventVersion: 1,
         sequence: seq,
-        actorType: "scorer",
+        actorType: "scorer_pin",
         payload: event.payload,
       });
     }
@@ -166,7 +166,7 @@ function playToScore(
   return applyCommands(meta, start, sides);
 }
 
-describe("Umpire assistance — singles", () => {
+describe("Scorer assistance — singles", () => {
   it("shows server/receiver labels and accurate confidence panel", () => {
     const state = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, ["left", "left"]);
     record(
@@ -180,7 +180,7 @@ describe("Umpire assistance — singles", () => {
       `Expected Priyank Singh, got ${resolveReceiverLabel(state)}`,
     );
 
-    const snapshot = deriveUmpireAssistance(state);
+    const snapshot = deriveScorerAssistance(state);
     record(
       "Singles panel score",
       snapshot.panel.leftScore === 2 && snapshot.panel.rightScore === 0,
@@ -207,7 +207,7 @@ describe("Umpire assistance — singles", () => {
       `Game point side ${detectGamePointSide(gamePointState)}`,
     );
 
-    const gamePointSnapshot = deriveUmpireAssistance(gamePointState);
+    const gamePointSnapshot = deriveScorerAssistance(gamePointState);
     record(
       "Singles game point banner",
       gamePointSnapshot.banners.some((b) => b.kind === "game_point"),
@@ -228,7 +228,7 @@ describe("Umpire assistance — singles", () => {
       `Match point at ${matchState.leftScore}-${matchState.rightScore}, games ${matchState.gamesLeft}-${matchState.gamesRight}`,
     );
 
-    const matchSnapshot = deriveUmpireAssistance(matchState);
+    const matchSnapshot = deriveScorerAssistance(matchState);
     record(
       "Singles match point banner",
       matchSnapshot.banners.some((b) => b.kind === "match_point"),
@@ -255,7 +255,7 @@ describe("Umpire assistance — singles", () => {
           eventType: event.eventType,
           eventVersion: 1,
           sequence: seq,
-          actorType: "scorer",
+          actorType: "scorer_pin",
           payload: event.payload,
         });
       }
@@ -285,7 +285,7 @@ describe("Umpire assistance — singles", () => {
       `courtChange=${isCourtChangeRequired(rebuilt)}`,
     );
 
-    const snapshot = deriveUmpireAssistance(rebuilt);
+    const snapshot = deriveScorerAssistance(rebuilt);
     record(
       "Singles interval banner",
       snapshot.banners.some((b) => b.kind === "interval_due"),
@@ -311,7 +311,7 @@ describe("Umpire assistance — singles", () => {
   });
 });
 
-describe("Umpire assistance — doubles", () => {
+describe("Scorer assistance — doubles", () => {
   const meta: BadmintonMatchMeta = { ...META, matchKind: "doubles" };
 
   it("shows player-level server and receiver", () => {
@@ -330,7 +330,7 @@ describe("Umpire assistance — doubles", () => {
 
   it("detects game point and match point", () => {
     const gamePointState = playToScore(meta, DOUBLES_START, 20, 17, "left");
-    const snapshot = deriveUmpireAssistance(gamePointState);
+    const snapshot = deriveScorerAssistance(gamePointState);
     record(
       "Doubles game point banner",
       snapshot.banners.some((b) => b.kind === "game_point"),
@@ -359,7 +359,7 @@ describe("Umpire assistance — doubles", () => {
           eventType: event.eventType,
           eventVersion: 1,
           sequence: seq,
-          actorType: "scorer",
+          actorType: "scorer_pin",
           payload: event.payload,
         });
       }
@@ -367,8 +367,8 @@ describe("Umpire assistance — doubles", () => {
 
     record(
       "Doubles scoring blocked in interval",
-      deriveUmpireAssistance(state).scoringBlocked === true,
-      `scoringBlocked=${deriveUmpireAssistance(state).scoringBlocked}`,
+      deriveScorerAssistance(state).scoringBlocked === true,
+      `scoringBlocked=${deriveScorerAssistance(state).scoringBlocked}`,
     );
 
     const timeoutStart = cmdStartTimeout(deciding, "left");
@@ -385,15 +385,15 @@ describe("Umpire assistance — doubles", () => {
           eventType: event.eventType,
           eventVersion: 1,
           sequence: seq,
-          actorType: "scorer",
+          actorType: "scorer_pin",
           payload: event.payload,
         });
       }
     }
     record(
       "Doubles scoring blocked during timeout",
-      deriveUmpireAssistance(timeoutState).scoringBlocked === true,
-      `blockReason=${deriveUmpireAssistance(timeoutState).scoringBlockReason}`,
+      deriveScorerAssistance(timeoutState).scoringBlocked === true,
+      `blockReason=${deriveScorerAssistance(timeoutState).scoringBlockReason}`,
     );
 
     const endTimeout = cmdEndTimeout(timeoutState);
@@ -409,20 +409,20 @@ describe("Umpire assistance — doubles", () => {
           eventType: event.eventType,
           eventVersion: 1,
           sequence: seq,
-          actorType: "scorer",
+          actorType: "scorer_pin",
           payload: event.payload,
         });
       }
     }
     record(
       "Doubles needs ready confirm after timeout",
-      deriveUmpireAssistance(timeoutState, { readyToScore: false }).scoringBlocked === true,
+      deriveScorerAssistance(timeoutState, { readyToScore: false }).scoringBlocked === true,
       "readyToScore=false blocks scoring",
     );
   });
 });
 
-describe("Umpire assistance — mixed doubles", () => {
+describe("Scorer assistance — mixed doubles", () => {
   const meta: BadmintonMatchMeta = { ...META, matchKind: "mixed_doubles" };
 
   it("shows server/receiver and interval assistance", () => {
@@ -444,7 +444,7 @@ describe("Umpire assistance — mixed doubles", () => {
       ...Array(11).fill("left"),
     ] as BadmintonSide[]);
 
-    const snapshot = deriveUmpireAssistance(deciding);
+    const snapshot = deriveScorerAssistance(deciding);
     record(
       "Mixed doubles interval due",
       snapshot.intervalDue === true,
@@ -470,7 +470,7 @@ describe("Umpire assistance — mixed doubles", () => {
           eventType: event.eventType,
           eventVersion: 1,
           sequence: seq,
-          actorType: "scorer",
+          actorType: "scorer_pin",
           payload: event.payload,
         });
       }
@@ -492,11 +492,11 @@ describe("Umpire assistance — mixed doubles", () => {
   });
 });
 
-describe("Umpire assistance report", () => {
+describe("Scorer assistance report", () => {
   it("writes report file", () => {
     mkdirSync(dirname(REPORT_PATH), { recursive: true });
     const lines = [
-      "UMPIRE ASSISTANCE TEST REPORT",
+      "SCORER ASSISTANCE TEST REPORT",
       `Generated: ${new Date().toISOString()}`,
       "",
       ...report.map(

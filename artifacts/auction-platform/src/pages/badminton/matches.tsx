@@ -44,7 +44,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
-import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -59,6 +59,11 @@ import {
   matchFormTossToPayload,
   MatchFormTossFields,
 } from "@/components/badminton/match-form-toss-fields";
+import {
+  MatchFormatPicker,
+  matchFormatPickerFromStored,
+  type MatchFormatPickerValue,
+} from "@/components/badminton/match-format-picker";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -86,6 +91,7 @@ interface CategoryOption {
   id: number;
   name: string;
   matchType: string;
+  matchFormatJson?: Record<string, unknown> | null;
 }
 
 interface BadmintonPlayerRecord {
@@ -224,7 +230,7 @@ export default function BadmintonMatchesPage() {
                 void navigator.clipboard.writeText(url).then(() => {
                   toast({
                     title: "Scorer Home copied",
-                    description: "Share this link + a PIN with court umpires.",
+                    description: "Share this link + a PIN with court scorers.",
                   });
                 });
               }}
@@ -444,7 +450,7 @@ function MatchRow({
               );
             })()}
             {detail.scorerPin ? (
-              <span className="text-muted-foreground text-xs font-mono" title="Share with court umpire">
+              <span className="text-muted-foreground text-xs font-mono" title="Share with court scorer">
                 PIN {String(detail.scorerPin)}
               </span>
             ) : null}
@@ -455,11 +461,11 @@ function MatchRow({
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {isLive ? (
               <a
-                href={badmintonUmpireScorerPath(match.id, tournamentId)}
+                href={badmintonScorerMatchPath(match.id, tournamentId)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-h-11 px-4 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/35 text-red-200 text-sm font-bold flex items-center transition-colors"
-                title="Court umpire — scoring with PIN"
+                title="Court scorer — scoring with PIN"
               >
                 Open Scoring
               </a>
@@ -475,7 +481,7 @@ function MatchRow({
               <a
                 href={badmintonMatchControlPath(tournamentId, match.id)}
                 className="min-h-11 px-4 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100 text-sm font-bold flex items-center transition-all"
-                title="Prepare match or open director controls — start from here, not the umpire scorer"
+                title="Prepare match or open director controls — start from here, not the scorer"
               >
                 Match Control
               </a>
@@ -556,7 +562,7 @@ function MatchRow({
             </p>
             {!isCompleted && !isLive ? (
               <p className="text-amber-200/90 text-xs">
-                Do not delete if an umpire may still open this match. Prefer Match Control for walkovers or delays.
+                Do not delete if a scorer may still open this match. Prefer Match Control for walkovers or delays.
               </p>
             ) : null}
           </div>
@@ -582,8 +588,8 @@ function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
     courtNumber: (detail.courtNumber as string | undefined) ?? "",
     courtId: (detail.courtId as number | null | undefined) ?? null,
     matchLabel: (detail.matchLabel as string | undefined) ?? "",
+    scorerName: (detail.scorerName as string | undefined) ?? "",
     scorerPin: (detail.scorerPin as string | undefined) ?? "",
-    umpireName: (detail.umpireName as string | undefined) ?? "",
     leftPlayer1: sideJsonToPlayerForm(left, 0),
     leftPlayer2: sideJsonToPlayerForm(left, 1),
     rightPlayer1: sideJsonToPlayerForm(right, 0),
@@ -614,6 +620,13 @@ function MatchFormModal({
   const [error, setError] = useState("");
   const [fixturePrefillId, setFixturePrefillId] = useState<number | null>(null);
 
+  const { data: scoringFormat } = useBadmintonScoringFormat(tournamentId);
+  const [formatPicker, setFormatPicker] = useState<MatchFormatPickerValue>(() =>
+    isEdit
+      ? matchFormatPickerFromStored(match?.detail?.matchFormatJson)
+      : { mode: "inherit" },
+  );
+
   const { data: fixtures = [] } = useQuery<FixtureOption[]>({
     queryKey: ["badminton-fixtures-all", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, "/fixtures"),
@@ -623,7 +636,7 @@ function MatchFormModal({
   const { data: categories = [] } = useQuery<CategoryOption[]>({
     queryKey: ["badminton-categories", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, "/categories"),
-    enabled: !isEdit && !!tournamentId,
+    enabled: !!tournamentId,
   });
 
   const { data: players = [] } = useQuery<BadmintonPlayerRecord[]>({
@@ -670,6 +683,29 @@ function MatchFormModal({
     () => new Map(categories.map((c) => [c.id, c])),
     [categories],
   );
+
+  const inheritFormatLabel = useMemo(() => {
+    const categoryId =
+      form.categoryId ??
+      selectedFixture?.categoryId ??
+      (typeof match?.detail?.categoryId === "number" ? match.detail.categoryId : null);
+    const category = categoryId != null ? categoryById.get(categoryId) : undefined;
+    const categoryFormat = parseBadmintonMatchFormat(category?.matchFormatJson);
+    if (categoryFormat) {
+      return `Event: ${matchFormatChipLabel(categoryFormat)}`;
+    }
+    if (scoringFormat) {
+      return `Tournament: ${matchFormatChipLabel(scoringFormat.format, scoringFormat.presetId)}`;
+    }
+    return "Tournament default (BWF Standard · 21)";
+  }, [
+    categoryById,
+    form.categoryId,
+    match?.detail?.categoryId,
+    scoringFormat,
+    selectedFixture?.categoryId,
+  ]);
+
   const playersById = useMemo(
     () => new Map(players.map((p) => [p.id, p])),
     [players],
@@ -755,7 +791,7 @@ function MatchFormModal({
     fixturePrefillId,
   ]);
 
-  type StringFormField = "fixtureId" | "matchType" | "courtNumber" | "matchLabel" | "scorerPin" | "umpireName";
+  type StringFormField = "fixtureId" | "matchType" | "courtNumber" | "matchLabel" | "scorerPin" | "scorerName";
 
   const f = (field: StringFormField) => ({
     value: form[field] ?? "",
@@ -802,7 +838,7 @@ function MatchFormModal({
         courtNumber: form.courtNumber || undefined,
         matchLabel: form.matchLabel.trim() || undefined,
         scorerPin: form.scorerPin.trim(),
-        umpireName: form.umpireName || undefined,
+        scorerName: form.scorerName || undefined,
         ...(rosterLocked
           ? {}
           : {
@@ -812,6 +848,12 @@ function MatchFormModal({
               leftSideJson: buildSideJson(form.leftPlayer1, form.leftPlayer2),
               rightSideJson: buildSideJson(form.rightPlayer1, form.rightPlayer2),
               preMatchTossJson: tossPayload,
+              matchFormatJson:
+                formatPicker.mode === "inherit"
+                  ? isEdit
+                    ? null
+                    : undefined
+                  : formatPicker.format,
             }),
       };
 
@@ -854,8 +896,8 @@ function MatchFormModal({
       subtitle={
         isEdit
           ? rosterLocked
-            ? "Update match name, court, umpire, or scorer PIN"
-            : "Update match setup before it goes live"
+            ? "Update match name, court, scorer name, or scorer PIN"
+            : "Update match setup and scoring format before it goes live"
           : "Create a match from a fixture when possible. Manual match (no fixture) remains for legacy compatibility."
       }
       onClose={onClose}
@@ -964,7 +1006,7 @@ function MatchFormModal({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
-          Player lineup is locked while the match is live or completed. You can still update match name, court, umpire, and scorer PIN.
+          Player lineup is locked while the match is live or completed. You can still update match name, court, scorer name, and scorer PIN.
         </p>
       )}
 
@@ -991,8 +1033,8 @@ function MatchFormModal({
       ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField label="Umpire's Name">
-          <input {...f("umpireName")} placeholder="Optional" className={inputClass} />
+        <FormField label="Scorer's Name">
+          <input {...f("scorerName")} placeholder="Optional" className={inputClass} />
         </FormField>
         <FormField label="Scorer PIN">
           <div className="flex gap-2">
@@ -1017,6 +1059,16 @@ function MatchFormModal({
           </p>
         </FormField>
       </div>
+
+      <MatchFormatPicker
+        value={formatPicker}
+        onChange={setFormatPicker}
+        inheritLabel={inheritFormatLabel}
+        inheritOptionLabel={
+          isEdit ? "Reset to event / tournament default" : "Use event / tournament default"
+        }
+        disabled={rosterLocked}
+      />
 
       <FormError message={error} />
 

@@ -41,6 +41,8 @@ import {
 } from "./tournament-profile";
 import {
   type BadmintonBranding,
+  type BadmintonOverlayScene,
+  type BadmintonVenueScene,
   type ScoreBoardSponsor,
   getBadmintonBranding,
   resolveBadmintonSponsorLogos,
@@ -58,7 +60,12 @@ import {
   type ImageFieldChange,
 } from "../cloudinary-image-fields";
 
-export type { BadmintonBranding, ScoreBoardSponsor };
+export type {
+  BadmintonBranding,
+  BadmintonOverlayScene,
+  BadmintonVenueScene,
+  ScoreBoardSponsor,
+};
 export { getBadmintonBranding, resolveBadmintonSponsorLogos };
 
 export type MasterPlayerListItem = {
@@ -353,6 +360,29 @@ export async function updatePrimaryBroadcastMatchId(
   tournamentId: number,
   primaryMatchId: number | null,
 ): Promise<BadmintonBranding> {
+  return updateBroadcastSettings(tournamentId, {
+    primaryMatchId: primaryMatchId && primaryMatchId > 0 ? primaryMatchId : null,
+  });
+}
+
+/** Operator Broadcast Director — overlay/venue scene overrides for persistent screens. */
+export async function updateBroadcastPresentation(
+  tournamentId: number,
+  input: {
+    overlayScene?: BadmintonOverlayScene;
+    venueScene?: BadmintonVenueScene;
+  },
+): Promise<BadmintonBranding> {
+  return updateBroadcastSettings(tournamentId, {
+    ...(input.overlayScene !== undefined ? { overlayScene: input.overlayScene } : {}),
+    ...(input.venueScene !== undefined ? { venueScene: input.venueScene } : {}),
+  });
+}
+
+async function updateBroadcastSettings(
+  tournamentId: number,
+  patch: Record<string, unknown>,
+): Promise<BadmintonBranding> {
   const [tournament] = await db
     .select()
     .from(tournamentsTable)
@@ -363,10 +393,7 @@ export async function updatePrimaryBroadcastMatchId(
 
   const currentSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
   const currentBroadcast = (currentSettings.broadcast ?? {}) as Record<string, unknown>;
-  const nextBroadcast = {
-    ...currentBroadcast,
-    primaryMatchId: primaryMatchId && primaryMatchId > 0 ? primaryMatchId : null,
-  };
+  const nextBroadcast = { ...currentBroadcast, ...patch };
   const nextSettings = { ...currentSettings, broadcast: nextBroadcast };
 
   await db

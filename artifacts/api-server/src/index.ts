@@ -13,12 +13,15 @@ import { ensureCoreSchema, pool } from "@workspace/db";
 import { brandingService } from "./lib/branding-service.js";
 import { refreshBrandingIconCache } from "./lib/branding-asset-resolver.js";
 import { startMemoryDiagnostics } from "./lib/memory-diagnostics.js";
+import { ensureBootstrapScorerAccount } from "./lib/scorer-auth.js";
+import { startScorerLockCleanupJob } from "./lib/scorer-match-locks.js";
 
 const { port } = getRuntimeConfig();
 
 async function start() {
   // Schema validate/heal must succeed before binding PORT.
   await ensureCoreSchema(pool);
+  await ensureBootstrapScorerAccount();
   await brandingService.migrateLegacyBrandingAssets();
   await brandingService.refreshPlatformBrandingCache();
   await refreshBrandingIconCache();
@@ -36,6 +39,7 @@ async function start() {
     startCreativeRenderWorker();
     startCommunicationWorker();
     startMemoryDiagnostics();
+    startScorerLockCleanupJob();
   });
 }
 

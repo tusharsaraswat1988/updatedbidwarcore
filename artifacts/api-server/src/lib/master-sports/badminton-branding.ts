@@ -2,6 +2,34 @@
  * Pure badminton branding helpers (no database imports — safe for unit tests).
  */
 
+export type BadmintonOverlayScene =
+  | "auto"
+  | "compact"
+  | "full"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "multi";
+
+export type BadmintonVenueScene = "auto" | "live_score" | "standby" | "multi";
+
+export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
+  "auto",
+  "compact",
+  "full",
+  "intro",
+  "winner",
+  "sponsor",
+  "multi",
+] as const;
+
+export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
+  "auto",
+  "live_score",
+  "standby",
+  "multi",
+] as const;
+
 export type BadmintonBranding = {
   displayName: string;
   logoUrl: string | null;
@@ -13,6 +41,10 @@ export type BadmintonBranding = {
   scoreBoardSponsor: ScoreBoardSponsor | null;
   /** Organizer-selected LIVE match for persistent Venue/OBS follow URLs. */
   primaryBroadcastMatchId: number | null;
+  /** Operator-forced OBS overlay scene (Director). `auto` = follow live match + URL type. */
+  overlayScene: BadmintonOverlayScene;
+  /** Operator-forced Venue Scoreboard scene. `auto` = live board when match exists. */
+  venueScene: BadmintonVenueScene;
 };
 
 export type ScoreBoardSponsor = {
@@ -50,10 +82,16 @@ export function resolveBadmintonSponsorLogos(
   return tournamentSponsorLogos ?? null;
 }
 
+function broadcastBlock(
+  scoringSettingsJson: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  return (scoringSettingsJson?.broadcast ?? {}) as Record<string, unknown>;
+}
+
 function parsePrimaryBroadcastMatchId(
   scoringSettingsJson: Record<string, unknown> | null | undefined,
 ): number | null {
-  const broadcast = (scoringSettingsJson?.broadcast ?? {}) as Record<string, unknown>;
+  const broadcast = broadcastBlock(scoringSettingsJson);
   const raw = broadcast.primaryMatchId;
   if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return Math.floor(raw);
   if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
@@ -61,6 +99,20 @@ function parsePrimaryBroadcastMatchId(
     return n > 0 ? n : null;
   }
   return null;
+}
+
+export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
+  if (typeof raw === "string" && (BADMINTON_OVERLAY_SCENES as readonly string[]).includes(raw)) {
+    return raw as BadmintonOverlayScene;
+  }
+  return "auto";
+}
+
+export function parseVenueScene(raw: unknown): BadmintonVenueScene {
+  if (typeof raw === "string" && (BADMINTON_VENUE_SCENES as readonly string[]).includes(raw)) {
+    return raw as BadmintonVenueScene;
+  }
+  return "auto";
 }
 
 export function getBadmintonBranding(
@@ -74,6 +126,7 @@ export function getBadmintonBranding(
   scoringSettingsJson: Record<string, unknown> | null | undefined,
 ): BadmintonBranding {
   const raw = (scoringSettingsJson?.branding ?? {}) as Record<string, unknown>;
+  const broadcast = broadcastBlock(scoringSettingsJson);
   return {
     displayName:
       typeof raw.displayName === "string" && raw.displayName.trim()
@@ -93,5 +146,7 @@ export function getBadmintonBranding(
         : "#4fc3f7",
     scoreBoardSponsor: parseScoreBoardSponsor(raw.scoreBoardSponsor),
     primaryBroadcastMatchId: parsePrimaryBroadcastMatchId(scoringSettingsJson),
+    overlayScene: parseOverlayScene(broadcast.overlayScene),
+    venueScene: parseVenueScene(broadcast.venueScene),
   };
 }

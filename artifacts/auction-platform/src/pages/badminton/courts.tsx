@@ -429,7 +429,7 @@ function CourtFormModal({
             Scorer Assignment
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Default Scorer PIN for this court — umpires use it to open scoring.
+            Default Scorer PIN for this court — scorers use it to open scoring.
             Matches without their own PIN inherit it. A Match PIN overrides this Court PIN.
           </p>
         </div>
@@ -448,7 +448,7 @@ function CourtFormModal({
           <input
             value={form.scorerName}
             onChange={(e) => setForm((p) => ({ ...p, scorerName: e.target.value }))}
-            placeholder="Court umpire"
+            placeholder="Court scorer"
             className={inputClass}
           />
         </FormField>

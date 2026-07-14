@@ -42,7 +42,7 @@ function applyOptimisticCommandEvents(
       eventType: event.eventType,
       eventVersion: 1,
       sequence: seq,
-      actorType: "scorer_pin",
+      actorType: "scorer",
       payload: event.payload,
     });
   }
@@ -173,31 +173,30 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
 export function useBadmintonScorer(
   tournamentId: number,
   matchId: number,
-  scorerPin?: string,
+  _scorerPin?: string,
 ) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-match", tournamentId, matchId];
   const pointQueueRef = useRef<Array<{ side: "left" | "right" }>>([]);
   const drainPromiseRef = useRef<Promise<void> | null>(null);
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(scorerPin ? { "x-scorer-pin": scorerPin } : {}),
-  };
-
   async function postAction(endpoint: string, body: unknown) {
+    const { scorerAuthHeaders } = await import("@/lib/badminton-scorer-session");
     const res = await fetch(
       `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/${endpoint}`,
       {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+          ...scorerAuthHeaders(),
+        },
         credentials: "include",
         body: JSON.stringify(body),
       },
     );
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "unknown error" }));
-      throw new Error(err.error ?? "Request failed");
+      throw new Error(err.message ?? err.error ?? "Request failed");
     }
     const data = await res.json();
     if (data.state) {

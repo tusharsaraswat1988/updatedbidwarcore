@@ -551,7 +551,7 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
       ORGANIZATION_SCHEMA,
       breadcrumb("Badminton Scoring Software", `${BASE_URL}/badminton-scoring-software`),
       sportFaq([
-        { q: "How does BidWar's badminton scoring software work?", a: "The umpire scores each rally on any smartphone browser — no app download needed. Points are instantly displayed on any TV or projector connected to BidWar's LED scoreboard mode. Deuce, game, and match detection is automatic based on BWF rules." },
+        { q: "How does BidWar's badminton scoring software work?", a: "The Scorer scores each rally on any smartphone browser — no app download needed. Points are instantly displayed on any TV or projector connected to BidWar's LED scoreboard mode. Deuce, game, and match detection is automatic based on BWF rules." },
         { q: "Can I use BidWar for club badminton tournaments?", a: "Yes. BidWar's badminton scoring module is free for small club events. It handles singles, doubles, and mixed doubles — with separate scorecards for each court. Standings update automatically as matches complete." },
         { q: "Does BidWar integrate auction and scoring for badminton leagues?", a: "Yes. BidWar handles the entire lifecycle: franchise player auction, team formation, match scheduling, and live rally-by-rally scoring — all in one platform. Teams created during the auction feed directly into the scoring system." },
       ]),

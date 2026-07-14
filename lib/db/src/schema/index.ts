@@ -28,6 +28,7 @@ export * from "./purse_boosters";
 export * from "./scoring_fixtures";
 export * from "./scoring_venues";
 export * from "./scoring_officials";
+export * from "./scorer_accounts";
 export * from "./scoring_draws";
 export * from "./scoring_groups";
 export * from "./scoring_match_squads";

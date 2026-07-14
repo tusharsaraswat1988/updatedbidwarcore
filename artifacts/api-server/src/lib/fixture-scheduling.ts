@@ -9,7 +9,7 @@
  *
  * Reuses badminton_fixtures.courtId + scheduledAt + status. No new tables.
  *
- * Future (prepare only — not implemented): umpire, scorer, priority, notes via metaJson.
+ * Future (prepare only — not implemented): Scorer, scorer, priority, notes via metaJson.
  *
  * @see docs/superpowers/specs/2026-07-13-draw-fixtures-module-design.md
  */

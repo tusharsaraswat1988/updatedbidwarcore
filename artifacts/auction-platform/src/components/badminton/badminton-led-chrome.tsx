@@ -24,7 +24,7 @@ import { LED_META_LABEL_CLASS } from "@/lib/led-display-typography";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { cn } from "@/lib/utils";
 
-/** Auction LED-style top strip — BIDWAR LIVE + tournament + court/match + status. */
+/** Auction LED-style top strip — BidWar reverse logo + tournament + court/match + status. */
 export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   tournamentName,
   tournamentLogoUrl,
@@ -50,6 +50,7 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   rightLabel: string;
   scoreBoardSponsor?: ScoreBoardSponsor | null;
 }) {
+  const { logoSrc, logoAlt } = useBadmintonBidWarTheme();
   const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
   const isLive = matchStatus === "live" && !isTimeout;
 
@@ -64,23 +65,16 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
         )}
       >
         <div className="flex items-center gap-3 md:gap-4 min-w-0">
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 shrink-0"
-            style={{ backgroundColor: "var(--accent)" }}
-          >
-            <span
-              className="font-['Bebas_Neue'] text-lg md:text-xl tracking-[0.2em] italic"
-              style={{ color: "var(--accent-on)" }}
-            >
-              BIDWAR
-            </span>
-            <span
-              className="font-['Bebas_Neue'] text-lg md:text-xl tracking-[0.2em] italic"
-              style={{ color: "var(--accent-on)" }}
-            >
-              LIVE
-            </span>
-          </div>
+          {logoSrc ? (
+            <img
+              src={logoSrc}
+              alt={logoAlt}
+              className="block h-9 md:h-10 w-auto max-w-[min(220px,28vw)] object-contain object-left shrink-0"
+              style={{ filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.55))" }}
+              loading="eager"
+              decoding="async"
+            />
+          ) : null}
 
           <div className="hidden sm:flex items-center gap-3 border-l border-white/15 pl-4 min-w-0">
             {tournamentLogoUrl ? (

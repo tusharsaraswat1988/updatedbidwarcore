@@ -1,7 +1,7 @@
-import type { UmpireBanner } from "@workspace/badminton-core";
+import type { ScorerBanner } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
 
-const BANNER_STYLES: Record<UmpireBanner["kind"], string> = {
+const BANNER_STYLES: Record<ScorerBanner["kind"], string> = {
   game_point: "bg-orange-600/90 border-orange-400 text-white",
   match_point: "bg-red-700/95 border-red-400 text-white animate-pulse",
   interval_due: "bg-purple-700/90 border-purple-400 text-white",
@@ -10,7 +10,7 @@ const BANNER_STYLES: Record<UmpireBanner["kind"], string> = {
   match_completed: "bg-amber-600/95 border-amber-300 text-white",
 };
 
-export function UmpireMatchBanners({ banners }: { banners: UmpireBanner[] }) {
+export function ScorerMatchBanners({ banners }: { banners: ScorerBanner[] }) {
   if (banners.length === 0) return null;
 
   return (

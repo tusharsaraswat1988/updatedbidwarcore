@@ -1,7 +1,7 @@
-import type { UmpireConfidencePanel as PanelData } from "@workspace/badminton-core";
+import type { ScorerConfidencePanel as PanelData } from "@workspace/badminton-core";
 
 /** Single authoritative match-state readout for the scorer console. */
-export function UmpireStatusStrip({ panel }: { panel: PanelData }) {
+export function ScorerStatusStrip({ panel }: { panel: PanelData }) {
   return (
     <div className="shrink-0 mx-3 mb-2 rounded-xl border border-white/10 bg-[#070b16] px-3 py-2.5">
       <div className="flex items-center justify-between gap-3 flex-wrap">

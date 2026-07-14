@@ -671,6 +671,63 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_category_id ON academy_lessons (category_id);
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_display_order ON academy_lessons (display_order);
   `);
+
+  await q(`
+    CREATE TABLE IF NOT EXISTS scorer_accounts (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      mobile TEXT NOT NULL,
+      pin_hash TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_login_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scorer_accounts_mobile ON scorer_accounts (mobile);
+
+    CREATE TABLE IF NOT EXISTS scorer_sessions (
+      id TEXT PRIMARY KEY,
+      scorer_id INTEGER NOT NULL,
+      device_name TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS ix_scorer_sessions_scorer_id ON scorer_sessions (scorer_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_sessions_expires_at ON scorer_sessions (expires_at);
+
+    CREATE TABLE IF NOT EXISTS scorer_match_locks (
+      match_id INTEGER PRIMARY KEY,
+      scorer_id INTEGER NOT NULL,
+      session_id TEXT NOT NULL,
+      locked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_session_id ON scorer_match_locks (session_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_last_heartbeat ON scorer_match_locks (last_heartbeat_at);
+
+    CREATE TABLE IF NOT EXISTS scorer_audit_log (
+      id SERIAL PRIMARY KEY,
+      actor_type TEXT NOT NULL,
+      actor_id TEXT,
+      scorer_id INTEGER,
+      session_id TEXT,
+      tournament_id INTEGER,
+      match_id INTEGER,
+      sport TEXT,
+      action TEXT NOT NULL,
+      payload JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_match_id ON scorer_audit_log (match_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_tournament_id ON scorer_audit_log (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_scorer_id ON scorer_audit_log (scorer_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_created_at ON scorer_audit_log (created_at);
+    CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_action ON scorer_audit_log (action);
+  `);
     success = true;
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : String(err);

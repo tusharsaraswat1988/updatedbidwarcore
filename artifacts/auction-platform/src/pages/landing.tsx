@@ -1434,7 +1434,7 @@ export default function Landing() {
                     is BidWar's second core capability. Rally-by-rally digital scoring replaces paper scorecards,
                     syncs live to any TV or projector via BidWar's scoreboard display mode, and automatically
                     handles service rotation, deuce detection, and game progression based on BWF rules.
-                    Umpires score from any smartphone browser — no app installation required. Scores are
+                    Scorers score from any smartphone browser — no app installation required. Scores are
                     visible to spectators in real time, making club tournaments feel like broadcast events.
                   </p>
                   <p>

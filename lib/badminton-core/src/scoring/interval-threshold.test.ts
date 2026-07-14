@@ -9,7 +9,7 @@ import { createInitialBadmintonState, sideChangeScore } from "../reducer/state";
 import type { BadmintonMatchMeta, BadmintonMatchState, BadmintonSide } from "../types";
 import { STANDARD_FORMAT } from "../types";
 import type { BadmintonMatchStartedPayload } from "../events/badminton";
-import { isIntervalDue } from "./umpire-assistance";
+import { isIntervalDue } from "./scorer-assistance";
 
 const META: BadmintonMatchMeta = {
   matchId: 1,
@@ -41,7 +41,7 @@ function apply(
       eventType: event.eventType,
       eventVersion: 1,
       sequence: seq,
-      actorType: "scorer",
+      actorType: "scorer_pin",
       payload: event.payload,
     });
   }

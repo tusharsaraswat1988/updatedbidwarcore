@@ -2,8 +2,7 @@
  * Badminton Scorer Home
  * Route: /badminton/scorer?tid={tournamentId}
  *
- * Court-oriented entry: PIN once → assigned court(s) → current/next match →
- * existing Live Scoring. Match PIN still supported for compatibility.
+ * Mobile + personal PIN login → JWT → all scoreable matches for the tournament.
  */
 
 import { useEffect, useState } from "react";
@@ -13,20 +12,21 @@ import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminto
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
   fetchBadmintonScorerSession,
-  openBadmintonScorerSession,
   type ScorerHomeCourtCard,
   type ScorerHomeMatchCard,
   type ScorerHomeSessionPayload,
   type ScorerHomeUiStatus,
 } from "@/lib/badminton-api";
 import {
-  clearBadmintonScorerSession,
-  getBadmintonScorerSession,
-  setBadmintonScorerSession,
+  clearScorerAuthSession,
+  getScorerAuthSession,
+  setScorerAuthSession,
 } from "@/lib/badminton-scorer-session";
+import { loginScorer, logoutScorer } from "@/lib/scorer-api";
+import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import {
   badmintonScorerHomePath,
-  badmintonUmpireScorerPath,
+  badmintonScorerMatchPath,
 } from "@/lib/badminton-routes";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import { identityFromCombinedLabel } from "@/lib/team-player-identity";
@@ -227,16 +227,17 @@ export default function BadmintonScorerHomePage() {
   );
   const tournamentId = tidFromQuery > 0 ? tidFromQuery : parseInt(tournamentIdInput || "0", 10) || 0;
 
+  const [mobileInput, setMobileInput] = useState("");
   const [pinInput, setPinInput] = useState("");
-  const [pinAccepted, setPinAccepted] = useState(false);
-  const [pinError, setPinError] = useState("");
+  const [authAccepted, setAuthAccepted] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [sessionPin, setSessionPin] = useState("");
+  const [scorerName, setScorerName] = useState("");
 
-  const { data: branding } = useBadmintonBranding(pinAccepted ? tournamentId : 0);
+  const { data: branding } = useBadmintonBranding(authAccepted ? tournamentId : 0);
   const tournamentName =
     branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
 
@@ -253,82 +254,102 @@ export default function BadmintonScorerHomePage() {
     }
   }
 
-  async function unlockWithPin(candidate: string, tid: number) {
-    if (candidate.trim().length < 4) {
-      setPinError("PIN must be at least 4 digits");
+  async function loadHomeSession(tid: number) {
+    const result = await fetchBadmintonScorerSession(tid);
+    applySession(result);
+    setAuthAccepted(true);
+    if (tidFromQuery !== tid) {
+      navigate(badmintonScorerHomePath(tid));
+    }
+  }
+
+  async function unlockWithCredentials(mobile: string, pin: string, tid: number) {
+    if (!tid) {
+      setAuthError("Enter the tournament ID from your scorer link");
       return;
     }
-    if (!tid) {
-      setPinError("Enter the tournament ID from your scorer link");
+    if (mobile.replace(/\D/g, "").length < 10) {
+      setAuthError("Enter a valid 10-digit mobile number");
+      return;
+    }
+    if (pin.trim().length < 4) {
+      setAuthError("PIN must be at least 4 digits");
       return;
     }
     setVerifying(true);
-    setPinError("");
+    setAuthError("");
     try {
-      const result = await openBadmintonScorerSession(tid, candidate.trim());
-      if (!result.ok) {
-        setPinError("No courts or matches found for this PIN");
-        return;
+      const existing = getScorerAuthSession();
+      if (!existing) {
+        const login = await loginScorer(mobile.trim(), pin.trim());
+        setScorerAuthSession({
+          token: login.token,
+          scorer: login.scorer,
+          expiresAt: login.expiresAt,
+        });
+        setScorerName(login.scorer.name);
+      } else {
+        setScorerName(existing.scorer.name);
       }
-      setBadmintonScorerSession(tid, candidate.trim());
-      setSessionPin(candidate.trim());
-      applySession(result);
-      setPinAccepted(true);
-      if (tidFromQuery !== tid) {
-        navigate(badmintonScorerHomePath(tid));
-      }
+      await loadHomeSession(tid);
     } catch (err) {
-      setPinError(err instanceof Error ? err.message : "Could not verify PIN");
+      setAuthError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setVerifying(false);
     }
   }
 
   useEffect(() => {
-    if (!tournamentId || pinAccepted || verifying) return;
-    const existing = getBadmintonScorerSession(tournamentId);
+    if (!tournamentId || authAccepted || verifying) return;
+    const existing = getScorerAuthSession();
     if (!existing) return;
-    setPinInput(existing.pin);
-    void unlockWithPin(existing.pin, tournamentId);
+    setScorerName(existing.scorer.name);
+    setVerifying(true);
+    void loadHomeSession(tournamentId)
+      .catch((err) => {
+        clearScorerAuthSession();
+        setAuthError(err instanceof Error ? err.message : "Session expired. Sign in again.");
+      })
+      .finally(() => setVerifying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId]);
 
   async function refreshSession() {
-    if (!tournamentId || !sessionPin) return;
+    if (!tournamentId || !getScorerAuthSession()) return;
     setRefreshing(true);
     try {
-      const next = await fetchBadmintonScorerSession(tournamentId, sessionPin);
+      const next = await fetchBadmintonScorerSession(tournamentId);
       applySession(next);
     } catch {
-      clearBadmintonScorerSession(tournamentId);
-      setPinAccepted(false);
-      setSessionPin("");
+      clearScorerAuthSession();
+      setAuthAccepted(false);
       setSession(null);
-      setPinError("Session expired. Enter your PIN again.");
+      setAuthError("Session expired. Sign in again.");
     } finally {
       setRefreshing(false);
     }
   }
 
-  function changePin() {
-    clearBadmintonScorerSession(tournamentId);
-    setPinAccepted(false);
-    setSessionPin("");
+  async function handleLogout() {
+    const existing = getScorerAuthSession();
+    if (existing?.token) await logoutScorer(existing.token);
+    clearScorerAuthSession();
+    setAuthAccepted(false);
     setSession(null);
     setSelectedCourtId(null);
     setPinInput("");
-    setPinError("");
+    setAuthError("");
   }
 
   function openMatch(match: ScorerHomeMatchCard) {
-    navigate(badmintonUmpireScorerPath(match.id, tournamentId));
+    navigate(badmintonScorerMatchPath(match.id, tournamentId));
   }
 
   const selectedCourt =
     session?.courts.find((c) => c.id === selectedCourtId) ??
     (session?.view === "court" ? session.courts[0] : null);
 
-  if (!pinAccepted) {
+  if (!authAccepted) {
     return (
       <FullscreenLayout>
         <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -338,9 +359,9 @@ export default function BadmintonScorerHomePage() {
                 <div className="flex justify-center mb-6">
                   <BadmintonPublicBrandMark variant="scorer-bar" />
                 </div>
-                <h1 className="text-white text-2xl font-black tracking-tight">Scorer Home</h1>
+                <h1 className="text-white text-2xl font-black tracking-tight">Scorer Login</h1>
                 <p className="text-white/45 text-sm mt-2 leading-relaxed">
-                  Enter your court PIN to open current and upcoming matches.
+                  Enter your mobile number and personal PIN to open scoring.
                 </p>
               </div>
 
@@ -363,36 +384,52 @@ export default function BadmintonScorerHomePage() {
 
                 <div>
                   <label className="block text-white/40 text-xs font-semibold uppercase tracking-wide mb-2">
-                    Scorer PIN
+                    Mobile number
                   </label>
                   <input
                     type="tel"
                     inputMode="numeric"
-                    autoComplete="one-time-code"
+                    autoComplete="tel"
+                    value={mobileInput}
+                    onChange={(e) => setMobileInput(sanitizeMobileInput(e.target.value))}
+                    placeholder="10-digit mobile"
+                    className="w-full min-h-14 rounded-2xl bg-white/5 border border-white/10 text-white text-center text-xl font-bold tracking-wide placeholder-white/20 focus:outline-none focus:border-[#4fc3f7]/40"
+                    maxLength={10}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-white/40 text-xs font-semibold uppercase tracking-wide mb-2">
+                    Personal PIN
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="current-password"
                     value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
+                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 8))}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") void unlockWithPin(pinInput, tournamentId);
+                      if (e.key === "Enter") void unlockWithCredentials(mobileInput, pinInput, tournamentId);
                     }}
-                    placeholder="Enter PIN"
+                    placeholder="PIN"
                     className="w-full min-h-16 rounded-2xl bg-white/5 border border-white/10 text-white text-center text-3xl font-black tracking-[0.5em] placeholder-white/20 focus:outline-none focus:border-[#4fc3f7]/40"
                     maxLength={8}
                   />
                 </div>
 
-                {pinError ? (
+                {authError ? (
                   <p className="text-red-400 text-sm text-center" role="alert">
-                    {pinError}
+                    {authError}
                   </p>
                 ) : null}
 
                 <button
                   type="button"
                   disabled={verifying}
-                  onClick={() => void unlockWithPin(pinInput, tournamentId)}
+                  onClick={() => void unlockWithCredentials(mobileInput, pinInput, tournamentId)}
                   className="w-full min-h-16 rounded-xl bg-primary text-primary-foreground font-display font-bold text-lg shadow-[var(--shadow-glow)] disabled:opacity-50"
                 >
-                  {verifying ? "Checking PIN…" : "Continue"}
+                  {verifying ? "Signing in…" : "Continue"}
                 </button>
               </div>
             </div>
@@ -413,7 +450,8 @@ export default function BadmintonScorerHomePage() {
               </div>
               <h1 className="text-white text-lg font-black truncate">{tournamentName}</h1>
               <p className="text-white/40 text-xs mt-0.5">
-                {session?.view === "matches" ? "Your assigned matches" : "Court scoring"}
+                {scorerName ? `${scorerName} · ` : ""}
+                {session?.view === "matches" ? "All matches" : "Court scoring"}
               </p>
             </div>
             <button
@@ -428,14 +466,7 @@ export default function BadmintonScorerHomePage() {
           <div className="max-w-lg mx-auto mt-3 flex gap-2">
             <button
               type="button"
-              onClick={changePin}
-              className="flex-1 min-h-12 rounded-xl bg-white/5 border border-white/10 text-white/75 text-sm font-semibold"
-            >
-              Change PIN
-            </button>
-            <button
-              type="button"
-              onClick={changePin}
+              onClick={() => void handleLogout()}
               className="flex-1 min-h-12 rounded-xl bg-white/5 border border-white/10 text-white/75 text-sm font-semibold"
             >
               Logout

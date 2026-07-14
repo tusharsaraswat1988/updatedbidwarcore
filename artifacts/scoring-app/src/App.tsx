@@ -8,6 +8,7 @@ import { ScoringAppTournamentHomeRedirect } from "@/components/scoring/cricket-s
 import { getBadmintonSportNav } from "@/lib/badminton-sport-nav";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
+import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
 
 // Eager organizer pages — sidebar nav must not wait on per-route chunks.
 import BadmintonTournamentHub from "@/pages/badminton/tournament-hub";
@@ -177,6 +178,7 @@ function Router() {
 export default function App() {
   return (
     <WouterRouter base={BASE}>
+      <ScoringAppDocumentChrome />
       <LocalOperatorPinEffects />
       <Router />
     </WouterRouter>

@@ -96,7 +96,7 @@ export const BADMINTON_SETUP_STEPS: BadmintonSetupStep[] = [
     examples: ["21 Points", "15 Points", "Best of 3 Games"],
     helperText: "These rules will automatically apply to matches.",
     missingLabel: "Scoring rules not saved",
-    requiredWhy: "Matches need scoring rules before umpires can start scoring.",
+    requiredWhy: "Matches need scoring rules before scorers can start scoring.",
     href: (id) => `/tournament/${id}/badminton/scoring-format`,
   },
   {

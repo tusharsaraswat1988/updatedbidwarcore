@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Copy, LayoutDashboard, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { badmintonFetch } from "@/lib/badminton-api";
 import {
   badmintonMatchControlPath,
   badmintonResultsPath,
-  badmintonUmpireScorerPath,
+  badmintonScorerMatchPath,
 } from "@/lib/badminton-routes";
 import {
   badmintonQrImageUrl,
@@ -44,6 +44,7 @@ import {
   PageHeader,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonBroadcastDirectorPanel } from "@/components/badminton/broadcast-director-panel";
 import {
   Dialog,
   DialogContent,
@@ -92,7 +93,9 @@ function statusStyles(status: CourtOpsStatus): string {
 
 export default function BadmintonControlCenterPage() {
   const [, params] = useRoute("/tournament/:id/badminton/control");
+  const search = useSearch();
   const tournamentId = parseInt(params?.id ?? "0");
+  const focusBroadcast = new URLSearchParams(search).get("focus") === "broadcast";
 
   const {
     data: courts = [],
@@ -185,7 +188,7 @@ export default function BadmintonControlCenterPage() {
       <PageHeader
         title="Operator Panel"
         eyebrow="Operations"
-        subtitle="Live · Ready · Delayed · Empty — run the day from here"
+        subtitle="Run courts, scorers, and Broadcast Director — Venue Scoreboard + OBS switch from here"
         badge={liveCount > 0 ? `${liveCount} Live` : delayedCount > 0 ? `${delayedCount} Delayed` : undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -197,6 +200,12 @@ export default function BadmintonControlCenterPage() {
                 Start next
               </a>
             ) : null}
+            <a
+              href="#broadcast"
+              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
+            >
+              Broadcast
+            </a>
             <Link
               href={`/tournament/${tournamentId}/badminton/schedule`}
               className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
@@ -214,6 +223,11 @@ export default function BadmintonControlCenterPage() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
+        <BadmintonBroadcastDirectorPanel
+          tournamentId={tournamentId}
+          highlight={focusBroadcast}
+        />
+
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading courts">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -477,7 +491,7 @@ function CourtOpsCard({
                 toast({
                   title: "Scorer Home copied",
                   description: hasScorerPin
-                    ? "Share with the court umpire along with the PIN."
+                    ? "Share with the court scorer along with the PIN."
                     : "Set a court PIN in Courts, then share this link.",
                 });
               });
@@ -596,7 +610,7 @@ function CourtOpsCard({
 
         {status === "LIVE" && currentMatch ? (
           <a
-            href={badmintonUmpireScorerPath(currentMatch.id, tournamentId)}
+            href={badmintonScorerMatchPath(currentMatch.id, tournamentId)}
             target="_blank"
             rel="noopener noreferrer"
             className="min-h-11 px-4 rounded-lg bg-red-500/25 hover:bg-red-500/35 text-red-200 text-sm font-bold inline-flex items-center"

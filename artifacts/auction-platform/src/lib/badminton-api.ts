@@ -23,20 +23,11 @@ export async function badmintonFetch<T>(
 }
 
 export async function verifyBadmintonScorerPin(
-  tournamentId: number,
-  matchId: number,
-  pin: string,
+  _tournamentId: number,
+  _matchId: number,
+  _pin: string,
 ): Promise<boolean> {
-  try {
-    const result = await badmintonFetch<{ ok: boolean }>(
-      tournamentId,
-      `/matches/${matchId}/verify-pin`,
-      { method: "POST", body: JSON.stringify({ pin }) },
-    );
-    return result.ok === true;
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 export type ScorerHomeUiStatus = "READY" | "LIVE" | "PAUSED" | "COMPLETED";
@@ -75,27 +66,23 @@ export type ScorerHomeSessionPayload = {
 
 export async function openBadmintonScorerSession(
   tournamentId: number,
-  pin: string,
+  _pin?: string,
 ): Promise<ScorerHomeSessionPayload> {
-  try {
-    return await badmintonFetch<ScorerHomeSessionPayload>(
-      tournamentId,
-      `/scorer/session`,
-      { method: "POST", body: JSON.stringify({ pin }) },
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Request failed";
-    throw new Error(message);
-  }
+  const { scorerAuthHeaders } = await import("./badminton-scorer-session");
+  return badmintonFetch<ScorerHomeSessionPayload>(tournamentId, `/scorer/session`, {
+    method: "GET",
+    headers: scorerAuthHeaders(),
+  });
 }
 
 export async function fetchBadmintonScorerSession(
   tournamentId: number,
-  pin: string,
+  _pin?: string,
 ): Promise<ScorerHomeSessionPayload> {
+  const { scorerAuthHeaders } = await import("./badminton-scorer-session");
   return badmintonFetch<ScorerHomeSessionPayload>(tournamentId, `/scorer/matches`, {
     method: "GET",
-    headers: { "x-scorer-pin": pin },
+    headers: scorerAuthHeaders(),
   });
 }
 

@@ -5,7 +5,7 @@ export const MOBILE_APP_BASE = "/mobile";
 export const MOBILE_ROLE_IDS = [
   "organizer",
   "team-owner",
-  // Future: "operator", "scorer", "umpire", "volunteer", "spectator"
+  // Future: "operator", "scorer", "volunteer", "spectator"
 ] as const;
 
 export type MobileRoleId = (typeof MOBILE_ROLE_IDS)[number];

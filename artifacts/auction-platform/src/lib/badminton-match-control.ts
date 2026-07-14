@@ -76,6 +76,16 @@ function sideHasPlayers(side: Record<string, unknown>, isPair: boolean): boolean
   return Boolean(masterId || label || playerIds.length > 0);
 }
 
+/** True when both sides have enough players for Start. */
+export function hasCompleteMatchRoster(
+  leftSideJson: Record<string, unknown>,
+  rightSideJson: Record<string, unknown>,
+  matchType: string,
+): boolean {
+  const isPair = isPairMatchKind(matchType);
+  return sideHasPlayers(leftSideJson, isPair) && sideHasPlayers(rightSideJson, isPair);
+}
+
 function peerCourtId(m: MatchControlPeerMatch): number | null {
   const id = m.detail?.courtId;
   return typeof id === "number" ? id : null;

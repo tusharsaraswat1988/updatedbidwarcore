@@ -109,7 +109,7 @@ export const TOURNAMENT_STORY_BEATS: Record<BadmintonSetupStepId, TournamentStor
       title: "What are Scoring Rules?",
       body: [
         "Scoring Rules decide points per game and how many games win a match.",
-        "They apply automatically to new matches — umpires do not invent rules on court.",
+        "They apply automatically to new matches — scorers do not invent rules on court.",
       ],
       terms: [
         { term: "Best of 3", meaning: "First to win 2 games wins the match." },
@@ -132,7 +132,7 @@ export const TOURNAMENT_STORY_BEATS: Record<BadmintonSetupStepId, TournamentStor
         "The Scorer PIN belongs to the Court first. Matches inherit it unless a Match PIN overrides it.",
       ],
       terms: [
-        { term: "Scorer PIN", meaning: "Code the umpire enters to unlock scoring." },
+        { term: "Scorer PIN", meaning: "Code the scorer enters to unlock scoring." },
         { term: "Match Control", meaning: "Organizer desk to start and manage a match." },
       ],
     },

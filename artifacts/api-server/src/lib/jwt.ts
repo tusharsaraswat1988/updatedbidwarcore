@@ -46,6 +46,15 @@ export interface OwnerSessionClaims {
   teamId: number;
 }
 
+/** Scorer module JWT — Bearer auth for live scoring. */
+export interface ScorerAuthClaims {
+  purpose: "scorer";
+  scorerId: number;
+  sessionId: string;
+}
+
+const SCORER_JWT_EXPIRY = 12 * 60 * 60; // 12 hours
+
 function getSecret(): string {
   return getSessionSecret();
 }
@@ -89,6 +98,36 @@ export function verifyOAuthJwt(token: string): OAuthState | null {
 export function signOwnerSessionJwt(claims: OwnerSessionClaims): string {
   const clean = stripJwtReservedFields(claims as OwnerSessionClaims & { exp?: unknown; iat?: unknown; nbf?: unknown });
   return jwt.sign(clean, getSecret(), { expiresIn: OWNER_SESSION_EXPIRY });
+}
+
+export function signScorerJwt(claims: ScorerAuthClaims): string {
+  const clean = stripJwtReservedFields(
+    claims as ScorerAuthClaims & { exp?: unknown; iat?: unknown; nbf?: unknown },
+  );
+  return jwt.sign(clean, getSecret(), { expiresIn: SCORER_JWT_EXPIRY });
+}
+
+export function verifyScorerJwt(token: string): ScorerAuthClaims | null {
+  try {
+    const payload = jwt.verify(token, getSecret()) as ScorerAuthClaims & {
+      exp?: unknown;
+      iat?: unknown;
+      nbf?: unknown;
+    };
+    const clean = stripJwtReservedFields(payload) as ScorerAuthClaims;
+    if (
+      clean.purpose !== "scorer" ||
+      typeof clean.scorerId !== "number" ||
+      !Number.isFinite(clean.scorerId) ||
+      typeof clean.sessionId !== "string" ||
+      !clean.sessionId
+    ) {
+      return null;
+    }
+    return clean;
+  } catch {
+    return null;
+  }
 }
 
 export function verifyOwnerSessionJwt(token: string): OwnerSessionClaims | null {

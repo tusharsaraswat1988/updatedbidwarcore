@@ -1103,7 +1103,7 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
       { id: "display-output", title: "Live Display Output" },
     ],
     content: [
-      { type: "p", text: "Paper scorecards have two critical problems: they're invisible to spectators sitting 5 meters away, and they require a dedicated scorer whose attention is split between writing and watching the match. Digital rally-by-rally scoring solves both — with a live display that everyone can see and an umpire interface fast enough to keep up with every exchange." },
+      { type: "p", text: "Paper scorecards have two critical problems: they're invisible to spectators sitting 5 meters away, and they require a dedicated scorer whose attention is split between writing and watching the match. Digital rally-by-rally scoring solves both — with a live display that everyone can see and a scorer interface fast enough to keep up with every exchange." },
       { type: "h2", id: "why-digital-scoring", text: "Why Digital Rally-by-Rally Scoring?" },
       { type: "ul", items: [
         "Spectators can follow the score on a screen without asking anyone",
@@ -1113,7 +1113,7 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
         "Live broadcast capability — scores can be displayed on YouTube/Facebook streams",
       ]},
       { type: "h2", id: "scoring-flow", text: "The Scoring Flow" },
-      { type: "p", text: "The umpire uses BidWar's scoring interface on a phone or tablet. For each rally, they tap the winning side's button (Player A or Player B / Team A or Team B). The score updates instantly, the service indicator flips if appropriate, and the display updates on all connected screens." },
+      { type: "p", text: "The Scorer uses BidWar's scoring interface on a phone or tablet. For each rally, they tap the winning side's button (Player A or Player B / Team A or Team B). The score updates instantly, the service indicator flips if appropriate, and the display updates on all connected screens." },
       { type: "steps", items: [
         "Tap the match to open it in scoring mode",
         "Confirm server and receiver for the first rally",
@@ -1184,11 +1184,11 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
       { id: "common-issues", title: "Common Issues and Fixes" },
     ],
     content: [
-      { type: "p", text: "A live scoreboard transforms any badminton tournament from a casual club event into a professional experience. Spectators can follow the action, umpires have a clear reference, and results are automatically recorded. Here's everything you need to set one up." },
+      { type: "p", text: "A live scoreboard transforms any badminton tournament from a casual club event into a professional experience. Spectators can follow the action, Scorers have a clear reference, and results are automatically recorded. Here's everything you need to set one up." },
       { type: "h2", id: "hardware-choices", text: "Hardware Choices" },
       { type: "p", text: "**Best option:** A 40–55 inch TV mounted or placed at the end of the court, connected via HDMI to a laptop running BidWar's display mode. **Budget option:** A projector pointed at a wall — works well in darker halls. **Outdoor option:** High-brightness projector (>3000 lumens) or multiple smaller screens at strategic viewing positions." },
       { type: "h2", id: "scorer-assignment", text: "Scorer Assignment" },
-      { type: "p", text: "Assign one scorer per court. The scorer sits at the umpire chair or a designated position with a tablet or phone running BidWar's scoring interface. They update the score after each rally — typically 2–3 taps per rally point. For high-level matches, the umpire can score directly." },
+      { type: "p", text: "Assign one scorer per court. The scorer sits at the scorer chair or a designated position with a tablet or phone running BidWar's scoring interface. They update the score after each rally — typically 2–3 taps per rally point. For high-level matches, the scorer can score directly." },
       { type: "h2", id: "display-configuration", text: "Display Configuration" },
       { type: "p", text: "In BidWar's display mode, you can choose between full-screen scoreboard (ideal for a TV at the end of the court), landscape overlay (for streaming), and compact strip (for multi-court hall displays). Configure player/team names, match title, and round number before each match." },
       { type: "tip", heading: "Use landscape mode for streams", text: "If you're streaming the tournament, use BidWar's broadcast overlay mode in OBS — it adds a transparent score strip to any camera feed. This creates the professional presentation viewers expect from sports broadcasts." },
@@ -1262,20 +1262,20 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
       { type: "p", text: "The right tournament management software can turn a chaotic multi-court event into a smoothly run professional tournament. The wrong software — or a generic sports platform not built for badminton — creates more work than it saves. This guide covers exactly what to look for." },
       { type: "h2", id: "must-have-features", text: "Must-Have Features" },
       { type: "ul", items: [
-        "**Live match scoring** — umpires or scorers update scores in real time on any device",
+        "**Live match scoring** — Scorers or scorers update scores in real time on any device",
         "**Automatic standings/rankings** update as matches complete",
         "**Display output** — ability to show scores on a TV or projector without additional software",
         "**Player registration management** — adding, editing, and grouping players or pairs",
-        "**Match scheduling** — assign courts, times, and umpires to each match",
+        "**Match scheduling** — assign courts, times, and Scorers to each match",
       ]},
       { type: "h2", id: "draw-generation", text: "Draw & Schedule Generation" },
       { type: "p", text: "For knockout tournaments, automatic draw generation is essential — seedings should be honored, and bracket generation should be instant. For round-robin pools, the software should generate a complete schedule that minimizes court time conflicts and ensures no player/pair plays twice in quick succession." },
       { type: "h2", id: "live-scoring-features", text: "Live Scoring Features" },
-      { type: "p", text: "The umpire interface needs to be fast — single-tap scoring per rally with no confirmation dialogs. Service tracking should be automatic based on BWF rules. An **undo button** is essential; errors happen in fast rallies. Game-end should be detected automatically." },
+      { type: "p", text: "The Scorer interface needs to be fast — single-tap scoring per rally with no confirmation dialogs. Service tracking should be automatic based on BWF rules. An **undo button** is essential; errors happen in fast rallies. Game-end should be detected automatically." },
       { type: "h2", id: "results-and-reporting", text: "Results & Reporting" },
       { type: "p", text: "After each match, results should appear in the standings immediately. A **tournament report** at the end should include all match scores, final standings, and player statistics. Printable or PDF export is important for physical award distribution." },
       { type: "h2", id: "mobile-access", text: "Mobile Access" },
-      { type: "p", text: "Umpires need mobile scoring access. Players and participants should be able to check their schedule, draw position, and results on their own phones — reducing the number of times they interrupt organizers for schedule information." },
+      { type: "p", text: "Scorers need mobile scoring access. Players and participants should be able to check their schedule, draw position, and results on their own phones — reducing the number of times they interrupt organizers for schedule information." },
       { type: "h2", id: "bidwar-for-badminton", text: "BidWar for Badminton" },
       { type: "p", text: "BidWar handles badminton tournament management alongside franchise auctions — making it the only platform you need whether you're running a player auction before the season or managing live scoring during the tournament. The LED display mode works for both auction and scoring use cases." },
     ],
@@ -1305,7 +1305,7 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
       { type: "h2", id: "live-scoring-workflow", text: "Live Scoring Workflow" },
       { type: "steps", items: [
         "Open BidWar on match day and navigate to the active round's matches",
-        "Assign umpires/scorers to each court via the scorer assignment screen",
+        "Assign Scorers/scorers to each court via the scorer assignment screen",
         "Scorers open their assigned match on their phone and start scoring",
         "Standings update automatically as each game and match completes",
         "Players can view scores live on any device using the public results link",
@@ -1319,20 +1319,20 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
   },
 
   /* ─────────────────────────────────────────────────────────────────────────
-     P1 BATCH 24: Badminton Scoring App for Umpires
+     P1 BATCH 24: Badminton Scoring App for Scorers
   ───────────────────────────────────────────────────────────────────────── */
-  "badminton-scoring-app-umpires-features": {
+  "badminton-scoring-app-scorers-features": {
     tableOfContents: [
-      { id: "core-requirements", title: "Core Requirements for Umpire Apps" },
+      { id: "core-requirements", title: "Core Requirements for Scorer Apps" },
       { id: "speed-and-accuracy", title: "Speed & Accuracy Features" },
       { id: "fault-handling", title: "Fault Handling" },
       { id: "offline-mode", title: "Offline Mode" },
       { id: "display-sync", title: "Display Sync" },
-      { id: "bidwar-umpire-interface", title: "BidWar's Umpire Interface" },
+      { id: "bidwar-scorer-interface", title: "BidWar's Scorer Interface" },
     ],
     content: [
-      { type: "p", text: "An umpire's scoring app needs to keep pace with a sport where rallies can last 2 seconds and service faults can happen multiple times per game. The wrong app — slow, cluttered, or crash-prone — makes an umpire's job harder rather than easier. Here's the feature checklist every badminton umpire should require." },
-      { type: "h2", id: "core-requirements", text: "Core Requirements for Umpire Apps" },
+      { type: "p", text: "A scorer's scoring app needs to keep pace with a sport where rallies can last 2 seconds and service faults can happen multiple times per game. The wrong app — slow, cluttered, or crash-prone — makes a scorer's job harder rather than easier. Here's the feature checklist every badminton scorer should require." },
+      { type: "h2", id: "core-requirements", text: "Core Requirements for Scorer Apps" },
       { type: "ul", items: [
         "**One-tap rally scoring** — no confirmation dialogs, no secondary taps",
         "**Visible current score** — large numbers readable in bright hall lighting",
@@ -1341,16 +1341,16 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
         "**Match history** — full record of every point for dispute resolution",
       ]},
       { type: "h2", id: "speed-and-accuracy", text: "Speed & Accuracy Features" },
-      { type: "p", text: "The most important quality of any umpire scoring interface is **speed without error**. A well-designed app separates the two team buttons by enough space that a tap never hits the wrong side accidentally. Large touch targets, clear contrast, and minimal UI clutter are non-negotiable." },
-      { type: "p", text: "An **undo button** is equally critical — umpires will mis-tap, especially during fast exchanges. The undo button should be single-tap and should restore the complete previous state including service position." },
+      { type: "p", text: "The most important quality of any scorer scoring interface is **speed without error**. A well-designed app separates the two team buttons by enough space that a tap never hits the wrong side accidentally. Large touch targets, clear contrast, and minimal UI clutter are non-negotiable." },
+      { type: "p", text: "An **undo button** is equally critical — Scorers will mis-tap, especially during fast exchanges. The undo button should be single-tap and should restore the complete previous state including service position." },
       { type: "h2", id: "fault-handling", text: "Fault Handling" },
       { type: "p", text: "Service faults, let calls, and unsporting conduct all need quick recording. The app should have dedicated buttons for common fault types. These don't need to be on the main scoring screen — a secondary panel accessible from the main screen is fine — but they must be accessible in under 2 taps." },
       { type: "h2", id: "offline-mode", text: "Offline Mode" },
-      { type: "p", text: "Tournament halls often have poor Wi-Fi. An umpire scoring app must work offline — storing rally data locally and syncing to the central tournament when connectivity is restored. An app that requires constant internet connection is a liability at any real tournament." },
+      { type: "p", text: "Tournament halls often have poor Wi-Fi. A scorer scoring app must work offline — storing rally data locally and syncing to the central tournament when connectivity is restored. An app that requires constant internet connection is a liability at any real tournament." },
       { type: "h2", id: "display-sync", text: "Display Sync" },
-      { type: "p", text: "The best apps sync the umpire's inputs to a separate display screen in real time — so the scoreboard on the TV updates as the umpire taps. This requires a backend that handles WebSocket connections or a similar real-time sync mechanism." },
-      { type: "h2", id: "bidwar-umpire-interface", text: "BidWar's Umpire Interface" },
-      { type: "p", text: "BidWar's scoring interface is designed for exactly these requirements: single-tap rally entry, large touch targets, automatic service tracking, one-tap undo, offline mode, and real-time sync to any connected display. Umpires access it via browser on any smartphone — no app install required." },
+      { type: "p", text: "The best apps sync the scorer's inputs to a separate display screen in real time — so the scoreboard on the TV updates as the scorer taps. This requires a backend that handles WebSocket connections or a similar real-time sync mechanism." },
+      { type: "h2", id: "bidwar-scorer-interface", text: "BidWar's Scorer Interface" },
+      { type: "p", text: "BidWar's scoring interface is designed for exactly these requirements: single-tap rally entry, large touch targets, automatic service tracking, one-tap undo, offline mode, and real-time sync to any connected display. Scorers access it via browser on any smartphone — no app install required." },
     ],
   },
 
@@ -1514,7 +1514,7 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
         "Player photo management for display and identification",
       ]},
       { type: "h2", id: "scheduling-features", text: "Scheduling Features" },
-      { type: "p", text: "The scheduler should generate a complete round-robin or knockout bracket instantly. Key features: venue/court assignment, time-slot management, umpire/referee assignment, and the ability to reschedule specific matches without regenerating the entire schedule." },
+      { type: "p", text: "The scheduler should generate a complete round-robin or knockout bracket instantly. Key features: venue/court assignment, time-slot management, Scorer/referee assignment, and the ability to reschedule specific matches without regenerating the entire schedule." },
       { type: "h2", id: "live-scoring", text: "Live Scoring & Standings" },
       { type: "p", text: "Live match scoring must update standings in real time. Standings should support configurable point systems (e.g., 2W/1D/0L for football; games won/lost for badminton). Tie-breaking criteria should be configurable. Export options for standings are essential for publishing or display." },
       { type: "h2", id: "player-auction", text: "Player Auction Integration" },
@@ -1525,7 +1525,7 @@ const CONTENT: Record<string, { tableOfContents: { id: string; title: string }[]
       { type: "ul", items: [
         "Can I run a player auction and manage the league in the same platform?",
         "Does live scoring update standings automatically?",
-        "Can umpires score on mobile without installing an app?",
+        "Ca scorers score on mobile without installing an app?",
         "Is there a public results page for participants?",
         "Can I export a full tournament report as PDF?",
         "Does it work offline if the venue has poor internet?",

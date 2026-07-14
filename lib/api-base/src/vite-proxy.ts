@@ -55,7 +55,7 @@ export function rewriteScoringAppHtmlAssets(html: string): string {
       },
     )
     .replace(
-      /(\s(?:src|href)=["'])(\/(?!scoring-app\/)(?:@|src\/|node_modules\/\.vite\/|favicon\.svg)[^"']*)(["'])/g,
+      /(\s(?:src|href)=["'])(\/(?!scoring-app\/)(?:@|src\/|node_modules\/\.vite\/)[^"']*)(["'])/g,
       (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`,
     )
     .replace(

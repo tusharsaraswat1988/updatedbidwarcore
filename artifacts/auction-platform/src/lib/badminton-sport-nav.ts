@@ -50,7 +50,7 @@ const PRELOAD: Record<string, () => Promise<unknown>> = {
   control: () => import("@/pages/badminton/control-center"),
   results: () => import("@/pages/badminton/results"),
   summary: () => import("@/pages/badminton/summary"),
-  broadcast: () => import("@/pages/badminton/broadcast"),
+  broadcast: () => import("@/pages/badminton/control-center"),
   analytics: () => import("@/pages/badminton/analytics"),
 };
 
@@ -133,7 +133,7 @@ export function getBadmintonSportNav(): SportNavConfig {
         {
           ...byId("broadcast"),
           label: "Display & Broadcast",
-          hint: "LED · OBS · Public · Umpire",
+          hint: "Director · Venue · OBS · Scorer",
         },
       ],
     },

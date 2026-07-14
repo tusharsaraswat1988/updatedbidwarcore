@@ -502,7 +502,7 @@ export const BLOG_POSTS_META: BlogPostMeta[] = [
   {
     slug: "badminton-tournament-management-software-guide",
     title: "Badminton Tournament Management Software: What to Look For",
-    description: "A buyer's guide to badminton tournament management software — draw generation, live scoring, scoreboard display, results publishing, and mobile access for umpires.",
+    description: "A buyer's guide to badminton tournament management software — draw generation, live scoring, scoreboard display, results publishing, and mobile access for Scorers.",
     excerpt: "Not all tournament software handles badminton's specific needs. Here's what features to demand before committing to any platform for your club or district tournament.",
     category: "platform-features",
     tags: ["scoring", "tournament-setup"],
@@ -524,16 +524,16 @@ export const BLOG_POSTS_META: BlogPostMeta[] = [
     canonical: `${BLOG_BASE_URL}/run-badminton-league-live-scoring-standings`,
   },
   {
-    slug: "badminton-scoring-app-umpires-features",
-    title: "Badminton Scoring App for Umpires: Features to Look For",
-    description: "What makes a good badminton scoring app for umpires — one-tap rally entry, service fault buttons, game auto-detection, offline mode, and display sync.",
-    excerpt: "Umpires need an app that keeps up with fast rally exchanges and doesn't crash mid-match. Here's a feature checklist every badminton umpire should review.",
+    slug: "badminton-scoring-app-scorers-features",
+    title: "Badminton Scoring App for Scorers: Features to Look For",
+    description: "What makes a good badminton scoring app for Scorers — one-tap rally entry, service fault buttons, game auto-detection, offline mode, and display sync.",
+    excerpt: "Scorers need an app that keeps up with fast rally exchanges and doesn't crash mid-match. Here's a feature checklist every badminton Scorer should review.",
     category: "platform-features",
     tags: ["scoring", "setup-guide"],
     author: "bidwar-team",
     publishedAt: "2026-07-03",
     readingTimeMinutes: 5,
-    canonical: `${BLOG_BASE_URL}/badminton-scoring-app-umpires-features`,
+    canonical: `${BLOG_BASE_URL}/badminton-scoring-app-scorers-features`,
   },
 
   // ── P1 Batch: Technology & Platform Features ─────────────────────────────

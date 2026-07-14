@@ -97,7 +97,7 @@ describe("buildScorerHomeView", () => {
   it("uses court view for a single assigned court", () => {
     const view = buildScorerHomeView({
       matches: [match({ id: 1, courtId: 10 })],
-      courts: [{ id: 10, name: "Court 1", shortName: "C1", scorerName: "Umpire" }],
+      courts: [{ id: 10, name: "Court 1", shortName: "C1", scorerName: "Scorer" }],
     });
     expect(view.view).toBe("court");
     expect(view.courts).toHaveLength(1);

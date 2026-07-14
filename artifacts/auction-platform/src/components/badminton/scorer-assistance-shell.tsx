@@ -2,18 +2,18 @@ import type { ReactNode } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { ScorerConsoleHeader } from "@/components/badminton/scorer-console-header";
 import { MatchIdentityStrip } from "@/components/badminton/match-identity-strip";
-import { UmpireMatchBanners } from "@/components/badminton/umpire-match-banners";
-import { UmpireStatusStrip } from "@/components/badminton/umpire-status-strip";
-import { UmpireIntervalModal } from "@/components/badminton/umpire-interval-modal";
-import { UmpireCourtChangeModal } from "@/components/badminton/umpire-court-change-modal";
-import { UmpireReadyDialog } from "@/components/badminton/umpire-ready-dialog";
+import { ScorerMatchBanners } from "@/components/badminton/scorer-match-banners";
+import { ScorerStatusStrip } from "@/components/badminton/scorer-status-strip";
+import { ScorerIntervalModal } from "@/components/badminton/scorer-interval-modal";
+import { ScorerCourtChangeModal } from "@/components/badminton/scorer-court-change-modal";
+import { ScorerReadyDialog } from "@/components/badminton/scorer-ready-dialog";
 import {
-  useUmpireAssistance,
+  useScorerAssistance,
   useVoiceAssist,
   useVoiceAssistSetting,
-} from "@/hooks/use-umpire-assistance";
+} from "@/hooks/use-scorer-assistance";
 
-interface UmpireAssistanceShellProps {
+interface ScorerAssistanceShellProps {
   state: BadmintonMatchState;
   tournamentName: string;
   courtNumber?: string;
@@ -28,7 +28,7 @@ interface UmpireAssistanceShellProps {
   onAwardPoint: (side: "left" | "right") => Promise<unknown>;
 }
 
-export function UmpireAssistanceShell({
+export function ScorerAssistanceShell({
   state,
   tournamentName,
   courtNumber,
@@ -38,7 +38,7 @@ export function UmpireAssistanceShell({
   onAcknowledgeCourtChange,
   onAwardPoint,
   children,
-}: UmpireAssistanceShellProps) {
+}: ScorerAssistanceShellProps) {
   const { enabled: voiceEnabled, toggle: toggleVoice } = useVoiceAssistSetting();
   const {
     snapshot,
@@ -47,7 +47,7 @@ export function UmpireAssistanceShell({
     showReadyConfirm,
     readyConfirmReason,
     confirmReady,
-  } = useUmpireAssistance(state);
+  } = useScorerAssistance(state);
 
   useVoiceAssist(snapshot, voiceEnabled);
 
@@ -86,8 +86,8 @@ export function UmpireAssistanceShell({
         categoryName={categoryName}
       />
 
-      <UmpireMatchBanners banners={snapshot.banners} />
-      <UmpireStatusStrip panel={snapshot.panel} />
+      <ScorerMatchBanners banners={snapshot.banners} />
+      <ScorerStatusStrip panel={snapshot.panel} />
 
       {showIntervalPrompt && (
         <div className="shrink-0 px-3 pb-2">
@@ -105,15 +105,15 @@ export function UmpireAssistanceShell({
         {children({ scoringBlocked: snapshot.scoringBlocked, onAwardPoint: guardedAward })}
       </div>
 
-      <UmpireCourtChangeModal open={showCourtChangeModal} onAcknowledge={handleCourtChangeAck} />
+      <ScorerCourtChangeModal open={showCourtChangeModal} onAcknowledge={handleCourtChangeAck} />
 
-      <UmpireIntervalModal
+      <ScorerIntervalModal
         open={state.inInterval}
         onResumeEarly={onEndInterval}
         onEndInterval={onEndInterval}
       />
 
-      <UmpireReadyDialog
+      <ScorerReadyDialog
         open={showReadyConfirm}
         reason={readyConfirmReason}
         onConfirm={confirmReady}

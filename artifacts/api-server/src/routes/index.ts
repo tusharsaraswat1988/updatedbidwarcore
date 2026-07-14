@@ -42,10 +42,12 @@ import academyLessonsRouter from "./academy-lessons";
 import academyPublicRouter from "./academy-public";
 import diagnosticsRouter from "./diagnostics";
 import schemaHealthRouter from "./schema-health";
+import scorerRouter from "./scorer";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);
 router.use(googleSheetsRouter);

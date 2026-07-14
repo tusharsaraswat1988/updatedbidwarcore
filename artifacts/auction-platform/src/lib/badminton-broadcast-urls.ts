@@ -16,7 +16,7 @@ export function badmintonBroadcastPath(tournamentId: number, matchId?: number) {
   return matchId ? `${base}?match=${matchId}` : base;
 }
 
-/** Recommended umpire entry — one link + PIN for all assigned matches. */
+/** Recommended scorer entry — one link + PIN for all assigned matches. */
 export function badmintonScorerHomePublicUrl(
   tournamentId: number,
   origin = typeof window !== "undefined" ? window.location.origin : "",
@@ -24,7 +24,7 @@ export function badmintonScorerHomePublicUrl(
   return scoringAppPublicUrl(origin, badmintonScorerHomePath(tournamentId));
 }
 
-/** Persistent Venue Display — auto-follows Primary Broadcast / sole LIVE match. */
+/** Persistent Venue Scoreboard Display — auto-follows Primary Broadcast / sole LIVE match. */
 export function badmintonTournamentDisplayUrl(
   tournamentId: number,
   origin = typeof window !== "undefined" ? window.location.origin : "",

@@ -129,7 +129,7 @@ export const badmintonCourtsTable = pgTable(
     streamUrl: text("stream_url"),
     /** Court has display screen connected. */
     hasDisplay: boolean("has_display").notNull().default(false),
-    /** Court-level scorer PIN — umpires inherit this for matches without a match PIN. */
+    /** Court-level scorer PIN — scorers inherit this for matches without a match PIN. */
     scorerPin: text("scorer_pin"),
     /** Optional display name for the assigned court scorer. */
     scorerName: text("scorer_name"),
@@ -387,8 +387,6 @@ export const badmintonMatchDetailsTable = pgTable(
     scorerPin: text("scorer_pin"),
     /** Assigned scorer name. */
     scorerName: text("scorer_name"),
-    /** Umpire name (court official). */
-    umpireName: text("umpire_name"),
     /** Service judge. */
     serviceJudgeName: text("service_judge_name"),
     /**
