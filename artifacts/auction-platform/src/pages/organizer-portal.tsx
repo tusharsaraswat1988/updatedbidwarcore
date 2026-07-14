@@ -45,6 +45,7 @@ import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account"
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { navigateAfterOrganizerAuth } from "@/lib/navigate-after-organizer-auth";
+import { trackOrganizerSignupConversion } from "@/lib/google-ads-conversion";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
@@ -860,6 +861,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
 
   async function handleSignupEmail(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     const { name, email, password, confirmPassword } = signupForm;
     if (!name || !email || !password) { setError("Name, email, and password are required."); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
@@ -868,6 +870,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
     try {
       const r = await signupEmail({ name, email, password });
       if (!r.success) { setError(r.error || "Signup failed"); return; }
+      trackOrganizerSignupConversion();
       await finishAccountSession();
     } finally {
       setLoading(false);
