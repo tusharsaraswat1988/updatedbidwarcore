@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 export type PlatformFeatures = {
   /** Platform kill-switch — SCORING=true on the host enables all sport scoring modules */
@@ -19,34 +19,33 @@ const DEFAULT_FEATURES: PlatformFeatures = {
   cricket: false,
 };
 
+const PLATFORM_FEATURES_QUERY_KEY = ["platform-features"] as const;
+
 function normalizeFeatures(data: Partial<PlatformFeatures>): PlatformFeatures {
   const scoring = data.scoring ?? data.badminton ?? data.cricket ?? false;
   return { scoring, badminton: scoring, cricket: scoring };
 }
 
+async function fetchPlatformFeatures(): Promise<PlatformFeatures> {
+  const r = await fetch("/api/settings/features");
+  const data: Partial<PlatformFeatures> = r.ok ? await r.json() : DEFAULT_FEATURES;
+  return normalizeFeatures(data);
+}
+
 export function usePlatformFeatures(): PlatformFeaturesState {
-  const [features, setFeatures] = useState<PlatformFeatures>(DEFAULT_FEATURES);
-  const [loading, setLoading] = useState(true);
+  const { data, isPending } = useQuery({
+    queryKey: PLATFORM_FEATURES_QUERY_KEY,
+    queryFn: fetchPlatformFeatures,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/settings/features")
-      .then((r) => (r.ok ? r.json() : DEFAULT_FEATURES))
-      .then((data: Partial<PlatformFeatures>) => {
-        if (!cancelled) setFeatures(normalizeFeatures(data));
-      })
-      .catch(() => {
-        if (!cancelled) setFeatures(DEFAULT_FEATURES);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { ...features, loading };
+  return {
+    ...(data ?? DEFAULT_FEATURES),
+    // Only block UI on the cold first fetch — remounts reuse cache instantly.
+    loading: isPending && data === undefined,
+  };
 }
 
 export function useScoringPlatformEnabled(): boolean {

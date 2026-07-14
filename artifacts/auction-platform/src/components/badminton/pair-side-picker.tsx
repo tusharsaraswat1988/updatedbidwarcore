@@ -139,27 +139,53 @@ export function sidePlayerFormToJson(player: SidePlayerForm) {
 }
 
 export function sideJsonToStartSide(json: Record<string, unknown>) {
-  const franchiseName = (json.franchiseName ?? json.teamName) as string | undefined;
-  const franchiseLogoUrl = (json.franchiseLogoUrl ?? json.teamLogoUrl ?? json.flagUrl) as
-    | string
-    | undefined;
+  const str = (value: unknown): string | undefined =>
+    typeof value === "string" && value.trim() ? value : undefined;
+
+  const franchiseName = str(json.franchiseName) ?? str(json.teamName);
+  const franchiseLogoUrl =
+    str(json.franchiseLogoUrl) ?? str(json.teamLogoUrl) ?? str(json.flagUrl);
+
+  const players = Array.isArray(json.players)
+    ? json.players
+        .filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
+        .map((p) => ({
+          label: str(p.label) ?? "Player",
+          shortLabel: str(p.shortLabel) ?? "P",
+          countryCode: str(p.countryCode),
+          countryName: str(p.countryName),
+          photoUrl: str(p.photoUrl),
+          flagUrl: str(p.flagUrl),
+          teamColor: str(p.teamColor),
+          teamName: str(p.teamName) ?? str(p.franchiseName),
+          teamLogoUrl: str(p.teamLogoUrl) ?? str(p.franchiseLogoUrl),
+          sponsorName: str(p.sponsorName),
+          sponsorLogoUrl: str(p.sponsorLogoUrl),
+          masterPlayerId: str(p.masterPlayerId),
+        }))
+    : undefined;
+
+  const playerIds = Array.isArray(json.playerIds)
+    ? json.playerIds.filter((id): id is number => typeof id === "number")
+    : [];
+
   return {
-    label: (json.label as string) ?? "Player",
-    shortLabel: (json.shortLabel as string) ?? "P",
-    countryCode: json.countryCode as string | undefined,
-    countryName: json.countryName as string | undefined,
-    photoUrl: json.photoUrl as string | undefined,
-    flagUrl: json.flagUrl as string | undefined,
-    teamColor: json.teamColor as string | undefined,
+    label: str(json.label) ?? "Player",
+    shortLabel: str(json.shortLabel) ?? "P",
+    countryCode: str(json.countryCode),
+    countryName: str(json.countryName),
+    photoUrl: str(json.photoUrl),
+    flagUrl: str(json.flagUrl),
+    teamColor: str(json.teamColor),
     franchiseName,
     franchiseLogoUrl,
     teamName: franchiseName,
     teamLogoUrl: franchiseLogoUrl,
-    sponsorName: json.sponsorName as string | undefined,
-    sponsorLogoUrl: json.sponsorLogoUrl as string | undefined,
-    masterPlayerId: json.masterPlayerId as string | undefined,
-    playerIds: (json.playerIds as number[]) ?? [],
-    players: Array.isArray(json.players) ? json.players : undefined,
+    sponsorName: str(json.sponsorName),
+    sponsorLogoUrl: str(json.sponsorLogoUrl),
+    masterPlayerId: str(json.masterPlayerId),
+    playerIds,
+    players,
   };
 }
 

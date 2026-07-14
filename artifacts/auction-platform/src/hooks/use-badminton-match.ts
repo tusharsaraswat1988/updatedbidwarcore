@@ -13,6 +13,12 @@ import {
 } from "@workspace/badminton-core";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import type { ScoringConnectionStatus } from "@/hooks/use-scoring-socket";
+import {
+  clearOptimisticRallyFloor,
+  matchOptimisticKey,
+  raiseOptimisticRallyFloor,
+  shouldRejectRallyRegression,
+} from "@/lib/badminton-optimistic-floor";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -42,6 +48,25 @@ function applyOptimisticCommandEvents(
   }
 
   return next;
+}
+
+function mergeIncomingMatchState(
+  tournamentId: number,
+  matchId: number,
+  prev: MatchCache | null,
+  incoming: BadmintonMatchState,
+): MatchCache | null {
+  if (
+    prev?.state &&
+    shouldRejectRallyRegression(
+      matchOptimisticKey(tournamentId, matchId),
+      prev.state.totalRallies ?? 0,
+      incoming.totalRallies ?? 0,
+    )
+  ) {
+    return prev;
+  }
+  return mergeMatchStateCache(prev, incoming);
 }
 
 // ── Fetchers ─────────────────────────────────────────────────────────────────
@@ -116,7 +141,12 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
         const msg = JSON.parse(event.data);
         if (msg.type === "match_state" && msg.data) {
           queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
-            mergeMatchStateCache(prev, msg.data as BadmintonMatchState),
+            mergeIncomingMatchState(
+              tournamentId,
+              matchId,
+              prev,
+              msg.data as BadmintonMatchState,
+            ),
           );
         }
       } catch {
@@ -172,7 +202,12 @@ export function useBadmintonScorer(
     const data = await res.json();
     if (data.state) {
       queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
-        mergeMatchStateCache(prev, data.state as BadmintonMatchState),
+        mergeIncomingMatchState(
+          tournamentId,
+          matchId,
+          prev,
+          data.state as BadmintonMatchState,
+        ),
       );
     }
     return data.state as BadmintonMatchState;
@@ -183,6 +218,8 @@ export function useBadmintonScorer(
       return drainPromiseRef.current;
     }
 
+    const optimisticKey = matchOptimisticKey(tournamentId, matchId);
+
     drainPromiseRef.current = (async () => {
       while (pointQueueRef.current.length > 0) {
         const item = pointQueueRef.current[0];
@@ -191,10 +228,12 @@ export function useBadmintonScorer(
           pointQueueRef.current.shift();
         } catch {
           pointQueueRef.current = [];
+          clearOptimisticRallyFloor(optimisticKey);
           await queryClient.invalidateQueries({ queryKey });
           throw new Error("Failed to score point");
         }
       }
+      clearOptimisticRallyFloor(optimisticKey);
     })().finally(() => {
       drainPromiseRef.current = null;
     });
@@ -204,26 +243,37 @@ export function useBadmintonScorer(
 
   const awardPoint = useCallback(
     (side: "left" | "right") => {
+      let rejected: string | null = null;
+      const optimisticKey = matchOptimisticKey(tournamentId, matchId);
+
+      queryClient.setQueryData(queryKey, (prev: MatchCache | null) => {
+        if (!prev?.state) return prev;
+        const result = cmdAwardPoint(prev.state, side);
+        if (!result.ok) {
+          rejected = result.error;
+          return prev;
+        }
+        const nextState = applyOptimisticCommandEvents(
+          prev.state,
+          result.events,
+          matchId,
+          tournamentId,
+        );
+        raiseOptimisticRallyFloor(optimisticKey, nextState.totalRallies ?? 0);
+        return {
+          state: nextState,
+          detail: prev.detail,
+        };
+      });
+
+      if (rejected) {
+        return Promise.reject(new Error(rejected));
+      }
+
       const cached = queryClient.getQueryData<MatchCache>(queryKey);
       if (!cached?.state) {
         return postAction("point", { side });
       }
-
-      const result = cmdAwardPoint(cached.state, side);
-      if (!result.ok) {
-        return Promise.reject(new Error(result.error));
-      }
-
-      const optimistic = applyOptimisticCommandEvents(
-        cached.state,
-        result.events,
-        matchId,
-        tournamentId,
-      );
-      queryClient.setQueryData(queryKey, {
-        state: optimistic,
-        detail: cached.detail,
-      });
 
       pointQueueRef.current.push({ side });
       return drainPointQueue();
@@ -310,10 +360,50 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
 
 // ── Tournament live matches hook ──────────────────────────────────────────────
 
+// ── Tournament live matches hook ──────────────────────────────────────────────
+
+type DashboardStreamEntry = {
+  es: EventSource;
+  refs: number;
+  listeners: Set<() => void>;
+};
+
+/** One EventSource per tournament — setup pages share it instead of reconnecting on every nav. */
+const dashboardStreams = new Map<number, DashboardStreamEntry>();
+
+function subscribeBadmintonDashboardStream(
+  tournamentId: number,
+  onMessage: () => void,
+): () => void {
+  let entry = dashboardStreams.get(tournamentId);
+  if (!entry) {
+    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
+    const es = new EventSource(url, { withCredentials: true });
+    entry = { es, refs: 0, listeners: new Set() };
+    es.onmessage = () => {
+      entry?.listeners.forEach((listener) => listener());
+    };
+    dashboardStreams.set(tournamentId, entry);
+  }
+
+  entry.refs += 1;
+  entry.listeners.add(onMessage);
+
+  return () => {
+    const current = dashboardStreams.get(tournamentId);
+    if (!current) return;
+    current.listeners.delete(onMessage);
+    current.refs -= 1;
+    if (current.refs <= 0) {
+      current.es.close();
+      dashboardStreams.delete(tournamentId);
+    }
+  };
+}
+
 export function useBadmintonDashboard(tournamentId: number) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-dashboard", tournamentId];
-  const esRef = useRef<EventSource | null>(null);
 
   const query = useQuery({
     queryKey,
@@ -326,25 +416,16 @@ export function useBadmintonDashboard(tournamentId: number) {
       return res.json();
     },
     enabled: !!tournamentId,
-    staleTime: 15_000,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
     if (!tournamentId) return;
-
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
-    const es = new EventSource(url, { withCredentials: true });
-    esRef.current = es;
-
-    es.onmessage = () => {
-      queryClient.invalidateQueries({ queryKey });
-    };
-
-    return () => {
-      es.close();
-    };
-  }, [tournamentId]);
+    return subscribeBadmintonDashboardStream(tournamentId, () => {
+      void queryClient.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+    });
+  }, [tournamentId, queryClient]);
 
   return query;
 }

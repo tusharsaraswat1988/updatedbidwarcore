@@ -166,8 +166,8 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
   }
 
   // Avoid dumping JSON / zod noise
-  if (msg.startsWith("[") || msg.startsWith("{") || msg.includes("ZodError")) {
-    return `${fallback}. Check the form fields and try again.`;
+  if (msg.startsWith("[") || msg.startsWith("{") || msg.includes("ZodError") || msg.includes("invalid_type")) {
+    return `${fallback}. Check match roster and format, then try again.`;
   }
 
   return msg.length > 160 ? `${fallback}. ${msg.slice(0, 120)}…` : msg;

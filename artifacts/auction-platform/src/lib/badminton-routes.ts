@@ -47,7 +47,7 @@ function pathEndsWithSection(path: string, section: string): boolean {
 export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   {
     id: "hub",
-    label: "Command Center",
+    label: "Tournament Dashboard",
     href: badmintonHubPath,
     isActive: (path, tid) => {
       const base = badmintonHubPath(tid);
@@ -56,7 +56,7 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "branding",
-    label: "Tournament Details",
+    label: "Tournament Information",
     href: (tid) => `${badmintonHubPath(tid)}/branding`,
     isActive: (path) => pathEndsWithSection(path, "branding"),
   },
@@ -68,31 +68,31 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "categories",
-    label: "Events",
+    label: "Teams / Events",
     href: (tid) => `${badmintonHubPath(tid)}/categories`,
     isActive: (path) => pathEndsWithSection(path, "categories"),
   },
   {
     id: "scoring_format",
-    label: "Scoring Rules",
+    label: "Scoring Format",
     href: (tid) => `${badmintonHubPath(tid)}/scoring-format`,
     isActive: (path) => pathEndsWithSection(path, "scoring-format"),
   },
   {
     id: "courts",
-    label: "Courts",
+    label: "Venues & Courts",
     href: (tid) => `${badmintonHubPath(tid)}/courts`,
     isActive: (path) => pathEndsWithSection(path, "courts"),
   },
   {
     id: "fixtures",
-    label: "Tournament Draw",
+    label: "Fixtures",
     href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
     isActive: (path) => pathEndsWithSection(path, "fixtures"),
   },
   {
     id: "schedule",
-    label: "Court Schedule",
+    label: "Match Schedule",
     href: (tid) => `${badmintonHubPath(tid)}/schedule`,
     isActive: (path) => pathEndsWithSection(path, "schedule"),
   },
@@ -107,7 +107,7 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "control",
-    label: "Control Center",
+    label: "Operator Panel",
     href: (tid) => `${badmintonHubPath(tid)}/control`,
     isActive: (path) =>
       /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control"),
@@ -120,13 +120,13 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   },
   {
     id: "summary",
-    label: "Summary",
+    label: "Publish / Summary",
     href: (tid) => `${badmintonHubPath(tid)}/summary`,
     isActive: (path) => pathEndsWithSection(path, "summary"),
   },
   {
     id: "broadcast",
-    label: "Broadcast",
+    label: "Display & Broadcast",
     href: (tid) => `${badmintonHubPath(tid)}/broadcast`,
     isActive: (path) => pathEndsWithSection(path, "broadcast"),
   },
@@ -149,15 +149,15 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   const hub = badmintonHubPath(tournamentId);
 
   if (/\/badminton\/matches\/\d+\/control/.test(pathname)) {
-    return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
+    return { kind: "link", href: `${hub}/control`, label: "Back to Operator Panel" };
   }
 
   if (/\/badminton\/control\/?$/.test(pathname)) {
-    return { kind: "link", href: hub, label: "Back to Command Center" };
+    return { kind: "link", href: hub, label: "Back to Tournament Dashboard" };
   }
 
   if (/\/badminton\/results\/?$/.test(pathname)) {
-    return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
+    return { kind: "link", href: `${hub}/control`, label: "Back to Operator Panel" };
   }
 
   if (/\/badminton\/summary\/?$/.test(pathname)) {
@@ -165,23 +165,23 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (/\/badminton\/schedule/.test(pathname)) {
-    return { kind: "link", href: `${hub}/fixtures`, label: "Back to Tournament Draw" };
+    return { kind: "link", href: `${hub}/fixtures`, label: "Back to Fixtures" };
   }
 
   if (/\/badminton\/fixtures/.test(pathname)) {
-    return { kind: "link", href: `${hub}/courts`, label: "Back to Courts" };
+    return { kind: "link", href: `${hub}/courts`, label: "Back to Venues & Courts" };
   }
 
   if (/\/badminton\/matches\/?$/.test(pathname) || /\/badminton\/matches\?/.test(pathname)) {
-    return { kind: "link", href: `${hub}/schedule`, label: "Back to Court Schedule" };
+    return { kind: "link", href: `${hub}/schedule`, label: "Back to Match Schedule" };
   }
 
   if (/\/badminton\/courts/.test(pathname)) {
-    return { kind: "link", href: `${hub}/scoring-format`, label: "Back to Scoring Rules" };
+    return { kind: "link", href: `${hub}/scoring-format`, label: "Back to Scoring Format" };
   }
 
   if (/\/badminton\/scoring-format/.test(pathname)) {
-    return { kind: "link", href: `${hub}/categories`, label: "Back to Events" };
+    return { kind: "link", href: `${hub}/categories`, label: "Back to Teams / Events" };
   }
 
   if (/\/badminton\/categories/.test(pathname)) {
@@ -189,7 +189,7 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (/\/badminton\/players/.test(pathname)) {
-    return { kind: "link", href: `${hub}/branding`, label: "Back to Tournament Details" };
+    return { kind: "link", href: `${hub}/branding`, label: "Back to Tournament Information" };
   }
 
   if (/\/badminton\/branding/.test(pathname)) {
@@ -197,14 +197,14 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (/\/badminton\/broadcast/.test(pathname) || /\/badminton\/analytics/.test(pathname)) {
-    return { kind: "link", href: `${hub}/control`, label: "Back to Control Center" };
+    return { kind: "link", href: `${hub}/control`, label: "Back to Operator Panel" };
   }
 
   if (pathname === hub || pathname === `${hub}/`) {
     return { kind: "history", label: "Back" };
   }
 
-  return { kind: "link", href: hub, label: "Back to Command Center" };
+  return { kind: "link", href: hub, label: "Back to Tournament Dashboard" };
 }
 
 export const BADMINTON_ROUTE_LOADING_CLASS = "min-h-screen bg-background dark";

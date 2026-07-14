@@ -66,17 +66,17 @@ describe("getBadmintonHubNavLayout", () => {
     assert.deepEqual(
       layout.primary.map((i) => i.label),
       [
-        "Branding",
+        "Tournament Information",
         "Players",
-        "Categories",
-        "Match Format",
-        "Courts",
-        "Draw & Fixtures",
-        "Scheduling",
+        "Teams / Events",
+        "Scoring Format",
+        "Venues & Courts",
+        "Fixtures",
+        "Match Schedule",
       ],
     );
     assert.deepEqual(layout.secondary.map((i) => i.label), [
-      "Control Center",
+      "Operator Panel",
       "Results",
     ]);
     assert.equal(layout.setupCollapsed.length, 0);
@@ -91,11 +91,11 @@ describe("getBadmintonHubNavLayout", () => {
     assert.deepEqual(
       layout.primary.map((i) => i.label),
       [
-        "Control Center",
+        "Operator Panel",
         "Match Control",
         "Live Scoring",
         "Results",
-        "Broadcast",
+        "Display & Broadcast",
       ],
     );
     assert.deepEqual(
@@ -119,7 +119,7 @@ describe("getBadmintonHubNavLayout", () => {
       broadcastEnabled: false,
     });
     assert.equal(
-      layout.primary.map((i) => i.label).includes("Broadcast"),
+      layout.primary.map((i) => i.label).includes("Display & Broadcast"),
       false,
     );
     assert.equal(

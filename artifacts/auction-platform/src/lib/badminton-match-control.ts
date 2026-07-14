@@ -11,6 +11,11 @@ import {
 } from "@workspace/badminton-core";
 import { sideJsonToStartSide } from "@/components/badminton/pair-side-picker";
 import { isDelayedScheduledAt } from "@/lib/badminton-control-center";
+import {
+  isDoublesPreMatchToss,
+  isSinglesPreMatchToss,
+  type PreMatchToss,
+} from "@/lib/badminton-pre-match-toss";
 
 export type MatchControlWarning = {
   id: string;
@@ -36,6 +41,8 @@ export type MatchControlSnapshot = {
   rightLabel: string;
   leftSideJson: Record<string, unknown>;
   rightSideJson: Record<string, unknown>;
+  /** Toss saved at create/edit — when complete, Start can skip the wizard. */
+  preMatchTossJson?: unknown;
   fixtureId: number | null;
   matchStatus: string;
 };
@@ -205,6 +212,49 @@ export function resolveMatchFormatFromDetail(detail: Record<string, unknown> | n
   return parseBadmintonMatchFormat(detail?.matchFormatJson) ?? STANDARD_FORMAT;
 }
 
+/** Build MATCH_STARTED payload from saved pre-match toss + roster/format. */
+export function buildStartPayloadFromPreMatchToss(
+  detail: Record<string, unknown>,
+  toss: PreMatchToss,
+) {
+  const matchType = (detail.matchType as string) ?? "singles";
+  const leftSideJson = (detail.leftSideJson ?? {}) as Record<string, unknown>;
+  const rightSideJson = (detail.rightSideJson ?? {}) as Record<string, unknown>;
+  const leftSide = sideJsonToStartSide(leftSideJson);
+  const rightSide = sideJsonToStartSide(rightSideJson);
+  const format = resolveMatchFormatFromDetail(detail);
+
+  if (isPairMatchKind(matchType) && isDoublesPreMatchToss(toss)) {
+    return {
+      matchKind: matchType,
+      format,
+      leftSide,
+      rightSide,
+      firstServer: toss.firstServingSide,
+      doublesSetup: {
+        tossWinnerSide: toss.tossWinnerSide,
+        tossDecision: toss.tossDecision,
+        firstServingSide: toss.firstServingSide,
+        firstReceivingSide: toss.firstReceivingSide,
+        firstServerPlayerIndex: toss.firstServerPlayerIndex,
+        firstReceiverPlayerIndex: toss.firstReceiverPlayerIndex,
+      },
+    };
+  }
+
+  if (isSinglesPreMatchToss(toss)) {
+    return {
+      matchKind: matchType,
+      format,
+      leftSide,
+      rightSide,
+      firstServer: toss.firstServer,
+    };
+  }
+
+  return buildOperationalStartPayload(detail);
+}
+
 /** Build MATCH_STARTED payload without coin-toss UI (operational defaults). */
 export function buildOperationalStartPayload(detail: Record<string, unknown>) {
   const matchType = (detail.matchType as string) ?? "singles";
@@ -223,6 +273,9 @@ export function buildOperationalStartPayload(detail: Record<string, unknown>) {
       rightSide,
       firstServer,
       doublesSetup: {
+        // Operational start skips toss UI — left serves first by default.
+        tossWinnerSide: "left" as const,
+        tossDecision: "serve" as const,
         firstServingSide: "left" as const,
         firstReceivingSide: "right" as const,
         firstServerPlayerIndex: 0 as const,

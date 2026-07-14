@@ -97,7 +97,11 @@ export function isDecidingGame(currentGame: number, totalGames: number): boolean
   return currentGame === totalGames;
 }
 
-/** Score at which side change happens in deciding game. */
+/**
+ * Score at which ends change / interval occurs in the deciding game.
+ * BWF Law 16.2.3: for a game of 21 points, when either side reaches 11.
+ * For odd pointsPerGame this is ceil(n/2); for 21 → 11.
+ */
 export function sideChangeScore(pointsPerGame: number): number {
-  return Math.floor(pointsPerGame / 2);
+  return Math.ceil(pointsPerGame / 2);
 }

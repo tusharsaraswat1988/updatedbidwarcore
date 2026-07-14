@@ -81,6 +81,12 @@ export function cmdAwardPoint(
   if (state.isPaused) {
     return err("Match is paused");
   }
+  if (state.inInterval) {
+    return err("Cannot score during interval — end the interval first");
+  }
+  if (state.activeTimeout) {
+    return err("Cannot score during timeout — end the timeout first");
+  }
   if (state.currentGame === 0) {
     return err("No active game");
   }
@@ -204,18 +210,29 @@ export function cmdStartInterval(
   if (state.inInterval) return err("Already in interval");
 
   const { format } = state;
-  const threshold = sideChangeScore(format.pointsPerGame);
-  const maxScore = Math.max(state.leftScore, state.rightScore);
-
+  if (!format.midGameSideChange) {
+    return err("Mid-game interval is disabled for this match format");
+  }
   if (!isDecidingGame(state.currentGame, format.totalGames)) {
     return err("Interval only happens in the deciding game");
   }
 
-  const servingSide: BadmintonSide = maxScore === state.leftScore ? "left" : "right";
+  const threshold = sideChangeScore(format.pointsPerGame);
+  const maxScore = Math.max(state.leftScore, state.rightScore);
+  if (maxScore < threshold) {
+    return err(`Interval starts when either side reaches ${threshold} points`);
+  }
+
+  const leadingSide: BadmintonSide =
+    state.leftScore === state.rightScore
+      ? state.servingSide
+      : state.leftScore > state.rightScore
+        ? "left"
+        : "right";
   const payload: BadmintonIntervalStartedPayload = {
     gameNumber: state.currentGame,
     atScore: threshold,
-    side: servingSide,
+    side: leadingSide,
   };
 
   return ok([

@@ -39,17 +39,20 @@ export function BadmintonSetupWizardChrome({
   const { getStep, isLoading, progress } = useBadmintonSetup(tournamentId);
   const step = getStep(stepId);
 
+  /** Footer / step counter only while the setup wizard is still active. */
   const showWizard = !progress.complete || stepId === "ready";
-
-  if (!showWizard) {
-    return <>{children}</>;
-  }
 
   return (
     <>
       {step ? (
         <PageHeader
-          eyebrow={isLoading ? undefined : `Setup · Step ${step.order} of 8`}
+          eyebrow={
+            isLoading
+              ? undefined
+              : showWizard
+                ? `Setup · Step ${step.order} of 8`
+                : "Setup"
+          }
           title={step.title}
           subtitle={step.purpose}
           badge={headerBadge}
@@ -59,7 +62,7 @@ export function BadmintonSetupWizardChrome({
 
       {children}
 
-      {!hideFooter && !isLoading ? (
+      {showWizard && !hideFooter && !isLoading ? (
         <BadmintonSetupWizardFooter
           tournamentId={tournamentId}
           stepId={stepId}

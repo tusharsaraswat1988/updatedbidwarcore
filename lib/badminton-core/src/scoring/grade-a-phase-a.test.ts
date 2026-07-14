@@ -287,4 +287,60 @@ describe("Grade A Phase A — derive on replay", () => {
     expect(replayed.doublesServe?.servingSide).toBe("left");
     expect(replayed.leftScore).toBe(1);
   });
+
+  it("derives doubles scores on replay so a stale 1-0 payload cannot rewind 3-0", () => {
+    let state = replay(startEvents());
+    const events = startEvents();
+
+    for (let i = 0; i < 3; i++) {
+      const cmd = cmdAwardPoint(state, "left");
+      expect(cmd.ok).toBe(true);
+      if (!cmd.ok) return;
+      const point = cmd.events.find((e) => e.eventType === BadmintonEventType.POINT_WON)!;
+      events.push({
+        matchId: 1,
+        tournamentId: 1,
+        sportSlug: "badminton",
+        eventType: BadmintonEventType.POINT_WON,
+        eventVersion: 1,
+        sequence: events.length + 1,
+        actorType: "system",
+        payload: point.payload,
+      });
+      state = replay(events);
+    }
+
+    expect(state.leftScore).toBe(3);
+    expect(state.rightScore).toBe(0);
+
+    // Poisoned event: winningSide correct, but payload scores rewound to 1-0
+    // (what a stale snapshot prior used to emit).
+    events.push({
+      matchId: 1,
+      tournamentId: 1,
+      sportSlug: "badminton",
+      eventType: BadmintonEventType.POINT_WON,
+      eventVersion: 1,
+      sequence: events.length + 1,
+      actorType: "system",
+      payload: {
+        winningSide: "left",
+        gameNumber: 1,
+        winnerScore: 1,
+        loserScore: 0,
+        isGamePoint: false,
+        isMatchPoint: false,
+      },
+    });
+
+    const warnings: string[] = [];
+    setDoublesServeDriftWarningHandler((msg) => warnings.push(msg));
+    const healed = replay(events);
+    setDoublesServeDriftWarningHandler(null);
+
+    expect(healed.leftScore).toBe(4);
+    expect(healed.rightScore).toBe(0);
+    expect(healed.totalRallies).toBe(4);
+    expect(warnings.some((w) => w.includes("score derived"))).toBe(true);
+  });
 });

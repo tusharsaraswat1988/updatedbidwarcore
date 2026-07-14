@@ -11,6 +11,8 @@ export type SportNavItem = {
   external?: boolean;
   /** Optional short hint under the label when expanded. */
   hint?: string;
+  /** Prefetch route chunk on hover/focus (sidebar perceived speed). */
+  preload?: () => void;
 };
 
 /** Labeled group of nav items (Setup, Operations, …). */

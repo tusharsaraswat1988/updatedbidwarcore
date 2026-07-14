@@ -36,6 +36,34 @@ const ICONS: Record<string, SportNavItem["icon"]> = {
   analytics: BarChart3,
 };
 
+/** Warm lazy route chunks before the user clicks a sidebar link. */
+const PRELOAD: Record<string, () => Promise<unknown>> = {
+  hub: () => import("@/pages/badminton/tournament-hub"),
+  branding: () => import("@/pages/badminton/branding"),
+  players: () => import("@/pages/badminton/players"),
+  categories: () => import("@/pages/badminton/categories"),
+  scoring_format: () => import("@/pages/badminton/scoring-format"),
+  courts: () => import("@/pages/badminton/courts"),
+  fixtures: () => import("@/pages/badminton/fixtures"),
+  schedule: () => import("@/pages/badminton/schedule"),
+  matches: () => import("@/pages/badminton/matches"),
+  control: () => import("@/pages/badminton/control-center"),
+  results: () => import("@/pages/badminton/results"),
+  summary: () => import("@/pages/badminton/summary"),
+  broadcast: () => import("@/pages/badminton/broadcast"),
+  analytics: () => import("@/pages/badminton/analytics"),
+};
+
+const preloaded = new Set<string>();
+
+function preloadNav(id: string) {
+  if (preloaded.has(id)) return;
+  const loader = PRELOAD[id];
+  if (!loader) return;
+  preloaded.add(id);
+  void loader();
+}
+
 function toSportItem(item: BadmintonHubNavItem): SportNavItem {
   return {
     id: item.id,
@@ -43,6 +71,7 @@ function toSportItem(item: BadmintonHubNavItem): SportNavItem {
     href: item.href,
     isActive: item.isActive,
     icon: ICONS[item.id],
+    preload: PRELOAD[item.id] ? () => preloadNav(item.id) : undefined,
   };
 }
 
@@ -77,7 +106,7 @@ export function getBadmintonSportNav(): SportNavConfig {
         { ...byId("branding"), label: "Tournament Information" },
         byId("players"),
         { ...byId("categories"), label: "Teams / Events" },
-        { ...byId("scoring_format"), label: "Scoring Settings" },
+        { ...byId("scoring_format"), label: "Scoring Format" },
         { ...byId("courts"), label: "Venues & Courts" },
         { ...byId("fixtures"), label: "Fixtures" },
         { ...byId("schedule"), label: "Match Schedule" },

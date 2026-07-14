@@ -1492,6 +1492,15 @@ router.post("/categories/:catId/fixture-collections/manual", async (req, res) =>
         error: `Fixture ${i + 1}: at least one side is required`,
       });
     }
+    if (
+      f.registrationAId != null &&
+      f.registrationBId != null &&
+      f.registrationAId === f.registrationBId
+    ) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: Side A and Side B cannot be the same entry`,
+      });
+    }
   }
 
   const { collection, fixtures } = await createFixtureCollection({
@@ -1580,6 +1589,7 @@ router.post("/matches", async (req, res) => {
     scorerPin: z.string().max(20).optional(),
     scorerName: z.string().max(100).optional(),
     umpireName: z.string().max(100).optional(),
+    preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().optional(),
   });
 
@@ -1798,6 +1808,7 @@ router.patch("/matches/:matchId", async (req, res) => {
     rightSideJson: z.record(z.unknown()).optional(),
     scorerPin: z.string().max(20).optional(),
     umpireName: z.string().max(100).nullable().optional(),
+    preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().min(1).nullable().optional(),
   });
 

@@ -36,6 +36,10 @@ import {
   deriveSinglesScoresAfterPointWon,
   validateSinglesScoresAgainstPayload,
 } from "../scoring/singles-replay-derive";
+import {
+  deriveDoublesScoresAfterPointWon,
+  validateDoublesScoresAgainstPayload,
+} from "../scoring/doubles-replay-derive";
 
 class InvalidEventPayloadError extends Error {
   constructor(eventType: string, detail: string) {
@@ -98,12 +102,14 @@ function applyPointWon(
           validateSinglesScoresAgainstPayload(derived, payload);
           return derived;
         })()
-      : {
-          newLeftScore:
-            payload.winningSide === "left" ? payload.winnerScore : payload.loserScore,
-          newRightScore:
-            payload.winningSide === "right" ? payload.winnerScore : payload.loserScore,
-        };
+      : (() => {
+          // Doubles must derive scores too — trusting payload winnerScore/loserScore
+          // let a stale command prior poison the event log (3-0 then a 1-0 payload
+          // rewound the displayed score on the next continuous left-side point).
+          const derived = deriveDoublesScoresAfterPointWon(state, payload);
+          validateDoublesScoresAgainstPayload(derived, payload);
+          return derived;
+        })();
 
   const nextServingSide =
     state.matchKind === "singles"
@@ -117,12 +123,14 @@ function applyPointWon(
       leftScore: newLeftScore,
       rightScore: newRightScore,
       servingSide: nextServingSide,
-      // Detect interval in deciding game at sideChangeScore
+      // Deciding-game interval / end-change (BWF: 11 in a game of 21).
       intervalReached:
         g.intervalReached ||
-        (isDecidingGame(payload.gameNumber, state.format.totalGames) &&
+        (state.format.midGameSideChange &&
+          isDecidingGame(payload.gameNumber, state.format.totalGames) &&
           !g.intervalReached &&
-          Math.max(newLeftScore, newRightScore) >= sideChangeScore(state.format.pointsPerGame)),
+          Math.max(newLeftScore, newRightScore) >=
+            sideChangeScore(state.format.pointsPerGame)),
     };
   });
 

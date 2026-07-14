@@ -191,6 +191,7 @@ export default function BadmintonAnalyticsPage() {
       <PageHeader
 
         title="Analytics"
+        eyebrow="Reports"
 
         subtitle="Tournament overview and progress"
 

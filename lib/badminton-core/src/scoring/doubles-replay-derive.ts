@@ -27,6 +27,54 @@ function warnDrift(message: string): void {
   console.warn(`[badminton-core] doublesServe drift: ${message}`);
 }
 
+export type DerivedDoublesScores = {
+  newLeftScore: number;
+  newRightScore: number;
+};
+
+/** Derive post-rally scores from pre-rally state + rally winner (ignore payload scores). */
+export function deriveDoublesScoresAfterPointWon(
+  state: BadmintonMatchState,
+  payload: BadmintonPointWonPayload,
+): DerivedDoublesScores {
+  return {
+    newLeftScore:
+      payload.winningSide === "left" ? state.leftScore + 1 : state.leftScore,
+    newRightScore:
+      payload.winningSide === "right" ? state.rightScore + 1 : state.rightScore,
+  };
+}
+
+function payloadScores(payload: BadmintonPointWonPayload): DerivedDoublesScores {
+  return {
+    newLeftScore:
+      payload.winningSide === "left" ? payload.winnerScore : payload.loserScore,
+    newRightScore:
+      payload.winningSide === "right" ? payload.winnerScore : payload.loserScore,
+  };
+}
+
+/** Compare derived scores to legacy payload fields; warn on mismatch. */
+export function validateDoublesScoresAgainstPayload(
+  derived: DerivedDoublesScores,
+  payload: BadmintonPointWonPayload,
+): boolean {
+  const stored = payloadScores(payload);
+  if (
+    derived.newLeftScore === stored.newLeftScore &&
+    derived.newRightScore === stored.newRightScore
+  ) {
+    return true;
+  }
+
+  warnDrift(
+    `score derived ${derived.newLeftScore}-${derived.newRightScore} ` +
+      `vs payload ${stored.newLeftScore}-${stored.newRightScore} ` +
+      `(winner=${payload.winningSide})`,
+  );
+  return false;
+}
+
 /** Derive post-rally doubles serve state from pre-rally state + rally winner. */
 export function deriveDoublesServeAfterPointWon(
   state: BadmintonMatchState,
@@ -35,10 +83,10 @@ export function deriveDoublesServeAfterPointWon(
   const ds = state.doublesServe;
   if (!ds) return null;
 
-  const newLeftScore =
-    payload.winningSide === "left" ? state.leftScore + 1 : state.leftScore;
-  const newRightScore =
-    payload.winningSide === "right" ? state.rightScore + 1 : state.rightScore;
+  const { newLeftScore, newRightScore } = deriveDoublesScoresAfterPointWon(
+    state,
+    payload,
+  );
 
   const next = advanceDoublesServeAfterPoint(
     payload.winningSide,

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut } from "lucide-react";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
@@ -19,6 +19,13 @@ import { cn } from "@/lib/utils";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 const COLLAPSE_STORAGE_KEY = "sports-shell-collapsed";
+
+/** True when already wrapped by SportsShell — HubPageShell skips a second shell. */
+const SportsShellContext = createContext(false);
+
+export function useInSportsShell(): boolean {
+  return useContext(SportsShellContext);
+}
 
 function isScoringAppHost(): boolean {
   return typeof window !== "undefined" && window.location.pathname.startsWith(SCORING_APP_BASE);
@@ -175,7 +182,13 @@ function SportNavLink({
   }
 
   return (
-    <Link href={href} title={item.label} className={cn(className, "font-medium")}>
+    <Link
+      href={href}
+      title={item.label}
+      className={cn(className, "font-medium")}
+      onMouseEnter={item.preload}
+      onFocus={item.preload}
+    >
       <Icon className="w-5 h-5 flex-shrink-0" />
       {!collapsed && (
         <span className="flex flex-col leading-tight min-w-0">
@@ -213,6 +226,8 @@ export function SportsShell({
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
       enabled: tournamentId > 0,
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
     },
   });
   const localVenue = isBidWarLocalHost();
@@ -258,12 +273,13 @@ export function SportsShell({
   }
 
   return (
-    <div
-      className={cn(
-        "flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
-        className,
-      )}
-    >
+    <SportsShellContext.Provider value={true}>
+      <div
+        className={cn(
+          "flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
+          className,
+        )}
+      >
       <aside
         className="flex-shrink-0 border-r border-border bg-card flex flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
         style={{ width: collapsed ? 56 : 256 }}
@@ -382,5 +398,6 @@ export function SportsShell({
         )}
       </main>
     </div>
+    </SportsShellContext.Provider>
   );
 }

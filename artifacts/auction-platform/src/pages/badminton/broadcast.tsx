@@ -104,8 +104,8 @@ export default function BadmintonBroadcastPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        eyebrow="Step 7 · Broadcast"
-        title="Tournament Broadcast Console"
+        eyebrow="Broadcast"
+        title="Display & Broadcast"
         subtitle="One Venue Display URL and one OBS Overlay URL for the whole tournament — they follow the live court automatically."
       />
 

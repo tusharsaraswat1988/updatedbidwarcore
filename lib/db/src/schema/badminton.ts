@@ -391,6 +391,11 @@ export const badmintonMatchDetailsTable = pgTable(
     umpireName: text("umpire_name"),
     /** Service judge. */
     serviceJudgeName: text("service_judge_name"),
+    /**
+     * Optional toss recorded at match create/edit (before Start).
+     * Singles: { firstServer }. Doubles: tossWinnerSide, tossDecision, server/receiver indices.
+     */
+    preMatchTossJson: jsonb("pre_match_toss_json").$type<Record<string, unknown>>(),
     /** Replay of current match state (computed after each event). */
     stateSnapshotJson: jsonb("state_snapshot_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

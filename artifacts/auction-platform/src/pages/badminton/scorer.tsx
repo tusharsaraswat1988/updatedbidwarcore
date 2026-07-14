@@ -15,13 +15,14 @@ import { ScorerPanel } from "@/components/badminton/scorer-panel";
 import { UmpireAssistanceShell } from "@/components/badminton/umpire-assistance-shell";
 import { useBadmintonMatch, useBadmintonDirector, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
+import { useOrganizerAuth } from "@/hooks/use-auth";
 import { verifyBadmintonScorerPin } from "@/lib/badminton-api";
 import {
   clearBadmintonScorerSession,
   getBadmintonScorerSession,
   setBadmintonScorerSession,
 } from "@/lib/badminton-scorer-session";
-import { badmintonScorerHomePath } from "@/lib/badminton-routes";
+import { badmintonMatchControlPath, badmintonScorerHomePath } from "@/lib/badminton-routes";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { FullscreenLayout } from "@/components/layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
@@ -37,10 +38,14 @@ export default function BadmintonScorerPage() {
   const session = tournamentId > 0 ? getBadmintonScorerSession(tournamentId) : null;
   const hasScorerHomeSession = !!session;
 
+  const { isLoggedIn: organizerLoggedIn, isLoading: organizerAuthLoading } =
+    useOrganizerAuth(tournamentId);
+
   const [pinInput, setPinInput] = useState(pin ?? session?.pin ?? "");
   const [pinAccepted, setPinAccepted] = useState(false);
   const [pinError, setPinError] = useState("");
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const [accessViaOrganizer, setAccessViaOrganizer] = useState(false);
 
   async function submitPin(candidate: string, persistSession = true) {
     if (candidate.length < 4) {
@@ -56,11 +61,14 @@ export default function BadmintonScorerPage() {
     try {
       const ok = await verifyBadmintonScorerPin(tournamentId, matchId, candidate);
       if (!ok) {
-        setPinError("Incorrect PIN for this match");
+        setPinError(
+          "Incorrect PIN for this match. Use the scorer PIN from Matches or Match Control — it is not 0000 by default.",
+        );
         return;
       }
       setPinInput(candidate);
       setPinAccepted(true);
+      setAccessViaOrganizer(false);
       if (persistSession) {
         setBadmintonScorerSession(tournamentId, candidate);
       }
@@ -69,21 +77,35 @@ export default function BadmintonScorerPage() {
     }
   }
 
+  // Organizers already authenticated for this tournament can score without the umpire PIN.
   useEffect(() => {
-    if (pinAccepted || verifyingPin || !tournamentId || !matchId) return;
+    if (pinAccepted || organizerAuthLoading || !tournamentId || !matchId) return;
+    if (organizerLoggedIn) {
+      setPinAccepted(true);
+      setAccessViaOrganizer(true);
+    }
+  }, [organizerLoggedIn, organizerAuthLoading, pinAccepted, tournamentId, matchId]);
+
+  useEffect(() => {
+    if (pinAccepted || verifyingPin || organizerAuthLoading || organizerLoggedIn) return;
+    if (!tournamentId || !matchId) return;
     const candidate = pin ?? session?.pin;
     if (!candidate) return;
     void submitPin(candidate, true);
     // Only attempt URL/session pin once on initial load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [organizerAuthLoading, organizerLoggedIn]);
 
   const { data, isLoading, error } = useBadmintonMatch(
     pinAccepted ? tournamentId : 0,
     pinAccepted ? matchId : 0,
   );
 
-  const scorer = useBadmintonScorer(tournamentId, matchId, pinInput);
+  const scorer = useBadmintonScorer(
+    tournamentId,
+    matchId,
+    accessViaOrganizer ? undefined : pinInput,
+  );
   const director = useBadmintonDirector(tournamentId, matchId);
   const { data: branding } = useBadmintonBranding(tournamentId);
 
@@ -99,6 +121,16 @@ export default function BadmintonScorerPage() {
         : undefined;
 
   if (!pinAccepted) {
+    if (organizerAuthLoading) {
+      return (
+        <FullscreenLayout>
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="w-10 h-10 border-2 border-[#4fc3f7]/30 border-t-[#4fc3f7] rounded-full animate-spin" />
+          </div>
+        </FullscreenLayout>
+      );
+    }
+
     return (
       <FullscreenLayout>
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -136,6 +168,14 @@ export default function BadmintonScorerPage() {
               >
                 {verifyingPin ? "Checking PIN…" : "Access Scorer"}
               </button>
+              {tournamentId > 0 && matchId > 0 ? (
+                <Link
+                  href={badmintonMatchControlPath(tournamentId, matchId)}
+                  className="block text-center text-[#4fc3f7] text-sm font-semibold hover:underline py-2"
+                >
+                  Back to Match Control (organizer)
+                </Link>
+              ) : null}
               {tournamentId > 0 ? (
                 <Link
                   href={badmintonScorerHomePath(tournamentId)}

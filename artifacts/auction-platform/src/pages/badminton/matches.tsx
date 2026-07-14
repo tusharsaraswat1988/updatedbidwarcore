@@ -53,6 +53,12 @@ import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format"
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
+import {
+  emptyMatchFormToss,
+  matchFormTossFromDetail,
+  matchFormTossToPayload,
+  MatchFormTossFields,
+} from "@/components/badminton/match-form-toss-fields";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -198,6 +204,7 @@ export default function BadmintonMatchesPage() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Matches"
+        eyebrow="Operations"
         subtitle="Create matches from scheduled fixtures — then open Match Control to start"
         actions={
           <div className="flex items-center gap-3 flex-wrap">
@@ -581,6 +588,7 @@ function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
     leftPlayer2: sideJsonToPlayerForm(left, 1),
     rightPlayer1: sideJsonToPlayerForm(right, 0),
     rightPlayer2: sideJsonToPlayerForm(right, 1),
+    toss: matchFormTossFromDetail(detail),
   };
 }
 
@@ -693,6 +701,19 @@ function MatchFormModal({
     const regB = fixture.registrationBId
       ? registrationById.get(fixture.registrationBId)
       : undefined;
+
+    if (
+      fixture.registrationAId != null &&
+      fixture.registrationBId != null &&
+      fixture.registrationAId === fixture.registrationBId
+    ) {
+      setError(
+        "This fixture has the same entry on both sides (A and B). Fix the fixture in Draw/Fixtures, then create the match again.",
+      );
+      setFixturePrefillId(fixtureId);
+      return;
+    }
+
     const left = regA
       ? registrationSidePlayers(regA, playersById, pair)
       : { player1: emptySidePlayer(), player2: emptySidePlayer() };
@@ -719,6 +740,7 @@ function MatchFormModal({
       leftPlayer2: left.player2,
       rightPlayer1: right.player1,
       rightPlayer2: right.player2,
+      // Keep toss if user already filled it; otherwise leave as-is
     }));
     setFixturePrefillId(fixtureId);
   }, [
@@ -758,6 +780,12 @@ function MatchFormModal({
         setError("Select 2 players per side for doubles");
         return;
       }
+      const leftIds = [form.leftPlayer1.masterId, form.leftPlayer2.masterId].filter(Boolean);
+      const rightIds = [form.rightPlayer1.masterId, form.rightPlayer2.masterId].filter(Boolean);
+      if (leftIds.some((id) => rightIds.includes(id))) {
+        setError("Left and right sides cannot share the same player — check the fixture (A vs B)");
+        return;
+      }
     }
     if (form.scorerPin.trim().length > 0 && form.scorerPin.trim().length < 4) {
       setError("Scorer PIN must be at least 4 digits (or leave blank to inherit court PIN)");
@@ -766,6 +794,9 @@ function MatchFormModal({
     setSaving(true);
     setError("");
     try {
+      const tossPayload = rosterLocked
+        ? undefined
+        : matchFormTossToPayload(form.toss, isPair);
       const payload = {
         courtId: form.courtId ?? undefined,
         courtNumber: form.courtNumber || undefined,
@@ -780,6 +811,7 @@ function MatchFormModal({
               matchType: form.matchType,
               leftSideJson: buildSideJson(form.leftPlayer1, form.leftPlayer2),
               rightSideJson: buildSideJson(form.rightPlayer1, form.rightPlayer2),
+              preMatchTossJson: tossPayload,
             }),
       };
 
@@ -883,6 +915,7 @@ function MatchFormModal({
                 matchType,
                 leftPlayer2: emptySidePlayer(),
                 rightPlayer2: emptySidePlayer(),
+                toss: emptyMatchFormToss(),
               }))
             }
             options={[
@@ -934,6 +967,28 @@ function MatchFormModal({
           Player lineup is locked while the match is live or completed. You can still update match name, court, umpire, and scorer PIN.
         </p>
       )}
+
+      {!rosterLocked ? (
+        <MatchFormTossFields
+          isPair={isPair}
+          leftLabel={
+            form.leftPlayer1.name.trim() ||
+            form.leftPlayer1.short.trim() ||
+            "Left"
+          }
+          rightLabel={
+            form.rightPlayer1.name.trim() ||
+            form.rightPlayer1.short.trim() ||
+            "Right"
+          }
+          leftPlayer1={form.leftPlayer1}
+          leftPlayer2={form.leftPlayer2}
+          rightPlayer1={form.rightPlayer1}
+          rightPlayer2={form.rightPlayer2}
+          toss={form.toss}
+          onChange={(toss) => setForm((p) => ({ ...p, toss }))}
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Umpire's Name">

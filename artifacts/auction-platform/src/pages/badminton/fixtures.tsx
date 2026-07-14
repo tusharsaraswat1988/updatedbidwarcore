@@ -520,6 +520,16 @@ function ManualFixturesModal({
       setError("Add at least one fixture with a player on either side");
       return;
     }
+    const sameSide = fixtures.find(
+      (f) =>
+        f.registrationAId != null &&
+        f.registrationBId != null &&
+        f.registrationAId === f.registrationBId,
+    );
+    if (sameSide) {
+      setError("Side A and Side B cannot be the same entry in a fixture");
+      return;
+    }
     if (!roundName.trim()) {
       setError("Collection name is required");
       return;

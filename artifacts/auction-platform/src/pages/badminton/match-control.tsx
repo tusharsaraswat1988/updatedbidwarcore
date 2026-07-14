@@ -161,6 +161,7 @@ export default function BadmintonMatchControlPage() {
       rightLabel: sideLabelFromJson(rightJson, state.rightSide?.shortLabel || "Right"),
       leftSideJson: leftJson,
       rightSideJson: rightJson,
+      preMatchTossJson: detail.preMatchTossJson,
       fixtureId: fixtureId ?? fixtureRow?.id ?? null,
       matchStatus: state.matchStatus,
     };
@@ -188,6 +189,7 @@ export default function BadmintonMatchControlPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
+        eyebrow="Operations"
         title={isPreMatch ? "Match Control" : "Match Control"}
         subtitle={
           isPreMatch
@@ -217,6 +219,7 @@ export default function BadmintonMatchControlPage() {
             snapshot={snapshot}
             peerMatches={peerMatches}
             onRefresh={refresh}
+            scorerPin={typeof detail?.scorerPin === "string" ? detail.scorerPin : null}
           />
         ) : (
           <>

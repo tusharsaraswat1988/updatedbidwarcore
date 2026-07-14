@@ -206,7 +206,7 @@ export function deriveUmpireAssistance(
   const intervalDue = isIntervalDue(state);
   const courtChangeRequired = isCourtChangeRequired(state);
   const intervalThreshold = sideChangeScore(state.format.pointsPerGame);
-  const intervalDisplayPoints = Math.ceil(state.format.pointsPerGame / 2);
+  const intervalDisplayPoints = intervalThreshold;
   const courtChangeAcknowledged = opts?.courtChangeAcknowledged ?? false;
   const readyToScore = opts?.readyToScore ?? true;
 

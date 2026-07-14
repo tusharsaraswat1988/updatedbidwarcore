@@ -1,23 +1,16 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { SportsShell } from "@/components/sports-shell";
+import { SportsShell, useInSportsShell } from "@/components/sports-shell";
 import { getBadmintonSportNav } from "@/lib/badminton-sport-nav";
 
 import {
-
   Select,
-
   SelectContent,
-
   SelectItem,
-
   SelectTrigger,
-
   SelectValue,
-
 } from "@/components/ui/select";
-
 
 
 /** Shared form tokens — inherits BidWar auction design system */
@@ -97,6 +90,12 @@ export function HubPageShell({
   noPadding?: boolean;
 
 }) {
+  const inShell = useInSportsShell();
+
+  // Layout already mounted SportsShell — avoid tearing down the sidebar on every nav.
+  if (inShell) {
+    return className ? <div className={className}>{children}</div> : <>{children}</>;
+  }
 
   if (!tournamentId) {
     return <div className={cn("min-h-screen bg-background dark", className)}>{children}</div>;
