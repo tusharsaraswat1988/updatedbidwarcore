@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 const GA_ID = "G-5Q39TEZJX2";
+const GOOGLE_ADS_ID = "AW-18319955361";
 const CLARITY_ID = "wu86zkys2f";
 
 // Paths where analytics must NOT run: live auction, operator panel,
@@ -23,7 +24,7 @@ function loadTracking(): void {
   if (trackingLoaded) return;
   trackingLoaded = true;
 
-  // Google Analytics
+  // Google tag (gtag.js) — single script for GA + Google Ads
   const gaScript = document.createElement("script");
   gaScript.async = true;
   gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
@@ -34,8 +35,10 @@ function loadTracking(): void {
   w.gtag = function gtag() {
     (w.dataLayer as unknown[]).push(arguments); // eslint-disable-line prefer-rest-params
   };
-  (w.gtag as (...args: unknown[]) => void)("js", new Date());
-  (w.gtag as (...args: unknown[]) => void)("config", GA_ID);
+  const gtagFn = w.gtag as (...args: unknown[]) => void;
+  gtagFn("js", new Date());
+  gtagFn("config", GA_ID);
+  gtagFn("config", GOOGLE_ADS_ID);
 
   // Microsoft Clarity (inline init snippet, same as original)
   const clarityInit = document.createElement("script");
