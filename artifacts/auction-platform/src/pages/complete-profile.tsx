@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Phone, ShieldCheck, RotateCcw, ArrowLeft } from "lucide-react";
 import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { trackOrganizerSignupConversion } from "@/lib/google-ads-conversion";
 
 type SessionState =
   | { status: "loading" }
@@ -150,6 +151,7 @@ export default function CompleteProfile() {
 
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setError(null);
     setLoading(true);
     const { ok, status, data } = await postJson("/auth/google/complete-profile/verify", { otp });
@@ -159,9 +161,14 @@ export default function CompleteProfile() {
       if (status === 401) setSession({ status: "expired" });
       return;
     }
+    // Account is created only after OTP verify succeeds.
     const dest = nextParam || "/organizer";
     const url = dest.includes("?") ? `${dest}&google_ok=1` : `${dest}?google_ok=1`;
-    window.location.assign(url);
+    trackOrganizerSignupConversion({
+      onDone: () => {
+        window.location.assign(url);
+      },
+    });
   }
 
   async function handleResend() {
