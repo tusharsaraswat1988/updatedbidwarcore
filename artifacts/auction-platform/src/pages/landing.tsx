@@ -9,6 +9,7 @@ import {
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle, Instagram, Facebook, Youtube,
   MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen, Play,
 } from "lucide-react";
+import { AuctionCardHero } from "@/components/auction-card-hero";
 import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
@@ -674,6 +675,51 @@ export default function Landing() {
         </motion.div>
       </section>
 
+      {/* ── Broadcast Auction Card Showcase ──────────────────────── */}
+      <section className="py-16 px-6 border-t border-border/40 bg-gradient-to-b from-card/30 to-card/10">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12 space-y-4">
+            <div className="text-primary text-xs font-bold uppercase tracking-widest">Live Auction Experience</div>
+            <h2 className="text-3xl md:text-4xl font-display font-black">Broadcast-Grade Auction Cards</h2>
+            <p className="text-muted-foreground text-base max-w-2xl mx-auto">
+              Real-time bid tracking, state management, and broadcast-ready visuals for every auction.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { playerName: "Virat Kohli", role: "Batter", bid: 1800000, base: 500000, team: "Mumbai Hawks", state: "live" as const },
+              { playerName: "Jasprit Bumrah", role: "Bowler", bid: 1600000, base: 500000, team: "Delhi Stallions", state: "sold" as const },
+              { playerName: "Shreyas Iyer", role: "All-rounder", bid: 950000, base: 400000, team: "Rajasthan Bulls", state: "upcoming" as const },
+            ].map((player, i) => (
+              <motion.div
+                key={i}
+                initial={enterInitial(isHydrated, { opacity: 0, y: 20 })}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <AuctionCardHero
+                  playerName={player.playerName}
+                  playerRole={player.role}
+                  currentBid={player.bid}
+                  basePrice={player.base}
+                  team={player.team}
+                  state={player.state}
+                  animationsEnabled={true}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-12 p-6 rounded-2xl border border-border/40 bg-card/30 text-center">
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              ✨ <span className="text-primary font-semibold">Respects motion preferences</span> — Animations automatically disable for users with reduced motion enabled.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── BidWar Academy CTA ──────────────────────────────────────── */}
       <section className="py-10 md:py-12 px-6" aria-label="BidWar Academy">
         <div className="max-w-6xl mx-auto">
@@ -714,7 +760,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Upcoming Auctions Strip ──────────────────────────────── */}
+      {/* ── Upcoming Auctions Strip ────────────────────���─────────── */}
       <section className="py-12 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-6">
@@ -839,20 +885,24 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="p-6 rounded-2xl border border-border bg-card/30 hover:border-primary/30 hover:bg-card/50 transition-all group"
+                className="p-6 rounded-2xl border border-border bg-card/30 hover:border-primary/40 hover:bg-card/60 hover:shadow-lg transition-all group overflow-hidden relative"
               >
-                <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                  <f.icon className="w-5 h-5 text-primary" />
+                {/* Subtle broadcast glow on hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-br from-primary/5 to-transparent" />
+                <div className="relative">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-all group-hover:shadow-lg">
+                    <f.icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="font-display font-bold text-lg mb-2 text-white">{f.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
                 </div>
-                <h3 className="font-display font-bold text-lg mb-2">{f.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Use Cases ───────────────────────────────────────────────── */}
+      {/* ── Use Cases ───────────────────────────────��───────────────── */}
       <section id="use-cases" className="py-24 px-6 border-t border-border/40">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 space-y-4">
@@ -870,13 +920,16 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="p-6 rounded-2xl border border-border bg-card/30 hover:border-primary/30 hover:bg-card/50 transition-all group"
+                className="p-6 rounded-2xl border border-border bg-card/30 hover:border-primary/40 hover:bg-card/60 hover:shadow-lg transition-all group overflow-hidden relative"
               >
-                <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                  <u.icon className="w-5 h-5 text-primary" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-br from-primary/5 to-transparent" />
+                <div className="relative">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-all group-hover:shadow-lg">
+                    <u.icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="font-display font-bold text-lg mb-2 text-white">{u.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{u.desc}</p>
                 </div>
-                <h3 className="font-display font-bold text-lg mb-2">{u.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{u.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -905,9 +958,9 @@ export default function Landing() {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1 }}
-                    className="flex items-start gap-4"
+                    className="flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-card/30 hover:border-primary/20 hover:bg-card/50 transition-all"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:shadow-[0_0_16px_rgba(234,179,8,0.2)]">
                       <w.icon className="w-5 h-5 text-primary" />
                     </div>
                     <div>
@@ -1056,8 +1109,12 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 space-y-4">
             <div className="text-primary text-xs font-bold uppercase tracking-widest">Pricing</div>
-            <h2 className="text-4xl md:text-5xl font-display font-black">One-time per-tournament pricing</h2>
-            <p className="text-muted-foreground text-lg">Pay once per event. No monthly fees. No recurring charges.</p>
+            <h2 className="text-4xl md:text-5xl font-display font-black leading-tight">
+              One-Time License Per Tournament
+              <br />
+              <span className="text-primary" style={{ textShadow: "0 0 40px rgba(234,179,8,0.3)" }}>No Monthly Fees</span>
+            </h2>
+            <p className="text-muted-foreground text-lg">Pay once. Run your auction. Done. No subscriptions, no recurring charges.</p>
             <p className="text-sm text-muted-foreground/90 max-w-2xl mx-auto">{AUCTION_LICENSE_PRICING_NOTE}</p>
           </div>
           {/* ── 10% Discount Banner ──────────────────────────────── */}
