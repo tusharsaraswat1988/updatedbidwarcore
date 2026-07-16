@@ -207,7 +207,7 @@ export default function BadmintonResultsPage() {
       <PageHeader
         title="Results"
         subtitle="Champions and category status first — recent finishes last"
-        eyebrow="After scoring"
+        eyebrow="Operations"
       />
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-10">

@@ -31,10 +31,15 @@ export function DoublesPreMatchSetup({
   state,
   detail,
   onStart,
+  embedded = false,
+  onCancel,
 }: {
-  state: BadmintonMatchState;
+  state?: BadmintonMatchState | null;
   detail: unknown;
-  onStart: (payload: unknown) => Promise<BadmintonMatchState>;
+  onStart: (payload: unknown) => Promise<BadmintonMatchState | void>;
+  /** Render inside Match Control instead of a fullscreen card. */
+  embedded?: boolean;
+  onCancel?: () => void;
 }) {
   const d = detail as Record<string, unknown> | null;
   const leftSideJson = (d?.leftSideJson ?? {}) as Record<string, unknown>;
@@ -123,7 +128,7 @@ export function DoublesPreMatchSetup({
           : 4;
 
   return (
-    <PreMatchSetupFrame>
+    <PreMatchSetupFrame embedded={embedded}>
       <div className="space-y-6">
         <div className="text-center space-y-3">
           <div className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-500/25 rounded-full px-4 py-1.5">
@@ -237,6 +242,15 @@ export function DoublesPreMatchSetup({
             >
               ← Restart setup
             </button>
+            {onCancel ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full text-muted-foreground text-sm hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            ) : null}
           </div>
         )}
 
@@ -257,6 +271,16 @@ export function DoublesPreMatchSetup({
             ← Back
           </button>
         )}
+
+        {step === "toss_winner" && onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full text-muted-foreground text-sm hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
     </PreMatchSetupFrame>
   );
@@ -378,7 +402,16 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PreMatchSetupFrame({ children }: { children: ReactNode }) {
+function PreMatchSetupFrame({
+  children,
+  embedded = false,
+}: {
+  children: ReactNode;
+  embedded?: boolean;
+}) {
+  if (embedded) {
+    return <div className={cn(hubCardClass, "w-full p-5 sm:p-6")}>{children}</div>;
+  }
   return (
     <div className="flex-1 flex items-center justify-center p-4 sm:p-6 bg-background">
       <div className={cn(hubCardClass, "w-full max-w-md p-5 sm:p-6")}>{children}</div>
@@ -390,9 +423,13 @@ function PreMatchSetupFrame({ children }: { children: ReactNode }) {
 export function SinglesPreMatchSetup({
   detail,
   onStart,
+  embedded = false,
+  onCancel,
 }: {
   detail: unknown;
-  onStart: (payload: unknown) => Promise<BadmintonMatchState>;
+  onStart: (payload: unknown) => Promise<BadmintonMatchState | void>;
+  embedded?: boolean;
+  onCancel?: () => void;
 }) {
   const d = detail as Record<string, unknown> | null;
   const leftSideJson = (d?.leftSideJson ?? {}) as Record<string, unknown>;
@@ -427,10 +464,10 @@ export function SinglesPreMatchSetup({
   }
 
   return (
-    <PreMatchSetupFrame>
+    <PreMatchSetupFrame embedded={embedded}>
       <div className="space-y-6">
         <div className="text-center space-y-3">
-          <h1 className="text-foreground font-display font-bold text-xl tracking-tight">Ready to Start</h1>
+          <h1 className="text-foreground font-display font-bold text-xl tracking-tight">Match Toss</h1>
           <div className="flex justify-center">
             <ScoringFormatBadge label={formatLabel} />
           </div>
@@ -438,7 +475,7 @@ export function SinglesPreMatchSetup({
             Who serves first?
           </p>
           <p className="text-sm text-muted-foreground">
-            Tap the player who will open the rally with the first serve.
+            After the toss — choose the player who opens with the first serve.
           </p>
         </div>
 
@@ -470,6 +507,16 @@ export function SinglesPreMatchSetup({
         >
           {starting ? "Starting…" : "Start Match"}
         </BtnPrimary>
+
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full text-muted-foreground text-sm hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
     </PreMatchSetupFrame>
   );

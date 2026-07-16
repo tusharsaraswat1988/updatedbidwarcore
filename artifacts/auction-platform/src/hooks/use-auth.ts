@@ -1,40 +1,63 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkOrganizerAuth, bootstrapLocalOrganizer, loginOrganizer, logoutOrganizer,
   checkAdminAuth, loginAdmin, logoutAdmin,
 } from "@/lib/auth";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
+export function organizerAuthQueryKey(tournamentId: number) {
+  return ["organizer-auth", tournamentId] as const;
+}
+
+async function resolveOrganizerAuth(tournamentId: number): Promise<boolean> {
+  let ok = await checkOrganizerAuth(tournamentId);
+  if (!ok && isBidWarLocalHost()) {
+    await bootstrapLocalOrganizer(tournamentId);
+    ok = await checkOrganizerAuth(tournamentId);
+  }
+  return ok;
+}
+
 export function useOrganizerAuth(tournamentId: number) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const enabled = tournamentId > 0;
 
-  const check = useCallback(async () => {
-    if (!tournamentId) { setIsLoading(false); return; }
-    setIsLoading(true);
-    let ok = await checkOrganizerAuth(tournamentId);
-    if (!ok && isBidWarLocalHost()) {
-      await bootstrapLocalOrganizer(tournamentId);
-      ok = await checkOrganizerAuth(tournamentId);
-    }
-    setIsLoggedIn(ok);
-    setIsLoading(false);
-  }, [tournamentId]);
+  const { data, isPending, refetch } = useQuery({
+    queryKey: organizerAuthQueryKey(tournamentId),
+    queryFn: () => resolveOrganizerAuth(tournamentId),
+    enabled,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => { check(); }, [check]);
+  const isLoggedIn = data === true;
+  // Remounts with warm cache must not blank the page waiting on auth.
+  const isLoading = enabled && isPending && data === undefined;
 
   const login = useCallback(async (password: string) => {
     const result = await loginOrganizer(tournamentId, password);
-    if (result.success) setIsLoggedIn(true);
+    if (result.success) {
+      queryClient.setQueryData(organizerAuthQueryKey(tournamentId), true);
+    }
     return result;
-  }, [tournamentId]);
+  }, [tournamentId, queryClient]);
 
   const logout = useCallback(async () => {
     await logoutOrganizer(tournamentId);
-    setIsLoggedIn(false);
-  }, [tournamentId]);
+    queryClient.setQueryData(organizerAuthQueryKey(tournamentId), false);
+  }, [tournamentId, queryClient]);
 
-  return { isLoggedIn, isLoading, login, logout, refetch: check };
+  return {
+    isLoggedIn,
+    isLoading,
+    login,
+    logout,
+    refetch: async () => {
+      await refetch();
+    },
+  };
 }
 
 export function useAdminAuth() {

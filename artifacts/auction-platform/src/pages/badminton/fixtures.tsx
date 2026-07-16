@@ -160,34 +160,32 @@ export default function BadmintonFixturesPage() {
             </Link>
           ) : null
         }
-        guideExtras={
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {[
-              {
-                title: "Generate Automatically",
-                desc: "Software builds the draw from event entries.",
-              },
-              {
-                title: "Import Existing Draw",
-                desc: "Bring in a draw you already planned elsewhere.",
-              },
-              {
-                title: "Create Manually",
-                desc: "Enter each pairing yourself.",
-              },
-            ].map((option) => (
-              <div
-                key={option.title}
-                className="rounded-lg border border-border/70 bg-background/50 px-3 py-2.5"
-              >
-                <p className="text-xs font-semibold text-foreground">{option.title}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
-              </div>
-            ))}
-          </div>
-        }
       >
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {[
+            {
+              title: "Generate Automatically",
+              desc: "Software builds the draw from event entries.",
+            },
+            {
+              title: "Import Existing Draw",
+              desc: "Bring in a draw you already planned elsewhere.",
+            },
+            {
+              title: "Create Manually",
+              desc: "Enter each pairing yourself.",
+            },
+          ].map((option) => (
+            <div
+              key={option.title}
+              className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5"
+            >
+              <p className="text-xs font-semibold text-foreground">{option.title}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
+            </div>
+          ))}
+        </div>
         {isLoading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Loading fixtures">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -520,6 +518,16 @@ function ManualFixturesModal({
 
     if (fixtures.length === 0) {
       setError("Add at least one fixture with a player on either side");
+      return;
+    }
+    const sameSide = fixtures.find(
+      (f) =>
+        f.registrationAId != null &&
+        f.registrationBId != null &&
+        f.registrationAId === f.registrationBId,
+    );
+    if (sameSide) {
+      setError("Side A and Side B cannot be the same entry in a fixture");
       return;
     }
     if (!roundName.trim()) {

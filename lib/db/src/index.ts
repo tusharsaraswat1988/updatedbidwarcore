@@ -494,7 +494,6 @@ void systemCQuery(`
       right_side_json JSONB,
       scorer_pin TEXT,
       scorer_name TEXT,
-      umpire_name TEXT,
       service_judge_name TEXT,
       state_snapshot_json JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -525,7 +524,7 @@ void systemCQuery(`
     console.error("[db] failed to ensure badminton tables:", err);
   });
 
-/** Migrate legacy referee_name → umpire_name, then drop referee_name. */
+/** Migrate legacy referee_name / umpire_name → scorer_name, then drop legacy columns. */
 void systemCQuery(`
     DO $$
     BEGIN
@@ -537,14 +536,37 @@ void systemCQuery(`
           AND column_name = 'referee_name'
       ) THEN
         UPDATE badminton_match_details
-        SET umpire_name = referee_name
-        WHERE umpire_name IS NULL AND referee_name IS NOT NULL;
+        SET scorer_name = COALESCE(scorer_name, referee_name)
+        WHERE scorer_name IS NULL AND referee_name IS NOT NULL;
         ALTER TABLE badminton_match_details DROP COLUMN referee_name;
+      END IF;
+
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'badminton_match_details'
+          AND column_name = 'umpire_name'
+      ) THEN
+        UPDATE badminton_match_details
+        SET scorer_name = COALESCE(scorer_name, umpire_name)
+        WHERE umpire_name IS NOT NULL;
+        ALTER TABLE badminton_match_details DROP COLUMN umpire_name;
       END IF;
     END $$;
   `)
   .catch((err) => {
-    console.error("[db] failed to migrate badminton_match_details referee_name:", err);
+    console.error("[db] failed to migrate badminton_match_details referee/umpire name:", err);
+  });
+
+/** Normalize legacy scoring_officials.role 'umpire' → 'scorer'. */
+void systemCQuery(`
+    UPDATE scoring_officials
+    SET role = 'scorer'
+    WHERE role = 'umpire';
+  `)
+  .catch((err) => {
+    console.error("[db] failed to migrate scoring_officials umpire role:", err);
   });
 
 /**
@@ -768,7 +790,7 @@ void systemCQuery(`
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'umpire',
+      role TEXT NOT NULL DEFAULT 'scorer',
       mobile TEXT,
       email TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -1,4 +1,4 @@
-export function UmpireReadyDialog({
+export function ScorerReadyDialog({
   open,
   reason,
   onConfirm,

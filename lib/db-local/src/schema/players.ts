@@ -27,6 +27,8 @@ export const playersTable = sqliteTable("players", {
   cricheroUrl: text("crichero_url"),
   availabilityDates: text("availability_dates"),
   specialization: text("specialization"),
+  // Non-playing member — shows in team roster but excluded from squad size / category limit counts
+  isNonPlayingMember: integer("is_non_playing_member", { mode: "boolean" }).notNull().default(false),
   cloudId: integer("cloud_id"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),

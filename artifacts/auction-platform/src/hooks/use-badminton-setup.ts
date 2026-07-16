@@ -54,7 +54,8 @@ export function useBadmintonSetup(tournamentId: number) {
         Array<{ id: number; courtId?: number | null; scheduledAt?: string | null }>
       >(tournamentId, `/fixtures`),
     enabled: !!tournamentId,
-    staleTime: 30_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const totalScheduledFixtures = fixtures.filter(

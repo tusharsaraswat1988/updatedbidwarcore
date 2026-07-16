@@ -156,7 +156,7 @@ export async function createScoringOfficial(
     .values({
       tournamentId,
       name: input.name,
-      role: input.role ?? "umpire",
+      role: input.role ?? "scorer",
       mobile: input.mobile ?? null,
       email: input.email ?? null,
     })
@@ -248,7 +248,7 @@ export async function generateScoringDraw(input: {
   startDate?: string | null;
   matchesPerDay?: number;
   createMatches?: boolean;
-  officials?: { umpires?: number[]; scorers?: number[]; matchReferee?: number | null };
+  officials?: { scorers?: number[]; matchReferee?: number | null };
 }) {
   await ensureScoringTournament(input.tournamentId);
   await ensureTeamsInTournament(input.tournamentId, input.teamIds);

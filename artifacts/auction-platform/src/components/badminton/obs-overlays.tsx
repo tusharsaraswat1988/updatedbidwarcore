@@ -62,19 +62,24 @@ function overlayServeSideShellClass(isServing: boolean, isFlash: boolean) {
 }
 
 /** OBS-safe anchor positions per overlay variant. */
-export function overlayPlacementClass(type: OverlayType, _withBottomTicker = false): string {
+export function overlayPlacementClass(type: OverlayType, withBottomTicker = false): string {
+  const compactBottom = withBottomTicker
+    ? "bottom-[11vh] left-1/2 -translate-x-1/2 max-w-[min(960px,96vw)]"
+    : "bottom-[5vh] left-1/2 -translate-x-1/2 max-w-[min(960px,96vw)]";
   switch (type) {
     case "full":
       return "bottom-0 left-0 right-0 w-full";
     case "compact":
-      return "bottom-[5vh] left-1/2 -translate-x-1/2 max-w-[min(960px,96vw)]";
+      return compactBottom;
     case "intro":
     case "winner":
       return "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2";
     case "sponsor":
-      return "bottom-[6vh] left-1/2 -translate-x-1/2";
+      return withBottomTicker
+        ? "bottom-[12vh] left-1/2 -translate-x-1/2"
+        : "bottom-[6vh] left-1/2 -translate-x-1/2";
     default:
-      return "bottom-[5vh] left-1/2 -translate-x-1/2";
+      return compactBottom;
   }
 }
 

@@ -1,23 +1,16 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { BadmintonOrganizerShell } from "@/components/badminton/bidwar-badminton-branding";
-import { BadmintonHubNav } from "@/components/badminton/badminton-hub-nav";
+import { SportsShell, useInSportsShell } from "@/components/sports-shell";
+import { getBadmintonSportNav } from "@/lib/badminton-sport-nav";
 
 import {
-
   Select,
-
   SelectContent,
-
   SelectItem,
-
   SelectTrigger,
-
   SelectValue,
-
 } from "@/components/ui/select";
-
 
 
 /** Shared form tokens — inherits BidWar auction design system */
@@ -62,8 +55,16 @@ export const hubCardClass =
 
 export const hubPanelClass = cn(hubCardClass, "p-5");
 
+const badmintonSportNav = getBadmintonSportNav();
 
-
+/**
+ * Badminton organizer page chrome — SportsShell (Auction-style sidebar).
+ * Public scorer / LED / OBS pages must not use this.
+ *
+ * Default `noPadding` — badminton pages own PageHeader full-bleed + content padding
+ * (same as the previous horizontal-hub shell). Pass `noPadding={false}` only when
+ * a page should use SportsShell’s auction-style padded content well.
+ */
 export function HubPageShell({
 
   children,
@@ -72,28 +73,43 @@ export function HubPageShell({
 
   tournamentId,
 
+  noPadding = true,
+
 }: {
 
   children: React.ReactNode;
 
   className?: string;
 
-  /** Passed through to the organizer shell / brand bar (no Auction exit link). */
+  /** Required for sidebar tournament context and nav hrefs. */
 
   tournamentId?: number;
 
+  /** Pass through to SportsShell. Defaults true to avoid double-padding. */
+
+  noPadding?: boolean;
+
 }) {
+  const inShell = useInSportsShell();
+
+  // Layout already mounted SportsShell — avoid tearing down the sidebar on every nav.
+  if (inShell) {
+    return className ? <div className={className}>{children}</div> : <>{children}</>;
+  }
+
+  if (!tournamentId) {
+    return <div className={cn("min-h-screen bg-background dark", className)}>{children}</div>;
+  }
 
   return (
-
-    <BadmintonOrganizerShell className={className} tournamentId={tournamentId}>
-
-      {tournamentId ? <BadmintonHubNav tournamentId={tournamentId} /> : null}
-
+    <SportsShell
+      tournamentId={tournamentId}
+      nav={badmintonSportNav}
+      noPadding={noPadding}
+      className={className}
+    >
       {children}
-
-    </BadmintonOrganizerShell>
-
+    </SportsShell>
   );
 
 }

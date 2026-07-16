@@ -128,13 +128,11 @@ export default function BadmintonCourtsPage() {
             + Add Court
           </BtnPrimary>
         }
-        guideExtras={
-          <p className="text-xs text-muted-foreground">
-            Scorer PIN belongs to the Court first. Matches inherit it unless a Match PIN overrides it.
-          </p>
-        }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        <p className="text-xs text-muted-foreground">
+          Scorer PIN belongs to the court first. Matches inherit it unless a match PIN overrides it.
+        </p>
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -431,7 +429,7 @@ function CourtFormModal({
             Scorer Assignment
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Default Scorer PIN for this court — umpires use it to open scoring.
+            Default Scorer PIN for this court — scorers use it to open scoring.
             Matches without their own PIN inherit it. A Match PIN overrides this Court PIN.
           </p>
         </div>
@@ -450,7 +448,7 @@ function CourtFormModal({
           <input
             value={form.scorerName}
             onChange={(e) => setForm((p) => ({ ...p, scorerName: e.target.value }))}
-            placeholder="Court umpire"
+            placeholder="Court scorer"
             className={inputClass}
           />
         </FormField>

@@ -273,15 +273,15 @@ describe("Grade A Phase B — interval after rally", () => {
     playGame("left", 21);
     playGame("right", 21);
 
-    for (let i = 0; i < 10; i++) {
-      const side: "left" | "right" = i % 2 === 0 ? "left" : "right";
-      const p = cmdAwardPoint(state, side);
+    // Reach BWF interval threshold (11) in deciding game
+    for (let i = 0; i < 11; i++) {
+      const p = cmdAwardPoint(state, "left");
       expect(p.ok).toBe(true);
       if (!p.ok) return;
       ({ state, events } = appendCommandEvents(state, events, p.events, events.length + 1));
     }
-
     expect(state.currentGame).toBe(3);
+    expect(state.leftScore).toBe(11);
 
     const lastPointSeq = events.findLast((e) => e.eventType === BadmintonEventType.POINT_WON)!.sequence;
     const beforeLastPoint = replayBadmintonEvents(

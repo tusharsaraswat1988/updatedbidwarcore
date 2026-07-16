@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Redirect, useLocation } from "wouter";
 import { BadgeCheck, Gavel, Radio, RefreshCw } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminTournamentRow, listAdminTournaments } from "@/lib/auth";
 import { legacyLiveOpsRedirect, tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
+import { MetricCard } from "@/components/admin/admin-metric-card";
+import { StatusBadge } from "@/components/admin/admin-status-badge";
+import { AdminListHeader } from "@/components/admin/admin-list-header";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function getSection(pathname: string) {
   if (pathname.includes("/monitor")) return "monitor";
@@ -24,11 +27,7 @@ function getId(pathname: string) {
 
 function LiveStatus({ tournament }: { tournament: AdminTournamentRow }) {
   const live = tournament.licenseStatus === "active" && !tournament.adminLocked;
-  return (
-    <Badge className={live ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}>
-      {live ? "Live" : tournament.licenseStatus}
-    </Badge>
-  );
+  return <StatusBadge tone={live ? "green" : "muted"}>{live ? "Live" : tournament.licenseStatus}</StatusBadge>;
 }
 
 function LiveAuctions({
@@ -44,13 +43,16 @@ function LiveAuctions({
   const rows = liveTournaments.length ? liveTournaments : scheduled.slice(0, 8);
   return (
     <div className="rounded-xl border border-border bg-card/70">
-      <div className="hidden border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[1fr_120px_180px_140px_140px]">
-        <span>Tournament</span>
-        <span>Status</span>
-        <span>Organiser</span>
-        <span>Auction date</span>
-        <span className="text-right">Action</span>
-      </div>
+      <AdminListHeader
+        gridClassName="md:grid md:grid-cols-[1fr_120px_180px_140px_140px]"
+        columns={[
+          { label: "Tournament" },
+          { label: "Status" },
+          { label: "Organiser" },
+          { label: "Auction date" },
+          { label: "Action", align: "right" },
+        ]}
+      />
       {rows.map((t) => (
         <button
           key={t.id}
@@ -147,28 +149,16 @@ export default function AdminLiveOperations() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card/70 p-4">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
-              <Radio className="h-4 w-4 text-primary" />
-              Live now
-            </div>
-            <div className="mt-2 text-2xl font-black text-white">{liveTournaments.length}</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card/70 p-4">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">All tournaments</div>
-            <div className="mt-2 text-2xl font-black text-white">{tournaments.length}</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card/70 p-4">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">Locked auctions</div>
-            <div className="mt-2 text-2xl font-black text-white">
-              {tournaments.filter((t) => t.adminLocked).length}
-            </div>
-          </div>
+          <MetricCard label="Live now" value={liveTournaments.length} icon={Radio} />
+          <MetricCard label="All tournaments" value={tournaments.length} />
+          <MetricCard label="Locked auctions" value={tournaments.filter((t) => t.adminLocked).length} />
         </div>
 
         {loading ? (
-          <div className="rounded-xl border border-border bg-card/70 px-4 py-3 text-sm text-muted-foreground">
-            Loading live auctions...
+          <div className="space-y-2 rounded-xl border border-border bg-card/70 p-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
           </div>
         ) : (
           <LiveAuctions liveTournaments={liveTournaments} allTournaments={tournaments} navigate={navigate} />

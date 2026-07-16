@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Building2,
+  FileBarChart,
   Gauge,
   Gavel,
   GraduationCap,
@@ -10,6 +11,7 @@ import {
   LifeBuoy,
   Mail,
   Monitor,
+  Radio,
   Settings,
   Trophy,
 } from "lucide-react";
@@ -40,6 +42,7 @@ const communicationItems: NavItem[] = [
 ];
 
 const settingItems: NavItem[] = [
+  { label: "Reports", href: "/admin/settings/reports", icon: FileBarChart },
   { label: "Branding", href: "/admin/settings/branding", icon: Settings },
   { label: "Admin Notifications", href: "/admin/settings/admin-notifications", icon: Bell },
   { label: "AI & Intelligence", href: "/admin/settings/intelligence", icon: Activity },
@@ -50,6 +53,7 @@ const settingItems: NavItem[] = [
 
 function isActive(location: string, href: string) {
   if (href === "/admin") return location === "/admin";
+  if (href === "/admin/live/auctions") return location.startsWith("/admin/live");
   return location === href || location.startsWith(`${href}/`);
 }
 
@@ -121,6 +125,11 @@ export function AdminSidebarNav({
     <nav className="flex-1 overflow-y-auto px-2 py-3">
       <NavLink
         item={{ label: "Dashboard", href: "/admin", icon: Gauge }}
+        location={location}
+        onNavigate={onNavigate}
+      />
+      <NavLink
+        item={{ label: "Live Auctions", href: "/admin/live/auctions", icon: Radio }}
         location={location}
         onNavigate={onNavigate}
       />

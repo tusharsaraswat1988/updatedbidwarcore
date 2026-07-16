@@ -202,8 +202,8 @@ export default function BadmintonSummaryPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        eyebrow="Closing · Tournament Summary"
-        title="Tournament Summary & Awards"
+        eyebrow="Operations"
+        title="Publish / Summary"
         subtitle="Official closing record — champions, courts, timeline, and awards from completed play."
       />
 

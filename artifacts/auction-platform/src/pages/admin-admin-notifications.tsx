@@ -306,6 +306,7 @@ export default function AdminAdminNotificationsPage() {
                               size="icon"
                               className="h-8 w-8"
                               title="Mark as read"
+                              aria-label="Mark as read"
                               onClick={() => void markRead(item.id)}
                             >
                               <CheckCheck className="h-4 w-4" />
@@ -316,6 +317,7 @@ export default function AdminAdminNotificationsPage() {
                             size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive"
                             title="Delete"
+                            aria-label="Delete notification"
                             onClick={() => void deleteNotification(item.id)}
                           >
                             <Trash2 className="h-4 w-4" />

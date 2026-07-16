@@ -1,5 +1,5 @@
-UMPIRE ASSISTANCE TEST REPORT
-Generated: 2026-06-26T10:34:25.809Z
+SCORER ASSISTANCE TEST REPORT
+Generated: 2026-07-14T13:36:14.342Z
 
 1. [PASS] Singles server label
    Expected Abhinav Keshri, got Abhinav Keshri

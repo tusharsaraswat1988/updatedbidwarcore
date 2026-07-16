@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import {
-  deriveUmpireAssistance,
+  deriveScorerAssistance,
   deriveVoiceAssistPrompts,
-  type UmpireAssistanceSnapshot,
+  type ScorerAssistanceSnapshot,
 } from "@workspace/badminton-core";
 
-const VOICE_KEY = "badminton:umpire-voice-assist:v1";
+const VOICE_KEY = "badminton:scorer-voice-assist:v1";
 
 export function useVoiceAssistSetting() {
   const [enabled, setEnabled] = useState(() => {
@@ -41,7 +41,7 @@ function speak(text: string) {
 }
 
 export function useVoiceAssist(
-  snapshot: UmpireAssistanceSnapshot,
+  snapshot: ScorerAssistanceSnapshot,
   enabled: boolean,
 ) {
   const lastSpokenRef = useRef<string>("");
@@ -57,7 +57,7 @@ export function useVoiceAssist(
   }, [enabled, snapshot]);
 }
 
-export function useUmpireAssistance(state: BadmintonMatchState) {
+export function useScorerAssistance(state: BadmintonMatchState) {
   const [courtChangeAcknowledged, setCourtChangeAcknowledged] = useState(false);
   const [readyToScore, setReadyToScore] = useState(true);
   const [showReadyConfirm, setShowReadyConfirm] = useState(false);
@@ -95,7 +95,7 @@ export function useUmpireAssistance(state: BadmintonMatchState) {
     prevTimeoutRef.current = state.activeTimeout;
   }, [state.activeTimeout]);
 
-  const snapshot = deriveUmpireAssistance(state, {
+  const snapshot = deriveScorerAssistance(state, {
     courtChangeAcknowledged,
     readyToScore,
   });

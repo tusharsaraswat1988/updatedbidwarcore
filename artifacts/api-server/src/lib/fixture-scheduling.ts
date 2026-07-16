@@ -9,7 +9,7 @@
  *
  * Reuses badminton_fixtures.courtId + scheduledAt + status. No new tables.
  *
- * Future (prepare only — not implemented): umpire, scorer, priority, notes via metaJson.
+ * Future (prepare only — not implemented): Scorer, scorer, priority, notes via metaJson.
  *
  * @see docs/superpowers/specs/2026-07-13-draw-fixtures-module-design.md
  */
@@ -74,6 +74,8 @@ export function canCreateMatchFromFixture(fixture: {
   courtId?: number | null;
   scheduledAt?: Date | string | null;
   scoringMatchId?: number | null;
+  registrationAId?: number | null;
+  registrationBId?: number | null;
 }): { ok: true } | { ok: false; error: string } {
   if (fixture.scoringMatchId != null) {
     return {
@@ -86,6 +88,16 @@ export function canCreateMatchFromFixture(fixture: {
   }
   if (fixture.status === "cancelled") {
     return { ok: false, error: "Cancelled fixtures cannot create a match" };
+  }
+  if (
+    fixture.registrationAId != null &&
+    fixture.registrationBId != null &&
+    fixture.registrationAId === fixture.registrationBId
+  ) {
+    return {
+      ok: false,
+      error: "Both sides of this fixture are the same entry — fix the fixture (A vs B) before creating a match",
+    };
   }
   if (!isFixtureScheduled(fixture)) {
     return {

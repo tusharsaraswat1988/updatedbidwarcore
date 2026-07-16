@@ -129,7 +129,7 @@ export const badmintonCourtsTable = pgTable(
     streamUrl: text("stream_url"),
     /** Court has display screen connected. */
     hasDisplay: boolean("has_display").notNull().default(false),
-    /** Court-level scorer PIN — umpires inherit this for matches without a match PIN. */
+    /** Court-level scorer PIN — scorers inherit this for matches without a match PIN. */
     scorerPin: text("scorer_pin"),
     /** Optional display name for the assigned court scorer. */
     scorerName: text("scorer_name"),
@@ -387,10 +387,13 @@ export const badmintonMatchDetailsTable = pgTable(
     scorerPin: text("scorer_pin"),
     /** Assigned scorer name. */
     scorerName: text("scorer_name"),
-    /** Umpire name (court official). */
-    umpireName: text("umpire_name"),
     /** Service judge. */
     serviceJudgeName: text("service_judge_name"),
+    /**
+     * Optional toss recorded at match create/edit (before Start).
+     * Singles: { firstServer }. Doubles: tossWinnerSide, tossDecision, server/receiver indices.
+     */
+    preMatchTossJson: jsonb("pre_match_toss_json").$type<Record<string, unknown>>(),
     /** Replay of current match state (computed after each event). */
     stateSnapshotJson: jsonb("state_snapshot_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -10,9 +10,11 @@ import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import {
   findMatchById,
+  listLiveMatches,
   resolvePrimaryBroadcastMatchId,
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
+import { MAX_MULTI_COURT_ROWS } from "@/lib/badminton-broadcast-director";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -49,10 +51,15 @@ export function useBadmintonLiveFollow(tournamentId: number) {
 
   const primaryMatch = findMatchById(matchesQuery.data ?? [], primaryMatchId);
   const matchQuery = useBadmintonMatch(tournamentId, primaryMatchId ?? 0);
+  const liveMatches = useMemo(
+    () => listLiveMatches(matchesQuery.data ?? []).slice(0, MAX_MULTI_COURT_ROWS),
+    [matchesQuery.data],
+  );
 
   return {
     primaryMatchId,
     primaryMatch,
+    liveMatches,
     matches: matchesQuery.data ?? [],
     matchesLoading: matchesQuery.isLoading,
     matchQuery,

@@ -16,12 +16,14 @@
  * require EITHER:
  *   1. Admin JWT
  *   2. Tournament-specific organizer JWT  (organizer[tournamentId] === true)
- *   3. Per-match scorer PIN   (scoring actions only)
+ *   3. Organizer account that owns the tournament (organizerAccountId ===
+ *      tournament.organizerId) — same rules as branding/settings
+ *   4. Scorer JWT (Bearer) + active match lock (scoring actions only)
  *
- * The broad-account check (organizerAccountId) intentionally EXCLUDED from
- * badminton writes so that an organizer-account holder cannot manipulate
- * tournaments they do not own.  See requireBadmintonWrite / isTournamentOwner.
+ * Court/match scorer PIN auth is soft-deprecated and no longer accepted.
  *
+ * Cross-tenant writes are still blocked: ownership is always checked against
+ * THIS tournament’s organizerId (or explicit JWT organizer[tid] grant).
  * Service layer additionally re-verifies match.tournamentId === URL tournamentId
  * on every scoring action, making IDOR impossible even if a caller somehow
  * bypasses the route-layer checks.
@@ -40,6 +42,7 @@ import {
   badmintonFixturesTable,
   badmintonMatchDetailsTable,
   scoringMatchesTable,
+  tournamentsTable,
 } from "@workspace/db";
 import {
   BadmintonServiceError,
@@ -49,10 +52,9 @@ import {
   deleteBadmintonMatch,
   ensureBadmintonTournament,
   getLiveBadmintonMatches,
-  openScorerHomeSession,
+  openScorerHomeForTournament,
   serializeBadmintonMatchDetail,
   serializeBadmintonCourt,
-  verifyMatchScorerPin,
   handleRetirement,
   handleTimeout,
   handleInterval,
@@ -72,9 +74,21 @@ import {
 } from "../lib/badminton-service";
 import { auditLog } from "../lib/audit-service";
 import {
-  consumePinVerifyAttempt,
   friendlyBadmintonCommandMessage,
 } from "../lib/badminton-ops";
+import {
+  extractBearerToken,
+  resolveScorerAuthFromToken,
+  ScorerAuthError,
+  type ScorerAuthContext,
+} from "../lib/scorer-auth";
+import {
+  assertSessionOwnsMatchLock,
+  forceUnlockMatch,
+  releaseLockOnMatchFinish,
+  ScorerLockError,
+} from "../lib/scorer-match-locks";
+import { writeScorerAudit } from "../lib/scorer-audit";
 import {
   createFixtureCollection,
   importFixtureCollectionStub,
@@ -110,6 +124,10 @@ import {
   queueImageFieldChange,
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
+import {
+  isTournamentOrganizer,
+  requireTournamentOrganizer,
+} from "../middleware/require-organizer";
 
 const router = Router({ mergeParams: true });
 
@@ -129,9 +147,15 @@ function tid(req: Request): number | null {
   return parseId((req.params as MergedParams).id);
 }
 
-function actorFrom(req: Request, usedPin: boolean) {
+type ScoringActorContext =
+  | { kind: "organizer_or_admin"; usedScorer: false }
+  | { kind: "scorer"; usedScorer: true; scorer: ScorerAuthContext };
+
+function actorFrom(req: Request, auth: ScoringActorContext) {
   if (req.jwtUser?.isAdmin) return { type: "admin", id: "admin" };
-  if (usedPin) return { type: "scorer_pin", id: "pin" };
+  if (auth.usedScorer) {
+    return { type: "scorer", id: String(auth.scorer.scorerId) };
+  }
   const tournamentId = tid(req);
   if (
     tournamentId &&
@@ -148,51 +172,137 @@ function actorFrom(req: Request, usedPin: boolean) {
   };
 }
 
+function auditActorFrom(req: Request, auth: ScoringActorContext): {
+  actorType: "scorer" | "organizer" | "admin";
+  actorId: string;
+  scorerId?: number | null;
+  sessionId?: string | null;
+} {
+  if (req.jwtUser?.isAdmin) {
+    return { actorType: "admin", actorId: "admin" };
+  }
+  if (auth.usedScorer) {
+    return {
+      actorType: "scorer",
+      actorId: String(auth.scorer.scorerId),
+      scorerId: auth.scorer.scorerId,
+      sessionId: auth.scorer.sessionId,
+    };
+  }
+  return {
+    actorType: "organizer",
+    actorId: req.jwtUser?.organizerAccountId?.toString() ?? "organizer",
+  };
+}
+
+async function maybeReleaseLockAfterTerminal(
+  matchId: number,
+  tournamentId: number,
+  state: { matchStatus?: string } | null | undefined,
+): Promise<void> {
+  const status = state?.matchStatus;
+  if (
+    status === "completed" ||
+    status === "walkover" ||
+    status === "retired" ||
+    status === "disqualified" ||
+    status === "abandoned"
+  ) {
+    await releaseLockOnMatchFinish({
+      matchId,
+      tournamentId,
+      sport: "badminton",
+    });
+    await writeScorerAudit({
+      actorType: "system",
+      actorId: "system",
+      tournamentId,
+      matchId,
+      sport: "badminton",
+      action: "match_finished",
+      payload: { matchStatus: status },
+    });
+  }
+}
+
 // ── Authorization ─────────────────────────────────────────────────────────────
 
 /**
- * Tighter tournament-specific auth for badminton writes.
+ * Tournament-specific auth for badminton writes / scorer-PIN visibility.
  *
- * Grants access ONLY when the caller is:
+ * Grants access when the caller is:
  *  1. An admin, OR
  *  2. Explicitly listed as organizer for THIS tournament in their JWT
- *     (organizer[tournamentId] === true).
+ *     (organizer[tournamentId] === true), OR
+ *  3. Organizer account that owns the tournament (organizerAccountId ===
+ *     tournament.organizerId) — when organizerId is provided.
  *
- * Deliberately does NOT grant access to any holder of organizerAccountId
- * who is not specifically authorized for this tournament.  This prevents
- * cross-tenant writes between independently-owned tournaments.
+ * Pass tournamentOrganizerId from DB for account-ownership checks.
+ * Without it, only JWT organizer[tid] / admin pass (sync call sites).
  */
-function isTournamentOwner(req: Request, tournamentId: number): boolean {
+function isTournamentOwner(
+  req: Request,
+  tournamentId: number,
+  tournamentOrganizerId?: number | null,
+): boolean {
+  if (tournamentOrganizerId !== undefined) {
+    return isTournamentOrganizer(req, tournamentId, tournamentOrganizerId);
+  }
   const u = req.jwtUser;
   if (!u) return false;
   if (u.isAdmin) return true;
-  // Suspended organizer accounts are locked out entirely.
   const status = req.organizerAccountLicenseStatus;
   if (status === "suspended") return false;
-  // Tournament-specific grant only — NOT the broad organizerAccountId path.
-  // This prevents an organizer-account holder from writing to tournaments they
-  // do not explicitly own.
   return !!(u.organizer?.[String(tournamentId)]);
 }
 
 /**
  * Tournament Director / Admin match administration.
- * Scorer PIN is explicitly excluded — director actions are not umpire actions.
+ * Scorer PIN is explicitly excluded — director actions are not scorer tablet actions.
+ * Account owners of the tournament count as directors when organizerId is passed.
  */
-function isTournamentDirector(req: Request, tournamentId: number): boolean {
+function isTournamentDirector(
+  req: Request,
+  tournamentId: number,
+  tournamentOrganizerId?: number | null,
+): boolean {
+  if (isTournamentOwner(req, tournamentId, tournamentOrganizerId)) return true;
   const u = req.jwtUser;
   if (!u) return false;
-  if (u.isAdmin) return true;
   const status = req.organizerAccountLicenseStatus;
   if (status === "suspended") return false;
-  if (u.organizer?.[String(tournamentId)]) return true;
   return !!(u.tournamentDirector?.[String(tournamentId)]);
+}
+
+/** Load tournament.organizerId and evaluate owner access (JWT grant or account ownership). */
+async function resolveIsTournamentOwner(
+  req: Request,
+  tournamentId: number,
+): Promise<boolean> {
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+  return isTournamentOwner(req, tournamentId, tournament?.organizerId ?? null);
+}
+
+async function resolveIsTournamentDirector(
+  req: Request,
+  tournamentId: number,
+): Promise<boolean> {
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+  return isTournamentDirector(req, tournamentId, tournament?.organizerId ?? null);
 }
 
 async function guardBadmintonDirector(
   req: Request,
   res: import("express").Response,
-  matchId: number,
+  _matchId: number,
 ): Promise<{ tournamentId: number } | null> {
   const tournamentId = tid(req);
   if (!tournamentId) {
@@ -200,7 +310,7 @@ async function guardBadmintonDirector(
     return null;
   }
   if (!(await guardBadmintonTournament(tournamentId, res))) return null;
-  if (!isTournamentDirector(req, tournamentId)) {
+  if (!(await resolveIsTournamentDirector(req, tournamentId))) {
     res.status(403).json({
       error: "Tournament director or organizer access required. Scorer PIN cannot do this.",
       code: "DIRECTOR_FORBIDDEN",
@@ -249,22 +359,17 @@ async function guardBadmintonWrite(
     return null;
   }
   if (!(await guardBadmintonTournament(tournamentId, res))) return null;
-  if (!isTournamentOwner(req, tournamentId)) {
-    res.status(403).json({
-      error: "Organizer access required. Scorer PIN cannot change fixtures, matches, or courts.",
-      code: "ORGANIZER_FORBIDDEN",
-    });
-    return null;
-  }
+  // Same ownership rules as branding/settings (account owner OR JWT organizer[tid]).
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return null;
   return tournamentId;
 }
 
-/** Scoring write guard: badminton sport + owner or per-match PIN. */
+/** Scoring write guard: badminton sport + organizer/admin OR scorer JWT + lock. */
 async function guardBadmintonScoring(
   req: Request,
   res: import("express").Response,
   matchId: number,
-): Promise<{ tournamentId: number; usedPin: boolean } | null> {
+): Promise<{ tournamentId: number; auth: ScoringActorContext } | null> {
   const tournamentId = tid(req);
   if (!tournamentId) {
     res.status(400).json({ error: "bad id" });
@@ -274,35 +379,75 @@ async function guardBadmintonScoring(
 
   const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) {
-    res.status(403).json({
-      error: "Organizer login or this match’s scorer PIN is required.",
-      code: "SCORING_FORBIDDEN",
+    if (auth.code === "MATCH_LOCKED") {
+      res.status(409).json({
+        code: "MATCH_LOCKED",
+        message: "This match is currently being scored by another active session.",
+        error: "This match is currently being scored by another active session.",
+      });
+      return null;
+    }
+    res.status(auth.status).json({
+      error: auth.error,
+      code: auth.code,
     });
     return null;
   }
-  return { tournamentId, usedPin: auth.usedPin };
+  return { tournamentId, auth: auth.ctx };
 }
 
 /**
  * Check write permission for a scoring action.
  *
- * Priority order:
- *  1. Tournament owner / admin  → always allowed
- *  2. Scorer PIN — Match PIN if set, else Court PIN (match overrides court)
+ * Priority:
+ *  1. Tournament owner / admin → allowed (bypasses lock; still audited by caller)
+ *  2. Scorer JWT + active session + account + lock ownership
  */
 async function canWriteScoring(
   req: Request,
   tournamentId: number,
   matchId: number,
-): Promise<{ ok: true; usedPin: boolean } | { ok: false }> {
-  if (isTournamentOwner(req, tournamentId)) return { ok: true, usedPin: false };
+): Promise<
+  | { ok: true; ctx: ScoringActorContext }
+  | { ok: false; status: number; code: string; error: string }
+> {
+  if (await resolveIsTournamentOwner(req, tournamentId)) {
+    return { ok: true, ctx: { kind: "organizer_or_admin", usedScorer: false } };
+  }
 
-  const pinHeader = req.headers["x-scorer-pin"] as string | undefined;
-  if (!pinHeader) return { ok: false };
+  const token = extractBearerToken(req.headers.authorization);
+  if (!token) {
+    return {
+      ok: false,
+      status: 401,
+      code: "AUTH_REQUIRED",
+      error: "Scorer login required",
+    };
+  }
 
-  const ok = await verifyMatchScorerPin(tournamentId, matchId, pinHeader);
-  if (ok) return { ok: true, usedPin: true };
-  return { ok: false };
+  try {
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
+    return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return { ok: false, status: e.status, code: e.code, error: e.message };
+    }
+    if (e instanceof ScorerLockError) {
+      return {
+        ok: false,
+        status: e.status,
+        code: e.code,
+        error: e.message,
+      };
+    }
+    return {
+      ok: false,
+      status: 403,
+      code: "SCORING_FORBIDDEN",
+      error: "Scoring not allowed",
+    };
+  }
 }
 
 // ─── SSE stream ───────────────────────────────────────────────────────────────
@@ -580,14 +725,19 @@ router.delete("/players/:playerId", async (req, res) => {
   const playerId = parseId((req.params as MergedParams).playerId);
   if (!playerId) return void res.status(400).json({ error: "bad id" });
 
-  await db
-    .delete(badmintonPlayersTable)
+  // Soft-delete so Import From Auction can re-list / reinstate via masterPlayerId.
+  const [updated] = await db
+    .update(badmintonPlayersTable)
+    .set({ status: "withdrawn" })
     .where(
       and(
         eq(badmintonPlayersTable.id, playerId),
         eq(badmintonPlayersTable.tournamentId, tournamentId),
       ),
-    );
+    )
+    .returning({ id: badmintonPlayersTable.id });
+
+  if (!updated) return void res.status(404).json({ error: "Player not found" });
 
   res.json({ deleted: true });
 });
@@ -598,7 +748,7 @@ router.get("/courts", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const includeScorerPin = isTournamentOwner(req, tournamentId);
+  const includeScorerPin = await resolveIsTournamentOwner(req, tournamentId);
   const courts = await db
     .select()
     .from(badmintonCourtsTable)
@@ -794,9 +944,34 @@ router.patch("/categories/:catId", async (req, res) => {
   const catId = parseId((req.params as MergedParams).catId);
   if (!catId) return void res.status(400).json({ error: "bad id" });
 
+  const schema = z.object({
+    name: z.string().min(1).max(200).optional(),
+    code: z.string().max(20).nullable().optional(),
+    matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
+    ageGroup: z.string().max(20).nullable().optional(),
+    gender: z.string().max(10).nullable().optional(),
+    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
+    numSeeds: z.number().int().min(0).max(32).optional(),
+    maxPlayers: z.number().int().nullable().optional(),
+    entryFee: z.number().int().nullable().optional(),
+    colorCode: z.string().max(10).nullable().optional(),
+    matchFormatJson: z
+      .object({
+        totalGames: z.number(),
+        pointsPerGame: z.number(),
+        deuceAt: z.number(),
+        maxPoints: z.number(),
+        midGameSideChange: z.boolean(),
+      })
+      .nullable()
+      .optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
   const [cat] = await db
     .update(badmintonCategoriesTable)
-    .set({ ...req.body, updatedAt: new Date() })
+    .set({ ...parsed.data, updatedAt: new Date() })
     .where(
       and(
         eq(badmintonCategoriesTable.id, catId),
@@ -1452,6 +1627,15 @@ router.post("/categories/:catId/fixture-collections/manual", async (req, res) =>
         error: `Fixture ${i + 1}: at least one side is required`,
       });
     }
+    if (
+      f.registrationAId != null &&
+      f.registrationBId != null &&
+      f.registrationAId === f.registrationBId
+    ) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: Side A and Side B cannot be the same entry`,
+      });
+    }
   }
 
   const { collection, fixtures } = await createFixtureCollection({
@@ -1503,7 +1687,7 @@ router.get("/matches", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const includeScorerPin = isTournamentOwner(req, tournamentId);
+  const includeScorerPin = await resolveIsTournamentOwner(req, tournamentId);
   const matches = await getLiveBadmintonMatches(tournamentId);
   res.json(
     matches.map(({ detail, ...rest }) => ({
@@ -1539,7 +1723,7 @@ router.post("/matches", async (req, res) => {
     rightSideJson: z.record(z.unknown()),
     scorerPin: z.string().max(20).optional(),
     scorerName: z.string().max(100).optional(),
-    umpireName: z.string().max(100).optional(),
+    preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().optional(),
   });
 
@@ -1641,104 +1825,126 @@ router.get("/matches/:matchId", async (req, res) => {
   res.json({
     state,
     detail: serializeBadmintonMatchDetail(detail ?? null, {
-      includeScorerPin: isTournamentOwner(req, tournamentId),
+      includeScorerPin: await resolveIsTournamentOwner(req, tournamentId),
     }),
   });
 });
 
-router.post("/matches/:matchId/verify-pin", async (req, res) => {
-  const tournamentId = tid(req);
-  const matchId = parseId((req.params as MergedParams).matchId);
-  if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
-
-  const schema = z.object({ pin: z.string().min(4).max(20) });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
-
-  const ip =
-    (typeof req.headers["x-forwarded-for"] === "string"
-      ? req.headers["x-forwarded-for"].split(",")[0]?.trim()
-      : null) ||
-    req.socket.remoteAddress ||
-    "unknown";
-  const rateKey = `${tournamentId}:${matchId}:${ip}`;
-  if (!consumePinVerifyAttempt(rateKey)) {
-    return void res.status(429).json({
-      error: "Too many PIN attempts. Wait a minute and try again.",
-      code: "PIN_RATE_LIMIT",
-      ok: false,
-    });
-  }
-
-  const ok = await verifyMatchScorerPin(tournamentId, matchId, parsed.data.pin);
-  res.json({ ok });
+router.post("/matches/:matchId/verify-pin", async (_req, res) => {
+  res.status(410).json({
+    error: "Court/match scorer PIN auth has been removed. Use scorer mobile + PIN login.",
+    code: "PIN_AUTH_REMOVED",
+    ok: false,
+  });
 });
 
 /**
- * Scorer Home — verify PIN once and return courts + eligible matches.
- * Resolution: Match PIN → Court PIN → no access. Never exposes organizer controls.
+ * Scorer Home — authenticated scorer sees all scoreable matches for the tournament.
+ * Requires Scorer JWT (Bearer). Court/match PIN no longer used.
  */
-router.post("/scorer/session", async (req, res) => {
+router.get("/scorer/session", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const schema = z.object({ pin: z.string().min(4).max(20) });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
-
   try {
+    const token = extractBearerToken(req.headers.authorization);
+    if (!token) {
+      return void res.status(401).json({ error: "Scorer login required", code: "AUTH_REQUIRED" });
+    }
+    await resolveScorerAuthFromToken(token);
     await ensureBadmintonTournament(tournamentId);
+    const session = await openScorerHomeForTournament(tournamentId);
+    res.json(session);
   } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
+    }
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
     }
     throw e;
   }
-
-  const ip =
-    (typeof req.headers["x-forwarded-for"] === "string"
-      ? req.headers["x-forwarded-for"].split(",")[0]?.trim()
-      : null) ||
-    req.socket.remoteAddress ||
-    "unknown";
-  const rateKey = `scorer-home:${tournamentId}:${ip}`;
-  if (!consumePinVerifyAttempt(rateKey)) {
-    return void res.status(429).json({
-      error: "Too many PIN attempts. Wait a minute and try again.",
-      code: "PIN_RATE_LIMIT",
-      ok: false,
-    });
-  }
-
-  const session = await openScorerHomeSession(tournamentId, parsed.data.pin);
-  res.json(session);
 });
 
-/** Refresh Scorer Home using the session PIN header. */
+/** @deprecated Prefer GET /scorer/session with Bearer token. */
+router.post("/scorer/session", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const token = extractBearerToken(req.headers.authorization);
+    if (!token) {
+      return void res.status(401).json({
+        error: "Scorer login required. Mobile + personal PIN auth replaces court PIN.",
+        code: "AUTH_REQUIRED",
+        ok: false,
+      });
+    }
+    await resolveScorerAuthFromToken(token);
+    await ensureBadmintonTournament(tournamentId);
+    const session = await openScorerHomeForTournament(tournamentId);
+    res.json(session);
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
+    }
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
+    }
+    throw e;
+  }
+});
+
+/** Refresh Scorer Home using Scorer JWT. */
 router.get("/scorer/matches", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const pinHeader = req.headers["x-scorer-pin"];
-  const pin = typeof pinHeader === "string" ? pinHeader.trim() : "";
-  if (pin.length < 4) {
-    return void res.status(401).json({ error: "Scorer PIN required", code: "PIN_REQUIRED" });
-  }
-
   try {
+    const token = extractBearerToken(req.headers.authorization);
+    if (!token) {
+      return void res.status(401).json({ error: "Scorer login required", code: "AUTH_REQUIRED" });
+    }
+    await resolveScorerAuthFromToken(token);
     await ensureBadmintonTournament(tournamentId);
+    const session = await openScorerHomeForTournament(tournamentId);
+    if (!session.ok) {
+      return void res.status(404).json({ error: "No matches available", code: "NO_MATCHES" });
+    }
+    res.json(session);
   } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });
     }
     throw e;
   }
+});
 
-  const session = await openScorerHomeSession(tournamentId, pin);
-  if (!session.ok) {
-    return void res.status(401).json({ error: "Invalid scorer PIN", code: "PIN_INVALID" });
-  }
-  res.json(session);
+/** Organizer/admin force-unlock a stuck match lock. */
+router.post("/matches/:matchId/force-unlock", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const actorType = req.jwtUser?.isAdmin ? "admin" : "organizer";
+  const actorId = req.jwtUser?.isAdmin
+    ? "admin"
+    : (req.jwtUser?.organizerAccountId?.toString() ?? "organizer");
+
+  const cleared = await forceUnlockMatch({
+    matchId,
+    actorType,
+    actorId,
+    tournamentId,
+    sport: "badminton",
+  });
+
+  res.json({ ok: true, cleared });
 });
 
 router.patch("/matches/:matchId", async (req, res) => {
@@ -1757,7 +1963,18 @@ router.patch("/matches/:matchId", async (req, res) => {
     leftSideJson: z.record(z.unknown()).optional(),
     rightSideJson: z.record(z.unknown()).optional(),
     scorerPin: z.string().max(20).optional(),
-    umpireName: z.string().max(100).nullable().optional(),
+    scorerName: z.string().max(100).nullable().optional(),
+    matchFormatJson: z
+      .object({
+        totalGames: z.number(),
+        pointsPerGame: z.number(),
+        deuceAt: z.number(),
+        maxPoints: z.number(),
+        midGameSideChange: z.boolean(),
+      })
+      .nullable()
+      .optional(),
+    preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().min(1).nullable().optional(),
   });
 
@@ -1822,7 +2039,7 @@ router.post("/matches/:matchId/start", async (req, res) => {
 
   const auth = await guardBadmintonScoring(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId, auth: scoringAuth } = auth;
 
   const schema = z.object({
     matchKind: z.enum(["singles", "doubles", "mixed_doubles"]),
@@ -1933,7 +2150,7 @@ router.post("/matches/:matchId/start", async (req, res) => {
         ...parsed.data,
         format,
       } as BadmintonMatchStartedPayload,
-      actorFrom(req, usedPin),
+      actorFrom(req, scoringAuth),
     );
 
     auditLog(req, {
@@ -1942,7 +2159,7 @@ router.post("/matches/:matchId/start", async (req, res) => {
       summary: `Match #${matchId} started`,
       tournamentId,
       resource: { type: "badminton_match", id: matchId },
-      metadata: { viaPin: usedPin },
+      metadata: { viaScorer: scoringAuth.usedScorer },
     });
 
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
@@ -1964,7 +2181,7 @@ router.post("/matches/:matchId/point", async (req, res) => {
 
   const auth = await guardBadmintonScoring(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId, auth: scoringAuth } = auth;
 
   const schema = z.object({
     side: z.enum(["left", "right"]),
@@ -1979,9 +2196,20 @@ router.post("/matches/:matchId/point", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.side,
-      actorFrom(req, usedPin),
+      actorFrom(req, scoringAuth),
       { rallyLength: parsed.data.rallyLength },
     );
+
+    const auditActor = auditActorFrom(req, scoringAuth);
+    await writeScorerAudit({
+      ...auditActor,
+      tournamentId,
+      matchId,
+      sport: "badminton",
+      action: "point_added",
+      payload: { side: parsed.data.side },
+    });
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
 
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
@@ -1999,10 +2227,18 @@ router.post("/matches/:matchId/undo", async (req, res) => {
 
   const auth = await guardBadmintonScoring(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId, auth: scoringAuth } = auth;
 
   try {
-    const state = await undoLastPoint(matchId, tournamentId, actorFrom(req, usedPin));
+    const state = await undoLastPoint(matchId, tournamentId, actorFrom(req, scoringAuth));
+    const auditActor = auditActorFrom(req, scoringAuth);
+    await writeScorerAudit({
+      ...auditActor,
+      tournamentId,
+      matchId,
+      sport: "badminton",
+      action: "undo",
+    });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
@@ -2019,7 +2255,7 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
 
   const auth = await guardBadmintonScoring(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId, auth: scoringAuth } = auth;
 
   const schema = z.object({
     action: z.enum(["start", "end"]),
@@ -2037,7 +2273,7 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
       parsed.data.action,
       parsed.data.side ?? null,
       parsed.data.kind,
-      actorFrom(req, usedPin),
+      actorFrom(req, scoringAuth),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
@@ -2055,7 +2291,7 @@ router.post("/matches/:matchId/interval", async (req, res) => {
 
   const auth = await guardBadmintonScoring(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId, auth: scoringAuth } = auth;
 
   const schema = z.object({
     action: z.enum(["start", "end"]),
@@ -2069,7 +2305,7 @@ router.post("/matches/:matchId/interval", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.action,
-      actorFrom(req, usedPin),
+      actorFrom(req, scoringAuth),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
@@ -2087,10 +2323,10 @@ router.post("/matches/:matchId/court-change", async (req, res) => {
 
   const auth = await guardBadmintonScoring(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId, auth: scoringAuth } = auth;
 
   try {
-    const state = await handleCourtChangeAck(matchId, tournamentId, actorFrom(req, usedPin));
+    const state = await handleCourtChangeAck(matchId, tournamentId, actorFrom(req, scoringAuth));
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
@@ -2122,7 +2358,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.retiringSide,
-      actorFrom(req, false),
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.reason,
     );
     auditLog(req, {
@@ -2167,7 +2403,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.winningSide,
-      actorFrom(req, false),
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.reason,
     );
     auditLog(req, {
@@ -2213,7 +2449,7 @@ router.post("/matches/:matchId/disqualification", async (req, res) => {
       tournamentId,
       parsed.data.disqualifiedSide,
       parsed.data.reason,
-      actorFrom(req, false),
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
@@ -2246,7 +2482,7 @@ router.post("/matches/:matchId/pause", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.reason,
-      actorFrom(req, false),
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.detail,
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
@@ -2268,7 +2504,7 @@ router.post("/matches/:matchId/resume", async (req, res) => {
   const { tournamentId } = auth;
 
   try {
-    const state = await handleResumeMatch(matchId, tournamentId, actorFrom(req, false));
+    const state = await handleResumeMatch(matchId, tournamentId, actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }));
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
@@ -2296,7 +2532,7 @@ router.post("/matches/:matchId/note", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.text,
-      actorFrom(req, false),
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
@@ -2325,7 +2561,7 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.reason,
-      actorFrom(req, false),
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
@@ -2342,7 +2578,7 @@ router.get("/matches/:matchId/incidents", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  if (!isTournamentDirector(req, tournamentId)) {
+  if (!(await resolveIsTournamentDirector(req, tournamentId))) {
     return void res.status(403).json({ error: "forbidden" });
   }
 
@@ -2362,7 +2598,7 @@ router.get("/matches/:matchId/report", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  if (!isTournamentDirector(req, tournamentId)) {
+  if (!(await resolveIsTournamentDirector(req, tournamentId))) {
     return void res.status(403).json({ error: "forbidden" });
   }
 

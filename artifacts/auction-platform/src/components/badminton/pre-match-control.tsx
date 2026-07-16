@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { Link } from "wouter";
+import { isPairMatchKind } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
 import {
   BtnPrimary,
@@ -17,14 +18,22 @@ import {
   inputClass,
 } from "@/components/badminton/page-chrome";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
-import { badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import {
+  DoublesPreMatchSetup,
+  SinglesPreMatchSetup,
+} from "@/components/badminton/doubles-pre-match-setup";
+import { badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import {
   buildMatchControlWarnings,
-  buildOperationalStartPayload,
+  buildStartPayloadFromPreMatchToss,
   hasBlockingMatchControlWarnings,
   type MatchControlPeerMatch,
   type MatchControlSnapshot,
 } from "@/lib/badminton-match-control";
+import {
+  isPreMatchTossComplete,
+  parsePreMatchToss,
+} from "@/lib/badminton-pre-match-toss";
 import { useBadmintonDirector, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { friendlyBadmintonError, toastSuccess } from "@/lib/badminton-ux";
@@ -60,16 +69,20 @@ export function PreMatchControlPanel({
   snapshot,
   peerMatches = [],
   onRefresh,
+  scorerPin,
 }: {
   snapshot: MatchControlSnapshot;
   peerMatches?: MatchControlPeerMatch[];
   onRefresh: () => void;
+  /** Match/court PIN shown to organizers so they can share with the scorer. */
+  scorerPin?: string | null;
 }) {
   const scorer = useBadmintonScorer(snapshot.tournamentId, snapshot.matchId);
   const director = useBadmintonDirector(snapshot.tournamentId, snapshot.matchId);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showTossSetup, setShowTossSetup] = useState(false);
   const [showWalkover, setShowWalkover] = useState(false);
   const [showRetire, setShowRetire] = useState(false);
   const [showDelay, setShowDelay] = useState(false);
@@ -79,28 +92,75 @@ export function PreMatchControlPanel({
   const softWarnings = warnings.filter((w) => w.soft);
   const hardWarnings = warnings.filter((w) => !w.soft);
   const canStart = !blocking;
+  const pinHint = typeof scorerPin === "string" && scorerPin.trim().length >= 4 ? scorerPin.trim() : null;
+  const isPair = isPairMatchKind(snapshot.matchType);
+  const savedToss = parsePreMatchToss(snapshot.preMatchTossJson);
+  const hasSavedToss = isPreMatchTossComplete(snapshot.matchType, savedToss);
 
-  async function handleStart() {
-    if (!canStart) {
-      setError("Fix the blocking warnings below, then start the match.");
-      return;
-    }
+  const startDetail = {
+    matchType: snapshot.matchType,
+    matchFormatJson: snapshot.matchFormat,
+    leftSideJson: snapshot.leftSideJson,
+    rightSideJson: snapshot.rightSideJson,
+  };
+
+  async function handleTossStart(payload: unknown) {
     setBusy(true);
     setError("");
     try {
-      const detail = {
-        matchType: snapshot.matchType,
-        matchFormatJson: snapshot.matchFormat,
-        leftSideJson: snapshot.leftSideJson,
-        rightSideJson: snapshot.rightSideJson,
-      };
-      await scorer.startMatch(buildOperationalStartPayload(detail));
-      toastSuccess("Match started", "Opening Live Scoring…");
-      window.location.href = badmintonUmpireScorerPath(snapshot.matchId, snapshot.tournamentId);
+      await scorer.startMatch(payload);
+      toastSuccess("Match started", "Director controls are ready on this page.");
+      onRefresh();
+    } catch (e) {
+      const msg = friendlyBadmintonError(e, "Could not start the match");
+      setError(msg);
+      setBusy(false);
+      throw new Error(msg);
+    }
+  }
+
+  async function handleStartWithSavedToss() {
+    if (!savedToss || !hasSavedToss) return;
+    setBusy(true);
+    setError("");
+    try {
+      const payload = buildStartPayloadFromPreMatchToss(startDetail, savedToss);
+      await scorer.startMatch(payload);
+      toastSuccess("Match started", "Using the toss recorded when the match was created.");
+      onRefresh();
     } catch (e) {
       setError(friendlyBadmintonError(e, "Could not start the match"));
       setBusy(false);
     }
+  }
+
+  if (showTossSetup && canStart) {
+    return (
+      <div className="space-y-4">
+        {error ? <FormError message={error} /> : null}
+        {isPair ? (
+          <DoublesPreMatchSetup
+            detail={startDetail}
+            embedded
+            onCancel={() => {
+              setShowTossSetup(false);
+              setError("");
+            }}
+            onStart={handleTossStart}
+          />
+        ) : (
+          <SinglesPreMatchSetup
+            detail={startDetail}
+            embedded
+            onCancel={() => {
+              setShowTossSetup(false);
+              setError("");
+            }}
+            onStart={handleTossStart}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -129,7 +189,21 @@ export function PreMatchControlPanel({
           />
           <InfoRow label="Team / Player (left)" value={snapshot.leftLabel} />
           <InfoRow label="Team / Player (right)" value={snapshot.rightLabel} />
+          {pinHint ? <InfoRow label="Scorer PIN" value={pinHint} /> : null}
         </dl>
+        {pinHint ? (
+          <p className="text-white/45 text-xs">
+            Share PIN <span className="text-white font-semibold tracking-wider">{pinHint}</span> with
+            the court scorer — or open{" "}
+            <Link
+              href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
+              className="text-[#4fc3f7] font-semibold hover:underline"
+            >
+              Live Scoring
+            </Link>{" "}
+            after start (scorer enters this PIN).
+          </p>
+        ) : null}
       </div>
 
       {hardWarnings.length > 0 ? (
@@ -180,13 +254,63 @@ export function PreMatchControlPanel({
       {error ? <FormError message={error} /> : null}
 
       <div className="space-y-3">
-        <BtnPrimary
-          disabled={busy || !canStart}
-          onClick={() => void handleStart()}
-          className="w-full sm:w-auto min-h-12 text-base px-8"
-        >
-          {busy ? "Starting…" : "Start Match"}
-        </BtnPrimary>
+        {hasSavedToss ? (
+          <>
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100/90">
+              Toss already recorded when this match was created. You can start immediately, or re-do the toss on court.
+            </div>
+            <BtnPrimary
+              disabled={busy || !canStart}
+              onClick={() => {
+                if (!canStart) {
+                  setError("Fix the blocking warnings below, then start the match.");
+                  return;
+                }
+                void handleStartWithSavedToss();
+              }}
+              className="w-full sm:w-auto min-h-12 text-base px-8"
+            >
+              Start Match (saved toss)
+            </BtnPrimary>
+            <button
+              type="button"
+              disabled={busy || !canStart}
+              onClick={() => {
+                if (!canStart) {
+                  setError("Fix the blocking warnings below, then start the match.");
+                  return;
+                }
+                setError("");
+                setShowTossSetup(true);
+              }}
+              className="min-h-11 px-4 rounded-xl bg-white/6 hover:bg-white/10 text-white/70 text-sm font-semibold"
+            >
+              Re-do toss on court
+            </button>
+          </>
+        ) : (
+          <>
+            <BtnPrimary
+              disabled={busy || !canStart}
+              onClick={() => {
+                if (!canStart) {
+                  setError("Fix the blocking warnings below, then start the match.");
+                  return;
+                }
+                setError("");
+                setShowTossSetup(true);
+              }}
+              className="w-full sm:w-auto min-h-12 text-base px-8"
+            >
+              Toss & Start Match
+            </BtnPrimary>
+            <p className="text-white/40 text-xs max-w-md">
+              {isPair
+                ? "Next: toss winner, serve/receive, first server, and first receiver."
+                : "Next: choose which side serves first after the toss."}
+            </p>
+          </>
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

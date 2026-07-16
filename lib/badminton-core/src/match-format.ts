@@ -130,6 +130,26 @@ export function badmintonFormatFromPreset(
   return { ...BADMINTON_FORMAT_PRESETS[presetId] };
 }
 
+function formatsEqual(a: BadmintonMatchFormat, b: BadmintonMatchFormat): boolean {
+  return (
+    a.totalGames === b.totalGames &&
+    a.pointsPerGame === b.pointsPerGame &&
+    a.deuceAt === b.deuceAt &&
+    a.maxPoints === b.maxPoints &&
+    a.midGameSideChange === b.midGameSideChange
+  );
+}
+
+/** Best-effort preset id for UI when only a format stamp is stored. */
+export function inferBadmintonFormatPresetId(
+  format: BadmintonMatchFormat,
+): BadmintonFormatPresetId {
+  for (const id of ["standard_bwf", "fast_match", "single_game"] as const) {
+    if (formatsEqual(format, BADMINTON_FORMAT_PRESETS[id])) return id;
+  }
+  return "custom";
+}
+
 function bestOfLabel(totalGames: number): string {
   if (totalGames === 1) return "Single Game";
   return `Best of ${totalGames}`;

@@ -1,6 +1,6 @@
 /**
  * Match Control Center — Tournament Director administration panel.
- * Scoring remains umpire-controlled; this panel handles match administration.
+ * Scoring remains scorer-controlled; this panel handles match administration.
  */
 
 import { useState } from "react";
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { BtnPrimary, DarkSelect, FormError, FormField, inputClass } from "@/components/badminton/page-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { useBadmintonDirector } from "@/hooks/use-badminton-match";
+import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
+import { useToast } from "@/hooks/use-toast";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -41,9 +43,11 @@ function formatIncidentTime(iso: string): string {
 
 export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const director = useBadmintonDirector(tournamentId, matchId);
+  const { toast } = useToast();
   const [noteText, setNoteText] = useState("");
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   const [pauseReason, setPauseReason] = useState<
     "medical" | "technical_issue" | "weather" | "court_issue" | "other"
@@ -366,6 +370,34 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
                   Force End Match
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 space-y-2">
+                <p className="text-amber-100/80 text-xs font-semibold">Force Unlock Scorer</p>
+                <p className="text-white/40 text-[11px] leading-relaxed">
+                  Clears a stuck scorer session lock so another device can open this match.
+                </p>
+                <button
+                  type="button"
+                  disabled={unlocking || isTerminal}
+                  onClick={() => {
+                    setUnlocking(true);
+                    void forceUnlockBadmintonMatch(tournamentId, matchId)
+                      .then(() => {
+                        toast({
+                          title: "Match unlocked",
+                          description: "Scorer lock cleared. Another session can open this match.",
+                        });
+                      })
+                      .catch((err) => {
+                        setActionError(err instanceof Error ? err.message : "Force unlock failed");
+                      })
+                      .finally(() => setUnlocking(false));
+                  }}
+                  className="w-full min-h-11 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/30 text-amber-50 text-xs font-bold disabled:opacity-40"
+                >
+                  {unlocking ? "Unlocking…" : "Force Unlock"}
                 </button>
               </div>
             </div>

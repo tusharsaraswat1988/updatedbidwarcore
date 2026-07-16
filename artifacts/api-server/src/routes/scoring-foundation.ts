@@ -154,7 +154,7 @@ router.post("/officials", async (req, res) => {
 
   const schema = z.object({
     name: z.string().min(1),
-    role: z.enum(["umpire", "scorer", "referee", "match_referee"]).optional(),
+    role: z.enum(["scorer", "referee", "match_referee"]).optional(),
     mobile: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
   });
@@ -270,7 +270,6 @@ router.post("/draws/generate", async (req, res) => {
     createMatches: z.boolean().optional(),
     officials: z
       .object({
-        umpires: z.array(z.number().int().positive()).optional(),
         scorers: z.array(z.number().int().positive()).optional(),
         matchReferee: z.number().int().positive().nullable().optional(),
       })

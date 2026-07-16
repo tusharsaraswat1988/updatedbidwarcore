@@ -46,6 +46,7 @@ import {
 } from "../lib/tournament-lifecycle";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament, snapshotOrganizer } from "../lib/audit-snapshots";
+import { claimTournamentsForOrganizer } from "../lib/claim-tournaments-for-organizer";
 
 const scryptAsync = promisify(scrypt);
 
@@ -303,8 +304,24 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  // Organizer-account owners already have organizer access via JWT — no password needed
+  // Organizer-account owners already have access — stamp organizer[tid] like /me (no password).
   if (req.jwtUser.organizer?.[String(tid)]) {
+    res.json({ success: true });
+    return;
+  }
+  if (
+    req.jwtUser.organizerAccountId != null &&
+    tournament.organizerId === req.jwtUser.organizerAccountId
+  ) {
+    const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
+    setAuthCookie(res, { ...req.jwtUser, organizer });
+    auditLog(req, {
+      category: "auth",
+      action: "auth.tournament_organizer_login",
+      summary: `Organizer account owner opened tournament ${tid} session`,
+      tournamentId: tid,
+      resource: { type: "tournament", id: tid },
+    });
     res.json({ success: true });
     return;
   }
@@ -393,7 +410,19 @@ router.patch("/auth/organizer/:tournamentId/password", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser.organizer && req.jwtUser.organizer[tidStr]);
+  let isOrganizer = !!(req.jwtUser.organizer && req.jwtUser.organizer[tidStr]);
+  if (!isOrganizer && req.jwtUser.organizerAccountId) {
+    const [tournament] = await db
+      .select({ organizerId: tournamentsTable.organizerId })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .limit(1);
+    if (tournament?.organizerId === req.jwtUser.organizerAccountId) {
+      isOrganizer = true;
+      const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [tidStr]: true as const };
+      setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
+    }
+  }
   if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
   const body = z.object({ password: z.string().min(4) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Password must be at least 4 characters" }); return; }
@@ -1115,7 +1144,18 @@ router.post("/auth/organizer-account/signup/email", authLimiter, async (req, res
     maxTournaments: 1,
   }).returning();
 
+  await claimTournamentsForOrganizer(organizer.id, {
+    mobile: organizer.mobile,
+    email: organizer.email,
+  });
+
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
+  const myTournaments = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.organizerId, organizer.id));
+  for (const t of myTournaments) orgMap[String(t.id)] = true;
+
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
   triggerOrganiserRegisteredNotification(organizer);
   res.json({ success: true, organizer: organizerToJson(organizer) });
@@ -1158,6 +1198,11 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
     licenseStatus: "active",
     maxTournaments: 1,
   }).returning();
+
+  await claimTournamentsForOrganizer(organizer.id, {
+    mobile: organizer.mobile,
+    email: organizer.email,
+  });
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
@@ -1222,6 +1267,11 @@ router.post("/auth/organizer-account/login", async (req, res) => {
   }
 
   clearLoginFailures(req, rawIdentifier);
+
+  await claimTournamentsForOrganizer(organizer.id, {
+    mobile: organizer.mobile,
+    email: organizer.email,
+  });
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
@@ -1609,6 +1659,18 @@ async function issueOrganizerAuthCookie(
   res: import("express").Response,
   organizerId: number,
 ): Promise<void> {
+  const [organizer] = await db
+    .select({ mobile: organizersTable.mobile, email: organizersTable.email })
+    .from(organizersTable)
+    .where(eq(organizersTable.id, organizerId))
+    .limit(1);
+  if (organizer) {
+    await claimTournamentsForOrganizer(organizerId, {
+      mobile: organizer.mobile,
+      email: organizer.email,
+    });
+  }
+
   const writeCookie = async () => {
     const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
     const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizerId));

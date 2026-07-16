@@ -127,6 +127,9 @@ export default function BadmintonPlayersPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
+      qc.invalidateQueries({ queryKey: ["badminton-match-roster", tournamentId] });
+      // Re-import list must refresh — otherwise deleted players stay marked alreadyImported.
+      qc.invalidateQueries({ queryKey: ["master-players", tournamentId] });
       toastSuccess("Player deleted");
       setDeleteTarget(null);
       setDeleteError("");
@@ -548,16 +551,35 @@ function ImportMasterPlayersModal({
     }
   }
 
-  const { data: masterPlayers = [], isLoading } = useQuery<MasterPlayerImport[]>({
+  const {
+    data: masterPlayers = [],
+    isLoading,
+    isError: masterPlayersError,
+    error: masterPlayersLoadError,
+  } = useQuery<MasterPlayerImport[]>({
     queryKey: ["master-players", tournamentId, sourceId],
     queryFn: async () => {
+      const qs = new URLSearchParams({ sourceTournamentId: sourceId });
       const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players`,
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players?${qs}`,
         { credentials: "include" },
       );
-      return res.json();
+      const body = (await res.json().catch(() => null)) as
+        | MasterPlayerImport[]
+        | { error?: string }
+        | null;
+      if (!res.ok) {
+        const message =
+          body && !Array.isArray(body) && body.error
+            ? body.error
+            : "Failed to load auction players";
+        throw new Error(message);
+      }
+      return Array.isArray(body) ? body : [];
     },
-    enabled: !!tournamentId && !savingSource,
+    enabled: !!tournamentId && !!sourceId && !savingSource,
+    // Always re-check against current badminton roster when the modal opens.
+    refetchOnMount: "always",
   });
 
   function toggle(id: string) {
@@ -593,7 +615,10 @@ function ImportMasterPlayersModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ masterPlayerIds: [...selected] }),
+          body: JSON.stringify({
+            masterPlayerIds: [...selected],
+            sourceTournamentId: parseInt(sourceId, 10),
+          }),
         },
       );
       if (!res.ok) {
@@ -664,7 +689,7 @@ function ImportMasterPlayersModal({
             options={sourceOptions}
           />
           <p className="text-white/35 text-xs mt-2">
-            Only your badminton tournaments appear here. Auction status does not matter — licensed events have no import cap.
+            Only your badminton tournaments appear here. Players come from that tournament’s auction roster, or its badminton roster if no auction players exist. Licensed events have no import cap.
           </p>
         </FormField>
 
@@ -681,11 +706,26 @@ function ImportMasterPlayersModal({
 
         {isLoading || savingSource ? (
           <AsyncLoadingPanel tone="inverse" message="Loading auction players…" />
+        ) : masterPlayersError ? (
+          <div className="text-center py-8 space-y-2">
+            <p className="text-red-300/90">
+              {masterPlayersLoadError instanceof Error
+                ? masterPlayersLoadError.message
+                : "Could not load players from this source."}
+            </p>
+          </div>
+        ) : masterPlayers.length === 0 ? (
+          <div className="text-center py-8 space-y-2">
+            <p className="text-white/50">No players to import from this source.</p>
+            <p className="text-white/30 text-sm">
+              This tournament needs an auction roster or an existing badminton roster with linked master players. Add auction players first, or choose a different source above.
+            </p>
+          </div>
         ) : available.length === 0 ? (
           <div className="text-center py-8 space-y-2">
-            <p className="text-white/50">No auction players to import from this source.</p>
+            <p className="text-white/50">All auction players from this source are already on your badminton roster.</p>
             <p className="text-white/30 text-sm">
-              Add players in the auction first, or choose a different source tournament above.
+              Delete a player from the roster to re-import them, or pick another source above.
             </p>
           </div>
         ) : (

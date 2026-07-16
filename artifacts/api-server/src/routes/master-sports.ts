@@ -14,6 +14,7 @@ import {
   loadBadmintonBranding,
   updateBadmintonBranding,
   updatePrimaryBroadcastMatchId,
+  updateBroadcastPresentation,
   importBrandingFromTournament,
   importAuctionBrandingToBadminton,
   importPlayersFromTournament,
@@ -24,6 +25,11 @@ import {
 } from "../lib/master-sports/migrate-badminton";
 import { syncAllAuctionPlayersToMaster } from "../lib/master-sports/sync";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
+import {
+  type BadmintonOverlayScene,
+  type BadmintonVenueScene,
+} from "../lib/master-sports/badminton-branding";
+import { broadcastTournamentUpdate } from "../lib/badminton-broadcast";
 
 const router = Router({ mergeParams: true });
 
@@ -40,7 +46,17 @@ router.get("/master-players", async (req, res) => {
     return;
   }
 
-  const items = await listMasterPlayersForBadminton(tournamentId);
+  const rawSource = req.query.sourceTournamentId;
+  const sourceOverride =
+    rawSource !== undefined && rawSource !== null && String(rawSource).trim() !== ""
+      ? parseInt(String(rawSource), 10)
+      : undefined;
+  const sourceTournamentId =
+    sourceOverride !== undefined && Number.isFinite(sourceOverride) && sourceOverride > 0
+      ? sourceOverride
+      : undefined;
+
+  const items = await listMasterPlayersForBadminton(tournamentId, sourceTournamentId);
   res.json(items);
 });
 
@@ -55,6 +71,7 @@ router.post("/import-master-players", async (req, res) => {
 
   const schema = z.object({
     masterPlayerIds: z.array(z.string().min(1)).min(1),
+    sourceTournamentId: z.number().int().positive().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -66,6 +83,7 @@ router.post("/import-master-players", async (req, res) => {
     const result = await importMasterPlayersToBadminton(
       tournamentId,
       parsed.data.masterPlayerIds,
+      parsed.data.sourceTournamentId,
     );
     res.json(result);
   } catch (e) {
@@ -289,6 +307,54 @@ router.patch("/primary-broadcast", async (req, res) => {
 
   try {
     const branding = await updatePrimaryBroadcastMatchId(tournamentId, parsed.data.matchId);
+    broadcastTournamentUpdate(tournamentId, {
+      kind: "broadcast_presentation",
+      primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
+      overlayScene: branding.overlayScene,
+      venueScene: branding.venueScene,
+    });
+    res.json(branding);
+  } catch (e) {
+    res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
+  }
+});
+
+/** PATCH Operator Broadcast Director scenes for persistent Venue / OBS screens. */
+router.patch("/broadcast-presentation", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z
+    .object({
+      overlayScene: z
+        .enum(["auto", "compact", "full", "intro", "winner", "sponsor", "multi"])
+        .optional(),
+      venueScene: z.enum(["auto", "live_score", "standby", "multi"]).optional(),
+    })
+    .refine((v) => v.overlayScene !== undefined || v.venueScene !== undefined, {
+      message: "At least one scene field required",
+    });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  try {
+    const branding = await updateBroadcastPresentation(tournamentId, {
+      overlayScene: parsed.data.overlayScene as BadmintonOverlayScene | undefined,
+      venueScene: parsed.data.venueScene as BadmintonVenueScene | undefined,
+    });
+    broadcastTournamentUpdate(tournamentId, {
+      kind: "broadcast_presentation",
+      primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
+      overlayScene: branding.overlayScene,
+      venueScene: branding.venueScene,
+    });
     res.json(branding);
   } catch (e) {
     res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });

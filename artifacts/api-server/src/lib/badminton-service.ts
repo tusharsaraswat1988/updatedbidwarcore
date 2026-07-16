@@ -169,6 +169,24 @@ export function buildScoringSideFromBadmintonSide(side: Record<string, unknown>)
   };
 }
 
+/** Collect master player IDs from a side JSON (singles or doubles). */
+function extractMasterIdsFromSideJson(side: Record<string, unknown>): string[] {
+  const ids: string[] = [];
+  if (typeof side.masterPlayerId === "string" && side.masterPlayerId.trim()) {
+    ids.push(side.masterPlayerId.trim());
+  }
+  if (Array.isArray(side.players)) {
+    for (const player of side.players) {
+      if (!player || typeof player !== "object") continue;
+      const masterId = (player as Record<string, unknown>).masterPlayerId;
+      if (typeof masterId === "string" && masterId.trim()) {
+        ids.push(masterId.trim());
+      }
+    }
+  }
+  return [...new Set(ids)];
+}
+
 // ── Internal types ────────────────────────────────────────────────────────────
 
 type InternalMatchMeta = {
@@ -415,24 +433,21 @@ async function loadCurrentMatchState(
   tournamentId: number,
   meta: InternalMatchMeta,
 ): Promise<BadmintonMatchState> {
-  const [detail] = await db
-    .select({ stateSnapshotJson: badmintonMatchDetailsTable.stateSnapshotJson })
-    .from(badmintonMatchDetailsTable)
-    .where(
-      and(
-        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
-        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
-      ),
-    )
-    .limit(1);
+  // Always rebuild from the event log for command priors. Snapshots can carry a
+  // matching lastSequence with wrong scores (incremental project from a stale
+  // prior). Trusting that made continuous scoring regress (e.g. 3-0 → 1-0).
+  const [persistedTail, events] = await Promise.all([
+    getLastBadmintonSequence(matchId),
+    loadBadmintonEvents(matchId),
+  ]);
+  const replayed = replayBadmintonViaPlatform(meta, events);
+  const authoritative =
+    persistedTail > 0 && replayed.lastSequence !== persistedTail
+      ? { ...replayed, lastSequence: persistedTail }
+      : replayed;
 
-  const snapshot = detail?.stateSnapshotJson;
-  if (snapshot && typeof snapshot === "object") {
-    return snapshot as BadmintonMatchState;
-  }
-
-  const events = await loadBadmintonEvents(matchId);
-  return replayBadmintonViaPlatform(meta, events);
+  await updateSnapshot(matchId, tournamentId, authoritative);
+  return authoritative;
 }
 
 // ── Internal: platform event append ───────────────────────────────────────────
@@ -711,7 +726,8 @@ export async function awardPoint(
     state,
     result.events,
     actor,
-    "incremental",
+    // Full replay after persist so a drifted snapshot cannot poison the next score.
+    "replay",
   );
 }
 
@@ -1170,32 +1186,21 @@ export async function listMatchesForScorerPin(
 }
 
 /**
- * Scorer Home session — courts assigned this PIN + eligible matches.
+ * Scorer Home for authenticated scorers — all tournament matches (no PIN filter).
+ * Court/match PIN soft-deprecated; assignment can plug in later without changing JWT.
  */
-export async function openScorerHomeSession(
+export async function openScorerHomeForTournament(
   tournamentId: number,
-  pin: string,
 ): Promise<ScorerHomeSessionPayload> {
-  const trimmed = pin.trim();
-  if (trimmed.length < 4) {
-    return { ok: false, matches: [], courts: [], view: "matches" };
-  }
-
-  const assignedCourts = await db
+  const courts = await db
     .select({
       id: badmintonCourtsTable.id,
       name: badmintonCourtsTable.name,
       shortName: badmintonCourtsTable.shortName,
       scorerName: badmintonCourtsTable.scorerName,
-      scorerPin: badmintonCourtsTable.scorerPin,
     })
     .from(badmintonCourtsTable)
-    .where(
-      and(
-        eq(badmintonCourtsTable.tournamentId, tournamentId),
-        eq(badmintonCourtsTable.scorerPin, trimmed),
-      ),
-    )
+    .where(eq(badmintonCourtsTable.tournamentId, tournamentId))
     .orderBy(asc(badmintonCourtsTable.sortOrder), asc(badmintonCourtsTable.name));
 
   const rows = await db
@@ -1205,7 +1210,6 @@ export async function openScorerHomeSession(
       categoryName: badmintonCategoriesTable.name,
       categoryCode: badmintonCategoriesTable.code,
       courtName: badmintonCourtsTable.name,
-      courtPin: badmintonCourtsTable.scorerPin,
     })
     .from(scoringMatchesTable)
     .innerJoin(
@@ -1237,29 +1241,20 @@ export async function openScorerHomeSession(
     )
     .orderBy(asc(scoringMatchesTable.id));
 
-  const matches: ScorerHomeMatchCard[] = [];
-  for (const row of rows) {
-    const unlock = pinUnlocksMatch({
-      pin: trimmed,
-      matchPin: row.detail.scorerPin,
-      courtPin: row.courtPin,
-    });
-    if (!unlock.ok || !unlock.via) continue;
-    matches.push(
-      toScorerHomeMatchCard({
-        match: row.match,
-        detail: row.detail,
-        categoryName: row.categoryName,
-        categoryCode: row.categoryCode,
-        courtName: row.courtName,
-        accessVia: unlock.via,
-      }),
-    );
-  }
+  const matches: ScorerHomeMatchCard[] = rows.map((row) =>
+    toScorerHomeMatchCard({
+      match: row.match,
+      detail: row.detail,
+      categoryName: row.categoryName,
+      categoryCode: row.categoryCode,
+      courtName: row.courtName,
+      accessVia: "court_pin",
+    }),
+  );
 
   const viewPayload = buildScorerHomeView({
     matches,
-    courts: assignedCourts.map((c) => ({
+    courts: courts.map((c) => ({
       id: c.id,
       name: c.name,
       shortName: c.shortName ?? null,
@@ -1267,13 +1262,22 @@ export async function openScorerHomeSession(
     })),
   });
 
-  const ok = matches.length > 0 || assignedCourts.length > 0;
   return {
-    ok,
+    ok: matches.length > 0 || courts.length > 0,
     matches: viewPayload.matches,
     courts: viewPayload.courts,
     view: viewPayload.view,
   };
+}
+
+/**
+ * @deprecated Court/match PIN auth removed. Use openScorerHomeForTournament.
+ */
+export async function openScorerHomeSession(
+  tournamentId: number,
+  _pin: string,
+): Promise<ScorerHomeSessionPayload> {
+  return openScorerHomeForTournament(tournamentId);
 }
 
 export async function getLiveBadmintonMatches(tournamentId: number) {
@@ -1324,10 +1328,24 @@ export async function createBadmintonMatch(input: {
   rightSideJson: Record<string, unknown>;
   scorerPin?: string;
   scorerName?: string;
-  umpireName?: string;
+  /** Optional toss recorded at create — null clears. */
+  preMatchTossJson?: Record<string, unknown> | null;
   scheduledAt?: Date;
 }) {
   await ensureBadmintonTournament(input.tournamentId);
+
+  const leftMasterIds = extractMasterIdsFromSideJson(input.leftSideJson);
+  const rightMasterIds = extractMasterIdsFromSideJson(input.rightSideJson);
+  if (leftMasterIds.length > 0 && rightMasterIds.length > 0) {
+    const overlap = leftMasterIds.filter((id) => rightMasterIds.includes(id));
+    if (overlap.length > 0) {
+      throw new BadmintonServiceError(
+        "SAME_PLAYERS_BOTH_SIDES",
+        "Left and right sides cannot share the same player(s). Fix the fixture or match lineup.",
+        400,
+      );
+    }
+  }
 
   // Scorer PIN resolution for new matches:
   // - Explicit non-empty PIN → match override
@@ -1412,7 +1430,7 @@ export async function createBadmintonMatch(input: {
         rightSideJson: input.rightSideJson,
         scorerPin,
         scorerName: input.scorerName ?? null,
-        umpireName: input.umpireName ?? null,
+        preMatchTossJson: input.preMatchTossJson ?? null,
       })
       .returning();
 
@@ -1459,7 +1477,10 @@ export async function updateBadmintonMatch(
     leftSideJson?: Record<string, unknown>;
     rightSideJson?: Record<string, unknown>;
     scorerPin?: string;
-    umpireName?: string | null;
+    scorerName?: string | null;
+    /** Stamp override; null clears stamp only when rebuilding — prefer resolve on create. */
+    matchFormatJson?: Record<string, unknown> | null;
+    preMatchTossJson?: Record<string, unknown> | null;
     scheduledAt?: Date | null;
   },
 ) {
@@ -1486,11 +1507,13 @@ export async function updateBadmintonMatch(
     rosterLocked &&
     (input.matchType !== undefined ||
       input.leftSideJson !== undefined ||
-      input.rightSideJson !== undefined)
+      input.rightSideJson !== undefined ||
+      input.preMatchTossJson !== undefined ||
+      input.matchFormatJson !== undefined)
   ) {
     throw new BadmintonServiceError(
       "MATCH_STARTED",
-      "Cannot change players or match type after the match has started.",
+      "Cannot change players, match type, toss, or scoring format after the match has started.",
       409,
     );
   }
@@ -1529,7 +1552,33 @@ export async function updateBadmintonMatch(
     matchPatch.roundName = input.roundName;
   }
   if (input.matchType !== undefined) detailPatch.matchType = input.matchType;
-  if (input.umpireName !== undefined) detailPatch.umpireName = input.umpireName;
+  if (input.scorerName !== undefined) detailPatch.scorerName = input.scorerName;
+  if (input.matchFormatJson !== undefined) {
+    if (input.matchFormatJson === null) {
+      // Re-resolve from category → tournament when clearing an override.
+      const [detailRow] = await db
+        .select({
+          categoryId: badmintonMatchDetailsTable.categoryId,
+        })
+        .from(badmintonMatchDetailsTable)
+        .where(
+          and(
+            eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+            eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+      detailPatch.matchFormatJson = await resolveBadmintonMatchFormat({
+        tournamentId,
+        categoryId: detailRow?.categoryId ?? null,
+      });
+    } else {
+      detailPatch.matchFormatJson = await resolveBadmintonMatchFormat({
+        tournamentId,
+        matchFormatJson: input.matchFormatJson,
+      });
+    }
+  }
   if (input.scorerPin !== undefined) {
     const trimmed = input.scorerPin.trim();
     detailPatch.scorerPin = trimmed.length >= 4 ? trimmed : null;
@@ -1543,6 +1592,41 @@ export async function updateBadmintonMatch(
   if (input.rightSideJson !== undefined) {
     detailPatch.rightSideJson = input.rightSideJson;
     matchPatch.awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
+  }
+  if (input.preMatchTossJson !== undefined) {
+    detailPatch.preMatchTossJson = input.preMatchTossJson;
+  }
+
+  if (input.leftSideJson !== undefined || input.rightSideJson !== undefined) {
+    const [existingDetail] = await db
+      .select({
+        leftSideJson: badmintonMatchDetailsTable.leftSideJson,
+        rightSideJson: badmintonMatchDetailsTable.rightSideJson,
+      })
+      .from(badmintonMatchDetailsTable)
+      .where(
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+    const leftJson =
+      (input.leftSideJson ?? existingDetail?.leftSideJson ?? {}) as Record<string, unknown>;
+    const rightJson =
+      (input.rightSideJson ?? existingDetail?.rightSideJson ?? {}) as Record<string, unknown>;
+    const leftMasterIds = extractMasterIdsFromSideJson(leftJson);
+    const rightMasterIds = extractMasterIdsFromSideJson(rightJson);
+    if (leftMasterIds.length > 0 && rightMasterIds.length > 0) {
+      const overlap = leftMasterIds.filter((id) => rightMasterIds.includes(id));
+      if (overlap.length > 0) {
+        throw new BadmintonServiceError(
+          "SAME_PLAYERS_BOTH_SIDES",
+          "Left and right sides cannot share the same player(s). Fix the fixture or match lineup.",
+          400,
+        );
+      }
+    }
   }
 
   await db

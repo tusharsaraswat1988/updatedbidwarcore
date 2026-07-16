@@ -1,37 +1,39 @@
 /**
- * Client-side Scorer Home session — PIN entered once per tournament tab session.
- * Used by /badminton/scorer and reused by /badminton/:matchId/score so umpires
- * are not re-prompted for every match.
+ * Client-side Scorer auth session — mobile + personal PIN → JWT.
+ * Stored in sessionStorage (tab-scoped). Replaces court/match PIN cache.
  */
 
-const STORAGE_PREFIX = "bidwar:badminton-scorer-session:v1:";
+const STORAGE_KEY = "bidwar:scorer-auth:v1";
 
-export type BadmintonScorerSession = {
-  pin: string;
-  tournamentId: number;
+export type ScorerAuthSession = {
+  token: string;
+  scorer: { id: number; name: string; mobile: string };
+  expiresAt: string;
   verifiedAt: number;
 };
 
-function storageKey(tournamentId: number): string {
-  return `${STORAGE_PREFIX}${tournamentId}`;
-}
-
-export function getBadmintonScorerSession(tournamentId: number): BadmintonScorerSession | null {
-  if (!tournamentId || typeof window === "undefined") return null;
+export function getScorerAuthSession(): ScorerAuthSession | null {
+  if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(storageKey(tournamentId));
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<BadmintonScorerSession>;
+    const parsed = JSON.parse(raw) as Partial<ScorerAuthSession>;
     if (
-      typeof parsed.pin !== "string" ||
-      parsed.pin.trim().length < 4 ||
-      parsed.tournamentId !== tournamentId
+      typeof parsed.token !== "string" ||
+      !parsed.token ||
+      !parsed.scorer ||
+      typeof parsed.scorer.id !== "number"
     ) {
       return null;
     }
+    if (parsed.expiresAt && Date.parse(parsed.expiresAt) < Date.now()) {
+      clearScorerAuthSession();
+      return null;
+    }
     return {
-      pin: parsed.pin.trim(),
-      tournamentId,
+      token: parsed.token,
+      scorer: parsed.scorer as ScorerAuthSession["scorer"],
+      expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : "",
       verifiedAt: typeof parsed.verifiedAt === "number" ? parsed.verifiedAt : Date.now(),
     };
   } catch {
@@ -39,27 +41,43 @@ export function getBadmintonScorerSession(tournamentId: number): BadmintonScorer
   }
 }
 
-export function setBadmintonScorerSession(tournamentId: number, pin: string): void {
-  if (!tournamentId || typeof window === "undefined") return;
-  const trimmed = pin.trim();
-  if (trimmed.length < 4) return;
+export function setScorerAuthSession(session: Omit<ScorerAuthSession, "verifiedAt">): void {
+  if (typeof window === "undefined") return;
   try {
-    const payload: BadmintonScorerSession = {
-      pin: trimmed,
-      tournamentId,
+    const payload: ScorerAuthSession = {
+      ...session,
       verifiedAt: Date.now(),
     };
-    sessionStorage.setItem(storageKey(tournamentId), JSON.stringify(payload));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
-    // Private browsing / quota — scoring still works for this page load.
+    // Private browsing / quota
   }
 }
 
-export function clearBadmintonScorerSession(tournamentId: number): void {
-  if (!tournamentId || typeof window === "undefined") return;
+export function clearScorerAuthSession(): void {
+  if (typeof window === "undefined") return;
   try {
-    sessionStorage.removeItem(storageKey(tournamentId));
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
   }
+}
+
+/** @deprecated Legacy PIN session — no longer used. */
+export function getBadmintonScorerSession(_tournamentId: number): null {
+  return null;
+}
+
+/** @deprecated */
+export function setBadmintonScorerSession(_tournamentId: number, _pin: string): void {}
+
+/** @deprecated */
+export function clearBadmintonScorerSession(_tournamentId: number): void {
+  clearScorerAuthSession();
+}
+
+export function scorerAuthHeaders(): Record<string, string> {
+  const session = getScorerAuthSession();
+  if (!session?.token) return {};
+  return { Authorization: `Bearer ${session.token}` };
 }

@@ -17,8 +17,7 @@ export function useBadmintonScoringFormat(tournamentId: number) {
     queryFn: () =>
       badmintonFetch<BadmintonScoringFormatResponse>(tournamentId, `/scoring-format`),
     enabled: !!tournamentId,
-    staleTime: 15_000,
-    refetchOnMount: "always",
+    staleTime: 60_000,
   });
 }
 

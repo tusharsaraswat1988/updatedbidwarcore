@@ -45,5 +45,23 @@ describe("badminton sponsor logo isolation", () => {
       },
     );
     expect(branding.primaryBroadcastMatchId).toBe(42);
+    expect(branding.overlayScene).toBe("auto");
+    expect(branding.venueScene).toBe("auto");
+  });
+
+  it("exposes director overlay and venue scenes from broadcast block", () => {
+    const branding = getBadmintonBranding(
+      { name: "League" },
+      {
+        branding: {},
+        broadcast: {
+          primaryMatchId: 7,
+          overlayScene: "multi",
+          venueScene: "multi",
+        },
+      },
+    );
+    expect(branding.overlayScene).toBe("multi");
+    expect(branding.venueScene).toBe("multi");
   });
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function UmpireCourtChangeModal({
+export function ScorerCourtChangeModal({
   open,
   onAcknowledge,
 }: {

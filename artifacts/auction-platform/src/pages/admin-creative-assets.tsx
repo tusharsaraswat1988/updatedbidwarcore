@@ -90,6 +90,7 @@ function BackgroundUploadCard({
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={() => onChange(null, null)}
             title="Remove background"
+            aria-label="Remove background"
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -250,7 +251,7 @@ export default function AdminCreativeAssets() {
             </p>
           )}
           {saved && (
-            <Badge className="gap-1 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+            <Badge className="gap-1 bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
               <CheckCircle2 className="h-3 w-3" /> Saved
             </Badge>
           )}
@@ -458,7 +459,7 @@ function TopBuysTemplateAssetsSection() {
             </p>
           )}
           {saved && (
-            <Badge className="gap-1 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+            <Badge className="gap-1 bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
               <CheckCircle2 className="h-3 w-3" /> Saved
             </Badge>
           )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const INTERVAL_SECONDS = 60;
 
-export function UmpireIntervalModal({
+export function ScorerIntervalModal({
   open,
   onResumeEarly,
   onEndInterval,
