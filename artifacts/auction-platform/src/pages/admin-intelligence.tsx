@@ -1766,12 +1766,27 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+function tabFromPath(path: string): TabId {
+  const segment = path.split("/").pop() ?? "overview";
+  const valid = TABS.map((t) => t.id);
+  return (valid as readonly string[]).includes(segment) ? (segment as TabId) : "overview";
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminIntelligencePage() {
   const { isLoggedIn, isLoading: authLoading } = useAdminAuth();
-  const [, navigate] = useLocation();
-  const [tab, setTab] = useState<TabId>("overview");
+  const [location, navigate] = useLocation();
+  const [tab, setTab] = useState<TabId>(() => tabFromPath(location));
+
+  useEffect(() => {
+    setTab(tabFromPath(location));
+  }, [location]);
+
+  const changeTab = (next: TabId) => {
+    setTab(next);
+    navigate(`/admin/settings/intelligence/${next}`);
+  };
   const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [filters, setFilters] = useState<IntelFilters>({ tournamentId: "", categoryId: "", teamId: "" });
@@ -1842,7 +1857,7 @@ export default function AdminIntelligencePage() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => changeTab(t.id)}
                   className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-medium uppercase tracking-widest border-b-2 transition-all ${
                     active
                       ? "border-cyan-400 text-cyan-400"

@@ -1,9 +1,11 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
+  Building2,
   LogOut,
   Menu,
   Search,
+  Trophy,
   UserCircle,
 } from "lucide-react";
 import { useAdminAuth } from "@/hooks/use-auth";
@@ -13,6 +15,12 @@ import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import {
+  AdminOrganizerRow,
+  AdminTournamentRow,
+  listAdminOrganizers,
+  listAdminTournaments,
+} from "@/lib/auth";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
@@ -38,6 +46,137 @@ type AdminShellProps = {
   eyebrow?: string;
   actions?: ReactNode;
 };
+
+function AdminGlobalSearch({
+  isMobile,
+  isLoggedIn,
+}: {
+  isMobile: boolean;
+  isLoggedIn: boolean;
+}) {
+  const [, navigate] = useLocation();
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
+  const [organisers, setOrganisers] = useState<AdminOrganizerRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isLoggedIn || loaded) return;
+    Promise.all([listAdminTournaments(), listAdminOrganizers()])
+      .then(([t, o]) => {
+        setTournaments(t);
+        setOrganisers(o);
+        setLoaded(true);
+      })
+      .catch(() => {});
+  }, [isLoggedIn, loaded]);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, []);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return { tournaments: [], organisers: [] };
+    return {
+      tournaments: tournaments.filter((t) => t.name.toLowerCase().includes(q)).slice(0, 5),
+      organisers: organisers.filter((o) => o.name.toLowerCase().includes(q)).slice(0, 5),
+    };
+  }, [query, tournaments, organisers]);
+
+  const hasResults = results.tournaments.length > 0 || results.organisers.length > 0;
+  const showDropdown = open && query.trim().length > 0;
+
+  function goTo(path: string) {
+    navigate(path);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div ref={containerRef} className="relative min-w-0 flex-1 max-w-xl">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        role="searchbox"
+        aria-label="Search tournaments and organisers"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        className="h-9 w-full rounded-lg border border-border bg-card/70 pl-9 pr-3 text-sm outline-none transition focus:border-primary"
+        placeholder={isMobile ? "Search..." : "Search tournaments, organisers..."}
+      />
+      {showDropdown && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+          {!loaded ? (
+            <div className="px-3 py-3 text-sm text-muted-foreground">Loading…</div>
+          ) : hasResults ? (
+            <div className="max-h-80 overflow-y-auto py-1">
+              {results.tournaments.length > 0 && (
+                <div className="px-1">
+                  <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    Tournaments
+                  </div>
+                  {results.tournaments.map((t) => (
+                    <button
+                      key={`t-${t.id}`}
+                      type="button"
+                      onClick={() => goTo(`/admin/tournaments/${t.id}`)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+                    >
+                      <Trophy className="h-4 w-4 flex-shrink-0 text-primary" />
+                      <span className="min-w-0 flex-1 truncate text-foreground">{t.name}</span>
+                      <span className="flex-shrink-0 text-xs text-muted-foreground">{t.sport}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {results.organisers.length > 0 && (
+                <div className="px-1">
+                  <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    Organisers
+                  </div>
+                  {results.organisers.map((o) => (
+                    <button
+                      key={`o-${o.id}`}
+                      type="button"
+                      onClick={() => goTo(`/admin/organisers/${o.id}`)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+                    >
+                      <Building2 className="h-4 w-4 flex-shrink-0 text-primary" />
+                      <span className="min-w-0 flex-1 truncate text-foreground">{o.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="px-3 py-3 text-sm text-muted-foreground">
+              No tournaments or organisers match "{query}".
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { mini?: string | null }; brandName: string }) {
   const shellLogoSrc = getBrandLogoSrc(logos, sidebarPreset.logoOrder);
@@ -135,13 +274,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="relative min-w-0 flex-1 max-w-xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="h-9 w-full rounded-lg border border-border bg-card/70 pl-9 pr-3 text-sm outline-none transition focus:border-primary"
-              placeholder={isMobile ? "Search..." : "Search tournaments, organisers, players..."}
-            />
-          </div>
+          <AdminGlobalSearch isMobile={isMobile} isLoggedIn={isLoggedIn} />
           <div
             className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground sm:flex"
             title={adminLevel === "master" ? "Master admin — full platform access" : "Data entry admin — read-only live ops"}

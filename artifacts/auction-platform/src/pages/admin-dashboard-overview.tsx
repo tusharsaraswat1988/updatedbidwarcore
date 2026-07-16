@@ -11,11 +11,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AdminOrganizerRow,
   AdminTournamentRow,
+  fetchAdminTournamentDetail,
   listAdminOrganizers,
   listAdminTournaments,
 } from "@/lib/auth";
@@ -24,39 +25,13 @@ import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { AdminRecentActivityFeed } from "@/components/admin/admin-recent-activity-feed";
+import { MetricCard } from "@/components/admin/admin-metric-card";
+import { StatusBadge } from "@/components/admin/admin-status-badge";
+import { AdminListHeader } from "@/components/admin/admin-list-header";
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number;
-  sub: string;
-  icon: typeof Trophy;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card/70 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          {label}
-        </span>
-        <Icon className="h-4 w-4 text-primary" />
-      </div>
-      <div className="text-2xl font-black text-white">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
+function TournamentStatusBadge({ status }: { status: string }) {
   const live = status === "active";
-  return (
-    <Badge className={live ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}>
-      {live ? "Live" : status}
-    </Badge>
-  );
+  return <StatusBadge tone={live ? "green" : "muted"}>{live ? "Live" : status}</StatusBadge>;
 }
 
 export default function AdminDashboardOverview() {
@@ -66,6 +41,8 @@ export default function AdminDashboardOverview() {
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [organisers, setOrganisers] = useState<AdminOrganizerRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [platformStats, setPlatformStats] = useState<{ totalPlayers: number; revenue: number } | null>(null);
+  const [platformStatsLoading, setPlatformStatsLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) navigate("/admin/login");
@@ -93,6 +70,44 @@ export default function AdminDashboardOverview() {
     };
   }, [isLoggedIn]);
 
+  // Aggregate real platform-wide player and revenue totals from per-tournament
+  // detail records instead of showing an unwired "--" placeholder.
+  useEffect(() => {
+    if (!isLoggedIn || loading) return;
+    if (!tournaments.length) {
+      setPlatformStats({ totalPlayers: 0, revenue: 0 });
+      setPlatformStatsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPlatformStatsLoading(true);
+    Promise.all(tournaments.map((t) => fetchAdminTournamentDetail(t.id)))
+      .then((details) => {
+        if (cancelled) return;
+        let totalPlayers = 0;
+        let revenue = 0;
+        for (const detail of details) {
+          if (!detail) continue;
+          totalPlayers += detail.playerCounts.total;
+          for (const p of detail.players) {
+            if (p.status === "sold" && p.soldPrice) revenue += p.soldPrice;
+          }
+        }
+        setPlatformStats({ totalPlayers, revenue });
+      })
+      .finally(() => {
+        if (!cancelled) setPlatformStatsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, loading, tournaments]);
+
+  function formatRevenue(amount: number) {
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    return `₹${amount.toLocaleString("en-IN")}`;
+  }
+
   const stats = useMemo(() => {
     const live = tournaments.filter((t) => t.licenseStatus === "active" && !t.adminLocked);
     const lockedOrganisers = organisers.filter((o) => organizerAccessLabel(o.licenseStatus) === "locked");
@@ -112,8 +127,20 @@ export default function AdminDashboardOverview() {
           <MetricCard label="Live Auctions" value={stats.live.length} sub="currently active" icon={Radio} />
           <MetricCard label="Tournaments" value={tournaments.length} sub={`${stats.activeTournaments.length} active/trial`} icon={Trophy} />
           <MetricCard label="Organisers" value={organisers.length} sub={`${stats.lockedOrganisers.length} locked`} icon={Building2} />
-          <MetricCard label="Players" value="--" sub="across platform" icon={Users} />
-          <MetricCard label="Revenue" value="--" sub="month to date" icon={Wallet} />
+          <MetricCard
+            label="Players"
+            value={platformStats?.totalPlayers ?? 0}
+            sub="across platform"
+            icon={Users}
+            loading={platformStatsLoading}
+          />
+          <MetricCard
+            label="Revenue"
+            value={platformStats ? formatRevenue(platformStats.revenue) : "₹0"}
+            sub="total sold value"
+            icon={Wallet}
+            loading={platformStatsLoading}
+          />
           <MetricCard label="Attention" value={stats.lockedOrganisers.length} sub="locked accounts" icon={AlertTriangle} />
         </div>
 
@@ -129,7 +156,11 @@ export default function AdminDashboardOverview() {
           </div>
           <div className="divide-y divide-border">
             {loading ? (
-              <div className="px-4 py-3 text-sm text-muted-foreground">Loading live auctions...</div>
+              <div className="space-y-2 p-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
             ) : stats.live.length ? (
               stats.live.slice(0, 5).map((t) => (
                 <button
@@ -141,7 +172,7 @@ export default function AdminDashboardOverview() {
                     <div className="font-semibold text-white">{t.name}</div>
                     <div className="text-xs text-muted-foreground">{t.sport} · ID #{t.id}</div>
                   </div>
-                  <StatusBadge status={t.status} />
+                  <TournamentStatusBadge status={t.status} />
                   <div className="truncate text-xs text-muted-foreground">{t.organizerName || "No organiser linked"}</div>
                   <div className="text-right text-xs font-semibold text-primary">Open monitor →</div>
                 </button>
@@ -188,17 +219,33 @@ export default function AdminDashboardOverview() {
             <div className="border-b border-border px-4 py-3">
               <h2 className="font-display text-base font-black text-white">Recent Tournaments</h2>
             </div>
+            <AdminListHeader
+              gridClassName="sm:grid sm:grid-cols-[1fr_160px_110px_130px]"
+              columns={[
+                { label: "Tournament" },
+                { label: "Organiser" },
+                { label: "Status" },
+                { label: "Date", align: "right" },
+              ]}
+            />
             <div className="divide-y divide-border">
               {tournaments.slice(0, 8).map((t) => (
                 <button
                   key={t.id}
                   onClick={() => navigate(`/admin/tournaments/${t.id}`)}
-                  className="grid w-full grid-cols-[1fr_160px_110px_130px] items-center gap-4 px-4 py-2.5 text-left text-sm hover:bg-accent/50"
+                  className="block w-full px-4 py-2.5 text-left text-sm hover:bg-accent/50 sm:grid sm:grid-cols-[1fr_160px_110px_130px] sm:items-center sm:gap-4"
                 >
                   <span className="font-medium text-white">{t.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{t.organizerName || "No organiser"}</span>
-                  <StatusBadge status={t.status} />
-                  <span className="text-right text-xs text-muted-foreground">{t.auctionDate || "No date"}</span>
+                  <span className="mt-1 block truncate text-xs text-muted-foreground sm:mt-0">
+                    {t.organizerName || "No organiser"}
+                  </span>
+                  <div className="mt-1.5 flex items-center gap-2 sm:mt-0 sm:contents">
+                    <TournamentStatusBadge status={t.status} />
+                    <span className="text-xs text-muted-foreground sm:hidden">{t.auctionDate || "No date"}</span>
+                  </div>
+                  <span className="hidden text-right text-xs text-muted-foreground sm:block">
+                    {t.auctionDate || "No date"}
+                  </span>
                 </button>
               ))}
               {!tournaments.length && (

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
+import { AdminListHeader } from "@/components/admin/admin-list-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AcademyCategoryRow,
@@ -227,7 +228,7 @@ export default function AdminAcademyLessonsListPage() {
             <Switch checked={showArchived} onCheckedChange={setShowArchived} />
             Show archived
           </label>
-          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={load} title="Refresh">
+          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={load} title="Refresh" aria-label="Refresh lessons">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
@@ -241,14 +242,17 @@ export default function AdminAcademyLessonsListPage() {
           {showArchived && archivedCount > 0 ? ` · ${archivedCount} archived` : ""}
         </div>
 
-        <div className="hidden border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[60px_1fr_120px_100px_80px_180px] md:gap-4">
-          <span>Ep #</span>
-          <span>Title</span>
-          <span>Category</span>
-          <span>Status</span>
-          <span>Order</span>
-          <span className="text-right">Actions</span>
-        </div>
+        <AdminListHeader
+          gridClassName="md:grid md:grid-cols-[60px_1fr_120px_100px_80px_180px] md:gap-4"
+          columns={[
+            { label: "Ep #" },
+            { label: "Title" },
+            { label: "Category" },
+            { label: "Status" },
+            { label: "Order" },
+            { label: "Actions", align: "right" },
+          ]}
+        />
 
         <AdminScrollPanel>
           {loading ? (
@@ -288,7 +292,7 @@ export default function AdminAcademyLessonsListPage() {
                   <span className="text-xs text-muted-foreground">{lesson.displayOrder}</span>
                   <div className="mt-2 flex flex-wrap justify-end gap-1 md:mt-0">
                     {lesson.status === "published" && (
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View public page" asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View public page" aria-label="View public page" asChild>
                         <a href={`/academy/${lesson.slug}`} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4" />
                         </a>
@@ -301,6 +305,7 @@ export default function AdminAcademyLessonsListPage() {
                           variant="ghost"
                           className="h-8 w-8 p-0"
                           title={lesson.status === "published" ? "Unpublish" : "Publish"}
+                          aria-label={lesson.status === "published" ? "Unpublish lesson" : "Publish lesson"}
                           onClick={() => handleTogglePublish(lesson)}
                         >
                           <Eye className="h-4 w-4" />
@@ -310,6 +315,7 @@ export default function AdminAcademyLessonsListPage() {
                           variant="ghost"
                           className="h-8 w-8 p-0"
                           title="Duplicate lesson"
+                          aria-label="Duplicate lesson"
                           onClick={() => handleDuplicate(lesson)}
                         >
                           <Copy className="h-4 w-4" />
@@ -319,6 +325,7 @@ export default function AdminAcademyLessonsListPage() {
                           variant="ghost"
                           className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                           title="Archive lesson"
+                          aria-label="Archive lesson"
                           onClick={() => setArchiveTarget(lesson)}
                         >
                           <Archive className="h-4 w-4" />

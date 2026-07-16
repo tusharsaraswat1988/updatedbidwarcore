@@ -2202,6 +2202,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
             className="h-8 w-8 p-0"
             onClick={load}
             title="Refresh"
+            aria-label="Refresh organizers"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
@@ -2866,6 +2867,7 @@ export function BuildTriggerPanel() {
                 className="h-6 w-6 p-0"
                 onClick={() => void fetchStatus()}
                 title="Refresh status"
+                aria-label="Refresh build status"
               >
                 <RefreshCw className={`w-3 h-3 ${statusLoading ? "animate-spin" : ""}`} />
               </Button>
@@ -3304,8 +3306,8 @@ export function DisplayAuctionsPanel() {
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditItem(item)}>
+                      <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditItem(item)} title="Edit" aria-label="Edit entry">
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button
@@ -3313,6 +3315,8 @@ export function DisplayAuctionsPanel() {
                           variant="ghost"
                           className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => setDeleteId(item.id)}
+                          title="Delete"
+                          aria-label="Delete entry"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
@@ -3544,12 +3548,13 @@ export function ShowcasePanel() {
                     <p className="text-[11px] text-muted-foreground truncate mt-0.5">{ev.description}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                   <Button
                     size="sm" variant="ghost" className="h-7 w-7 p-0"
                     disabled={i === 0}
                     onClick={() => void handleMove(i, -1)}
                     title="Move up"
+                    aria-label="Move up"
                   >
                     <ChevronUp className="w-3.5 h-3.5" />
                   </Button>
@@ -3558,6 +3563,7 @@ export function ShowcasePanel() {
                     disabled={i === events.length - 1}
                     onClick={() => void handleMove(i, 1)}
                     title="Move down"
+                    aria-label="Move down"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
                   </Button>
@@ -3565,6 +3571,7 @@ export function ShowcasePanel() {
                     size="sm" variant="ghost" className="h-7 w-7 p-0"
                     onClick={() => void handleToggleActive(ev)}
                     title={ev.active ? "Hide from landing page" : "Show on landing page"}
+                    aria-label={ev.active ? "Hide from landing page" : "Show on landing page"}
                   >
                     {ev.active
                       ? <Eye className="w-3.5 h-3.5 text-green-400" />
@@ -3574,6 +3581,7 @@ export function ShowcasePanel() {
                     size="sm" variant="ghost" className="h-7 w-7 p-0"
                     onClick={() => openEdit(ev)}
                     title="Edit"
+                    aria-label={`Edit ${ev.tournamentName}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
@@ -3583,6 +3591,7 @@ export function ShowcasePanel() {
                     onClick={() => void handleDelete(ev.id)}
                     disabled={deleting === ev.id}
                     title="Delete"
+                    aria-label={`Delete ${ev.tournamentName}`}
                   >
                     {deleting === ev.id
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -4048,6 +4057,7 @@ export default function AdminDashboard() {
                   className="h-8 w-8 p-0"
                   onClick={load}
                   title="Refresh"
+                  aria-label="Refresh tournaments"
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}

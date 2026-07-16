@@ -130,19 +130,19 @@ interface DashboardData {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending: "bg-yellow-500/20 text-yellow-400",
-    ready_to_send: "bg-blue-500/20 text-blue-400",
-    queued: "bg-indigo-500/20 text-indigo-300",
-    processing: "bg-purple-500/20 text-purple-300",
-    delivered: "bg-green-500/20 text-green-400",
-    opened: "bg-emerald-500/20 text-emerald-300",
-    clicked: "bg-teal-500/20 text-teal-300",
-    failed: "bg-red-500/20 text-red-400",
-    cancelled: "bg-muted/20 text-muted-foreground",
-    draft: "bg-slate-500/20 text-slate-300",
+    pending: "bg-yellow-500/15 text-yellow-400",
+    ready_to_send: "bg-blue-500/15 text-blue-400",
+    queued: "bg-indigo-500/15 text-indigo-300",
+    processing: "bg-purple-500/15 text-purple-300",
+    delivered: "bg-green-500/15 text-green-400",
+    opened: "bg-emerald-500/15 text-emerald-300",
+    clicked: "bg-teal-500/15 text-teal-300",
+    failed: "bg-red-500/15 text-red-400",
+    cancelled: "bg-muted text-muted-foreground",
+    draft: "bg-slate-500/15 text-slate-300",
   };
   return (
-    <Badge className={`text-[10px] uppercase ${map[status] ?? "bg-muted/20 text-muted-foreground"}`}>
+    <Badge className={`text-[10px] uppercase ${map[status] ?? "bg-muted text-muted-foreground"}`}>
       {status.replace(/_/g, " ")}
     </Badge>
   );
@@ -732,7 +732,7 @@ export default function AdminCommunicationCenter() {
                         <TableCell className="font-medium">{t.name}</TableCell>
                         <TableCell className="font-mono text-xs">{t.internalKey}</TableCell>
                         <TableCell>{t.autoSend ? "ON" : "OFF"}</TableCell>
-                        <TableCell>{t.isActive ? <Badge className="bg-green-500/20 text-green-400">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
+                        <TableCell>{t.isActive ? <Badge className="bg-green-500/15 text-green-400">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
                         <TableCell>v{t.currentVersion}</TableCell>
                         <TableCell>
                           <Button size="sm" variant="ghost" onClick={() => { setEditingTemplate(t); setTemplateForm({ name: t.name, internalKey: t.internalKey, subject: t.subject, htmlBody: t.htmlBody, autoSend: t.autoSend, isActive: t.isActive }); setShowTemplateDialog(true); }}>
@@ -1166,7 +1166,7 @@ function JobsTable({
                 <TableCell>
                   <div className="flex gap-1">
                     {!showSent && (j.status === "ready_to_send" || j.status === "pending") && (
-                      <Button size="sm" variant="ghost" onClick={() => onSend(j.id)}><Send className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" title="Send now" aria-label="Send now" onClick={() => onSend(j.id)}><Send className="h-3.5 w-3.5" /></Button>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => onView(j)}>View</Button>
                     {showSent && onResend && j.recipient?.recipientEmail && (
@@ -1174,6 +1174,7 @@ function JobsTable({
                         size="sm"
                         variant="ghost"
                         title="Resend email"
+                        aria-label="Resend email"
                         disabled={resendingId === j.id}
                         onClick={() => onResend(j.id)}
                       >

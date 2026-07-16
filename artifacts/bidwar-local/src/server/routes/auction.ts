@@ -1609,7 +1609,10 @@ export function createAuctionRouter(db: LocalDb) {
       .from(auctionSessionsTable)
       .where(eq(auctionSessionsTable.tournamentId, tid))
       .limit(1);
-    let current = { context: "auction" as const, selectedTeamId: null as number | null };
+    let current: { context: "auction" | "top5" | "team"; selectedTeamId: number | null } = {
+      context: "auction",
+      selectedTeamId: null,
+    };
     if (session?.obsContextJson) {
       try {
         const parsed = JSON.parse(session.obsContextJson) as Record<string, unknown>;

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
+import { AdminListHeader } from "@/components/admin/admin-list-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AdminTournamentRow,
@@ -86,7 +87,7 @@ export default function AdminTournamentsListPage() {
               className="h-9 pl-8 text-sm"
             />
           </div>
-          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={load} title="Refresh">
+          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={load} title="Refresh" aria-label="Refresh tournaments">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
@@ -107,14 +108,17 @@ export default function AdminTournamentsListPage() {
           </span>
         </div>
 
-        <div className="hidden border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[1fr_120px_180px_140px_140px_100px]">
-          <span>Tournament</span>
-          <span>Status</span>
-          <span>Organiser</span>
-          <span>License</span>
-          <span>Auction</span>
-          <span className="text-right">Action</span>
-        </div>
+        <AdminListHeader
+          gridClassName="md:grid md:grid-cols-[1fr_120px_180px_140px_140px_100px]"
+          columns={[
+            { label: "Tournament" },
+            { label: "Status" },
+            { label: "Organiser" },
+            { label: "License" },
+            { label: "Auction" },
+            { label: "Action", align: "right" },
+          ]}
+        />
 
         <AdminScrollPanel>
           {loading ? (

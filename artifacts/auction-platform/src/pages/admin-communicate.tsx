@@ -66,19 +66,19 @@ interface BlastEntry {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending: "bg-yellow-500/20 text-yellow-400",
-    sent: "bg-blue-500/20 text-blue-400",
-    delivered: "bg-green-500/20 text-green-400",
-    read: "bg-green-600/20 text-green-300",
-    failed: "bg-red-500/20 text-red-400",
+    pending: "bg-yellow-500/15 text-yellow-400",
+    sent: "bg-blue-500/15 text-blue-400",
+    delivered: "bg-green-500/15 text-green-400",
+    read: "bg-green-600/15 text-green-300",
+    failed: "bg-red-500/15 text-red-400",
   };
   return <Badge className={`text-[10px] uppercase ${map[status] || "bg-muted/20 text-muted-foreground"}`}>{status}</Badge>;
 }
 
 function ChannelBadge({ channel }: { channel: string }) {
-  if (channel === "whatsapp") return <Badge className="bg-green-600/20 text-green-300 text-[10px] gap-1"><Wifi className="w-2.5 h-2.5" />WhatsApp</Badge>;
-  if (channel === "sms") return <Badge className="bg-blue-500/20 text-blue-400 text-[10px] gap-1"><Smartphone className="w-2.5 h-2.5" />SMS</Badge>;
-  return <Badge className="bg-muted/20 text-muted-foreground text-[10px]">{channel}</Badge>;
+  if (channel === "whatsapp") return <Badge className="bg-green-600/15 text-green-300 text-[10px] gap-1"><Wifi className="w-2.5 h-2.5" />WhatsApp</Badge>;
+  if (channel === "sms") return <Badge className="bg-blue-500/15 text-blue-400 text-[10px] gap-1"><Smartphone className="w-2.5 h-2.5" />SMS</Badge>;
+  return <Badge className="bg-muted text-muted-foreground text-[10px]">{channel}</Badge>;
 }
 
 function LicenseLock({ status, locked }: { status: string; locked?: boolean }) {

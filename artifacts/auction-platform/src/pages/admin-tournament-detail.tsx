@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw, Sparkles, Database } from "lucide-react";
+import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw, Sparkles, Database, Gavel, Shield, Users } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
 import { LiveDisplaysPanel } from "@/components/admin/live-displays-panel";
 import { LiveEmergencyPanel } from "@/components/admin/live-emergency-panel";
 import { LiveOwnerAppsPanel } from "@/components/admin/live-owner-apps-panel";
 import { LiveOperatorSessionsPanel } from "@/components/admin/live-operator-sessions-panel";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   LIVE_OPS_TABS,
@@ -24,6 +24,9 @@ import {
 } from "@/lib/auth";
 import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { Switch } from "@/components/ui/switch";
+import { MetricCard } from "@/components/admin/admin-metric-card";
+import { StatusBadge, type StatusTone } from "@/components/admin/admin-status-badge";
+import { AdminListHeader } from "@/components/admin/admin-list-header";
 
 type DataTab = "overview" | "players" | "teams" | "bids";
 type Tab = DataTab | `live-${LiveOpsSection}`;
@@ -42,14 +45,8 @@ function getTab(pathname: string): Tab {
   return "overview";
 }
 
-function StatusPill({ children, tone = "muted" }: { children: string; tone?: "green" | "red" | "amber" | "muted" }) {
-  const cls = {
-    green: "bg-green-500/15 text-green-400",
-    red: "bg-red-500/15 text-red-400",
-    amber: "bg-amber-500/15 text-amber-300",
-    muted: "bg-muted text-muted-foreground",
-  }[tone];
-  return <Badge className={cls}>{children}</Badge>;
+function StatusPill({ children, tone = "muted" }: { children: string; tone?: StatusTone }) {
+  return <StatusBadge tone={tone}>{children}</StatusBadge>;
 }
 
 function DataTabLink({
@@ -75,6 +72,26 @@ function DataTabLink({
     >
       {label}
     </Link>
+  );
+}
+
+function TabEmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof Users;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/30">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-white">{title}</p>
+      <p className="max-w-sm text-xs text-muted-foreground">{description}</p>
+    </div>
   );
 }
 
@@ -191,8 +208,18 @@ export default function AdminTournamentDetailPage() {
       }
     >
       {loading || !detail ? (
-        <div className="rounded-xl border border-border bg-card/70 p-4 text-sm text-muted-foreground">
-          Loading tournament detail...
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="space-y-2 rounded-xl border border-border bg-card/70 p-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -225,11 +252,11 @@ export default function AdminTournamentDetailPage() {
 
           {!isLiveTab && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Players</div><div className="mt-2 text-2xl font-black text-white">{detail.players.length}</div></div>
-              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Sold</div><div className="mt-2 text-2xl font-black text-white">{soldCount}</div></div>
-              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Teams</div><div className="mt-2 text-2xl font-black text-white">{detail.teams.length}</div></div>
-              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Base Purse</div><div className="mt-2 text-2xl font-black text-white">₹{detail.tournament.basePurse.toLocaleString("en-IN")}</div></div>
-              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Bid Events</div><div className="mt-2 text-2xl font-black text-white">{detail.recentBids.length}</div></div>
+              <MetricCard label="Players" value={detail.players.length} />
+              <MetricCard label="Sold" value={soldCount} />
+              <MetricCard label="Teams" value={detail.teams.length} />
+              <MetricCard label="Base Purse" value={`₹${detail.tournament.basePurse.toLocaleString("en-IN")}`} />
+              <MetricCard label="Bid Events" value={detail.recentBids.length} />
             </div>
           )}
 
@@ -364,34 +391,122 @@ export default function AdminTournamentDetailPage() {
                 </div>
               )}
               <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
-                <AdminScrollPanel>
-                  {detail.players.map((p) => (
-                    <div key={p.id} className="grid grid-cols-[1fr_160px_120px_130px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                      <span className="text-white">{p.name}</span><span className="text-muted-foreground">{p.role || "No role"}</span><span>{p.status}</span><span className="text-right">₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}</span>
-                    </div>
-                  ))}
-                </AdminScrollPanel>
+                {detail.players.length ? (
+                  <>
+                    <AdminListHeader
+                      gridClassName="sm:grid sm:grid-cols-[1fr_160px_120px_130px]"
+                      columns={[
+                        { label: "Player" },
+                        { label: "Role" },
+                        { label: "Status" },
+                        { label: "Price", align: "right" },
+                      ]}
+                    />
+                    <AdminScrollPanel>
+                      {detail.players.map((p) => (
+                        <div
+                          key={p.id}
+                          className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_160px_120px_130px] sm:items-center"
+                        >
+                          <span className="font-medium text-white">{p.name}</span>
+                          <span className="text-muted-foreground">{p.role || "No role"}</span>
+                          <span className="mt-1 block sm:mt-0">
+                            <span className="text-muted-foreground sm:hidden">Status: </span>
+                            {p.status}
+                          </span>
+                          <span className="mt-1 block sm:mt-0 sm:text-right">
+                            <span className="text-muted-foreground sm:hidden">Price: </span>
+                            ₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      ))}
+                    </AdminScrollPanel>
+                  </>
+                ) : (
+                  <TabEmptyState
+                    icon={Users}
+                    title="No players added yet"
+                    description="Add players via the Tournament Master Workbook or the organiser's player list to see them here."
+                  />
+                )}
               </div>
             </div>
           ) : tab === "teams" ? (
             <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
-              <AdminScrollPanel>
-                {detail.teams.map((team) => (
-                  <div key={team.id} className="grid grid-cols-[1fr_160px_160px_160px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                    <span className="text-white">{team.name}</span><span className="text-muted-foreground">{team.shortCode}</span><span>{team.ownerName || "No owner"}</span><span className="text-right">₹{team.purseUsed.toLocaleString("en-IN")} used</span>
-                  </div>
-                ))}
-              </AdminScrollPanel>
+              {detail.teams.length ? (
+                <>
+                  <AdminListHeader
+                    gridClassName="sm:grid sm:grid-cols-[1fr_160px_160px_160px]"
+                    columns={[
+                      { label: "Team" },
+                      { label: "Code" },
+                      { label: "Owner" },
+                      { label: "Purse used", align: "right" },
+                    ]}
+                  />
+                  <AdminScrollPanel>
+                    {detail.teams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_160px_160px_160px] sm:items-center"
+                      >
+                        <span className="font-medium text-white">{team.name}</span>
+                        <span className="text-muted-foreground">{team.shortCode}</span>
+                        <span className="mt-1 block sm:mt-0">
+                          <span className="text-muted-foreground sm:hidden">Owner: </span>
+                          {team.ownerName || "No owner"}
+                        </span>
+                        <span className="mt-1 block sm:mt-0 sm:text-right">
+                          ₹{team.purseUsed.toLocaleString("en-IN")} used
+                        </span>
+                      </div>
+                    ))}
+                  </AdminScrollPanel>
+                </>
+              ) : (
+                <TabEmptyState
+                  icon={Shield}
+                  title="No teams added yet"
+                  description="Teams created by the organiser for this tournament will appear here."
+                />
+              )}
             </div>
           ) : tab === "bids" ? (
             <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
-              <AdminScrollPanel>
-                {detail.recentBids.map((bid) => (
-                  <div key={bid.id} className="grid grid-cols-[100px_1fr_180px_140px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                    <span className="text-xs text-muted-foreground">{new Date(bid.timestamp).toLocaleTimeString()}</span><span className="text-white">{bid.playerName || "Event"}</span><span>{bid.teamName || "No team"}</span><span className="text-right text-primary">₹{bid.amount.toLocaleString("en-IN")}</span>
-                  </div>
-                ))}
-              </AdminScrollPanel>
+              {detail.recentBids.length ? (
+                <>
+                  <AdminListHeader
+                    gridClassName="sm:grid sm:grid-cols-[100px_1fr_180px_140px]"
+                    columns={[
+                      { label: "Time" },
+                      { label: "Player" },
+                      { label: "Team" },
+                      { label: "Amount", align: "right" },
+                    ]}
+                  />
+                  <AdminScrollPanel>
+                    {detail.recentBids.map((bid) => (
+                      <div
+                        key={bid.id}
+                        className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[100px_1fr_180px_140px] sm:items-center"
+                      >
+                        <span className="text-xs text-muted-foreground">{new Date(bid.timestamp).toLocaleTimeString()}</span>
+                        <span className="mt-1 block font-medium text-white sm:mt-0">{bid.playerName || "Event"}</span>
+                        <span className="mt-1 block text-muted-foreground sm:mt-0">{bid.teamName || "No team"}</span>
+                        <span className="mt-1 block text-primary sm:mt-0 sm:text-right">
+                          ₹{bid.amount.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    ))}
+                  </AdminScrollPanel>
+                </>
+              ) : (
+                <TabEmptyState
+                  icon={Gavel}
+                  title="No bids recorded yet"
+                  description="Bid activity will appear here in real time once the auction goes live."
+                />
+              )}
             </div>
           ) : tab === "live-monitor" ? (
             <LiveAuctionMonitor

@@ -50,8 +50,8 @@ export default function AdminLogin() {
           className="w-full max-w-sm space-y-8"
         >
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center bg-amber-500/10 border border-amber-500/30">
-              <ShieldCheck className="w-10 h-10 text-amber-400" />
+            <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center bg-primary/10 border border-primary/30">
+              <ShieldCheck className="w-10 h-10 text-primary" />
             </div>
             <div>
               <div className="flex items-center justify-center mb-1">
@@ -65,7 +65,7 @@ export default function AdminLogin() {
             <AdminPwaInstallHint />
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground border-b border-border pb-4">
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <ShieldCheck className="w-4 h-4 text-primary" />
               <span>Full access to all tournaments and settings</span>
             </div>
 
@@ -85,6 +85,7 @@ export default function AdminLogin() {
                   <button
                     type="button"
                     onClick={() => setShowPw(v => !v)}
+                    aria-label={showPw ? "Hide password" : "Show password"}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -108,7 +109,8 @@ export default function AdminLogin() {
 
               <Button
                 type="submit"
-                className="w-full gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold"
+                variant="default"
+                className="w-full gap-2 font-bold"
                 size="lg"
                 disabled={loading || !password.trim()}
               >
