@@ -45,7 +45,24 @@ Use this for every release that touches `lib/db` or depends on new columns/table
 
 ## Incident: startup refused for drift
 
-1. Copy `requiredSql` from logs
-2. Apply via migration (never enable prod auto-heal)
-3. Restart API
-4. Re-check schema-health
+Symptoms on Render production:
+- Deploy **Exited with status 1**
+- Logs show `[schema] boot policy` with `environment: "production"`, `autoHealEnabled: false`
+- Then `======== SCHEMA DRIFT REPORT ========` with `missingTables` / `missingColumns`
+- Staging still works because `BIDWAR_ENV=staging` auto-heals additive gaps
+
+**Do not** set `SCHEMA_AUTO_HEAL=true` on production.
+
+Fix steps:
+1. Open Render logs and copy the `SCHEMA DRIFT REPORT` (`missingTables` / `requiredSql`)
+2. Apply the matching file(s) under `lib/db/migrations/` to **Neon production** (SQL Editor or `psql "$DATABASE_URL" -f …`)
+   - Scorer boot failure (post 2026-07-14): apply `0005_scorer_module.sql` (also re-asserts `tournaments.city` + court scorer columns)
+3. Confirm objects exist:
+   ```sql
+   SELECT table_name FROM information_schema.tables
+   WHERE table_schema = 'public' AND table_name LIKE 'scorer_%'
+   ORDER BY 1;
+   ```
+4. Render → Manual Deploy (no need to change `SCHEMA_AUTO_HEAL`)
+5. Confirm logs: `autoHealEnabled: false` then `[schema-governance] schema OK`
+6. Re-check `GET /api/admin/schema-health` → `critical: false`
