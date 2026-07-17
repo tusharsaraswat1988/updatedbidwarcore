@@ -54,6 +54,8 @@ Thumbs.db
 .env.*.local
 *.zip
 *.sql
+# Versioned DB migrations must be tracked (override *.sql above).
+!lib/db/migrations/*.sql
 build
 
 # Electron build outputs — never commit binaries to git

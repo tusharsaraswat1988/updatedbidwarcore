@@ -126,9 +126,25 @@ export async function runSchemaGovernance(
   console.error(formatDriftReportForConsole(report));
 
   if (!autoHeal) {
+    const missingSummary = [
+      report.missingTables.length
+        ? `missingTables=${report.missingTables.join(",")}`
+        : null,
+      report.missingColumns.length
+        ? `missingColumns=${report.missingColumns
+            .slice(0, 12)
+            .map((c) => `${c.table}.${c.column}`)
+            .join(",")}${report.missingColumns.length > 12 ? ",…" : ""}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("; ");
     throw new Error(
-      `Schema drift detected in ${environment}. Refusing to start HTTP server. ` +
-        `Apply the requiredSql from the SCHEMA DRIFT REPORT above via versioned migrations (lib/db/migrations), then redeploy.`,
+      `Schema drift detected in ${environment} (${missingSummary || "critical drift"}). ` +
+        `Refusing to start HTTP server. ` +
+        `Apply the requiredSql from the SCHEMA DRIFT REPORT above via versioned migrations ` +
+        `(lib/db/migrations — e.g. 0005_scorer_module.sql for scorer_*), then redeploy. ` +
+        `Do not set SCHEMA_AUTO_HEAL=true on production.`,
     );
   }
 

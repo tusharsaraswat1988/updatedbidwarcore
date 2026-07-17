@@ -84,11 +84,15 @@ router.use(purseBoostersRouter);
 router.use(creativeJobsRouter);
 router.use(scoringRouter);
 router.use(contactRouter);
-router.use(communicationCenterRouter);
-router.use(adminNotificationsRouter);
+// Organizer/live sports routes MUST stay above Super-Admin-only modules.
+// A mis-mounted requireMasterAdmin on an admin router must never shadow these.
 router.use("/tournaments/:id/badminton", badmintonRouter);
 router.use("/tournaments/:id/badminton", masterSportsRouter);
 router.use("/tournaments/:id/scoring", cricketMasterSportsRouter);
 router.use("/tournaments/:tournamentId/scoring", scoringFoundationRouter);
+// Mount at path prefix so even bare router.use(requireMasterAdmin) inside
+// communication-center cannot intercept unrelated /api requests.
+router.use("/auth/admin/communication-center", communicationCenterRouter);
+router.use(adminNotificationsRouter);
 
 export default router;

@@ -40,11 +40,12 @@ const router: IRouter = Router();
 
 /**
  * Platform-internal module — Super Admin only.
- * MUST be path-scoped. A bare `router.use(requireMasterAdmin)` would run for
- * every API request (this router is mounted at `/`) and block organizers with
- * "Super Admin access required" on badminton/auction saves.
+ *
+ * This router is mounted at `/auth/admin/communication-center` in routes/index.ts.
+ * Keeping requireMasterAdmin as a bare router.use here is SAFE because Express only
+ * runs this middleware for that mount path — it cannot block badminton/auction/OTP.
  */
-router.use("/auth/admin/communication-center", requireMasterAdmin);
+router.use(requireMasterAdmin);
 
 function adminLabel(_req: Request): string {
   return "master_admin";
@@ -56,7 +57,7 @@ function clientIp(req: Request): string | undefined {
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/dashboard", async (req, res) => {
+router.get("/dashboard", async (req, res) => {
   const tournamentId = req.query.tournamentId ? Number(req.query.tournamentId) : undefined;
   const stats = await getDashboardStats(tournamentId);
   return res.json(stats);
@@ -64,7 +65,7 @@ router.get("/auth/admin/communication-center/dashboard", async (req, res) => {
 
 // ─── Templates ───────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/templates", async (req, res) => {
+router.get("/templates", async (req, res) => {
   const includeDrafts = req.query.includeDrafts === "true";
   const includeArchived = req.query.includeArchived === "true";
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -72,7 +73,7 @@ router.get("/auth/admin/communication-center/templates", async (req, res) => {
   return res.json({ templates });
 });
 
-router.get("/auth/admin/communication-center/templates/:id", async (req, res) => {
+router.get("/templates/:id", async (req, res) => {
   const template = await getTemplateById(req.params.id);
   if (!template) return res.status(404).json({ error: "Template not found" });
   return res.json({ template });
@@ -93,7 +94,7 @@ const templateSchema = z.object({
   changeNote: z.string().optional(),
 });
 
-router.post("/auth/admin/communication-center/templates", async (req, res) => {
+router.post("/templates", async (req, res) => {
   const parsed = templateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -137,7 +138,7 @@ router.post("/auth/admin/communication-center/templates", async (req, res) => {
   return res.status(201).json({ template: created });
 });
 
-router.put("/auth/admin/communication-center/templates/:id", async (req, res) => {
+router.put("/templates/:id", async (req, res) => {
   const parsed = templateSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -181,7 +182,7 @@ router.put("/auth/admin/communication-center/templates/:id", async (req, res) =>
   return res.json({ template: updated });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/duplicate", async (req, res) => {
+router.post("/templates/:id/duplicate", async (req, res) => {
   const existing = await getTemplateById(req.params.id);
   if (!existing) return res.status(404).json({ error: "Template not found" });
 
@@ -207,7 +208,7 @@ router.post("/auth/admin/communication-center/templates/:id/duplicate", async (r
   return res.status(201).json({ template: copy });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/archive", async (req, res) => {
+router.post("/templates/:id/archive", async (req, res) => {
   const [updated] = await db
     .update(communicationTemplatesTable)
     .set({ isArchived: true, isActive: false, updatedAt: new Date() })
@@ -218,7 +219,7 @@ router.post("/auth/admin/communication-center/templates/:id/archive", async (req
   return res.json({ template: updated });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/test", async (req, res) => {
+router.post("/templates/:id/test", async (req, res) => {
   const { email, mergeData } = req.body as { email?: string; mergeData?: Record<string, unknown> };
   if (!email) return res.status(400).json({ error: "email required" });
 
@@ -237,7 +238,7 @@ router.post("/auth/admin/communication-center/templates/:id/test", async (req, r
   return res.json({ success: result.success, messageId: result.messageId, error: result.error });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/preview", async (req, res) => {
+router.post("/templates/:id/preview", async (req, res) => {
   const template = await getTemplateById(req.params.id);
   if (!template) return res.status(404).json({ error: "Template not found" });
 
@@ -258,7 +259,7 @@ router.post("/auth/admin/communication-center/templates/:id/preview", async (req
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/jobs", async (req, res) => {
+router.get("/jobs", async (req, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const statuses = typeof req.query.statuses === "string" ? req.query.statuses.split(",") : undefined;
   const pendingReason = typeof req.query.pendingReason === "string" ? req.query.pendingReason : undefined;
@@ -271,13 +272,13 @@ router.get("/auth/admin/communication-center/jobs", async (req, res) => {
   return res.json({ jobs, total: jobs.length });
 });
 
-router.get("/auth/admin/communication-center/jobs/:id", async (req, res) => {
+router.get("/jobs/:id", async (req, res) => {
   const job = await getJobById(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
   return res.json({ job });
 });
 
-router.post("/auth/admin/communication-center/jobs/:id/send", async (req, res) => {
+router.post("/jobs/:id/send", async (req, res) => {
   const job = await getJobById(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
 
@@ -295,7 +296,7 @@ router.post("/auth/admin/communication-center/jobs/:id/send", async (req, res) =
   return res.json({ success: queued });
 });
 
-router.post("/auth/admin/communication-center/jobs/bulk-send", async (req, res) => {
+router.post("/jobs/bulk-send", async (req, res) => {
   const { jobIds, allReady } = req.body as { jobIds?: string[]; allReady?: boolean };
   let ids = jobIds ?? [];
 
@@ -313,7 +314,7 @@ router.post("/auth/admin/communication-center/jobs/bulk-send", async (req, res) 
   return res.json({ queued, total: ids.length });
 });
 
-router.post("/auth/admin/communication-center/jobs/retry-failed", async (req, res) => {
+router.post("/jobs/retry-failed", async (req, res) => {
   const failed = await listJobs({ status: "failed", limit: 200 });
   let retried = 0;
   for (const job of failed) {
@@ -323,12 +324,12 @@ router.post("/auth/admin/communication-center/jobs/retry-failed", async (req, re
   return res.json({ retried });
 });
 
-router.post("/auth/admin/communication-center/jobs/:id/cancel", async (req, res) => {
+router.post("/jobs/:id/cancel", async (req, res) => {
   const ok = await cancelJob(req.params.id, { createdBy: adminLabel(req), ipAddress: clientIp(req) });
   return res.json({ success: ok });
 });
 
-router.post("/auth/admin/communication-center/jobs/:id/resend", async (req, res) => {
+router.post("/jobs/:id/resend", async (req, res) => {
   const newJobId = await createResendJob(req.params.id, {
     createdBy: adminLabel(req),
     ipAddress: clientIp(req),
@@ -339,7 +340,7 @@ router.post("/auth/admin/communication-center/jobs/:id/resend", async (req, res)
   return res.json({ success: true, newJobId });
 });
 
-router.patch("/auth/admin/communication-center/jobs/:id/recipient", async (req, res) => {
+router.patch("/jobs/:id/recipient", async (req, res) => {
   const { recipientEmail, recipientName, recipientPhone } = req.body as {
     recipientEmail?: string;
     recipientName?: string;
@@ -357,7 +358,7 @@ router.patch("/auth/admin/communication-center/jobs/:id/recipient", async (req, 
 
 // ─── Bulk ────────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/bulk/targets", async (req, res) => {
+router.get("/bulk/targets", async (req, res) => {
   const tournamentId = Number(req.query.tournamentId);
   if (!Number.isFinite(tournamentId)) {
     return res.status(400).json({ error: "tournamentId required" });
@@ -371,7 +372,7 @@ router.get("/auth/admin/communication-center/bulk/targets", async (req, res) => 
   return res.json(targets);
 });
 
-router.post("/auth/admin/communication-center/bulk/preview-recipients", async (req, res) => {
+router.post("/bulk/preview-recipients", async (req, res) => {
   const filter = req.body as Parameters<typeof resolveBulkRecipients>[0];
   const recipients = await resolveBulkRecipients(filter);
 
@@ -395,7 +396,7 @@ router.post("/auth/admin/communication-center/bulk/preview-recipients", async (r
   return res.json({ recipients, count: recipients.length });
 });
 
-router.post("/auth/admin/communication-center/bulk/preview-email", async (req, res) => {
+router.post("/bulk/preview-email", async (req, res) => {
   const { templateId, filter } = req.body as {
     templateId: string;
     filter: Parameters<typeof resolveBulkRecipients>[0];
@@ -445,7 +446,7 @@ router.post("/auth/admin/communication-center/bulk/preview-email", async (req, r
   });
 });
 
-router.post("/auth/admin/communication-center/bulk/queue", async (req, res) => {
+router.post("/bulk/queue", async (req, res) => {
   const { templateId, filter, mergeData, sendImmediately } = req.body as {
     templateId: string;
     filter: Parameters<typeof resolveBulkRecipients>[0];
@@ -470,12 +471,12 @@ router.post("/auth/admin/communication-center/bulk/queue", async (req, res) => {
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/assets", async (_req, res) => {
+router.get("/assets", async (_req, res) => {
   const assets = await db.select().from(communicationAssetsTable).orderBy(communicationAssetsTable.name);
   return res.json({ assets });
 });
 
-router.post("/auth/admin/communication-center/assets", async (req, res) => {
+router.post("/assets", async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
     assetKey: z.string().min(1),
@@ -492,7 +493,7 @@ router.post("/auth/admin/communication-center/assets", async (req, res) => {
   return res.status(201).json({ asset });
 });
 
-router.put("/auth/admin/communication-center/assets/:id", async (req, res) => {
+router.put("/assets/:id", async (req, res) => {
   const [asset] = await db
     .update(communicationAssetsTable)
     .set({ ...req.body, updatedAt: new Date() })
@@ -505,7 +506,7 @@ router.put("/auth/admin/communication-center/assets/:id", async (req, res) => {
 
 // ─── Logs ────────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/logs", async (req, res) => {
+router.get("/logs", async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 100), 500);
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const jobId = typeof req.query.jobId === "string" ? req.query.jobId : undefined;
@@ -534,12 +535,12 @@ router.get("/auth/admin/communication-center/logs", async (req, res) => {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/settings", async (_req, res) => {
+router.get("/settings", async (_req, res) => {
   const settings = await getSettings();
   return res.json({ settings });
 });
 
-router.put("/auth/admin/communication-center/settings", async (req, res) => {
+router.put("/settings", async (req, res) => {
   const { key, value } = req.body as { key?: string; value?: Record<string, unknown> };
   if (!key || !value) return res.status(400).json({ error: "key and value required" });
 
@@ -549,7 +550,7 @@ router.put("/auth/admin/communication-center/settings", async (req, res) => {
 
 // ─── Entity history ──────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/history/:entityType/:entityId", async (req, res) => {
+router.get("/history/:entityType/:entityId", async (req, res) => {
   const entityId = Number(req.params.entityId);
   if (!Number.isFinite(entityId)) return res.status(400).json({ error: "Invalid entity ID" });
 
