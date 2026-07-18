@@ -276,7 +276,7 @@ export default function AuctionOperator() {
   const [playerSearch, setPlayerSearch] = useState("");
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
-  const [mobilePanel, setMobilePanel] = useState<"queue" | "control" | "teams">("control");
+  const [mobilePanel, setMobilePanel] = useState<"auction" | "broadcast" | "reference" | "menu">("auction");
   const [rightCollapsed, setRightCollapsed] = useState(false);
   // Pre Auction & Break Timer dialog
   const [showFortuneWheel, setShowFortuneWheel] = useState(false);
@@ -1445,7 +1445,7 @@ export default function AuctionOperator() {
         <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${rightCollapsed ? "lg:grid-cols-[280px_1fr]" : "lg:grid-cols-[280px_1fr_260px]"}`}>
 
           {/* ══ LEFT: PLAYER QUEUE ══════════════════════════════════════════ */}
-          <aside className={`border-r border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "queue" ? "flex" : "hidden"} lg:flex`}>
+          <aside className={`border-r border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "menu" ? "flex" : "hidden"} lg:flex`}>
 
             {/* Header */}
             <div className="flex items-center px-3 py-2 border-b border-white/8 flex-shrink-0">
@@ -1661,7 +1661,81 @@ export default function AuctionOperator() {
           </aside>
 
           {/* ══ CENTER: AUCTION CONTROL ═════════════════════════════════════ */}
-          <main className={`flex-col min-h-0 overflow-hidden ${mobilePanel === "control" ? "flex" : "hidden"} lg:flex`}>
+          <main className={`flex-col min-h-0 overflow-hidden ${mobilePanel === "auction" ? "flex" : "hidden"} lg:flex`}>
+
+            {/* Mobile-only: Manual Queue for when auction sequence = Manual */}
+            {selectionMode === "manual" && (
+              <div className="lg:hidden flex-shrink-0 flex flex-col bg-[#0d1018] border-b border-yellow-400/15" style={{ maxHeight: "38vh" }}>
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-white/8 flex-shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400/80">Queue</span>
+                  <span className="text-[10px] text-white/30 font-normal ml-1">
+                    {filteredQueue.filter(p => playerMatchesSearch(p, playerSearch)).length} available
+                  </span>
+                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-yellow-400/12 text-yellow-400/70 border border-yellow-400/20 font-bold uppercase tracking-wide">Manual</span>
+                </div>
+                <div className="px-2 py-1.5 border-b border-white/5 flex-shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/25 pointer-events-none" />
+                    <input
+                      value={playerSearch}
+                      onChange={e => setPlayerSearch(e.target.value)}
+                      placeholder="Search player…"
+                      className="w-full h-8 pl-6 pr-6 bg-white/5 border border-white/8 rounded text-xs text-white/60 placeholder:text-white/25 outline-none focus:border-yellow-400/30"
+                    />
+                    {playerSearch && (
+                      <button onClick={() => setPlayerSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/55">
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="py-0.5">
+                    {filteredQueue
+                      .filter(p => playerMatchesSearch(p, playerSearch))
+                      .slice(0, 40)
+                      .map(player => {
+                        const isNowOn = state?.currentPlayer?.id === player.id;
+                        const isDeferred = deferredPlayerIds?.includes(player.id);
+                        const cat = player.categoryId ? categoryMap[player.categoryId] : null;
+                        return (
+                          <div
+                            key={player.id}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 border-b border-white/4 transition-all ${isNowOn ? "bg-yellow-400/8 border-yellow-400/10" : "active:bg-white/5"}`}
+                          >
+                            <span className="text-[10px] text-white/20 font-mono w-4 flex-shrink-0 text-right">{player.serialNo ?? player.id}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-semibold truncate leading-tight ${isNowOn ? "text-yellow-200" : "text-white/80"}`}>{player.name}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] text-white/30 font-mono">{formatShort(player.basePrice)}</span>
+                                {cat && <span className="text-[9px] font-semibold truncate max-w-[3.5rem]" style={{ color: cat.colorCode || "#888" }}>{cat.name}</span>}
+                                {isDeferred && <Hourglass className="w-2.5 h-2.5 text-amber-400 opacity-70 flex-shrink-0" />}
+                              </div>
+                            </div>
+                            {isNowOn ? (
+                              <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />
+                            ) : (
+                              <button
+                                disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending}
+                                onClick={() => handleNextPlayer("sequential", player.id)}
+                                className="flex-shrink-0 text-[11px] font-bold px-4 py-2.5 rounded-lg bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/35 active:bg-yellow-400/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all min-w-[52px] text-center"
+                              >
+                                Go
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    {filteredQueue.filter(p => playerMatchesSearch(p, playerSearch)).length === 0 && (
+                      <p className="text-center text-white/25 text-xs py-6">
+                        {playerSearch ? "No matches" : "No available players"}
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
 
             {/* Timer bar — opening + bid timers from tournament settings */}
             <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-[#141720] border-b border-white/8 flex-wrap">
@@ -2099,14 +2173,246 @@ export default function AuctionOperator() {
             </div>
           </main>
 
+          {/* ══ MOBILE BROADCAST PANEL ══════════════════════════════════════════ */}
+          {/* Dedicated mobile workspace for screen controls — hidden on desktop   */}
+          <div className={`flex-col min-h-0 overflow-y-auto bg-[#0f1117] ${mobilePanel === "broadcast" ? "flex" : "hidden"} lg:hidden`}>
+            <div className="p-4 space-y-6 pb-6">
+
+              {/* ── LED SCREEN ──────────────────────────────────────────────────── */}
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <Tv2 className="w-3.5 h-3.5 text-white/40" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40">LED Screen</span>
+                  {state?.displayOverlay && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 font-semibold uppercase ml-1">
+                      {state.displayOverlay.toUpperCase()} Active
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {/* MAIN View */}
+                  <button
+                    onClick={async () => {
+                      if (controlsLocked) return;
+                      const r = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
+                      applyMutationResult(r);
+                    }}
+                    disabled={timerActive || setDisplayOverlay.isPending}
+                    className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 font-bold text-xs transition-all disabled:opacity-40 active:scale-95 ${
+                      !state?.displayOverlay
+                        ? "bg-green-600/25 border-green-500/60 text-green-400"
+                        : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white hover:bg-white/8"
+                    }`}
+                  >
+                    <Tv2 className="w-6 h-6" />
+                    <span>MAIN</span>
+                  </button>
+
+                  {/* Team */}
+                  {(() => {
+                    const active = state?.displayOverlay === "team";
+                    return (
+                      <button
+                        onClick={async () => {
+                          if (controlsLocked) return;
+                          const nextMode = active ? "off" : "team";
+                          const r = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
+                          applyMutationResult(r);
+                        }}
+                        disabled={timerActive || setDisplayOverlay.isPending}
+                        className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 font-bold text-xs transition-all disabled:opacity-40 active:scale-95 ${
+                          active ? "bg-primary/90 text-black border-primary/80" : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white hover:bg-white/8"
+                        }`}
+                      >
+                        <LayoutGrid className="w-6 h-6" />
+                        <span>Team</span>
+                      </button>
+                    );
+                  })()}
+
+                  {/* Player */}
+                  {(() => {
+                    const active = state?.displayOverlay === "player";
+                    return (
+                      <button
+                        onClick={async () => {
+                          if (controlsLocked) return;
+                          const nextMode = active ? "off" : "player";
+                          const r = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
+                          applyMutationResult(r);
+                        }}
+                        disabled={timerActive || setDisplayOverlay.isPending}
+                        className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 font-bold text-xs transition-all disabled:opacity-40 active:scale-95 ${
+                          active ? "bg-blue-600 text-white border-blue-500/80" : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white hover:bg-white/8"
+                        }`}
+                      >
+                        <Users className="w-6 h-6" />
+                        <span>Player</span>
+                      </button>
+                    );
+                  })()}
+
+                  {/* Top 5 */}
+                  {(() => {
+                    const active = state?.displayOverlay === "top5";
+                    return (
+                      <button
+                        onClick={async () => {
+                          if (controlsLocked) return;
+                          const nextMode = active ? "off" : "top5";
+                          const r = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
+                          applyMutationResult(r);
+                        }}
+                        disabled={timerActive || setDisplayOverlay.isPending}
+                        className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 font-bold text-xs transition-all disabled:opacity-40 active:scale-95 ${
+                          active ? "bg-purple-600 text-white border-purple-500/80" : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white hover:bg-white/8"
+                        }`}
+                      >
+                        <Crown className="w-6 h-6" />
+                        <span>Top 5</span>
+                      </button>
+                    );
+                  })()}
+
+                  {/* Banner */}
+                  {(() => {
+                    const active = state?.displayOverlay === "banner";
+                    return (
+                      <button
+                        onClick={async () => {
+                          if (controlsLocked) return;
+                          const nextMode = active ? "off" : "banner";
+                          const r = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
+                          applyMutationResult(r);
+                        }}
+                        disabled={timerActive || setDisplayOverlay.isPending}
+                        className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 font-bold text-xs transition-all disabled:opacity-40 active:scale-95 ${
+                          active ? "bg-amber-600 text-white border-amber-500/80" : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white hover:bg-white/8"
+                        }`}
+                      >
+                        <Clapperboard className="w-6 h-6" />
+                        <span>Banner</span>
+                      </button>
+                    );
+                  })()}
+                </div>
+              </section>
+
+              {/* ── OBS STREAM ──────────────────────────────────────────────────── */}
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <Clapperboard className="w-3.5 h-3.5 text-red-400/60" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-red-300/55">OBS Stream</span>
+                  {presentationContext.context && presentationContext.context !== "auction" && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/25 font-semibold uppercase ml-1">
+                      {presentationContext.context.toUpperCase()} Active
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2.5">
+                  {(
+                    [
+                      { context: "auction" as const, label: "Live Auction", icon: Gavel, desc: "Main auction lower-third", cls: "bg-emerald-600/20 border-emerald-500/50 text-emerald-400" },
+                      { context: "top5" as const, label: "Top 5", icon: Crown, desc: "Top 5 bidders overlay", cls: "bg-amber-600/20 border-amber-500/50 text-amber-400" },
+                      { context: "team" as const, label: "Team Details", icon: Users, desc: "Full team overview", cls: "bg-blue-600/20 border-blue-500/50 text-blue-400" },
+                    ] as const
+                  ).map(({ context, label, icon: Icon, desc, cls }) => {
+                    const active = presentationContext.context === context;
+                    return (
+                      <button
+                        key={context}
+                        onClick={() => void setOnAirPresentation(context)}
+                        disabled={controlsLocked || setPresentationMut.isPending}
+                        className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-40 active:scale-[0.98] ${
+                          active ? cls : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white hover:bg-white/8"
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 flex-shrink-0 ${active ? "" : "opacity-60"}`} />
+                        <div className="flex-1 text-left">
+                          <p className="font-bold text-sm">{label}</p>
+                          <p className="text-[11px] font-normal opacity-60 mt-0.5">{desc}</p>
+                        </div>
+                        {active && (
+                          <div className="w-2 h-2 rounded-full bg-current animate-pulse flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* ── BREAK & EVENTS ──────────────────────────────────────────────── */}
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <Coffee className="w-3.5 h-3.5 text-amber-400/60" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-300/55">Break &amp; Events</span>
+                  {currentCountdown?.endsAt && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold uppercase ml-1">Live</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Break Timer */}
+                  {currentCountdown?.endsAt ? (
+                    <button
+                      onClick={openCountdownDialog}
+                      className="flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 border-amber-500/50 bg-amber-500/15 text-amber-300 font-bold transition-all active:scale-95"
+                    >
+                      <Coffee className="w-6 h-6" />
+                      <CountdownClock
+                        endsAt={currentCountdown.endsAt}
+                        className="font-mono font-bold tabular-nums text-base"
+                      />
+                      <span className="text-[10px] font-normal opacity-70">Tap to manage</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={openCountdownDialog}
+                      disabled={livePlayerAuctionActive || controlsLocked}
+                      className="flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 border-amber-500/25 bg-amber-500/8 text-amber-400 font-bold disabled:opacity-40 hover:bg-amber-500/15 active:scale-95 transition-all"
+                    >
+                      <Coffee className="w-6 h-6" />
+                      <span>Break Timer</span>
+                      <span className="text-[10px] font-normal opacity-60">Pre-auction / Break</span>
+                    </button>
+                  )}
+
+                  {/* Fortune Wheel */}
+                  <button
+                    onClick={() => setShowFortuneWheel(true)}
+                    disabled={timerActive}
+                    className="flex flex-col items-center justify-center gap-2 py-5 rounded-xl border-2 border-purple-500/25 bg-purple-500/8 text-purple-400 font-bold disabled:opacity-40 hover:bg-purple-500/15 active:scale-95 transition-all"
+                  >
+                    <Shuffle className="w-6 h-6" />
+                    <span>Fortune Wheel</span>
+                    <span className="text-[10px] font-normal opacity-60">Random pick</span>
+                  </button>
+
+                  {/* Purse Booster */}
+                  <button
+                    onClick={() => setShowPurseBooster(true)}
+                    className="col-span-2 flex items-center justify-center gap-4 px-4 py-4 rounded-xl border-2 border-amber-500/25 bg-amber-500/8 text-amber-300 font-bold hover:bg-amber-500/15 active:scale-[0.98] transition-all"
+                  >
+                    <span className="text-2xl flex-shrink-0">💰</span>
+                    <div className="text-left">
+                      <p className="text-sm font-bold">Purse Booster</p>
+                      <p className="text-[11px] font-normal opacity-60 mt-0.5">Adjust team budgets mid-auction</p>
+                    </div>
+                  </button>
+                </div>
+              </section>
+
+            </div>
+          </div>
+
           {/* ══ RIGHT: TEAMS + BID HISTORY ══════════════════════════════════ */}
-          <aside className={`border-l border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "teams" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
+          <aside className={`border-l border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "reference" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
 
             {/* Teams & Purse */}
             <div className="flex flex-col flex-shrink-0 min-h-0" style={{ maxHeight: "55%" }}>
               <div className="flex items-center gap-2 px-3 py-2.5 border-b border-amber-500/20 bg-amber-500/[0.07] flex-shrink-0">
                 <Trophy className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                 <span className="text-xs font-black uppercase tracking-wider text-amber-100/80">Teams &amp; Purse</span>
+                <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 border border-white/10 font-semibold uppercase tracking-wide lg:hidden">Reference</span>
               </div>
               <ScrollArea className="flex-1 min-h-0 bg-[#141720]">
                 <div className="p-2.5 flex flex-col gap-2">
@@ -2239,14 +2545,32 @@ export default function AuctionOperator() {
           </aside>
         </div>
 
-        {/* Mobile panel switcher */}
+        {/* ══ MOBILE WORKSPACE NAV ════════════════════════════════════════════ */}
+        {/* 4 workflow-first tabs — Auction, Broadcast, Reference, Queue        */}
         <div className="flex-shrink-0 flex lg:hidden border-t border-white/8 bg-[#141720]">
-          {(["queue", "control", "teams"] as const).map(p => (
-            <button key={p} onClick={() => setMobilePanel(p)}
-              className={`flex-1 py-2 text-xs font-semibold capitalize transition-all ${mobilePanel === p ? "text-yellow-300 border-t-2 border-yellow-400" : "text-white/35 hover:text-white/55"}`}>
-              {p}
-            </button>
-          ))}
+          {([
+            { id: "auction",   label: "Auction",   icon: Gavel,      hint: "Bidding"   },
+            { id: "broadcast", label: "Broadcast", icon: Tv2,        hint: "Screens"   },
+            { id: "reference", label: "Reference", icon: Trophy,     hint: "Teams"     },
+            { id: "menu",      label: "Queue",     icon: LayoutGrid, hint: "Players"   },
+          ] as const).map(({ id, label, icon: Icon, hint }) => {
+            const active = mobilePanel === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setMobilePanel(id)}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-all border-t-2 ${
+                  active
+                    ? "text-yellow-300 border-yellow-400 bg-yellow-400/5"
+                    : "text-white/30 border-transparent hover:text-white/50 active:text-white/60"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-wide leading-none">{label}</span>
+                <span className={`text-[8px] leading-none transition-opacity ${active ? "text-yellow-400/60 opacity-100" : "opacity-0"}`}>{hint}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ══ DIALOGS ══════════════════════════════════════════════════════ */}
