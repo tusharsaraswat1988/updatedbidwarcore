@@ -337,7 +337,7 @@ export default function Categories() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-8">
+      <div className="org-page-content">
         <OrganizerSectionHeader
           tournament={tournament}
           title="Categories"

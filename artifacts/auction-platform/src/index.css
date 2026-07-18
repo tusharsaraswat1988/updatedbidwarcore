@@ -193,3 +193,64 @@
 .font-display {
   font-family: var(--font-display);
 }
+
+/* ─── Organizer Design System Utilities ─────────────────────────────────────
+   Reusable patterns for the organizer module.  All values stay in the 8px
+   spacing grid and reference existing CSS-variable tokens so they inherit
+   theme changes automatically.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* KPI / stat card — consistent across hub, reports, portal */
+.org-kpi-card {
+  @apply bg-card border border-border rounded-xl p-4 sm:p-5;
+}
+.org-kpi-label {
+  @apply text-xs font-medium text-muted-foreground uppercase tracking-wider;
+}
+.org-kpi-value {
+  @apply text-2xl sm:text-3xl font-display font-bold leading-none mt-1.5;
+}
+.org-kpi-icon {
+  @apply p-2.5 rounded-lg flex-shrink-0;
+}
+
+/* Section divider / group label */
+.org-section-label {
+  @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground;
+}
+
+/* Page content shell — applied inside AppLayout main container */
+.org-page-content {
+  @apply space-y-6 sm:space-y-8;
+}
+
+/* Responsive 2-up / 4-up stat grids */
+.org-stat-grid {
+  @apply grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4;
+}
+
+/* List / data row — borders only between siblings */
+.org-list-row {
+  @apply flex items-center gap-3 py-3 border-b border-border/50 last:border-0;
+}
+
+/* Table responsive wrapper — prevents horizontal overflow */
+.org-table-wrapper {
+  @apply w-full overflow-x-auto rounded-xl border border-border;
+}
+
+/* Inline info / tip banner */
+.org-tip-banner {
+  @apply flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3.5 text-sm text-muted-foreground;
+}
+
+/* Badge variant helpers */
+.status-active   { @apply bg-green-500/15 text-green-400 border-green-500/30; }
+.status-trial    { @apply bg-amber-500/15 text-amber-400 border-amber-500/30; }
+.status-done     { @apply bg-blue-500/15  text-blue-400  border-blue-500/30;  }
+.status-locked   { @apply bg-red-500/15   text-red-400   border-red-500/30;   }
+
+/* Touch-friendly minimum tap target */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}

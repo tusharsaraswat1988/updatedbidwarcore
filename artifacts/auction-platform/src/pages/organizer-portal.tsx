@@ -1317,35 +1317,42 @@ function OrganizerDashboard({
     <div className="min-h-screen bg-[#09090b]">
       {/* Header */}
       <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             {/* BidWar brand mark */}
             {(() => {
               const headerLogoSrc = getBrandLogoSrc(logos, organizerHeaderPreset.logoOrder);
               return headerLogoSrc ? (
                 <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
               ) : (
-                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary flex-shrink-0">
                   {miniBrandText}
                 </div>
               );
             })()}
-            <div className="w-px h-6 bg-border/60 hidden sm:block" />
-            <div>
-              <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>
-              <p className="text-xs text-muted-foreground">{organizer.mobile ?? organizer.email ?? ""}</p>
+            <div className="w-px h-5 bg-border/60 hidden sm:block flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="font-display font-bold text-sm sm:text-base leading-none text-white truncate">{organizer.name}</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground truncate hidden sm:block">{organizer.mobile ?? organizer.email ?? ""}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-8" onClick={onRefresh}>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-8 hidden sm:flex" onClick={onRefresh}>
               <RefreshCw className="w-3 h-3" /> Refresh
             </Button>
+            <button
+              className="sm:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              onClick={onRefresh}
+              title="Refresh"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
             <OrganizerAvatarMenu organizer={organizer} onLogout={onLogout} />
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-6 sm:space-y-8">
         {isLocked && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             <div className="flex items-start gap-2">
@@ -1430,40 +1437,40 @@ function OrganizerDashboard({
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
-            <p className="text-2xl font-display font-black text-primary">{tournaments.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total</p>
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="p-3 sm:p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-xl sm:text-2xl font-display font-black text-primary">{tournaments.length}</p>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Total</p>
           </div>
-          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
-            <p className="text-2xl font-display font-black text-green-400">{activeTournaments.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Active</p>
+          <div className="p-3 sm:p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-xl sm:text-2xl font-display font-black text-green-400">{activeTournaments.length}</p>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Active</p>
           </div>
-          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
-            <p className="text-2xl font-display font-black text-blue-400">{completedTournaments.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Completed</p>
+          <div className="p-3 sm:p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-xl sm:text-2xl font-display font-black text-blue-400">{completedTournaments.length}</p>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Completed</p>
           </div>
         </div>
 
         {/* Tournaments Section */}
         <div>
-          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-            <h2 className="text-lg font-display font-bold flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-primary" /> Your Tournaments
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap sm:flex-nowrap">
+            <h2 className="text-base sm:text-lg font-display font-bold flex items-center gap-2 flex-shrink-0">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> Your Tournaments
             </h2>
-            <div className="flex items-center gap-2 flex-1 min-w-0 max-w-xs">
+            <div className="flex items-center gap-2 w-full sm:flex-1 sm:min-w-0 sm:max-w-xs">
               <div className="relative flex-1">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search..."
-                  className="pl-8 h-8 text-sm"
+                  className="pl-8 h-9 text-sm"
                 />
               </div>
               <Button
                 size="sm"
-                className="gap-1.5 shrink-0 h-8"
+                className="gap-1.5 shrink-0 h-9"
                 disabled={isLocked}
                 onClick={() => setCreateOpen(true)}
               >

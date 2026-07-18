@@ -57,72 +57,56 @@ export default function Reports() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-8">
+      <div className="org-page-content">
         <OrganizerSectionHeader
           tournament={tournament}
-          title={<span className="flex items-center gap-3"><BarChart3 className="w-8 h-8 text-primary" /> Reports & Analytics</span>}
+          title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-primary" /> Reports & Analytics</span>}
           description="Auction performance overview and statistics."
         />
 
         {/* Summary Stats */}
         {loadingSummary ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-28" />)}
+          <div className="org-stat-grid">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="border-border">
-              <CardContent className="p-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Total Players</p>
-                    <p className="text-3xl font-display font-bold">{summary?.totalPlayers || 0}</p>
-                  </div>
-                  <div className="p-2 bg-blue-500/10 rounded-lg"><Users className="w-4 h-4 text-blue-500" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="p-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Sold</p>
-                    <p className="text-3xl font-display font-bold text-green-500">{summary?.soldPlayers || 0}</p>
-                  </div>
-                  <div className="p-2 bg-green-500/10 rounded-lg"><UserCheck className="w-4 h-4 text-green-500" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="p-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Total Spent</p>
-                    <p className="text-3xl font-display font-bold text-primary">{formatShortIndianRupee(summary?.totalSpent)}</p>
-                  </div>
-                  <div className="p-2 bg-primary/10 rounded-lg"><Wallet className="w-4 h-4 text-primary" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="p-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Highest Bid</p>
-                    <p className="text-3xl font-display font-bold text-purple-400">{formatShortIndianRupee(summary?.highestBid)}</p>
-                  </div>
-                  <div className="p-2 bg-purple-500/10 rounded-lg"><TrendingUp className="w-4 h-4 text-purple-400" /></div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="org-stat-grid">
+            <div className="org-kpi-card flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="org-kpi-label">Total Players</p>
+                <p className="org-kpi-value">{summary?.totalPlayers || 0}</p>
+              </div>
+              <div className="org-kpi-icon bg-blue-500/10"><Users className="w-5 h-5 text-blue-500" /></div>
+            </div>
+            <div className="org-kpi-card flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="org-kpi-label">Sold</p>
+                <p className="org-kpi-value text-green-500">{summary?.soldPlayers || 0}</p>
+              </div>
+              <div className="org-kpi-icon bg-green-500/10"><UserCheck className="w-5 h-5 text-green-500" /></div>
+            </div>
+            <div className="org-kpi-card flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="org-kpi-label">Total Spent</p>
+                <p className="org-kpi-value text-primary">{formatShortIndianRupee(summary?.totalSpent)}</p>
+              </div>
+              <div className="org-kpi-icon bg-primary/10"><Wallet className="w-5 h-5 text-primary" /></div>
+            </div>
+            <div className="org-kpi-card flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="org-kpi-label">Highest Bid</p>
+                <p className="org-kpi-value text-purple-400">{formatShortIndianRupee(summary?.highestBid)}</p>
+              </div>
+              <div className="org-kpi-icon bg-purple-500/10"><TrendingUp className="w-5 h-5 text-purple-400" /></div>
+            </div>
           </div>
         )}
 
         {/* Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary" /> Team Purse Usage
               </CardTitle>
             </CardHeader>
@@ -150,8 +134,8 @@ export default function Reports() {
           </Card>
 
           <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" /> Sold by Category
               </CardTitle>
             </CardHeader>
@@ -186,8 +170,8 @@ export default function Reports() {
         {/* Team Purse Detail Table */}
         {teamPurses && teamPurses.length > 0 && (
           <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" /> Team Purse Breakdown
               </CardTitle>
             </CardHeader>
@@ -196,20 +180,20 @@ export default function Reports() {
                 const pct = Math.min(100, (team.purseUsed / team.purse) * 100);
                 return (
                   <div key={team.teamId} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: team.color || "#666" }} />
-                        <span className="font-semibold">{team.teamName}</span>
-                        <span className="text-muted-foreground text-xs">{team.playersBought} players</span>
+                    <div className="flex items-center justify-between gap-2 text-sm flex-wrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: team.color || "#666" }} />
+                        <span className="font-semibold truncate">{team.teamName}</span>
+                        <span className="text-muted-foreground text-xs flex-shrink-0">{team.playersBought} players</span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs">
+                      <div className="flex items-center gap-3 text-xs flex-shrink-0">
                         <span className="text-muted-foreground">{formatShortIndianRupee(team.purseUsed)} used</span>
                         <span className="font-mono font-bold" style={{ color: team.color || "#fff" }}>
                           {formatShortIndianRupee(team.purseRemaining)} left
                         </span>
                       </div>
                     </div>
-                    <Progress value={pct} className="h-2" />
+                    <Progress value={pct} className="h-1.5" />
                   </div>
                 );
               })}
@@ -220,17 +204,17 @@ export default function Reports() {
         {/* Top Bids */}
         {topBids && topBids.length > 0 && (
           <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Award className="w-4 h-4 text-primary" /> Top Sold Players
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {topBids.map((entry, i) => (
-                  <div key={entry.playerId} className="flex items-center gap-4 py-3 border-b border-border/50 last:border-0">
+                  <div key={entry.playerId} className="flex items-center gap-3 sm:gap-4 py-3 border-b border-border/50 last:border-0">
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center font-display font-bold text-sm flex-shrink-0"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-display font-bold text-xs sm:text-sm flex-shrink-0"
                       style={{
                         backgroundColor: i === 0 ? "#F59E0B22" : i === 1 ? "#94A3B822" : i === 2 ? "#A855F722" : "#1e293b",
                         color: i === 0 ? "#F59E0B" : i === 1 ? "#94A3B8" : i === 2 ? "#A855F7" : "#666",
@@ -245,9 +229,9 @@ export default function Reports() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="font-mono font-bold text-primary">{formatIndianRupee(entry.soldPrice)}</p>
+                      <p className="font-mono font-bold text-primary text-sm">{formatIndianRupee(entry.soldPrice)}</p>
                       <div className="flex items-center gap-1 justify-end mt-0.5">
-                        {entry.teamColor && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.teamColor }} />}
+                        {entry.teamColor && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.teamColor }} />}
                         <p className="text-xs text-muted-foreground">{entry.teamName}</p>
                       </div>
                     </div>
