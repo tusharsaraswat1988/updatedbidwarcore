@@ -57,7 +57,9 @@ These must be true **before** merging the release PR. Confirm again here if need
 | 1.2 | `GET https://bidwar.in/api/healthz` (or prod `APP_URL`) returns healthy response | ☐ |
 | 1.3 | `GET https://bidwar.in/admin/login` returns HTTP 200 | ☐ |
 | 1.4 | Render logs: no crash loop, no missing required env errors | ☐ |
-| 1.5 | Deploy commit matches merged `main` SHA | ☐ |
+| 1.5 | Deploy commit matches merged `main` SHA (`healthz.commitSha` / Render dashboard) | ☐ |
+| 1.6 | **Super Admin scope regression:** `GET https://bidwar.in/api/__probe_not_a_real_route` must **NOT** return `{"middleware":"requireMasterAdmin"}` (expect SPA HTML or 404). If it returns Super Admin 403, production is still on the broken Communication Center mount — Manual Deploy / clear build cache from `main`. | ☐ |
+| 1.7 | `GET https://bidwar.in/api/tournaments/1/badminton` must **NOT** return Super Admin 403 for unauthenticated callers (expect 401/404/HTML — not `requireMasterAdmin`) | ☐ |
 
 ---
 
