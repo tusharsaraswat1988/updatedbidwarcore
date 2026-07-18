@@ -63,18 +63,18 @@ export function OrganizerSectionHeader({
   const showContext = !hideTournamentContext && !!tournament?.name;
 
   return (
-    <div className={cn("flex items-center justify-between gap-4 flex-wrap", className)}>
-      <div className="min-w-0">
+    <div className={cn("flex items-start justify-between gap-3 flex-wrap", className)}>
+      <div className="min-w-0 flex-1">
         {showContext ? (
           <TournamentContextLabel tournament={tournament} className="mb-1.5" />
         ) : null}
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className={cn("text-4xl font-bold tracking-tight", titleClassName)}>{title}</h1>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <h1 className={cn("text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight", titleClassName)}>{title}</h1>
           {titleExtra}
         </div>
-        {description ? <p className="text-muted-foreground mt-2">{description}</p> : null}
+        {description ? <p className="text-muted-foreground mt-1.5 text-sm sm:text-base">{description}</p> : null}
       </div>
-      {actions ? <div className="flex-shrink-0">{actions}</div> : null}
+      {actions ? <div className="flex-shrink-0 flex items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
