@@ -726,21 +726,22 @@ export default function TournamentSettings() {
       <div className="w-full max-w-[1500px] mx-auto">
       {/* Page header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Button
             variant="ghost"
             size="sm"
-            className="gap-1.5 text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="gap-1.5 text-muted-foreground hover:text-foreground flex-shrink-0 h-9 px-2.5 sm:px-3"
             onClick={() => navigate(`/tournament/${tournamentId}`)}
           >
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
           </Button>
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold flex items-center gap-2 truncate">
-              <Settings className="w-5 h-5 text-primary flex-shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 truncate">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
               Tournament Settings
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {tournament?.name} — changes save automatically.
             </p>
           </div>
@@ -763,9 +764,9 @@ export default function TournamentSettings() {
         blockReason={saveBlockReason}
       />
 
-      {/* Sticky tab strip */}
-      <div className="sticky top-0 z-20 mb-5 rounded-xl border border-border/70 bg-[hsl(240,10%,8%)] p-1 shadow-sm shadow-black/15">
-        <div className="flex overflow-x-auto scrollbar-none">
+      {/* Sticky tab strip — horizontally scrollable on mobile */}
+      <div className="sticky top-0 z-20 mb-4 sm:mb-5 rounded-xl border border-border/70 bg-[hsl(240,10%,8%)] p-1 shadow-sm shadow-black/15">
+        <div className="flex overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         {tabs.map(tab => {
           const Icon = tab.icon;
           const active = activeSection === tab.id;
@@ -773,13 +774,14 @@ export default function TournamentSettings() {
             <button
               key={tab.id}
               onClick={() => navigate(settingsPath(tournamentId, tab.id), { replace: true })}
-              className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-semibold transition-all rounded-lg ${
+              className={`flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all rounded-lg min-w-0 touch-target ${
                 active
                   ? "text-primary bg-[hsl(240,10%,14%)] shadow-sm ring-1 ring-primary/25"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
               }`}
             >
-              <Icon className="w-4 h-4" /> {tab.label}
+              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="whitespace-nowrap">{tab.label}</span>
             </button>
           );
         })}

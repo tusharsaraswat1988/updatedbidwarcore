@@ -29,12 +29,12 @@ function LinkSectionHeader({
   icon?: ReactNode;
 }) {
   return (
-    <div className="bg-yellow-400 px-6 py-3">
-      <div className="flex items-center gap-2">
-        {icon ? <span className="text-slate-900">{icon}</span> : null}
-        <h2 className="font-display text-lg font-bold text-slate-900">{title}</h2>
+    <div className="px-5 py-4 border-b border-border/60 bg-card/50">
+      <div className="flex items-center gap-2.5">
+        {icon ? <span className="text-primary">{icon}</span> : null}
+        <h2 className="font-display text-base font-bold text-foreground">{title}</h2>
       </div>
-      <p className="mt-1 text-xs text-slate-800">{description}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -47,24 +47,26 @@ function LinkRow({ label, url, description, shareText }: { label: string; url: s
   }
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareText ?? `${label}: ${url}`)}`;
   return (
-    <div className="flex items-center gap-4 py-4 border-b border-border/50 last:border-0">
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm">{label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-        <p className="text-xs font-mono text-primary mt-1 truncate">{url}</p>
-      </div>
-      <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
-        <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={copy}>
-          <Copy className="w-3.5 h-3.5" /> Copy
-        </Button>
-        <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
-          <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-          </a>
-        </Button>
-        <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => window.open(url, "_blank")}>
-          <ExternalLink className="w-3.5 h-3.5" /> Open
-        </Button>
+    <div className="py-4 border-b border-border/50 last:border-0">
+      <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm">{label}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
+          <p className="text-xs font-mono text-primary mt-1.5 break-all">{url}</p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end w-full sm:w-auto">
+          <Button size="sm" variant="outline" className="gap-1.5 h-9 touch-target" onClick={copy}>
+            <Copy className="w-3.5 h-3.5" /> Copy
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 h-9 touch-target" asChild>
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+            </a>
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 h-9 touch-target" onClick={() => window.open(url, "_blank")}>
+            <ExternalLink className="w-3.5 h-3.5" /> Open
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -89,14 +91,14 @@ export default function LinksPage() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-8 max-w-3xl">
+      <div className="org-page-content max-w-3xl">
         <OrganizerSectionHeader
           tournament={tournament}
           title={<span className="flex items-center gap-3"><Link2 className="w-8 h-8 text-primary" /> Links</span>}
           description="Share links for auction day — LED screen, streaming, and spectators."
         />
 
-        <Card className="overflow-hidden border-primary/30 bg-primary/5">
+        <Card className="overflow-hidden border-border">
           <CardContent className="p-0">
             <LinkSectionHeader
               title="LED Big Screen"
@@ -129,7 +131,7 @@ export default function LinksPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-violet-500/25 bg-violet-500/5">
+        <Card className="overflow-hidden border-border">
           <CardContent className="p-0">
             <LinkSectionHeader
               icon={<Radio className="h-5 w-5" />}
