@@ -8,7 +8,6 @@ import {
   getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { readinessFixPath } from "@/lib/settings-navigation";
@@ -101,27 +100,27 @@ export default function TournamentHub() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-8">
+      <div className="org-page-content">
         {/* Title */}
         <div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             {tournament?.logoUrl && (
-              <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
+              <img src={tournament.logoUrl} alt={tournament.name} className="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded flex-shrink-0" />
             )}
-            <h1 className="text-4xl font-bold tracking-tight">{tournament?.name}</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">{tournament?.name}</h1>
             {readinessMode === "trial" ? <TrialLicenseBadge /> : null}
-            <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
+            <span className="px-2.5 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded-full text-[11px] font-bold tracking-widest uppercase">
               {statusLabel}
             </span>
           </div>
-          <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
+          <p className="text-muted-foreground mt-1.5 font-mono text-xs sm:text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
             {tournament?.sport?.toUpperCase()}
             {tournament?.city && <span>· {tournament.city}</span>}
             {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
             {tournament?.venue && <span>· {tournament.venue}</span>}
             <span>· {budgetLabel}: {formatAmount(tournament?.basePurse)}</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
+          <p className="text-xs text-muted-foreground mt-1.5 max-w-2xl">
             {isSetupPhase && readinessComplete
               ? "Setup complete — open Auction Control when you are ready to start."
               : "Add teams and players, finish settings, then open Auction Control in a new tab when you are ready."}
@@ -129,118 +128,82 @@ export default function TournamentHub() {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="org-stat-grid">
           {isSetupPhase ? (
             <>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Teams</p>
-                      {loadingPurses ? <Skeleton className="h-9 w-16" /> : (
-                        <>
-                          <p className="text-3xl font-display font-bold">{teamCount}</p>
-                          <p className={`text-xs ${teamsReady ? "text-green-400" : "text-muted-foreground"}`}>
-                            {teamsReady
-                              ? `Ready · min ${MIN_TEAMS_REQUIRED}`
-                              : `${teamCount} of ${MIN_TEAMS_REQUIRED} minimum`}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <div className="p-3 bg-amber-500/10 rounded-lg"><Users className="w-5 h-5 text-amber-500" /></div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Players</p>
-                      {loadingSummary ? <Skeleton className="h-9 w-16" /> : (
-                        <>
-                          <p className="text-3xl font-display font-bold">{playerCount}</p>
-                          <p className={`text-xs ${playersReady ? "text-green-400" : "text-muted-foreground"}`}>
-                            {playersReady
-                              ? `Ready · min ${minPlayersNeeded}`
-                              : `${playerCount} of ${minPlayersNeeded} minimum`}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <div className="p-3 bg-blue-500/10 rounded-lg"><UserCheck className="w-5 h-5 text-blue-500" /></div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Settings</p>
-                      <p className="text-3xl font-display font-bold text-primary">{readinessPercent}%</p>
-                    </div>
-                    <div className="p-3 bg-primary/10 rounded-lg"><Activity className="w-5 h-5 text-primary" /></div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Steps left</p>
-                      <p className="text-3xl font-display font-bold">{readinessTotal - readinessDoneCount}</p>
-                    </div>
-                    <div className="p-3 bg-muted/30 rounded-lg"><CheckCircle2 className="w-5 h-5 text-muted-foreground" /></div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Teams</p>
+                  {loadingPurses ? <Skeleton className="h-8 w-14 mt-1.5" /> : (
+                    <>
+                      <p className="org-kpi-value">{teamCount}</p>
+                      <p className={`text-xs mt-1 ${teamsReady ? "text-green-400" : "text-muted-foreground"}`}>
+                        {teamsReady ? `Ready · min ${MIN_TEAMS_REQUIRED}` : `${teamCount} of ${MIN_TEAMS_REQUIRED} minimum`}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="org-kpi-icon bg-amber-500/10"><Users className="w-5 h-5 text-amber-500" /></div>
+              </div>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Players</p>
+                  {loadingSummary ? <Skeleton className="h-8 w-14 mt-1.5" /> : (
+                    <>
+                      <p className="org-kpi-value">{playerCount}</p>
+                      <p className={`text-xs mt-1 ${playersReady ? "text-green-400" : "text-muted-foreground"}`}>
+                        {playersReady ? `Ready · min ${minPlayersNeeded}` : `${playerCount} of ${minPlayersNeeded} minimum`}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="org-kpi-icon bg-blue-500/10"><UserCheck className="w-5 h-5 text-blue-500" /></div>
+              </div>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Settings</p>
+                  <p className="org-kpi-value text-primary">{readinessPercent}%</p>
+                </div>
+                <div className="org-kpi-icon bg-primary/10"><Activity className="w-5 h-5 text-primary" /></div>
+              </div>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Steps left</p>
+                  <p className="org-kpi-value">{readinessTotal - readinessDoneCount}</p>
+                </div>
+                <div className="org-kpi-icon bg-muted/30"><CheckCircle2 className="w-5 h-5 text-muted-foreground" /></div>
+              </div>
             </>
           ) : (
             <>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Total Players</p>
-                      {loadingSummary ? <Skeleton className="h-9 w-16" /> : <p className="text-3xl font-display font-bold">{summary?.totalPlayers || 0}</p>}
-                    </div>
-                    <div className="p-3 bg-blue-500/10 rounded-lg"><Users className="w-5 h-5 text-blue-500" /></div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Sold</p>
-                      {loadingSummary ? <Skeleton className="h-9 w-16" /> : <p className="text-3xl font-display font-bold text-green-500">{summary?.soldPlayers || 0}</p>}
-                    </div>
-                    <div className="p-3 bg-green-500/10 rounded-lg"><UserCheck className="w-5 h-5 text-green-500" /></div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Unsold</p>
-                      {loadingSummary ? <Skeleton className="h-9 w-16" /> : <p className="text-3xl font-display font-bold text-destructive">{summary?.unsoldPlayers || 0}</p>}
-                    </div>
-                    <div className="p-3 bg-destructive/10 rounded-lg"><UserMinus className="w-5 h-5 text-destructive" /></div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Total Spent</p>
-                      {loadingSummary ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-display font-bold text-primary">{formatShort(summary?.totalSpent)}</p>}
-                    </div>
-                    <div className="p-3 bg-primary/10 rounded-lg"><Wallet className="w-5 h-5 text-primary" /></div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Total Players</p>
+                  {loadingSummary ? <Skeleton className="h-8 w-14 mt-1.5" /> : <p className="org-kpi-value">{summary?.totalPlayers || 0}</p>}
+                </div>
+                <div className="org-kpi-icon bg-blue-500/10"><Users className="w-5 h-5 text-blue-500" /></div>
+              </div>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Sold</p>
+                  {loadingSummary ? <Skeleton className="h-8 w-14 mt-1.5" /> : <p className="org-kpi-value text-green-500">{summary?.soldPlayers || 0}</p>}
+                </div>
+                <div className="org-kpi-icon bg-green-500/10"><UserCheck className="w-5 h-5 text-green-500" /></div>
+              </div>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Unsold</p>
+                  {loadingSummary ? <Skeleton className="h-8 w-14 mt-1.5" /> : <p className="org-kpi-value text-destructive">{summary?.unsoldPlayers || 0}</p>}
+                </div>
+                <div className="org-kpi-icon bg-destructive/10"><UserMinus className="w-5 h-5 text-destructive" /></div>
+              </div>
+              <div className="org-kpi-card flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="org-kpi-label">Total Spent</p>
+                  {loadingSummary ? <Skeleton className="h-8 w-20 mt-1.5" /> : <p className="org-kpi-value text-primary">{formatShort(summary?.totalSpent)}</p>}
+                </div>
+                <div className="org-kpi-icon bg-primary/10"><Wallet className="w-5 h-5 text-primary" /></div>
+              </div>
             </>
           )}
         </div>

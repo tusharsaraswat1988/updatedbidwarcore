@@ -562,7 +562,7 @@ export default function Teams() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-8">
+      <div className="org-page-content">
         {/* T011: flow guard — remind organiser once exactly 1 team added */}
         {!isLoading && (teams?.length ?? 0) === 1 && !isAuctionEnded && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-xl">
