@@ -64,6 +64,9 @@ export async function acquireOperatorLock(
       if (age <= lockKeyTtlMs()) {
         return { acquired: false, holderTabId: existing.sessionId };
       }
+      // Timestamp expired but Redis key may still exist — clear so NX can succeed.
+      // Without this, two fresh tabs both see a dead holder and both stay read-only.
+      await redis.del(key);
     }
 
     const payload = serializeLock(sessionId, ownerId, now);

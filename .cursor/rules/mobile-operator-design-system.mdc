@@ -1,0 +1,69 @@
+---
+description: Mobile Auction Operator Console design system — action-first, one-handed, high-pressure UI
+globs: artifacts/auction-platform/src/pages/auction-operator.tsx,artifacts/auction-platform/src/components/operator-*.tsx,artifacts/auction-platform/src/components/**/operator*.tsx
+alwaysApply: false
+---
+
+# Mobile Operator Console Design System
+
+The mobile/tablet operator panel is **not** a responsive copy of desktop. It is a
+dedicated Auction Operating Console for one-handed use under pressure. Apply
+this to every current and future mobile operator screen (Auction, Queue,
+Teams, Broadcast, and any new operator surface).
+
+## 1. Action first
+Anything that performs an action (Start Bidding, Next Player, Sold, Unsold,
+Defer, Manual Sell, Pause) outranks anything read-only (purse, stats, history,
+team/player details, queue counts). Buttons are always visually larger than
+info cards — never give them equal weight.
+
+## 2. Button hierarchy (mobile)
+Biggest, thumb-reachable, no-scroll-required: **Start Bidding, Next Player,
+Sold, Unsold**. Slightly smaller: **Defer, Manual Sell**. Everything else
+(reauction, timers, quick bid roster) is visually smaller still.
+
+## 3. Info density
+Read-only content (team cards, purse, queue counters, bid history, player
+stats) must be compact — minimal vertical space, small type. Never let a
+read-only card compete for space with an action button.
+
+## 4. Player photo
+Desktop/LED: large photo. **Mobile: thumbnail only (~25% photo / 75% info)**
+— the operator already knows the player; the photo is just confirmation.
+
+## 5. Color system — max 5 semantic colors
+- **Green** = success (Sold, Active, Start)
+- **Red** = danger (Unsold, Delete, Stop)
+- **Yellow/Amber** = warning (Pause, Next Player, Defer)
+- **Blue** = info (Manual, Queue)
+- **Neutral gray** = everything else
+Don't invent a new accent color per feature.
+
+## 6. One responsibility per screen
+- **Auction** — live auction ops only (player, bid, sold/unsold/defer/manual, timers). No unrelated read-only panels.
+- **Queue** — search/filter/push-to-auction only. Automatic order ⇒ disable editing + show info message. Manual order ⇒ full management.
+- **Teams** (was "Reference") — read-only: purse, squad, max bid, remaining slots, reserve purse, recent purchases. No auction controls.
+- **Broadcast** — LED (Main/Team/Player/Top5/Banner) + OBS (Live/Team/Player/Top5) + Utilities (Break Timer, Fortune Wheel, Booster) only.
+Never duplicate the same control across screens.
+
+## 7. Header
+Compact 2-row mobile/tablet header: (1) logo + tournament name + live + back,
+(2) SOLD • LEFT • ACTIVE + session control (Pause/Start/Conclude). Never put
+LED/OBS/MAIN/QUICK controls on the Auction screen — those belong only in
+Broadcast. Desktop header stays unchanged.
+
+## 8. Touch & layout
+- Min touch target 44px, prefer 56–72px for the primary 4 (Start/Next/Sold/Unsold).
+- No horizontal scrolling, ever.
+- Primary controls must render above the fold without scrolling; secondary content (timers, quick bid, history) can require a scroll.
+- Test at 320/360/390/412/768/1024px. Browser and APK (Capacitor/PWA) must render identically — no platform-specific layout branches.
+
+## 9. Performance
+Avoid heavy animation/transition on the hot path (Sold/Unsold/Next Player).
+Prefer instant visual feedback over decorative motion.
+
+## 10. Desktop is out of scope
+Never change desktop behavior/layout to satisfy a mobile requirement. Always
+implement mobile-only views via `lg:hidden` / `hidden lg:flex` siblings (or
+shared extracted JSX constants rendered in each), not by altering the shared
+desktop tree.
