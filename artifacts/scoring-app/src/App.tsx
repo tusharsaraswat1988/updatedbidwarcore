@@ -16,6 +16,7 @@ import BadmintonPlayersPage from "@/pages/badminton/players";
 import BadmintonMatchesPage from "@/pages/badminton/matches";
 import BadmintonMatchControlPage from "@/pages/badminton/match-control";
 import BadmintonCourtsPage from "@/pages/badminton/courts";
+import BadmintonScorersPage from "@/pages/badminton/scorers";
 import BadmintonCategoriesPage from "@/pages/badminton/categories";
 import BadmintonFixturesPage from "@/pages/badminton/fixtures";
 import BadmintonSchedulePage from "@/pages/badminton/schedule";
@@ -73,6 +74,7 @@ function BadmintonOrganizerLayout({ tournamentId }: { tournamentId: number }) {
             <Route path="/tournament/:id/badminton/matches/:matchId/control" component={BadmintonMatchControlPage} />
             <Route path="/tournament/:id/badminton/matches" component={BadmintonMatchesPage} />
             <Route path="/tournament/:id/badminton/courts" component={BadmintonCourtsPage} />
+            <Route path="/tournament/:id/badminton/scorers" component={BadmintonScorersPage} />
             <Route path="/tournament/:id/badminton/categories" component={BadmintonCategoriesPage} />
             <Route path="/tournament/:id/badminton/fixtures" component={BadmintonFixturesPage} />
             <Route path="/tournament/:id/badminton/schedule" component={BadmintonSchedulePage} />

@@ -50,6 +50,7 @@ export function resolveScoringDocumentTitle(pathname: string, search = ""): stri
       players: "Players",
       matches: "Matches",
       courts: "Courts",
+      scorers: "Scorers",
       categories: "Categories",
       fixtures: "Fixtures",
       schedule: "Schedule",

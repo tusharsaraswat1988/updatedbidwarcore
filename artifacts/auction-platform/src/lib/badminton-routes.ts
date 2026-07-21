@@ -85,6 +85,12 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     isActive: (path) => pathEndsWithSection(path, "courts"),
   },
   {
+    id: "scorers",
+    label: "Scorers",
+    href: (tid) => `${badmintonHubPath(tid)}/scorers`,
+    isActive: (path) => pathEndsWithSection(path, "scorers"),
+  },
+  {
     id: "fixtures",
     label: "Fixtures",
     href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
@@ -182,8 +188,12 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
     return { kind: "link", href: `${hub}/fixtures`, label: "Back to Fixtures" };
   }
 
-  if (/\/badminton\/fixtures/.test(pathname)) {
+  if (/\/badminton\/scorers/.test(pathname)) {
     return { kind: "link", href: `${hub}/courts`, label: "Back to Venues & Courts" };
+  }
+
+  if (/\/badminton\/fixtures/.test(pathname)) {
+    return { kind: "link", href: `${hub}/scorers`, label: "Back to Scorers" };
   }
 
   if (/\/badminton\/matches\/?$/.test(pathname) || /\/badminton\/matches\?/.test(pathname)) {

@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, scorerAccountsTable, scorerSessionsTable } from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
@@ -227,3 +227,155 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
   const m = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
   return m?.[1]?.trim() || null;
 }
+
+export type ScorerAccountAdminRow = {
+  id: number;
+  name: string;
+  mobile: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+function serializeScorerAccountAdmin(
+  row: typeof scorerAccountsTable.$inferSelect,
+): ScorerAccountAdminRow {
+  return {
+    id: row.id,
+    name: row.name,
+    mobile: row.mobile,
+    isActive: row.isActive,
+    lastLoginAt: row.lastLoginAt ? row.lastLoginAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** Organizer admin: list scorer accounts (global). */
+export async function listScorerAccountsForAdmin(): Promise<ScorerAccountAdminRow[]> {
+  const rows = await db
+    .select()
+    .from(scorerAccountsTable)
+    .orderBy(asc(scorerAccountsTable.name), asc(scorerAccountsTable.id));
+  return rows.map(serializeScorerAccountAdmin);
+}
+
+/** Organizer admin: create a scorer account. */
+export async function createScorerAccountForAdmin(input: {
+  name: string;
+  mobile: string;
+  pin: string;
+}): Promise<ScorerAccountAdminRow> {
+  const name = input.name.trim();
+  if (!name) {
+    throw new ScorerAuthError("Name is required", "INVALID_NAME", 400);
+  }
+  const mobile = normalizeMobile(input.mobile);
+  const pin = input.pin.trim();
+  if (pin.length < 4) {
+    throw new ScorerAuthError("PIN must be at least 4 characters", "INVALID_PIN", 400);
+  }
+
+  const [existing] = await db
+    .select({ id: scorerAccountsTable.id })
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.mobile, mobile))
+    .limit(1);
+  if (existing) {
+    throw new ScorerAuthError(
+      "A scorer with this mobile number already exists",
+      "MOBILE_TAKEN",
+      409,
+    );
+  }
+
+  const pinHash = await hashScorerPin(pin);
+  const [created] = await db
+    .insert(scorerAccountsTable)
+    .values({
+      name,
+      mobile,
+      pinHash,
+      isActive: true,
+    })
+    .returning();
+
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_account_created",
+    scorerId: created.id,
+    payload: { mobile, name },
+  });
+
+  return serializeScorerAccountAdmin(created);
+}
+
+/** Organizer admin: update name / PIN / active flag. */
+export async function updateScorerAccountForAdmin(
+  scorerId: number,
+  input: { name?: string; pin?: string; isActive?: boolean },
+): Promise<ScorerAccountAdminRow> {
+  const [existing] = await db
+    .select()
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.id, scorerId))
+    .limit(1);
+  if (!existing) {
+    throw new ScorerAuthError("Scorer not found", "NOT_FOUND", 404);
+  }
+
+  const patch: Partial<typeof scorerAccountsTable.$inferInsert> = {};
+  let revokeSessions = false;
+
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (!name) {
+      throw new ScorerAuthError("Name is required", "INVALID_NAME", 400);
+    }
+    patch.name = name;
+  }
+
+  if (input.pin !== undefined) {
+    const pin = input.pin.trim();
+    if (pin.length < 4) {
+      throw new ScorerAuthError("PIN must be at least 4 characters", "INVALID_PIN", 400);
+    }
+    patch.pinHash = await hashScorerPin(pin);
+    revokeSessions = true;
+  }
+
+  if (input.isActive !== undefined) {
+    patch.isActive = input.isActive;
+    if (!input.isActive) revokeSessions = true;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return serializeScorerAccountAdmin(existing);
+  }
+
+  const [updated] = await db
+    .update(scorerAccountsTable)
+    .set(patch)
+    .where(eq(scorerAccountsTable.id, scorerId))
+    .returning();
+
+  if (revokeSessions) {
+    await db
+      .update(scorerSessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(scorerSessionsTable.scorerId, scorerId));
+  }
+
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_account_updated",
+    scorerId,
+    payload: {
+      name: input.name !== undefined,
+      pinReset: input.pin !== undefined,
+      isActive: input.isActive,
+    },
+  });
+
+  return serializeScorerAccountAdmin(updated);
+}
+

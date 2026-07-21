@@ -77,9 +77,12 @@ import {
   friendlyBadmintonCommandMessage,
 } from "../lib/badminton-ops";
 import {
+  createScorerAccountForAdmin,
   extractBearerToken,
+  listScorerAccountsForAdmin,
   resolveScorerAuthFromToken,
   ScorerAuthError,
+  updateScorerAccountForAdmin,
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
 import {
@@ -740,6 +743,75 @@ router.delete("/players/:playerId", async (req, res) => {
   if (!updated) return void res.status(404).json({ error: "Player not found" });
 
   res.json({ deleted: true });
+});
+
+// ─── Scorer accounts (organizer manage) ───────────────────────────────────────
+
+router.get("/scorers", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  try {
+    const scorers = await listScorerAccountsForAdmin();
+    res.json({ scorers });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/scorers", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const schema = z.object({
+    name: z.string().min(1).max(100),
+    mobile: z.string().min(10).max(20),
+    pin: z.string().min(4).max(32),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return void res.status(400).json({ error: parsed.error.message, code: "VALIDATION_ERROR" });
+  }
+
+  try {
+    const scorer = await createScorerAccountForAdmin(parsed.data);
+    res.status(201).json({ scorer });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.patch("/scorers/:scorerId", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const scorerId = parseId((req.params as MergedParams).scorerId);
+  if (!scorerId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    name: z.string().min(1).max(100).optional(),
+    pin: z.string().min(4).max(32).optional(),
+    isActive: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return void res.status(400).json({ error: parsed.error.message, code: "VALIDATION_ERROR" });
+  }
+
+  try {
+    const scorer = await updateScorerAccountForAdmin(scorerId, parsed.data);
+    res.json({ scorer });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
 });
 
 // ─── Courts ──────────────────────────────────────────────────────────────────
