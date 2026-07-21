@@ -773,20 +773,17 @@ router.post("/courts", async (req, res) => {
     sortOrder: z.number().int().optional(),
     streamUrl: z.string().max(500).optional(),
     hasDisplay: z.boolean().optional(),
-    scorerPin: z.string().max(20).optional(),
-    scorerName: z.string().max(100).optional(),
+    // UI sends null when optional fields are left blank
+    scorerPin: z.string().max(20).nullable().optional(),
+    scorerName: z.string().max(100).nullable().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const scorerPin =
-    parsed.data.scorerPin !== undefined
-      ? parsed.data.scorerPin.trim().length >= 4
-        ? parsed.data.scorerPin.trim()
-        : null
-      : null;
-  if (parsed.data.scorerPin !== undefined && parsed.data.scorerPin.trim().length > 0 && !scorerPin) {
+  const rawPin = parsed.data.scorerPin?.trim() ?? "";
+  const scorerPin = rawPin.length >= 4 ? rawPin : null;
+  if (rawPin.length > 0 && !scorerPin) {
     return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
   }
 
