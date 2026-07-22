@@ -46,6 +46,12 @@ import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { navigateAfterOrganizerAuth } from "@/lib/navigate-after-organizer-auth";
 import { trackOrganizerSignupConversion } from "@/lib/google-ads-conversion";
+import {
+  getOrganizerAuctionStatusLabel,
+  getOrganizerLicenseBadgeKind,
+  isOrganizerTournamentActive,
+  isOrganizerTournamentCompleted,
+} from "@/lib/organizer-tournament-display";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
@@ -61,15 +67,22 @@ type Tournament = {
 
 // ─── Tournament License Badge ─────────────────────────────────────────────────
 
-function TournamentLicenseBadge({ status }: { status: string }) {
-  if (status === "active") {
+function TournamentLicenseBadge({
+  licenseStatus,
+  auctionStatus,
+}: {
+  licenseStatus: string;
+  auctionStatus: string;
+}) {
+  const kind = getOrganizerLicenseBadgeKind(licenseStatus, auctionStatus);
+  if (kind === "live-ready") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1" title="Live auction is activated">
         <ShieldCheck className="w-2.5 h-2.5" /> Live Ready
       </Badge>
     );
   }
-  if (status === "completed") {
+  if (kind === "auction-done") {
     return (
       <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] gap-1" title="Auction has finished">
         <CheckCheck className="w-2.5 h-2.5" /> Auction Done
@@ -1297,8 +1310,8 @@ function OrganizerDashboard({
   }
 
   const isLocked = isOrganizerAccountLocked(organizer.licenseStatus);
-  const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "active");
-  const completedTournaments = tournaments.filter(t => t.licenseStatus === "completed");
+  const activeTournaments = tournaments.filter(isOrganizerTournamentActive);
+  const completedTournaments = tournaments.filter(isOrganizerTournamentCompleted);
 
   const filteredTournaments = tournaments.filter(t => {
     const q = search.trim().toLowerCase();
@@ -1556,14 +1569,14 @@ function OrganizerDashboard({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
-                          <TournamentLicenseBadge status={t.licenseStatus} />
+                          <TournamentLicenseBadge licenseStatus={t.licenseStatus} auctionStatus={t.status} />
                         </div>
                         <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary flex-shrink-0 mt-0.5 transition-colors" />
                       </div>
                       <div>
                         <p className="font-bold text-base leading-snug group-hover:text-primary transition-colors">{t.name}</p>
                         <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
-                          {t.status}
+                          {getOrganizerAuctionStatusLabel(t.status)}
                         </p>
                       </div>
                       <p className="text-xs text-muted-foreground">
