@@ -17,6 +17,7 @@ import {
   hubCardClass,
   inputClass,
 } from "@/components/badminton/page-chrome";
+import { CourtAutocomplete } from "@/components/badminton/court-autocomplete";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import {
   DoublesPreMatchSetup,
@@ -92,6 +93,7 @@ export function PreMatchControlPanel({
   const softWarnings = warnings.filter((w) => w.soft);
   const hardWarnings = warnings.filter((w) => !w.soft);
   const canStart = !blocking;
+  const needsCourtOrTime = hardWarnings.some((w) => w.id === "court" || w.id === "scheduled");
   const pinHint = typeof scorerPin === "string" && scorerPin.trim().length >= 4 ? scorerPin.trim() : null;
   const isPair = isPairMatchKind(snapshot.matchType);
   const savedToss = parsePreMatchToss(snapshot.preMatchTossJson);
@@ -207,7 +209,7 @@ export function PreMatchControlPanel({
       </div>
 
       {hardWarnings.length > 0 ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
           <p className="text-amber-200 text-xs font-bold uppercase tracking-wider">
             Cannot start yet
           </p>
@@ -223,6 +225,15 @@ export function PreMatchControlPanel({
               </li>
             ))}
           </ul>
+          {needsCourtOrTime ? (
+            <button
+              type="button"
+              onClick={() => setShowDelay(true)}
+              className="min-h-11 px-4 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 border border-amber-400/40 text-amber-50 text-sm font-bold"
+            >
+              Set court & time now
+            </button>
+          ) : null}
         </div>
       ) : softWarnings.length > 0 ? (
         <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 p-4 space-y-2">
@@ -332,18 +343,29 @@ export function PreMatchControlPanel({
             type="button"
             disabled={busy}
             onClick={() => setShowDelay(true)}
-            className="min-h-11 px-4 rounded-xl bg-white/6 hover:bg-white/10 text-white/55 text-sm font-semibold"
+            className={cn(
+              "min-h-11 px-4 rounded-xl text-sm font-semibold",
+              needsCourtOrTime
+                ? "bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100"
+                : "bg-white/6 hover:bg-white/10 text-white/55",
+            )}
           >
-            Delay Match
+            {needsCourtOrTime ? "Set court & time" : "Change time"}
           </button>
           <Link
-            href={`/tournament/${snapshot.tournamentId}/badminton/schedule${
-              snapshot.fixtureId ? `?fixture=${snapshot.fixtureId}` : ""
-            }`}
+            href={`/tournament/${snapshot.tournamentId}/badminton/matches?edit=${snapshot.matchId}`}
             className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/45 text-sm font-semibold inline-flex items-center"
           >
-            Back to Scheduling
+            Edit match
           </Link>
+          {snapshot.fixtureId ? (
+            <Link
+              href={`/tournament/${snapshot.tournamentId}/badminton/schedule?fixture=${snapshot.fixtureId}`}
+              className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/45 text-sm font-semibold inline-flex items-center"
+            >
+              Fixture schedule
+            </Link>
+          ) : null}
           <Link
             href={`/tournament/${snapshot.tournamentId}/badminton/control`}
             className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 text-sm font-semibold inline-flex items-center"
@@ -389,12 +411,14 @@ export function PreMatchControlPanel({
       ) : null}
 
       {showDelay ? (
-        <DelayMatchModal
+        <AssignCourtTimeModal
           tournamentId={snapshot.tournamentId}
           matchId={snapshot.matchId}
           fixtureId={snapshot.fixtureId}
           courtId={snapshot.courtId}
+          courtLabel={snapshot.courtLabel}
           initialAt={snapshot.scheduledAt}
+          needsCourt={!snapshot.courtId && !snapshot.courtLabel?.trim()}
           onClose={() => setShowDelay(false)}
           onSaved={() => {
             setShowDelay(false);
@@ -467,12 +491,14 @@ function SideOutcomeModal({
   );
 }
 
-function DelayMatchModal({
+function AssignCourtTimeModal({
   tournamentId,
   matchId,
   fixtureId,
-  courtId,
+  courtId: initialCourtId,
+  courtLabel: initialCourtLabel,
   initialAt,
+  needsCourt,
   onClose,
   onSaved,
 }: {
@@ -480,16 +506,24 @@ function DelayMatchModal({
   matchId: number;
   fixtureId: number | null;
   courtId: number | null;
+  courtLabel: string | null;
   initialAt: string | null;
+  needsCourt: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [courtId, setCourtId] = useState<number | null>(initialCourtId);
+  const [courtNumber, setCourtNumber] = useState(initialCourtLabel?.trim() || "");
   const [date, setDate] = useState(toDateInput(initialAt) || toDateInput(new Date().toISOString()));
   const [time, setTime] = useState(toTimeInput(initialAt));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSave() {
+    if (courtId == null) {
+      setError("Select a court from the list");
+      return;
+    }
     if (!date || !time) {
       setError("Date and time are required");
       return;
@@ -500,7 +534,11 @@ function DelayMatchModal({
       const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
       await badmintonFetch(tournamentId, `/matches/${matchId}`, {
         method: "PATCH",
-        body: JSON.stringify({ scheduledAt }),
+        body: JSON.stringify({
+          scheduledAt,
+          courtId: courtId ?? undefined,
+          courtNumber: courtNumber.trim() || undefined,
+        }),
       });
       if (fixtureId != null && courtId != null) {
         await badmintonFetch(tournamentId, `/fixtures/${fixtureId}/schedule`, {
@@ -510,14 +548,31 @@ function DelayMatchModal({
       }
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delay failed");
+      setError(e instanceof Error ? e.message : "Could not save court and time");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <FormModal title="Delay Match" subtitle="Move scheduled time" onClose={onClose} size="md">
+    <FormModal
+      title={needsCourt || !initialAt ? "Set court & time" : "Change scheduled time"}
+      subtitle="Required before Toss & Start — also queues the match on Scorer Home"
+      onClose={onClose}
+      size="md"
+    >
+      <FormField label="Court (required)">
+        <CourtAutocomplete
+          tournamentId={tournamentId}
+          value={courtNumber}
+          courtId={courtId}
+          onChange={({ courtNumber: nextLabel, courtId: nextId }) => {
+            setCourtNumber(nextLabel);
+            setCourtId(nextId);
+          }}
+          placeholder="Search courts…"
+        />
+      </FormField>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Date">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
@@ -530,7 +585,7 @@ function DelayMatchModal({
       <FormActions
         onCancel={onClose}
         onSubmit={() => void handleSave()}
-        submitLabel="Save new time"
+        submitLabel="Save court & time"
         saving={saving}
       />
     </FormModal>

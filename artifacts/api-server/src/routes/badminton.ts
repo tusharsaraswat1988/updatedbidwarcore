@@ -1831,6 +1831,20 @@ router.post("/matches", async (req, res) => {
     fixtureCategoryId = fixtureCategoryId ?? fix.categoryId;
   }
 
+  // Court + time are required to start / appear on Scorer Home — enforce at create.
+  if (fixtureCourtId == null) {
+    return void res.status(400).json({
+      error: "Court is required. Assign a court before creating the match.",
+      code: "COURT_REQUIRED",
+    });
+  }
+  if (!fixtureScheduledAt || Number.isNaN(fixtureScheduledAt.getTime())) {
+    return void res.status(400).json({
+      error: "Scheduled time is required. Set a date and time before creating the match.",
+      code: "SCHEDULED_AT_REQUIRED",
+    });
+  }
+
   try {
     const created = await createBadmintonMatch({
       tournamentId,

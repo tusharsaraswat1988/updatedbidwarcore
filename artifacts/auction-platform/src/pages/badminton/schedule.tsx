@@ -411,7 +411,17 @@ export default function BadmintonSchedulePage() {
                 Unscheduled fixtures ({unscheduled.length})
               </h2>
               {unscheduled.length === 0 ? (
-                <p className="text-white/35 text-sm">All schedulable fixtures have a court and time.</p>
+                <p className="text-white/35 text-sm">
+                  All schedulable fixtures have a court and time. Next: open{" "}
+                  <Link
+                    href={`/tournament/${tournamentId}/badminton/matches`}
+                    className="text-[#4fc3f7] hover:underline"
+                  >
+                    Matches
+                  </Link>{" "}
+                  to create a scoring match, then Match Control to start. This page only schedules
+                  fixtures — it does not start live scoring.
+                </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {unscheduled.map((fixture) => (
@@ -456,10 +466,14 @@ export default function BadmintonSchedulePage() {
                         </h3>
                         <span className="text-white/30 text-xs">
                           {list.length} fixture{list.length !== 1 ? "s" : ""}
+                          {list.length === 0 ? " — create Matches separately" : ""}
                         </span>
                       </div>
                       {list.length === 0 ? (
-                        <p className="text-white/30 text-sm">No fixtures on this court yet.</p>
+                        <p className="text-white/30 text-sm">
+                          No fixtures on this court yet. After you schedule fixtures here, create
+                          scoring matches under Operations → Matches.
+                        </p>
                       ) : (
                         <div className="space-y-2">
                           {list.map((fixture) => (

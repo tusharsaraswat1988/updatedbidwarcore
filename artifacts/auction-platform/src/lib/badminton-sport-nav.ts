@@ -120,7 +120,10 @@ export function getBadmintonSportNav(): SportNavConfig {
       id: "operations",
       label: "Operations",
       items: [
-        byId("matches"),
+        {
+          ...byId("matches"),
+          hint: "Create · court + time · Match Control",
+        },
         {
           ...byId("control"),
           label: "Operator Panel",

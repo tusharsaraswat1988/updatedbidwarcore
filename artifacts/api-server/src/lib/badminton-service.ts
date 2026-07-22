@@ -1629,6 +1629,61 @@ export async function updateBadmintonMatch(
     }
   }
 
+  // When assigning court or time on a pre-start match, both must end up set
+  // (Match Control / Scorer Home require court + scheduled time to start).
+  if (
+    !rosterLocked &&
+    (input.courtId !== undefined ||
+      input.courtNumber !== undefined ||
+      input.scheduledAt !== undefined)
+  ) {
+    const [current] = await db
+      .select({
+        scheduledAt: scoringMatchesTable.scheduledAt,
+        courtId: badmintonMatchDetailsTable.courtId,
+        courtNumber: badmintonMatchDetailsTable.courtNumber,
+      })
+      .from(scoringMatchesTable)
+      .leftJoin(
+        badmintonMatchDetailsTable,
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      )
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    const nextCourtId = input.courtId !== undefined ? input.courtId : (current?.courtId ?? null);
+    const nextCourtNumber =
+      input.courtNumber !== undefined ? input.courtNumber : (current?.courtNumber ?? null);
+    const nextScheduledAt =
+      input.scheduledAt !== undefined ? input.scheduledAt : (current?.scheduledAt ?? null);
+    const hasCourt =
+      nextCourtId != null ||
+      (typeof nextCourtNumber === "string" && nextCourtNumber.trim().length > 0);
+
+    if (!hasCourt) {
+      throw new BadmintonServiceError(
+        "COURT_REQUIRED",
+        "Court is required. Assign a court before the match can be started.",
+        400,
+      );
+    }
+    if (!nextScheduledAt || Number.isNaN(new Date(nextScheduledAt).getTime())) {
+      throw new BadmintonServiceError(
+        "SCHEDULED_AT_REQUIRED",
+        "Scheduled time is required. Set a date and time before the match can be started.",
+        400,
+      );
+    }
+  }
+
   await db
     .update(badmintonMatchDetailsTable)
     .set(detailPatch)

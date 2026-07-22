@@ -128,30 +128,28 @@ export function buildMatchControlWarnings(
   if (snap.courtId == null && !snap.courtLabel?.trim()) {
     warnings.push({
       id: "court",
-      message: "No court assigned.",
-      href: `/tournament/${snap.tournamentId}/badminton/schedule`,
-      hrefLabel: "Open Scheduling",
+      message: "No court assigned — set court and time on this match before starting.",
+      href: `/tournament/${snap.tournamentId}/badminton/matches?edit=${snap.matchId}`,
+      hrefLabel: "Edit match",
     });
   }
 
   if (!snap.scheduledAt) {
     warnings.push({
       id: "scheduled",
-      message: "Match has no scheduled time.",
-      href: snap.fixtureId
-        ? `/tournament/${snap.tournamentId}/badminton/schedule?fixture=${snap.fixtureId}`
-        : `/tournament/${snap.tournamentId}/badminton/schedule`,
-      hrefLabel: "Back to Scheduling",
+      message: "No scheduled time — set court and time on this match before starting.",
+      href: `/tournament/${snap.tournamentId}/badminton/matches?edit=${snap.matchId}`,
+      hrefLabel: "Edit match",
     });
   } else if (isDelayedScheduledAt(snap.scheduledAt)) {
     warnings.push({
       id: "delayed",
       soft: true,
-      message: "Scheduled time has passed — confirm the court is free, or delay the match.",
+      message: "Scheduled time has passed — confirm the court is free, or change the time.",
       href: snap.fixtureId
         ? `/tournament/${snap.tournamentId}/badminton/schedule?fixture=${snap.fixtureId}`
-        : `/tournament/${snap.tournamentId}/badminton/schedule`,
-      hrefLabel: "Reschedule",
+        : `/tournament/${snap.tournamentId}/badminton/matches?edit=${snap.matchId}`,
+      hrefLabel: snap.fixtureId ? "Reschedule fixture" : "Edit match",
     });
   }
 

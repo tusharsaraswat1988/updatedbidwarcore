@@ -44,7 +44,7 @@ function QuadrantCell({
     <div
       className={cn(
         "relative flex flex-col items-center justify-center border transition-all duration-300",
-        isMini ? "p-2 min-h-[48px]" : isScorer ? "p-4 min-h-[72px]" : "p-5 min-h-[80px]",
+          isMini ? "p-2.5 min-h-[58px]" : isScorer ? "p-4 min-h-[72px]" : "p-5 min-h-[80px]",
         !ledTheme && isServer
           ? "bg-[#ffd700]/15 border-[#ffd700]/50 shadow-[inset_0_0_20px_rgba(255,215,0,0.15)]"
           : !ledTheme && isReceiver
@@ -57,7 +57,7 @@ function QuadrantCell({
       <span
         className={cn(
           "font-bold text-white text-center leading-tight",
-          isMini ? "text-xs" : isScorer ? "text-sm" : "text-base",
+          isMini ? "text-sm" : isScorer ? "text-sm" : "text-base",
         )}
         style={ledTheme && isServer ? { color: "var(--accent)" } : !ledTheme && isServer ? { color: "#ffd700" } : undefined}
       >
@@ -67,7 +67,7 @@ function QuadrantCell({
         <div className={cn("flex items-center gap-1 mt-1", isMini && "mt-0.5")}>
           {isServer && (
             <span
-              className={cn(isMini ? "text-[10px]" : "text-xs")}
+              className={cn(isMini ? "text-xs" : "text-xs")}
               style={{ color: ledTheme ? "var(--accent)" : "#ffd700" }}
             >
               {isMini ? "🟡" : "🟡 Serve"}
@@ -75,7 +75,7 @@ function QuadrantCell({
           )}
           {isReceiver && (
             <span
-              className={cn(isMini ? "text-[10px]" : "text-xs")}
+              className={cn(isMini ? "text-xs" : "text-xs")}
               style={{ color: ledTheme ? "var(--accent)" : "#4fc3f7" }}
             >
               {isMini ? "👁" : "👁 Receive"}

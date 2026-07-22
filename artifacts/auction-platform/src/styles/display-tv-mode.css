@@ -79,31 +79,130 @@
   }
 }
 
-/* ── Badminton LED scoreboard — inherits --accent from StageFrame; never reset here ── */
+/* ── BidWar Broadcast Typography System ──────────────────────────────────────
+   Semantic type tokens shared by every BidWar LED/broadcast display.
+   Voice: Barlow Condensed (athletic, high-legibility primary) for hero
+   numerals, identity and headings; Space Grotesk (geometric, distinct) for
+   labels/metadata/captions — this pairing is BidWar's own broadcast voice,
+   not a copy of BWF/IPL/ESPN styling.
+   Tokens intentionally carry family + weight + tracking + line-height +
+   case only — NOT font-size. Sizing stays driven by the existing
+   LED-responsive --score-* vars (or, for header text with no such var, the
+   original Tailwind size utility) so hierarchy improves without shifting
+   any layout or spacing already tuned in prior revisions. */
+.badminton-led-surface {
+  --bw-font-primary: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+  --bw-font-label: "Space Grotesk", "Barlow Condensed", system-ui, sans-serif;
+
+  /* Header-only sizes (no pre-existing --score-* var covers these two roles) */
+  --bw-size-subheading: clamp(0.82rem, 1.3vw, 1.05rem);
+  --bw-size-meta-lg: clamp(0.92rem, 1.3vw, 1.08rem);
+}
+
+/* Broadcast Display XL — the score. Unchanged voice/size; documented alias only. */
+.bw-display-xl {
+  font-family: var(--bw-font-primary);
+}
+
+/* Broadcast Display L — secondary hero numerals (game history, win overlays) */
+.bw-display-l {
+  font-family: var(--bw-font-primary);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Broadcast Heading — player/team identity + game number (athletic, premium) */
+.bw-heading {
+  font-family: var(--bw-font-primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+}
+
+/* Broadcast Subheading — tournament name: present, never competes with names */
+.bw-subheading {
+  font-family: var(--bw-font-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+  font-size: var(--bw-size-subheading);
+}
+
+/* Broadcast Label — tags/status/court-sponsor group (Live, Final, Court, Match…) */
+.bw-label {
+  font-family: var(--bw-font-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  line-height: 1.1;
+}
+
+/* Broadcast Metadata — informational values (country, serving name, deuce, games won) */
+.bw-meta {
+  font-family: var(--bw-font-primary);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Broadcast Metadata (large) — Court/Match numeric value; no shared --score-* var exists */
+.bw-meta-lg {
+  font-family: var(--bw-font-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--bw-size-meta-lg);
+}
+
+/* Broadcast Caption — smallest ancillary text (round name, micro-tags, footnotes) */
+.bw-caption {
+  font-family: var(--bw-font-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  line-height: 1.2;
+}
+
 .badminton-led-surface {
   --stage-opponent: #ff6b6b;
   --stage-opponent-glow: rgba(255, 107, 107, 0.45);
   --stage-opponent-muted: #ce93d8;
-  /* Responsive score zone — scales with 16:9 stage width */
-  --score-digit-size: clamp(5.5rem, 16vw, 13rem);
-  --score-colon-size: clamp(2.25rem, 6.5vw, 5rem);
+  /* Responsive score zone — hierarchy: score ≫ identity > game > serve > games won */
+  --score-digit-size: clamp(7.5rem, 22vw, 17rem);
+  --score-colon-size: clamp(3rem, 8vw, 6.5rem);
   --score-player-photo: clamp(6.5rem, 14vw, 11rem);
   --score-player-photo-pair: clamp(5rem, 10vw, 8rem);
-  --score-player-name: clamp(1.4rem, 3.2vw, 3rem);
-  --score-player-meta: clamp(0.75rem, 1.35vw, 1.1rem);
-  --score-game-dot: clamp(1rem, 1.9vw, 1.5rem);
-  --score-game-count: clamp(1.25rem, 2.4vw, 2rem);
-  --score-panel-gap: clamp(0.65rem, 1.6vh, 1.35rem);
-  --score-serve-diamond: clamp(0.65rem, 1.2vw, 1rem);
-  --score-game-pill: clamp(0.7rem, 1.25vw, 1rem);
-  --score-zone-px: clamp(3%, 5vw, 6%);
+  --score-player-name: clamp(1.15rem, 2.2vw, 2.1rem);
+  /* Doubles pairs pack two full names into 2 lines — smaller than singles */
+  --score-player-name-pair: clamp(0.85rem, 1.5vw, 1.45rem);
+  --score-player-meta: clamp(0.85rem, 1.5vw, 1.2rem);
+  --score-game-dot: clamp(1.2rem, 2.05vw, 1.75rem);
+  --score-game-count: clamp(1.35rem, 2.35vw, 2rem);
+  --score-panel-gap: clamp(0.45rem, 1.1vh, 0.9rem);
+  --score-serve-diamond: clamp(0.9rem, 1.65vw, 1.35rem);
+  --score-game-pill: clamp(1.05rem, 1.95vw, 1.65rem);
+  /* Outer margin keeps unit off LED edges; compose-gap binds player↔score↔player */
+  --score-zone-px: clamp(6%, 10vw, 14%);
+  --score-compose-gap: clamp(1.1rem, 2.2vw, 2.75rem);
+  /* Vertical density — pack stage upward; keep breathing room under score digits */
+  --score-stage-pt: clamp(1vh, 2.2vh, 3vh);
+  --score-stage-pb: clamp(0.4vh, 1vh, 1.5vh);
+  --score-centre-gap: clamp(0.5rem, 1.15vh, 0.85rem);
+  --score-score-breath: clamp(0.7rem, 1.7vh, 1.3rem);
 }
 
 @media (min-width: 2560px) {
   .badminton-led-surface {
-    --score-digit-size: clamp(8rem, 12vw, 15rem);
+    --score-digit-size: clamp(12rem, 18vw, 22rem);
+    --score-colon-size: clamp(4.5rem, 9vw, 8rem);
     --score-player-photo: clamp(9rem, 11vw, 13rem);
-    --score-player-name: clamp(2rem, 2.8vw, 3.5rem);
+    --score-player-name: clamp(1.5rem, 1.8vw, 2.25rem);
   }
 }
 
@@ -121,8 +220,109 @@
   height: var(--score-player-photo-pair);
 }
 
+/* Side panels — content-sized, mirrored weight beside score */
+.badminton-score-side-panel {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: max(
+    calc(var(--score-player-photo) * 1.35),
+    calc(var(--score-player-photo-pair) * 2 + 6rem)
+  );
+  gap: calc(var(--score-panel-gap) * 0.55);
+}
+
+/* Photo + name as one identity card (photos keep existing size tokens) */
+.badminton-score-identity-card {
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  width: 100%;
+  max-width: min(100%, calc(var(--score-player-photo) * 1.08));
+  gap: 0.28rem;
+}
+
+.badminton-score-identity-card--pair {
+  max-width: min(100%, calc(var(--score-player-photo-pair) * 2 + 6rem));
+}
+
+.badminton-score-identity-copy {
+  gap: 0.15rem;
+  width: 100%;
+}
+
 .badminton-score-player-name {
   font-size: var(--score-player-name);
+  line-height: 1.05;
+  max-width: 100% !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Doubles pairs — smaller size so both full names comfortably fit on 2 lines */
+.badminton-score-player-name--pair {
+  font-size: var(--score-player-name-pair) !important;
+  line-height: 1.12;
+}
+
+.badminton-score-identity-card .truncate {
+  max-width: 100%;
+}
+
+.badminton-score-games-won {
+  gap: calc(var(--score-panel-gap) * 0.6);
+  margin-top: calc(var(--score-panel-gap) * 0.95);
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.badminton-score-games-won--glam {
+  background: linear-gradient(
+    135deg,
+    var(--gw-tint, rgba(255, 255, 255, 0.06)) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border-color: var(--gw-border, rgba(255, 255, 255, 0.1));
+  box-shadow:
+    0 0 18px var(--gw-tint, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.badminton-score-games-won-label {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.badminton-score-stage {
+  padding-top: var(--score-stage-pt);
+  padding-bottom: var(--score-stage-pb);
+  padding-left: var(--score-zone-px);
+  padding-right: var(--score-zone-px);
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--score-compose-gap);
+}
+
+.badminton-score-centre {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: min(26vw, 300px);
+  max-width: min(40vw, 520px);
+  gap: var(--score-centre-gap);
+  padding-top: 0.15rem;
+  justify-content: flex-start;
+}
+
+.badminton-score-centre-score {
+  margin-bottom: var(--score-score-breath);
+}
+
+.badminton-score-history {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
 }
 
 .badminton-score-photo-initial {
