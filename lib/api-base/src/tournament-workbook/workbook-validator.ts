@@ -20,7 +20,7 @@ import {
 import {
   normalizeBooleanInput,
   normalizeStatusInput,
-} from "../auction-data/field-registry";
+} from "@workspace/auction/auction-data";
 import { getWorkbookSport } from "./workbook-parser";
 import { isValidRoleForSport, getRoleLabelsForSport, normalizeSportId } from "./sport-registry";
 import { computeHealthScore } from "./health-score";
