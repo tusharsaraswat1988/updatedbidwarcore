@@ -1,25 +1,30 @@
-# Mission Control — Phase 3
+# Mission Control — Phase 3 / 3.1
 
-**Status:** Implemented as operational command center (not a dashboard).  
-**Phase 2 IA:** Frozen — do not change sidebar, chapters, continue flow, or routing.
+**Status:** Operational command center + Phase 3.1 polish.  
+**Phase 2 IA:** Frozen.
 
-## Layout (`control-center.tsx` + `mission-control/*`)
+## Layout
 
 ```
-TOP BAR     Tournament · clock · Live / Ready / Delayed / Completed · alerts · Start next
-LEFT        Live Courts (court cards)
-RIGHT       Quick Ops — Venue · OBS · Scorer Home · Announcements · Screens follow · Emergency
+TOP BAR     Status · Global primary action · Emergency pause / Resume screens
+HEALTH      Internet · Realtime · Broadcast · Venue · OBS · Scorers
+ATTENTION   Needs Attention (problem · court · reason · action · dismiss)
+SUGGESTIONS Optional smart moves (never auto-applied)
+LEFT        Live Courts (sorted LIVE → DELAYED → READY → WAITING → EMPTY → FINISHED)
+RIGHT       Quick Ops + Live activity feed
 BOTTOM      Ready · Upcoming · Recently finished
 ADVANCED    Collapsed developer diagnostics
 ```
 
-## Court card (ops unit)
+## Phase 3.1 ops (client-only)
 
-Court → Current match → Next match · status · scorer · Broadcast/LED/OBS following ·  
-Open scoring · Pause · Resume · Finish · Reconnect scorer · Follow on screens · Assign next
+- Attention from board state (delayed, waiting, assign next, missing PIN, broadcast focus, venue standby)
+- Primary action label adapts to tournament state
+- Start blockers explain why (never silent disable)
+- Focus court → existing primary-broadcast API
+- Emergency → venue standby + sponsor overlay (existing presentation API)
+- Activity feed from local board transitions
 
 ## Constraints
 
-- No KPI dashboard / graphs / analytics
-- No new APIs — pause/resume/force-end, primary-broadcast, presentation scenes, match PATCH, force-unlock
-- Setup / draw / import stay out of this page
+No new APIs · No IA changes · No design-system rewrite
