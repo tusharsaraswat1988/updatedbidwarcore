@@ -1,16 +1,20 @@
 /**
- * Badminton Branding
+ * Tournament Setup (Phase 2 host)
  * Route: /tournament/:id/badminton/branding
  *
- * Scoreboard look: logos, sponsors, colors. Player import lives on the Players page.
+ * Sections: Identity & Branding · Courts · Rules
+ * Legacy /courts and /scoring-format URLs still work.
  */
 
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import { useRoute } from "wouter";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useLocation, useRoute, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { FormField, inputClass, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
 import { SetupTerm } from "@/components/badminton/setup-guide-panel";
 import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -19,6 +23,25 @@ import { getSponsorsByPriority, parseSponsorLogos, validateSponsorList, type Spo
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { cn } from "@/lib/utils";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
+import { BadmintonCourtsPanel } from "@/pages/badminton/courts";
+import { BadmintonScoringFormatPanel } from "@/pages/badminton/scoring-format";
+
+const SETUP_SECTIONS = ["identity", "courts", "rules"] as const;
+type SetupSection = (typeof SETUP_SECTIONS)[number];
+
+const SETUP_SECTION_LABELS: Record<SetupSection, string> = {
+  identity: "Identity & Branding",
+  courts: "Courts",
+  rules: "Rules",
+};
+
+function parseSetupSection(search: string): SetupSection {
+  const raw = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("section");
+  if (raw === "courts" || raw === "rules" || raw === "branding" || raw === "identity") {
+    return raw === "branding" ? "identity" : raw === "identity" ? "identity" : raw;
+  }
+  return "identity";
+}
 
 const EMPTY_SCOREBOARD_SPONSOR: ScoreBoardSponsor = {
   logoUrl: null,
@@ -113,8 +136,16 @@ function applyBrandingState(
 
 export default function BadmintonBrandingPage() {
   const [, params] = useRoute("/tournament/:id/badminton/branding");
+  const search = useSearch();
+  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
+  const section = useMemo(() => parseSetupSection(search), [search]);
+
+  function setSection(next: SetupSection) {
+    const base = `/tournament/${tournamentId}/badminton/branding`;
+    setLocation(next === "identity" ? base : `${base}?section=${next}`);
+  }
 
   const { data: branding, isLoading } = useQuery<BadmintonBranding>({
     queryKey: ["badminton-branding", tournamentId],
@@ -310,31 +341,51 @@ export default function BadmintonBrandingPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
+      <BadmintonIaPageChrome
         tournamentId={tournamentId}
-        stepId="branding"
+        stepId="setup"
         headerActions={
-          <div className="flex flex-col items-end gap-1">
-            <BtnPrimary
-              onClick={() => persistBranding(true)}
-              disabled={saveMutation.isPending || isLoading}
-            >
-              {saveMutation.isPending ? "Saving…" : "Save Details"}
-            </BtnPrimary>
-            <p className="text-muted-foreground text-xs">
-              {saveError
-                ? saveError
-                : saveMutation.isPending
-                  ? "Saving changes…"
-                  : "Changes save automatically"}
-            </p>
-          </div>
+          section === "identity" ? (
+            <div className="flex flex-col items-end gap-1">
+              <BtnPrimary
+                onClick={() => persistBranding(true)}
+                disabled={saveMutation.isPending || isLoading}
+              >
+                {saveMutation.isPending ? "Saving…" : "Save Details"}
+              </BtnPrimary>
+              <p className="text-muted-foreground text-xs">
+                {saveError
+                  ? saveError
+                  : saveMutation.isPending
+                    ? "Saving changes…"
+                    : "Changes save automatically"}
+              </p>
+            </div>
+          ) : undefined
+        }
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={SETUP_SECTIONS}
+            labels={SETUP_SECTION_LABELS}
+            value={section}
+            onChange={setSection}
+          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
-        {isLoading ? (
+        {section === "courts" ? (
+          <BadmintonCourtsPanel tournamentId={tournamentId} />
+        ) : null}
+
+        {section === "rules" ? (
+          <BadmintonScoringFormatPanel tournamentId={tournamentId} />
+        ) : null}
+
+        {section === "identity" && isLoading ? (
           <div className="h-80 rounded-xl bg-muted animate-pulse" />
-        ) : (
+        ) : null}
+
+        {section === "identity" && !isLoading ? (
           <>
             {/* Visual-first live preview */}
             <section className={cn(hubCardClass, "overflow-hidden")}>
@@ -623,7 +674,7 @@ export default function BadmintonBrandingPage() {
             </section>
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <ImageEditorDialog
@@ -652,7 +703,7 @@ export default function BadmintonBrandingPage() {
           setScoreBoardLogoEditorOpen(false);
         }}
       />
-      </BadmintonSetupWizardChrome>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }

@@ -370,7 +370,7 @@ export function PreMatchControlPanel({
             href={`/tournament/${snapshot.tournamentId}/badminton/control`}
             className="min-h-11 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 text-sm font-semibold inline-flex items-center"
           >
-            Control Center
+            Live Control
           </Link>
         </div>
       </div>

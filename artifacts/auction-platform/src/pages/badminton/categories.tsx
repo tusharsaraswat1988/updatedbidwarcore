@@ -13,6 +13,7 @@ import { formatCategoryPhaseLabel } from "@/lib/badminton-ux";
 import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import {
   MatchFormatPicker,
@@ -63,9 +64,8 @@ interface RegistrationRow {
   player2?: BadmintonPlayer | null;
 }
 
-export default function BadmintonCategoriesPage() {
-  const [, params] = useRoute("/tournament/:id/badminton/categories");
-  const tournamentId = parseInt(params?.id ?? "0");
+/** Events + entries panel — reusable inside Tournament Structure (Phase 2). */
+export function BadmintonEventsPanel({ tournamentId }: { tournamentId: number }) {
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -81,59 +81,71 @@ export default function BadmintonCategoriesPage() {
   const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
-        tournamentId={tournamentId}
-        stepId="categories"
-        headerActions={
-          <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
-            + Add Event
-          </BtnPrimary>
-        }
-      >
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : sorted.length === 0 ? (
-          <EmptyState
-            icon={Trophy}
-            title="No events yet"
-            desc="Create events like Men's Singles, Women's Doubles, Mixed Doubles."
-            action={{ label: "Add Event", onClick: () => setShowForm(true) }}
-          />
-        ) : (
-          sorted.map((cat) => (
-            <CategoryPanel
-              key={cat.id}
-              category={cat}
-              tournamentId={tournamentId}
-              expanded={expandedId === cat.id}
-              onToggle={() => setExpandedId(expandedId === cat.id ? null : cat.id)}
-              onEdit={() => { setEditCategory(cat); setShowForm(true); }}
-              onDeleted={() => {
-                if (expandedId === cat.id) setExpandedId(null);
-                qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
-                qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
-              }}
-              onRefresh={() => {
-                qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
-                qc.invalidateQueries({ queryKey: ["badminton-registrations", tournamentId, cat.id] });
-                qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
-              }}
-            />
-          ))
-        )}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-foreground font-display font-bold text-lg">Events</h2>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Competitions in this tournament — then add who entered each event.
+          </p>
+        </div>
+        <BtnPrimary
+          onClick={() => {
+            setEditCategory(null);
+            setShowForm(true);
+          }}
+        >
+          + Add Event
+        </BtnPrimary>
       </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      ) : sorted.length === 0 ? (
+        <EmptyState
+          icon={Trophy}
+          title="No events yet"
+          desc="Create events like Men's Singles, Women's Doubles, Mixed Doubles — then build the draw."
+          action={{ label: "Add Event", onClick: () => setShowForm(true) }}
+        />
+      ) : (
+        sorted.map((cat) => (
+          <CategoryPanel
+            key={cat.id}
+            category={cat}
+            tournamentId={tournamentId}
+            expanded={expandedId === cat.id}
+            onToggle={() => setExpandedId(expandedId === cat.id ? null : cat.id)}
+            onEdit={() => {
+              setEditCategory(cat);
+              setShowForm(true);
+            }}
+            onDeleted={() => {
+              if (expandedId === cat.id) setExpandedId(null);
+              qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
+              qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+            }}
+            onRefresh={() => {
+              qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
+              qc.invalidateQueries({ queryKey: ["badminton-registrations", tournamentId, cat.id] });
+              qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+            }}
+          />
+        ))
+      )}
 
       {showForm && (
         <CategoryFormModal
           tournamentId={tournamentId}
           category={editCategory}
-          onClose={() => { setShowForm(false); setEditCategory(null); }}
+          onClose={() => {
+            setShowForm(false);
+            setEditCategory(null);
+          }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
@@ -142,6 +154,31 @@ export default function BadmintonCategoriesPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Legacy route — events also live under Tournament Structure. */
+export default function BadmintonCategoriesPage() {
+  const [, params] = useRoute("/tournament/:id/badminton/categories");
+  const tournamentId = parseInt(params?.id ?? "0");
+
+  return (
+    <HubPageShell tournamentId={tournamentId}>
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="categories"
+        continueHref={`/tournament/${tournamentId}/badminton/fixtures?section=draw`}
+        continueLabel="Continue to Draw"
+      >
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+          <BadmintonMovedBanner
+            toHref={`/tournament/${tournamentId}/badminton/fixtures?section=events`}
+            toLabel="Tournament Structure"
+            message="Events belong in Tournament Structure → Events."
+          />
+          <BadmintonEventsPanel tournamentId={tournamentId} />
+        </div>
       </BadmintonSetupWizardChrome>
     </HubPageShell>
   );

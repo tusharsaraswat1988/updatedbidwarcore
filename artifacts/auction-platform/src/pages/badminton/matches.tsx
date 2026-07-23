@@ -42,6 +42,7 @@ import {
   HubFilterTabs,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
@@ -249,9 +250,9 @@ export default function BadmintonMatchesPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        title="Matches"
-        eyebrow="Operations"
-        subtitle="Every match needs a court and time. Then open Match Control to start — Scorer Home only shows matches queued on a court."
+        title="All Matches"
+        eyebrow="Live Control"
+        subtitle="Day-of match list. Prefer Live Control for courts, displays, and starting play."
         actions={
           <div className="flex items-center gap-3 flex-wrap">
             {scoringFormat?.configured && scoringFormat.format ? (
@@ -281,6 +282,14 @@ export default function BadmintonMatchesPage() {
           </div>
         }
       />
+
+      <div className="max-w-7xl mx-auto px-6 pt-4">
+        <BadmintonMovedBanner
+          toHref={`/tournament/${tournamentId}/badminton/control`}
+          toLabel="Live Control"
+          message="Running the tournament day belongs in Live Control — courts, queue, and displays."
+        />
+      </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <HubFilterTabs

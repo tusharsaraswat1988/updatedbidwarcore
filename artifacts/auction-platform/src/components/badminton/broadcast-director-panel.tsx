@@ -1,5 +1,5 @@
 /**
- * Operator Panel — Broadcast Director strip.
+ * Live Control — Live Displays strip (venue scoreboard + stream overlay).
  * Persistent screen links + primary match + remote scene switches for Venue / OBS.
  */
 
@@ -156,11 +156,11 @@ export function BadmintonBroadcastDirectorPanel({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
-            Broadcast Director
+            Live Displays
           </h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            Open Venue Scoreboard and OBS once. Switch what they show from here — screens follow
-            automatically.
+            Open the venue scoreboard and stream overlay once. Switch what they show from here —
+            screens follow automatically.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-[10px] font-mono uppercase tracking-wider">

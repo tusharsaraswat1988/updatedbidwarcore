@@ -24,6 +24,7 @@ import {
   FormModal,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 
 type ScorerRow = {
   id: number;
@@ -44,9 +45,8 @@ function formatWhen(iso: string | null): string {
   });
 }
 
-export default function BadmintonScorersPage() {
-  const [, params] = useRoute("/tournament/:id/badminton/scorers");
-  const tournamentId = parseInt(params?.id || "0");
+/** Officials / scorers panel — reusable inside Participants (Phase 2). */
+export function BadmintonScorersPanel({ tournamentId }: { tournamentId: number }) {
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -66,56 +66,53 @@ export default function BadmintonScorersPage() {
   }
 
   return (
-    <HubPageShell tournamentId={tournamentId}>
-      <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Scorers</h1>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              Add mobile numbers and personal PINs for Scorer Login. Scorers open scoring with
-              mobile + PIN — no court PIN needed.
-            </p>
-          </div>
-          <BtnPrimary
-            onClick={() => {
-              setEditScorer(null);
-              setShowForm(true);
-            }}
-          >
-            + Add Scorer
-          </BtnPrimary>
+    <div className="max-w-4xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-foreground font-display font-bold text-lg">Officials & Scorers</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+            People who will score matches. They sign in with mobile + personal PIN.
+          </p>
         </div>
-
-        {isLoading ? (
-          <div className="space-y-3" aria-busy="true">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : scorers.length === 0 ? (
-          <EmptyState
-            icon={Smartphone}
-            title="No scorers yet"
-            desc="Add a scorer with name, mobile, and personal PIN so they can open Scorer Home."
-            action={{ label: "Add Scorer", onClick: () => setShowForm(true) }}
-          />
-        ) : (
-          <div className="space-y-3">
-            {scorers.map((scorer) => (
-              <ScorerCard
-                key={scorer.id}
-                scorer={scorer}
-                tournamentId={tournamentId}
-                onEdit={() => {
-                  setEditScorer(scorer);
-                  setShowForm(true);
-                }}
-                onChanged={refresh}
-              />
-            ))}
-          </div>
-        )}
+        <BtnPrimary
+          onClick={() => {
+            setEditScorer(null);
+            setShowForm(true);
+          }}
+        >
+          + Add Scorer
+        </BtnPrimary>
       </div>
+
+      {isLoading ? (
+        <div className="space-y-3" aria-busy="true">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      ) : scorers.length === 0 ? (
+        <EmptyState
+          icon={Smartphone}
+          title="No scorers yet"
+          desc="Add a scorer with name, mobile, and personal PIN so they can open Scorer Home on match day."
+          action={{ label: "Add Scorer", onClick: () => setShowForm(true) }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {scorers.map((scorer) => (
+            <ScorerCard
+              key={scorer.id}
+              scorer={scorer}
+              tournamentId={tournamentId}
+              onEdit={() => {
+                setEditScorer(scorer);
+                setShowForm(true);
+              }}
+              onChanged={refresh}
+            />
+          ))}
+        </div>
+      )}
 
       {showForm ? (
         <ScorerFormModal
@@ -132,6 +129,25 @@ export default function BadmintonScorersPage() {
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+/** Legacy route — scorers also live under Participants. */
+export default function BadmintonScorersPage() {
+  const [, params] = useRoute("/tournament/:id/badminton/scorers");
+  const tournamentId = parseInt(params?.id || "0");
+
+  return (
+    <HubPageShell tournamentId={tournamentId}>
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+        <BadmintonMovedBanner
+          toHref={`/tournament/${tournamentId}/badminton/players?section=officials`}
+          toLabel="Participants"
+          message="Scorers and officials belong in Participants → Officials."
+        />
+        <BadmintonScorersPanel tournamentId={tournamentId} />
+      </div>
     </HubPageShell>
   );
 }

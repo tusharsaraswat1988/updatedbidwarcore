@@ -354,7 +354,7 @@ export function SportsShell({
 
           {nav.sections.map((section, sectionIndex) => (
             <div key={section.id}>
-              {!collapsed && (
+              {!collapsed && section.label.trim() ? (
                 <div
                   className={cn(
                     "px-4 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider",
@@ -363,7 +363,7 @@ export function SportsShell({
                 >
                   {section.label}
                 </div>
-              )}
+              ) : null}
               {collapsed && sectionIndex > 0 ? (
                 <div className="mt-6 mb-2 border-t border-border mx-2" />
               ) : null}

@@ -29,6 +29,7 @@ import {
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import {
   Collapsible,
@@ -82,15 +83,19 @@ function nextCourtSortOrder(courts: BadmintonCourt[]): number {
   return Math.max(...courts.map((c) => c.sortOrder)) + 1;
 }
 
-export default function BadmintonCourtsPage() {
-  const [, params] = useRoute("/tournament/:id/badminton/courts");
-  const tournamentId = parseInt(params?.id ?? "0");
+/** Court list + CRUD — reusable inside Tournament Setup (Phase 2). */
+export function BadmintonCourtsPanel({ tournamentId }: { tournamentId: number }) {
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
   const [editCourt, setEditCourt] = useState<BadmintonCourt | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BadmintonCourt | null>(null);
   const [deleteError, setDeleteError] = useState("");
+
+  const openAdd = () => {
+    setEditCourt(null);
+    setShowForm(true);
+  };
 
   const { data: branding } = useBadmintonBranding(tournamentId);
   const tournamentVenue = resolveTournamentVenue({ brandingVenue: branding?.venue });
@@ -119,58 +124,53 @@ export default function BadmintonCourtsPage() {
   const sorted = [...courts].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
   return (
-    <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
-        tournamentId={tournamentId}
-        stepId="courts"
-        headerActions={
-          <BtnPrimary onClick={() => { setEditCourt(null); setShowForm(true); }}>
-            + Add Court
-          </BtnPrimary>
-        }
-      >
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-36 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : sorted.length === 0 ? (
-          <EmptyState
-            icon={MapPin}
-            title="No courts yet"
-            desc={
-              tournamentVenue
-                ? `Add courts at ${tournamentVenue} — e.g. Court 1, Court 2`
-                : "Add courts like Court 1, Court 2. Tip: set the tournament venue in Branding first."
-            }
-            action={
-              tournamentVenue
-                ? { label: "Add Court", onClick: () => setShowForm(true) }
-                : {
-                    label: "Open Branding",
-                    href: `/tournament/${tournamentId}/badminton/branding`,
-                  }
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sorted.map((court) => (
-              <CourtCard
-                key={court.id}
-                court={court}
-                tournamentVenue={tournamentVenue}
-                onEdit={() => { setEditCourt(court); setShowForm(true); }}
-                onDelete={() => {
-                  setDeleteError("");
-                  setDeleteTarget(court);
-                }}
-              />
-            ))}
-          </div>
-        )}
+    <>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-foreground font-display font-bold text-lg">Courts</h2>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Playing areas at your venue. Schedule assigns matches to these courts.
+          </p>
+        </div>
+        <BtnPrimary onClick={openAdd}>+ Add Court</BtnPrimary>
       </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-36 rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      ) : sorted.length === 0 ? (
+        <EmptyState
+          icon={MapPin}
+          title="No courts yet"
+          desc={
+            tournamentVenue
+              ? `Add courts at ${tournamentVenue} — e.g. Court 1, Court 2`
+              : "Add courts like Court 1, Court 2. Tip: set the tournament venue under Identity first."
+          }
+          action={{ label: "Add Court", onClick: openAdd }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sorted.map((court) => (
+            <CourtCard
+              key={court.id}
+              court={court}
+              tournamentVenue={tournamentVenue}
+              onEdit={() => {
+                setEditCourt(court);
+                setShowForm(true);
+              }}
+              onDelete={() => {
+                setDeleteError("");
+                setDeleteTarget(court);
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {showForm && (
         <CourtFormModal
@@ -178,7 +178,10 @@ export default function BadmintonCourtsPage() {
           court={editCourt}
           tournamentVenue={tournamentVenue}
           nextSortOrder={nextCourtSortOrder(courts)}
-          onClose={() => { setShowForm(false); setEditCourt(null); }}
+          onClose={() => {
+            setShowForm(false);
+            setEditCourt(null);
+          }}
           onSaved={(opts) => {
             qc.invalidateQueries({ queryKey: ["badminton-courts", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
@@ -201,7 +204,7 @@ export default function BadmintonCourtsPage() {
             <p>
               Delete <span className="text-foreground font-medium">{deleteTarget?.name}</span>?
             </p>
-            <p>Fixtures scheduled on this court will need a new court assigned in Scheduling.</p>
+            <p>Matches scheduled on this court will need a new court in Schedule.</p>
           </div>
         }
         confirmLabel="Delete court"
@@ -211,6 +214,31 @@ export default function BadmintonCourtsPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
+    </>
+  );
+}
+
+/** Legacy route — redirects mental model to Tournament Setup while keeping URL. */
+export default function BadmintonCourtsPage() {
+  const [, params] = useRoute("/tournament/:id/badminton/courts");
+  const tournamentId = parseInt(params?.id ?? "0");
+
+  return (
+    <HubPageShell tournamentId={tournamentId}>
+      <BadmintonSetupWizardChrome
+        tournamentId={tournamentId}
+        stepId="courts"
+        continueHref={`/tournament/${tournamentId}/badminton/branding?section=rules`}
+        continueLabel="Continue to Rules"
+      >
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+          <BadmintonMovedBanner
+            toHref={`/tournament/${tournamentId}/badminton/branding?section=courts`}
+            toLabel="Tournament Setup"
+            message="Court creation belongs in Tournament Setup → Courts."
+          />
+          <BadmintonCourtsPanel tournamentId={tournamentId} />
+        </div>
       </BadmintonSetupWizardChrome>
     </HubPageShell>
   );
@@ -351,7 +379,7 @@ function CourtFormModal({
       }
       onSaved({
         continueToNext: andContinue
-          ? () => setLocation(`/tournament/${tournamentId}/badminton/fixtures`)
+          ? () => setLocation(`/tournament/${tournamentId}/badminton/players`)
           : undefined,
       });
     } catch (e) {
@@ -384,8 +412,8 @@ function CourtFormModal({
               href={`/tournament/${tournamentId}/badminton/branding`}
               className="text-primary hover:underline font-medium"
             >
-              set venue in Branding
-            </Link>
+            set venue in Tournament Setup
+              </Link>
           </p>
         )}
       </div>

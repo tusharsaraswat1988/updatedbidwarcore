@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { useRoute } from "wouter";
+import { useLocation, useRoute, useSearch } from "wouter";
 import { Users, Pencil, Trash2, Upload, User, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -43,7 +43,11 @@ import {
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
+import { BadmintonScorersPanel } from "@/pages/badminton/scorers";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -88,10 +92,21 @@ function playerMeta(player: BadmintonPlayer): BadmintonPlayerMeta {
   return (player.metaJson ?? {}) as BadmintonPlayerMeta;
 }
 
+const PARTICIPANT_SECTIONS = ["players", "officials"] as const;
+type ParticipantSection = (typeof PARTICIPANT_SECTIONS)[number];
+const PARTICIPANT_SECTION_LABELS: Record<ParticipantSection, string> = {
+  players: "Players",
+  officials: "Officials",
+};
+
 export default function BadmintonPlayersPage() {
   const [, params] = useRoute("/tournament/:id/badminton/players");
+  const urlSearch = useSearch();
+  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
+  const section: ParticipantSection =
+    new URLSearchParams(urlSearch).get("section") === "officials" ? "officials" : "players";
 
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState<"all" | "M" | "F" | "unspecified">("all");
@@ -217,20 +232,37 @@ export default function BadmintonPlayersPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
+      <BadmintonIaPageChrome
         tournamentId={tournamentId}
-        stepId="players"
+        stepId="participants"
         headerActions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
-            <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
-              + Add Player
-            </BtnPrimary>
-          </div>
+          section === "players" ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
+              <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
+                + Add Player
+              </BtnPrimary>
+            </div>
+          ) : undefined
+        }
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={PARTICIPANT_SECTIONS}
+            labels={PARTICIPANT_SECTION_LABELS}
+            value={section}
+            onChange={(next) => {
+              const base = `/tournament/${tournamentId}/badminton/players`;
+              setLocation(next === "players" ? base : `${base}?section=officials`);
+            }}
+          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {!isLoading && players.length > 0 ? (
+        {section === "officials" ? (
+          <BadmintonScorersPanel tournamentId={tournamentId} />
+        ) : null}
+
+        {section === "players" && !isLoading && players.length > 0 ? (
           <div className={cn(hubPanelClass, "mb-6")}>
             <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
               <p>
@@ -255,118 +287,123 @@ export default function BadmintonPlayersPage() {
             </div>
           </div>
         ) : null}
-        <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search players by name, team, city, role, mobile…"
-            className="flex-1 min-w-0"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:w-[22rem] shrink-0">
-            <FormField label="Gender">
-              <DarkSelect
-                value={genderFilter}
-                onValueChange={(value) =>
-                  setGenderFilter(value as "all" | "M" | "F" | "unspecified")
+
+        {section === "players" ? (
+          <>
+            <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search players by name, team, city, role, mobile…"
+                className="flex-1 min-w-0"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:w-[22rem] shrink-0">
+                <FormField label="Gender">
+                  <DarkSelect
+                    value={genderFilter}
+                    onValueChange={(value) =>
+                      setGenderFilter(value as "all" | "M" | "F" | "unspecified")
+                    }
+                    options={[
+                      { value: "all", label: "All genders" },
+                      { value: "M", label: "Male" },
+                      { value: "F", label: "Female" },
+                      { value: "unspecified", label: "Not specified" },
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Team">
+                  <DarkSelect
+                    value={teamFilter}
+                    onValueChange={setTeamFilter}
+                    placeholder="All teams"
+                    options={[
+                      { value: "all", label: "All teams" },
+                      { value: "unassigned", label: "No team assigned" },
+                      ...teamOptions,
+                    ]}
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            {filtersActive && filtered.length !== players.length ? (
+              <p className="text-sm text-muted-foreground mb-4">
+                Showing {filtered.length} of {players.length} players
+              </p>
+            ) : null}
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={filtersActive ? "No players match your filters" : "No players yet"}
+                desc={
+                  filtersActive
+                    ? "Try clearing search or changing gender/team filters"
+                    : "Import from auction or add a walk-in player manually — then continue to Tournament Structure."
                 }
-                options={[
-                  { value: "all", label: "All genders" },
-                  { value: "M", label: "Male" },
-                  { value: "F", label: "Female" },
-                  { value: "unspecified", label: "Not specified" },
-                ]}
+                action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
               />
-            </FormField>
-            <FormField label="Team">
-              <DarkSelect
-                value={teamFilter}
-                onValueChange={setTeamFilter}
-                placeholder="All teams"
-                options={[
-                  { value: "all", label: "All teams" },
-                  { value: "unassigned", label: "No team assigned" },
-                  ...teamOptions,
-                ]}
-              />
-            </FormField>
-          </div>
-        </div>
-
-        {filtersActive && filtered.length !== players.length ? (
-          <p className="text-sm text-muted-foreground mb-4">
-            Showing {filtered.length} of {players.length} players
-          </p>
-        ) : null}
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={filtersActive ? "No players match your filters" : "No players yet"}
-            desc={
-              filtersActive
-                ? "Try clearing search or changing gender/team filters"
-                : "Import from auction or add a walk-in player manually"
-            }
-            action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
-          />
-        ) : (
-          <div className="space-y-8">
-            {playersByTeam.map((group) => (
-              <section key={group.teamName} className="space-y-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {group.logoUrl ? (
-                    <img
-                      src={group.logoUrl}
-                      alt=""
-                      className="w-7 h-7 rounded-md object-contain bg-white/90 border border-border shrink-0"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
-                      <Users className="w-3.5 h-3.5 text-primary" aria-hidden />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <h2
-                      className={cn(
-                        "text-base font-display font-bold truncate",
-                        group.teamName === "Players without Team"
-                          ? "text-amber-300"
-                          : "text-foreground",
+            ) : (
+              <div className="space-y-8">
+                {playersByTeam.map((group) => (
+                  <section key={group.teamName} className="space-y-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {group.logoUrl ? (
+                        <img
+                          src={group.logoUrl}
+                          alt=""
+                          className="w-7 h-7 rounded-md object-contain bg-white/90 border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+                          <Users className="w-3.5 h-3.5 text-primary" aria-hidden />
+                        </div>
                       )}
-                    >
-                      {group.teamName}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      {group.players.length} player{group.players.length === 1 ? "" : "s"}
-                      {group.teamName !== "Players without Team"
-                        ? " · team identity from Auction"
-                        : " · add a team later if needed"}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {group.players.map((player) => (
-                    <PlayerCard
-                      key={player.id}
-                      player={player}
-                      onEdit={() => { setEditPlayer(player); setShowForm(true); }}
-                      onDelete={() => {
-                        setDeleteError("");
-                        setDeleteTarget(player);
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+                      <div className="min-w-0">
+                        <h2
+                          className={cn(
+                            "text-base font-display font-bold truncate",
+                            group.teamName === "Players without Team"
+                              ? "text-amber-300"
+                              : "text-foreground",
+                          )}
+                        >
+                          {group.teamName}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          {group.players.length} player{group.players.length === 1 ? "" : "s"}
+                          {group.teamName !== "Players without Team"
+                            ? " · team identity from Auction"
+                            : " · add a team later if needed"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {group.players.map((player) => (
+                        <PlayerCard
+                          key={player.id}
+                          player={player}
+                          onEdit={() => { setEditPlayer(player); setShowForm(true); }}
+                          onDelete={() => {
+                            setDeleteError("");
+                            setDeleteTarget(player);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
+        ) : null}
       </div>
 
       {showForm && (
@@ -423,7 +460,7 @@ export default function BadmintonPlayersPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
-      </BadmintonSetupWizardChrome>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }

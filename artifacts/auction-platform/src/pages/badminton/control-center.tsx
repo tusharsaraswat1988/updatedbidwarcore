@@ -1,13 +1,13 @@
 /**
- * Tournament Control Center — tournament-day operations dashboard
+ * Live Control — tournament-day Mission Control
  * Route: /tournament/:id/badminton/control
  *
  * Answers: "What is happening right now?"
- * Orchestrates Scheduling → Matches → Scoring. Does not own new data.
+ * Courts, queue, displays, and start actions. Does not own new data.
  */
 
 import { useMemo, useState } from "react";
-import { useRoute, Link, useSearch } from "wouter";
+import { useRoute, Link, useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Copy, LayoutDashboard, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -41,9 +41,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   EmptyState,
   HubPageShell,
-  PageHeader,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonBroadcastDirectorPanel } from "@/components/badminton/broadcast-director-panel";
 import {
   Dialog,
@@ -94,6 +97,7 @@ function statusStyles(status: CourtOpsStatus): string {
 export default function BadmintonControlCenterPage() {
   const [, params] = useRoute("/tournament/:id/badminton/control");
   const search = useSearch();
+  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const focusBroadcast = new URLSearchParams(search).get("focus") === "broadcast";
 
@@ -183,15 +187,24 @@ export default function BadmintonControlCenterPage() {
     void refetchFixtures();
   }
 
+  const liveSection = focusBroadcast ? "displays" : "courts";
+
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Operator Panel"
-        eyebrow="Operations"
-        subtitle="Run courts, scorers, and Broadcast Director — Venue Scoreboard + OBS switch from here"
-        badge={liveCount > 0 ? `${liveCount} Live` : delayedCount > 0 ? `${delayedCount} Delayed` : undefined}
-        actions={
+      <BadmintonIaPageChrome
+        tournamentId={tournamentId}
+        stepId="live"
+        headerActions={
           <div className="flex flex-wrap items-center gap-2">
+            {liveCount > 0 ? (
+              <span className="min-h-11 px-3 rounded-lg bg-red-500/20 text-red-300 text-xs font-bold inline-flex items-center">
+                {liveCount} Live
+              </span>
+            ) : delayedCount > 0 ? (
+              <span className="min-h-11 px-3 rounded-lg bg-amber-500/20 text-amber-200 text-xs font-bold inline-flex items-center">
+                {delayedCount} Delayed
+              </span>
+            ) : null}
             {nextReady ? (
               <a
                 href={badmintonMatchControlPath(tournamentId, nextReady.id)}
@@ -200,27 +213,26 @@ export default function BadmintonControlCenterPage() {
                 Start next
               </a>
             ) : null}
-            <a
-              href="#broadcast"
+            <Link
+              href={`/tournament/${tournamentId}/badminton/matches`}
               className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
             >
-              Broadcast
-            </a>
-            <Link
-              href={`/tournament/${tournamentId}/badminton/schedule`}
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
-            >
-              Scheduling
-            </Link>
-            <Link
-              href={badmintonResultsPath(tournamentId)}
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/70 text-xs font-semibold inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Results
+              All matches
             </Link>
           </div>
         }
-      />
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={["courts", "displays"] as const}
+            labels={{ courts: "Courts & Queue", displays: "Live Displays" }}
+            value={liveSection}
+            onChange={(next) => {
+              const base = `/tournament/${tournamentId}/badminton/control`;
+              setLocation(next === "displays" ? `${base}?focus=broadcast` : base);
+            }}
+          />
+        }
+      >
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
         <BadmintonBroadcastDirectorPanel
@@ -237,7 +249,7 @@ export default function BadmintonControlCenterPage() {
         ) : loadError ? (
           <EmptyState
             icon={AlertCircle}
-            title="Could not load Control Center"
+            title="Could not load Live Control"
             desc={friendlyBadmintonError(loadErrorObj, "Check your connection, then retry.")}
             action={{ label: "Retry", onClick: () => retryAll() }}
           />
@@ -245,14 +257,29 @@ export default function BadmintonControlCenterPage() {
           <EmptyState
             icon={LayoutDashboard}
             title="No courts yet"
-            desc="Add courts first. Then schedule fixtures and create matches — Control Center runs the tournament day from here."
+            desc="Add courts in Tournament Setup first. Then schedule matches — Live Control runs the day from here."
             action={{
-              label: "Set up courts",
-              href: `/tournament/${tournamentId}/badminton/courts`,
+              label: "Add courts",
+              href: `/tournament/${tournamentId}/badminton/branding?section=courts`,
             }}
           />
         ) : (
           <section className="space-y-4">
+            {liveCount === 0 && readyCount === 0 ? (
+              <div className={cn(hubCardClass, "p-4 border-amber-500/20 bg-amber-500/5")}>
+                <p className="text-sm text-foreground/90 font-medium">No live matches yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Start your first ready match from a court card below. If nothing is ready, finish{" "}
+                  <Link
+                    href={`/tournament/${tournamentId}/badminton/schedule`}
+                    className="text-primary hover:underline"
+                  >
+                    Schedule
+                  </Link>{" "}
+                  first.
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <StatusKpi label="Live" value={liveCount} tone="live" />
               <StatusKpi label="Ready" value={readyCount} tone="ready" />
@@ -279,7 +306,7 @@ export default function BadmintonControlCenterPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <BottomList
             title="Upcoming Fixtures"
-            empty="No scheduled fixtures waiting for a match."
+            empty="No upcoming matches waiting. Finish Schedule if the board is empty."
             count={Math.min(upcoming.length, 10)}
           >
             {upcoming.slice(0, 10).map((f) => (
@@ -396,6 +423,7 @@ export default function BadmintonControlCenterPage() {
           </BottomList>
         </div>
       </div>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }

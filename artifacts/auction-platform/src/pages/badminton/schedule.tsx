@@ -35,7 +35,7 @@ import {
   inputClass,
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { BadmintonIaPageChrome } from "@/components/badminton/ia-workflow-chrome";
 
 interface BadmintonCourt {
   id: number;
@@ -350,15 +350,13 @@ export default function BadmintonSchedulePage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
+      <BadmintonIaPageChrome
         tournamentId={tournamentId}
-        stepId="scheduling"
-        continueHref={`/tournament/${tournamentId}/badminton`}
-        continueLabel="Continue to Ready"
+        stepId="schedule"
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {courts.length === 0 ? (
-              <Link href={`/tournament/${tournamentId}/badminton/courts`}>
+              <Link href={`/tournament/${tournamentId}/badminton/branding?section=courts`}>
                 <BtnPrimary type="button">Set up courts</BtnPrimary>
               </Link>
             ) : unscheduled.length > 0 ? (
@@ -366,7 +364,7 @@ export default function BadmintonSchedulePage() {
                 type="button"
                 onClick={() => setScheduleTarget(unscheduled[0] ?? null)}
               >
-                Schedule next fixture
+                Schedule next match
               </BtnPrimary>
             ) : null}
           </div>
@@ -397,30 +395,29 @@ export default function BadmintonSchedulePage() {
         ) : fixtures.length === 0 ? (
           <EmptyState
             icon={CalendarClock}
-            title="No fixtures to schedule"
-            desc="Create fixtures in Tournament Draw first, then return here to assign courts and times."
+            title="No matches to schedule yet"
+            desc="Generate a draw in Tournament Structure first. Then come back here to assign court, date, and time."
             action={{
-              label: "Open Tournament Draw",
-              href: `/tournament/${tournamentId}/badminton/fixtures`,
+              label: "Generate Draw",
+              href: `/tournament/${tournamentId}/badminton/fixtures?section=draw`,
             }}
           />
         ) : (
           <>
             <section className="space-y-3">
               <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest">
-                Unscheduled fixtures ({unscheduled.length})
+                Unscheduled ({unscheduled.length})
               </h2>
               {unscheduled.length === 0 ? (
                 <p className="text-white/35 text-sm">
-                  All schedulable fixtures have a court and time. Next: open{" "}
+                  Every match has a court and time. Next:{" "}
                   <Link
-                    href={`/tournament/${tournamentId}/badminton/matches`}
+                    href={`/tournament/${tournamentId}/badminton/control`}
                     className="text-[#4fc3f7] hover:underline"
                   >
-                    Matches
+                    Go Live
                   </Link>{" "}
-                  to create a scoring match, then Match Control to start. This page only schedules
-                  fixtures — it does not start live scoring.
+                  to start play from Live Control.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -571,7 +568,7 @@ export default function BadmintonSchedulePage() {
         error={unscheduleError}
         onConfirm={() => void handleUnscheduleConfirm()}
       />
-      </BadmintonSetupWizardChrome>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }
