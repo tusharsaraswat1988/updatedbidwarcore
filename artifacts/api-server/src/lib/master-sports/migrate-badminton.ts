@@ -14,7 +14,7 @@ import {
   masterPlayerIdMappingsTable,
   playerStatisticsTable,
 } from "@workspace/db";
-import { logSync } from "./sync-helpers";
+import { logSync } from "@workspace/player-registry/sync-helpers";
 
 function generateGpId(): string {
   return `gp_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;

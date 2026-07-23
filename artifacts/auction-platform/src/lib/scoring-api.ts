@@ -181,6 +181,25 @@ export async function getCricketTournamentRoster(
   return r.json();
 }
 
+export type CricketMasterTeam = {
+  auctionTeamId: number;
+  masterTeamId: string | null;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  squadCount: number;
+  syncedToMaster: boolean;
+};
+
+export async function getCricketMasterTeams(
+  tournamentId: number,
+): Promise<CricketMasterTeam[]> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/master-teams`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
 export type ScoringLeaderboardRow = {
   playerId: number;
   teamId: number;

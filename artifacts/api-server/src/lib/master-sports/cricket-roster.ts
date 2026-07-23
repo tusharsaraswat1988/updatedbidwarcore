@@ -1,32 +1,33 @@
 /**
- * Cricket roster — mutable auction team assignments with history.
+ * Cricket roster — Player Registry is the live source of truth for scoring.
  *
- * Auction `players.team_id` is the live roster source of truth for scoring.
- * `player_team_assignments` tracks current + historical franchise membership
- * keyed by master player id (for future cricket stats on global_players).
+ * Auction → Registry sync adapters below write PTA when auction runs; cricket
+ * scoring read paths use `cricket-franchise-registry` only (no auction tables).
  */
 
-import { eq, and, or, inArray, desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   playersTable,
   teamsTable,
   playerTeamAssignmentsTable,
-  tournamentPlayerProfilesTable,
-  masterTeamsTable,
   type Player,
 } from "@workspace/db";
-import { logSync } from "./sync-helpers";
+import { logSync } from "@workspace/player-registry/sync-helpers";
 import {
   assignPlayerToFranchiseRoster,
   endActiveRosterAssignment,
   type RosterAssignmentType,
-} from "./roster-assignments";
+} from "@workspace/player-registry/roster-assignments";
 import {
   syncAuctionPlayerToMaster,
   syncAuctionTeamToMaster,
 } from "./sync";
 import { ensureCricketStatisticsBaseline } from "./cricket-stats";
+import {
+  listCricketFranchisePlayers,
+  listCricketFranchiseTeams,
+} from "@workspace/player-registry/cricket-franchise";
 
 export type { RosterAssignmentType };
 
@@ -59,7 +60,7 @@ export type CricketMasterPlayerItem = {
 };
 
 /** End the current active franchise assignment for a master player in a tournament. */
-export { endActiveRosterAssignment, assignPlayerToFranchiseRoster } from "./roster-assignments";
+export { endActiveRosterAssignment, assignPlayerToFranchiseRoster } from "@workspace/player-registry/roster-assignments";
 
 function rosterTypeFromPlayer(player: Player): RosterAssignmentType {
   if (player.status === "retained") return "retained";
@@ -204,190 +205,51 @@ export function onAuctionPlayerRosterChangedAsync(
   });
 }
 
-/** List master-linked teams with squad counts for cricket scorer UI. */
+/** List Player Registry franchise teams with squad counts for cricket scorer UI. */
 export async function listCricketMasterTeams(
   tournamentId: number,
 ): Promise<CricketMasterTeamItem[]> {
-  const teams = await db
-    .select()
-    .from(teamsTable)
-    .where(eq(teamsTable.tournamentId, tournamentId));
-
-  const rosterPlayers = await db
-    .select({ teamId: playersTable.teamId, status: playersTable.status })
-    .from(playersTable)
-    .where(
-      and(
-        eq(playersTable.tournamentId, tournamentId),
-        eq(playersTable.isNonPlayingMember, false),
-        or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
-      ),
-    );
-
-  const countByTeam = new Map<number, number>();
-  for (const p of rosterPlayers) {
-    if (!p.teamId) continue;
-    countByTeam.set(p.teamId, (countByTeam.get(p.teamId) ?? 0) + 1);
-  }
-
+  const teams = await listCricketFranchiseTeams(tournamentId);
   return teams.map((t) => ({
-    auctionTeamId: t.id,
+    auctionTeamId: t.teamId,
     masterTeamId: t.masterTeamId,
     name: t.name,
     shortName: t.shortCode,
     logoUrl: t.logoUrl,
     primaryColor: t.color,
-    squadCount: countByTeam.get(t.id) ?? 0,
+    squadCount: t.squadCount,
     syncedToMaster: Boolean(t.masterTeamId),
   }));
 }
 
-/** List players for cricket scorer — optional filter by auction team. */
+/** List players for cricket scorer from Player Registry — optional filter by opaque team id. */
 export async function listCricketMasterPlayers(
   tournamentId: number,
   auctionTeamId?: number,
 ): Promise<CricketMasterPlayerItem[]> {
-  const conditions = [
-    eq(playersTable.tournamentId, tournamentId),
-    eq(playersTable.isNonPlayingMember, false),
-  ];
-  if (auctionTeamId) {
-    conditions.push(eq(playersTable.teamId, auctionTeamId));
-  }
-
-  const players = await db
-    .select()
-    .from(playersTable)
-    .where(and(...conditions));
-
-  const teams = await db
-    .select()
-    .from(teamsTable)
-    .where(eq(teamsTable.tournamentId, tournamentId));
-  const teamById = new Map(teams.map((t) => [t.id, t]));
-
-  const masterPlayerIds = [...new Set(
-    players
-      .map((p) => p.globalPlayerId)
-      .filter((id): id is string => Boolean(id)),
-  )];
-
-  const tournamentProfiles = masterPlayerIds.length
-    ? await db
-      .select({
-        id: tournamentPlayerProfilesTable.id,
-        masterPlayerId: tournamentPlayerProfilesTable.masterPlayerId,
-        displayName: tournamentPlayerProfilesTable.displayName,
-        initials: tournamentPlayerProfilesTable.initials,
-      })
-      .from(tournamentPlayerProfilesTable)
-      .where(
-        and(
-          eq(tournamentPlayerProfilesTable.tournamentId, tournamentId),
-          inArray(tournamentPlayerProfilesTable.masterPlayerId, masterPlayerIds),
-        ),
-      )
-    : [];
-  const profileByMasterId = new Map(
-    tournamentProfiles.map((profile) => [profile.masterPlayerId, profile] as const),
-  );
-
-  const activeAssignments = masterPlayerIds.length
-    ? await db
-      .select({
-        playerId: playerTeamAssignmentsTable.playerId,
-        teamId: playerTeamAssignmentsTable.teamId,
-        auctionTeamId: playerTeamAssignmentsTable.auctionTeamId,
-      })
-      .from(playerTeamAssignmentsTable)
-      .where(
-        and(
-          eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
-          eq(playerTeamAssignmentsTable.sport, "cricket"),
-          eq(playerTeamAssignmentsTable.isActive, true),
-          inArray(playerTeamAssignmentsTable.playerId, masterPlayerIds),
-        ),
-      )
-      .orderBy(desc(playerTeamAssignmentsTable.assignedAt))
-    : [];
-  const activeAssignmentByMasterId = new Map<string, (typeof activeAssignments)[number]>();
-  for (const assignment of activeAssignments) {
-    // Keep the most recent active row per player.
-    if (!activeAssignmentByMasterId.has(assignment.playerId)) {
-      activeAssignmentByMasterId.set(assignment.playerId, assignment);
-    }
-  }
-
-  const assignmentMasterTeamIds = [...new Set(
-    activeAssignments.map((row) => row.teamId).filter((id): id is string => Boolean(id)),
-  )];
-  const masterTeams = assignmentMasterTeamIds.length
-    ? await db
-      .select({
-        id: masterTeamsTable.id,
-        name: masterTeamsTable.name,
-        logoUrl: masterTeamsTable.logoUrl,
-      })
-      .from(masterTeamsTable)
-      .where(inArray(masterTeamsTable.id, assignmentMasterTeamIds))
-    : [];
-  const masterTeamById = new Map(masterTeams.map((team) => [team.id, team] as const));
-
-  const items: CricketMasterPlayerItem[] = [];
-
-  for (const p of players) {
-    const team = p.teamId ? teamById.get(p.teamId) : undefined;
-    const profile = p.globalPlayerId ? profileByMasterId.get(p.globalPlayerId) : undefined;
-    const assignment = p.globalPlayerId
-      ? activeAssignmentByMasterId.get(p.globalPlayerId)
-      : undefined;
-
-    const assignmentAuctionTeam = assignment?.auctionTeamId
-      ? teamById.get(assignment.auctionTeamId)
-      : undefined;
-    const assignmentMasterTeam = assignment?.teamId
-      ? masterTeamById.get(assignment.teamId)
-      : undefined;
-
-    // Read assignment table first; fallback to legacy auction-team linkage.
-    const resolvedAuctionTeamId = assignment?.auctionTeamId ?? p.teamId;
-    const resolvedMasterTeamId = assignment?.teamId ?? team?.masterTeamId ?? null;
-    const resolvedTeamName = assignmentAuctionTeam?.name
-      ?? assignmentMasterTeam?.name
-      ?? team?.name
-      ?? null;
-    const resolvedTeamLogoUrl = assignmentAuctionTeam?.logoUrl
-      ?? assignmentMasterTeam?.logoUrl
-      ?? team?.logoUrl
-      ?? null;
-    const onRoster = p.status === "sold" || p.status === "retained";
-
-    items.push({
-      auctionPlayerId: p.id,
-      masterPlayerId: p.globalPlayerId ?? null,
-      tournamentPlayerProfileId: profile?.id ?? null,
-      tournamentPlayerInitials: profile?.initials ?? null,
-      displayName: profile?.displayName ?? p.name,
-      photoUrl: p.photoUrl,
-      role: p.role,
-      status: p.status,
-      auctionTeamId: resolvedAuctionTeamId,
-      masterTeamId: resolvedMasterTeamId,
-      teamName: resolvedTeamName,
-      teamLogoUrl: resolvedTeamLogoUrl,
-      syncedToMaster: Boolean(p.globalPlayerId),
-      onRoster,
-    });
-  }
-
-  return items.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const players = await listCricketFranchisePlayers(tournamentId, auctionTeamId);
+  return players.map((p) => ({
+    auctionPlayerId: p.playerId,
+    masterPlayerId: p.masterPlayerId,
+    tournamentPlayerProfileId: p.tournamentPlayerProfileId,
+    tournamentPlayerInitials: p.initials,
+    displayName: p.displayName,
+    photoUrl: p.photoUrl,
+    role: p.role,
+    status: p.status,
+    auctionTeamId: p.teamId,
+    masterTeamId: p.masterTeamId,
+    teamName: p.teamName,
+    teamLogoUrl: p.teamLogoUrl,
+    syncedToMaster: true,
+    onRoster: true,
+  }));
 }
 
-/** Squad eligible for playing XI (sold/retained on team). */
+/** Squad eligible for playing XI (active Player Registry assignment on team). */
 export async function listCricketSquadPlayers(
   tournamentId: number,
   auctionTeamId: number,
 ): Promise<CricketMasterPlayerItem[]> {
-  const all = await listCricketMasterPlayers(tournamentId, auctionTeamId);
-  return all.filter((p) => p.onRoster && p.auctionTeamId === auctionTeamId);
+  return listCricketMasterPlayers(tournamentId, auctionTeamId);
 }

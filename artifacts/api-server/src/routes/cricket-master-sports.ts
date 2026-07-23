@@ -1,11 +1,8 @@
 import { Router } from "express";
-import { z } from "zod";
-import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
   listCricketMasterTeams,
   listCricketMasterPlayers,
   listCricketSquadPlayers,
-  syncCricketRosterFromAuction,
 } from "../lib/master-sports/cricket-roster";
 
 const router = Router({ mergeParams: true });
@@ -38,7 +35,7 @@ async function listRosterItems(req: {
   res.json(items);
 }
 
-/** GET master-linked auction teams with squad counts */
+/** GET Player Registry franchise teams with squad counts */
 router.get("/master-teams", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) {
@@ -50,7 +47,7 @@ router.get("/master-teams", async (req, res) => {
   res.json(items);
 });
 
-/** GET players for cricket scorer (optional ?teamId= auction team filter) */
+/** GET players for cricket scorer (optional ?teamId= opaque franchise team filter) */
 router.get("/master-players", async (req, res) => {
   await listRosterItems(req, res);
 });
@@ -60,7 +57,7 @@ router.get("/roster", async (req, res) => {
   await listRosterItems(req, res);
 });
 
-/** GET sold/retained squad for one auction team */
+/** GET active Player Registry squad for one franchise team */
 router.get("/squads/:auctionTeamId", async (req, res) => {
   const tournamentId = tid(req);
   const auctionTeamId = parseInt(req.params.auctionTeamId, 10);
@@ -73,25 +70,12 @@ router.get("/squads/:auctionTeamId", async (req, res) => {
   res.json(items);
 });
 
-/** POST sync auction teams + roster → master layer */
-router.post("/sync-roster", async (req, res) => {
-  const tournamentId = tid(req);
-  if (!tournamentId) {
-    res.status(400).json({ error: "Invalid tournament id" });
-    return;
-  }
-  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
-
-  const schema = z.object({
-    tournamentId: z.number().int().optional(),
+/** POST sync auction teams + roster → master layer — moved to Auction module. */
+router.post("/sync-roster", async (_req, res) => {
+  res.status(410).json({
+    error: "Auction roster sync belongs to the Auction module. Cricket reads Player Registry only.",
+    code: "AUCTION_SYNC_REMOVED",
   });
-  const parsed = schema.safeParse(req.body ?? {});
-  const targetId = parsed.success && parsed.data.tournamentId
-    ? parsed.data.tournamentId
-    : tournamentId;
-
-  const result = await syncCricketRosterFromAuction(targetId);
-  res.json({ ...result, tournamentId: targetId });
 });
 
 export default router;

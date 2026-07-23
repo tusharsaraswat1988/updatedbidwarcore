@@ -57,6 +57,6 @@ Add `getCricketSportNav()`, `getFootballSportNav()`, etc. Reuse `SportsShell`. D
 - Operator Panel widget rebuild
 - Umpire / LED / OBS / public link management cards
 - Role-based nav filtering in the shell
-- Merge `scoring-app` into `auction-platform`
-- Migrate Auction onto `SportsShell`
-- Sport-agnostic URL cutover
+- Extract sports UI out of `auction-platform` into scoring-app / sports packages (see `docs/architecture/platform-architecture-audit.md`)
+- Migrate Auction onto `SportsShell` only if product wants one shell (Auction may stay on `AppLayout`)
+- Sport-agnostic URL cutover (`/api/badminton/*`, etc.)

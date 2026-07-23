@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearch, useLocation } from "wouter";
-import { FullscreenLayout } from "@/components/layout";
+import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import {

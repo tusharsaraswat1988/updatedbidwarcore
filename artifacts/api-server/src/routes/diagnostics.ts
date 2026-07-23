@@ -7,9 +7,17 @@ import { getRuntimeConfig } from "../lib/runtime-env.js";
 
 const router = Router();
 const adminDiagnostics = Router();
+
+/**
+ * Platform-internal diagnostics — Super Admin only.
+ *
+ * Mounted at `/auth/admin/diagnostics` (not bare `/auth/admin`) so
+ * `requireMasterAdmin` cannot intercept organizer routes under
+ * `/auth/admin/communicate/*` and similar prefixes.
+ */
 adminDiagnostics.use(requireMasterAdmin);
 
-adminDiagnostics.get("/diagnostics/startup", (_req, res) => {
+adminDiagnostics.get("/startup", (_req, res) => {
   let databaseUrl: string | undefined;
   try {
     databaseUrl = getRuntimeConfig().databaseUrl;
@@ -30,6 +38,6 @@ adminDiagnostics.get("/diagnostics/startup", (_req, res) => {
   res.status(200).json(payload);
 });
 
-router.use("/auth/admin", adminDiagnostics);
+router.use("/auth/admin/diagnostics", adminDiagnostics);
 
 export default router;

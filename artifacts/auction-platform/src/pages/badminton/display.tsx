@@ -17,7 +17,7 @@ import { badmintonLedSurfaceStyle } from "@/components/badminton/badminton-led-t
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
-import { FullscreenLayout } from "@/components/layout";
+import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { DisplayStageViewport } from "@/components/display/display-stage-viewport";
 import { StageFrame } from "@/components/display/v1/StageFrame";
 import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";

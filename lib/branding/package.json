@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/branding",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./branding-assets": "./src/branding-assets.ts",
+    "./branding-icon-head": "./src/branding-icon-head.ts",
+    "./sponsor-priority": "./src/sponsor-priority.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

@@ -7,7 +7,6 @@ import { db } from "@workspace/db";
 import {
   globalPlayersTable,
   playerStatisticsTable,
-  playersTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
 } from "@workspace/db";
@@ -21,6 +20,7 @@ import {
   type BowlingCardRow,
 } from "@workspace/scoring-core";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { resolveCricketMasterPlayerIdsByOpaque } from "./master-sports/cricket-franchise-registry";
 
 export type CricketStatsJson = {
   matches: number;
@@ -196,21 +196,9 @@ export async function projectGlobalCricketStatsForMatch(matchId: number): Promis
   const matchAggregates = aggregateTournamentPlayerStats(playerStats);
 
   const tournamentPlayerIds = [...matchAggregates.keys()];
-  const roster = await db
-    .select({
-      id: playersTable.id,
-      globalPlayerId: playersTable.globalPlayerId,
-    })
-    .from(playersTable)
-    .where(
-      and(
-        eq(playersTable.tournamentId, match.tournamentId),
-        inArray(playersTable.id, tournamentPlayerIds),
-      ),
-    );
-
-  const globalByTournamentPlayer = new Map(
-    roster.filter((p) => p.globalPlayerId).map((p) => [p.id, p.globalPlayerId!]),
+  const globalByTournamentPlayer = await resolveCricketMasterPlayerIdsByOpaque(
+    match.tournamentId,
+    tournamentPlayerIds,
   );
 
   for (const [playerId, agg] of matchAggregates) {

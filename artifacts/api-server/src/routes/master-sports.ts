@@ -16,6 +16,7 @@ import {
   updatePrimaryBroadcastMatchId,
   updateBroadcastPresentation,
   importBrandingFromTournament,
+  importTournamentBrandingToBadminton,
   importAuctionBrandingToBadminton,
   importPlayersFromTournament,
 } from "../lib/master-sports/badminton";
@@ -23,7 +24,6 @@ import {
   migrateBadmintonPlayersToMaster,
   ensureStatisticsForMigratedPlayers,
 } from "../lib/master-sports/migrate-badminton";
-import { syncAllAuctionPlayersToMaster } from "../lib/master-sports/sync";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 import {
   type BadmintonOverlayScene,
@@ -125,6 +125,9 @@ router.patch("/settings", async (req, res) => {
   if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
+    autoSyncRegistryPlayers: z.boolean().optional(),
+    linkedPlayerRegistryTournamentId: z.number().int().nullable().optional(),
+    // Legacy aliases — still accepted from older clients.
     autoSyncAuctionPlayers: z.boolean().optional(),
     linkedAuctionTournamentId: z.number().int().nullable().optional(),
   });
@@ -145,18 +148,23 @@ router.patch("/settings", async (req, res) => {
     return;
   }
 
-  if (parsed.data.linkedAuctionTournamentId !== undefined && parsed.data.linkedAuctionTournamentId !== null) {
+  const linkedRegistryTournamentId =
+    parsed.data.linkedPlayerRegistryTournamentId ?? parsed.data.linkedAuctionTournamentId;
+  const autoSyncRegistryPlayers =
+    parsed.data.autoSyncRegistryPlayers ?? parsed.data.autoSyncAuctionPlayers;
+
+  if (linkedRegistryTournamentId !== undefined && linkedRegistryTournamentId !== null) {
     const [linked] = await db
       .select({ sport: tournamentsTable.sport })
       .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, parsed.data.linkedAuctionTournamentId))
+      .where(eq(tournamentsTable.id, linkedRegistryTournamentId))
       .limit(1);
     if (!linked) {
       res.status(400).json({ error: "Linked tournament not found" });
       return;
     }
     if (linked.sport !== "badminton") {
-      res.status(400).json({ error: "Linked auction source must be a badminton tournament" });
+      res.status(400).json({ error: "Linked registry source must be a badminton tournament" });
       return;
     }
   }
@@ -164,11 +172,14 @@ router.patch("/settings", async (req, res) => {
   const current = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
   const updated = {
     ...current,
-    ...(parsed.data.autoSyncAuctionPlayers !== undefined
-      ? { autoSyncAuctionPlayers: parsed.data.autoSyncAuctionPlayers }
+    ...(autoSyncRegistryPlayers !== undefined
+      ? { autoSyncRegistryPlayers, autoSyncAuctionPlayers: autoSyncRegistryPlayers }
       : {}),
-    ...(parsed.data.linkedAuctionTournamentId !== undefined
-      ? { linkedAuctionTournamentId: parsed.data.linkedAuctionTournamentId }
+    ...(linkedRegistryTournamentId !== undefined
+      ? {
+          linkedPlayerRegistryTournamentId: linkedRegistryTournamentId,
+          linkedAuctionTournamentId: linkedRegistryTournamentId,
+        }
       : {}),
   };
 
@@ -438,7 +449,24 @@ router.patch("/branding", async (req, res) => {
   }
 });
 
-/** POST import Auction Hub branding into badminton display settings (same tournament) */
+/** POST import this tournament's branding into badminton display settings (same tournament) */
+router.post("/import-tournament-branding", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const branding = await importTournamentBrandingToBadminton(tournamentId);
+    res.json(branding);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });
+  }
+});
+
+/** @deprecated Prefer POST /import-tournament-branding */
 router.post("/import-auction-branding", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) {
@@ -490,7 +518,7 @@ router.post("/import-branding", async (req, res) => {
   }
 });
 
-/** POST import players from another tournament (badminton or auction roster) */
+/** POST import players from another tournament (badminton roster, or Player Registry) */
 router.post("/import-from-tournament", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) {
@@ -540,28 +568,9 @@ router.post("/migrate-to-master", async (req, res) => {
   res.json({ ...migration, statisticsRowsCreated: statsCreated });
 });
 
-/** POST sync linked auction players to master (manual trigger) */
+/** @deprecated Auction player sync moved to the Auction module — badminton no longer syncs auction players. */
 router.post("/sync-auction-players", async (req, res) => {
-  const tournamentId = tid(req);
-  if (!tournamentId) {
-    res.status(400).json({ error: "Invalid tournament id" });
-    return;
-  }
-  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
-
-  const [tournament] = await db
-    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  const settings = getBadmintonSettings(
-    tournament?.scoringSettingsJson as Record<string, unknown>,
-  );
-
-  const auctionTournamentId = settings.linkedAuctionTournamentId ?? tournamentId;
-  const synced = await syncAllAuctionPlayersToMaster(auctionTournamentId);
-  res.json({ synced, auctionTournamentId });
+  res.status(410).json({ error: "Moved to Auction module", code: "AUCTION_SYNC_REMOVED" });
 });
 
 export default router;

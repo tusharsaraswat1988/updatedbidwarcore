@@ -1562,7 +1562,8 @@ function OrganizerDashboard({
         const d = await r.json() as { playerCount: number; ownerCount: number };
         setDeclareResult(`Consent recorded for ${d.playerCount} player(s) and ${d.ownerCount} team owner(s).`);
       } else {
-        setDeclareResult("Failed to record consent. Please try again.");
+        const d = await r.json().catch(() => null) as { error?: string } | null;
+        setDeclareResult(d?.error || "Failed to record consent. Please try again.");
       }
     } finally {
       setDeclaring(false);

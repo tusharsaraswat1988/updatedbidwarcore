@@ -7,7 +7,7 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { ScoreDisplayShell } from "@/components/scoring/score-display-shell";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
-import { FullscreenLayout } from "@/components/layout";
+import { FullscreenLayout } from "@/components/fullscreen-layout";
 
 /** LED / big-screen live cricket scoreboard. Public (auction code gate). */
 export default function ScoreDisplayPage() {

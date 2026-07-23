@@ -9,7 +9,6 @@ import {
   scoringOfficialsTable,
   scoringSessionsTable,
   scoringVenuesTable,
-  teamsTable,
   tournamentsTable,
   type MatchSquadJson,
   type ScoringDrawConfigJson,
@@ -25,6 +24,10 @@ import {
 } from "@workspace/scoring-core";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { ScoringServiceError } from "./scoring-service";
+import {
+  cricketFranchiseTeamExists,
+  listCricketFranchiseTeams,
+} from "./master-sports/cricket-franchise-registry";
 
 async function ensureScoringTournament(tournamentId: number) {
   const [tournament] = await db
@@ -46,13 +49,11 @@ async function ensureScoringTournament(tournamentId: number) {
 
 async function ensureTeamsInTournament(tournamentId: number, teamIds: number[]) {
   if (teamIds.length === 0) return;
-  const rows = await db
-    .select({ id: teamsTable.id })
-    .from(teamsTable)
-    .where(
-      and(eq(teamsTable.tournamentId, tournamentId), inArray(teamsTable.id, teamIds)),
-    );
-  if (rows.length !== teamIds.length) {
+  const unique = [...new Set(teamIds)];
+  const results = await Promise.all(
+    unique.map((id) => cricketFranchiseTeamExists(tournamentId, id)),
+  );
+  if (results.some((ok) => !ok)) {
     throw new ScoringServiceError("One or more teams not in tournament", 400, "INVALID_TEAM");
   }
 }
@@ -513,15 +514,13 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     throw new ScoringServiceError("Scoring not available", 404, "SCORING_NOT_AVAILABLE");
   }
 
-  const teams = await db
-    .select({
-      id: teamsTable.id,
-      name: teamsTable.name,
-      shortCode: teamsTable.shortCode,
-      color: teamsTable.color,
-    })
-    .from(teamsTable)
-    .where(eq(teamsTable.tournamentId, tournamentId));
+  const franchiseTeams = await listCricketFranchiseTeams(tournamentId);
+  const teams = franchiseTeams.map((t) => ({
+    id: t.teamId,
+    name: t.name,
+    shortCode: t.shortCode,
+    color: t.color,
+  }));
 
   const fixtures = await listScoringFixtures(tournamentId);
   const matches = await db

@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 import {
   useGetTournament,
-  useListTeams,
   getGetTournamentQueryKey,
-  getListTeamsQueryKey,
 } from "@workspace/api-client-react";
-import { FullscreenLayout } from "@/components/layout";
+import { useQuery } from "@tanstack/react-query";
+import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import { getActiveInnings, oversText, requiredRate, runRate } from "@/lib/scoring-ball";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { CricketPublicBrandMark, useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
+import { getCricketMasterTeams } from "@/lib/scoring-api";
+import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,19 +47,25 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
   const { connectionStatus } = useScoringSocket(tournamentId, scoringActive);
   const { data: live } = useScoringLive(tournamentId, scoringActive, connectionStatus);
-  const { data: teams } = useListTeams(tournamentId, {
-    query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: !!tournamentId,
   });
+  const teams = useMemo(
+    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    [masterTeams],
+  );
 
   const match = live?.match;
   const state = live?.state;
   const summary = live?.summary;
   const innings = state ? getActiveInnings(state) : null;
 
-  const home = teams?.find((t) => t.id === match?.homeTeamId);
-  const away = teams?.find((t) => t.id === match?.awayTeamId);
-  const battingTeam = teams?.find((t) => t.id === innings?.battingTeamId);
-  const bowlingTeam = teams?.find((t) => t.id === innings?.bowlingTeamId);
+  const home = teams.find((t) => t.id === match?.homeTeamId);
+  const away = teams.find((t) => t.id === match?.awayTeamId);
+  const battingTeam = teams.find((t) => t.id === innings?.battingTeamId);
+  const bowlingTeam = teams.find((t) => t.id === innings?.bowlingTeamId);
 
   const rr = innings ? runRate(innings.runs, innings.over, innings.ball) : null;
   const rrr =
@@ -72,7 +79,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const scoreLines = useMemo(() => {
     if (!state || !summary) return [];
     return summary.innings.map((inn) => {
-      const bat = teams?.find((t) => t.id === inn.battingTeamId);
+      const bat = teams.find((t) => t.id === inn.battingTeamId);
       return {
         key: inn.innings,
         label: bat?.shortCode ?? `T${inn.battingTeamId}`,
@@ -113,7 +120,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               <p className="text-center text-sm uppercase tracking-widest text-primary font-bold">
                 Match Complete
               </p>
-              <MatchSummaryCard summary={summary} teams={teams ?? []} />
+              <MatchSummaryCard summary={summary} teams={teams} />
             </div>
           ) : (
             <div className="w-full max-w-4xl space-y-8">

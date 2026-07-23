@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 
 
-/** Shared form tokens — inherits BidWar auction design system */
+/** Shared form tokens — inherits BidWar design system */
 
 export const inputClass =
 
@@ -45,7 +45,7 @@ export const selectItemClass =
 
 
 
-/** Standard hub card — matches auction `Card` */
+/** Standard hub card — matches shared `Card` */
 
 export const hubCardClass =
 
@@ -63,7 +63,7 @@ const badmintonSportNav = getBadmintonSportNav();
  *
  * Default `noPadding` — badminton pages own PageHeader full-bleed + content padding
  * (same as the previous horizontal-hub shell). Pass `noPadding={false}` only when
- * a page should use SportsShell’s auction-style padded content well.
+ * a page should use SportsShell’s padded content well.
  */
 export function HubPageShell({
 

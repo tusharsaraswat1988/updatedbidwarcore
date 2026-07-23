@@ -1,0 +1,17 @@
+{
+  "name": "@workspace/sports-badminton",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./branding": "./src/badminton-branding.ts",
+    "./core": "./src/core.ts"
+  },
+  "dependencies": {
+    "@workspace/badminton-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

@@ -12,6 +12,7 @@
     "build:deploy": "pnpm -r --if-present run build && node scripts/setup-playwright-browsers.mjs",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "check:boundaries": "node scripts/check-domain-boundaries.mjs",
     "build:prod": "pnpm install --frozen-lockfile --prod=false && pnpm run build:deploy",
     "start:prod": "cross-env NODE_ENV=production SERVE_STATIC=true node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "db:push:prod": "cross-env NODE_ENV=production pnpm --filter @workspace/db run push",

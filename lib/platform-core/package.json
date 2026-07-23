@@ -1,0 +1,21 @@
+{
+  "name": "@workspace/platform-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api-fetch": "./src/api-fetch.ts",
+    "./tournament-features": "./src/tournament-features.ts",
+    "./scoring-urls": "./src/scoring-urls.ts",
+    "./owner-urls": "./src/owner-urls.ts",
+    "./email": "./src/email.ts",
+    "./mobile-app-urls": "./src/mobile-app-urls.ts",
+    "./dev-cors": "./src/dev-cors.ts",
+    "./vite-proxy": "./src/vite-proxy.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vite": "catalog:"
+  }
+}

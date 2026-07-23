@@ -1,13 +1,15 @@
 import { db } from "@workspace/db";
 import {
-  playersTable,
   scoringMatchesTable,
-  teamsTable,
   tournamentsTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import type { PageMeta } from "./page-meta.js";
 import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
+import {
+  resolveCricketFranchisePlayersByIds,
+  resolveCricketFranchiseTeamsByIds,
+} from "./master-sports/cricket-franchise-registry.js";
 
 const BASE_URL = "https://bidwar.in";
 
@@ -58,10 +60,12 @@ export async function resolveCricketPageMeta(pathname: string): Promise<PageMeta
 
       if (!match) return null;
 
-      const [home, away] = await Promise.all([
-        db.select({ name: teamsTable.name }).from(teamsTable).where(eq(teamsTable.id, match.homeTeamId)).limit(1).then((r) => r[0]),
-        db.select({ name: teamsTable.name }).from(teamsTable).where(eq(teamsTable.id, match.awayTeamId)).limit(1).then((r) => r[0]),
+      const teams = await resolveCricketFranchiseTeamsByIds(tournamentId, [
+        match.homeTeamId,
+        match.awayTeamId,
       ]);
+      const home = teams.get(match.homeTeamId);
+      const away = teams.get(match.awayTeamId);
 
       const title = `${home?.name ?? "Home"} vs ${away?.name ?? "Away"} — Scorecard | ${tournament.name}`;
       const description =
@@ -80,16 +84,13 @@ export async function resolveCricketPageMeta(pathname: string): Promise<PageMeta
     }
 
     if (playerId) {
-      const [player] = await db
-        .select({ name: playersTable.name, role: playersTable.role })
-        .from(playersTable)
-        .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tournamentId)))
-        .limit(1);
+      const players = await resolveCricketFranchisePlayersByIds(tournamentId, [playerId]);
+      const player = players.get(playerId);
 
       if (!player) return null;
 
-      const title = `${player.name} — ${tournament.name} | BidWar Cricket`;
-      const description = `Tournament stats and match awards for ${player.name}${player.role ? ` (${player.role})` : ""} in ${tournament.name}.`;
+      const title = `${player.displayName} — ${tournament.name} | BidWar Cricket`;
+      const description = `Tournament stats and match awards for ${player.displayName}${player.role ? ` (${player.role})` : ""} in ${tournament.name}.`;
 
       return withOg({
         title,
@@ -103,11 +104,8 @@ export async function resolveCricketPageMeta(pathname: string): Promise<PageMeta
     }
 
     if (teamId) {
-      const [team] = await db
-        .select({ name: teamsTable.name, shortCode: teamsTable.shortCode })
-        .from(teamsTable)
-        .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tournamentId)))
-        .limit(1);
+      const teams = await resolveCricketFranchiseTeamsByIds(tournamentId, [teamId]);
+      const team = teams.get(teamId);
 
       if (!team) return null;
 

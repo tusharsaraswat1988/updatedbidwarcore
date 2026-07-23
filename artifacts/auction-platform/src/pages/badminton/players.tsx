@@ -19,7 +19,7 @@ import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { identityFromOrganizerPlayer } from "@/lib/team-player-identity";
-import { apiFetch } from "@workspace/api-base";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
@@ -238,7 +238,7 @@ export default function BadmintonPlayersPage() {
         headerActions={
           section === "players" ? (
             <div className="flex items-center gap-2 flex-wrap">
-              <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
+              <BtnSecondary onClick={() => setShowImport(true)}>Import from Player Registry</BtnSecondary>
               <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
                 + Add Player
               </BtnPrimary>
@@ -346,7 +346,7 @@ export default function BadmintonPlayersPage() {
                 desc={
                   filtersActive
                     ? "Try clearing search or changing gender/team filters"
-                    : "Import from auction or add a walk-in player manually — then continue to Tournament Structure."
+                    : "Import from Player Registry or add a walk-in player manually — then continue to Tournament Structure."
                 }
                 action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
               />
@@ -380,7 +380,7 @@ export default function BadmintonPlayersPage() {
                         <p className="text-xs text-muted-foreground">
                           {group.players.length} player{group.players.length === 1 ? "" : "s"}
                           {group.teamName !== "Players without Team"
-                            ? " · team identity from Auction"
+                            ? " · team identity from Player Registry"
                             : " · add a team later if needed"}
                         </p>
                       </div>
@@ -507,7 +507,10 @@ function ImportMasterPlayersModal({
   const [sourceId, setSourceId] = useState(String(tournamentId));
   const [savingSource, setSavingSource] = useState(false);
 
-  const { data: settings } = useQuery<{ linkedAuctionTournamentId?: number | null }>({
+  const { data: settings } = useQuery<{
+    linkedPlayerRegistryTournamentId?: number | null;
+    linkedAuctionTournamentId?: number | null;
+  }>({
     queryKey: ["badminton-settings", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/settings`),
     enabled: !!tournamentId,
@@ -541,7 +544,7 @@ function ImportMasterPlayersModal({
 
   useEffect(() => {
     if (badmintonSources.length === 0) return;
-    const linked = settings?.linkedAuctionTournamentId;
+    const linked = settings?.linkedPlayerRegistryTournamentId ?? settings?.linkedAuctionTournamentId;
     if (linked && badmintonSources.some((t) => t.id === linked)) {
       setSourceId(String(linked));
       return;
@@ -551,7 +554,12 @@ function ImportMasterPlayersModal({
       return;
     }
     setSourceId(String(badmintonSources[0].id));
-  }, [settings?.linkedAuctionTournamentId, badmintonSources, tournamentId]);
+  }, [
+    settings?.linkedPlayerRegistryTournamentId,
+    settings?.linkedAuctionTournamentId,
+    badmintonSources,
+    tournamentId,
+  ]);
 
   const selectedSource = badmintonSources.find((t) => t.id === parseInt(sourceId, 10));
   const isTrialSource = !!selectedSource && !isLicensedTournament(selectedSource.licenseStatus);
@@ -576,13 +584,13 @@ function ImportMasterPlayersModal({
       await badmintonFetch(tournamentId, `/settings`, {
         method: "PATCH",
         body: JSON.stringify({
-          linkedAuctionTournamentId: Number.isFinite(linkedId) ? linkedId : null,
+          linkedPlayerRegistryTournamentId: Number.isFinite(linkedId) ? linkedId : null,
         }),
       });
       qc.invalidateQueries({ queryKey: ["badminton-settings", tournamentId] });
       qc.invalidateQueries({ queryKey: ["master-players", tournamentId, nextSourceId] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save auction source");
+      setError(e instanceof Error ? e.message : "Could not save registry source");
     } finally {
       setSavingSource(false);
     }
@@ -609,7 +617,7 @@ function ImportMasterPlayersModal({
         const message =
           body && !Array.isArray(body) && body.error
             ? body.error
-            : "Failed to load auction players";
+            : "Failed to load players";
         throw new Error(message);
       }
       return Array.isArray(body) ? body : [];
@@ -695,8 +703,8 @@ function ImportMasterPlayersModal({
 
   return (
     <FormModal
-      title="Import From Auction"
-      subtitle="Copy auction players into your badminton roster. Only imported players appear when you create matches."
+      title="Import from Player Registry"
+      subtitle="Copy players from the Player Registry into your badminton roster. Only imported players appear when you create matches."
       onClose={onClose}
       size="xl"
       footer={
@@ -717,7 +725,7 @@ function ImportMasterPlayersModal({
           </div>
         ) : (
           <>
-        <FormField label="Auction source">
+        <FormField label="Registry source">
           <DarkSelect
             value={sourceId}
             onValueChange={handleSourceChange}
@@ -726,7 +734,7 @@ function ImportMasterPlayersModal({
             options={sourceOptions}
           />
           <p className="text-white/35 text-xs mt-2">
-            Only your badminton tournaments appear here. Players come from that tournament’s auction roster, or its badminton roster if no auction players exist. Licensed events have no import cap.
+            Only your badminton tournaments appear here. Players come from that tournament’s badminton roster, or its Player Registry team assignments if no badminton roster exists. Licensed events have no import cap.
           </p>
         </FormField>
 
@@ -742,7 +750,7 @@ function ImportMasterPlayersModal({
         )}
 
         {isLoading || savingSource ? (
-          <AsyncLoadingPanel tone="inverse" message="Loading auction players…" />
+          <AsyncLoadingPanel tone="inverse" message="Loading players…" />
         ) : masterPlayersError ? (
           <div className="text-center py-8 space-y-2">
             <p className="text-red-300/90">
@@ -755,12 +763,12 @@ function ImportMasterPlayersModal({
           <div className="text-center py-8 space-y-2">
             <p className="text-white/50">No players to import from this source.</p>
             <p className="text-white/30 text-sm">
-              This tournament needs an auction roster or an existing badminton roster with linked master players. Add auction players first, or choose a different source above.
+              This tournament needs a badminton roster or Player Registry team assignments with linked master players. Add players first, or choose a different source above.
             </p>
           </div>
         ) : available.length === 0 ? (
           <div className="text-center py-8 space-y-2">
-            <p className="text-white/50">All auction players from this source are already on your badminton roster.</p>
+            <p className="text-white/50">All players from this source are already on your badminton roster.</p>
             <p className="text-white/30 text-sm">
               Delete a player from the roster to re-import them, or pick another source above.
             </p>
@@ -1063,7 +1071,7 @@ function PlayerFormModal({
   return (
     <FormModal
       title={player ? "Edit Player" : "Add Walk-in Player"}
-      subtitle="Same fields as auction player registration — photo and details show on scoreboard and match picker"
+      subtitle="Same fields as Player Registry registration — photo and details show on scoreboard and match picker"
       onClose={onClose}
       size="lg"
     >

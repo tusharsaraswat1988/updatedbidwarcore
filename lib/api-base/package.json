@@ -43,6 +43,7 @@
     "./registration-url": "./src/registration-url.ts",
     "./registration-fields": "./src/registration-fields.ts",
     "./branding-assets": "./src/branding-assets.ts",
+    "./api-fetch": "./src/api-fetch.ts",
     "./branding-icon-head": "./src/branding-icon-head.ts",
     "./player-specs-v2": "./src/player-specs-v2.ts",
     "./player-spec-export": "./src/player-spec-export.ts",
@@ -58,5 +59,13 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "vite": "catalog:"
+  },
+  "dependencies": {
+    "@workspace/platform-core": "workspace:*",
+    "@workspace/branding": "workspace:*",
+    "@workspace/auth": "workspace:*",
+    "@workspace/media": "workspace:*",
+    "@workspace/player-registry": "workspace:*",
+    "@workspace/auction": "workspace:*"
   }
 }

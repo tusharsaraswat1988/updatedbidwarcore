@@ -1,4 +1,4 @@
-import { apiFetch } from "@workspace/api-base";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 
 export async function checkOrganizerAuth(tournamentId: number): Promise<boolean> {
   try {
