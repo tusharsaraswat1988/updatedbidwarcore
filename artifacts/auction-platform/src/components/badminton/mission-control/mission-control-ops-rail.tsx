@@ -28,7 +28,19 @@ const ANNOUNCEMENTS: { id: BadmintonOverlayScene; label: string }[] = [
   { id: "sponsor", label: "Sponsor" },
 ];
 
-export function MissionControlOpsRail({ tournamentId }: { tournamentId: number }) {
+export function MissionControlOpsRail({
+  tournamentId,
+  onAnnouncement,
+  onEmergency,
+  emergencyActive,
+  onResumeScreens,
+}: {
+  tournamentId: number;
+  onAnnouncement?: (label: string) => void;
+  onEmergency?: () => void;
+  emergencyActive?: boolean;
+  onResumeScreens?: () => void;
+}) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: branding } = useBadmintonBranding(tournamentId);
@@ -78,6 +90,10 @@ export function MissionControlOpsRail({ tournamentId }: { tournamentId: number }
   const pending = setPresentationMutation.isPending || setPrimaryMutation.isPending;
 
   function emergencyStandby() {
+    if (onEmergency) {
+      onEmergency();
+      return;
+    }
     setPresentationMutation.mutate(
       { venueScene: "standby", overlayScene: "sponsor" },
       {
@@ -131,21 +147,31 @@ export function MissionControlOpsRail({ tournamentId }: { tournamentId: number }
           Announcements
         </p>
         <div className="flex flex-wrap gap-2">
-          {ANNOUNCEMENTS.map((opt) => (
+            {ANNOUNCEMENTS.map((opt) => (
+              <RailButton
+                key={opt.id}
+                label={opt.label}
+                active={overlayScene === opt.id}
+                disabled={pending}
+                onClick={() => {
+                  setPresentationMutation.mutate(
+                    { overlayScene: opt.id },
+                    { onSuccess: () => onAnnouncement?.(opt.label) },
+                  );
+                }}
+              />
+            ))}
             <RailButton
-              key={opt.id}
-              label={opt.label}
-              active={overlayScene === opt.id}
+              label="Sponsor scene"
+              active={overlayScene === "sponsor"}
               disabled={pending}
-              onClick={() => setPresentationMutation.mutate({ overlayScene: opt.id })}
+              onClick={() => {
+                setPresentationMutation.mutate(
+                  { overlayScene: "sponsor" },
+                  { onSuccess: () => onAnnouncement?.("Sponsor") },
+                );
+              }}
             />
-          ))}
-          <RailButton
-            label="Sponsor scene"
-            active={overlayScene === "sponsor"}
-            disabled={pending}
-            onClick={() => setPresentationMutation.mutate({ overlayScene: "sponsor" })}
-          />
         </div>
       </div>
 
@@ -208,17 +234,31 @@ export function MissionControlOpsRail({ tournamentId }: { tournamentId: number }
         </div>
       ) : null}
 
-      <button
-        type="button"
-        disabled={pending}
-        onClick={emergencyStandby}
-        className={cn(
-          hubCardClass,
-          "w-full min-h-12 px-4 text-sm font-bold text-orange-100 border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 disabled:opacity-50",
-        )}
-      >
-        Emergency message
-      </button>
+      {emergencyActive ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onResumeScreens?.()}
+          className={cn(
+            hubCardClass,
+            "w-full min-h-12 px-4 text-sm font-bold text-emerald-100 border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 disabled:opacity-50",
+          )}
+        >
+          Resume tournament screens
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={emergencyStandby}
+          className={cn(
+            hubCardClass,
+            "w-full min-h-12 px-4 text-sm font-bold text-orange-100 border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 disabled:opacity-50",
+          )}
+        >
+          Emergency pause
+        </button>
+      )}
     </aside>
   );
 }

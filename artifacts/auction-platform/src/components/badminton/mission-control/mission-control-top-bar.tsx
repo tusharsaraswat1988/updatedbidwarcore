@@ -1,12 +1,12 @@
 /**
- * Mission Control top bar — live operational status (not dashboard KPIs).
+ * Mission Control top bar — status strip + global primary action.
  */
 
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { hubCardClass } from "@/components/badminton/page-chrome";
-import { badmintonMatchControlPath } from "@/lib/badminton-routes";
+import type { PrimaryAction } from "@/lib/mission-control-ops";
 
 export function MissionControlTopBar({
   tournamentName,
@@ -14,18 +14,20 @@ export function MissionControlTopBar({
   readyCount,
   delayedCount,
   completedCount,
-  nextReadyId,
-  tournamentId,
-  alertText,
+  primaryAction,
+  emergencyActive,
+  onEmergency,
+  onResumePresentation,
 }: {
   tournamentName: string;
   liveCount: number;
   readyCount: number;
   delayedCount: number;
   completedCount: number;
-  nextReadyId: number | null;
-  tournamentId: number;
-  alertText?: string | null;
+  primaryAction: PrimaryAction;
+  emergencyActive?: boolean;
+  onEmergency?: () => void;
+  onResumePresentation?: () => void;
 }) {
   const [now, setNow] = useState(() =>
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -39,7 +41,7 @@ export function MissionControlTopBar({
 
   return (
     <header
-      className={cn(hubCardClass, "p-3 sm:p-4 sticky top-0 z-20 backdrop-blur-md bg-card/95")}
+      className={cn(hubCardClass, "p-3 sm:p-4 sticky top-0 z-20 backdrop-blur-md bg-card/95 space-y-3")}
       aria-label="Mission Control status"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -56,32 +58,57 @@ export function MissionControlTopBar({
           <StatusChip label="Delayed" value={delayedCount} tone="delayed" />
           <StatusChip label="Completed" value={completedCount} tone="done" />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {nextReadyId != null ? (
-            <a
-              href={badmintonMatchControlPath(tournamentId, nextReadyId)}
-              className="min-h-10 px-3 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 text-amber-100 text-xs font-bold inline-flex items-center"
-            >
-              Start next ready
-            </a>
-          ) : (
-            <Link
-              href={`/tournament/${tournamentId}/badminton/schedule`}
-              className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
-            >
-              Open schedule
-            </Link>
-          )}
-        </div>
       </div>
-      {alertText ? (
-        <p
-          className="mt-3 text-xs font-semibold text-orange-200 rounded-lg border border-orange-500/35 bg-orange-500/10 px-3 py-2"
-          role="alert"
-        >
-          {alertText}
-        </p>
-      ) : null}
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        {primaryAction.disabled ? (
+          <div className="flex-1 min-w-0">
+            <button
+              type="button"
+              disabled
+              className="w-full sm:w-auto min-h-12 px-5 rounded-xl bg-white/10 text-white/45 text-sm font-bold cursor-not-allowed"
+              title={primaryAction.disabledReason}
+            >
+              {primaryAction.label}
+            </button>
+            {primaryAction.disabledReason ? (
+              <p className="text-[11px] text-amber-200/90 mt-1">{primaryAction.disabledReason}</p>
+            ) : null}
+          </div>
+        ) : primaryAction.href ? (
+          <Link
+            href={primaryAction.href}
+            className="w-full sm:w-auto min-h-12 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
+          >
+            {primaryAction.label}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="w-full sm:w-auto min-h-12 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold"
+          >
+            {primaryAction.label}
+          </button>
+        )}
+
+        {emergencyActive ? (
+          <button
+            type="button"
+            onClick={onResumePresentation}
+            className="min-h-12 px-4 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
+          >
+            Resume tournament screens
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onEmergency}
+            className="min-h-12 px-4 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
+          >
+            Emergency pause
+          </button>
+        )}
+      </div>
     </header>
   );
 }

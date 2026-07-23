@@ -22,6 +22,7 @@ import {
   type CourtBoardRow,
   type CourtOpsStatus,
 } from "@/lib/badminton-control-center";
+import { explainStartBlocker, courtDisplayPriority } from "@/lib/mission-control-ops";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import { identityFromLooseSide } from "@/lib/team-player-identity";
 import { formatCourtOpsStatusLabel } from "@/lib/badminton-ux";
@@ -79,6 +80,8 @@ export function MissionControlCourtCard({
   const [qrOpen, setQrOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { court, status, currentMatch, nextMatch, nextFixture, readyOverflow } = row;
+  const displayPriority = courtDisplayPriority(row);
+  const startBlocker = explainStartBlocker(row);
 
   const matchId = currentMatch?.id ?? 0;
   const director = useBadmintonDirector(tournamentId, matchId);
@@ -138,8 +141,10 @@ export function MissionControlCourtCard({
       className={cn(
         hubCardClass,
         "p-4 space-y-3",
-        status === "LIVE" && "border-red-500/35",
-        status === "DELAYED" && "border-orange-500/40",
+        displayPriority === "LIVE" && "border-red-500/45 ring-1 ring-red-500/25",
+        displayPriority === "DELAYED" && "border-orange-500/45 ring-1 ring-orange-500/20",
+        displayPriority === "READY" && "border-amber-500/25",
+        displayPriority === "WAITING" && "border-sky-500/25",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -267,9 +272,9 @@ export function MissionControlCourtCard({
               type="button"
               disabled={setPrimaryMutation.isPending}
               onClick={() => setPrimaryMutation.mutate(currentMatch.id)}
-              className="min-h-10 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs font-bold"
+              className="min-h-10 px-3 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 text-amber-50 text-xs font-bold"
             >
-              Follow on screens
+              Focus court
             </button>
           ) : null}
           {isLive && currentMatch ? (
@@ -313,17 +318,31 @@ export function MissionControlCourtCard({
         ) : null}
 
         {(status === "READY" || status === "DELAYED") && currentMatch ? (
-          <a
-            href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-            className={cn(
-              "min-h-10 px-4 rounded-lg text-sm font-bold inline-flex items-center",
-              status === "DELAYED"
-                ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-50"
-                : "bg-amber-500/25 hover:bg-amber-500/35 text-amber-100",
-            )}
-          >
-            {status === "DELAYED" ? "Start (delayed)" : "Start match"}
-          </a>
+          startBlocker ? (
+            <div className="w-full space-y-1">
+              <button
+                type="button"
+                disabled
+                title={startBlocker}
+                className="min-h-10 px-4 rounded-lg text-sm font-bold bg-white/10 text-white/40 cursor-not-allowed"
+              >
+                {status === "DELAYED" ? "Start (delayed)" : "Start match"}
+              </button>
+              <p className="text-[11px] text-amber-200/90">{startBlocker}</p>
+            </div>
+          ) : (
+            <a
+              href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
+              className={cn(
+                "min-h-10 px-4 rounded-lg text-sm font-bold inline-flex items-center",
+                status === "DELAYED"
+                  ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-50"
+                  : "bg-amber-500/25 hover:bg-amber-500/35 text-amber-100",
+              )}
+            >
+              {status === "DELAYED" ? "Start (delayed)" : "Start match"}
+            </a>
+          )
         ) : null}
 
         {isLive && currentMatch ? (
