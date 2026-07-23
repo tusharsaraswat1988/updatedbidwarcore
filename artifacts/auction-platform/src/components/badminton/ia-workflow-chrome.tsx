@@ -147,6 +147,9 @@ export function BadmintonIaPageChrome({
   continueLabel,
   hideContinue,
   sectionTabs,
+  titleOverride,
+  purposeOverride,
+  taskOverride,
 }: {
   tournamentId: number;
   stepId: BadmintonIaStepId;
@@ -156,6 +159,10 @@ export function BadmintonIaPageChrome({
   continueLabel?: string;
   hideContinue?: boolean;
   sectionTabs?: React.ReactNode;
+  /** Page-local copy only — does not change IA step definitions. */
+  titleOverride?: string;
+  purposeOverride?: string;
+  taskOverride?: string;
 }) {
   const step = getBadmintonIaStep(stepId);
   const { snapshot, isLoading } = useBadmintonSetup(tournamentId);
@@ -168,8 +175,8 @@ export function BadmintonIaPageChrome({
     <>
       <PageHeader
         eyebrow="Tournament"
-        title={step.title}
-        subtitle={step.purpose}
+        title={titleOverride ?? step.title}
+        subtitle={purposeOverride ?? step.purpose}
         actions={headerActions}
       />
 
@@ -177,7 +184,7 @@ export function BadmintonIaPageChrome({
         <BadmintonIaProgress tournamentId={tournamentId} current={stepId} />
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground/80">Do now: </span>
-          {step.task}
+          {taskOverride ?? step.task}
         </p>
         {sectionTabs}
       </div>

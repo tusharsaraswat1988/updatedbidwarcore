@@ -1,6 +1,6 @@
 # Badminton Product UX & Information Architecture Audit
 
-**Status:** Product Architecture Spec — Phase 1 + Phase 2 + Phase 2.5 polish complete; Phases 3–4 pending review  
+**Status:** Product Architecture Spec — Phase 1 + Phase 2 + Phase 2.5 frozen; Phase 3 Mission Control implemented; Phase 4 pending  
 **Date:** 2026-07-23  
 **Release target:** VNBL 3.0 (before 1 Aug)  
 **Module runtime:** `artifacts/scoring-app` (`/scoring-app`)  
@@ -427,18 +427,16 @@ Dashboard always offers the **single most important next action** for current to
 - [x] Schedule: IA chrome + Go Live CTA
 - [x] Live Control: Courts & Queue · Live Displays + Mission Control language
 - [x] Results: Standings · Summary · Insights tabs (legacy URLs preserved)
-- [ ] Review gate before Phase 3 (dynamic Dashboard)
+- [x] Phase 2.5 polish frozen (do not reopen IA unless critical live-test issue)
 
-### Phase 3 — Page composition (merge into hosts)
-Order chosen to reduce risk:
-
-1. **Tournament Setup host** — compose sections from branding + courts + scoring-format (+ brand assets section).  
-2. **Participants host** — players + scorers + category entries.  
-3. **Competition host** — categories (events) + fixtures.  
-4. **Schedule host** — schedule board UX; absorb match court/time responsibilities from Matches.  
-5. **Live Control host** — control-center as Mission Control; embed broadcast section; deep-link Match Control.  
-6. **Results host** — results + summary (+ outcome analytics).  
-7. **Dashboard cleanup** — remove setup forms / broadcast; keep health + Continue.
+### Phase 3 — BidWar Mission Control (reframed; not Dynamic Dashboard)
+- [x] Court-centric Live Control workspace (`control-center.tsx`) — no in-page section tabs
+- [x] Sticky ops bar: KPIs + quick actions (courts / queue / screens / schedule / results)
+- [x] Courts above the fold; queue next; Screens·Venue·OBS·Announcements progressive disclosure
+- [x] Announcements reuse existing presentation scenes (intro / winner / sponsor / venue standby)
+- [x] `?focus=broadcast` deep-link still opens Screens panel
+- [ ] Dashboard dynamic modes (setup / live / completed) — deferred; not required for Mission Control
+- [ ] Remaining host polish outside Live Control only if VNBL live testing demands it
 
 ### Phase 4 — Compatibility & cleanup
 1. Old paths redirect to new homes with hash/query section anchors where needed (`?section=courts`, `?focus=broadcast`).

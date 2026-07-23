@@ -1,38 +1,25 @@
-# Live Control — Layout coexistence notes (Phase 2.5)
+# Mission Control — Phase 3
 
-**Status:** Architecture only — no redesign in this pass.  
-**Purpose:** Confirm Broadcast / Venue / OBS / Courts / Queue can share one Mission Control page before Phase 3.
+**Status:** Implemented as operational command center (not a dashboard).  
+**Phase 2 IA:** Frozen — do not change sidebar, chapters, continue flow, or routing.
 
-## Current composition (`control-center.tsx`)
+## Layout (`control-center.tsx` + `mission-control/*`)
 
-Top → bottom:
+```
+TOP BAR     Tournament · clock · Live / Ready / Delayed / Completed · alerts · Start next
+LEFT        Live Courts (court cards)
+RIGHT       Quick Ops — Venue · OBS · Scorer Home · Announcements · Screens follow · Emergency
+BOTTOM      Ready · Upcoming · Recently finished
+ADVANCED    Collapsed developer diagnostics
+```
 
-1. **IA chrome** — title, purpose, workflow strip, section tabs (`Courts & Queue` | `Live Displays`)
-2. **Live Displays panel** (`BadmintonBroadcastDirectorPanel`, `#broadcast`) — venue scoreboard + OBS overlay + scorer home links
-3. **Idle guidance** (when no live/ready) — soft banner, does not hide courts
-4. **Status KPIs** — Live / Ready / Delayed / Empty / Finished
-5. **Court cards** — status, current/next match, open scoring, scorer PIN/QR
-6. **Waiting / Ready lists** — upcoming + ready
-7. **Recently completed**
+## Court card (ops unit)
 
-## Coexistence verdict
+Court → Current match → Next match · status · scorer · Broadcast/LED/OBS following ·  
+Open scoring · Pause · Resume · Finish · Reconnect scorer · Follow on screens · Assign next
 
-| Surface | Conflict risk | Notes |
-|---------|---------------|-------|
-| Courts board | Low | Primary vertical stack; remains when idle |
-| Queue lists | Low | Below courts; empty copy points to Schedule |
-| Live Displays | Medium | Always mounted today; tab `focus=broadcast` only highlights — does not hide courts |
-| OBS / Venue URLs | None | External fullscreen routes; only links live here |
-| Scorer QR dialogs | None | Modal overlay |
+## Constraints
 
-## Pre–Phase 3 recommendation (do not implement yet)
-
-- Keep **one scrollable Mission Control** (not separate Broadcast page).
-- Prefer **progressive disclosure**: collapse Live Displays unless tab/focus is active, so court ops stay above the fold on match day.
-- Do not move court creation, player import, or draw tools into Live Control.
-
-## Explicit non-goals for Phase 3 prep
-
-- No new broadcast APIs
-- No OBS protocol changes
-- No court card redesign in Phase 2.5
+- No KPI dashboard / graphs / analytics
+- No new APIs — pause/resume/force-end, primary-broadcast, presentation scenes, match PATCH, force-unlock
+- Setup / draw / import stay out of this page

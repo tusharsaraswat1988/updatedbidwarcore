@@ -29,11 +29,15 @@ import type {
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
 
-const OVERLAY_SCENE_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
+const OVERLAY_LAYOUT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "compact", label: "Compact" },
   { id: "full", label: "Full" },
   { id: "multi", label: "Multi courts" },
+];
+
+/** Hall / stream moments — same presentation API, organizer language. */
+const OVERLAY_ANNOUNCEMENT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
   { id: "intro", label: "Intro" },
   { id: "winner", label: "Winner" },
   { id: "sponsor", label: "Sponsor" },
@@ -43,7 +47,7 @@ const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "live_score", label: "Live score" },
   { id: "multi", label: "Multi courts" },
-  { id: "standby", label: "Standby" },
+  { id: "standby", label: "Standby / break" },
 ];
 
 function SceneButton({
@@ -200,10 +204,35 @@ export function BadmintonBroadcastDirectorPanel({
       <div className={cn(hubPanelClass, "p-4 space-y-4")}>
         <div className="space-y-2">
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
-            OBS Overlay scene
+            Announcements
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Push intro, winner, or sponsor moments to OBS. Use Venue standby for breaks.
           </p>
           <div className="flex flex-wrap gap-2">
-            {OVERLAY_SCENE_OPTIONS.map((opt) => (
+            {OVERLAY_ANNOUNCEMENT_OPTIONS.map((opt) => (
+              <SceneButton
+                key={opt.id}
+                label={opt.label}
+                active={overlayScene === opt.id}
+                disabled={pending}
+                onClick={() => setPresentationMutation.mutate({ overlayScene: opt.id })}
+              />
+            ))}
+            <SceneButton
+              label="Venue standby"
+              active={venueScene === "standby"}
+              disabled={pending}
+              onClick={() => setPresentationMutation.mutate({ venueScene: "standby" })}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
+            OBS Overlay layout
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {OVERLAY_LAYOUT_OPTIONS.map((opt) => (
               <SceneButton
                 key={opt.id}
                 label={opt.label}
