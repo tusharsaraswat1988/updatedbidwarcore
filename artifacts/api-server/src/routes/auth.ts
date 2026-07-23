@@ -28,8 +28,8 @@ import {
   DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
-import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
-import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+import { parseIndianMobile, isPlaceholderOrganizerMobile, displayOrganizerMobile, organizerNeedsPhoneVerification } from "@workspace/api-base/mobile";
+import { isOrganizerAccountLocked, organizerPhoneStatusLabel } from "@workspace/api-base/organizer-account";
 import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { notifyAsync } from "../lib/notifications";
 import {
@@ -149,20 +149,45 @@ function isAnyAdmin(req: import("express").Request): boolean {
   return !!req.jwtUser.isAdmin;
 }
 
-const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
-  id: o.id,
-  name: o.name,
-  email: o.email,
-  mobile: (o.mobile && !o.mobile.startsWith("eml:") && !o.mobile.startsWith("gid_")) ? o.mobile : null,
-  photoUrl: o.photoUrl ?? null,
-  photoPublicId: o.photoPublicId ?? null,
-  licenseStatus: o.licenseStatus,
-  maxTournaments: o.maxTournaments,
-  notes: o.notes,
-  hasPassword: !!o.passwordHash,
-  needsMobile: !!o.googleId && (!o.mobile || o.mobile.startsWith("gid_")),
-  createdAt: o.createdAt.toISOString(),
-});
+const organizerToJson = (o: typeof organizersTable.$inferSelect) => {
+  const incomplete = organizerNeedsPhoneVerification({
+    mobile: o.mobile,
+    phoneVerified: o.phoneVerified,
+  });
+  return {
+    id: o.id,
+    name: o.name,
+    email: o.email,
+    mobile: displayOrganizerMobile(o.mobile),
+    photoUrl: o.photoUrl ?? null,
+    photoPublicId: o.photoPublicId ?? null,
+    licenseStatus: o.licenseStatus,
+    maxTournaments: o.maxTournaments,
+    notes: o.notes,
+    hasPassword: !!o.passwordHash,
+    phoneVerified: o.phoneVerified === true && !incomplete,
+    phoneVerifiedAt: o.phoneVerifiedAt?.toISOString() ?? null,
+    phoneStatus: organizerPhoneStatusLabel({
+      mobile: displayOrganizerMobile(o.mobile),
+      phoneVerified: o.phoneVerified === true && !incomplete,
+    }),
+    /** @deprecated use incompleteProfile — kept for existing clients */
+    needsMobile: incomplete,
+    incompleteProfile: incomplete,
+    createdAt: o.createdAt.toISOString(),
+  };
+};
+
+function verifiedPhoneFields(now = new Date()) {
+  return {
+    phoneVerified: true as const,
+    phoneVerifiedAt: now,
+  };
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string }).code === "23505";
+}
 
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 
@@ -1004,6 +1029,8 @@ router.patch("/auth/admin/organizers/:id", async (req, res) => {
       return;
     }
     updates.mobile = mobileParsed.normalized;
+    // Admin override marks phone verified (audited) — ops exception to OTP path.
+    Object.assign(updates, verifiedPhoneFields());
   }
   if (d.licenseStatus !== undefined) updates.licenseStatus = d.licenseStatus;
   if (d.maxTournaments !== undefined) updates.maxTournaments = d.maxTournaments;
@@ -1051,17 +1078,19 @@ router.delete("/auth/admin/organizers/:id", async (req, res) => {
 
 // ─── Organizer Account (self-service portal) ──────────────────────────────────
 
-// Step 1: validate credentials, check uniqueness, hash password, send OTP
+// Step 1: name + email + mobile → send OTP (password only after OTP — step 3)
 router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (req, res) => {
   const body = z.object({
     name: z.string().min(1),
     mobile: z.string().min(7),
-    email: z.string().email().optional(),
-    password: z.string().min(6),
+    email: z.string().email(),
   }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Name, mobile number, and password (min 6 chars) are required." }); return; }
+  if (!body.success) {
+    res.status(400).json({ error: "Name, email, and mobile number are required." });
+    return;
+  }
 
-  const { name, mobile: rawMobile, email, password } = body.data;
+  const { name, mobile: rawMobile, email } = body.data;
 
   const mobileParsed = parseIndianMobile(rawMobile);
   if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
@@ -1071,21 +1100,34 @@ router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (re
     res.status(409).json({ error: "An account with this mobile number already exists." });
     return;
   }
-  if (email) {
-    const [emailExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.email, email)).limit(1);
-    if (emailExists) {
-      res.status(409).json({ error: "An account with this email already exists." });
-      return;
-    }
+  const [emailExists] = await db
+    .select({ id: organizersTable.id })
+    .from(organizersTable)
+    .where(eq(organizersTable.email, email))
+    .limit(1);
+  if (emailExists) {
+    res.status(409).json({ error: "An account with this email already exists." });
+    return;
   }
 
-  const passwordHash = await hashPassword(password);
-  const payload = JSON.stringify({ name, mobile, email: email ?? null, passwordHash });
-
+  const payload = JSON.stringify({ name, mobile, email });
   const result = await bulkSmsOtpSend(mobile, "signup", payload);
   if (!result.success) {
-    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
+    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." });
+    return;
   }
+
+  setOAuthCookie(res, {
+    ...req.oauthState,
+    pendingEmailSignup: { name, email, mobile, otpVerified: false },
+  });
+
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_signup_otp_sent",
+    summary: `Signup OTP sent for ${email}`,
+    metadata: { mobile, email },
+  });
 
   res.json({ success: true });
 });
@@ -1096,6 +1138,8 @@ router.get("/auth/config", (_req, res) => {
   res.json({
     smsOtpEnabled: process.env.SMS_OTP_ENABLED === "true",
     turnstileSiteKey,
+    /** Email signup requires mobile OTP; placeholder eml: accounts are no longer created. */
+    emailSignupRequiresMobileOtp: true,
   });
 });
 
@@ -1108,21 +1152,33 @@ router.get("/auth/organizer-account/login/status", (req, res) => {
   res.json(guard);
 });
 
-// Email + password signup — available when SMS OTP is not configured
-router.post("/auth/organizer-account/signup/email", authLimiter, async (req, res) => {
-  if (process.env.SMS_OTP_ENABLED === "true") {
-    res.status(503).json({ error: "Email signup is not available when SMS OTP is enabled. Please use mobile signup." });
-    return;
-  }
+/**
+ * Email signup entry — Phase 1: always requires mobile + OTP send.
+ * Does not create an account. Password is collected only after OTP verify.
+ */
+router.post("/auth/organizer-account/signup/email", otpSendLimiter, async (req, res) => {
   const body = z.object({
     name: z.string().min(1),
     email: z.string().email(),
-    password: z.string().min(6),
+    mobile: z.string().min(7),
   }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Name, email, and password (min 6 chars) are required." }); return; }
+  if (!body.success) {
+    res.status(400).json({
+      error: "Name, email, and mobile number are required. Password is set after OTP verification.",
+    });
+    return;
+  }
 
-  const { name, email, password } = body.data;
+  // Reuse send-otp logic by forwarding body shape
+  const mobileParsed = parseIndianMobile(body.data.mobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
+  const { name, email } = body.data;
 
+  if (await organizerNormalizedMobileTaken(mobile)) {
+    res.status(409).json({ error: "An account with this mobile number already exists." });
+    return;
+  }
   const [emailExists] = await db
     .select({ id: organizersTable.id })
     .from(organizersTable)
@@ -1133,35 +1189,28 @@ router.post("/auth/organizer-account/signup/email", authLimiter, async (req, res
     return;
   }
 
-  const passwordHash = await hashPassword(password);
+  const result = await bulkSmsOtpSend(mobile, "signup", JSON.stringify({ name, mobile, email }));
+  if (!result.success) {
+    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." });
+    return;
+  }
 
-  const [organizer] = await db.insert(organizersTable).values({
-    name,
-    email,
-    mobile: `eml:${email}`,
-    passwordHash,
-    licenseStatus: "active",
-    maxTournaments: 1,
-  }).returning();
-
-  await claimTournamentsForOrganizer(organizer.id, {
-    mobile: organizer.mobile,
-    email: organizer.email,
+  setOAuthCookie(res, {
+    ...req.oauthState,
+    pendingEmailSignup: { name, email, mobile, otpVerified: false },
   });
 
-  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-  const myTournaments = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.organizerId, organizer.id));
-  for (const t of myTournaments) orgMap[String(t.id)] = true;
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_signup_otp_sent",
+    summary: `Email signup OTP sent for ${email}`,
+    metadata: { mobile, email },
+  });
 
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
-  triggerOrganiserRegisteredNotification(organizer);
-  res.json({ success: true, organizer: organizerToJson(organizer) });
+  res.json({ success: true, step: "otp" });
 });
 
-// Step 2: verify OTP, read pending session, create account, issue auth cookie
+// Step 2: verify OTP — marks pending signup as verified (no account yet)
 router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (req, res) => {
   const body = z.object({
     mobile: z.string().min(7),
@@ -1177,27 +1226,125 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
 
   const result = await bulkSmsOtpVerify(mobile, otp, "signup");
   if (!result.success) {
-    res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
+    auditDenied(req, {
+      category: "auth",
+      action: "auth.organizer_signup_otp_failed",
+      summary: "Signup OTP verification failed",
+      metadata: { mobile },
+    });
+    res.status(400).json({ error: result.error ?? "Invalid or expired OTP" });
+    return;
   }
 
-  if (!result.payload) {
-    res.status(400).json({ error: "Signup session expired — please start over" }); return;
+  let pending = req.oauthState.pendingEmailSignup;
+  if (result.payload) {
+    try {
+      const parsed = JSON.parse(result.payload) as { name: string; mobile: string; email: string };
+      pending = {
+        name: parsed.name,
+        email: parsed.email,
+        mobile: parsed.mobile,
+        otpVerified: true,
+      };
+    } catch {
+      /* keep cookie pending */
+    }
   }
 
-  const pendingData = JSON.parse(result.payload) as { name: string; mobile: string; email: string | null; passwordHash: string };
+  if (!pending || pending.mobile !== mobile) {
+    res.status(400).json({ error: "Signup session expired — please start over" });
+    return;
+  }
 
   if (await organizerNormalizedMobileTaken(mobile)) {
-    res.status(409).json({ error: "An account with this mobile number already exists." }); return;
+    res.status(409).json({ error: "An account with this mobile number already exists." });
+    return;
   }
 
-  const [organizer] = await db.insert(organizersTable).values({
-    name: pendingData.name,
+  setOAuthCookie(res, {
+    ...req.oauthState,
+    pendingEmailSignup: { ...pending, mobile, otpVerified: true },
+  });
+
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_signup_otp_verified",
+    summary: `Signup OTP verified for ${pending.email}`,
+    metadata: { mobile, email: pending.email },
+  });
+
+  res.json({
+    success: true,
+    step: "password",
+    email: pending.email,
     mobile,
-    email: pendingData.email,
-    passwordHash: pendingData.passwordHash,
-    licenseStatus: "active",
-    maxTournaments: 1,
-  }).returning();
+    name: pending.name,
+  });
+});
+
+// Step 3: set password after OTP — creates the account (no eml: placeholders)
+router.post("/auth/organizer-account/signup/complete", authLimiter, async (req, res) => {
+  const body = z.object({
+    password: z.string().min(6),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Password must be at least 6 characters." });
+    return;
+  }
+
+  const pending = req.oauthState.pendingEmailSignup;
+  if (!pending?.otpVerified) {
+    res.status(401).json({
+      error: "Verify your mobile number with OTP before creating a password.",
+      code: "OTP_REQUIRED",
+    });
+    return;
+  }
+
+  const mobileParsed = parseIndianMobile(pending.mobile);
+  if (!mobileParsed.ok) {
+    res.status(400).json({ error: "Signup session has an invalid mobile — please start over" });
+    return;
+  }
+  const mobile = mobileParsed.normalized;
+
+  if (await organizerNormalizedMobileTaken(mobile)) {
+    res.status(409).json({ error: "An account with this mobile number already exists." });
+    return;
+  }
+  const [emailExists] = await db
+    .select({ id: organizersTable.id })
+    .from(organizersTable)
+    .where(eq(organizersTable.email, pending.email))
+    .limit(1);
+  if (emailExists) {
+    res.status(409).json({ error: "An account with this email already exists." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(body.data.password);
+  const now = new Date();
+
+  let organizer: typeof organizersTable.$inferSelect;
+  try {
+    [organizer] = await db.insert(organizersTable).values({
+      name: pending.name,
+      email: pending.email,
+      mobile,
+      passwordHash,
+      licenseStatus: "active",
+      maxTournaments: 1,
+      ...verifiedPhoneFields(now),
+    }).returning();
+  } catch (insertErr) {
+    if (isUniqueViolation(insertErr)) {
+      res.status(409).json({ error: "An account with this email or mobile already exists." });
+      return;
+    }
+    throw insertErr;
+  }
+
+  clearOAuthCookie(res);
 
   await claimTournamentsForOrganizer(organizer.id, {
     mobile: organizer.mobile,
@@ -1205,12 +1352,38 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
   });
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+  const myTournaments = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.organizerId, organizer.id));
   for (const t of myTournaments) orgMap[String(t.id)] = true;
 
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
   triggerOrganiserRegisteredNotification(organizer);
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_registered",
+    summary: `Organizer "${organizer.name}" registered with verified mobile`,
+    actor: { type: "organizer_account", id: String(organizer.id), label: organizer.name },
+    after: snapshotOrganizer(organizer),
+    metadata: { phoneVerified: true, method: "email_mobile_otp" },
+  });
   res.json({ success: true, organizer: organizerToJson(organizer) });
+});
+
+router.get("/auth/organizer-account/signup/status", (req, res) => {
+  const pending = req.oauthState.pendingEmailSignup;
+  if (!pending) {
+    res.json({ ready: false });
+    return;
+  }
+  res.json({
+    ready: true,
+    step: pending.otpVerified ? "password" : "otp",
+    email: pending.email,
+    mobile: pending.mobile,
+    name: pending.name,
+  });
 });
 
 router.post("/auth/organizer-account/login", async (req, res) => {
@@ -1385,6 +1558,14 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
   if (isOrganizerAccountLocked(organizer.licenseStatus)) {
     res.status(403).json({ error: "Your account has been locked. Please contact admin." });
+    return;
+  }
+  if (organizerNeedsPhoneVerification({ mobile: organizer.mobile, phoneVerified: organizer.phoneVerified })) {
+    res.status(403).json({
+      error: "Complete your mobile verification to continue.",
+      code: "PHONE_VERIFICATION_REQUIRED",
+      needsMobile: true,
+    });
     return;
   }
 
@@ -1903,7 +2084,100 @@ router.post("/auth/google/native-handoff", async (req, res) => {
   });
 });
 
-// ─── Organizer Account: Update profile (mobile) ───────────────────────────────
+// ─── Legacy / incomplete profile: verify mobile via OTP (login still allowed) ─
+
+router.post("/auth/organizer-account/phone/send-otp", otpSendLimiter, async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
+
+  const mobileParsed = parseIndianMobile(body.data.mobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
+
+  if (await organizerNormalizedMobileTaken(mobile, req.jwtUser.organizerAccountId)) {
+    res.status(409).json({ error: "This mobile number is already registered to another account." });
+    return;
+  }
+
+  const result = await bulkSmsOtpSend(mobile, "complete_profile");
+  if (!result.success) {
+    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." });
+    return;
+  }
+
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_phone_otp_sent",
+    summary: `Phone OTP sent for organizer #${req.jwtUser.organizerAccountId}`,
+    actor: { type: "organizer_account", id: String(req.jwtUser.organizerAccountId) },
+    metadata: { mobile },
+  });
+
+  res.json({ success: true });
+});
+
+router.post("/auth/organizer-account/phone/verify", otpVerifyLimiter, async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const body = z.object({
+    mobile: z.string().min(7),
+    otp: z.string().length(6),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile and 6-digit OTP required" }); return; }
+
+  const mobileParsed = parseIndianMobile(body.data.mobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
+
+  const result = await bulkSmsOtpVerify(mobile, body.data.otp, "complete_profile");
+  if (!result.success) {
+    auditDenied(req, {
+      category: "auth",
+      action: "auth.organizer_phone_otp_failed",
+      summary: `Phone OTP failed for organizer #${req.jwtUser.organizerAccountId}`,
+      actor: { type: "organizer_account", id: String(req.jwtUser.organizerAccountId) },
+      metadata: { mobile },
+    });
+    res.status(400).json({ error: result.error ?? "Invalid or expired OTP" });
+    return;
+  }
+
+  if (await organizerNormalizedMobileTaken(mobile, req.jwtUser.organizerAccountId)) {
+    res.status(409).json({ error: "This mobile number is already registered to another account." });
+    return;
+  }
+
+  const [before] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+  if (!before) { res.status(404).json({ error: "Account not found." }); return; }
+
+  const [updated] = await db.update(organizersTable)
+    .set({ mobile, ...verifiedPhoneFields() })
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
+    .returning();
+
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_phone_verified",
+    summary: `Organizer "${updated.name}" completed phone verification`,
+    actor: { type: "organizer_account", id: String(updated.id), label: updated.name },
+    before: snapshotOrganizer(before),
+    after: snapshotOrganizer(updated),
+    metadata: { method: "legacy_complete_profile", replacedPlaceholder: isPlaceholderOrganizerMobile(before.mobile) },
+  });
+
+  res.json({ success: true, organizer: organizerToJson(updated) });
+});
+
+// ─── Organizer Account: Update profile (name/email/photo — not mobile) ────────
 
 router.patch("/auth/organizer-account/profile", async (req, res) => {
   if (!req.jwtUser.organizerAccountId) {
@@ -1929,22 +2203,19 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
 
   const { name, email, mobile, photoUrl, photoPublicId } = body.data;
 
+  if (mobile !== undefined) {
+    res.status(400).json({
+      error: "Mobile number must be verified via OTP. Use the Complete Profile flow.",
+      code: "PHONE_OTP_REQUIRED",
+    });
+    return;
+  }
+
   const [existingOrganizer] = await db
     .select()
     .from(organizersTable)
     .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
   if (!existingOrganizer) { res.status(404).json({ error: "Account not found." }); return; }
-
-  let normalizedMobile: string | undefined;
-  if (mobile !== undefined) {
-    const mobileParsed = parseIndianMobile(mobile);
-    if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
-    normalizedMobile = mobileParsed.normalized;
-    if (await organizerNormalizedMobileTaken(normalizedMobile, req.jwtUser.organizerAccountId)) {
-      res.status(409).json({ error: "This mobile number is already registered to another account." });
-      return;
-    }
-  }
 
   if (email) {
     const emailExists = await db.select().from(organizersTable)
@@ -1958,7 +2229,6 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
   const updates: Partial<typeof organizersTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
   if (email !== undefined) updates.email = email;
-  if (normalizedMobile !== undefined) updates.mobile = normalizedMobile;
 
   const photoChanged = photoUrl !== undefined || photoPublicId !== undefined;
   if (photoChanged) {
@@ -2140,10 +2410,6 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
   }
 });
 
-function isUniqueViolation(err: unknown): boolean {
-  return (err as { code?: string }).code === "23505";
-}
-
 router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {
   const pending = req.oauthState.pendingGoogleProfile;
   const mobile = req.oauthState.pendingGoogleMobile;
@@ -2185,6 +2451,7 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
             googleId: pending.googleId,
             googleEmail: pending.googleEmail,
             mobile,
+            ...verifiedPhoneFields(),
           })
           .where(eq(organizersTable.id, existingByEmail.id))
           .returning();
@@ -2199,6 +2466,7 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
             googleEmail: pending.googleEmail,
             licenseStatus: "active",
             maxTournaments: 1,
+            ...verifiedPhoneFields(),
           }).returning();
           triggerOrganiserRegisteredNotification(organizer);
         } catch (insertErr) {
@@ -2211,6 +2479,17 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
           throw insertErr;
         }
       }
+    } else if (
+      organizerNeedsPhoneVerification({
+        mobile: organizer.mobile,
+        phoneVerified: organizer.phoneVerified,
+      })
+    ) {
+      const [updated] = await db.update(organizersTable)
+        .set({ mobile, ...verifiedPhoneFields() })
+        .where(eq(organizersTable.id, organizer.id))
+        .returning();
+      organizer = updated;
     }
 
     if (!organizer) {
@@ -2220,6 +2499,14 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
 
     clearOAuthCookie(res);
     await issueOrganizerAuthCookie(req, res, organizer.id);
+    auditLog(req, {
+      category: "auth",
+      action: "auth.organizer_phone_verified",
+      summary: `Organizer "${organizer.name}" verified mobile via Google complete-profile`,
+      actor: { type: "organizer_account", id: String(organizer.id), label: organizer.name },
+      after: snapshotOrganizer(organizer),
+      metadata: { method: "google_complete_profile" },
+    });
     res.json({ success: true, organizer: organizerToJson(organizer) });
   } catch (err) {
     req.log.error({ err, email: pending.email, mobile }, "complete-profile verify error");
@@ -2230,6 +2517,7 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
 });
 
 // Dev-only: allows Google OAuth users to skip mobile verification (BYPASS_OTP=true required)
+// Creates incomplete profile — must complete phone OTP before product use (phased placeholder retirement).
 router.post("/auth/google/complete-profile/skip", async (req, res) => {
   if (process.env.NODE_ENV === "production") {
     res.status(403).json({ error: "Not available in production" });
@@ -2252,12 +2540,22 @@ router.post("/auth/google/complete-profile/skip", async (req, res) => {
     googleEmail: pending.googleEmail,
     licenseStatus: "active",
     maxTournaments: 1,
+    phoneVerified: false,
+    phoneVerifiedAt: null,
   }).returning();
 
   clearOAuthCookie(res);
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
   triggerOrganiserRegisteredNotification(organizer);
-  res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_registered",
+    summary: `Dev skip: organizer "${organizer.name}" created without phone verification`,
+    severity: "warning",
+    after: snapshotOrganizer(organizer),
+    metadata: { method: "complete_profile_skip", phoneVerified: false },
+  });
+  res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
 export default router;

@@ -87,6 +87,8 @@ export function snapshotOrganizer(o: Organizer): Record<string, unknown> {
     licenseStatus: o.licenseStatus,
     maxTournaments: o.maxTournaments,
     hasPassword: !!o.passwordHash,
+    phoneVerified: o.phoneVerified,
+    phoneVerifiedAt: o.phoneVerifiedAt?.toISOString() ?? null,
   };
 }
 

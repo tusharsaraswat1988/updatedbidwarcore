@@ -1,0 +1,619 @@
+﻿{
+    "when":  "2026-07-22T11:49:26.366Z",
+    "base":  "http://127.0.0.1:8080",
+    "tid":  5,
+    "scenarios":  [
+                      {
+                          "scenario":  "100 consecutive points",
+                          "pass":  true,
+                          "matchId":  39,
+                          "wall":  {
+                                       "n":  100,
+                                       "avg":  1226.381479999999,
+                                       "p95":  1304.0487999999896,
+                                       "p99":  1617.5404000000008,
+                                       "max":  1621.8477999999996,
+                                       "min":  1091.146799999995
+                                   },
+                          "t4_to_sse":  {
+                                            "n":  100,
+                                            "avg":  1130.9519180000002,
+                                            "p95":  1203.1142,
+                                            "p99":  1519.0365,
+                                            "max":  1534.6997,
+                                            "min":  1002.9238
+                                        },
+                          "replayGrowth":  [
+                                               {
+                                                   "points":  1,
+                                                   "eventCount":  2,
+                                                   "replayMs":  427.67600000009406
+                                               },
+                                               {
+                                                   "points":  10,
+                                                   "eventCount":  11,
+                                                   "replayMs":  417.671800000011
+                                               },
+                                               {
+                                                   "points":  20,
+                                                   "eventCount":  21,
+                                                   "replayMs":  431.9024999999674
+                                               },
+                                               {
+                                                   "points":  30,
+                                                   "eventCount":  31,
+                                                   "replayMs":  420.405299999984
+                                               },
+                                               {
+                                                   "points":  40,
+                                                   "eventCount":  41,
+                                                   "replayMs":  417.70059999998193
+                                               },
+                                               {
+                                                   "points":  50,
+                                                   "eventCount":  51,
+                                                   "replayMs":  431.0516999999527
+                                               },
+                                               {
+                                                   "points":  60,
+                                                   "eventCount":  61,
+                                                   "replayMs":  513.6955000000307
+                                               },
+                                               {
+                                                   "points":  70,
+                                                   "eventCount":  71,
+                                                   "replayMs":  413.999199999962
+                                               },
+                                               {
+                                                   "points":  80,
+                                                   "eventCount":  81,
+                                                   "replayMs":  430.5542000000132
+                                               },
+                                               {
+                                                   "points":  90,
+                                                   "eventCount":  91,
+                                                   "replayMs":  414.0424999999814
+                                               },
+                                               {
+                                                   "points":  100,
+                                                   "eventCount":  101,
+                                                   "replayMs":  413.36330000008456
+                                               }
+                                           ],
+                          "seqViolations":  0,
+                          "divergences":  0,
+                          "memoryDeltaMB":  {
+                                                "rss":  5.51171875,
+                                                "heapUsed":  3.7587661743164062
+                                            },
+                          "cpuUserMs":  329,
+                          "cpuSystemMs":  32
+                      },
+                      {
+                          "scenario":  "500 consecutive points",
+                          "pass":  true,
+                          "wall":  {
+                                       "n":  500,
+                                       "avg":  1385.976010199998,
+                                       "p95":  1493.4975000000559,
+                                       "p99":  1759.1564000000944,
+                                       "max":  2034.3693000000203,
+                                       "min":  1089.2566000000006
+                                   },
+                          "replayGrowth":  [
+                                               {
+                                                   "points":  1,
+                                                   "eventCount":  2,
+                                                   "replayMs":  413.9392999999691
+                                               },
+                                               {
+                                                   "points":  50,
+                                                   "eventCount":  51,
+                                                   "replayMs":  500.37149999989197
+                                               },
+                                               {
+                                                   "points":  100,
+                                                   "eventCount":  101,
+                                                   "replayMs":  413.17230000020936
+                                               },
+                                               {
+                                                   "points":  150,
+                                                   "eventCount":  151,
+                                                   "replayMs":  505.34639999992214
+                                               },
+                                               {
+                                                   "points":  200,
+                                                   "eventCount":  201,
+                                                   "replayMs":  424.68109999992885
+                                               },
+                                               {
+                                                   "points":  250,
+                                                   "eventCount":  251,
+                                                   "replayMs":  425.1199000000488
+                                               },
+                                               {
+                                                   "points":  300,
+                                                   "eventCount":  301,
+                                                   "replayMs":  438.76919999998063
+                                               },
+                                               {
+                                                   "points":  350,
+                                                   "eventCount":  351,
+                                                   "replayMs":  513.498399999924
+                                               },
+                                               {
+                                                   "points":  400,
+                                                   "eventCount":  401,
+                                                   "replayMs":  664.05979999993
+                                               },
+                                               {
+                                                   "points":  450,
+                                                   "eventCount":  451,
+                                                   "replayMs":  519.0069999999832
+                                               },
+                                               {
+                                                   "points":  500,
+                                                   "eventCount":  501,
+                                                   "replayMs":  523.5397000000812
+                                               }
+                                           ],
+                          "divergences":  0,
+                          "seqViolations":  0,
+                          "memoryDeltaMB":  {
+                                                "rss":  8.78125,
+                                                "heapUsed":  5.696678161621094
+                                            },
+                          "note":  "full soak completed"
+                      },
+                      {
+                          "scenario":  "Match rollback / undo",
+                          "pass":  true,
+                          "beforeRallies":  2,
+                          "afterUndo":  {
+                                            "ok":  true,
+                                            "matchId":  40,
+                                            "tournamentId":  5,
+                                            "replayMs":  425.6828000000678,
+                                            "eventCount":  4,
+                                            "lastSequencePersisted":  4,
+                                            "replayLastSequence":  4,
+                                            "replayChecksum":  "59dee7597bd72a92",
+                                            "snapshotChecksum":  "59dee7597bd72a92",
+                                            "checksumEqual":  true,
+                                            "scoreFieldsMatch":  true,
+                                            "snapshotPresent":  true,
+                                            "duplicateSequences":  false,
+                                            "contiguousSequences":  true,
+                                            "matchStatus":  "live",
+                                            "leftScore":  1,
+                                            "rightScore":  0,
+                                            "servingSide":  "left",
+                                            "doublesServe":  null,
+                                            "totalRallies":  1
+                                        },
+                          "afterRedoChecksumsEqual":  true,
+                          "backToZero":  true
+                      },
+                      {
+                          "scenario":  "Game completed",
+                          "pass":  true,
+                          "gamesLeft":  1,
+                          "status":  "completed"
+                      },
+                      {
+                          "scenario":  "Match completed",
+                          "pass":  true,
+                          "status":  "completed",
+                          "score":  "5-0",
+                          "verify":  {
+                                         "scoreFieldsMatch":  true,
+                                         "checksumEqual":  true
+                                     }
+                      },
+                      {
+                          "scenario":  "Snapshot matches replay after completion",
+                          "pass":  true,
+                          "ok":  true,
+                          "matchId":  41,
+                          "tournamentId":  5,
+                          "replayMs":  426.0981000000611,
+                          "eventCount":  8,
+                          "lastSequencePersisted":  8,
+                          "replayLastSequence":  8,
+                          "replayChecksum":  "ce22a3158c753bb9",
+                          "snapshotChecksum":  "ce22a3158c753bb9",
+                          "checksumEqual":  true,
+                          "scoreFieldsMatch":  true,
+                          "snapshotPresent":  true,
+                          "duplicateSequences":  false,
+                          "contiguousSequences":  true,
+                          "matchStatus":  "completed",
+                          "leftScore":  5,
+                          "rightScore":  0,
+                          "servingSide":  "left",
+                          "doublesServe":  null,
+                          "totalRallies":  5
+                      },
+                      {
+                          "scenario":  "Service change",
+                          "pass":  true,
+                          "observations":  [
+                                               {
+                                                   "i":  0,
+                                                   "side":  "right",
+                                                   "servingSide":  "right",
+                                                   "servingPlayerIndex":  1,
+                                                   "receivingPlayerIndex":  0,
+                                                   "courtPositions":  {
+                                                                          "left":  {
+                                                                                       "rightCourtPlayerIndex":  1
+                                                                                   },
+                                                                          "right":  {
+                                                                                        "rightCourtPlayerIndex":  0
+                                                                                    }
+                                                                      },
+                                                   "checksum":  "3c3888cccc078204"
+                                               },
+                                               {
+                                                   "i":  1,
+                                                   "side":  "left",
+                                                   "servingSide":  "left",
+                                                   "servingPlayerIndex":  0,
+                                                   "receivingPlayerIndex":  0,
+                                                   "courtPositions":  {
+                                                                          "left":  {
+                                                                                       "rightCourtPlayerIndex":  1
+                                                                                   },
+                                                                          "right":  {
+                                                                                        "rightCourtPlayerIndex":  1
+                                                                                    }
+                                                                      },
+                                                   "checksum":  "ce7bd767ee0bc691"
+                                               },
+                                               {
+                                                   "i":  2,
+                                                   "side":  "left",
+                                                   "servingSide":  "left",
+                                                   "servingPlayerIndex":  0,
+                                                   "receivingPlayerIndex":  1,
+                                                   "courtPositions":  {
+                                                                          "left":  {
+                                                                                       "rightCourtPlayerIndex":  0
+                                                                                   },
+                                                                          "right":  {
+                                                                                        "rightCourtPlayerIndex":  1
+                                                                                    }
+                                                                      },
+                                                   "checksum":  "1bc31077f72836dc"
+                                               },
+                                               {
+                                                   "i":  3,
+                                                   "side":  "right",
+                                                   "servingSide":  "right",
+                                                   "servingPlayerIndex":  1,
+                                                   "receivingPlayerIndex":  1,
+                                                   "courtPositions":  {
+                                                                          "left":  {
+                                                                                       "rightCourtPlayerIndex":  1
+                                                                                   },
+                                                                          "right":  {
+                                                                                        "rightCourtPlayerIndex":  1
+                                                                                    }
+                                                                      },
+                                                   "checksum":  "d2e50a3160555255"
+                                               }
+                                           ]
+                      },
+                      {
+                          "scenario":  "Rotation updates",
+                          "pass":  true,
+                          "note":  "servingPlayerIndex changed"
+                      },
+                      {
+                          "scenario":  "Doubles positioning present",
+                          "pass":  true,
+                          "sample":  {
+                                         "i":  7,
+                                         "side":  "left",
+                                         "servingSide":  "left",
+                                         "servingPlayerIndex":  0,
+                                         "receivingPlayerIndex":  0,
+                                         "courtPositions":  {
+                                                                "left":  {
+                                                                             "rightCourtPlayerIndex":  1
+                                                                         },
+                                                                "right":  {
+                                                                              "rightCourtPlayerIndex":  1
+                                                                          }
+                                                            },
+                                         "checksum":  "7016a0efc9b242dc"
+                                     }
+                      },
+                      {
+                          "scenario":  "Doubles snapshot/replay consistent",
+                          "pass":  true,
+                          "checksumEqual":  true,
+                          "scoreFieldsMatch":  true
+                      },
+                      {
+                          "scenario":  "SSE reconnect during scoring",
+                          "pass":  true,
+                          "led1StatesAfterReconnect":  3,
+                          "orderViolations":  [
+                                                  0,
+                                                  0,
+                                                  0
+                                              ],
+                          "crossMatchLeaks":  [
+                                                  0,
+                                                  0,
+                                                  0
+                                              ]
+                      },
+                      {
+                          "scenario":  "Browser refresh during live match",
+                          "pass":  true,
+                          "refreshScore":  "2-1",
+                          "replayScore":  "2-1"
+                      },
+                      {
+                          "scenario":  "Multiple LED viewers converge",
+                          "pass":  true,
+                          "finals":  [
+                                         {
+                                             "seq":  4,
+                                             "left":  2,
+                                             "right":  1,
+                                             "status":  "live"
+                                         },
+                                         {
+                                             "seq":  4,
+                                             "left":  2,
+                                             "right":  1,
+                                             "status":  "live"
+                                         },
+                                         {
+                                             "seq":  4,
+                                             "left":  2,
+                                             "right":  1,
+                                             "status":  "live"
+                                         }
+                                     ],
+                          "multiAgree":  true,
+                          "expected":  "2-1"
+                      },
+                      {
+                          "scenario":  "SSE order never violated",
+                          "pass":  true,
+                          "orderViolations":  [
+                                                  {
+                                                      "id":  0,
+                                                      "v":  0
+                                                  },
+                                                  {
+                                                      "id":  1,
+                                                      "v":  0
+                                                  },
+                                                  {
+                                                      "id":  2,
+                                                      "v":  0
+                                                  }
+                                              ]
+                      },
+                      {
+                          "scenario":  "LED converges to replay",
+                          "pass":  true,
+                          "checksumEqual":  true
+                      },
+                      {
+                          "scenario":  "Cross-match SSE isolation (match-scoped subscribe)",
+                          "pass":  true,
+                          "crossMatchLeaks":  0,
+                          "note":  "PASS: no foreign match_state observed"
+                      },
+                      {
+                          "scenario":  "Multiple umpire tablets â€” only one lock owner",
+                          "pass":  true,
+                          "ok":  true,
+                          "firstAcquireOk":  true,
+                          "secondAcquireOk":  false,
+                          "secondBlocked":  true,
+                          "authoritativeSingleScorer":  true
+                      },
+                      {
+                          "scenario":  "No duplicate event sequences",
+                          "pass":  true,
+                          "eventCount":  12,
+                          "duplicateSequences":  false
+                      },
+                      {
+                          "scenario":  "Replay checksum equals sync snapshot",
+                          "pass":  true,
+                          "checksumEqual":  true,
+                          "scoreFieldsMatch":  true,
+                          "contiguousSequences":  true,
+                          "note":  "Gaps after undo tombstones are expected; duplicate sequences are not"
+                      },
+                      {
+                          "scenario":  "Golden replay unit tests",
+                          "pass":  true,
+                          "exit":  0,
+                          "stderr":  ""
+                      },
+                      {
+                          "scenario":  "Realtime sync unit tests",
+                          "pass":  true,
+                          "exit":  0,
+                          "stderr":  ""
+                      }
+                  ],
+    "issues":  [
+
+               ],
+    "races":  [
+
+              ],
+    "replayInconsistencies":  [
+
+                              ],
+    "performance":  {
+                        "100 consecutive points":  {
+                                                       "wall":  {
+                                                                    "n":  100,
+                                                                    "avg":  1226.381479999999,
+                                                                    "p95":  1304.0487999999896,
+                                                                    "p99":  1617.5404000000008,
+                                                                    "max":  1621.8477999999996,
+                                                                    "min":  1091.146799999995
+                                                                },
+                                                       "t4_to_sse":  {
+                                                                         "n":  100,
+                                                                         "avg":  1130.9519180000002,
+                                                                         "p95":  1203.1142,
+                                                                         "p99":  1519.0365,
+                                                                         "max":  1534.6997,
+                                                                         "min":  1002.9238
+                                                                     },
+                                                       "replayGrowth":  [
+                                                                            {
+                                                                                "points":  1,
+                                                                                "eventCount":  2,
+                                                                                "replayMs":  427.67600000009406
+                                                                            },
+                                                                            {
+                                                                                "points":  10,
+                                                                                "eventCount":  11,
+                                                                                "replayMs":  417.671800000011
+                                                                            },
+                                                                            {
+                                                                                "points":  20,
+                                                                                "eventCount":  21,
+                                                                                "replayMs":  431.9024999999674
+                                                                            },
+                                                                            {
+                                                                                "points":  30,
+                                                                                "eventCount":  31,
+                                                                                "replayMs":  420.405299999984
+                                                                            },
+                                                                            {
+                                                                                "points":  40,
+                                                                                "eventCount":  41,
+                                                                                "replayMs":  417.70059999998193
+                                                                            },
+                                                                            {
+                                                                                "points":  50,
+                                                                                "eventCount":  51,
+                                                                                "replayMs":  431.0516999999527
+                                                                            },
+                                                                            {
+                                                                                "points":  60,
+                                                                                "eventCount":  61,
+                                                                                "replayMs":  513.6955000000307
+                                                                            },
+                                                                            {
+                                                                                "points":  70,
+                                                                                "eventCount":  71,
+                                                                                "replayMs":  413.999199999962
+                                                                            },
+                                                                            {
+                                                                                "points":  80,
+                                                                                "eventCount":  81,
+                                                                                "replayMs":  430.5542000000132
+                                                                            },
+                                                                            {
+                                                                                "points":  90,
+                                                                                "eventCount":  91,
+                                                                                "replayMs":  414.0424999999814
+                                                                            },
+                                                                            {
+                                                                                "points":  100,
+                                                                                "eventCount":  101,
+                                                                                "replayMs":  413.36330000008456
+                                                                            }
+                                                                        ]
+                                                   },
+                        "500 consecutive points":  {
+                                                       "wall":  {
+                                                                    "n":  500,
+                                                                    "avg":  1385.976010199998,
+                                                                    "p95":  1493.4975000000559,
+                                                                    "p99":  1759.1564000000944,
+                                                                    "max":  2034.3693000000203,
+                                                                    "min":  1089.2566000000006
+                                                                },
+                                                       "replayGrowth":  [
+                                                                            {
+                                                                                "points":  1,
+                                                                                "eventCount":  2,
+                                                                                "replayMs":  413.9392999999691
+                                                                            },
+                                                                            {
+                                                                                "points":  50,
+                                                                                "eventCount":  51,
+                                                                                "replayMs":  500.37149999989197
+                                                                            },
+                                                                            {
+                                                                                "points":  100,
+                                                                                "eventCount":  101,
+                                                                                "replayMs":  413.17230000020936
+                                                                            },
+                                                                            {
+                                                                                "points":  150,
+                                                                                "eventCount":  151,
+                                                                                "replayMs":  505.34639999992214
+                                                                            },
+                                                                            {
+                                                                                "points":  200,
+                                                                                "eventCount":  201,
+                                                                                "replayMs":  424.68109999992885
+                                                                            },
+                                                                            {
+                                                                                "points":  250,
+                                                                                "eventCount":  251,
+                                                                                "replayMs":  425.1199000000488
+                                                                            },
+                                                                            {
+                                                                                "points":  300,
+                                                                                "eventCount":  301,
+                                                                                "replayMs":  438.76919999998063
+                                                                            },
+                                                                            {
+                                                                                "points":  350,
+                                                                                "eventCount":  351,
+                                                                                "replayMs":  513.498399999924
+                                                                            },
+                                                                            {
+                                                                                "points":  400,
+                                                                                "eventCount":  401,
+                                                                                "replayMs":  664.05979999993
+                                                                            },
+                                                                            {
+                                                                                "points":  450,
+                                                                                "eventCount":  451,
+                                                                                "replayMs":  519.0069999999832
+                                                                            },
+                                                                            {
+                                                                                "points":  500,
+                                                                                "eventCount":  501,
+                                                                                "replayMs":  523.5397000000812
+                                                                            }
+                                                                        ]
+                                                   }
+                    },
+    "phase2Recommendation":  {
+                                 "safeToProceed":  true,
+                                 "verdict":  "CONDITIONAL GO â€” Phase-1 correctness holds. Proceed to Phase-2 incremental projection only behind a feature flag with shadow-compare (incremental vs replay) before cutover.",
+                                 "failingScenarios":  [
+
+                                                      ],
+                                 "phase1CoreFailures":  [
+
+                                                        ],
+                                 "rationale":  [
+                                                   "Phase-1 did not change projectionMode (still full replay on persist).",
+                                                   "Snapshot/replay score fields and sync checksums must remain identical under load before trusting incremental projection.",
+                                                   "Multi-scorer lock enforcement is required so incremental projection cannot be poisoned by concurrent writers.",
+                                                   "Match-scoped SSE must not apply foreign match_state (tournament-wide fanout today)."
+                                               ]
+                             }
+}

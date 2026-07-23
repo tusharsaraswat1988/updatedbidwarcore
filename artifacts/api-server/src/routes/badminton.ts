@@ -119,6 +119,11 @@ import {
   broadcastBadmintonMatchUpdate,
   broadcastTournamentUpdate,
 } from "../lib/badminton-broadcast";
+import {
+  runWithLatencyTrace,
+  markLatency,
+  toPhaseBreakdown,
+} from "../lib/badminton-latency-trace";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
@@ -2274,28 +2279,49 @@ router.post("/matches/:matchId/point", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  const wantTrace =
+    req.header("x-bidwar-latency-trace") === "1" ||
+    process.env.BIDWAR_LATENCY_TRACE === "1";
+
   try {
-    const state = await awardPoint(
-      matchId,
-      tournamentId,
-      parsed.data.side,
-      actorFrom(req, scoringAuth),
-      { rallyLength: parsed.data.rallyLength },
-    );
+    const run = async () => {
+      markLatency("t2_request_entered");
+      const state = await awardPoint(
+        matchId,
+        tournamentId,
+        parsed.data.side,
+        actorFrom(req, scoringAuth),
+        { rallyLength: parsed.data.rallyLength },
+      );
+      markLatency("awardPoint_returned");
 
-    const auditActor = auditActorFrom(req, scoringAuth);
-    await writeScorerAudit({
-      ...auditActor,
-      tournamentId,
-      matchId,
-      sport: "badminton",
-      action: "point_added",
-      payload: { side: parsed.data.side },
-    });
-    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
+      // Emit SSE immediately after persist so LED/scoreboard update is not
+      // blocked by audit I/O. Audit is still awaited before the HTTP response.
+      markLatency("pre_broadcast");
+      broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
 
-    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
-    res.json({ state });
+      const auditActor = auditActorFrom(req, scoringAuth);
+      await writeScorerAudit({
+        ...auditActor,
+        tournamentId,
+        matchId,
+        sport: "badminton",
+        action: "point_added",
+        payload: { side: parsed.data.side },
+      });
+      markLatency("audit_written");
+      await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
+      return state;
+    };
+
+    if (!wantTrace) {
+      const state = await run();
+      return void res.json({ state });
+    }
+
+    const { result: state, marks } = await runWithLatencyTrace(run);
+    const breakdown = toPhaseBreakdown(marks);
+    res.json({ state, _latency: breakdown });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });

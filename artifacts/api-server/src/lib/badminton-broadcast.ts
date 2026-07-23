@@ -3,6 +3,7 @@
  */
 
 import type { Response } from "express";
+import { markLatency } from "./badminton-latency-trace";
 
 type SseClient = {
   write: (frame: string) => boolean;
@@ -52,6 +53,7 @@ export function broadcastBadmintonMatchUpdate(
       }
     }
   }
+  markLatency("t4_sse_emitted");
 }
 
 export function broadcastTournamentUpdate(tournamentId: number, data: unknown): void {

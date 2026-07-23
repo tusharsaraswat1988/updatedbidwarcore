@@ -30,6 +30,13 @@ export interface OAuthState {
     googleEmail: string;
   };
   pendingGoogleMobile?: string;
+  /** Email/mobile signup: OTP verified before password may be set. */
+  pendingEmailSignup?: {
+    name: string;
+    email: string;
+    mobile: string;
+    otpVerified: boolean;
+  };
 }
 
 /** Short-lived token bridging Chrome Custom Tabs → WebView session cookie. */

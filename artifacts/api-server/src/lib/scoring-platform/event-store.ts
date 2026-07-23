@@ -101,5 +101,12 @@ export async function persistScoringEventBatch(
     seq += 1;
   }
 
+  try {
+    const { markLatency } = await import("../badminton-latency-trace");
+    markLatency("t3_event_written");
+  } catch {
+    // measurement module optional
+  }
+
   return { startSequence, envelopes };
 }

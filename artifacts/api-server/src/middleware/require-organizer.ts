@@ -9,6 +9,10 @@ function isLockedOrganizerAccount(req: Request): boolean {
   return !!status && isOrganizerAccountLocked(status);
 }
 
+function isPhoneIncompleteOrganizer(req: Request): boolean {
+  return !!req.organizerPhoneIncomplete;
+}
+
 /**
  * Strict tournament-scoped organizer check.
  * Grants access when caller is admin, holds organizer[tournamentId] JWT flag,
@@ -23,6 +27,7 @@ export function isTournamentOrganizer(
   if (!u) return false;
   if (u.isAdmin) return true;
   if (isLockedOrganizerAccount(req)) return false;
+  if (isPhoneIncompleteOrganizer(req)) return false;
   if (u.organizer?.[String(tournamentId)]) return true;
   if (u.organizerAccountId != null && tournamentOrganizerId != null) {
     return u.organizerAccountId === tournamentOrganizerId;
@@ -47,6 +52,7 @@ export function isOrganizerOrAdmin(
   if (!u) return false;
   if (u.isAdmin) return true;
   if (isLockedOrganizerAccount(req)) return false;
+  if (isPhoneIncompleteOrganizer(req)) return false;
   return !!u.organizer?.[String(tournamentId)];
 }
 
@@ -99,5 +105,7 @@ export function isAccountOrAdmin(req: Request): boolean {
   if (!u) return false;
   if (u.isAdmin) return true;
   if (!u.organizerAccountId) return false;
-  return !isLockedOrganizerAccount(req);
+  if (isLockedOrganizerAccount(req)) return false;
+  if (isPhoneIncompleteOrganizer(req)) return false;
+  return true;
 }

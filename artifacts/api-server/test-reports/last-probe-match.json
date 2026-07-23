@@ -1,0 +1,9 @@
+{
+    "ok":  true,
+    "tournamentId":  5,
+    "matchId":  27,
+    "courtId":  10,
+    "courtNumber":  "PQQA7",
+    "displayPath":  "/scoring-app/badminton/27/display?tid=5\u0026latencyProbe=1",
+    "streamPath":  "/api/tournaments/5/badminton/stream?matchId=27"
+}
