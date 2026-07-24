@@ -13,7 +13,7 @@ import type { PageInitialData } from "@/lib/initial-data/types";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 
 import { BootSplash } from "@/components/boot-splash";
-import Landing from "@/pages/landing";
+import Landing from "@/pages/lovable-home";
 
 const PlatformApp = lazy(() => import("./platform-app"));
 
