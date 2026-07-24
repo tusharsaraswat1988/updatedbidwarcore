@@ -42,6 +42,7 @@ import {
   HubFilterTabs,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
@@ -66,6 +67,40 @@ import {
 } from "@/components/badminton/match-format-picker";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+function toDateInputValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function toTimeInputValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function combineLocalDateTime(date: string, time: string): string {
+  return new Date(`${date}T${time}:00`).toISOString();
+}
+
+/** Default schedule: now, rounded up to the next 5 minutes. */
+function defaultScheduleParts(fromIso?: string | null): { date: string; time: string } {
+  const base = fromIso ? new Date(fromIso) : new Date();
+  const d = Number.isNaN(base.getTime()) ? new Date() : base;
+  if (!fromIso) {
+    const mins = d.getMinutes();
+    const rounded = Math.ceil((mins + 1) / 5) * 5;
+    d.setMinutes(rounded >= 60 ? 0 : rounded, 0, 0);
+    if (rounded >= 60) d.setHours(d.getHours() + 1);
+  }
+  return {
+    date: toDateInputValue(d.toISOString()) || toDateInputValue(new Date().toISOString()),
+    time: toTimeInputValue(d.toISOString()) || "09:00",
+  };
+}
 
 interface MatchRow {
   id: number;
@@ -156,6 +191,12 @@ export default function BadmintonMatchesPage() {
     const id = parseInt(raw, 10);
     return Number.isFinite(id) ? id : undefined;
   }, [search]);
+  const initialEditId = useMemo(() => {
+    const raw = new URLSearchParams(search).get("edit");
+    if (!raw) return undefined;
+    const id = parseInt(raw, 10);
+    return Number.isFinite(id) ? id : undefined;
+  }, [search]);
   const [showCreate, setShowCreate] = useState(!!initialFixtureId);
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "completed">("all");
   const { data: scoringFormat } = useBadmintonScoringFormat(tournamentId);
@@ -209,9 +250,9 @@ export default function BadmintonMatchesPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        title="Matches"
-        eyebrow="Operations"
-        subtitle="Create matches from scheduled fixtures — then open Match Control to start"
+        title="All Matches"
+        eyebrow="Live Control"
+        subtitle="Day-of match list. Prefer Live Control for courts, displays, and starting play."
         actions={
           <div className="flex items-center gap-3 flex-wrap">
             {scoringFormat?.configured && scoringFormat.format ? (
@@ -242,6 +283,14 @@ export default function BadmintonMatchesPage() {
         }
       />
 
+      <div className="max-w-7xl mx-auto px-6 pt-4">
+        <BadmintonMovedBanner
+          toHref={`/tournament/${tournamentId}/badminton/control`}
+          toLabel="Live Control"
+          message="Running the tournament day belongs in Live Control — courts, queue, and displays."
+        />
+      </div>
+
       <div className="max-w-7xl mx-auto px-6 py-6">
         <HubFilterTabs
           tabs={["all", "live", "scheduled", "completed"] as const}
@@ -271,11 +320,11 @@ export default function BadmintonMatchesPage() {
             }
             desc={
               filter === "all"
-                ? "Schedule fixtures first, then create a match to prepare Match Control and Live Scoring."
+                ? "Preferred: schedule a fixture first, then create a match from it. Or create a manual match with court + time, then open Match Control to start."
                 : filter === "live"
-                  ? "Start a match from Match Control when a court is ready."
+                  ? "Start a match from Match Control after court and time are set."
                   : filter === "scheduled"
-                    ? "Create a match from a scheduled fixture, or switch to All."
+                    ? "Create a match with court + time (from a scheduled fixture or manually), then open Match Control."
                     : "Completed matches appear here after scoring finishes."
             }
             action={
@@ -299,6 +348,7 @@ export default function BadmintonMatchesPage() {
                 key={match.id}
                 match={match}
                 tournamentId={tournamentId}
+                autoOpenEdit={initialEditId === match.id}
                 onDelete={() => {
                   deleteMutation.mutate(match.id, {
                     onError: (e) => toastError(e, "Could not delete match"),
@@ -334,27 +384,38 @@ export default function BadmintonMatchesPage() {
 function MatchRow({
   match,
   tournamentId,
+  autoOpenEdit,
   onDelete,
   deleting,
 }: {
   match: MatchRow;
   tournamentId: number;
+  autoOpenEdit?: boolean;
   onDelete: () => void;
   deleting?: boolean;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(!!autoOpenEdit);
   const qc = useQueryClient();
   const state = match.state;
   const detail = match.detail ?? {};
   const isLive = match.status === "live";
   const isCompleted = match.status === "completed";
+  const hasCourt =
+    typeof detail.courtId === "number" ||
+    (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);
+  const hasSchedule = !!match.scheduledAt;
+  const needsCourtOrTime = !isLive && !isCompleted && (!hasCourt || !hasSchedule);
   const matchLabel = state
     ? formatTeamPlayerVsLine(
         identityFromSideInfo(state.leftSide, { preferShort: true }),
         identityFromSideInfo(state.rightSide, { preferShort: true }),
       )
     : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
+
+  useEffect(() => {
+    if (autoOpenEdit) setEditOpen(true);
+  }, [autoOpenEdit]);
 
   function handleConfirmDelete() {
     onDelete();
@@ -429,9 +490,27 @@ function MatchRow({
               ) : null}
             </div>
           )}
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             {detail.courtNumber ? (
               <span className="text-muted-foreground text-xs font-mono">Court {String(detail.courtNumber)}</span>
+            ) : needsCourtOrTime && !hasCourt ? (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-200">
+                No court
+              </Badge>
+            ) : null}
+            {hasSchedule ? (
+              <span className="text-muted-foreground text-xs">
+                {new Date(match.scheduledAt!).toLocaleString([], {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            ) : needsCourtOrTime ? (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-200">
+                No time
+              </Badge>
             ) : null}
             {detail.matchType ? (
               <Badge variant="outline" className="text-[10px] capitalize">
@@ -477,6 +556,15 @@ function MatchRow({
               >
                 View Match
               </a>
+            ) : needsCourtOrTime ? (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="min-h-11 px-4 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-100 text-sm font-bold flex items-center transition-all"
+                title="Assign court and time, then open Match Control to start"
+              >
+                Set court & time
+              </button>
             ) : (
               <a
                 href={badmintonMatchControlPath(tournamentId, match.id)}
@@ -545,6 +633,9 @@ function MatchRow({
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
             setEditOpen(false);
+            if (needsCourtOrTime) {
+              window.location.href = badmintonMatchControlPath(tournamentId, match.id);
+            }
           }}
         />
       ) : null}
@@ -581,12 +672,15 @@ function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
   const detail = match?.detail ?? {};
   const left = (detail.leftSideJson as Record<string, unknown> | undefined) ?? {};
   const right = (detail.rightSideJson as Record<string, unknown> | undefined) ?? {};
+  const schedule = defaultScheduleParts(match?.scheduledAt ?? null);
   return {
     fixtureId: initialFixtureId ? String(initialFixtureId) : "",
     categoryId: null as number | null,
     matchType: (detail.matchType as string | undefined) ?? "singles",
     courtNumber: (detail.courtNumber as string | undefined) ?? "",
     courtId: (detail.courtId as number | null | undefined) ?? null,
+    scheduleDate: schedule.date,
+    scheduleTime: schedule.time,
     matchLabel: (detail.matchLabel as string | undefined) ?? "",
     scorerName: (detail.scorerName as string | undefined) ?? "",
     scorerPin: (detail.scorerPin as string | undefined) ?? "",
@@ -760,6 +854,9 @@ function MatchFormModal({
     const court = fixture.courtId
       ? courts.find((c) => c.id === fixture.courtId)
       : undefined;
+    const schedule = fixture.scheduledAt
+      ? defaultScheduleParts(fixture.scheduledAt)
+      : null;
 
     setForm((prev) => ({
       ...prev,
@@ -769,6 +866,8 @@ function MatchFormModal({
       courtNumber: court
         ? court.shortName?.trim() || court.name
         : prev.courtNumber,
+      scheduleDate: schedule?.date ?? prev.scheduleDate,
+      scheduleTime: schedule?.time ?? prev.scheduleTime,
       matchLabel:
         prev.matchLabel.trim() ||
         `${category.name} · Match ${fixture.slotNumber ?? fixture.id}`,
@@ -791,7 +890,15 @@ function MatchFormModal({
     fixturePrefillId,
   ]);
 
-  type StringFormField = "fixtureId" | "matchType" | "courtNumber" | "matchLabel" | "scorerPin" | "scorerName";
+  type StringFormField =
+    | "fixtureId"
+    | "matchType"
+    | "courtNumber"
+    | "matchLabel"
+    | "scorerPin"
+    | "scorerName"
+    | "scheduleDate"
+    | "scheduleTime";
 
   const f = (field: StringFormField) => ({
     value: form[field] ?? "",
@@ -823,6 +930,22 @@ function MatchFormModal({
         return;
       }
     }
+    if (form.courtId == null) {
+      setError("Select a court from the list — required to start and to show on Scorer Home");
+      return;
+    }
+    if (!rosterLocked && (!form.scheduleDate || !form.scheduleTime)) {
+      setError("Set a scheduled date and time — required to start the match");
+      return;
+    }
+    const scheduledAt =
+      !rosterLocked && form.scheduleDate && form.scheduleTime
+        ? combineLocalDateTime(form.scheduleDate, form.scheduleTime)
+        : undefined;
+    if (scheduledAt != null && Number.isNaN(new Date(scheduledAt).getTime())) {
+      setError("Scheduled date/time is invalid");
+      return;
+    }
     if (form.scorerPin.trim().length > 0 && form.scorerPin.trim().length < 4) {
       setError("Scorer PIN must be at least 4 digits (or leave blank to inherit court PIN)");
       return;
@@ -836,6 +959,7 @@ function MatchFormModal({
       const payload = {
         courtId: form.courtId ?? undefined,
         courtNumber: form.courtNumber || undefined,
+        ...(scheduledAt != null ? { scheduledAt } : {}),
         matchLabel: form.matchLabel.trim() || undefined,
         scorerPin: form.scorerPin.trim(),
         scorerName: form.scorerName || undefined,
@@ -877,7 +1001,7 @@ function MatchFormModal({
       toast({
         title: isEdit ? "Match updated" : "Match created",
         description: isEdit
-          ? undefined
+          ? "Court and time saved. Open Match Control to start."
           : pin
             ? `Scorer PIN: ${pin}. Opening Match Control — start the match there.`
             : "Inherits court scorer PIN. Opening Match Control — start the match there.",
@@ -897,8 +1021,8 @@ function MatchFormModal({
         isEdit
           ? rosterLocked
             ? "Update match name, court, scorer name, or scorer PIN"
-            : "Update match setup and scoring format before it goes live"
-          : "Create a match from a fixture when possible. Manual match (no fixture) remains for legacy compatibility."
+            : "Court and time are required before Match Control can start the match"
+          : "Court and time are required. Prefer linking a scheduled fixture; manual matches work if court + time are set."
       }
       onClose={onClose}
       size="lg"
@@ -918,7 +1042,7 @@ function MatchFormModal({
             placeholder="Link to a fixture (preferred)"
             options={[
               // LEGACY COMPATIBILITY: match without fixtureId. Prefer fixture-based create.
-              { value: "none", label: "None — manual match (legacy)" },
+              { value: "none", label: "None — manual match (must set court + time)" },
               ...fixtureSelectList.map((fix) => {
                 const category = categoryById.get(fix.categoryId);
                 const scheduled =
@@ -933,15 +1057,14 @@ function MatchFormModal({
             ]}
           />
           <p className="text-xs text-muted-foreground mt-1.5">
-            Only scheduled fixtures (court + time) appear here. Schedule them in{" "}
+            Preferred: schedule fixtures in{" "}
             <Link
               href={`/tournament/${tournamentId}/badminton/schedule`}
               className="text-primary hover:underline"
             >
-              Scheduling
+              Match Schedule
             </Link>
-            . <span className="text-foreground/80">None — manual match</span> is a temporary
-            compatibility path (match without a fixture).
+            , then pick them here. Manual matches still need a court and time below.
           </p>
         </FormField>
       ) : null}
@@ -970,7 +1093,7 @@ function MatchFormModal({
         <FormField label="Match Name">
           <input {...f("matchLabel")} placeholder="League Match 1" className={inputClass} />
         </FormField>
-        <FormField label="Court">
+        <FormField label="Court (required)">
           <CourtAutocomplete
             tournamentId={tournamentId}
             value={form.courtNumber}
@@ -982,6 +1105,17 @@ function MatchFormModal({
           />
         </FormField>
       </div>
+
+      {!rosterLocked ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Scheduled date (required)">
+            <input type="date" {...f("scheduleDate")} className={inputClass} />
+          </FormField>
+          <FormField label="Scheduled time (required)">
+            <input type="time" {...f("scheduleTime")} className={inputClass} />
+          </FormField>
+        </div>
+      ) : null}
 
       {!rosterLocked ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

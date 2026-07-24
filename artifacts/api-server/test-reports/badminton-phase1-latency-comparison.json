@@ -1,0 +1,41 @@
+{
+  "phase": "Production Optimization – Phase 1 (Safe)",
+  "when": "2026-07-22T11:30:00.000Z",
+  "changes": [
+    "loadCurrentMatchState: pure read — removed updateSnapshot from read path",
+    "POST /matches/:matchId/point: broadcastBadmintonMatchUpdate before writeScorerAudit"
+  ],
+  "unchanged": [
+    "event sourcing (appendMatchEventBatch / scoring_events)",
+    "replay logic (replayBadmintonViaPlatform)",
+    "awardPoint projectionMode remains \"replay\"",
+    "persistBadmintonCommandEvents still calls updateSnapshot after persist",
+    "audit records still written (after SSE)",
+    "SSE payload still full match_state after successful persist"
+  ],
+  "before": {
+    "n": 5,
+    "t3_minus_t2_ms": 1331.22,
+    "t4_minus_t3_ms": 421.54,
+    "t5_minus_t1_ms": 1767.87,
+    "loadCurrentMatchState_ms": 934.37,
+    "writeScorerAudit_before_sse": true,
+    "note": "Baseline from pre-Phase-1 measurement (same harness, tournament 5)"
+  },
+  "after": {
+    "n": 5,
+    "t3_minus_t2_ms": 680.86,
+    "t4_minus_t3_ms": 345.78,
+    "t5_minus_t1_ms": 1045.47,
+    "loadCurrentMatchState_ms": 335.75,
+    "writeScorerAudit_before_sse": false,
+    "audit_after_sse_ms_avg": 86.79,
+    "note": "T4−T3 now excludes audit (post-persist replay+snapshot only until SSE)"
+  },
+  "deltas": {
+    "t3_minus_t2_ms": -650.36,
+    "t5_minus_t1_ms": -722.4,
+    "loadCurrentMatchState_ms": -598.62,
+    "t5_improvement_pct": 40.9
+  }
+}

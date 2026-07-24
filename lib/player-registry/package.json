@@ -1,0 +1,25 @@
+{
+  "name": "@workspace/player-registry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cricket-franchise": "./src/cricket-franchise-registry.ts",
+    "./roster-assignments": "./src/roster-assignments.ts",
+    "./sync-helpers": "./src/sync-helpers.ts",
+    "./player-gender": "./src/player-gender.ts",
+    "./player-tag-label": "./src/player-tag-label.ts",
+    "./jersey-size": "./src/jersey-size.ts",
+    "./player-specs-v2": "./src/player-specs-v2.ts",
+    "./player-sport-profiles": "./src/player-sport-profiles.ts",
+    "./player-spec-export": "./src/player-spec-export.ts"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

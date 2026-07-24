@@ -7,6 +7,8 @@ import { CityAutocomplete } from "@/components/city-autocomplete";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   signupEmail,
+  signupVerify,
+  signupComplete,
   setOrganizerPassword,
   fetchAuthConfig,
   fetchLoginGuardStatus,
@@ -16,7 +18,8 @@ import {
   checkOrganizerAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
-  updateOrganizerProfile,
+  sendPhoneVerifyOtp,
+  verifyPhoneOtp,
   sendOtp,
   resendOtp,
   verifyOtpAndReset,
@@ -46,13 +49,20 @@ import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { navigateAfterOrganizerAuth } from "@/lib/navigate-after-organizer-auth";
 import { trackOrganizerSignupConversion } from "@/lib/google-ads-conversion";
+import {
+  getOrganizerAuctionStatusLabel,
+  getOrganizerLicenseBadgeKind,
+  isOrganizerTournamentActive,
+  isOrganizerTournamentCompleted,
+} from "@/lib/organizer-tournament-display";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
-  photoUrl?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean;
+  photoUrl?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean;
+  needsMobile?: boolean; incompleteProfile?: boolean; phoneVerified?: boolean;
 };
 type Tournament = {
   id: number; name: string; sport: string; status: string;
@@ -61,15 +71,22 @@ type Tournament = {
 
 // ─── Tournament License Badge ─────────────────────────────────────────────────
 
-function TournamentLicenseBadge({ status }: { status: string }) {
-  if (status === "active") {
+function TournamentLicenseBadge({
+  licenseStatus,
+  auctionStatus,
+}: {
+  licenseStatus: string;
+  auctionStatus: string;
+}) {
+  const kind = getOrganizerLicenseBadgeKind(licenseStatus, auctionStatus);
+  if (kind === "live-ready") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1" title="Live auction is activated">
         <ShieldCheck className="w-2.5 h-2.5" /> Live Ready
       </Badge>
     );
   }
-  if (status === "completed") {
+  if (kind === "auction-done") {
     return (
       <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] gap-1" title="Auction has finished">
         <CheckCheck className="w-2.5 h-2.5" /> Auction Done
@@ -435,27 +452,70 @@ function CreateTournamentModal({
   );
 }
 
-// ─── Complete Profile Form (Google sign-in, no mobile yet) ────────────────────
+// ─── Complete Profile Form (legacy accounts missing verified phone) ───────────
 
 function CompleteProfileForm({
   onComplete,
 }: {
   onComplete: (org: OrganizerInfo) => void;
 }) {
+  const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
+
+  function startCooldown() {
+    setResendCooldown(30);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     const mobileResult = parseIndianMobile(mobile);
     if (!mobileResult.ok) { setError(mobileResult.error); return; }
     setLoading(true);
     setError("");
-    const r = await updateOrganizerProfile({ mobile: mobileResult.normalized });
+    const r = await sendPhoneVerifyOtp(mobileResult.normalized);
     setLoading(false);
-    if (!r.success) { setError(r.error || "Failed to save."); return; }
+    if (!r.success) { setError(r.error || "Failed to send OTP."); return; }
+    setMobile(mobileResult.normalized);
+    setStep("otp");
+    startCooldown();
+  }
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (otp.length !== 6) { setError("Enter the 6-digit OTP."); return; }
+    setLoading(true);
+    setError("");
+    const r = await verifyPhoneOtp(mobile, otp);
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Verification failed."); return; }
     if (r.organizer) onComplete(r.organizer);
+  }
+
+  async function handleResend() {
+    if (resendCooldown > 0 || loading) return;
+    setLoading(true);
+    setError("");
+    const r = await sendPhoneVerifyOtp(mobile);
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Failed to resend OTP."); return; }
+    startCooldown();
   }
 
   return (
@@ -473,39 +533,81 @@ function CompleteProfileForm({
           <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
             <Phone className="w-7 h-7 text-primary" />
           </div>
-          <AuthStepIndicator step={1} total={1} />
-          <h1 className="font-display font-black text-2xl text-white">Confirm your mobile</h1>
+          <AuthStepIndicator step={step === "mobile" ? 1 : 2} total={2} />
+          <h1 className="font-display font-black text-2xl text-white">Complete your profile</h1>
           <p className="text-muted-foreground text-sm">
-            Add your mobile number so team owners and BidWar support can reach you.
+            Verify your mobile number with OTP to continue using BidWar.
           </p>
         </div>
         <Card className="border-border/50 bg-card/50">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm">
-                  <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number *
-                </Label>
-                <Input
-                  type="tel"
-                  value={mobile}
-                  onChange={e => setMobile(sanitizeMobileInput(e.target.value))}
-                  placeholder="10-digit mobile (e.g. 9876543210)"
-                  inputMode="numeric"
-                  maxLength={10}
-                  autoFocus
-                />
-              </div>
-              {error && (
-                <p className="text-destructive text-sm flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />{error}
+            {step === "mobile" ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number *
+                  </Label>
+                  <Input
+                    type="tel"
+                    value={mobile}
+                    onChange={e => setMobile(sanitizeMobileInput(e.target.value))}
+                    placeholder="10-digit mobile (e.g. 9876543210)"
+                    inputMode="numeric"
+                    maxLength={10}
+                    autoFocus
+                  />
+                </div>
+                {error && (
+                  <p className="text-destructive text-sm flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />{error}
+                  </p>
+                )}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Phone className="w-4 h-4 mr-2" />}
+                  Send OTP
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerify} className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Code sent to <span className="text-foreground font-medium">{mobile}</span>
                 </p>
-              )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                Save & Continue
-              </Button>
-            </form>
+                <div className="space-y-2">
+                  <Label className="text-sm">Verification code</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otp}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit OTP"
+                    autoFocus
+                  />
+                </div>
+                {error && (
+                  <p className="text-destructive text-sm flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />{error}
+                  </p>
+                )}
+                <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                  Verify & Continue
+                </Button>
+                <div className="flex items-center justify-between text-xs">
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setStep("mobile"); setOtp(""); setError(""); }}>
+                    Change number
+                  </button>
+                  <button
+                    type="button"
+                    className="text-primary disabled:opacity-50"
+                    disabled={resendCooldown > 0 || loading}
+                    onClick={() => void handleResend()}
+                  >
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                  </button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -704,7 +806,7 @@ function GoogleSignupBlock({ next }: { next?: string }) {
           <Info className="h-3.5 w-3.5 text-primary" aria-hidden />
         </div>
         <p className="text-[13px] leading-relaxed text-muted-foreground text-left">
-          After your first Google sign-in, we&apos;ll ask you to verify your mobile number to secure your account.
+          After your first Google sign-in, we&apos;ll ask you to verify your mobile number with OTP to secure your account.
         </p>
       </div>
     </div>
@@ -756,7 +858,12 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
   const logoAlt = getBrandLogoAlt(brandName);
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const [signupForm, setSignupForm] = useState({
+    name: "", email: "", mobile: "", password: "", confirmPassword: "", otp: "",
+  });
+  const [signupStep, setSignupStep] = useState<"details" | "otp" | "password">("details");
+  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
+  const signupCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
   const [loginGuard, setLoginGuard] = useState<LoginGuardStatus | null>(null);
@@ -767,6 +874,10 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
     fetchAuthConfig().then(cfg => {
       setTurnstileSiteKey(cfg.turnstileSiteKey);
     });
+  }, []);
+
+  useEffect(() => () => {
+    if (signupCooldownRef.current) clearInterval(signupCooldownRef.current);
   }, []);
 
   useEffect(() => {
@@ -862,16 +973,84 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
   async function handleSignupEmail(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
-    const { name, email, password, confirmPassword } = signupForm;
-    if (!name || !email || !password) { setError("Name, email, and password are required."); return; }
-    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    const { name, email, mobile } = signupForm;
+    if (!name || !email || !mobile) { setError("Name, email, and mobile are required."); return; }
+    const mobileResult = parseIndianMobile(mobile);
+    if (!mobileResult.ok) { setError(mobileResult.error); return; }
     setLoading(true); setError("");
     try {
-      const r = await signupEmail({ name, email, password });
+      const r = await signupEmail({ name, email, mobile: mobileResult.normalized });
       if (!r.success) { setError(r.error || "Signup failed"); return; }
+      setSignupForm(f => ({ ...f, mobile: mobileResult.normalized }));
+      setSignupStep("otp");
+      setSignupResendCooldown(30);
+      if (signupCooldownRef.current) clearInterval(signupCooldownRef.current);
+      signupCooldownRef.current = setInterval(() => {
+        setSignupResendCooldown((prev) => {
+          if (prev <= 1) {
+            if (signupCooldownRef.current) clearInterval(signupCooldownRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSignupVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    if (signupForm.otp.length !== 6) { setError("Enter the 6-digit OTP."); return; }
+    setLoading(true); setError("");
+    try {
+      const r = await signupVerify(signupForm.mobile, signupForm.otp);
+      if (!r.success) { setError(r.error || "Verification failed"); return; }
+      setSignupStep("password");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSignupComplete(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    const { password, confirmPassword } = signupForm;
+    if (!password || password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
+    setLoading(true); setError("");
+    try {
+      const r = await signupComplete(password);
+      if (!r.success) { setError(r.error || "Could not create account"); return; }
       trackOrganizerSignupConversion();
       await finishAccountSession();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSignupResendOtp() {
+    if (signupResendCooldown > 0 || loading) return;
+    setLoading(true); setError("");
+    try {
+      const r = await signupEmail({
+        name: signupForm.name,
+        email: signupForm.email,
+        mobile: signupForm.mobile,
+      });
+      if (!r.success) { setError(r.error || "Failed to resend OTP"); return; }
+      setSignupResendCooldown(30);
+      if (signupCooldownRef.current) clearInterval(signupCooldownRef.current);
+      signupCooldownRef.current = setInterval(() => {
+        setSignupResendCooldown((prev) => {
+          if (prev <= 1) {
+            if (signupCooldownRef.current) clearInterval(signupCooldownRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } finally {
       setLoading(false);
     }
@@ -903,13 +1082,13 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
         {view !== "forgot" && (
           <div className="flex rounded-xl bg-muted/20 p-1 border border-border/50">
             <button
-              onClick={() => { setView("login"); setError(""); }}
+              onClick={() => { setView("login"); setError(""); setSignupStep("details"); }}
               className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
               Sign In
             </button>
             <button
-              onClick={() => { setView("signup"); setError(""); }}
+              onClick={() => { setView("signup"); setError(""); setSignupStep("details"); }}
               className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
               Create Account
@@ -1054,7 +1233,8 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                     </div>
                   </div>
 
-                  {/* Email signup — primary CTA for this path */}
+                  {/* Email + mobile OTP signup */}
+                  {signupStep === "details" && (
                   <form onSubmit={handleSignupEmail} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-medium">
@@ -1086,6 +1266,99 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-medium">
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number
+                      </Label>
+                      <Input
+                        id="signup-mobile"
+                        type="tel"
+                        value={signupForm.mobile}
+                        onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
+                        placeholder="10-digit mobile"
+                        inputMode="numeric"
+                        maxLength={10}
+                        required
+                        className="h-11"
+                      />
+                    </div>
+
+                    {error ? (
+                      <p className="text-destructive text-sm flex items-start gap-1.5 pt-0.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>{error}</span>
+                      </p>
+                    ) : null}
+
+                    <div className="pt-2 space-y-3.5">
+                      <Button type="submit" className="w-full h-11" disabled={loading}>
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Send OTP
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                        We&apos;ll verify your mobile before you create a password.
+                      </p>
+                    </div>
+                  </form>
+                  )}
+
+                  {signupStep === "otp" && (
+                  <form onSubmit={handleSignupVerifyOtp} className="space-y-4">
+                    <AuthStepIndicator step={2} total={3} />
+                    <p className="text-sm text-muted-foreground">
+                      Enter the code sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-otp" className="text-sm font-medium">Verification code</Label>
+                      <Input
+                        id="signup-otp"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={signupForm.otp}
+                        onChange={e => setSignupForm(f => ({ ...f, otp: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                        placeholder="6-digit OTP"
+                        autoFocus
+                        className="h-11 tracking-widest"
+                        required
+                      />
+                    </div>
+                    {error ? (
+                      <p className="text-destructive text-sm flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>{error}</span>
+                      </p>
+                    ) : null}
+                    <Button type="submit" className="w-full h-11" disabled={loading || signupForm.otp.length !== 6}>
+                      {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Verify OTP
+                    </Button>
+                    <div className="flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => { setSignupStep("details"); setError(""); setSignupForm(f => ({ ...f, otp: "" })); }}
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        className="text-primary disabled:opacity-50"
+                        disabled={signupResendCooldown > 0 || loading}
+                        onClick={() => void handleSignupResendOtp()}
+                      >
+                        {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
+                      </button>
+                    </div>
+                  </form>
+                  )}
+
+                  {signupStep === "password" && (
+                  <form onSubmit={handleSignupComplete} className="space-y-4">
+                    <AuthStepIndicator step={3} total={3} />
+                    <p className="text-sm text-muted-foreground">
+                      Mobile verified. Create your password to finish.
+                    </p>
+                    <div className="space-y-2">
                       <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-medium">
                         <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
                       </Label>
@@ -1099,6 +1372,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                           autoComplete="new-password"
                           className="h-11 pr-10"
                           required
+                          autoFocus
                         />
                         <button
                           type="button"
@@ -1135,14 +1409,12 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                         </button>
                       </div>
                     </div>
-
                     {error ? (
-                      <p className="text-destructive text-sm flex items-start gap-1.5 pt-0.5">
+                      <p className="text-destructive text-sm flex items-start gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
-
                     <div className="pt-2 space-y-3.5">
                       <Button type="submit" className="w-full h-11" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -1159,6 +1431,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
                       </p>
                     </div>
                   </form>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1289,7 +1562,8 @@ function OrganizerDashboard({
         const d = await r.json() as { playerCount: number; ownerCount: number };
         setDeclareResult(`Consent recorded for ${d.playerCount} player(s) and ${d.ownerCount} team owner(s).`);
       } else {
-        setDeclareResult("Failed to record consent. Please try again.");
+        const d = await r.json().catch(() => null) as { error?: string } | null;
+        setDeclareResult(d?.error || "Failed to record consent. Please try again.");
       }
     } finally {
       setDeclaring(false);
@@ -1297,8 +1571,8 @@ function OrganizerDashboard({
   }
 
   const isLocked = isOrganizerAccountLocked(organizer.licenseStatus);
-  const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "active");
-  const completedTournaments = tournaments.filter(t => t.licenseStatus === "completed");
+  const activeTournaments = tournaments.filter(isOrganizerTournamentActive);
+  const completedTournaments = tournaments.filter(isOrganizerTournamentCompleted);
 
   const filteredTournaments = tournaments.filter(t => {
     const q = search.trim().toLowerCase();
@@ -1556,14 +1830,14 @@ function OrganizerDashboard({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
-                          <TournamentLicenseBadge status={t.licenseStatus} />
+                          <TournamentLicenseBadge licenseStatus={t.licenseStatus} auctionStatus={t.status} />
                         </div>
                         <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary flex-shrink-0 mt-0.5 transition-colors" />
                       </div>
                       <div>
                         <p className="font-bold text-base leading-snug group-hover:text-primary transition-colors">{t.name}</p>
                         <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
-                          {t.status}
+                          {getOrganizerAuctionStatusLabel(t.status)}
                         </p>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1659,7 +1933,7 @@ export default function OrganizerPortal() {
     if (me.loggedIn && me.organizer) {
       setOrganizer(me.organizer);
       setTournaments(me.tournaments ?? []);
-      setNeedsMobile(!!me.organizer.needsMobile);
+      setNeedsMobile(!!(me.organizer.needsMobile || me.organizer.incompleteProfile));
       setChecking(false);
       return true;
     }
@@ -1772,7 +2046,7 @@ export default function OrganizerPortal() {
   function handleAuthSuccess(org: OrganizerInfo, tours: Tournament[]) {
     setOrganizer(org);
     setTournaments(tours);
-    setNeedsMobile(!!org.needsMobile);
+    setNeedsMobile(!!(org.needsMobile || org.incompleteProfile));
     // Navigation to nextParam is handled by finishAccountSession in AuthForm
     // to avoid double-navigate. Only navigate here if no nextParam (stay on /organizer,
     // show dashboard).

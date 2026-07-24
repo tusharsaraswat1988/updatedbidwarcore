@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { useRoute, Link, useSearch } from "wouter";
+import { useRoute, Link, useSearch, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -33,7 +33,11 @@ import {
   inputClass,
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
+import { BadmintonEventsPanel } from "@/pages/badminton/categories";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 
@@ -117,12 +121,29 @@ function registrationLabel(row: RegistrationRow, doubles: boolean): string {
   return `${a} / ${playerLabel(row.player2 ?? null)}`;
 }
 
+const STRUCTURE_SECTIONS = ["events", "draw"] as const;
+type StructureSection = (typeof STRUCTURE_SECTIONS)[number];
+const STRUCTURE_SECTION_LABELS: Record<StructureSection, string> = {
+  events: "Events",
+  draw: "Draw",
+};
+
 export default function BadmintonFixturesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/fixtures");
+  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const search = useSearch();
-  const categoryFromQuery = new URLSearchParams(search).get("categoryId");
+  const paramsQs = new URLSearchParams(search);
+  const categoryFromQuery = paramsQs.get("categoryId");
   const initialCategoryId = categoryFromQuery ? parseInt(categoryFromQuery, 10) : null;
+  // Default: Events first; Draw when section=draw or category deep-link
+  const activeSection: StructureSection = paramsQs.has("section")
+    ? paramsQs.get("section") === "events"
+      ? "events"
+      : "draw"
+    : categoryFromQuery
+      ? "draw"
+      : "events";
 
   const [expandedId, setExpandedId] = useState<number | null>(
     Number.isFinite(initialCategoryId) ? initialCategoryId : null,
@@ -150,77 +171,96 @@ export default function BadmintonFixturesPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
+      <BadmintonIaPageChrome
         tournamentId={tournamentId}
-        stepId="draws"
-        headerActions={
-          sorted.length > 0 ? (
-            <Link href={`/tournament/${tournamentId}/badminton/schedule`}>
-              <BtnPrimary type="button">Go to Court Schedule</BtnPrimary>
-            </Link>
-          ) : null
+        stepId="structure"
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={STRUCTURE_SECTIONS}
+            labels={STRUCTURE_SECTION_LABELS}
+            value={activeSection}
+            onChange={(next) => {
+              const base = `/tournament/${tournamentId}/badminton/fixtures`;
+              setLocation(next === "events" ? `${base}?section=events` : `${base}?section=draw`);
+            }}
+          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {[
-            {
-              title: "Generate Automatically",
-              desc: "Software builds the draw from event entries.",
-            },
-            {
-              title: "Import Existing Draw",
-              desc: "Bring in a draw you already planned elsewhere.",
-            },
-            {
-              title: "Create Manually",
-              desc: "Enter each pairing yourself.",
-            },
-          ].map((option) => (
-            <div
-              key={option.title}
-              className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5"
-            >
-              <p className="text-xs font-semibold text-foreground">{option.title}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
+        {activeSection === "events" ? (
+          <BadmintonEventsPanel tournamentId={tournamentId} />
+        ) : null}
+
+        {activeSection === "draw" ? (
+          <>
+            <div>
+              <h2 className="text-foreground font-display font-bold text-lg">Draw</h2>
+              <p className="text-muted-foreground text-sm mt-0.5">
+                Who plays whom in each event. Schedule assigns courts and times next.
+              </p>
             </div>
-          ))}
-        </div>
-        {isLoading ? (
-          <div className="space-y-3" aria-busy="true" aria-label="Loading fixtures">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : sorted.length === 0 ? (
-          <EmptyState
-            icon={ListTree}
-            title="No events yet"
-            desc="Define events first, then return here to create the tournament draw."
-            action={{
-              label: "Open Events",
-              href: `/tournament/${tournamentId}/badminton/categories`,
-            }}
-          />
-        ) : (
-          sorted.map((cat) => {
-            const catCollections = collections.filter((c) => c.categoryId === cat.id);
-            const catFixtures = fixtures.filter((f) => f.categoryId === cat.id);
-            return (
-              <CategoryFixturesPanel
-                key={cat.id}
-                category={cat}
-                tournamentId={tournamentId}
-                collections={catCollections}
-                fixtures={catFixtures}
-                expanded={expandedId === cat.id}
-                onToggle={() => setExpandedId(expandedId === cat.id ? null : cat.id)}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                {
+                  title: "Generate Automatically",
+                  desc: "Software builds the draw from event entries.",
+                },
+                {
+                  title: "Import Existing Draw",
+                  desc: "Bring in a draw you already planned elsewhere.",
+                },
+                {
+                  title: "Create Manually",
+                  desc: "Enter each pairing yourself.",
+                },
+              ].map((option) => (
+                <div
+                  key={option.title}
+                  className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5"
+                >
+                  <p className="text-xs font-semibold text-foreground">{option.title}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
+                </div>
+              ))}
+            </div>
+            {isLoading ? (
+              <div className="space-y-3" aria-busy="true" aria-label="Loading draw">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : sorted.length === 0 ? (
+              <EmptyState
+                icon={ListTree}
+                title="No events yet"
+                desc="Define events first, then create the tournament draw."
+                action={{
+                  label: "Open Events",
+                  onClick: () =>
+                    setLocation(`/tournament/${tournamentId}/badminton/fixtures?section=events`),
+                }}
               />
-            );
-          })
-        )}
+            ) : (
+              sorted.map((cat) => {
+                const catCollections = collections.filter((c) => c.categoryId === cat.id);
+                const catFixtures = fixtures.filter((f) => f.categoryId === cat.id);
+                return (
+                  <CategoryFixturesPanel
+                    key={cat.id}
+                    category={cat}
+                    tournamentId={tournamentId}
+                    collections={catCollections}
+                    fixtures={catFixtures}
+                    expanded={expandedId === cat.id}
+                    onToggle={() => setExpandedId(expandedId === cat.id ? null : cat.id)}
+                  />
+                );
+              })
+            )}
+          </>
+        ) : null}
       </div>
-      </BadmintonSetupWizardChrome>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }
@@ -339,7 +379,7 @@ function CategoryFixturesPanel({
             <p className="text-white/40 text-sm mt-0.5">
               {collections.length} collection{collections.length !== 1 ? "s" : ""}
               {" · "}
-              {fixtures.length} fixture{fixtures.length !== 1 ? "s" : ""}
+              {fixtures.length} match{fixtures.length !== 1 ? "es" : ""} in draw
             </p>
           </div>
         </div>
@@ -389,9 +429,9 @@ function CategoryFixturesPanel({
 
           {collections.length === 0 ? (
             <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-center space-y-2">
-              <p className="text-white/70 text-sm font-semibold">No fixture collections yet</p>
+              <p className="text-white/70 text-sm font-semibold">No draw yet</p>
               <p className="text-white/40 text-xs max-w-md mx-auto">
-                Generate a draw for this category, or create fixtures manually. Then open Scheduling to assign courts and times.
+                Generate a draw for this event, or create pairings manually. Then open Schedule to assign courts and times.
               </p>
             </div>
           ) : (
@@ -648,9 +688,9 @@ function ImportPlaceholderModal({ onClose }: { onClose: () => void }) {
       size="md"
     >
       <p className="text-sm text-muted-foreground leading-relaxed">
-        Import will accept association draws, Excel sheets, CSV lists, and PDF brackets. In Phase 1
-        this is a placeholder only — no file is uploaded or parsed. When ready, Import will create a
-        Fixture Collection (kind: imported) through the same fixture writer as Auto and Manual.
+        Import will accept association draws, Excel sheets, CSV lists, and PDF brackets. This is a
+        placeholder for now — nothing is uploaded yet. When ready, Import will add the same kind of
+        draw you get from Generate Automatically or Create Manually.
       </p>
       <FormActions onCancel={onClose} onSubmit={onClose} submitLabel="Got it" saving={false} />
     </FormModal>

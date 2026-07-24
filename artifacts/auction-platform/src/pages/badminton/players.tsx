@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { useRoute } from "wouter";
+import { useLocation, useRoute, useSearch } from "wouter";
 import { Users, Pencil, Trash2, Upload, User, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { identityFromOrganizerPlayer } from "@/lib/team-player-identity";
-import { apiFetch } from "@workspace/api-base";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
@@ -43,7 +43,11 @@ import {
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
+import { BadmintonScorersPanel } from "@/pages/badminton/scorers";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -88,10 +92,21 @@ function playerMeta(player: BadmintonPlayer): BadmintonPlayerMeta {
   return (player.metaJson ?? {}) as BadmintonPlayerMeta;
 }
 
+const PARTICIPANT_SECTIONS = ["players", "officials"] as const;
+type ParticipantSection = (typeof PARTICIPANT_SECTIONS)[number];
+const PARTICIPANT_SECTION_LABELS: Record<ParticipantSection, string> = {
+  players: "Players",
+  officials: "Officials",
+};
+
 export default function BadmintonPlayersPage() {
   const [, params] = useRoute("/tournament/:id/badminton/players");
+  const urlSearch = useSearch();
+  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
+  const section: ParticipantSection =
+    new URLSearchParams(urlSearch).get("section") === "officials" ? "officials" : "players";
 
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState<"all" | "M" | "F" | "unspecified">("all");
@@ -217,20 +232,37 @@ export default function BadmintonPlayersPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
+      <BadmintonIaPageChrome
         tournamentId={tournamentId}
-        stepId="players"
+        stepId="participants"
         headerActions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
-            <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
-              + Add Player
-            </BtnPrimary>
-          </div>
+          section === "players" ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <BtnSecondary onClick={() => setShowImport(true)}>Import from Player Registry</BtnSecondary>
+              <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
+                + Add Player
+              </BtnPrimary>
+            </div>
+          ) : undefined
+        }
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={PARTICIPANT_SECTIONS}
+            labels={PARTICIPANT_SECTION_LABELS}
+            value={section}
+            onChange={(next) => {
+              const base = `/tournament/${tournamentId}/badminton/players`;
+              setLocation(next === "players" ? base : `${base}?section=officials`);
+            }}
+          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {!isLoading && players.length > 0 ? (
+        {section === "officials" ? (
+          <BadmintonScorersPanel tournamentId={tournamentId} />
+        ) : null}
+
+        {section === "players" && !isLoading && players.length > 0 ? (
           <div className={cn(hubPanelClass, "mb-6")}>
             <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
               <p>
@@ -255,118 +287,123 @@ export default function BadmintonPlayersPage() {
             </div>
           </div>
         ) : null}
-        <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search players by name, team, city, role, mobile…"
-            className="flex-1 min-w-0"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:w-[22rem] shrink-0">
-            <FormField label="Gender">
-              <DarkSelect
-                value={genderFilter}
-                onValueChange={(value) =>
-                  setGenderFilter(value as "all" | "M" | "F" | "unspecified")
+
+        {section === "players" ? (
+          <>
+            <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search players by name, team, city, role, mobile…"
+                className="flex-1 min-w-0"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:w-[22rem] shrink-0">
+                <FormField label="Gender">
+                  <DarkSelect
+                    value={genderFilter}
+                    onValueChange={(value) =>
+                      setGenderFilter(value as "all" | "M" | "F" | "unspecified")
+                    }
+                    options={[
+                      { value: "all", label: "All genders" },
+                      { value: "M", label: "Male" },
+                      { value: "F", label: "Female" },
+                      { value: "unspecified", label: "Not specified" },
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Team">
+                  <DarkSelect
+                    value={teamFilter}
+                    onValueChange={setTeamFilter}
+                    placeholder="All teams"
+                    options={[
+                      { value: "all", label: "All teams" },
+                      { value: "unassigned", label: "No team assigned" },
+                      ...teamOptions,
+                    ]}
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            {filtersActive && filtered.length !== players.length ? (
+              <p className="text-sm text-muted-foreground mb-4">
+                Showing {filtered.length} of {players.length} players
+              </p>
+            ) : null}
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={filtersActive ? "No players match your filters" : "No players yet"}
+                desc={
+                  filtersActive
+                    ? "Try clearing search or changing gender/team filters"
+                    : "Import from Player Registry or add a walk-in player manually — then continue to Tournament Structure."
                 }
-                options={[
-                  { value: "all", label: "All genders" },
-                  { value: "M", label: "Male" },
-                  { value: "F", label: "Female" },
-                  { value: "unspecified", label: "Not specified" },
-                ]}
+                action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
               />
-            </FormField>
-            <FormField label="Team">
-              <DarkSelect
-                value={teamFilter}
-                onValueChange={setTeamFilter}
-                placeholder="All teams"
-                options={[
-                  { value: "all", label: "All teams" },
-                  { value: "unassigned", label: "No team assigned" },
-                  ...teamOptions,
-                ]}
-              />
-            </FormField>
-          </div>
-        </div>
-
-        {filtersActive && filtered.length !== players.length ? (
-          <p className="text-sm text-muted-foreground mb-4">
-            Showing {filtered.length} of {players.length} players
-          </p>
-        ) : null}
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={filtersActive ? "No players match your filters" : "No players yet"}
-            desc={
-              filtersActive
-                ? "Try clearing search or changing gender/team filters"
-                : "Import from auction or add a walk-in player manually"
-            }
-            action={!filtersActive ? { label: "Add Player", onClick: () => setShowForm(true) } : undefined}
-          />
-        ) : (
-          <div className="space-y-8">
-            {playersByTeam.map((group) => (
-              <section key={group.teamName} className="space-y-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {group.logoUrl ? (
-                    <img
-                      src={group.logoUrl}
-                      alt=""
-                      className="w-7 h-7 rounded-md object-contain bg-white/90 border border-border shrink-0"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
-                      <Users className="w-3.5 h-3.5 text-primary" aria-hidden />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <h2
-                      className={cn(
-                        "text-base font-display font-bold truncate",
-                        group.teamName === "Players without Team"
-                          ? "text-amber-300"
-                          : "text-foreground",
+            ) : (
+              <div className="space-y-8">
+                {playersByTeam.map((group) => (
+                  <section key={group.teamName} className="space-y-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {group.logoUrl ? (
+                        <img
+                          src={group.logoUrl}
+                          alt=""
+                          className="w-7 h-7 rounded-md object-contain bg-white/90 border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+                          <Users className="w-3.5 h-3.5 text-primary" aria-hidden />
+                        </div>
                       )}
-                    >
-                      {group.teamName}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      {group.players.length} player{group.players.length === 1 ? "" : "s"}
-                      {group.teamName !== "Players without Team"
-                        ? " · team identity from Auction"
-                        : " · add a team later if needed"}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {group.players.map((player) => (
-                    <PlayerCard
-                      key={player.id}
-                      player={player}
-                      onEdit={() => { setEditPlayer(player); setShowForm(true); }}
-                      onDelete={() => {
-                        setDeleteError("");
-                        setDeleteTarget(player);
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+                      <div className="min-w-0">
+                        <h2
+                          className={cn(
+                            "text-base font-display font-bold truncate",
+                            group.teamName === "Players without Team"
+                              ? "text-amber-300"
+                              : "text-foreground",
+                          )}
+                        >
+                          {group.teamName}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          {group.players.length} player{group.players.length === 1 ? "" : "s"}
+                          {group.teamName !== "Players without Team"
+                            ? " · team identity from Player Registry"
+                            : " · add a team later if needed"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {group.players.map((player) => (
+                        <PlayerCard
+                          key={player.id}
+                          player={player}
+                          onEdit={() => { setEditPlayer(player); setShowForm(true); }}
+                          onDelete={() => {
+                            setDeleteError("");
+                            setDeleteTarget(player);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
+        ) : null}
       </div>
 
       {showForm && (
@@ -423,7 +460,7 @@ export default function BadmintonPlayersPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
-      </BadmintonSetupWizardChrome>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }
@@ -470,7 +507,10 @@ function ImportMasterPlayersModal({
   const [sourceId, setSourceId] = useState(String(tournamentId));
   const [savingSource, setSavingSource] = useState(false);
 
-  const { data: settings } = useQuery<{ linkedAuctionTournamentId?: number | null }>({
+  const { data: settings } = useQuery<{
+    linkedPlayerRegistryTournamentId?: number | null;
+    linkedAuctionTournamentId?: number | null;
+  }>({
     queryKey: ["badminton-settings", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/settings`),
     enabled: !!tournamentId,
@@ -504,7 +544,7 @@ function ImportMasterPlayersModal({
 
   useEffect(() => {
     if (badmintonSources.length === 0) return;
-    const linked = settings?.linkedAuctionTournamentId;
+    const linked = settings?.linkedPlayerRegistryTournamentId ?? settings?.linkedAuctionTournamentId;
     if (linked && badmintonSources.some((t) => t.id === linked)) {
       setSourceId(String(linked));
       return;
@@ -514,7 +554,12 @@ function ImportMasterPlayersModal({
       return;
     }
     setSourceId(String(badmintonSources[0].id));
-  }, [settings?.linkedAuctionTournamentId, badmintonSources, tournamentId]);
+  }, [
+    settings?.linkedPlayerRegistryTournamentId,
+    settings?.linkedAuctionTournamentId,
+    badmintonSources,
+    tournamentId,
+  ]);
 
   const selectedSource = badmintonSources.find((t) => t.id === parseInt(sourceId, 10));
   const isTrialSource = !!selectedSource && !isLicensedTournament(selectedSource.licenseStatus);
@@ -539,13 +584,13 @@ function ImportMasterPlayersModal({
       await badmintonFetch(tournamentId, `/settings`, {
         method: "PATCH",
         body: JSON.stringify({
-          linkedAuctionTournamentId: Number.isFinite(linkedId) ? linkedId : null,
+          linkedPlayerRegistryTournamentId: Number.isFinite(linkedId) ? linkedId : null,
         }),
       });
       qc.invalidateQueries({ queryKey: ["badminton-settings", tournamentId] });
       qc.invalidateQueries({ queryKey: ["master-players", tournamentId, nextSourceId] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save auction source");
+      setError(e instanceof Error ? e.message : "Could not save registry source");
     } finally {
       setSavingSource(false);
     }
@@ -572,7 +617,7 @@ function ImportMasterPlayersModal({
         const message =
           body && !Array.isArray(body) && body.error
             ? body.error
-            : "Failed to load auction players";
+            : "Failed to load players";
         throw new Error(message);
       }
       return Array.isArray(body) ? body : [];
@@ -658,8 +703,8 @@ function ImportMasterPlayersModal({
 
   return (
     <FormModal
-      title="Import From Auction"
-      subtitle="Copy auction players into your badminton roster. Only imported players appear when you create matches."
+      title="Import from Player Registry"
+      subtitle="Copy players from the Player Registry into your badminton roster. Only imported players appear when you create matches."
       onClose={onClose}
       size="xl"
       footer={
@@ -680,7 +725,7 @@ function ImportMasterPlayersModal({
           </div>
         ) : (
           <>
-        <FormField label="Auction source">
+        <FormField label="Registry source">
           <DarkSelect
             value={sourceId}
             onValueChange={handleSourceChange}
@@ -689,7 +734,7 @@ function ImportMasterPlayersModal({
             options={sourceOptions}
           />
           <p className="text-white/35 text-xs mt-2">
-            Only your badminton tournaments appear here. Players come from that tournament’s auction roster, or its badminton roster if no auction players exist. Licensed events have no import cap.
+            Only your badminton tournaments appear here. Players come from that tournament’s badminton roster, or its Player Registry team assignments if no badminton roster exists. Licensed events have no import cap.
           </p>
         </FormField>
 
@@ -705,7 +750,7 @@ function ImportMasterPlayersModal({
         )}
 
         {isLoading || savingSource ? (
-          <AsyncLoadingPanel tone="inverse" message="Loading auction players…" />
+          <AsyncLoadingPanel tone="inverse" message="Loading players…" />
         ) : masterPlayersError ? (
           <div className="text-center py-8 space-y-2">
             <p className="text-red-300/90">
@@ -718,12 +763,12 @@ function ImportMasterPlayersModal({
           <div className="text-center py-8 space-y-2">
             <p className="text-white/50">No players to import from this source.</p>
             <p className="text-white/30 text-sm">
-              This tournament needs an auction roster or an existing badminton roster with linked master players. Add auction players first, or choose a different source above.
+              This tournament needs a badminton roster or Player Registry team assignments with linked master players. Add players first, or choose a different source above.
             </p>
           </div>
         ) : available.length === 0 ? (
           <div className="text-center py-8 space-y-2">
-            <p className="text-white/50">All auction players from this source are already on your badminton roster.</p>
+            <p className="text-white/50">All players from this source are already on your badminton roster.</p>
             <p className="text-white/30 text-sm">
               Delete a player from the roster to re-import them, or pick another source above.
             </p>
@@ -1026,7 +1071,7 @@ function PlayerFormModal({
   return (
     <FormModal
       title={player ? "Edit Player" : "Add Walk-in Player"}
-      subtitle="Same fields as auction player registration — photo and details show on scoreboard and match picker"
+      subtitle="Same fields as Player Registry registration — photo and details show on scoreboard and match picker"
       onClose={onClose}
       size="lg"
     >

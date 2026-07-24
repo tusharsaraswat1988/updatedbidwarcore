@@ -41,3 +41,22 @@ describe("communication-center Super Admin mount", () => {
     );
   });
 });
+
+/**
+ * Regression: diagnostics mounted `requireMasterAdmin` at bare `/auth/admin`,
+ * which blocked organizer POST /auth/admin/communicate/consent-declare-bulk
+ * with "Super Admin access required" before the comm router could run.
+ */
+describe("diagnostics Super Admin mount", () => {
+  it("mounts diagnostics under /auth/admin/diagnostics, not bare /auth/admin", async () => {
+    const src = await readFile(new URL("../routes/diagnostics.ts", import.meta.url), "utf8");
+    expect(src).toContain('router.use("/auth/admin/diagnostics", adminDiagnostics)');
+    expect(src).not.toMatch(/router\.use\("\/auth\/admin",\s*adminDiagnostics\)/);
+  });
+
+  it("keeps consent-declare-bulk reachable for organizers in comm router", async () => {
+    const src = await readFile(new URL("../routes/comm.ts", import.meta.url), "utf8");
+    expect(src).toContain('router.post("/auth/admin/communicate/consent-declare-bulk"');
+    expect(src).toMatch(/organizerAccountId/);
+  });
+});

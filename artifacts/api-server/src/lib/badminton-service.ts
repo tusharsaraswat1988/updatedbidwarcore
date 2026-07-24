@@ -11,6 +11,7 @@
 import { randomInt } from "node:crypto";
 import { eq, and, desc, asc, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { markLatency } from "./badminton-latency-trace";
 import {
   scoringMatchesTable,
   scoringEventsTable,
@@ -436,17 +437,22 @@ async function loadCurrentMatchState(
   // Always rebuild from the event log for command priors. Snapshots can carry a
   // matching lastSequence with wrong scores (incremental project from a stale
   // prior). Trusting that made continuous scoring regress (e.g. 3-0 → 1-0).
+  //
+  // Pure read: no snapshot writes here. Snapshot persistence belongs on the
+  // command persist path (persistBadmintonCommandEvents → updateSnapshot).
+  markLatency("loadState_enter");
   const [persistedTail, events] = await Promise.all([
     getLastBadmintonSequence(matchId),
     loadBadmintonEvents(matchId),
   ]);
+  markLatency("loadState_events_loaded");
   const replayed = replayBadmintonViaPlatform(meta, events);
+  markLatency("loadState_replay_done");
   const authoritative =
     persistedTail > 0 && replayed.lastSequence !== persistedTail
       ? { ...replayed, lastSequence: persistedTail }
       : replayed;
 
-  await updateSnapshot(matchId, tournamentId, authoritative);
   return authoritative;
 }
 
@@ -464,6 +470,7 @@ async function persistBadmintonCommandEvents(
   const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   try {
+    markLatency("persist_enter");
     const { state } = await appendMatchEventBatch({
       tournamentId,
       matchId,
@@ -475,9 +482,11 @@ async function persistBadmintonCommandEvents(
       priorState: projectionMode === "incremental" ? priorState : undefined,
       matchMeta: meta,
     });
+    markLatency("persist_batch_done");
 
     const projected = state as BadmintonMatchState;
     await updateSnapshot(matchId, tournamentId, projected);
+    markLatency("persist_snapshot_done");
     return projected;
   } catch (err) {
     if (err instanceof ScoringPlatformError) {
@@ -706,10 +715,15 @@ export async function awardPoint(
   actor: Actor,
   opts?: { rallyLength?: number },
 ): Promise<BadmintonMatchState> {
+  markLatency("awardPoint_enter");
+
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+  markLatency("awardPoint_meta_loaded");
 
   const state = await loadCurrentMatchState(matchId, tournamentId, meta);
+  markLatency("awardPoint_state_loaded");
+
   const result = cmdAwardPoint(state, winningSide, opts);
 
   if (!result.ok) {
@@ -718,8 +732,9 @@ export async function awardPoint(
       friendlyBadmintonCommandMessage(result.error),
     );
   }
+  markLatency("awardPoint_command_ok");
 
-  return persistBadmintonCommandEvents(
+  const projected = await persistBadmintonCommandEvents(
     matchId,
     tournamentId,
     meta,
@@ -729,6 +744,8 @@ export async function awardPoint(
     // Full replay after persist so a drifted snapshot cannot poison the next score.
     "replay",
   );
+  markLatency("awardPoint_persist_done");
+  return projected;
 }
 
 export async function undoLastPoint(
@@ -1626,6 +1643,61 @@ export async function updateBadmintonMatch(
           400,
         );
       }
+    }
+  }
+
+  // When assigning court or time on a pre-start match, both must end up set
+  // (Match Control / Scorer Home require court + scheduled time to start).
+  if (
+    !rosterLocked &&
+    (input.courtId !== undefined ||
+      input.courtNumber !== undefined ||
+      input.scheduledAt !== undefined)
+  ) {
+    const [current] = await db
+      .select({
+        scheduledAt: scoringMatchesTable.scheduledAt,
+        courtId: badmintonMatchDetailsTable.courtId,
+        courtNumber: badmintonMatchDetailsTable.courtNumber,
+      })
+      .from(scoringMatchesTable)
+      .leftJoin(
+        badmintonMatchDetailsTable,
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      )
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    const nextCourtId = input.courtId !== undefined ? input.courtId : (current?.courtId ?? null);
+    const nextCourtNumber =
+      input.courtNumber !== undefined ? input.courtNumber : (current?.courtNumber ?? null);
+    const nextScheduledAt =
+      input.scheduledAt !== undefined ? input.scheduledAt : (current?.scheduledAt ?? null);
+    const hasCourt =
+      nextCourtId != null ||
+      (typeof nextCourtNumber === "string" && nextCourtNumber.trim().length > 0);
+
+    if (!hasCourt) {
+      throw new BadmintonServiceError(
+        "COURT_REQUIRED",
+        "Court is required. Assign a court before the match can be started.",
+        400,
+      );
+    }
+    if (!nextScheduledAt || Number.isNaN(new Date(nextScheduledAt).getTime())) {
+      throw new BadmintonServiceError(
+        "SCHEDULED_AT_REQUIRED",
+        "Scheduled time is required. Set a date and time before the match can be started.",
+        400,
+      );
     }
   }
 

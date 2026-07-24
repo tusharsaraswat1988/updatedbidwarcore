@@ -25,6 +25,9 @@ export const organizersTable = pgTable("organizers", {
   whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),
   whatsappConsentMethod: text("whatsapp_consent_method"), // "whatsapp_otp_verified"|"web_checkbox"|"organizer_declaration"|"web_fallback"
   whatsappConsentIp: text("whatsapp_consent_ip"),
+  /** True only after SMS OTP verification (or grandfathered real mobile / admin override). */
+  phoneVerified: boolean("phone_verified").notNull().default(false),
+  phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

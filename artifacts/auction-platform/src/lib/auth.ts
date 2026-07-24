@@ -1,4 +1,4 @@
-import { apiFetch } from "@workspace/api-base";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 
 export async function checkOrganizerAuth(tournamentId: number): Promise<boolean> {
   try {
@@ -246,10 +246,25 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
-export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; photoUrl?: string | null; photoPublicId?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean };
+export type OrganizerInfo = {
+  id: number;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  photoUrl?: string | null;
+  photoPublicId?: string | null;
+  licenseStatus: string;
+  maxTournaments: number;
+  hasPassword?: boolean;
+  needsMobile?: boolean;
+  incompleteProfile?: boolean;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string | null;
+  phoneStatus?: "verified" | "missing_phone" | "incomplete_profile";
+};
 
 export async function signupSendOtp(data: {
-  name: string; mobile: string; email?: string; password: string;
+  name: string; mobile: string; email: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch("/auth/organizer-account/signup/send-otp", {
@@ -312,8 +327,8 @@ export async function fetchLoginGuardStatus(
 }
 
 export async function signupEmail(data: {
-  name: string; email: string; password: string;
-}): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
+  name: string; email: string; mobile: string;
+}): Promise<{ success: boolean; error?: string; step?: string }> {
   try {
     const r = await apiFetch("/auth/organizer-account/signup/email", {
       method: "POST",
@@ -321,7 +336,7 @@ export async function signupEmail(data: {
     });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Signup failed" };
-    return { success: true, organizer: d.organizer };
+    return { success: true, step: d.step ?? "otp" };
   } catch { return { success: false, error: "Network error" }; }
 }
 
@@ -337,9 +352,68 @@ export async function setOrganizerPassword(password: string): Promise<{ success:
   } catch { return { success: false, error: "Network error" }; }
 }
 
-export async function signupVerify(mobile: string, otp: string): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
+export async function signupVerify(mobile: string, otp: string): Promise<{
+  success: boolean;
+  error?: string;
+  step?: string;
+  name?: string;
+  email?: string;
+  mobile?: string;
+  organizer?: OrganizerInfo;
+}> {
   try {
     const r = await apiFetch("/auth/organizer-account/signup/verify", {
+      method: "POST",
+      body: JSON.stringify({ mobile, otp }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Verification failed" };
+    return {
+      success: true,
+      step: d.step,
+      name: d.name,
+      email: d.email,
+      mobile: d.mobile,
+      organizer: d.organizer,
+    };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function signupComplete(password: string): Promise<{
+  success: boolean;
+  error?: string;
+  organizer?: OrganizerInfo;
+}> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/signup/complete", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Could not create account" };
+    return { success: true, organizer: d.organizer };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function sendPhoneVerifyOtp(mobile: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/phone/send-otp", {
+      method: "POST",
+      body: JSON.stringify({ mobile }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to send OTP" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function verifyPhoneOtp(mobile: string, otp: string): Promise<{
+  success: boolean;
+  error?: string;
+  organizer?: OrganizerInfo;
+}> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/phone/verify", {
       method: "POST",
       body: JSON.stringify({ mobile, otp }),
     });
@@ -450,6 +524,11 @@ export type AdminOrganizerRow = {
   id: number; name: string; email: string | null; mobile: string | null;
   licenseStatus: string; maxTournaments: number; notes: string | null;
   tournamentCount: number; createdAt: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string | null;
+  phoneStatus?: "verified" | "missing_phone" | "incomplete_profile";
+  incompleteProfile?: boolean;
+  needsMobile?: boolean;
 };
 
 export async function listAdminOrganizers(): Promise<AdminOrganizerRow[]> {

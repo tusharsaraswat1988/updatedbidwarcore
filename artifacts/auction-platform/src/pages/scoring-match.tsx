@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
-import {
-  useListTeams,
-  useListPlayers,
-  getListTeamsQueryKey,
-  getListPlayersQueryKey,
-} from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import { EmptyState, PageHeader } from "@/components/badminton/page-chrome";
@@ -16,9 +11,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatch, useInvalidateScoring } from "@/hooks/use-scoring-match";
 import {
   appendScoringEvent,
+  getCricketMasterTeams,
+  getCricketTournamentRoster,
   undoScoringEvent,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
+import {
+  cricketMasterTeamToScorerTeam,
+  cricketRosterToScorerPlayer,
+} from "@/lib/scoring-squad";
 import {
   countQueuedScoringEvents,
   enqueueScoringEvent,
@@ -54,12 +55,25 @@ export default function ScoringMatchPage() {
 
   const { invalidateAll, setMatchDetail } = useInvalidateScoring(tournamentId, matchId);
 
-  const { data: teams } = useListTeams(tournamentId, {
-    query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: scoringActive && !!tournamentId,
   });
-  const { data: players } = useListPlayers(tournamentId, {
-    query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
+  const { data: roster } = useQuery({
+    queryKey: ["cricket-roster", tournamentId],
+    queryFn: () => getCricketTournamentRoster(tournamentId),
+    enabled: scoringActive && !!tournamentId,
   });
+
+  const teams = useMemo(
+    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    [masterTeams],
+  );
+  const players = useMemo(
+    () => (roster ?? []).map(cricketRosterToScorerPlayer),
+    [roster],
+  );
 
   const [busy, setBusy] = useState(false);
   const [queueDepth, setQueueDepth] = useState(0);
@@ -202,8 +216,8 @@ export default function ScoringMatchPage() {
     [applyDetail, data, drainQueue, matchId, refetch, refreshQueueDepth, toast, tournamentId],
   );
 
-  const home = teams?.find((t) => t.id === data?.match.homeTeamId);
-  const away = teams?.find((t) => t.id === data?.match.awayTeamId);
+  const home = teams.find((t) => t.id === data?.match.homeTeamId);
+  const away = teams.find((t) => t.id === data?.match.awayTeamId);
   const subtitle = home && away ? `${home.shortCode} vs ${away.shortCode}` : undefined;
 
   const readyToScore =
@@ -344,8 +358,8 @@ export default function ScoringMatchPage() {
               tournamentId={tournamentId}
               match={data.match}
               state={data.state}
-              teams={teams ?? []}
-              players={players ?? []}
+              teams={teams}
+              players={players}
               localBowlerId={localBowlerId}
               busy={busy}
               onEvent={sendEvent}
@@ -356,8 +370,8 @@ export default function ScoringMatchPage() {
               <div className="max-w-lg mx-auto w-full">
                 <LiveScoringPad
                 state={data.state}
-                teams={teams ?? []}
-                players={players ?? []}
+              teams={teams}
+              players={players}
                 bowlerId={localBowlerId}
                 busy={busy}
                 pendingNewBatsman={pendingNewBatsman}
@@ -422,7 +436,7 @@ export default function ScoringMatchPage() {
             ) : null}
 
             {isFinished && summary ? (
-              <MatchSummaryCard summary={summary} teams={teams ?? []} compact />
+              <MatchSummaryCard summary={summary} teams={teams} compact />
             ) : null}
           </>
         )}

@@ -28,7 +28,7 @@ import {
 import { badmintonScorerHomePath } from "@/lib/badminton-routes";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { FullscreenLayout } from "@/components/layout";
+import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 
 const HEARTBEAT_MS = 20_000;

@@ -193,7 +193,7 @@ export default function BadmintonMatchControlPage() {
         title={isPreMatch ? "Match Control" : "Match Control"}
         subtitle={
           isPreMatch
-            ? "Verify court, roster, and time — then Start Match"
+            ? "Court and time are required before start. Fix blockers below, then Toss & Start."
             : state
               ? `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))} — tournament director`
               : "Loading…"

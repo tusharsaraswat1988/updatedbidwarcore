@@ -24,8 +24,6 @@ import { useBadmintonDashboard } from "@/hooks/use-badminton-match";
 
 import {
 
-  PageHeader,
-
   HubPageShell,
 
   HubKpiCard,
@@ -41,6 +39,11 @@ import {
   hubCardClass,
 
 } from "@/components/badminton/page-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
+import { useLocation } from "wouter";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -87,6 +90,7 @@ interface RegistrationRow {
 export default function BadmintonAnalyticsPage() {
 
   const [, params] = useRoute("/tournament/:id/badminton/analytics");
+  const [, setLocation] = useLocation();
 
   const tournamentId = parseInt(params?.id ?? "0");
 
@@ -188,16 +192,29 @@ export default function BadmintonAnalyticsPage() {
 
     <HubPageShell tournamentId={tournamentId}>
 
-      <PageHeader
-
-        title="Analytics"
-        eyebrow="Reports"
-
-        subtitle="Tournament overview and progress"
-
-      />
-
-
+      <BadmintonIaPageChrome
+        tournamentId={tournamentId}
+        stepId="results"
+        hideContinue
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={["standings", "summary", "insights"] as const}
+            labels={{
+              standings: "Standings",
+              summary: "Summary",
+              insights: "Insights",
+            }}
+            value="insights"
+            onChange={(next) => {
+              if (next === "standings") {
+                setLocation(`/tournament/${tournamentId}/badminton/results`);
+              } else if (next === "summary") {
+                setLocation(`/tournament/${tournamentId}/badminton/summary`);
+              }
+            }}
+          />
+        }
+      >
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
 
@@ -225,7 +242,7 @@ export default function BadmintonAnalyticsPage() {
 
             action={{
 
-              label: "Go to Command Center",
+              label: "Go to Dashboard",
 
               href: `/tournament/${tournamentId}/badminton`,
 
@@ -395,16 +412,16 @@ export default function BadmintonAnalyticsPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
 
-                <HubQuickAction icon={Users} title="Players" desc="Manage roster" href={`/tournament/${tournamentId}/badminton/players`} />
+                <HubQuickAction icon={Users} title="Participants" desc="Players & officials" href={`/tournament/${tournamentId}/badminton/players`} />
 
-                <HubQuickAction icon={MapPin} title="Courts" desc="Court setup" href={`/tournament/${tournamentId}/badminton/courts`} />
+                <HubQuickAction icon={MapPin} title="Tournament Setup" desc="Identity, courts, rules" href={`/tournament/${tournamentId}/badminton/branding`} />
 
-                <HubQuickAction icon={Trophy} title="Events" desc="Event definitions" href={`/tournament/${tournamentId}/badminton/categories`} />
-                <HubQuickAction icon={ListTree} title="Tournament Draw" desc="Plan fixtures" href={`/tournament/${tournamentId}/badminton/fixtures`} />
-                <HubQuickAction icon={Calendar} title="Court Schedule" desc="Courts & times" href={`/tournament/${tournamentId}/badminton/schedule`} />
+                <HubQuickAction icon={Trophy} title="Events" desc="Event definitions" href={`/tournament/${tournamentId}/badminton/fixtures?section=events`} />
+                <HubQuickAction icon={ListTree} title="Tournament Structure" desc="Events & draw" href={`/tournament/${tournamentId}/badminton/fixtures`} />
+                <HubQuickAction icon={Calendar} title="Schedule" desc="Courts & times" href={`/tournament/${tournamentId}/badminton/schedule`} />
 
-                <HubQuickAction icon={ClipboardList} title="Matches" desc="Schedule & live" href={`/tournament/${tournamentId}/badminton/matches`} />
-                <HubQuickAction icon={Radio} title="Control Center" desc="Live court ops" href={`/tournament/${tournamentId}/badminton/control`} />
+                <HubQuickAction icon={Radio} title="Live Control" desc="Run match day" href={`/tournament/${tournamentId}/badminton/control`} />
+                <HubQuickAction icon={ClipboardList} title="Results" desc="Standings & summary" href={`/tournament/${tournamentId}/badminton/results`} />
 
               </div>
 
@@ -415,6 +432,8 @@ export default function BadmintonAnalyticsPage() {
         )}
 
       </div>
+
+      </BadmintonIaPageChrome>
 
     </HubPageShell>
 

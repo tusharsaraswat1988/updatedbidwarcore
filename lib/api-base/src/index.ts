@@ -142,67 +142,24 @@ export {
   type VenueAuctionGuardResult,
 } from "./venue-auction-guard";
 
-export const API_PREFIX = "/api";
-
 /** Default API listen port when API_DEV_PROXY_TARGET / PORT are unset in tooling. */
-export const DEFAULT_API_DEV_PORT = 8080;
+export { DEFAULT_API_DEV_PORT } from "@workspace/platform-core";
 
 /** Default Vite dev port for auction-platform. */
-export const DEFAULT_AUCTION_DEV_PORT = 3000;
+export { DEFAULT_AUCTION_DEV_PORT } from "@workspace/platform-core";
 
 /** Default Vite dev port for owner-app. */
-export const DEFAULT_OWNER_DEV_PORT = 5174;
+export { DEFAULT_OWNER_DEV_PORT } from "@workspace/platform-core";
 
 /** Default Vite dev port for scoring-app. */
-export const DEFAULT_SCORING_DEV_PORT = 5175;
+export { DEFAULT_SCORING_DEV_PORT } from "@workspace/platform-core";
 
 /** Default Vite dev port for shared mobile-app (dual-auth shell). */
-export const DEFAULT_MOBILE_DEV_PORT = 5176;
+export { DEFAULT_MOBILE_DEV_PORT } from "@workspace/platform-core";
 
-/**
- * Resolve a path for browser fetch/EventSource.
- * Accepts `/auth/...` (appends API_PREFIX) or `/api/...` (unchanged).
- */
-export function apiUrl(path: string): string {
-  if (!path.startsWith("/")) {
-    throw new Error(`apiUrl: path must start with / (got: ${path})`);
-  }
-  if (path === API_PREFIX || path.startsWith(`${API_PREFIX}/`)) {
-    return path;
-  }
-  return `${API_PREFIX}${path}`;
-}
-
-export type ApiFetchOptions = RequestInit & {
-  json?: unknown;
-};
-
-/**
- * Cookie-authenticated JSON API helper (browser / Vite dev with proxy).
- */
-export async function apiFetch(
-  path: string,
-  options: ApiFetchOptions = {},
-): Promise<Response> {
-  const { json, headers: headersInit, ...init } = options;
-  const headers = new Headers(headersInit);
-  if (json !== undefined) {
-    if (!headers.has("content-type")) {
-      headers.set("content-type", "application/json");
-    }
-    return fetch(apiUrl(path), {
-      ...init,
-      credentials: "include",
-      headers,
-      body: JSON.stringify(json),
-    });
-  }
-  if (!headers.has("content-type") && init.body && typeof init.body === "string") {
-    headers.set("content-type", "application/json");
-  }
-  return fetch(apiUrl(path), {
-    ...init,
-    credentials: "include",
-    headers,
-  });
-}
+export {
+  API_PREFIX,
+  apiUrl,
+  apiFetch,
+  type ApiFetchOptions,
+} from "./api-fetch";

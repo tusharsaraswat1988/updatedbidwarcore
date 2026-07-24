@@ -63,9 +63,17 @@ const PRESETS = {
    * Browser object-fit (cover/contain) matches the settings preview and LED display.
    */
   banner: "w_1920,c_limit,f_auto,q_auto:good",
+
+  /**
+   * Marketing / homepage photography — auto format (WebP/AVIF), auto quality,
+   * width-capped. Pair with `cldSrcSet` for responsive delivery.
+   */
+  marketing: "c_limit,f_auto,q_auto:good",
 } as const;
 
 export type CldPreset = keyof typeof PRESETS;
+
+const SRCSET_WIDTHS = [400, 640, 960, 1280, 1600] as const;
 
 /**
  * Returns a Cloudinary URL with the given transformation preset injected.
@@ -84,4 +92,24 @@ export function cldUrl(
   const params = PRESETS[preset];
   if (url.includes(params)) return url;
   return url.replace("/upload/", `/upload/${params}/`);
+}
+
+/**
+ * Build a responsive `srcSet` for Cloudinary URLs (f_auto → WebP/AVIF when
+ * available). Non-Cloudinary URLs return undefined so callers omit srcSet.
+ */
+export function cldSrcSet(
+  url: string | null | undefined,
+  widths: readonly number[] = SRCSET_WIDTHS,
+): string | undefined {
+  if (!url || !url.includes("res.cloudinary.com")) return undefined;
+  return widths
+    .map((w) => {
+      const transformed = url.replace(
+        "/upload/",
+        `/upload/c_limit,f_auto,q_auto:good,w_${w}/`,
+      );
+      return `${transformed} ${w}w`;
+    })
+    .join(", ");
 }

@@ -1,2 +1,3 @@
-export * from "./field-registry";
-export * from "./import-export";
+﻿/** @deprecated Import from @workspace/auction/auction-data — compatibility shim. */
+export * from "@workspace/auction/auction-data";
+

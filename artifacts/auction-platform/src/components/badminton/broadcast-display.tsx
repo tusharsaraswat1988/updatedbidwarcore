@@ -8,7 +8,7 @@
  * Readable from 50+ feet. High contrast. 16:9 optimized.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { resolveFranchiseLogoUrl, resolveFranchiseName, isPairMatchKind, currentReceiverLabel, currentServerLabel } from "@workspace/badminton-core";
 import { SidePlayerPhotos } from "@/components/badminton/side-players";
@@ -22,7 +22,6 @@ import {
   badmintonLedSurfaceStyle,
   fixedGameDotStyle,
   fixedScoreStyle,
-  fixedServeStyle,
 } from "@/components/badminton/badminton-led-theme";
 import {
   formatTeamPlayerLine,
@@ -136,12 +135,9 @@ export function BroadcastDisplay({
         scoreBoardSponsor={scoreBoardSponsor}
       />
 
-      {/* MAIN SCORE AREA — fixed palette; theme picker does not affect readability */}
-      <div
-        className="relative z-10 min-h-0 flex items-center justify-between py-2 bg-[#070708]"
-        style={{ paddingLeft: "var(--score-zone-px)", paddingRight: "var(--score-zone-px)" }}
-      >
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
+      {/* MAIN SCORE AREA — unified horizontal composition: player ↔ score ↔ player */}
+      <div className="badminton-score-stage relative z-10 min-h-0 flex bg-[#070708]">
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
           <DirectorStatusBanner state={state} />
         </div>
         {/* Left player block */}
@@ -228,28 +224,28 @@ function GameHistoryRow({ games }: { games: BadmintonMatchState["games"] }) {
   if (completed.length === 0) return null;
 
   return (
-    <div className="px-[3%] py-2 flex items-center justify-center gap-3 border-t border-white/5 bg-black/30">
+    <div className="badminton-score-history px-[3%] flex items-center justify-center gap-2 border-t border-white/5 bg-black/30">
       <span
-        className="shrink-0 font-semibold uppercase tracking-[0.18em] text-white/45"
+        className="bw-caption shrink-0 text-white/45"
         style={{ fontSize: "var(--score-player-meta)" }}
       >
         Completed Games
       </span>
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
         {completed.map((g) => (
           <div
             key={g.gameNumber}
-            className="flex items-center gap-1.5 bg-white/8 border border-white/10 rounded px-3 py-1.5"
+            className="flex items-center gap-1.5 bg-white/8 border border-white/10 rounded px-2.5 py-1"
           >
             <span
-              className="text-white/40 font-mono uppercase tracking-wider"
+              className="bw-caption text-white/40"
               style={{ fontSize: "var(--score-player-meta)" }}
             >
               G{g.gameNumber}
             </span>
-            <span className="font-['Bebas_Neue'] text-[length:var(--score-game-count)] tabular-nums" style={fixedScoreStyle()}>{g.leftScore}</span>
+            <span className="bw-display-l text-[length:var(--score-game-count)]" style={fixedScoreStyle()}>{g.leftScore}</span>
             <span className="text-white/30 text-[length:var(--score-player-meta)]">–</span>
-            <span className="font-['Bebas_Neue'] text-[length:var(--score-game-count)] tabular-nums" style={fixedScoreStyle()}>{g.rightScore}</span>
+            <span className="bw-display-l text-[length:var(--score-game-count)]" style={fixedScoreStyle()}>{g.rightScore}</span>
           </div>
         ))}
       </div>
@@ -289,101 +285,142 @@ function PlayerBlock({
   const franchiseName = resolveFranchiseName(info);
   const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
   const identity = identityFromSideInfo(info);
+  const isPair = isPairMatchKind(matchKind);
+
+  /* Face inward toward score so L/R identity reads as one match unit */
+  const towardScore = isLeft ? "end" : "start";
 
   return (
     <div
       className={cn(
-        "flex flex-col w-[35%]",
-        isLeft ? "items-start" : "items-end",
+        "badminton-score-side-panel flex flex-col shrink-0 min-w-0",
+        towardScore === "end" ? "items-end" : "items-start",
       )}
-      style={{ gap: "var(--score-panel-gap)" }}
     >
-      <div className="relative">
-        <SidePlayerPhotos
-          info={info}
-          matchKind={matchKind}
-          side={side}
-          size="broadcast"
-          flash={flash}
-          gameWinFlash={gameWinFlash}
-        />
-        {isServing && (
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full px-2 py-0.5 flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-white" />
-          </div>
+      {/* Single identity card — photo + name as one visual unit */}
+      <div
+        className={cn(
+          "badminton-score-identity-card",
+          isPair && "badminton-score-identity-card--pair",
+          towardScore === "end" ? "items-end text-right" : "items-start text-left",
         )}
-        {servingPlayerLabel && (
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full px-2 py-0.5">
-            <span className="text-[10px] font-bold text-black whitespace-nowrap">🟡 {servingPlayerLabel}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Team → Player (+ country / sponsor) */}
-      <div className={cn("flex flex-col gap-1", isLeft ? "items-start" : "items-end")}>
-        <TeamPlayerCard
-          identity={identity}
-          size="lg"
-          tone="led"
-          layout="stack"
-          align={isLeft ? "start" : "end"}
-          showBadge={Boolean(franchiseName)}
-          playerClassName="badminton-score-player-name"
-          teamClassName="font-semibold"
-        />
-        <div className={cn("flex items-center gap-2", !isLeft && "flex-row-reverse")}>
-          {!franchiseLogoUrl && info.flagUrl && (
-            <img
-              src={info.flagUrl}
-              alt={info.countryCode}
-              loading="lazy"
-              decoding="async"
-              className="w-auto rounded-sm"
-              style={{ height: "var(--score-player-meta)" }}
-            />
-          )}
-          {info.sponsorLogoUrl && (
-            <img
-              src={info.sponsorLogoUrl}
-              alt={info.sponsorName ?? "Sponsor"}
-              loading="lazy"
-              decoding="async"
-              className="w-auto object-contain opacity-80"
-              style={{ height: "var(--score-player-meta)" }}
-            />
+      >
+        <div className="badminton-score-identity-photo relative shrink-0">
+          <SidePlayerPhotos
+            info={info}
+            matchKind={matchKind}
+            side={side}
+            size="broadcast"
+            flash={flash}
+            gameWinFlash={gameWinFlash}
+          />
+          {(isServing || servingPlayerLabel) && (
+            <div
+              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(255,215,0,0.65)]"
+              style={{ width: "1.6rem", height: "1.6rem", fontSize: "0.9rem" }}
+              aria-label="Serving"
+              title="Serving"
+            >
+              🏸
+            </div>
           )}
         </div>
-        {info.countryName && (
-          <p className={cn(
-            "font-bold uppercase tracking-[0.15em]",
-            isLeft ? "text-[#ffc400]" : "text-[#ce93d8]",
+
+        <div
+          className={cn(
+            "badminton-score-identity-copy flex flex-col w-full min-w-0",
+            towardScore === "end" ? "items-end" : "items-start",
           )}
-          style={{ fontSize: "var(--score-player-meta)" }}
-          >
-            {info.countryName}
-          </p>
-        )}
+        >
+          <TeamPlayerCard
+            identity={identity}
+            size="md"
+            tone="led"
+            layout="stack"
+            align={towardScore}
+            showBadge={Boolean(franchiseName)}
+            className="w-full max-w-full"
+            playerClassName={cn(
+              "badminton-score-player-name bw-heading",
+              isPair && "badminton-score-player-name--pair",
+            )}
+            teamClassName="bw-label opacity-80 w-full max-w-full"
+          />
+          <div className={cn("flex items-center gap-1.5 mt-0.5", towardScore === "end" && "flex-row-reverse")}>
+            {!franchiseLogoUrl && info.flagUrl && (
+              <img
+                src={info.flagUrl}
+                alt={info.countryCode}
+                loading="lazy"
+                decoding="async"
+                className="w-auto rounded-sm"
+                style={{ height: "var(--score-player-meta)" }}
+              />
+            )}
+            {info.sponsorLogoUrl && (
+              <img
+                src={info.sponsorLogoUrl}
+                alt={info.sponsorName ?? "Sponsor"}
+                loading="lazy"
+                decoding="async"
+                className="w-auto object-contain opacity-80"
+                style={{ height: "var(--score-player-meta)" }}
+              />
+            )}
+          </div>
+          {info.countryName && (
+            <p
+              className={cn(
+                "bw-meta opacity-80 truncate w-full",
+                isLeft ? "text-[#ffc400]" : "text-[#ce93d8]",
+              )}
+              style={{ fontSize: "var(--score-player-meta)" }}
+            >
+              {info.countryName}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Games won indicator */}
-      <div className={cn("flex items-center", !isLeft && "flex-row-reverse")} style={{ gap: "calc(var(--score-panel-gap) * 0.65)" }}>
-        {Array.from({ length: format.totalGames }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-full border-2 transition-all duration-500",
-              gameWinFlash && i === gamesWon - 1 && "scale-150 animate-pulse",
-            )}
-            style={{
-              width: "var(--score-game-dot)",
-              height: "var(--score-game-dot)",
-              ...fixedGameDotStyle(i < gamesWon),
-            }}
-          />
-        ))}
+      <div
+        className={cn(
+          "badminton-score-games-won badminton-score-games-won--glam flex items-center",
+          towardScore === "end" && "flex-row-reverse",
+        )}
+        style={{
+          ...(isLeft
+            ? { "--gw-tint": "rgba(255, 215, 0, 0.16)", "--gw-border": "rgba(255, 215, 0, 0.35)" }
+            : { "--gw-tint": "rgba(224, 176, 255, 0.16)", "--gw-border": "rgba(224, 176, 255, 0.35)" }) as CSSProperties,
+        }}
+      >
+        <span className="badminton-score-games-won-label bw-caption whitespace-nowrap">
+          Games
+        </span>
+        <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 0.5)" }}>
+          {Array.from({ length: format.totalGames }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "rounded-full border-2 transition-all duration-500",
+                gameWinFlash && i === gamesWon - 1 && "scale-150 animate-pulse",
+              )}
+              style={{
+                width: "var(--score-game-dot)",
+                height: "var(--score-game-dot)",
+                ...fixedGameDotStyle(i < gamesWon, side),
+              }}
+            />
+          ))}
+        </div>
         <span
-          className="font-black text-white/60 ml-1"
-          style={{ fontSize: "var(--score-game-count)" }}
+          className="bw-meta"
+          style={{
+            fontSize: "var(--score-game-count)",
+            color: isLeft ? "#ffd700" : "#e0b0ff",
+            textShadow: isLeft
+              ? "0 0 10px rgba(255,215,0,0.55)"
+              : "0 0 10px rgba(224,176,255,0.5)",
+          }}
         >
           {gamesWon}
         </span>
@@ -410,70 +447,12 @@ function CentrePanel({
   receiverLabel?: string | null;
 }) {
   return (
-    <div
-      className="flex flex-col items-center justify-center"
-      style={{ gap: "var(--score-panel-gap)", minWidth: "min(28vw, 320px)" }}
-    >
-      <p
-        className="text-white font-bold uppercase tracking-[0.12em] text-center leading-tight max-w-[min(32vw,420px)]"
-        style={{ fontSize: "calc(var(--score-player-meta) * 1.35)" }}
+    <div className="badminton-score-centre flex flex-col items-center min-w-0">
+      {/* P1 — Current score (breathing room preserved below digits) */}
+      <div
+        className="badminton-score-centre-score flex items-center justify-center"
+        style={{ gap: "calc(var(--score-panel-gap) * 0.75)" }}
       >
-        {matchName}
-      </p>
-
-      {!isDoubles && (
-        <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 0.85)" }}>
-          <div
-            className="rotate-45"
-            style={{
-              width: "var(--score-serve-diamond)",
-              height: "var(--score-serve-diamond)",
-              ...fixedServeStyle(state.servingSide === "left"),
-            }}
-          />
-          <span
-            className="text-white/30 uppercase tracking-widest font-semibold"
-            style={{ fontSize: "var(--score-player-meta)" }}
-          >
-            vs
-          </span>
-          <div
-            className="rotate-45"
-            style={{
-              width: "var(--score-serve-diamond)",
-              height: "var(--score-serve-diamond)",
-              ...fixedServeStyle(state.servingSide === "right"),
-            }}
-          />
-        </div>
-      )}
-
-      {isDoubles && serverLabel && (
-        <div
-          className="flex flex-col items-center gap-1"
-          style={{ fontSize: "var(--score-player-meta)" }}
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-[#ffd700]">🟡</span>
-            <span className="text-white/50">Serving:</span>
-            <span className="font-bold text-[#ffd700]">{serverLabel}</span>
-          </div>
-          {receiverLabel && (
-            <div className="flex items-center gap-2">
-              <span className="text-[#ffc400]">👁</span>
-              <span className="text-white/50">Receiving:</span>
-              <span className="font-bold text-[#ffc400]">{receiverLabel}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {isDoubles && state.doublesServe && (
-        <DoublesCourtDisplay state={state} variant="mini" className="max-w-[min(220px,22vw)]" />
-      )}
-
-      {/* Main scores — large */}
-      <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 1.1)" }}>
         <ScoreDigit
           score={state.leftScore}
           active={state.matchStatus === "live"}
@@ -490,30 +469,101 @@ function CentrePanel({
         />
       </div>
 
-      {/* Game indicator */}
+      {/* P3 — Game number (anchored to score) */}
       <div
         className="bg-white/5 border border-white/10 rounded-full"
-        style={{ padding: "calc(var(--score-game-pill) * 0.45) calc(var(--score-game-pill) * 1.6)" }}
+        style={{ padding: "calc(var(--score-game-pill) * 0.35) calc(var(--score-game-pill) * 1.4)" }}
       >
         <span
-          className="text-white/60 font-semibold"
+          className="bw-heading text-white/70"
           style={{ fontSize: "var(--score-game-pill)" }}
         >
           Game {state.currentGame}
         </span>
       </div>
 
-      {/* Deuce indicator */}
-      {state.leftScore >= state.format.deuceAt && state.rightScore >= state.format.deuceAt && (
-        <div className="bg-amber-500/20 border border-amber-500/30 rounded-full px-3 py-1">
-          <span className="text-amber-300 text-xs font-black tracking-widest">DEUCE</span>
+      {/* P4 — Serving indicator (shuttlecock) */}
+      {!isDoubles && (
+        <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 0.7)" }}>
+          <span
+            className="transition-all duration-300 leading-none"
+            style={{
+              fontSize: "var(--score-serve-diamond)",
+              opacity: state.servingSide === "left" ? 1 : 0.22,
+              transform: state.servingSide === "left" ? "scale(1.2)" : "scale(0.85)",
+              filter:
+                state.servingSide === "left"
+                  ? "drop-shadow(0 0 8px rgba(255,215,0,0.65))"
+                  : "none",
+            }}
+            aria-hidden
+          >
+            🏸
+          </span>
+          <span
+            className="bw-label text-white/30"
+            style={{ fontSize: "var(--score-player-meta)" }}
+          >
+            Serving
+          </span>
+          <span
+            className="transition-all duration-300 leading-none"
+            style={{
+              fontSize: "var(--score-serve-diamond)",
+              opacity: state.servingSide === "right" ? 1 : 0.22,
+              transform: state.servingSide === "right" ? "scale(1.2)" : "scale(0.85)",
+              filter:
+                state.servingSide === "right"
+                  ? "drop-shadow(0 0 8px rgba(255,215,0,0.65))"
+                  : "none",
+            }}
+            aria-hidden
+          >
+            🏸
+          </span>
         </div>
       )}
 
-      {/* Interval indicator */}
+      {isDoubles && serverLabel && (
+        <div
+          className="flex flex-col items-center gap-0.5"
+          style={{ fontSize: "var(--score-player-meta)" }}
+        >
+          <div className="flex items-center gap-2">
+            <span aria-hidden>🏸</span>
+            <span className="bw-label text-white/50">Serving:</span>
+            <span className="bw-meta text-[#ffd700]">{serverLabel}</span>
+          </div>
+          {receiverLabel && (
+            <div className="flex items-center gap-2">
+              <span className="text-[#ffc400]">👁</span>
+              <span className="bw-label text-white/50">Receiving:</span>
+              <span className="bw-meta text-[#ffc400]">{receiverLabel}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isDoubles && state.doublesServe && (
+        <DoublesCourtDisplay state={state} variant="mini" className="max-w-[min(215px,21vw)]" />
+      )}
+
+      <p
+        className="bw-caption text-white/55 text-center max-w-[min(36vw,480px)]"
+        style={{ fontSize: "var(--score-player-meta)" }}
+      >
+        {matchName}
+      </p>
+
+      {state.leftScore >= state.format.deuceAt && state.rightScore >= state.format.deuceAt && (
+        <div className="bg-amber-500/20 border border-amber-500/30 rounded-full px-3.5 py-1">
+          <span className="bw-label text-amber-300 text-sm">DEUCE</span>
+        </div>
+      )}
+
       {state.inInterval && (
-        <div className="bg-blue-500/20 border border-blue-500/30 rounded-full px-3 py-1">
-          <span className="text-blue-300 text-xs font-black tracking-widest">INTERVAL</span>
+        <div className="bg-blue-500/20 border border-blue-500/30 rounded-full px-3.5 py-1">
+          <span className="bw-label text-blue-300 text-sm">INTERVAL</span>
         </div>
       )}
     </div>
@@ -523,7 +573,7 @@ function CentrePanel({
 function ScoreDigit({ score, active }: { score: number; active: boolean }) {
   return (
     <div
-      className="badminton-score-digit font-black leading-none tabular-nums tracking-tighter transition-all duration-200"
+      className="badminton-score-digit bw-display-xl font-black leading-none tabular-nums tracking-tighter transition-all duration-200"
       style={fixedScoreStyle(active)}
     >
       {score}
@@ -552,22 +602,22 @@ function GameWinOverlay({
           "shadow-2xl backdrop-blur-xl",
         )}
       >
-        <p className="text-white/60 text-sm font-bold uppercase tracking-[0.3em] mb-2">Game Won</p>
+        <p className="bw-label text-white/60 text-sm mb-2">Game Won</p>
         <div className="mb-3 flex justify-center">
           <TeamPlayerCard
             identity={identityFromSideInfo(player)}
             size="lg"
             tone="led"
             align="center"
-            playerClassName="text-4xl font-black text-white"
-            teamClassName="text-white/70"
+            playerClassName="bw-heading text-4xl text-white"
+            teamClassName="bw-label text-white/70"
           />
         </div>
-        <div className="text-5xl font-black" style={fixedScoreStyle()}>
+        <div className="bw-display-l text-5xl" style={fixedScoreStyle()}>
           {score.winner} – {score.loser}
         </div>
         {player.countryName && (
-          <p className="text-white/50 text-sm mt-2 uppercase tracking-widest">{player.countryName}</p>
+          <p className="bw-caption text-white/50 text-sm mt-2">{player.countryName}</p>
         )}
       </div>
     </div>
@@ -603,7 +653,7 @@ function MatchWinOverlay({
         {/* Trophy animation */}
         <div className="text-7xl mb-4 animate-bounce">🏆</div>
 
-        <p className="text-white/50 text-xs font-bold uppercase tracking-[0.4em] mb-4">Match Winner</p>
+        <p className="bw-label text-white/50 text-xs mb-4">Match Winner</p>
 
         {player.photoUrl && (
           <img
@@ -619,14 +669,14 @@ function MatchWinOverlay({
             size="xl"
             tone="led"
             align="center"
-            playerClassName="text-5xl font-black text-white leading-tight"
-            teamClassName="text-white/70"
+            playerClassName="bw-heading text-5xl text-white leading-tight"
+            teamClassName="bw-label text-white/70"
           />
         </div>
 
         {player.countryName && (
           <p className={cn(
-            "text-lg font-bold uppercase tracking-[0.2em] mb-6",
+            "bw-meta text-lg mb-6",
             side === "left" ? "text-[#ffc400]" : "text-[#ce93d8]",
           )}>
             {player.countryName}
@@ -635,12 +685,12 @@ function MatchWinOverlay({
 
         {/* Games score */}
         <div className="bg-white/5 rounded-2xl px-8 py-4 mb-6 inline-block">
-          <span className="text-5xl font-black" style={fixedScoreStyle(side === "left")}>
+          <span className="bw-display-l text-5xl" style={fixedScoreStyle(side === "left")}>
             {gamesLeft}
           </span>
           <span className="text-white/30 text-3xl mx-3">–</span>
           <span
-            className="text-5xl font-black"
+            className="bw-display-l text-5xl"
             style={fixedScoreStyle(side === "right")}
           >
             {gamesRight}

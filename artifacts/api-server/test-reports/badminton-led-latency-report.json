@@ -1,0 +1,203 @@
+{
+  "when": "2026-07-22T11:27:46.909Z",
+  "base": "http://127.0.0.1:8080",
+  "tid": 5,
+  "rows": [
+    {
+      "expectedLeft": 1,
+      "leftScore": 1,
+      "rightScore": 0,
+      "t5_minus_t1_ms": 1042.9132,
+      "t3_minus_t2_ms": 680.3276000000001,
+      "t4_minus_t3_ms": 341.7960999999999,
+      "t4_minus_t2_ms": 1022.1237,
+      "t5_minus_t4_approx_ms": 20.346000000000004,
+      "t6_minus_t1_ms": null,
+      "t7_minus_t1_ms": null,
+      "t7_minus_t6_ms": null,
+      "marks": {
+        "t2_request_entered": 0.4435,
+        "awardPoint_enter": 0.5025,
+        "awardPoint_meta_loaded": 254.6165,
+        "loadState_enter": 254.7809,
+        "loadState_events_loaded": 339.7963,
+        "loadState_replay_done": 340.3494,
+        "awardPoint_state_loaded": 340.3732,
+        "awardPoint_command_ok": 340.7794,
+        "persist_enter": 425.6927,
+        "t3_event_written": 680.7711,
+        "persist_batch_done": 768.1204,
+        "persist_snapshot_done": 1021.8431,
+        "awardPoint_persist_done": 1021.8542,
+        "awardPoint_returned": 1021.8602,
+        "pre_broadcast": 1021.8621,
+        "t4_sse_emitted": 1022.5672,
+        "audit_written": 1107.6102
+      }
+    },
+    {
+      "expectedLeft": 2,
+      "leftScore": 2,
+      "rightScore": 0,
+      "t5_minus_t1_ms": 1033.7053000000005,
+      "t3_minus_t2_ms": 676.7116000000001,
+      "t4_minus_t3_ms": 338.5746999999999,
+      "t4_minus_t2_ms": 1015.2863,
+      "t5_minus_t4_approx_ms": 18.41070000000059,
+      "t6_minus_t1_ms": null,
+      "t7_minus_t1_ms": null,
+      "t7_minus_t6_ms": null,
+      "marks": {
+        "t2_request_entered": 0.0083,
+        "awardPoint_enter": 0.0108,
+        "awardPoint_meta_loaded": 252.5684,
+        "loadState_enter": 252.5727,
+        "loadState_events_loaded": 337.0999,
+        "loadState_replay_done": 337.3878,
+        "awardPoint_state_loaded": 337.3938,
+        "awardPoint_command_ok": 337.4109,
+        "persist_enter": 421.2354,
+        "t3_event_written": 676.7199,
+        "persist_batch_done": 762.002,
+        "persist_snapshot_done": 1015.1496,
+        "awardPoint_persist_done": 1015.1531,
+        "awardPoint_returned": 1015.155,
+        "pre_broadcast": 1015.1554,
+        "t4_sse_emitted": 1015.2946,
+        "audit_written": 1100.4056
+      }
+    },
+    {
+      "expectedLeft": 3,
+      "leftScore": 3,
+      "rightScore": 0,
+      "t5_minus_t1_ms": 1073.2709000000004,
+      "t3_minus_t2_ms": 704.0269999999999,
+      "t4_minus_t3_ms": 350.1300000000001,
+      "t4_minus_t2_ms": 1054.1570000000002,
+      "t5_minus_t4_approx_ms": 19.108100000000377,
+      "t6_minus_t1_ms": null,
+      "t7_minus_t1_ms": null,
+      "t7_minus_t6_ms": null,
+      "marks": {
+        "t2_request_entered": 0.0058,
+        "awardPoint_enter": 0.0083,
+        "awardPoint_meta_loaded": 254.346,
+        "loadState_enter": 254.3508,
+        "loadState_events_loaded": 354.2925,
+        "loadState_replay_done": 354.5337,
+        "awardPoint_state_loaded": 354.5399,
+        "awardPoint_command_ok": 354.7212,
+        "persist_enter": 442.0805,
+        "t3_event_written": 704.0328,
+        "persist_batch_done": 791.5187,
+        "persist_snapshot_done": 1054.0291,
+        "awardPoint_persist_done": 1054.0337,
+        "awardPoint_returned": 1054.0361,
+        "pre_broadcast": 1054.0367,
+        "t4_sse_emitted": 1054.1628,
+        "audit_written": 1141.6671
+      }
+    },
+    {
+      "expectedLeft": 4,
+      "leftScore": 4,
+      "rightScore": 0,
+      "t5_minus_t1_ms": 1038.4088999999994,
+      "t3_minus_t2_ms": 672.2871,
+      "t4_minus_t3_ms": 348.0707,
+      "t4_minus_t2_ms": 1020.3578,
+      "t5_minus_t4_approx_ms": 18.044999999999504,
+      "t6_minus_t1_ms": null,
+      "t7_minus_t1_ms": null,
+      "t7_minus_t6_ms": null,
+      "marks": {
+        "t2_request_entered": 0.0061,
+        "awardPoint_enter": 0.0085,
+        "awardPoint_meta_loaded": 236.6297,
+        "loadState_enter": 236.6335,
+        "loadState_events_loaded": 323.9632,
+        "loadState_replay_done": 324.1241,
+        "awardPoint_state_loaded": 324.1277,
+        "awardPoint_command_ok": 324.1435,
+        "persist_enter": 410.5746,
+        "t3_event_written": 672.2932,
+        "persist_batch_done": 759.8224,
+        "persist_snapshot_done": 1020.2608,
+        "awardPoint_persist_done": 1020.2638,
+        "awardPoint_returned": 1020.2656,
+        "pre_broadcast": 1020.2663,
+        "t4_sse_emitted": 1020.3639,
+        "audit_written": 1108.2094
+      }
+    },
+    {
+      "expectedLeft": 5,
+      "leftScore": 5,
+      "rightScore": 0,
+      "t5_minus_t1_ms": 1039.0516000000007,
+      "t3_minus_t2_ms": 670.9269,
+      "t4_minus_t3_ms": 350.3485999999999,
+      "t4_minus_t2_ms": 1021.2755,
+      "t5_minus_t4_approx_ms": 17.769800000000714,
+      "t6_minus_t1_ms": null,
+      "t7_minus_t1_ms": null,
+      "t7_minus_t6_ms": null,
+      "marks": {
+        "t2_request_entered": 0.0063,
+        "awardPoint_enter": 0.0081,
+        "awardPoint_meta_loaded": 234.9971,
+        "loadState_enter": 235.001,
+        "loadState_events_loaded": 322.6978,
+        "loadState_replay_done": 322.8686,
+        "awardPoint_state_loaded": 322.8713,
+        "awardPoint_command_ok": 322.8895,
+        "persist_enter": 409.2523,
+        "t3_event_written": 670.9332,
+        "persist_batch_done": 758.8881,
+        "persist_snapshot_done": 1021.1701,
+        "awardPoint_persist_done": 1021.1743,
+        "awardPoint_returned": 1021.1768,
+        "pre_broadcast": 1021.1771,
+        "t4_sse_emitted": 1021.2818,
+        "audit_written": 1108.5633
+      }
+    }
+  ],
+  "summary": {
+    "t3": 680.85604,
+    "t4": 345.78401999999994,
+    "t5": 1045.4699800000003,
+    "t5t4": 18.735920000000238,
+    "t6": null,
+    "t7": null,
+    "t7t6": null,
+    "top": {
+      "name": "persist batch + post-persist replay + snapshot",
+      "ms": 690.50692,
+      "file": "badminton-service.ts → persistBadmintonCommandEvents (projectionMode: replay)"
+    },
+    "internal": [
+      {
+        "name": "loadCurrentMatchState (events+replay+snapshot)",
+        "ms": 335.75354000000004,
+        "file": "badminton-service.ts → loadCurrentMatchState"
+      },
+      {
+        "name": "persist batch + post-persist replay + snapshot",
+        "ms": 690.50692,
+        "file": "badminton-service.ts → persistBadmintonCommandEvents (projectionMode: replay)"
+      },
+      {
+        "name": "writeScorerAudit",
+        "ms": 86.79238000000002,
+        "file": "routes/badminton.ts + scorer-audit.ts → writeScorerAudit"
+      },
+      {
+        "name": "SSE fanout write",
+        "ms": 0.2345399999999472,
+        "file": "badminton-broadcast.ts → broadcastBadmintonMatchUpdate"
+      }
+    ]
+  }
+}

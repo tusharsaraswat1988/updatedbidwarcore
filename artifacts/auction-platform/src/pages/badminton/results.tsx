@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -39,9 +39,12 @@ import { BracketProgressPanel } from "@/components/badminton/bracket-progress-pa
 import {
   EmptyState,
   HubPageShell,
-  PageHeader,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
 import { cn } from "@/lib/utils";
 
 type RegistrationRow = {
@@ -202,13 +205,33 @@ export default function BadmintonResultsPage() {
 
   const loading = matchesLoading || fixturesLoading || catsLoading;
 
+  const [, setLocation] = useLocation();
+
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Results"
-        subtitle="Champions and category status first — recent finishes last"
-        eyebrow="Operations"
-      />
+      <BadmintonIaPageChrome
+        tournamentId={tournamentId}
+        stepId="results"
+        continueLabel="Share Tournament"
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={["standings", "summary", "insights"] as const}
+            labels={{
+              standings: "Standings",
+              summary: "Summary",
+              insights: "Insights",
+            }}
+            value="standings"
+            onChange={(next) => {
+              if (next === "summary") {
+                setLocation(`/tournament/${tournamentId}/badminton/summary`);
+              } else if (next === "insights") {
+                setLocation(`/tournament/${tournamentId}/badminton/analytics`);
+              }
+            }}
+          />
+        }
+      >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-10">
         {loading ? (
@@ -220,9 +243,9 @@ export default function BadmintonResultsPage() {
           <EmptyState
             icon={Trophy}
             title="No results yet"
-            desc="Results appear after matches are scored. Create categories and schedule matches to get started."
+            desc="Results appear after matches are scored. Run the day from Live Control first."
             action={{
-              label: "Go to Control Center",
+              label: "Go to Live Control",
               href: `/tournament/${tournamentId}/badminton/control`,
             }}
           />
@@ -244,9 +267,9 @@ export default function BadmintonResultsPage() {
                 <EmptyState
                   icon={Trophy}
                   title="No champions yet"
-                  desc="When a category finishes, the champion appears here with final score. Keep scoring from Control Center."
+                  desc="When an event finishes, the champion appears here. Keep scoring from Live Control."
                   action={{
-                    label: "Open Control Center",
+                    label: "Open Live Control",
                     href: `/tournament/${tournamentId}/badminton/control`,
                   }}
                 />
@@ -262,7 +285,7 @@ export default function BadmintonResultsPage() {
             {/* 2. Categories */}
             <section className="space-y-5">
               <SectionHeading
-                eyebrow="Categories"
+                eyebrow="Events"
                 title="In Progress / Completed"
                 subtitle="Tournament status by category — not a raw match dump"
               />
@@ -454,11 +477,12 @@ export default function BadmintonResultsPage() {
             </section>
 
             <p className="text-white/40 text-xs text-center pb-4">
-              Results are read-only. Corrections happen in Match Control or Live Scoring.
+              Results are read-only. Corrections happen from Live Control.
             </p>
           </>
         )}
       </div>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }

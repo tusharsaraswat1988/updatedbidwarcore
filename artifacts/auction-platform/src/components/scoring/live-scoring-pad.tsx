@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { Player, Team } from "@workspace/api-client-react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
 import { ScoreButton } from "@/components/scoring/score-button";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,12 @@ import {
   requiredRate,
   runRate,
 } from "@/lib/scoring-ball";
-import { playerNameById, squadPlayersForTeam } from "@/lib/scoring-squad";
+import {
+  playerNameById,
+  squadPlayersForTeam,
+  type CricketScorerPlayer,
+  type CricketScorerTeam,
+} from "@/lib/scoring-squad";
 import { CricketEventType } from "@workspace/scoring-core";
 import {
   battingTeamId,
@@ -52,8 +56,8 @@ type BallInput = {
 
 type LiveScoringPadProps = {
   state: CricketScoreboardState;
-  teams: Team[];
-  players: Player[];
+  teams: CricketScorerTeam[];
+  players: CricketScorerPlayer[];
   bowlerId: number | null;
   busy: boolean;
   onBall: (payload: Record<string, unknown>) => Promise<void>;
@@ -140,7 +144,7 @@ export function LiveScoringPad({
     if (!bowlingId) return [];
     const lineup = state.lineups[bowlingId] ?? [];
     const map = new Map(squadPlayersForTeam(players, bowlingId).map((p) => [p.id, p]));
-    return lineup.map((id) => map.get(id)).filter(Boolean) as Player[];
+    return lineup.map((id) => map.get(id)).filter(Boolean) as CricketScorerPlayer[];
   }, [players, bowlingId, state.lineups]);
 
   async function recordBall(input: BallInput) {

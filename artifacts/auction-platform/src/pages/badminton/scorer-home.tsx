@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearch, useLocation } from "wouter";
-import { FullscreenLayout } from "@/components/layout";
+import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
@@ -60,7 +60,7 @@ function statusStyles(status: ScorerHomeUiStatus): string {
 }
 
 function primaryActionLabel(match: ScorerHomeMatchCard | null): string {
-  if (!match) return "No match ready";
+  if (!match) return "No match ready — assign court & time in Matches";
   if (match.status === "LIVE" || match.status === "PAUSED") return "Resume Live Match";
   if (match.readOnly) return "Read Only";
   return "Start Scoring";
@@ -101,7 +101,12 @@ function MatchSummary({
           <p className="text-white/40 text-xs mt-2">{formatScheduledTime(match.scheduledAt)}</p>
         </>
       ) : (
-        <p className="text-white/35 text-sm">None queued</p>
+        <div className="space-y-1">
+          <p className="text-white/35 text-sm">None queued</p>
+          <p className="text-white/25 text-xs">
+            Matches need a court + time assigned in Operations → Matches before they appear here.
+          </p>
+        </div>
       )}
     </div>
   );

@@ -1,0 +1,14 @@
+{
+  "name": "@workspace/media",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cloudinary-media": "./src/cloudinary-media.ts",
+    "./platform-audio": "./src/platform-audio.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

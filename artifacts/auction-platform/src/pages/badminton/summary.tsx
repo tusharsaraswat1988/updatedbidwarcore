@@ -48,10 +48,13 @@ import {
   EmptyState,
   HubPageShell,
   HubKpiCard,
-  PageHeader,
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
+import {
+  BadmintonIaPageChrome,
+  BadmintonIaSectionTabs,
+} from "@/components/badminton/ia-workflow-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { exportElementToPdf, printElementAsPdf } from "@/lib/export-element-pdf";
@@ -201,11 +204,29 @@ export default function BadmintonSummaryPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        eyebrow="Operations"
-        title="Publish / Summary"
-        subtitle="Official closing record — champions, courts, timeline, and awards from completed play."
-      />
+      <BadmintonIaPageChrome
+        tournamentId={tournamentId}
+        stepId="results"
+        hideContinue
+        sectionTabs={
+          <BadmintonIaSectionTabs
+            tabs={["standings", "summary", "insights"] as const}
+            labels={{
+              standings: "Standings",
+              summary: "Summary",
+              insights: "Insights",
+            }}
+            value="summary"
+            onChange={(next) => {
+              if (next === "standings") {
+                navigate(`/tournament/${tournamentId}/badminton/results`);
+              } else if (next === "insights") {
+                navigate(`/tournament/${tournamentId}/badminton/analytics`);
+              }
+            }}
+          />
+        }
+      >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-8">
         {isLoading ? (
@@ -217,10 +238,10 @@ export default function BadmintonSummaryPage() {
           <EmptyState
             icon={Trophy}
             title="No tournament data yet"
-            desc="Create categories and complete matches, then return here for the official closing summary."
+            desc="Complete matches from Live Control, then return here for the official closing summary."
             action={{
-              label: "Go to Command Center",
-              onClick: () => navigate(badmintonHubPath(tournamentId)),
+              label: "Go to Live Control",
+              onClick: () => navigate(`/tournament/${tournamentId}/badminton/control`),
             }}
           />
         ) : (
@@ -496,6 +517,7 @@ export default function BadmintonSummaryPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }

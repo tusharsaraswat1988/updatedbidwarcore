@@ -27,6 +27,11 @@ import diagnosticsRouter from "../routes/diagnostics";
 function buildApp(jwtUser?: Record<string, unknown>) {
   const app = express();
   app.use((req, _res, next) => {
+    // requireMasterAdmin logs on deny; tests don't mount pino-http.
+    (req as Request & { log?: { warn: (...args: unknown[]) => void; info: (...args: unknown[]) => void } }).log = {
+      warn: () => undefined,
+      info: () => undefined,
+    };
     if (jwtUser) (req as Request & { jwtUser?: unknown }).jwtUser = jwtUser;
     next();
   });

@@ -59,3 +59,22 @@ export function mobilesMatch(a: string, b: string): boolean {
 export function isPlaceholderOrganizerMobile(mobile: string): boolean {
   return mobile.startsWith("eml:") || mobile.startsWith("gid_");
 }
+
+/** Display value for admin/UI — never show placeholder pseudo-mobiles. */
+export function displayOrganizerMobile(mobile: string | null | undefined): string | null {
+  if (!mobile || isPlaceholderOrganizerMobile(mobile)) return null;
+  return mobile;
+}
+
+/**
+ * Organizer must complete phone OTP before using the platform.
+ * Placeholders are always incomplete; unverified real mobiles also incomplete
+ * (except grandfathered rows set phone_verified=true in migration).
+ */
+export function organizerNeedsPhoneVerification(input: {
+  mobile: string | null | undefined;
+  phoneVerified?: boolean | null;
+}): boolean {
+  if (!input.mobile || isPlaceholderOrganizerMobile(input.mobile)) return true;
+  return input.phoneVerified !== true;
+}

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { MessageCircle, ArrowRight, Calendar, User, Smartphone, ChevronDown } from "lucide-react";
 
 const SPORTS = [
@@ -42,18 +41,12 @@ export function DemoRequest() {
   const isValid = name.trim().length > 1 && mobile.replace(/\D/g, "").length === 10;
 
   return (
-    <section className="py-24 px-6 border-t border-border/40">
+    <section id="contact" className="py-24 px-6 border-t border-border/40">
       <div className="max-w-5xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
           {/* Left: copy */}
-          <motion.div
-            initial={{ opacity: 0, x: -24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
+          <div className="space-y-6">
             <div>
               <div className="text-primary text-xs font-bold uppercase tracking-widest mb-3">Free Setup Help</div>
               <h2 className="text-4xl md:text-5xl font-display font-black leading-tight">
@@ -82,15 +75,10 @@ export function DemoRequest() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
           {/* Right: form */}
-          <motion.div
-            initial={{ opacity: 0, x: 24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
+          <div>
             <form
               onSubmit={handleSubmit}
               className="rounded-2xl border border-border bg-card/30 p-6 space-y-4"
@@ -103,87 +91,97 @@ export function DemoRequest() {
               <div className="space-y-3">
                 {/* Name */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Name</label>
+                  <label htmlFor="contact-name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Name</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden />
                     <input
+                      id="contact-name"
                       type="text"
                       required
+                      name="name"
+                      autoComplete="name"
                       placeholder="e.g. Rahul Sharma"
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-[#111113] text-white text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:bg-[#0f0f12] transition-colors"
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
                     />
                   </div>
                 </div>
 
                 {/* Mobile */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mobile Number</label>
+                  <label htmlFor="contact-mobile" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mobile Number</label>
                   <div className="relative flex">
-                    <div className="flex items-center px-3 rounded-l-xl border border-r-0 border-border bg-[#0f0f12] text-xs text-muted-foreground font-mono flex-shrink-0">
+                    <div className="flex items-center px-3 rounded-l-xl border border-r-0 border-border bg-muted text-xs text-muted-foreground font-mono flex-shrink-0">
                       +91
                     </div>
                     <input
+                      id="contact-mobile"
                       type="tel"
                       required
+                      name="mobile"
                       inputMode="numeric"
+                      autoComplete="tel"
                       maxLength={10}
                       placeholder="10-digit mobile"
                       value={mobile}
                       onChange={e => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                      className="flex-1 px-3 py-2.5 rounded-r-xl border border-border bg-[#111113] text-white text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:bg-[#0f0f12] transition-colors"
+                      className="flex-1 px-3 py-2.5 rounded-r-xl border border-border bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
                     />
                   </div>
                 </div>
 
                 {/* Sport */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sport / Event Type</label>
+                  <label htmlFor="contact-sport" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sport / Event Type</label>
                   <div className="relative">
                     <select
+                      id="contact-sport"
+                      name="sport"
                       value={sport}
                       onChange={e => setSport(e.target.value)}
-                      className="w-full appearance-none pl-4 pr-9 py-2.5 rounded-xl border border-border bg-[#111113] text-sm focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
-                      style={{ color: sport ? "white" : "rgba(255,255,255,0.4)" }}
+                      className="w-full appearance-none pl-4 pr-9 py-2.5 rounded-xl border border-border bg-card text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
                     >
                       <option value="" disabled>Select sport</option>
                       {SPORTS.map(s => (
-                        <option key={s} value={s} style={{ color: "white", background: "#111113" }}>{s}</option>
+                        <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden />
                   </div>
                 </div>
 
                 {/* Teams + Date in grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">No. of Teams</label>
+                    <label htmlFor="contact-teams" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">No. of Teams</label>
                     <div className="relative">
                       <select
+                        id="contact-teams"
+                        name="teams"
                         value={teams}
                         onChange={e => setTeams(e.target.value)}
-                        className="w-full appearance-none pl-4 pr-9 py-2.5 rounded-xl border border-border bg-[#111113] text-sm focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
-                        style={{ color: teams ? "white" : "rgba(255,255,255,0.4)" }}
+                        className="w-full appearance-none pl-4 pr-9 py-2.5 rounded-xl border border-border bg-card text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
                       >
                         <option value="" disabled>Teams</option>
                         {["2", "4", "6", "8", "10", "12", "14", "16", "16+"].map(n => (
-                          <option key={n} value={n} style={{ color: "white", background: "#111113" }}>{n} teams</option>
+                          <option key={n} value={n}>{n} teams</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Approx. Date</label>
+                    <label htmlFor="contact-date" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Approx. Date</label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden />
                       <input
+                        id="contact-date"
                         type="date"
+                        name="date"
                         value={date}
                         onChange={e => setDate(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-[#111113] text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-card text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
                       />
                     </div>
                   </div>
@@ -194,24 +192,19 @@ export function DemoRequest() {
               <button
                 type="submit"
                 disabled={!isValid}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-display font-black text-base transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: isValid ? "linear-gradient(135deg, #25D366, #128C7E)" : undefined,
-                  backgroundColor: isValid ? undefined : "rgba(255,255,255,0.05)",
-                  color: isValid ? "white" : "rgba(255,255,255,0.4)",
-                  boxShadow: isValid ? "0 0 24px rgba(37,211,102,0.3)" : "none",
-                }}
+                data-analytics="contact_demo"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-display font-black text-base transition-opacity disabled:opacity-40 disabled:cursor-not-allowed bg-green-500 text-white hover:bg-green-600 disabled:bg-muted disabled:text-muted-foreground"
               >
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="w-5 h-5" aria-hidden />
                 Send on WhatsApp
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4" aria-hidden />
               </button>
 
               <p className="text-center text-[11px] text-muted-foreground/60">
                 Opens WhatsApp with your details pre-filled. No spam, ever.
               </p>
             </form>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

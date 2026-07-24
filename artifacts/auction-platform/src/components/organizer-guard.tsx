@@ -3,13 +3,39 @@ import { useLocation } from "wouter";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
-import { AppLayout } from "@/components/layout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, MonitorDown } from "lucide-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { checkOrganizerAccountAuth } from "@/lib/auth";
+
+function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
+  if (badmintonRoute) {
+    return (
+      <div
+        className={BADMINTON_ROUTE_LOADING_CLASS}
+        aria-busy="true"
+        aria-label="Checking organizer access"
+      />
+    );
+  }
+  // Do not import AppLayout here — it pulls the full auction organizer shell
+  // into every scoring-app / badminton cold load.
+  return (
+    <div className="min-h-screen bg-background p-8" aria-busy="true" aria-label="Checking organizer access">
+      <div className="space-y-4 max-w-2xl">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Shield className="w-5 h-5 animate-pulse" />
+          <span className="text-sm">Checking access...</span>
+        </div>
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    </div>
+  );
+}
 
 export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
   const { isLoggedIn, isLoading } = useOrganizerAuth(tournamentId);
@@ -67,58 +93,24 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   }, [isLoggedIn, isLoading, tournamentId, navigate, inScoringApp]);
 
   if (isLoading) {
-    if (badmintonRoute || inScoringApp) {
-      return (
-        <div
-          className={badmintonRoute ? BADMINTON_ROUTE_LOADING_CLASS : "min-h-screen bg-background"}
-          aria-busy="true"
-          aria-label="Checking organizer access"
-        />
-      );
-    }
-    return (
-      <AppLayout tournamentId={tournamentId}>
-        <div className="space-y-4 max-w-2xl">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <Shield className="w-5 h-5 animate-pulse" />
-            <span className="text-sm">Checking access...</span>
-          </div>
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </AppLayout>
-    );
+    return <OrganizerAccessLoading badmintonRoute={badmintonRoute || inScoringApp} />;
   }
   if (!isLoggedIn) {
     if (isBidWarLocalHost()) {
-      if (inScoringApp) {
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-6">
-            <div className="max-w-lg space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
-              <div className="flex items-center gap-2 text-amber-300">
-                <MonitorDown className="h-5 w-5" />
-                <span className="font-semibold">Import required</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Open the BidWar Local app on this computer, import your tournament export file, then return here to score matches.
-              </p>
-            </div>
-          </div>
-        );
-      }
       return (
-        <AppLayout tournamentId={tournamentId}>
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="max-w-lg space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
             <div className="flex items-center gap-2 text-amber-300">
               <MonitorDown className="h-5 w-5" />
               <span className="font-semibold">Import required</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Open the BidWar Local app on this computer, import your tournament export file, then return here to run the auction.
+              {inScoringApp
+                ? "Open the BidWar Local app on this computer, import your tournament export file, then return here to score matches."
+                : "Open the BidWar Local app on this computer, import your tournament export file, then return here to run the auction."}
             </p>
           </div>
-        </AppLayout>
+        </div>
       );
     }
     return (

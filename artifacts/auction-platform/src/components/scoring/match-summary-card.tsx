@@ -1,13 +1,13 @@
 import type { CricketMatchSummary } from "@workspace/scoring-core";
-import type { Team } from "@workspace/api-client-react";
+import type { CricketScorerTeam } from "@/lib/scoring-squad";
 
 type MatchSummaryCardProps = {
   summary: CricketMatchSummary;
-  teams: Team[];
+  teams: CricketScorerTeam[];
   compact?: boolean;
 };
 
-function teamLabel(teams: Team[], id: number) {
+function teamLabel(teams: CricketScorerTeam[], id: number) {
   return teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
 }
 

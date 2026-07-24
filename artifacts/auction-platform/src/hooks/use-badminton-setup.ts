@@ -3,7 +3,7 @@ import { useBadmintonDashboard } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   evaluateBadmintonSetup,
   getNextSetupStep,
@@ -35,6 +35,36 @@ export function completeBadmintonSetupWizard(tournamentId: number) {
   emitWizardCompleted();
 }
 
+/** Defer fixtures list until after first paint — setup chrome doesn't need it. */
+function useDeferredFixturesEnabled(tournamentId: number) {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    if (!tournamentId) return;
+    let cancelled = false;
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (typeof win.requestIdleCallback === "function") {
+      const id = win.requestIdleCallback(() => {
+        if (!cancelled) setEnabled(true);
+      }, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        win.cancelIdleCallback?.(id);
+      };
+    }
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setEnabled(true);
+    }, 800);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [tournamentId]);
+  return enabled;
+}
+
 export function useBadmintonSetup(tournamentId: number) {
   const { data, isLoading: dashboardLoading } = useBadmintonDashboard(tournamentId);
   const { data: branding, isLoading: brandingLoading } = useBadmintonBranding(tournamentId);
@@ -47,13 +77,14 @@ export function useBadmintonSetup(tournamentId: number) {
     () => false,
   );
 
+  const fixturesEnabled = useDeferredFixturesEnabled(tournamentId);
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery({
     queryKey: ["badminton-fixtures-all", tournamentId],
     queryFn: () =>
       badmintonFetch<
         Array<{ id: number; courtId?: number | null; scheduledAt?: string | null }>
       >(tournamentId, `/fixtures`),
-    enabled: !!tournamentId,
+    enabled: !!tournamentId && fixturesEnabled,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -96,7 +127,10 @@ export function useBadmintonSetup(tournamentId: number) {
     branding,
     scoringFormat,
     fixtures,
-    isLoading: dashboardLoading || brandingLoading || formatLoading || fixturesLoading,
+    // Fixtures are only needed for structure/schedule chapter markers — don't
+    // block setup chrome (branding/courts/rules) on the full fixtures list.
+    isLoading: dashboardLoading || brandingLoading || formatLoading,
+    fixturesLoading,
     getStep: (stepId: BadmintonSetupStepId): BadmintonSetupItem | null =>
       getSetupStepById(items, stepId),
   };

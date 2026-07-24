@@ -8,13 +8,13 @@ import {
 } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
+import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { checkOrganizerAccountAuth, logoutOrganizerAccount } from "@/lib/auth";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import type { SportNavConfig, SportNavItem } from "@/lib/sports-shell-types";
-import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { cn } from "@/lib/utils";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
@@ -33,10 +33,6 @@ function isScoringAppHost(): boolean {
 
 /** Navigate to auction-platform organizer portal (cross-app when under scoring-app). */
 function goToOrganizerPortal() {
-  if (isScoringAppHost()) {
-    window.location.href = "/organizer";
-    return;
-  }
   window.location.href = "/organizer";
 }
 
@@ -207,6 +203,9 @@ function SportNavLink({
 /**
  * Shared tournament shell for scoring sports.
  * Auction continues to use AppLayout; badminton (and future sports) plug in via `nav`.
+ *
+ * Badminton only shares players + branding with auction — do not fetch full
+ * tournament/auction license payloads here for badminton.
  */
 export function SportsShell({
   children,
@@ -222,14 +221,21 @@ export function SportsShell({
     cldUrl(logos.mini, "headerLogo") ||
     getBrandLogoSrc(logos, sidebarPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
+  const isBadminton = nav.sportId === "badminton";
+
+  // Badminton: sidebar title from badminton branding only (shared intentionally).
+  const { data: badmintonBranding } = useBadmintonBranding(isBadminton ? tournamentId : 0);
+  // Other sports: tournament name via standard tournament endpoint.
   const { data: tournament } = useGetTournament(tournamentId, {
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
-      enabled: tournamentId > 0,
+      enabled: tournamentId > 0 && !isBadminton,
       staleTime: 60_000,
       refetchOnWindowFocus: false,
     },
   });
+  const tournamentTitle =
+    (isBadminton ? badmintonBranding?.displayName : tournament?.name)?.trim() || "Tournament";
   const localVenue = isBidWarLocalHost();
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -338,11 +344,8 @@ export function SportsShell({
           {!collapsed && (
             <div className="px-4 mt-7 mb-1 flex items-center gap-2 min-w-0">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {tournament?.name || "Tournament"}
+                {tournamentTitle}
               </span>
-              {tournament?.licenseStatus && tournament.licenseStatus !== "active" ? (
-                <TrialLicenseBadge className="shrink-0" />
-              ) : null}
             </div>
           )}
           {!collapsed && (
@@ -354,7 +357,7 @@ export function SportsShell({
 
           {nav.sections.map((section, sectionIndex) => (
             <div key={section.id}>
-              {!collapsed && (
+              {!collapsed && section.label.trim() ? (
                 <div
                   className={cn(
                     "px-4 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider",
@@ -363,7 +366,7 @@ export function SportsShell({
                 >
                   {section.label}
                 </div>
-              )}
+              ) : null}
               {collapsed && sectionIndex > 0 ? (
                 <div className="mt-6 mb-2 border-t border-border mx-2" />
               ) : null}

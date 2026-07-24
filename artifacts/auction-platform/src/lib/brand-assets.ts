@@ -42,7 +42,7 @@ export function isBrandLogoPlaceholderSrc(src: string | null | undefined): boole
 
 export function getBrandLogoAlt(brandName?: string) {
   const name = brandName?.trim() || "Brand";
-  return `${name} logo - live sports auction software`;
+  return `${name} logo`;
 }
 
 const WORDMARK_LOGO_KEYS = new Set<keyof BrandLogos>(["main", "mainReverse"]);

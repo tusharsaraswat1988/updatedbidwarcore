@@ -1,0 +1,17 @@
+{
+  "name": "@workspace/sports-cricket",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core.ts"
+  },
+  "dependencies": {
+    "@workspace/scoring-core": "workspace:*",
+    "@workspace/player-registry": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

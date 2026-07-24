@@ -3,23 +3,24 @@
   "compileOnSave": false,
   "files": [],
   "references": [
-    {
-      "path": "./lib/cheer-presets"
-    },
-    {
-      "path": "./lib/db"
-    },
-    {
-      "path": "./lib/db-local"
-    },
-    {
-      "path": "./lib/api-client-react"
-    },
-    {
-      "path": "./lib/api-zod"
-    },
-    {
-      "path": "./lib/scoring-core"
-    }
+    { "path": "./lib/platform-core" },
+    { "path": "./lib/branding" },
+    { "path": "./lib/auth" },
+    { "path": "./lib/media" },
+    { "path": "./lib/player-registry" },
+    { "path": "./lib/auction" },
+    { "path": "./lib/notifications" },
+    { "path": "./lib/analytics" },
+    { "path": "./lib/shared-ui" },
+    { "path": "./lib/sports-badminton" },
+    { "path": "./lib/sports-cricket" },
+    { "path": "./lib/sports-football" },
+    { "path": "./lib/cheer-presets" },
+    { "path": "./lib/db" },
+    { "path": "./lib/db-local" },
+    { "path": "./lib/api-client-react" },
+    { "path": "./lib/api-zod" },
+    { "path": "./lib/scoring-core" },
+    { "path": "./lib/badminton-core" }
   ]
 }

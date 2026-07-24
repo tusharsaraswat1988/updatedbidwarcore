@@ -210,7 +210,7 @@ router.get("/tournaments/:tournamentId/scoring/standings", async (req, res) => {
   }
 });
 
-/** Squad readiness from auction sold/retained players (organizer). */
+/** Squad readiness from Player Registry franchise roster (organizer). */
 router.get("/tournaments/:tournamentId/scoring/squads", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {

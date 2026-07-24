@@ -1,62 +1,72 @@
 /**
- * Tournament Control Center — tournament-day operations dashboard
+ * Mission Control — tournament-day command center (Live Control nav host)
  * Route: /tournament/:id/badminton/control
  *
- * Answers: "What is happening right now?"
- * Orchestrates Scheduling → Matches → Scoring. Does not own new data.
+ * Phase 3.1: attention, primary action, health, suggestions, activity.
+ * IA / APIs unchanged.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Copy, LayoutDashboard, QrCode } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, ChevronDown, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import {
-  badmintonMatchControlPath,
-  badmintonResultsPath,
-  badmintonScorerMatchPath,
-} from "@/lib/badminton-routes";
-import {
-  badmintonQrImageUrl,
-  badmintonScorerHomePublicUrl,
-} from "@/lib/badminton-broadcast-urls";
-import {
   buildCourtBoard,
-  fixtureSlotLabel,
-  isDelayedFixture,
-  isDelayedMatch,
   listReadyMatches,
   listRecentlyCompleted,
   listUpcomingFixtures,
-  matchDisplayLabel,
   type ControlFixture,
   type ControlMatch,
-  type CourtOpsStatus,
 } from "@/lib/badminton-control-center";
-import { TeamPlayerVs } from "@/components/badminton/team-player-card";
-import { identityFromLooseSide } from "@/lib/team-player-identity";
-import { friendlyBadmintonError, formatCourtOpsStatusLabel } from "@/lib/badminton-ux";
+import {
+  buildAttentionItems,
+  buildSmartSuggestions,
+  deriveSystemHealth,
+  resolvePrimaryAction,
+  resolvePrimaryBroadcast,
+  sortCourtsByOpsPriority,
+  type AttentionItem,
+  type SmartSuggestion,
+} from "@/lib/mission-control-ops";
+import { friendlyBadmintonError } from "@/lib/badminton-ux";
+import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
 import { useToast } from "@/hooks/use-toast";
 import {
   EmptyState,
   HubPageShell,
-  PageHeader,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
-import { BadmintonBroadcastDirectorPanel } from "@/components/badminton/broadcast-director-panel";
+import { BadmintonIaPageChrome } from "@/components/badminton/ia-workflow-chrome";
+import { MissionControlTopBar } from "@/components/badminton/mission-control/mission-control-top-bar";
+import { MissionControlOpsRail } from "@/components/badminton/mission-control/mission-control-ops-rail";
+import { MissionControlCourtCard } from "@/components/badminton/mission-control/mission-control-court-card";
+import { MissionControlQueues } from "@/components/badminton/mission-control/mission-control-queues";
+import { MissionControlAttentionPanel } from "@/components/badminton/mission-control/mission-control-attention";
+import { MissionControlHealthStrip } from "@/components/badminton/mission-control/mission-control-health";
+import { MissionControlSuggestions } from "@/components/badminton/mission-control/mission-control-suggestions";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  MissionControlActivityFeed,
+  type ActivityEvent,
+} from "@/components/badminton/mission-control/mission-control-activity";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
+import { useBadmintonDirector } from "@/hooks/use-badminton-match";
+import type { BadmintonOverlayScene, BadmintonVenueScene } from "@/lib/badminton-broadcast-director";
 
 type CourtRow = {
   id: number;
   name: string;
   shortName?: string | null;
   sortOrder: number;
+  scorerPin?: string | null;
+  scorerName?: string | null;
+  hasScorerPin?: boolean;
 };
 
 type CategoryRow = {
@@ -65,37 +75,26 @@ type CategoryRow = {
   code?: string | null;
 };
 
-function courtLabel(c: { name: string; shortName?: string | null }): string {
-  return c.shortName?.trim() || c.name;
-}
-
-function formatTime(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function statusStyles(status: CourtOpsStatus): string {
-  switch (status) {
-    case "LIVE":
-      return "bg-red-500/15 text-red-400 border-red-500/30";
-    case "DELAYED":
-      return "bg-orange-500/20 text-orange-300 border-orange-500/40";
-    case "READY":
-      return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-    case "FINISHED":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-    default:
-      return "bg-white/8 text-white/50 border-white/10";
-  }
-}
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function BadmintonControlCenterPage() {
   const [, params] = useRoute("/tournament/:id/badminton/control");
   const search = useSearch();
   const tournamentId = parseInt(params?.id ?? "0");
   const focusBroadcast = new URLSearchParams(search).get("focus") === "broadcast";
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const [dismissedAttention, setDismissedAttention] = useState(() => new Set<string>());
+  const [dismissedSuggestions, setDismissedSuggestions] = useState(() => new Set<string>());
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [online, setOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
+  const [lastRealtimeAt, setLastRealtimeAt] = useState<number | null>(null);
+  const prevBoardKey = useRef<string>("");
+
+  const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId);
 
   const {
     data: courts = [],
@@ -114,7 +113,9 @@ export default function BadmintonControlCenterPage() {
     isLoading: matchesLoading,
     isError: matchesError,
     error: matchesErr,
+    isSuccess: matchesOk,
     refetch: refetchMatches,
+    dataUpdatedAt: matchesUpdatedAt,
   } = useQuery<ControlMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/matches`),
@@ -149,6 +150,35 @@ export default function BadmintonControlCenterPage() {
     enabled: !!tournamentId,
   });
 
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (matchesUpdatedAt) setLastRealtimeAt(matchesUpdatedAt);
+  }, [matchesUpdatedAt]);
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
+    const es = new EventSource(url, { withCredentials: true });
+    es.onmessage = () => {
+      setLastRealtimeAt(Date.now());
+      void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+    };
+    es.onerror = () => {
+      /* polling remains fallback */
+    };
+    return () => es.close();
+  }, [tournamentId, qc]);
+
   const categoryName = useMemo(() => {
     const map = new Map<number, string>();
     for (const c of categories) {
@@ -161,21 +191,299 @@ export default function BadmintonControlCenterPage() {
     () => buildCourtBoard(courts, matches, fixtures),
     [courts, matches, fixtures],
   );
+  const sortedBoard = useMemo(() => sortCourtsByOpsPriority(board), [board]);
 
   const upcoming = useMemo(() => listUpcomingFixtures(fixtures), [fixtures]);
   const ready = useMemo(() => listReadyMatches(matches), [matches]);
   const recent = useMemo(() => listRecentlyCompleted(matches), [matches]);
+  const completedCount = useMemo(
+    () =>
+      matches.filter((m) =>
+        ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(m.status),
+      ).length,
+    [matches],
+  );
 
-  const isLoading = courtsLoading || matchesLoading || fixturesLoading;
-  const loadError = courtsError || matchesError || fixturesError;
-  const loadErrorObj = courtsErr ?? matchesErr ?? fixturesErr;
+  const primaryMatchId = useMemo(
+    () => resolvePrimaryBroadcast(matches, branding?.primaryBroadcastMatchId ?? null),
+    [matches, branding?.primaryBroadcastMatchId],
+  );
 
   const liveCount = board.filter((r) => r.status === "LIVE").length;
   const readyCount = board.filter((r) => r.status === "READY").length;
   const delayedCount = board.filter((r) => r.status === "DELAYED").length;
-  const emptyCount = board.filter((r) => r.status === "EMPTY").length;
-  const finishedCount = board.filter((r) => r.status === "FINISHED").length;
-  const nextReady = ready[0] ?? null;
+  const moveTargetCourtIds = board
+    .filter((r) => r.status === "EMPTY" || r.status === "DELAYED" || r.status === "FINISHED")
+    .map((r) => r.court.id);
+
+  const attention = useMemo(
+    () =>
+      buildAttentionItems({
+        board,
+        matches,
+        ready,
+        primaryMatchId,
+        venueScene: branding?.venueScene,
+        tournamentId,
+      }),
+    [board, matches, ready, primaryMatchId, branding?.venueScene, tournamentId],
+  );
+
+  const primaryAction = useMemo(
+    () =>
+      resolvePrimaryAction({
+        board,
+        ready,
+        tournamentId,
+        venueScene: branding?.venueScene,
+      }),
+    [board, ready, tournamentId, branding?.venueScene],
+  );
+
+  const suggestions = useMemo(
+    () =>
+      buildSmartSuggestions({
+        board,
+        ready,
+        tournamentId,
+        primaryMatchId,
+      }),
+    [board, ready, tournamentId, primaryMatchId],
+  );
+
+  const courtsWithPin = board.filter(
+    (r) => !!(r.court.hasScorerPin || (r.court.scorerPin && r.court.scorerPin.trim())),
+  ).length;
+
+  const health = useMemo(
+    () =>
+      deriveSystemHealth({
+        online,
+        matchesQueryOk: matchesOk && !matchesError,
+        lastRealtimeAt,
+        brandingOk,
+        liveCount,
+        primaryMatchId,
+        venueScene: branding?.venueScene,
+        courtsWithPin,
+        courtCount: courts.length,
+      }),
+    [
+      online,
+      matchesOk,
+      matchesError,
+      lastRealtimeAt,
+      brandingOk,
+      liveCount,
+      primaryMatchId,
+      branding?.venueScene,
+      courtsWithPin,
+      courts.length,
+    ],
+  );
+
+  const emergencyActive = branding?.venueScene === "standby";
+
+  // Activity feed from board transitions
+  useEffect(() => {
+    const key = board
+      .map(
+        (r) =>
+          `${r.court.id}:${r.status}:${r.currentMatch?.id ?? "-"}:${r.currentMatch?.status ?? ""}`,
+      )
+      .join("|");
+    if (!prevBoardKey.current) {
+      prevBoardKey.current = key;
+      return;
+    }
+    if (prevBoardKey.current === key) return;
+    const prev = prevBoardKey.current;
+    prevBoardKey.current = key;
+
+    const events: ActivityEvent[] = [];
+    const now = Date.now();
+    for (const r of board) {
+      const label = r.court.shortName?.trim() || r.court.name;
+      const token = `${r.court.id}:`;
+      const prevPart = prev.split("|").find((p) => p.startsWith(token)) ?? "";
+      const [, prevStatus, prevMatchId, prevMatchStatus] = prevPart.split(":");
+      if (prevStatus !== r.status) {
+        if (r.status === "LIVE") events.push({ id: `${now}-live-${r.court.id}`, at: now, text: `${label} started` });
+        if (r.status === "FINISHED") events.push({ id: `${now}-fin-${r.court.id}`, at: now, text: `${label} finished` });
+        if (r.status === "DELAYED") events.push({ id: `${now}-del-${r.court.id}`, at: now, text: `${label} delayed` });
+      }
+      if (prevMatchId && r.currentMatch && String(r.currentMatch.id) !== prevMatchId) {
+        events.push({
+          id: `${now}-re-${r.court.id}`,
+          at: now,
+          text: `${label} reassigned`,
+        });
+      }
+      if (prevMatchStatus === "paused" && r.currentMatch?.status === "live") {
+        events.push({ id: `${now}-res-${r.court.id}`, at: now, text: `${label} resumed` });
+      }
+    }
+    if (events.length) {
+      setActivity((prevEvents) => [...events, ...prevEvents].slice(0, 20));
+    }
+  }, [board]);
+
+  const setPresentationMutation = useMutation({
+    mutationFn: (body: {
+      overlayScene?: BadmintonOverlayScene;
+      venueScene?: BadmintonVenueScene;
+    }) =>
+      badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(["badminton-branding", tournamentId], data);
+    },
+  });
+
+  const setPrimaryMutation = useMutation({
+    mutationFn: (matchId: number) =>
+      badmintonFetch<BadmintonBranding>(tournamentId, `/primary-broadcast`, {
+        method: "PATCH",
+        body: JSON.stringify({ matchId }),
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(["badminton-branding", tournamentId], data);
+      toast({ title: "Screens follow this court" });
+      setActivity((prev) => [
+        { id: `${Date.now()}-focus`, at: Date.now(), text: "Focus court updated for Venue / OBS / LED" },
+        ...prev,
+      ].slice(0, 20));
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: async ({ matchId, courtId }: { matchId: number; courtId: number }) => {
+      const court = courts.find((c) => c.id === courtId);
+      return badmintonFetch(tournamentId, `/matches/${matchId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          courtId,
+          courtNumber: court?.shortName?.trim() || court?.name || String(courtId),
+        }),
+      });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      toast({ title: "Match moved" });
+    },
+  });
+
+  const resumeMatchId =
+    board.find((r) => r.status === "LIVE" && r.currentMatch?.status === "paused")?.currentMatch
+      ?.id ?? 0;
+  const director = useBadmintonDirector(tournamentId, resumeMatchId);
+
+  function pushActivity(text: string) {
+    setActivity((prev) => [{ id: `${Date.now()}-${text}`, at: Date.now(), text }, ...prev].slice(0, 20));
+  }
+
+  const onEmergency = useCallback(() => {
+    setPresentationMutation.mutate(
+      { venueScene: "standby", overlayScene: "sponsor" },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Emergency pause",
+            description: "Venue on standby. OBS on sponsor scene.",
+          });
+          pushActivity("Emergency pause — Venue standby / Sponsor scene");
+        },
+      },
+    );
+  }, [setPresentationMutation, toast]);
+
+  const onResumePresentation = useCallback(() => {
+    setPresentationMutation.mutate(
+      { venueScene: "auto", overlayScene: "auto" },
+      {
+        onSuccess: () => {
+          toast({ title: "Tournament screens resumed" });
+          pushActivity("Tournament screens resumed");
+          if (resumeMatchId > 0) {
+            void director.resume().then(() => {
+              void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+              pushActivity("Paused match resumed");
+            });
+          }
+        },
+      },
+    );
+  }, [setPresentationMutation, toast, resumeMatchId, director, qc, tournamentId]);
+
+  async function handleAttentionAction(item: AttentionItem) {
+    if (item.actionKind === "focus" && item.matchId != null) {
+      setPrimaryMutation.mutate(item.matchId);
+      return;
+    }
+    if (item.actionKind === "resume" && item.id === "venue-standby") {
+      onResumePresentation();
+      return;
+    }
+    if (item.actionKind === "resume" && item.matchId != null) {
+      try {
+        await fetch(
+          `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${item.matchId}/resume`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          },
+        ).then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: "Resume failed" }));
+            throw new Error(err.error ?? "Resume failed");
+          }
+        });
+        toast({ title: "Match resumed" });
+        pushActivity("Match resumed");
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      } catch (e) {
+        toast({
+          title: "Resume failed",
+          description: e instanceof Error ? e.message : "Open the court and try again",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+    if (item.actionKind === "reconnect" && item.matchId != null) {
+      try {
+        await forceUnlockBadmintonMatch(tournamentId, item.matchId);
+        toast({ title: "Scorer lock cleared" });
+        pushActivity("Scorer reconnected");
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      } catch (e) {
+        toast({
+          title: "Reconnect failed",
+          description: e instanceof Error ? e.message : "Try again",
+          variant: "destructive",
+        });
+      }
+    }
+  }
+
+  function handleSuggestion(s: SmartSuggestion) {
+    if (s.kind === "focus" && s.matchId != null) {
+      setPrimaryMutation.mutate(s.matchId);
+      return;
+    }
+    if (s.kind === "move" && s.matchId != null && s.targetCourtId != null) {
+      moveMutation.mutate({ matchId: s.matchId, courtId: s.targetCourtId });
+      pushActivity("Match moved from suggestion");
+    }
+  }
+
+  const isLoading = courtsLoading || matchesLoading || fixturesLoading;
+  const loadError = courtsError || matchesError || fixturesError;
+  const loadErrorObj = courtsErr ?? matchesErr ?? fixturesErr;
 
   function retryAll() {
     void refetchCourts();
@@ -185,516 +493,177 @@ export default function BadmintonControlCenterPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <PageHeader
-        title="Operator Panel"
-        eyebrow="Operations"
-        subtitle="Run courts, scorers, and Broadcast Director — Venue Scoreboard + OBS switch from here"
-        badge={liveCount > 0 ? `${liveCount} Live` : delayedCount > 0 ? `${delayedCount} Delayed` : undefined}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {nextReady ? (
-              <a
-                href={badmintonMatchControlPath(tournamentId, nextReady.id)}
-                className="min-h-11 px-3 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 text-amber-100 text-xs font-bold inline-flex items-center"
+      <BadmintonIaPageChrome
+        tournamentId={tournamentId}
+        stepId="live"
+        titleOverride="Mission Control"
+        purposeOverride="Run the entire tournament day from the courts — one workspace."
+        taskOverride="Watch every court, start matches, manage scorers and screens without leaving this page."
+      >
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 space-y-4">
+          <MissionControlTopBar
+            tournamentName={branding?.displayName ?? ""}
+            liveCount={liveCount}
+            readyCount={readyCount}
+            delayedCount={delayedCount}
+            completedCount={completedCount}
+            primaryAction={primaryAction}
+            emergencyActive={emergencyActive}
+            onEmergency={onEmergency}
+            onResumePresentation={onResumePresentation}
+          />
+
+          {!isLoading && !loadError && courts.length > 0 ? (
+            <>
+              <MissionControlHealthStrip health={health} />
+              <MissionControlAttentionPanel
+                items={attention}
+                dismissedIds={dismissedAttention}
+                onDismiss={(id) =>
+                  setDismissedAttention((prev) => new Set(prev).add(id))
+                }
+                onAction={(item) => {
+                  void handleAttentionAction(item);
+                }}
+              />
+              <MissionControlSuggestions
+                suggestions={suggestions}
+                dismissedIds={dismissedSuggestions}
+                onDismiss={(id) =>
+                  setDismissedSuggestions((prev) => new Set(prev).add(id))
+                }
+                onAction={handleSuggestion}
+              />
+            </>
+          ) : null}
+
+          {isLoading ? (
+            <div
+              className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4"
+              aria-busy="true"
+              aria-label="Loading Mission Control"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+              <div className="h-96 rounded-xl bg-muted animate-pulse" />
+            </div>
+          ) : loadError ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Could not load Mission Control"
+              desc={friendlyBadmintonError(loadErrorObj, "Check your connection, then retry.")}
+              action={{ label: "Retry", onClick: () => retryAll() }}
+            />
+          ) : courts.length === 0 ? (
+            <EmptyState
+              icon={LayoutDashboard}
+              title="No courts yet"
+              desc="Add courts in Tournament Setup first. Mission Control runs the day from here."
+              action={{
+                label: "Add courts",
+                href: `/tournament/${tournamentId}/badminton/branding?section=courts`,
+              }}
+            />
+          ) : (
+            <>
+              <div
+                className={cn(
+                  "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start",
+                  focusBroadcast && "ring-1 ring-amber-500/30 rounded-xl p-1",
+                )}
               >
-                Start next
-              </a>
-            ) : null}
-            <a
-              href="#broadcast"
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
-            >
-              Broadcast
-            </a>
-            <Link
-              href={`/tournament/${tournamentId}/badminton/schedule`}
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/75 text-xs font-semibold inline-flex items-center"
-            >
-              Scheduling
-            </Link>
-            <Link
-              href={badmintonResultsPath(tournamentId)}
-              className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/70 text-xs font-semibold inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Results
-            </Link>
-          </div>
-        }
-      />
-
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
-        <BadmintonBroadcastDirectorPanel
-          tournamentId={tournamentId}
-          highlight={focusBroadcast}
-        />
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading courts">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : loadError ? (
-          <EmptyState
-            icon={AlertCircle}
-            title="Could not load Control Center"
-            desc={friendlyBadmintonError(loadErrorObj, "Check your connection, then retry.")}
-            action={{ label: "Retry", onClick: () => retryAll() }}
-          />
-        ) : courts.length === 0 ? (
-          <EmptyState
-            icon={LayoutDashboard}
-            title="No courts yet"
-            desc="Add courts first. Then schedule fixtures and create matches — Control Center runs the tournament day from here."
-            action={{
-              label: "Set up courts",
-              href: `/tournament/${tournamentId}/badminton/courts`,
-            }}
-          />
-        ) : (
-          <section className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <StatusKpi label="Live" value={liveCount} tone="live" />
-              <StatusKpi label="Ready" value={readyCount} tone="ready" />
-              <StatusKpi label="Delayed" value={delayedCount} tone="delayed" />
-              <StatusKpi label="Empty" value={emptyCount} tone="empty" />
-              <StatusKpi label="Finished" value={finishedCount} tone="finished" />
-            </div>
-            <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
-              Courts
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {board.map((row) => (
-                <CourtOpsCard
-                  key={row.court.id}
-                  tournamentId={tournamentId}
-                  row={row}
-                  categoryName={categoryName}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <BottomList
-            title="Upcoming Fixtures"
-            empty="No scheduled fixtures waiting for a match."
-            count={Math.min(upcoming.length, 10)}
-          >
-            {upcoming.slice(0, 10).map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-white/6 last:border-0">
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-medium truncate flex items-center gap-2">
-                    {fixtureSlotLabel(f, categoryName.get(f.categoryId))}
-                    {isDelayedFixture(f) ? (
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-orange-300 border border-orange-500/40 rounded px-1.5 py-0.5 flex-none">
-                        Delayed
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="text-white/35 text-xs">
-                    {formatTime(f.scheduledAt)}
-                    {f.courtId
-                      ? ` · ${courtLabel(courts.find((c) => c.id === f.courtId) ?? { name: `Court ${f.courtId}` })}`
-                      : ""}
-                  </p>
-                </div>
-                <Link
-                  href={`/tournament/${tournamentId}/badminton/matches?fixture=${f.id}`}
-                  className="min-h-11 px-2 text-[#4fc3f7] text-xs font-semibold hover:underline flex-none inline-flex items-center"
-                >
-                  Create Match
-                </Link>
-              </li>
-            ))}
-          </BottomList>
-
-          <BottomList
-            title="Ready Matches"
-            empty="No matches waiting to start."
-            count={Math.min(ready.length, 10)}
-          >
-            {ready.slice(0, 10).map((m) => (
-              <li key={m.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-white/6 last:border-0">
-                <div className="min-w-0 flex-1">
-                  {m.state?.leftSide || m.state?.rightSide ? (
-                    <TeamPlayerVs
-                      left={identityFromLooseSide(m.state?.leftSide)}
-                      right={identityFromLooseSide(m.state?.rightSide)}
-                      size="xs"
-                      layout="inline"
-                      className="items-start"
-                    />
-                  ) : (
-                    <p className="text-white text-sm font-medium truncate flex items-center gap-2">
-                      {matchDisplayLabel(m)}
+                <section className="space-y-3 min-w-0" aria-label="Live courts">
+                  <div>
+                    <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
+                      Live courts
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Priority: Live → Delayed → Ready → Waiting → Empty → Finished.
                     </p>
-                  )}
-                  {isDelayedMatch(m) ? (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-orange-300 border border-orange-500/40 rounded px-1.5 py-0.5 inline-block mt-1">
-                      Delayed
-                    </span>
+                  </div>
+                  {liveCount === 0 && readyCount === 0 ? (
+                    <div className={cn(hubCardClass, "p-4 border-amber-500/20 bg-amber-500/5")}>
+                      <p className="text-sm text-foreground/90 font-medium">No live matches yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Use the primary action above, or finish{" "}
+                        <Link
+                          href={`/tournament/${tournamentId}/badminton/schedule`}
+                          className="text-primary hover:underline"
+                        >
+                          Schedule
+                        </Link>
+                        .
+                      </p>
+                    </div>
                   ) : null}
-                  <p className="text-white/35 text-xs">
-                    {typeof m.detail?.courtNumber === "string" || typeof m.detail?.courtNumber === "number"
-                      ? `Court ${m.detail.courtNumber}`
-                      : typeof m.detail?.courtId === "number"
-                        ? `Court #${m.detail.courtId}`
-                        : "No court"}
-                    {m.scheduledAt ? ` · ${formatTime(m.scheduledAt)}` : ""}
-                  </p>
-                </div>
-                <a
-                  href={badmintonMatchControlPath(tournamentId, m.id)}
-                  className="min-h-11 px-2 text-amber-300 text-xs font-semibold hover:underline flex-none inline-flex items-center"
-                >
-                  Match Control
-                </a>
-              </li>
-            ))}
-          </BottomList>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {sortedBoard.map((row) => (
+                      <MissionControlCourtCard
+                        key={row.court.id}
+                        tournamentId={tournamentId}
+                        row={row}
+                        categoryName={categoryName}
+                        primaryMatchId={primaryMatchId}
+                      />
+                    ))}
+                  </div>
+                </section>
 
-          <BottomList
-            title="Recently Completed"
-            empty="No completed matches yet."
-            count={recent.length}
-          >
-            {recent.map((m) => (
-              <li key={m.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-white/6 last:border-0">
-                <div className="min-w-0 flex-1">
-                  {m.state?.leftSide || m.state?.rightSide ? (
-                    <TeamPlayerVs
-                      left={identityFromLooseSide(m.state?.leftSide)}
-                      right={identityFromLooseSide(m.state?.rightSide)}
-                      size="xs"
-                      layout="inline"
-                      className="items-start"
-                    />
-                  ) : (
-                    <p className="text-white text-sm font-medium truncate">
-                      {matchDisplayLabel(m)}
-                    </p>
-                  )}
-                  <p className="text-white/35 text-xs">
-                    {m.state
-                      ? `${m.state.leftScore ?? 0}–${m.state.rightScore ?? 0}`
-                      : "Completed"}
-                    {m.detail?.courtNumber != null ? ` · Court ${String(m.detail.courtNumber)}` : ""}
-                  </p>
+                <div className="lg:sticky lg:top-28 space-y-4">
+                  <MissionControlOpsRail
+                    tournamentId={tournamentId}
+                    onAnnouncement={(label) => pushActivity(`Announcement · ${label}`)}
+                    onEmergency={onEmergency}
+                    emergencyActive={emergencyActive}
+                    onResumeScreens={onResumePresentation}
+                  />
+                  <MissionControlActivityFeed events={activity} />
                 </div>
-                <a
-                  href={badmintonMatchControlPath(tournamentId, m.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white/40 text-xs font-semibold hover:text-white/70 flex-none"
-                >
-                  View
-                </a>
-              </li>
-            ))}
-          </BottomList>
+              </div>
+
+              <MissionControlQueues
+                tournamentId={tournamentId}
+                courts={courts}
+                upcoming={upcoming}
+                ready={ready}
+                recent={recent}
+                categoryName={categoryName}
+                moveTargetCourtIds={moveTargetCourtIds}
+              />
+
+              <Collapsible className="pt-2">
+                <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3 text-left text-xs text-white/45 hover:text-white/70 hover:bg-white/[0.04]">
+                  <span className="font-semibold uppercase tracking-wider">
+                    Advanced · Developer
+                  </span>
+                  <ChevronDown className="w-4 h-4 shrink-0" aria-hidden />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className={cn(hubCardClass, "mt-2 p-4 space-y-2 text-xs text-muted-foreground")}>
+                    <p>Diagnostics stay hidden during the day.</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Reconnect scorer on each court card clears a stuck match lock.</li>
+                      <li>
+                        Refetch:{" "}
+                        <button
+                          type="button"
+                          className="text-primary hover:underline"
+                          onClick={() => retryAll()}
+                        >
+                          Reload courts & matches
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </>
+          )}
         </div>
-      </div>
+      </BadmintonIaPageChrome>
     </HubPageShell>
-  );
-}
-
-function BottomList({
-  title,
-  empty,
-  count,
-  children,
-}: {
-  title: string;
-  empty: string;
-  count: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className={cn(hubCardClass, "p-5")}>
-      <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest mb-3">
-        {title}
-      </h2>
-      {count === 0 ? (
-        <p className="text-white/30 text-sm">{empty}</p>
-      ) : (
-        <ul className="space-y-0">{children}</ul>
-      )}
-    </section>
-  );
-}
-
-function CourtOpsCard({
-  tournamentId,
-  row,
-  categoryName,
-}: {
-  tournamentId: number;
-  row: ReturnType<typeof buildCourtBoard>[number];
-  categoryName: Map<number, string>;
-}) {
-  const { toast } = useToast();
-  const [qrOpen, setQrOpen] = useState(false);
-  const { court, status, currentMatch, nextMatch, nextFixture, readyOverflow } = row;
-  const nextLabel = nextMatch
-    ? matchDisplayLabel(nextMatch)
-    : nextFixture
-      ? fixtureSlotLabel(nextFixture, categoryName.get(nextFixture.categoryId))
-      : "—";
-  const hasScorerPin = !!(court.hasScorerPin || (court.scorerPin && court.scorerPin.trim()));
-  const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
-
-  return (
-    <div
-      className={cn(
-        hubCardClass,
-        "p-5 space-y-4",
-        status === "LIVE" && "border-red-500/35",
-        status === "DELAYED" && "border-orange-500/40",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-white font-bold text-lg">{courtLabel(court)}</h3>
-          <p className="text-white/35 text-xs mt-0.5">{court.name}</p>
-        </div>
-        <span
-          className={cn(
-            "text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border",
-            statusStyles(status),
-          )}
-        >
-          {formatCourtOpsStatusLabel(status)}
-        </span>
-      </div>
-
-      <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 space-y-1">
-        <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Scorer</p>
-        {hasScorerPin ? (
-          <>
-            <p className="text-white text-sm font-semibold">
-              {court.scorerName?.trim() || "Scorer assigned"}
-            </p>
-            <p className="text-sky-300/90 text-xs font-mono">
-              PIN configured{court.scorerPin ? ` · ${court.scorerPin}` : ""}
-            </p>
-          </>
-        ) : (
-          <p className="text-white/40 text-sm">No court PIN — set in Courts</p>
-        )}
-        <div className="flex flex-wrap gap-2 pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(scorerHomeUrl).then(() => {
-                toast({
-                  title: "Scorer Home copied",
-                  description: hasScorerPin
-                    ? "Share with the court scorer along with the PIN."
-                    : "Set a court PIN in Courts, then share this link.",
-                });
-              });
-            }}
-            className="min-h-11 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            Copy Scorer Home
-          </button>
-          <button
-            type="button"
-            onClick={() => setQrOpen(true)}
-            className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
-          >
-            <QrCode className="w-3.5 h-3.5" />
-            Show QR
-          </button>
-        </div>
-      </div>
-
-      {readyOverflow > 0 ? (
-        <p className="text-orange-200/90 text-xs rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2">
-          {readyOverflow + 1} ready matches on this court — start the earliest first.
-        </p>
-      ) : null}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">
-            {status === "FINISHED" ? "Last match" : "Current"}
-          </p>
-          {currentMatch?.state?.leftSide || currentMatch?.state?.rightSide ? (
-            <TeamPlayerVs
-              left={identityFromLooseSide(currentMatch.state?.leftSide)}
-              right={identityFromLooseSide(currentMatch.state?.rightSide)}
-              size="xs"
-              layout="inline"
-              className="items-start"
-            />
-          ) : (
-            <p className="text-white font-medium truncate">
-              {currentMatch ? matchDisplayLabel(currentMatch) : "—"}
-            </p>
-          )}
-          {currentMatch?.state && status === "LIVE" ? (
-            <p className="text-white/55 text-xs tabular-nums mt-0.5">
-              {currentMatch.state.leftScore ?? 0}–{currentMatch.state.rightScore ?? 0}
-              {currentMatch.state.currentGame != null
-                ? ` · G${currentMatch.state.currentGame}`
-                : ""}
-            </p>
-          ) : null}
-          {status === "DELAYED" && currentMatch?.scheduledAt ? (
-            <p className="text-orange-300/80 text-xs mt-0.5">
-              Was due {formatTime(currentMatch.scheduledAt)}
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">
-            Next
-          </p>
-          {nextMatch?.state?.leftSide || nextMatch?.state?.rightSide ? (
-            <TeamPlayerVs
-              left={identityFromLooseSide(nextMatch.state?.leftSide)}
-              right={identityFromLooseSide(nextMatch.state?.rightSide)}
-              size="xs"
-              layout="inline"
-              className="items-start"
-            />
-          ) : (
-            <p className="text-white/85 font-medium truncate">{nextLabel}</p>
-          )}
-          {(nextMatch?.scheduledAt || nextFixture?.scheduledAt) && (
-            <p className="text-white/40 text-xs mt-0.5">
-              {formatTime(nextMatch?.scheduledAt ?? nextFixture?.scheduledAt)}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 pt-1">
-        {status === "EMPTY" ? (
-          <>
-            {nextFixture ? (
-              <Link
-                href={`/tournament/${tournamentId}/badminton/matches?fixture=${nextFixture.id}`}
-                className="min-h-11 px-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold inline-flex items-center"
-              >
-                Create next match
-              </Link>
-            ) : (
-              <Link
-                href={`/tournament/${tournamentId}/badminton/schedule`}
-                className="min-h-11 px-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold inline-flex items-center"
-              >
-                Schedule next fixture
-              </Link>
-            )}
-          </>
-        ) : null}
-
-        {(status === "READY" || status === "DELAYED") && currentMatch ? (
-          <a
-            href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-            className={cn(
-              "min-h-11 px-4 rounded-lg text-sm font-bold inline-flex items-center",
-              status === "DELAYED"
-                ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-50"
-                : "bg-amber-500/25 hover:bg-amber-500/35 text-amber-100",
-            )}
-          >
-            {status === "DELAYED" ? "Start (delayed)" : "Start Match"}
-          </a>
-        ) : null}
-
-        {status === "LIVE" && currentMatch ? (
-          <a
-            href={badmintonScorerMatchPath(currentMatch.id, tournamentId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="min-h-11 px-4 rounded-lg bg-red-500/25 hover:bg-red-500/35 text-red-200 text-sm font-bold inline-flex items-center"
-          >
-            Open Scoring
-          </a>
-        ) : null}
-
-        {status === "FINISHED" && currentMatch ? (
-          <>
-            <a
-              href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-              className="min-h-11 px-3 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-semibold inline-flex items-center"
-            >
-              View match
-            </a>
-            {nextFixture ? (
-              <Link
-                href={`/tournament/${tournamentId}/badminton/matches?fixture=${nextFixture.id}`}
-                className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center"
-              >
-                Assign next
-              </Link>
-            ) : (
-              <Link
-                href={`/tournament/${tournamentId}/badminton/schedule`}
-                className="min-h-11 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center"
-              >
-                Schedule next
-              </Link>
-            )}
-          </>
-        ) : null}
-      </div>
-
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="font-display">Scorer Home · {court.name}</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-3 py-2">
-            <img
-              src={badmintonQrImageUrl(scorerHomeUrl)}
-              alt={`QR for Scorer Home — ${court.name}`}
-              className="rounded-lg border border-border"
-              width={240}
-              height={240}
-            />
-            <p className="text-xs text-muted-foreground text-center">
-              Scan to open Scorer Home. Court PIN still required.
-            </p>
-            <p className="text-[10px] text-muted-foreground/80 break-all text-center font-mono">
-              {scorerHomeUrl}
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function StatusKpi({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "live" | "ready" | "delayed" | "empty" | "finished";
-}) {
-  const toneClass =
-    tone === "live"
-      ? "border-red-500/35 bg-red-500/10 text-red-300"
-      : tone === "ready"
-        ? "border-amber-500/35 bg-amber-500/10 text-amber-200"
-        : tone === "delayed"
-          ? "border-orange-500/40 bg-orange-500/15 text-orange-200"
-          : tone === "finished"
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-            : "border-white/15 bg-white/5 text-white/60";
-  return (
-    <div className={cn("rounded-xl border px-3 py-2.5 text-center min-h-11", toneClass)}>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
-      <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</p>
-    </div>
   );
 }

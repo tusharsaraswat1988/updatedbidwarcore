@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import type { Player, Team } from "@workspace/api-client-react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
 import { CricketEventType } from "@workspace/scoring-core";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { squadPlayersForTeam } from "@/lib/scoring-squad";
+import {
+  squadPlayersForTeam,
+  type CricketScorerPlayer,
+  type CricketScorerTeam,
+} from "@/lib/scoring-squad";
 import { getActiveInnings } from "@/lib/scoring-ball";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
@@ -22,15 +25,15 @@ type PreMatchSetupProps = {
   tournamentId: number;
   match: ScoringMatchJson;
   state: CricketScoreboardState;
-  teams: Team[];
-  players: Player[];
+  teams: CricketScorerTeam[];
+  players: CricketScorerPlayer[];
   localBowlerId: number | null;
   busy: boolean;
   onEvent: (eventType: string, payload: Record<string, unknown>) => Promise<void>;
   onBowlerSelected: (bowlerId: number) => void;
 };
 
-function teamName(teams: Team[], id: number) {
+function teamName(teams: CricketScorerTeam[], id: number) {
   return teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
 }
 
@@ -197,7 +200,7 @@ function TossStep({
   onStart,
 }: {
   match: ScoringMatchJson;
-  teams: Team[];
+  teams: CricketScorerTeam[];
   tossWinner: string;
   setTossWinner: (v: string) => void;
   electedTo: "bat" | "bowl";
@@ -270,7 +273,7 @@ function SquadLineupPicker({
 }: {
   title: string;
   teamId: number;
-  players: Player[];
+  players: CricketScorerPlayer[];
   busy: boolean;
   onConfirm: (playingXi: number[], bench: number[], battingOrder?: number[]) => void | Promise<void>;
 }) {
@@ -309,7 +312,7 @@ function SquadLineupPicker({
       </div>
       {squad.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No sold players for this team. Add players via auction first.
+          No eligible players for this team. Add players via Player Registry first.
         </p>
       ) : (
         <ul className="max-h-56 overflow-y-auto space-y-1">
@@ -359,14 +362,14 @@ function OpenersPicker({
   onConfirm,
 }: {
   teamId: number;
-  players: Player[];
+  players: CricketScorerPlayer[];
   lineup: number[];
   busy: boolean;
   onConfirm: (strikerId: number, nonStrikerId: number) => void;
 }) {
   const squad = useMemo(() => {
     const map = new Map(squadPlayersForTeam(players, teamId).map((p) => [p.id, p]));
-    return lineup.map((id) => map.get(id)).filter(Boolean) as Player[];
+    return lineup.map((id) => map.get(id)).filter(Boolean) as CricketScorerPlayer[];
   }, [players, teamId, lineup]);
 
   const [striker, setStriker] = useState<string>("");
@@ -424,14 +427,14 @@ function BowlerPicker({
   onSelect,
 }: {
   teamId: number;
-  players: Player[];
+  players: CricketScorerPlayer[];
   lineup: number[];
   busy: boolean;
   onSelect: (bowlerId: number) => void;
 }) {
   const squad = useMemo(() => {
     const map = new Map(squadPlayersForTeam(players, teamId).map((p) => [p.id, p]));
-    return lineup.map((id) => map.get(id)).filter(Boolean) as Player[];
+    return lineup.map((id) => map.get(id)).filter(Boolean) as CricketScorerPlayer[];
   }, [players, teamId, lineup]);
 
   const [bowler, setBowler] = useState<string>("");

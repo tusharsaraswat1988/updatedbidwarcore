@@ -46,6 +46,7 @@ function apiBaseAliases(dirname: string): Record<string, string> {
     "@workspace/api-base/tournament-features": path.join(src, "tournament-features.ts"),
     "@workspace/api-base/sponsor-priority": path.join(src, "sponsor-priority.ts"),
     "@workspace/api-base/branding-assets": path.join(src, "branding-assets.ts"),
+    "@workspace/api-base/api-fetch": path.join(src, "api-fetch.ts"),
     "@workspace/api-base/branding-icon-head": path.join(src, "branding-icon-head.ts"),
     "@workspace/api-base/scoring-urls": path.join(src, "scoring-urls.ts"),
     "@workspace/api-base/vite-proxy": path.join(src, "vite-proxy.ts"),
@@ -114,6 +115,13 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     minify: "esbuild",
+    // Keep heavy optional vendors out of the critical modulepreload list so the
+    // marketing homepage does not download charts/motion/academy until needed.
+    modulePreload: {
+      resolveDependencies(_filename, deps) {
+        return deps.filter((dep) => !dep.includes("vendor-motion"));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id: string) {
@@ -126,9 +134,6 @@ export default defineConfig({
           if (id.includes("/node_modules/@tanstack/")) {
             return "vendor-query";
           }
-          if (id.includes("/node_modules/recharts/") || id.includes("/node_modules/d3-") || id.includes("/node_modules/d3/")) {
-            return "vendor-charts";
-          }
           if (id.includes("/node_modules/@radix-ui/")) {
             return "vendor-radix";
           }
@@ -138,15 +143,9 @@ export default defineConfig({
           if (id.includes("/node_modules/wouter/")) {
             return "vendor-router";
           }
-          if (id.includes("/components/academy/lesson-content")) {
-            return "academy-content";
-          }
-          if (id.includes("/components/academy/academy-search")) {
-            return "academy-search";
-          }
-          if (id.includes("/components/academy/")) {
-            return "academy-shared";
-          }
+          // Do NOT force /components/academy/* into a shared manual chunk.
+          // That caused the homepage landing chunk to statically import
+          // academy-shared (shared utils got pulled into that bucket).
         },
       },
     },

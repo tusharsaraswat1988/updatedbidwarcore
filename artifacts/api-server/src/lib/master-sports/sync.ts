@@ -16,10 +16,10 @@ import {
 import { isPlayerSportProfilesEnabled } from "@workspace/api-base/player-sport-profiles";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
-import { logSync } from "./sync-helpers";
+import { logSync } from "@workspace/player-registry/sync-helpers";
 import {
   assignPlayerToFranchiseRoster,
-} from "./roster-assignments";
+} from "@workspace/player-registry/roster-assignments";
 import { ensureCricketStatisticsBaseline } from "./cricket-stats";
 import {
   buildSportProfileFromAuctionPlayer,

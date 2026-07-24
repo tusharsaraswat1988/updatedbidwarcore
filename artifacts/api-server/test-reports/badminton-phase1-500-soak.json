@@ -1,0 +1,78 @@
+{
+  "when": "2026-07-22T12:04:44.229Z",
+  "matchId": 46,
+  "pass": true,
+  "divergences": 0,
+  "seqViolations": 0,
+  "wall": {
+    "n": 500,
+    "avg": 1385.976010199998,
+    "p95": 1493.4975000000559,
+    "p99": 1759.1564000000944,
+    "max": 2034.3693000000203,
+    "min": 1089.2566000000006
+  },
+  "replayGrowth": [
+    {
+      "points": 1,
+      "eventCount": 2,
+      "replayMs": 413.9392999999691
+    },
+    {
+      "points": 50,
+      "eventCount": 51,
+      "replayMs": 500.37149999989197
+    },
+    {
+      "points": 100,
+      "eventCount": 101,
+      "replayMs": 413.17230000020936
+    },
+    {
+      "points": 150,
+      "eventCount": 151,
+      "replayMs": 505.34639999992214
+    },
+    {
+      "points": 200,
+      "eventCount": 201,
+      "replayMs": 424.68109999992885
+    },
+    {
+      "points": 250,
+      "eventCount": 251,
+      "replayMs": 425.1199000000488
+    },
+    {
+      "points": 300,
+      "eventCount": 301,
+      "replayMs": 438.76919999998063
+    },
+    {
+      "points": 350,
+      "eventCount": 351,
+      "replayMs": 513.498399999924
+    },
+    {
+      "points": 400,
+      "eventCount": 401,
+      "replayMs": 664.05979999993
+    },
+    {
+      "points": 450,
+      "eventCount": 451,
+      "replayMs": 519.0069999999832
+    },
+    {
+      "points": 500,
+      "eventCount": 501,
+      "replayMs": 523.5397000000812
+    }
+  ],
+  "memoryDeltaMB": {
+    "rss": 8.78125,
+    "heapUsed": 5.696678161621094
+  },
+  "cpuUserMs": 953,
+  "cpuSystemMs": 156
+}

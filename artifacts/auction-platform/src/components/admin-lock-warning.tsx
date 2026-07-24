@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { Clock, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -10,23 +9,19 @@ interface AdminLockWarningProps {
 
 export function AdminLockWarning({ secondsLeft, lockMinutes, onContinue }: AdminLockWarningProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.55)" }}
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/55"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="admin-lock-warning-title"
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-card/95 p-6 shadow-2xl backdrop-blur-sm"
-      >
+      <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-card/95 p-6 shadow-2xl backdrop-blur-sm">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15">
-            <Clock className="h-5 w-5 text-amber-400" />
+            <Clock className="h-5 w-5 text-amber-400" aria-hidden />
           </div>
           <div>
-            <p className="font-semibold text-white">Signing out soon</p>
+            <p id="admin-lock-warning-title" className="font-semibold text-foreground">Signing out soon</p>
             <p className="text-xs text-muted-foreground">
               No activity detected — you will be signed out for security.
             </p>
@@ -51,10 +46,10 @@ export function AdminLockWarning({ secondsLeft, lockMinutes, onContinue }: Admin
           size="lg"
           onClick={onContinue}
         >
-          <Lock className="h-4 w-4" />
+          <Lock className="h-4 w-4" aria-hidden />
           Continue
         </Button>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

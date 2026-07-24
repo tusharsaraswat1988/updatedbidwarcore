@@ -1,57 +1,66 @@
 import {
-  Activity,
-  BarChart3,
   CalendarClock,
-  ClipboardList,
   LayoutDashboard,
-  Link2,
-  MapPin,
+  ListTree,
   Radio,
   Settings2,
   Trophy,
-  UserPlus,
   Users,
 } from "lucide-react";
-import {
-  BADMINTON_HUB_NAV,
-  badmintonHubPath,
-  type BadmintonHubNavItem,
-} from "@/lib/badminton-routes";
-import type { SportNavConfig, SportNavItem, SportNavSection } from "@/lib/sports-shell-types";
+import { badmintonHubPath } from "./badminton-routes";
+import type { SportNavConfig, SportNavItem, SportNavSection } from "./sports-shell-types";
 
-const ICONS: Record<string, SportNavItem["icon"]> = {
-  hub: LayoutDashboard,
-  branding: ClipboardList,
-  players: UserPlus,
-  categories: Users,
-  scoring_format: Settings2,
-  courts: MapPin,
-  fixtures: Trophy,
-  schedule: CalendarClock,
-  matches: Activity,
-  control: Radio,
-  results: Trophy,
-  summary: ClipboardList,
-  broadcast: Link2,
-  analytics: BarChart3,
-};
+/**
+ * VNBL Phase 1 — Product IA sidebar (max 7 primary items).
+ *
+ * Temporary hosts point at existing pages until Phase 2 consolidation.
+ * Legacy routes stay reachable; active-state maps them into the parent item.
+ *
+ * Spec: docs/ux/badminton-product-audit.md
+ */
+
+/** Pathname only — strip query/hash so active-state stays stable. */
+function navPathname(path: string): string {
+  const noHash = path.split("#")[0] ?? path;
+  return noHash.split("?")[0] ?? noHash;
+}
+
+function sectionPath(path: string, section: string): boolean {
+  return navPathname(path).includes(`/badminton/${section}`);
+}
+
+function isHubPath(path: string, tournamentId: number): boolean {
+  const pathname = navPathname(path);
+  const base = badmintonHubPath(tournamentId);
+  return pathname === base || pathname === `${base}/`;
+}
+
+function isMatchControlPath(path: string): boolean {
+  return /\/badminton\/matches\/\d+\/control/.test(navPathname(path));
+}
+
+function isMatchesListPath(path: string): boolean {
+  const pathname = navPathname(path);
+  return (
+    /\/badminton\/matches\/?$/.test(pathname) ||
+    (/\/badminton\/matches/.test(pathname) && !isMatchControlPath(pathname))
+  );
+}
+
+function isControlPath(path: string): boolean {
+  const pathname = navPathname(path);
+  return /\/badminton\/control\/?$/.test(pathname) || pathname.endsWith("/badminton/control");
+}
 
 /** Warm lazy route chunks before the user clicks a sidebar link. */
 const PRELOAD: Record<string, () => Promise<unknown>> = {
-  hub: () => import("@/pages/badminton/tournament-hub"),
-  branding: () => import("@/pages/badminton/branding"),
-  players: () => import("@/pages/badminton/players"),
-  categories: () => import("@/pages/badminton/categories"),
-  scoring_format: () => import("@/pages/badminton/scoring-format"),
-  courts: () => import("@/pages/badminton/courts"),
-  fixtures: () => import("@/pages/badminton/fixtures"),
-  schedule: () => import("@/pages/badminton/schedule"),
-  matches: () => import("@/pages/badminton/matches"),
-  control: () => import("@/pages/badminton/control-center"),
-  results: () => import("@/pages/badminton/results"),
-  summary: () => import("@/pages/badminton/summary"),
-  broadcast: () => import("@/pages/badminton/control-center"),
-  analytics: () => import("@/pages/badminton/analytics"),
+  dashboard: () => import("../pages/badminton/tournament-hub"),
+  setup: () => import("../pages/badminton/branding"),
+  participants: () => import("../pages/badminton/players"),
+  structure: () => import("../pages/badminton/fixtures"),
+  schedule: () => import("../pages/badminton/schedule"),
+  live: () => import("../pages/badminton/control-center"),
+  results: () => import("../pages/badminton/results"),
 };
 
 const preloaded = new Set<string>();
@@ -64,83 +73,95 @@ function preloadNav(id: string) {
   void loader();
 }
 
-function toSportItem(item: BadmintonHubNavItem): SportNavItem {
-  return {
-    id: item.id,
-    label: item.label,
-    href: item.href,
-    isActive: item.isActive,
-    icon: ICONS[item.id],
-    preload: PRELOAD[item.id] ? () => preloadNav(item.id) : undefined,
-  };
-}
-
-function byId(id: string): SportNavItem {
-  const found = BADMINTON_HUB_NAV.find((item) => item.id === id);
-  if (!found) {
-    throw new Error(`Unknown badminton hub nav id: ${id}`);
-  }
-  return toSportItem(found);
-}
+/**
+ * Primary organizer destinations — tournament lifecycle order.
+ * Do not add sidebar items without an IA review (max 7).
+ */
+export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    href: badmintonHubPath,
+    isActive: isHubPath,
+    icon: LayoutDashboard,
+    preload: () => preloadNav("dashboard"),
+  },
+  {
+    id: "setup",
+    label: "Tournament Setup",
+    // Temporary host — Phase 2 merges branding / courts / scoring-format / brand assets
+    href: (tid) => `${badmintonHubPath(tid)}/branding`,
+    isActive: (path) =>
+      sectionPath(path, "branding") ||
+      sectionPath(path, "scoring-format") ||
+      sectionPath(path, "courts"),
+    icon: Settings2,
+    preload: () => preloadNav("setup"),
+  },
+  {
+    id: "participants",
+    label: "Participants",
+    // Temporary host — Phase 2 merges players / officials / scorers / entries
+    href: (tid) => `${badmintonHubPath(tid)}/players`,
+    isActive: (path) => sectionPath(path, "players") || sectionPath(path, "scorers"),
+    icon: Users,
+    preload: () => preloadNav("participants"),
+  },
+  {
+    id: "structure",
+    label: "Tournament Structure",
+    // Temporary host — Phase 2 merges events / draw / fixtures / format
+    href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
+    isActive: (path) =>
+      sectionPath(path, "fixtures") || sectionPath(path, "categories"),
+    icon: ListTree,
+    preload: () => preloadNav("structure"),
+  },
+  {
+    id: "schedule",
+    label: "Schedule",
+    href: (tid) => `${badmintonHubPath(tid)}/schedule`,
+    isActive: (path) => sectionPath(path, "schedule"),
+    icon: CalendarClock,
+    preload: () => preloadNav("schedule"),
+  },
+  {
+    id: "live",
+    label: "Live Control",
+    // Temporary host — Mission Control (control center); broadcast is in-page
+    href: (tid) => `${badmintonHubPath(tid)}/control`,
+    isActive: (path) =>
+      isControlPath(path) ||
+      sectionPath(path, "broadcast") ||
+      isMatchControlPath(path) ||
+      isMatchesListPath(path),
+    icon: Radio,
+    preload: () => preloadNav("live"),
+  },
+  {
+    id: "results",
+    label: "Results",
+    // Temporary host — Phase 2 merges summary / analytics into Results
+    href: (tid) => `${badmintonHubPath(tid)}/results`,
+    isActive: (path) =>
+      sectionPath(path, "results") ||
+      sectionPath(path, "summary") ||
+      sectionPath(path, "analytics"),
+    icon: Trophy,
+    preload: () => preloadNav("results"),
+  },
+];
 
 /**
- * Badminton sidebar sections for SportsShell.
- * Same destinations as BADMINTON_HUB_NAV — Auction-style vertical grouping.
+ * Badminton sidebar for SportsShell — flat lifecycle nav (no module sections).
  */
 export function getBadmintonSportNav(): SportNavConfig {
   const sections: SportNavSection[] = [
     {
-      id: "dashboard",
-      label: "Dashboard",
-      items: [
-        {
-          ...byId("hub"),
-          label: "Tournament Dashboard",
-        },
-      ],
-    },
-    {
-      id: "setup",
-      label: "Setup",
-      items: [
-        { ...byId("branding"), label: "Tournament Information" },
-        byId("players"),
-        { ...byId("categories"), label: "Teams / Events" },
-        { ...byId("scoring_format"), label: "Scoring Format" },
-        { ...byId("courts"), label: "Venues & Courts" },
-        { ...byId("fixtures"), label: "Fixtures" },
-        { ...byId("schedule"), label: "Match Schedule" },
-      ],
-    },
-    {
-      id: "operations",
-      label: "Operations",
-      items: [
-        byId("matches"),
-        {
-          ...byId("control"),
-          label: "Operator Panel",
-          hint: "Live tournament control",
-        },
-        byId("results"),
-        { ...byId("summary"), label: "Publish / Summary" },
-      ],
-    },
-    {
-      id: "broadcast",
-      label: "Broadcast",
-      items: [
-        {
-          ...byId("broadcast"),
-          label: "Display & Broadcast",
-          hint: "Director · Venue · OBS · Scorer",
-        },
-      ],
-    },
-    {
-      id: "insights",
-      label: "Reports",
-      items: [byId("analytics")],
+      id: "primary",
+      // Empty label → flat list (SportsShell skips blank section headers)
+      label: "",
+      items: BADMINTON_PRIMARY_NAV,
     },
   ];
 

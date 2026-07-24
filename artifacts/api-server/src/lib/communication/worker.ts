@@ -192,6 +192,8 @@ async function workerTick(): Promise<void> {
         });
       });
     }
+  } catch (err) {
+    logger.error({ err }, "Communication worker tick failed");
   } finally {
     tickInFlight = false;
   }

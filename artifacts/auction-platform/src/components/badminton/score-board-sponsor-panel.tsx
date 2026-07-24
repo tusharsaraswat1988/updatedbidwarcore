@@ -73,17 +73,14 @@ export function ScoreBoardSponsorPanel({
         <div className="min-w-0 text-left">
           {sponsor.title && (
             <p
-              className={cn(
-                "font-black uppercase tracking-[0.2em] truncate",
-                compact ? "text-[9px]" : "text-[10px]",
-              )}
+              className={cn("bw-label truncate", compact ? "text-[9px]" : "text-[10px]")}
               style={{ color: "var(--accent)" }}
             >
               {sponsor.title}
             </p>
           )}
           {sponsor.name && (
-            <p className={cn("font-black text-white truncate", compact ? "text-sm leading-tight" : "text-base")}>
+            <p className={cn("bw-heading text-white truncate", compact ? "text-sm leading-tight" : "text-base")}>
               {sponsor.name}
             </p>
           )}

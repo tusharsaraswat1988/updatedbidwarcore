@@ -27,7 +27,7 @@ export function BracketProgressPanel({
 }) {
   if (collections.length === 0) {
     return (
-      <p className="text-white/35 text-sm">No fixture collections for this category yet.</p>
+      <p className="text-white/35 text-sm">No draw for this event yet.</p>
     );
   }
 

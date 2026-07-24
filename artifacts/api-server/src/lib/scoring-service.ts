@@ -2,7 +2,6 @@ import { db } from "@workspace/db";
 import {
   scoringMatchesTable,
   scoringSessionsTable,
-  teamsTable,
   tournamentsTable,
 } from "@workspace/db";
 import {
@@ -18,6 +17,7 @@ import { replayScoringMatchState } from "./scoring-platform";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
 import { loadMatchEvents } from "./scoring-platform/event-store";
+import { cricketFranchiseTeamExists } from "./master-sports/cricket-franchise-registry";
 
 export type { ScoringActor };
 
@@ -83,12 +83,8 @@ async function ensureTournamentScoring(tournamentId: number) {
 }
 
 async function ensureTeamInTournament(tournamentId: number, teamId: number) {
-  const [team] = await db
-    .select({ id: teamsTable.id })
-    .from(teamsTable)
-    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tournamentId)))
-    .limit(1);
-  if (!team) {
+  const ok = await cricketFranchiseTeamExists(tournamentId, teamId);
+  if (!ok) {
     throw new ScoringServiceError(`Team ${teamId} not found in tournament`, 400, "INVALID_TEAM");
   }
 }

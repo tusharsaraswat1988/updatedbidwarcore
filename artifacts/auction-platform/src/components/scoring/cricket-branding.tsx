@@ -1,6 +1,6 @@
 /**
- * BidWar auction theme + branding for cricket scoring surfaces.
- * Reuses the shared badminton branding hook (same design tokens).
+ * Platform Tournament Branding theme tokens for cricket scoring surfaces.
+ * Reuses shared BidWar branding (same design tokens as badminton) — not Auction branding.
  */
 export {
   useBadmintonBidWarTheme as useCricketBidWarTheme,

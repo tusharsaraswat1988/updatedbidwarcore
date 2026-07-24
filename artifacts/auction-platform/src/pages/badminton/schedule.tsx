@@ -35,7 +35,7 @@ import {
   inputClass,
   BtnPrimary,
 } from "@/components/badminton/page-chrome";
-import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { BadmintonIaPageChrome } from "@/components/badminton/ia-workflow-chrome";
 
 interface BadmintonCourt {
   id: number;
@@ -350,15 +350,13 @@ export default function BadmintonSchedulePage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonSetupWizardChrome
+      <BadmintonIaPageChrome
         tournamentId={tournamentId}
-        stepId="scheduling"
-        continueHref={`/tournament/${tournamentId}/badminton`}
-        continueLabel="Continue to Ready"
+        stepId="schedule"
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {courts.length === 0 ? (
-              <Link href={`/tournament/${tournamentId}/badminton/courts`}>
+              <Link href={`/tournament/${tournamentId}/badminton/branding?section=courts`}>
                 <BtnPrimary type="button">Set up courts</BtnPrimary>
               </Link>
             ) : unscheduled.length > 0 ? (
@@ -366,7 +364,7 @@ export default function BadmintonSchedulePage() {
                 type="button"
                 onClick={() => setScheduleTarget(unscheduled[0] ?? null)}
               >
-                Schedule next fixture
+                Schedule next match
               </BtnPrimary>
             ) : null}
           </div>
@@ -397,21 +395,30 @@ export default function BadmintonSchedulePage() {
         ) : fixtures.length === 0 ? (
           <EmptyState
             icon={CalendarClock}
-            title="No fixtures to schedule"
-            desc="Create fixtures in Tournament Draw first, then return here to assign courts and times."
+            title="No matches to schedule yet"
+            desc="Generate a draw in Tournament Structure first. Then come back here to assign court, date, and time."
             action={{
-              label: "Open Tournament Draw",
-              href: `/tournament/${tournamentId}/badminton/fixtures`,
+              label: "Generate Draw",
+              href: `/tournament/${tournamentId}/badminton/fixtures?section=draw`,
             }}
           />
         ) : (
           <>
             <section className="space-y-3">
               <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest">
-                Unscheduled fixtures ({unscheduled.length})
+                Unscheduled ({unscheduled.length})
               </h2>
               {unscheduled.length === 0 ? (
-                <p className="text-white/35 text-sm">All schedulable fixtures have a court and time.</p>
+                <p className="text-white/35 text-sm">
+                  Every match has a court and time. Next:{" "}
+                  <Link
+                    href={`/tournament/${tournamentId}/badminton/control`}
+                    className="text-[#4fc3f7] hover:underline"
+                  >
+                    Go Live
+                  </Link>{" "}
+                  to start play from Live Control.
+                </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {unscheduled.map((fixture) => (
@@ -456,10 +463,14 @@ export default function BadmintonSchedulePage() {
                         </h3>
                         <span className="text-white/30 text-xs">
                           {list.length} fixture{list.length !== 1 ? "s" : ""}
+                          {list.length === 0 ? " — create Matches separately" : ""}
                         </span>
                       </div>
                       {list.length === 0 ? (
-                        <p className="text-white/30 text-sm">No fixtures on this court yet.</p>
+                        <p className="text-white/30 text-sm">
+                          No fixtures on this court yet. After you schedule fixtures here, create
+                          scoring matches under Operations → Matches.
+                        </p>
                       ) : (
                         <div className="space-y-2">
                           {list.map((fixture) => (
@@ -557,7 +568,7 @@ export default function BadmintonSchedulePage() {
         error={unscheduleError}
         onConfirm={() => void handleUnscheduleConfirm()}
       />
-      </BadmintonSetupWizardChrome>
+      </BadmintonIaPageChrome>
     </HubPageShell>
   );
 }

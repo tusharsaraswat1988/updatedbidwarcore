@@ -1,0 +1,14 @@
+{
+  "name": "@workspace/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./owner-auth": "./src/owner-auth.ts",
+    "./organizer-account": "./src/organizer-account.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

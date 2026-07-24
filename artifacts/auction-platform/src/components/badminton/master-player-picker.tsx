@@ -216,7 +216,7 @@ export function MasterPlayerPicker({
             </p>
             {!query.trim() ? (
               <p className="text-white/25 text-xs">
-                Add players under Badminton → Players, or import from your auction roster first.
+                Add players under Badminton → Players, or import from your Player Registry first.
               </p>
             ) : null}
           </div>

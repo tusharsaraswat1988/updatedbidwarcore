@@ -77,9 +77,12 @@ import {
   friendlyBadmintonCommandMessage,
 } from "../lib/badminton-ops";
 import {
+  createScorerAccountForAdmin,
   extractBearerToken,
+  listScorerAccountsForAdmin,
   resolveScorerAuthFromToken,
   ScorerAuthError,
+  updateScorerAccountForAdmin,
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
 import {
@@ -116,6 +119,11 @@ import {
   broadcastBadmintonMatchUpdate,
   broadcastTournamentUpdate,
 } from "../lib/badminton-broadcast";
+import {
+  runWithLatencyTrace,
+  markLatency,
+  toPhaseBreakdown,
+} from "../lib/badminton-latency-trace";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
@@ -742,6 +750,75 @@ router.delete("/players/:playerId", async (req, res) => {
   res.json({ deleted: true });
 });
 
+// ─── Scorer accounts (organizer manage) ───────────────────────────────────────
+
+router.get("/scorers", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  try {
+    const scorers = await listScorerAccountsForAdmin();
+    res.json({ scorers });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/scorers", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const schema = z.object({
+    name: z.string().min(1).max(100),
+    mobile: z.string().min(10).max(20),
+    pin: z.string().min(4).max(32),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return void res.status(400).json({ error: parsed.error.message, code: "VALIDATION_ERROR" });
+  }
+
+  try {
+    const scorer = await createScorerAccountForAdmin(parsed.data);
+    res.status(201).json({ scorer });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.patch("/scorers/:scorerId", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const scorerId = parseId((req.params as MergedParams).scorerId);
+  if (!scorerId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    name: z.string().min(1).max(100).optional(),
+    pin: z.string().min(4).max(32).optional(),
+    isActive: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return void res.status(400).json({ error: parsed.error.message, code: "VALIDATION_ERROR" });
+  }
+
+  try {
+    const scorer = await updateScorerAccountForAdmin(scorerId, parsed.data);
+    res.json({ scorer });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
 // ─── Courts ──────────────────────────────────────────────────────────────────
 
 router.get("/courts", async (req, res) => {
@@ -773,20 +850,17 @@ router.post("/courts", async (req, res) => {
     sortOrder: z.number().int().optional(),
     streamUrl: z.string().max(500).optional(),
     hasDisplay: z.boolean().optional(),
-    scorerPin: z.string().max(20).optional(),
-    scorerName: z.string().max(100).optional(),
+    // UI sends null when optional fields are left blank
+    scorerPin: z.string().max(20).nullable().optional(),
+    scorerName: z.string().max(100).nullable().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const scorerPin =
-    parsed.data.scorerPin !== undefined
-      ? parsed.data.scorerPin.trim().length >= 4
-        ? parsed.data.scorerPin.trim()
-        : null
-      : null;
-  if (parsed.data.scorerPin !== undefined && parsed.data.scorerPin.trim().length > 0 && !scorerPin) {
+  const rawPin = parsed.data.scorerPin?.trim() ?? "";
+  const scorerPin = rawPin.length >= 4 ? rawPin : null;
+  if (rawPin.length > 0 && !scorerPin) {
     return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
   }
 
@@ -1762,6 +1836,20 @@ router.post("/matches", async (req, res) => {
     fixtureCategoryId = fixtureCategoryId ?? fix.categoryId;
   }
 
+  // Court + time are required to start / appear on Scorer Home — enforce at create.
+  if (fixtureCourtId == null) {
+    return void res.status(400).json({
+      error: "Court is required. Assign a court before creating the match.",
+      code: "COURT_REQUIRED",
+    });
+  }
+  if (!fixtureScheduledAt || Number.isNaN(fixtureScheduledAt.getTime())) {
+    return void res.status(400).json({
+      error: "Scheduled time is required. Set a date and time before creating the match.",
+      code: "SCHEDULED_AT_REQUIRED",
+    });
+  }
+
   try {
     const created = await createBadmintonMatch({
       tournamentId,
@@ -2191,28 +2279,49 @@ router.post("/matches/:matchId/point", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  const wantTrace =
+    req.header("x-bidwar-latency-trace") === "1" ||
+    process.env.BIDWAR_LATENCY_TRACE === "1";
+
   try {
-    const state = await awardPoint(
-      matchId,
-      tournamentId,
-      parsed.data.side,
-      actorFrom(req, scoringAuth),
-      { rallyLength: parsed.data.rallyLength },
-    );
+    const run = async () => {
+      markLatency("t2_request_entered");
+      const state = await awardPoint(
+        matchId,
+        tournamentId,
+        parsed.data.side,
+        actorFrom(req, scoringAuth),
+        { rallyLength: parsed.data.rallyLength },
+      );
+      markLatency("awardPoint_returned");
 
-    const auditActor = auditActorFrom(req, scoringAuth);
-    await writeScorerAudit({
-      ...auditActor,
-      tournamentId,
-      matchId,
-      sport: "badminton",
-      action: "point_added",
-      payload: { side: parsed.data.side },
-    });
-    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
+      // Emit SSE immediately after persist so LED/scoreboard update is not
+      // blocked by audit I/O. Audit is still awaited before the HTTP response.
+      markLatency("pre_broadcast");
+      broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
 
-    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
-    res.json({ state });
+      const auditActor = auditActorFrom(req, scoringAuth);
+      await writeScorerAudit({
+        ...auditActor,
+        tournamentId,
+        matchId,
+        sport: "badminton",
+        action: "point_added",
+        payload: { side: parsed.data.side },
+      });
+      markLatency("audit_written");
+      await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
+      return state;
+    };
+
+    if (!wantTrace) {
+      const state = await run();
+      return void res.json({ state });
+    }
+
+    const { result: state, marks } = await runWithLatencyTrace(run);
+    const breakdown = toPhaseBreakdown(marks);
+    res.json({ state, _latency: breakdown });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });

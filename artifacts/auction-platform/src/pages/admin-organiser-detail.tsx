@@ -163,7 +163,8 @@ export default function AdminOrganiserDetailPage() {
                   </StatusBadge>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {organiser.mobile || "No mobile"} · {organiser.email || "No email"} · Member since {new Date(organiser.createdAt).toLocaleDateString()}
+                  {organiser.mobile || "Phone Missing"} · {organiser.email || "No email"} · Member since {new Date(organiser.createdAt).toLocaleDateString()}
+                  {organiser.phoneStatus === "verified" ? " · Phone verified" : organiser.incompleteProfile || organiser.needsMobile ? " · Incomplete profile" : ""}
                 </p>
               </div>
             </div>

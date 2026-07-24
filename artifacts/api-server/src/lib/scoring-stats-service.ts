@@ -1,12 +1,10 @@
 import { db } from "@workspace/db";
 import {
-  playersTable,
   scoringEventsTable,
   scoringLeaderboardSnapshotsTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
   scoringPlayerAwardsTable,
-  teamsTable,
 } from "@workspace/db";
 import {
   buildCricketScorecardFromEvents,
@@ -25,6 +23,10 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import { ensureScoringEnabled } from "./scoring-standings";
+import {
+  resolveCricketFranchisePlayersByIds,
+  resolveCricketFranchiseTeamsByIds,
+} from "./master-sports/cricket-franchise-registry";
 
 const LEADERBOARD_CATEGORIES: LeaderboardCategory[] = [
   "runs",
@@ -298,32 +300,16 @@ export async function getTournamentLeaderboard(
   const playerIds: number[] = [...new Set(rows.map((r) => r.playerId))];
   const teamIds: number[] = [...new Set(rows.map((r) => r.teamId))];
 
-  const [players, teams] = await Promise.all([
-    db
-      .select({ id: playersTable.id, name: playersTable.name })
-      .from(playersTable)
-      .where(
-        and(
-          eq(playersTable.tournamentId, tournamentId),
-          inArray(playersTable.id, playerIds),
-        ),
-      ),
-    db
-      .select({ id: teamsTable.id, name: teamsTable.name, shortCode: teamsTable.shortCode })
-      .from(teamsTable)
-      .where(
-        and(eq(teamsTable.tournamentId, tournamentId), inArray(teamsTable.id, teamIds)),
-      ),
+  const [playerMap, teamMap] = await Promise.all([
+    resolveCricketFranchisePlayersByIds(tournamentId, playerIds),
+    resolveCricketFranchiseTeamsByIds(tournamentId, teamIds),
   ]);
-
-  const playerMap = new Map(players.map((p) => [p.id, p.name]));
-  const teamMap = new Map(teams.map((t) => [t.id, t]));
 
   return rows.map((row: LeaderboardRow) => {
     const team = teamMap.get(row.teamId);
     return {
       ...row,
-      playerName: playerMap.get(row.playerId) ?? `Player ${row.playerId}`,
+      playerName: playerMap.get(row.playerId)?.displayName ?? `Player ${row.playerId}`,
       teamName: team?.name ?? "Team",
       shortCode: team?.shortCode ?? "—",
     };
@@ -350,20 +336,12 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
 
   const scorecard = await buildMatchScorecard(match);
 
-  const [homeTeam, awayTeam] = await Promise.all([
-    db
-      .select({ id: teamsTable.id, name: teamsTable.name, shortCode: teamsTable.shortCode })
-      .from(teamsTable)
-      .where(eq(teamsTable.id, match.homeTeamId))
-      .limit(1)
-      .then((r) => r[0]),
-    db
-      .select({ id: teamsTable.id, name: teamsTable.name, shortCode: teamsTable.shortCode })
-      .from(teamsTable)
-      .where(eq(teamsTable.id, match.awayTeamId))
-      .limit(1)
-      .then((r) => r[0]),
+  const teamMeta = await resolveCricketFranchiseTeamsByIds(tournamentId, [
+    match.homeTeamId,
+    match.awayTeamId,
   ]);
+  const homeTeam = teamMeta.get(match.homeTeamId);
+  const awayTeam = teamMeta.get(match.awayTeamId);
 
   const playerIds = new Set<number>();
   for (const inn of scorecard.innings) {
@@ -371,20 +349,7 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
     for (const b of inn.bowling) playerIds.add(b.playerId);
   }
 
-  const players =
-    playerIds.size > 0
-      ? await db
-          .select({ id: playersTable.id, name: playersTable.name })
-          .from(playersTable)
-          .where(
-            and(
-              eq(playersTable.tournamentId, tournamentId),
-              inArray(playersTable.id, [...playerIds]),
-            ),
-          )
-      : [];
-
-  const playerMap = new Map(players.map((p) => [p.id, p.name]));
+  const playerMap = await resolveCricketFranchisePlayersByIds(tournamentId, [...playerIds]);
 
   const [momAward] = await db
     .select()
@@ -407,11 +372,15 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
   if (momAward) {
     manOfTheMatch = {
       playerId: momAward.playerId,
-      playerName: playerMap.get(momAward.playerId) ?? `Player ${momAward.playerId}`,
+      playerName: playerMap.get(momAward.playerId)?.displayName ?? `Player ${momAward.playerId}`,
       teamId: momAward.teamId,
       reason: momAward.reason,
     };
   }
+
+  const playerNames = new Map(
+    [...playerMap.entries()].map(([id, p]) => [id, p.displayName] as const),
+  );
 
   return {
     match: {
@@ -419,15 +388,19 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
       status: match.status,
       homeTeamId: match.homeTeamId,
       awayTeamId: match.awayTeamId,
-      homeTeam: homeTeam ?? null,
-      awayTeam: awayTeam ?? null,
+      homeTeam: homeTeam
+        ? { id: homeTeam.teamId, name: homeTeam.name, shortCode: homeTeam.shortCode }
+        : null,
+      awayTeam: awayTeam
+        ? { id: awayTeam.teamId, name: awayTeam.name, shortCode: awayTeam.shortCode }
+        : null,
       winnerTeamId: match.winnerTeamId,
       resultSummary: match.resultSummary,
       roundName: match.roundName,
       completedAt: match.completedAt?.toISOString() ?? null,
     },
     scorecard,
-    players: Object.fromEntries(playerMap),
+    players: Object.fromEntries(playerNames),
     manOfTheMatch,
   };
 }

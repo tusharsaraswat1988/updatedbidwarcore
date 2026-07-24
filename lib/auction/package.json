@@ -1,0 +1,32 @@
+{
+  "name": "@workspace/auction",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auction-bid": "./src/auction-bid.ts",
+    "./auction-bid-sync": "./src/auction-bid-sync.ts",
+    "./auction-unit": "./src/auction-unit.ts",
+    "./auction-player-selection": "./src/auction-player-selection.ts",
+    "./auction-readiness": "./src/auction-readiness.ts",
+    "./auction-trial": "./src/auction-trial.ts",
+    "./auction-date": "./src/auction-date.ts",
+    "./auction-connection-state": "./src/auction-connection-state.ts",
+    "./auction-timer": "./src/auction-timer.ts",
+    "./purse-capacity": "./src/purse-capacity.ts",
+    "./purse-protection": "./src/purse-protection.ts",
+    "./purse-protection-expect": "./src/purse-protection-expect.ts",
+    "./sync-team-purse": "./src/sync-team-purse.ts",
+    "./purse-booster-led": "./src/purse-booster-led.ts",
+    "./bid-value": "./src/bid-value.ts",
+    "./retained-price": "./src/retained-price.ts",
+    "./re-auction-strategy": "./src/re-auction-strategy.ts",
+    "./venue-auction-guard": "./src/venue-auction-guard.ts",
+    "./team-report-rules": "./src/team-report-rules.ts",
+    "./auction-data": "./src/auction-data/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

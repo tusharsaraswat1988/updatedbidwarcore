@@ -1,23 +1,27 @@
 import { db } from "@workspace/db";
 import {
   globalPlayersTable,
-  playersTable,
+  playerTeamAssignmentsTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
   scoringPlayerAwardsTable,
   scoringStandingsTable,
-  teamsTable,
   tournamentsTable,
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
   type TournamentPlayerAggregate,
 } from "@workspace/scoring-core";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { ScoringServiceError } from "./scoring-service";
 import { TERMINAL_SCORING_MATCH_STATUSES } from "./scoring-match-terminal";
 import { ensureScoringEnabled } from "./scoring-standings";
 import type { BattingStatsJson, BowlingStatsJson, FieldingStatsJson } from "@workspace/db";
+import {
+  listCricketFranchisePlayers,
+  resolveCricketFranchisePlayersByIds,
+  resolveCricketFranchiseTeamsByIds,
+} from "./master-sports/cricket-franchise-registry";
 
 function statRowsToAggregates(
   statRows: Array<{
@@ -93,23 +97,17 @@ function aggregateToJson(agg: TournamentPlayerAggregate) {
 export async function getTournamentPlayerPublicProfile(tournamentId: number, playerId: number) {
   await ensureScoringEnabled(tournamentId);
 
-  const [player] = await db
-    .select()
-    .from(playersTable)
-    .where(and(eq(playersTable.tournamentId, tournamentId), eq(playersTable.id, playerId)))
-    .limit(1);
+  const playerMap = await resolveCricketFranchisePlayersByIds(tournamentId, [playerId]);
+  const player = playerMap.get(playerId);
 
   if (!player) {
     throw new ScoringServiceError("Player not found", 404, "PLAYER_NOT_FOUND");
   }
 
-  const [team] = player.teamId
-    ? await db
-        .select({ id: teamsTable.id, name: teamsTable.name, shortCode: teamsTable.shortCode, color: teamsTable.color })
-        .from(teamsTable)
-        .where(eq(teamsTable.id, player.teamId))
-        .limit(1)
-    : [null];
+  const team =
+    player.teamId != null
+      ? (await resolveCricketFranchiseTeamsByIds(tournamentId, [player.teamId])).get(player.teamId)
+      : null;
 
   const statRows = await db
     .select()
@@ -158,29 +156,22 @@ export async function getTournamentPlayerPublicProfile(tournamentId: number, pla
           .orderBy(desc(scoringMatchesTable.completedAt))
       : [];
 
-  let globalPlayer: { id: string; displayName: string | null; photoUrl: string | null } | null = null;
-  if (player.globalPlayerId) {
-    const [gp] = await db
-      .select({
-        id: globalPlayersTable.id,
-        displayName: globalPlayersTable.displayName,
-        photoUrl: globalPlayersTable.photoUrl,
-      })
-      .from(globalPlayersTable)
-      .where(eq(globalPlayersTable.id, player.globalPlayerId))
-      .limit(1);
-    globalPlayer = gp ?? null;
-  }
-
   return {
     player: {
-      id: player.id,
-      name: player.name,
+      id: player.playerId,
+      name: player.displayName,
       role: player.role,
-      photoUrl: player.photoUrl ?? globalPlayer?.photoUrl ?? null,
-      globalPlayerId: player.globalPlayerId,
+      photoUrl: player.photoUrl,
+      globalPlayerId: player.masterPlayerId,
     },
-    team,
+    team: team
+      ? {
+          id: team.teamId,
+          name: team.name,
+          shortCode: team.shortCode,
+          color: team.color,
+        }
+      : null,
     stats: stats ? aggregateToJson(stats) : null,
     manOfTheMatchAwards: momAwards.map((a) => ({
       matchId: a.matchId,
@@ -201,11 +192,7 @@ export async function getTournamentPlayerPublicProfile(tournamentId: number, pla
 export async function getTournamentTeamPublicProfile(tournamentId: number, teamId: number) {
   await ensureScoringEnabled(tournamentId);
 
-  const [team] = await db
-    .select()
-    .from(teamsTable)
-    .where(and(eq(teamsTable.tournamentId, tournamentId), eq(teamsTable.id, teamId)))
-    .limit(1);
+  const team = (await resolveCricketFranchiseTeamsByIds(tournamentId, [teamId])).get(teamId);
 
   if (!team) {
     throw new ScoringServiceError("Team not found", 404, "TEAM_NOT_FOUND");
@@ -222,17 +209,14 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
     )
     .limit(1);
 
-  const squad = await db
-    .select({
-      id: playersTable.id,
-      name: playersTable.name,
-      role: playersTable.role,
-      status: playersTable.status,
-      soldPrice: playersTable.soldPrice,
-    })
-    .from(playersTable)
-    .where(and(eq(playersTable.tournamentId, tournamentId), eq(playersTable.teamId, teamId)))
-    .orderBy(playersTable.name);
+  const squadPlayers = await listCricketFranchisePlayers(tournamentId, teamId);
+  const squad = squadPlayers.map((p) => ({
+    id: p.playerId,
+    name: p.displayName,
+    role: p.role,
+    status: p.status,
+    soldPrice: null as number | null,
+  }));
 
   const teamMatches = await db
     .select()
@@ -279,18 +263,11 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
     }));
 
   const playerIds = topBatsmen.map((r) => r.playerId);
-  const playerNames =
-    playerIds.length > 0
-      ? await db
-          .select({ id: playersTable.id, name: playersTable.name })
-          .from(playersTable)
-          .where(inArray(playersTable.id, playerIds))
-      : [];
-  const nameMap = new Map(playerNames.map((p) => [p.id, p.name]));
+  const nameMap = await resolveCricketFranchisePlayersByIds(tournamentId, playerIds);
 
   return {
     team: {
-      id: team.id,
+      id: team.teamId,
       name: team.name,
       shortCode: team.shortCode,
       color: team.color,
@@ -311,7 +288,7 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
     recentResults: results,
     topBatsmen: topBatsmen.map((r) => ({
       playerId: r.playerId,
-      playerName: nameMap.get(r.playerId) ?? `Player ${r.playerId}`,
+      playerName: nameMap.get(r.playerId)?.displayName ?? `Player ${r.playerId}`,
       runs: r.runs,
       matches: r.matches,
       strikeRate: r.strikeRate,
@@ -332,16 +309,26 @@ export async function getGlobalPlayerCricketProfile(globalPlayerId: string) {
 
   const rosterRows = await db
     .select({
-      playerId: playersTable.id,
-      tournamentId: playersTable.tournamentId,
-      name: playersTable.name,
-      role: playersTable.role,
-      teamId: playersTable.teamId,
+      playerId: playerTeamAssignmentsTable.auctionPlayerId,
+      tournamentId: playerTeamAssignmentsTable.tournamentId,
+      teamId: playerTeamAssignmentsTable.auctionTeamId,
     })
-    .from(playersTable)
-    .where(eq(playersTable.globalPlayerId, globalPlayerId));
+    .from(playerTeamAssignmentsTable)
+    .where(
+      and(
+        eq(playerTeamAssignmentsTable.playerId, globalPlayerId),
+        eq(playerTeamAssignmentsTable.sport, "cricket"),
+        isNotNull(playerTeamAssignmentsTable.auctionPlayerId),
+      ),
+    );
 
-  const tournamentIds = [...new Set(rosterRows.map((r) => r.tournamentId))];
+  const tournamentIds = [
+    ...new Set(
+      rosterRows
+        .map((r) => r.tournamentId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
   const tournaments =
     tournamentIds.length > 0
       ? await db
@@ -350,7 +337,13 @@ export async function getGlobalPlayerCricketProfile(globalPlayerId: string) {
           .where(inArray(tournamentsTable.id, tournamentIds))
       : [];
 
-  const playerIds = rosterRows.map((r) => r.playerId);
+  const playerIds = [
+    ...new Set(
+      rosterRows
+        .map((r) => r.playerId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
   const statRows =
     playerIds.length > 0
       ? await db

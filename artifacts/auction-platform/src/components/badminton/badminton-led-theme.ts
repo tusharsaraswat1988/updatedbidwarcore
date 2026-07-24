@@ -16,7 +16,7 @@ export function fixedScoreStyle(active = true): CSSProperties {
   return {
     color: "#ffffff",
     textShadow: active
-      ? "0 0 48px rgba(255,255,255,0.28), 0 2px 12px rgba(0,0,0,0.55)"
+      ? "0 0 64px rgba(255,255,255,0.38), 0 0 28px rgba(255,255,255,0.22), 0 3px 14px rgba(0,0,0,0.6)"
       : "none",
     opacity: active ? 1 : 0.38,
   };
@@ -28,12 +28,20 @@ export function fixedServeStyle(active: boolean): CSSProperties {
     : { backgroundColor: "rgba(255,255,255,0.1)" };
 }
 
-export function fixedGameDotStyle(filled: boolean): CSSProperties {
-  if (!filled) return { backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.25)" };
+export function fixedGameDotStyle(filled: boolean, side?: "left" | "right"): CSSProperties {
+  if (!filled) {
+    return {
+      backgroundColor: "rgba(255,255,255,0.04)",
+      borderColor: side === "left" ? "rgba(255,196,0,0.3)" : "rgba(206,147,216,0.3)",
+    };
+  }
+  const gold = { fill: "#ffd700", glow: "rgba(255, 215, 0, 0.65)" };
+  const lilac = { fill: "#e0b0ff", glow: "rgba(206, 147, 216, 0.6)" };
+  const { fill, glow } = side === "right" ? lilac : gold;
   return {
-    backgroundColor: "#ffffff",
-    borderColor: "#ffffff",
-    boxShadow: "0 0 12px rgba(255,255,255,0.35)",
+    backgroundColor: fill,
+    borderColor: fill,
+    boxShadow: `0 0 16px ${glow}, 0 0 4px ${glow}`,
   };
 }
 

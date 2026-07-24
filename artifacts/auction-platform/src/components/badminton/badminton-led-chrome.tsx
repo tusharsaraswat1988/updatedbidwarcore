@@ -20,7 +20,6 @@ import {
   sponsorBroadcastTier,
 } from "@/lib/sponsor-broadcast-priority-styles";
 import { ChyronTickerScroller } from "@/components/display/v1/ChyronTickerScroller";
-import { LED_META_LABEL_CLASS } from "@/lib/led-display-typography";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { cn } from "@/lib/utils";
 
@@ -55,104 +54,93 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   const isLive = matchStatus === "live" && !isTimeout;
 
   return (
-    <div className="relative z-20 pointer-events-none shrink-0">
-      <div
-        className={cn(
-          "grid items-center gap-3 md:gap-4 px-[3%] border-b border-white/10 bg-black/40",
-          showScoreBoardSponsor
-            ? "grid-cols-[auto_1fr_auto_auto] h-[9vh] min-h-[64px] max-h-[88px]"
-            : "grid-cols-[auto_1fr_auto] h-[8vh] min-h-[56px] max-h-[80px]",
-        )}
-      >
-        <div className="flex items-center gap-3 md:gap-4 min-w-0">
-          {logoSrc ? (
-            <img
-              src={logoSrc}
-              alt={logoAlt}
-              className="block h-9 md:h-10 w-auto max-w-[min(220px,28vw)] object-contain object-left shrink-0"
-              style={{ filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.55))" }}
-              loading="eager"
-              decoding="async"
-            />
-          ) : null}
+    <div className="relative z-20 pointer-events-none shrink-0 bg-black/40 border-b border-white/10">
+      {/* Group 1 — BidWar: primary broadcast brand, top-center, generous breathing room */}
+      <div className="flex justify-center pt-3 pb-2 md:pt-4 md:pb-2.5">
+        {logoSrc ? (
+          <img
+            src={logoSrc}
+            alt={logoAlt}
+            className="block h-9 md:h-11 w-auto max-w-[min(240px,32vw)] object-contain shrink-0"
+            style={{ filter: "drop-shadow(0 2px 12px rgba(0,0,0,0.6))" }}
+            loading="eager"
+            decoding="async"
+          />
+        ) : null}
+      </div>
 
-          <div className="hidden sm:flex items-center gap-3 border-l border-white/15 pl-4 min-w-0">
-            {tournamentLogoUrl ? (
-              <img
-                src={tournamentLogoUrl}
-                alt=""
-                className="h-9 w-auto max-w-[72px] object-contain shrink-0"
-              />
-            ) : null}
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/45">
-                Tournament
-              </span>
-              <span className="font-['Bebas_Neue'] text-sm md:text-base tracking-widest uppercase text-white/95 mt-1 truncate">
-                {tournamentName}
-              </span>
-              {roundName ? (
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 mt-0.5 truncate">
-                  {roundName}
-                </span>
-              ) : null}
-            </div>
+      {/* Group 2 — Tournament: secondary to brand, centered below logo */}
+      <div className="flex items-center justify-center gap-2 pb-2 md:pb-2.5 px-[3%] min-w-0">
+        {tournamentLogoUrl ? (
+          <img
+            src={tournamentLogoUrl}
+            alt=""
+            className="h-6 w-auto max-w-[44px] object-contain shrink-0"
+          />
+        ) : null}
+        <div className="flex flex-col items-center leading-none min-w-0">
+          <span className="bw-subheading text-white/85 truncate">
+            {tournamentName}
+          </span>
+          {roundName ? (
+            <span className="bw-caption text-[9px] text-white/40 mt-1 truncate">
+              {roundName}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Group 3 — Court / Sponsor / Live: tertiary metadata row */}
+      <div className="flex items-center justify-center gap-2 md:gap-3 flex-wrap pb-2 md:pb-2.5 px-[3%]">
+        {courtNumber ? (
+          <div className="bg-white/8 border border-white/10 rounded px-2 py-0.5 text-center">
+            <p className="bw-caption text-[8px] text-white/40">Court</p>
+            <p className="bw-meta-lg text-white/80">{courtNumber}</p>
           </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-2 md:gap-4 flex-wrap">
-          {courtNumber ? (
-            <div className="bg-white/8 border border-white/10 rounded px-2.5 py-1 text-center">
-              <p className="text-white/40 text-[9px] uppercase tracking-widest">Court</p>
-              <p className="text-white font-['Bebas_Neue'] text-lg leading-none">{courtNumber}</p>
-            </div>
-          ) : null}
-          {matchNumber ? (
-            <div className="bg-white/8 border border-white/10 rounded px-2.5 py-1 text-center">
-              <p className="text-white/40 text-[9px] uppercase tracking-widest">Match</p>
-              <p className="text-white font-['Bebas_Neue'] text-lg leading-none">{matchNumber}</p>
-            </div>
-          ) : null}
-          {isTimeout ? (
-            <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-3 py-1 flex items-center gap-2">
-              <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-amber-300 text-[10px] md:text-xs font-mono uppercase tracking-[0.2em]">
-                Timeout — {timeoutSide === "left" ? leftLabel : rightLabel}
-              </span>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
+        {matchNumber ? (
+          <div className="bg-white/8 border border-white/10 rounded px-2 py-0.5 text-center">
+            <p className="bw-caption text-[8px] text-white/40">Match</p>
+            <p className="bw-meta-lg text-white/80">{matchNumber}</p>
+          </div>
+        ) : null}
+        {isTimeout ? (
+          <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-3 py-1 flex items-center gap-2">
+            <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="bw-label text-[10px] md:text-xs text-amber-300">
+              Timeout — {timeoutSide === "left" ? leftLabel : rightLabel}
+            </span>
+          </div>
+        ) : null}
 
         {showScoreBoardSponsor ? (
           <ScoreBoardSponsorPanel
             sponsor={scoreBoardSponsor}
             variant="strip"
-            className="max-w-[min(320px,28vw)] shrink-0 justify-self-end"
+            className="max-w-[min(280px,26vw)] shrink-0"
           />
         ) : null}
 
-        <div className="flex items-center justify-end shrink-0">
-          {isLive ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 border border-red-500/50 bg-red-500/10">
-              <span className="size-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]" />
-              <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-red-300">
-                Live
-              </span>
-            </div>
-          ) : matchStatus === "completed" ? (
-            <div className="border border-green-500/40 bg-green-500/10 px-3 py-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-green-300">
-                Final
-              </span>
-            </div>
-          ) : (
-            <div className="border border-white/15 bg-white/5 px-3 py-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-white/55">
-                {matchStatus === "scheduled" ? "Scheduled" : "Awaiting"}
-              </span>
-            </div>
-          )}
-        </div>
+        {isLive ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 border border-red-500/50 bg-red-500/10">
+            <span className="size-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]" />
+            <span className="bw-label text-[10px] text-red-300">
+              Live
+            </span>
+          </div>
+        ) : matchStatus === "completed" ? (
+          <div className="border border-green-500/40 bg-green-500/10 px-3 py-1.5">
+            <span className="bw-label text-[10px] text-green-300">
+              Final
+            </span>
+          </div>
+        ) : (
+          <div className="border border-white/15 bg-white/5 px-3 py-1.5">
+            <span className="bw-label text-[10px] text-white/55">
+              {matchStatus === "scheduled" ? "Scheduled" : "Awaiting"}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -179,12 +167,12 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   return (
     <div
       className={cn(
-        "border-t border-white/10 bg-black/50 h-[8vh] min-h-[56px] max-h-[80px] grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
+        "border-t border-white/10 bg-black/50 h-[10vh] min-h-[72px] max-h-[104px] grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
         className,
       )}
     >
       <div
-        className="relative h-full shrink-0 flex items-center px-4 md:px-5"
+        className="relative h-full shrink-0 flex items-center px-5 md:px-6"
         style={{
           backgroundColor: accentBg,
           color: accentOn,
@@ -192,8 +180,8 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
         }}
       >
         <div className="flex flex-col leading-none gap-1" aria-label="Our Sponsors">
-          <span className={`${LED_META_LABEL_CLASS} opacity-70`}>Our</span>
-          <span className={`${LED_META_LABEL_CLASS} tracking-[0.22em]`}>Sponsors</span>
+          <span className="bw-caption text-sm md:text-base opacity-70">Our</span>
+          <span className="bw-caption text-sm md:text-base">Sponsors</span>
         </div>
       </div>
 
@@ -210,42 +198,61 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
                     ? "Co Sponsor"
                     : (s.type?.trim() || "Partner");
 
+              const logoStyle = getSponsorChyronLogoStyle(tier);
+              const nameStyle = getSponsorChyronNameStyle(tier);
+              const typeStyle = getSponsorChyronTypeStyle(tier);
+
               return (
                 <div
                   key={`${s.url}-${index}`}
-                  className="flex items-center gap-3 shrink-0 h-full py-1"
+                  className="flex items-center gap-3.5 shrink-0 h-full py-1.5"
                   style={getSponsorChyronItemStyle(tier)}
                 >
                   {s.url ? (
                     <img
                       src={s.url}
                       alt={s.name ?? "Sponsor"}
-                      style={getSponsorChyronLogoStyle(tier)}
+                      style={{
+                        ...logoStyle,
+                        maxHeight: tier === "title" ? 58 : 52,
+                      }}
                     />
                   ) : null}
-                  <div className="flex flex-col leading-none">
+                  <div className="flex flex-col leading-none gap-0.5">
                     <span
-                      className="font-['Bebas_Neue'] text-sm tracking-[0.25em] uppercase"
-                      style={getSponsorChyronNameStyle(tier)}
+                      className="bw-label text-lg md:text-xl"
+                      style={{
+                        ...nameStyle,
+                        fontSize:
+                          tier === "title"
+                            ? "clamp(1.15rem, 1.7vw, 1.45rem)"
+                            : tier === "co_sponsor"
+                              ? "clamp(1.05rem, 1.55vw, 1.3rem)"
+                              : undefined,
+                      }}
                     >
                       {s.name?.trim() || typeLabel}
                     </span>
                     {typeLabel ? (
                       <span
-                        className="font-mono uppercase tracking-[0.3em]"
-                        style={getSponsorChyronTypeStyle(tier)}
+                        className="bw-caption text-sm"
+                        style={{
+                          ...typeStyle,
+                          fontSize:
+                            tier === "title" ? 13 : tier === "co_sponsor" ? 12 : undefined,
+                        }}
                       >
                         {typeLabel}
                       </span>
                     ) : null}
                   </div>
-                  <span className="text-white/15 ml-2">•</span>
+                  <span className="text-white/15 ml-2 text-lg">•</span>
                 </div>
               );
             }}
           />
         ) : (
-          <div className="px-4 text-[10px] font-mono uppercase tracking-[0.4em] text-white/40 truncate">
+          <div className="bw-caption px-4 text-sm md:text-base text-white/40 truncate">
             {tournamentName}
           </div>
         )}
@@ -255,13 +262,23 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
 
       <div className="flex items-center pl-4 border-l border-white/10 shrink-0">
         {miniSrc ? (
-          <img src={miniSrc} alt={logoAlt} className={chyronPreset.sizeClass} />
+          <img
+            src={miniSrc}
+            alt={logoAlt}
+            className={chyronPreset.sizeClass}
+            style={{ minWidth: "3.25rem", minHeight: "3.25rem" }}
+          />
         ) : (
           <div
             className={cn(chyronPreset.sizeClass, "grid place-items-center")}
-            style={{ backgroundColor: accentBg, color: accentOn }}
+            style={{
+              backgroundColor: accentBg,
+              color: accentOn,
+              minWidth: "3.25rem",
+              minHeight: "3.25rem",
+            }}
           >
-            <span className="font-['Bebas_Neue'] text-sm tracking-tighter italic">BW</span>
+            <span className="bw-heading text-lg">BW</span>
           </div>
         )}
       </div>

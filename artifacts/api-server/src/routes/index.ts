@@ -29,6 +29,7 @@ import auditRouter from "./audit";
 import purseBoostersRouter from "./purse-boosters";
 import scoringRouter from "./scoring";
 import badmintonRouter from "./badminton";
+import badmintonLatencyProbeRouter from "./badminton-latency-probe";
 import masterSportsRouter from "./master-sports";
 import cricketMasterSportsRouter from "./cricket-master-sports";
 import scoringFoundationRouter from "./scoring-foundation";
@@ -86,6 +87,7 @@ router.use(scoringRouter);
 router.use(contactRouter);
 // Organizer/live sports routes MUST stay above Super-Admin-only modules.
 // A mis-mounted requireMasterAdmin on an admin router must never shadow these.
+router.use("/tournaments/:id/badminton/latency-probe", badmintonLatencyProbeRouter);
 router.use("/tournaments/:id/badminton", badmintonRouter);
 router.use("/tournaments/:id/badminton", masterSportsRouter);
 router.use("/tournaments/:id/scoring", cricketMasterSportsRouter);

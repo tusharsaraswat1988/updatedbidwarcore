@@ -152,6 +152,8 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_method text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_ip text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_url text;
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS phone_verified boolean NOT NULL DEFAULT false;
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz;
   `);
 
   await q(`

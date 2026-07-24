@@ -3,9 +3,7 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetTournament,
-  useListTeams,
   getGetTournamentQueryKey,
-  getListTeamsQueryKey,
 } from "@workspace/api-client-react";
 import { ScorerShell } from "@/components/scoring/scorer-shell";
 import { CityAutocomplete } from "@/components/city-autocomplete";
@@ -29,6 +27,8 @@ import {
   listFixtures,
   listVenues,
 } from "@/lib/scoring-foundation-api";
+import { getCricketMasterTeams } from "@/lib/scoring-api";
+import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { scoringPath, cricketPublicPath } from "@/lib/tournament-navigation";
@@ -43,9 +43,15 @@ export default function ScoringSchedulePage() {
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: teams } = useListTeams(tournamentId, {
-    query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: !!tournamentId,
   });
+  const teams = useMemo(
+    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    [masterTeams],
+  );
 
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
 
@@ -68,7 +74,7 @@ export default function ScoringSchedulePage() {
   });
 
   const teamMap = useMemo(
-    () => new Map((teams ?? []).map((t) => [t.id, t])),
+    () => new Map(teams.map((t) => [t.id, t])),
     [teams],
   );
 
@@ -94,7 +100,7 @@ export default function ScoringSchedulePage() {
   }
 
   function openGenerateDialog() {
-    const allTeamIds = (teams ?? []).map((t) => t.id);
+    const allTeamIds = teams.map((t) => t.id);
     setSelectedTeams(allTeamIds);
     setGroupA([]);
     setGroupB([]);
@@ -329,7 +335,7 @@ export default function ScoringSchedulePage() {
               <div className="space-y-2">
                 <Label>Teams ({selectedTeams.length} selected)</Label>
                 <ul className="max-h-40 overflow-y-auto space-y-1 border rounded-lg p-2">
-                  {(teams ?? []).map((t) => (
+                  {teams.map((t) => (
                     <li key={t.id}>
                       <div className="flex items-center gap-2 py-1.5">
                         <Checkbox
