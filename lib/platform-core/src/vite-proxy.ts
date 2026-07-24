@@ -1,13 +1,13 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import { API_PREFIX } from "./api-fetch";
+import { API_PREFIX } from "./api-fetch.ts";
 import {
   DEFAULT_API_DEV_PORT,
   DEFAULT_OWNER_DEV_PORT,
   DEFAULT_SCORING_DEV_PORT,
   DEFAULT_MOBILE_DEV_PORT,
-} from "./ports";
+} from "./ports.ts";
 
 export type ViteApiProxyOptions = {
   target: string;

@@ -11,7 +11,7 @@ export {
   apiUrl,
   apiFetch,
   type ApiFetchOptions,
-} from "./api-fetch";
+} from "./api-fetch.ts";
 
 export {
   type TournamentFeatures,
@@ -20,7 +20,7 @@ export {
   mergeTournamentFeatures,
   isBuzzStudioEnabled,
   tournamentFeaturesSchemaShape,
-} from "./tournament-features";
+} from "./tournament-features.ts";
 
 export {
   SCORING_APP_BASE,
@@ -28,7 +28,7 @@ export {
   scoringAppHomePath,
   scoringAppPublicUrl,
   openScoringApp,
-} from "./scoring-urls";
+} from "./scoring-urls.ts";
 
 export {
   OWNER_APP_BASE,
@@ -36,11 +36,11 @@ export {
   ownerJoinAppPath,
   ownerDashboardAppPath,
   ownerJoinPublicUrl,
-} from "./owner-urls";
+} from "./owner-urls.ts";
 
-export { parseOptionalEmail } from "./email";
+export { parseOptionalEmail } from "./email.ts";
 
-export * from "./mobile-app-urls";
+export * from "./mobile-app-urls.ts";
 
 export {
   DEFAULT_API_DEV_PORT,
@@ -48,4 +48,4 @@ export {
   DEFAULT_OWNER_DEV_PORT,
   DEFAULT_SCORING_DEV_PORT,
   DEFAULT_MOBILE_DEV_PORT,
-} from "./ports";
+} from "./ports.ts";

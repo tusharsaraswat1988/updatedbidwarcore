@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 
 const TESTIMONIALS = [
@@ -90,38 +89,31 @@ export function Testimonials() {
             { stat: "25+", label: "Cities Across India" },
             { stat: "₹50 Cr+", label: "Total Bid Value" },
           ].map((s) => (
-            <motion.div
+            <div
               key={s.stat}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               className="text-center p-5 rounded-2xl border border-border bg-card/20"
             >
               <p className="font-display font-black text-3xl text-primary">{s.stat}</p>
               <p className="text-xs text-muted-foreground mt-1 font-medium">{s.label}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
 
         {/* Review cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {TESTIMONIALS.map((t, i) => (
-            <motion.div
+          {TESTIMONIALS.map((t) => (
+            <div
               key={t.name}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.07 }}
-              className="relative p-6 rounded-2xl border border-border bg-card/20 hover:border-primary/20 hover:bg-card/40 transition-all flex flex-col gap-4"
+              className="relative p-6 rounded-2xl border border-border bg-card/20 hover:border-primary/20 hover:bg-card/40 transition-colors flex flex-col gap-4"
             >
-              <Quote className="w-6 h-6 text-primary/30 absolute top-5 right-5" />
+              <Quote className="w-6 h-6 text-primary/30 absolute top-5 right-5" aria-hidden />
               <div className="space-y-3">
                 <StarRow count={t.stars} />
                 <p className="text-sm text-foreground leading-relaxed">{t.text}</p>
               </div>
               <div className="mt-auto pt-4 border-t border-border/50 flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-white">{t.name}</p>
+                  <p className="text-sm font-bold text-foreground">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{t.role}</p>
                   <p className="text-xs text-muted-foreground/70 mt-0.5">{t.city}</p>
                 </div>
@@ -130,7 +122,7 @@ export function Testimonials() {
                   <p className="text-[10px] text-muted-foreground/60 mt-1 max-w-[120px] text-right leading-tight">{t.event}</p>
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Monitor, Smartphone, BarChart3, Gavel, Check, ChevronRight } from "lucide-react";
+import { Monitor, Smartphone, BarChart3, Gavel, Check } from "lucide-react";
+import { HomepageMedia } from "@/components/home/homepage-media";
+import { PRODUCT_SHOWCASE_SURFACES, type ProductShowcaseSurface } from "@/data/homepage-content";
 
-const TABS = [
-  { id: "operator", label: "Operator Panel", icon: Gavel, desc: "Control the live auction" },
-  { id: "display", label: "LED Display", icon: Monitor, desc: "Broadcast screen" },
-  { id: "owner", label: "Owner App", icon: Smartphone, desc: "Team bidding panel" },
-  { id: "reports", label: "Reports", icon: BarChart3, desc: "Post-auction analytics" },
-];
+const TAB_ICONS = {
+  operator: Gavel,
+  display: Monitor,
+  owner: Smartphone,
+  reports: BarChart3,
+} as const;
+
+function hasRealScreenshot(media: ProductShowcaseSurface["media"]): boolean {
+  return Boolean(media.thumbnail || media.fullImage);
+}
 
 function OperatorScreen() {
   return (
@@ -344,13 +349,12 @@ function ReportsScreen() {
                   <span className="font-bold" style={{ color: t.color }}>₹{t.spent}L</span>
                 </div>
                 <div className="h-4 rounded-full bg-white/5 overflow-hidden">
-                  <motion.div
+                  <div
                     className="h-full rounded-full"
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${(t.spent / maxSpent) * 100}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
-                    style={{ background: t.color }}
+                    style={{
+                      width: `${(t.spent / maxSpent) * 100}%`,
+                      background: t.color,
+                    }}
                   />
                 </div>
               </div>
@@ -385,14 +389,17 @@ function ReportsScreen() {
 }
 
 export function ProductShowcase() {
-  const [active, setActive] = useState("operator");
+  const [active, setActive] = useState<ProductShowcaseSurface["id"]>("operator");
+  const surface = PRODUCT_SHOWCASE_SURFACES.find((s) => s.id === active) ?? PRODUCT_SHOWCASE_SURFACES[0];
 
-  const screens: Record<string, React.ReactNode> = {
+  const screens: Record<ProductShowcaseSurface["id"], React.ReactNode> = {
     operator: <OperatorScreen />,
     display: <LedScreen />,
     owner: <OwnerScreen />,
     reports: <ReportsScreen />,
   };
+
+  const showScreenshot = hasRealScreenshot(surface.media);
 
   return (
     <section id="product" className="py-24 px-6 border-t border-border/40">
@@ -407,87 +414,89 @@ export function ProductShowcase() {
           </p>
         </div>
 
-        {/* Tab switcher */}
         <div className="flex flex-wrap justify-center gap-2">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActive(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
-                active === tab.id
-                  ? "bg-primary text-black border-primary shadow-[0_0_20px_rgba(234,179,8,0.3)]"
-                  : "border-border text-muted-foreground hover:border-white/20 hover:text-white bg-transparent"
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
+          {PRODUCT_SHOWCASE_SURFACES.map((tab) => {
+            const TabIcon = TAB_ICONS[tab.id];
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActive(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border ${
+                  active === tab.id
+                    ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                    : "border-border text-muted-foreground hover:border-border hover:text-foreground bg-transparent"
+                }`}
+              >
+                <TabIcon className="w-4 h-4" aria-hidden />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Screen */}
         <div className="relative">
-          {/* Browser chrome */}
-          <div className="rounded-2xl border border-white/10 overflow-hidden shadow-[0_0_80px_rgba(234,179,8,0.07)]">
-            <div className="flex items-center gap-2 px-4 py-3 bg-[#111113] border-b border-white/5">
-              <div className="flex gap-1.5">
+          <div className="rounded-2xl border border-border overflow-hidden shadow-lg shadow-primary/5">
+            <div className="flex items-center gap-2 px-4 py-3 bg-card border-b border-border">
+              <div className="flex gap-1.5" aria-hidden>
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
               </div>
               <div className="flex-1 flex justify-center">
-                <div className="px-4 py-1 rounded-md bg-white/5 border border-white/8 text-[11px] text-muted-foreground font-mono">
-                  {active === "owner" ? "bidwar.in/tournament/12/owner/3" :
-                   active === "display" ? "bidwar.in/tournament/12/display" :
-                   active === "reports" ? "bidwar.in/tournament/12/reports" :
-                   "bidwar.in/tournament/12/auction"}
+                <div className="px-4 py-1 rounded-md bg-muted/30 border border-border text-[11px] text-muted-foreground font-mono">
+                  {surface.urlPath}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 text-[10px]">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden />
                 <span className="text-green-400 font-mono">LIVE</span>
               </div>
             </div>
-            <div className="bg-[#09090b] p-4 md:p-6">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={active}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22 }}
-                >
-                  {screens[active]}
-                </motion.div>
-              </AnimatePresence>
+            <div className="bg-background p-4 md:p-6" key={active}>
+              {showScreenshot ? (
+                <HomepageMedia
+                  media={surface.media}
+                  preferFull
+                  sizes="(max-width: 768px) 100vw, 960px"
+                  className="rounded-xl border-0"
+                />
+              ) : (
+                screens[active]
+              )}
             </div>
           </div>
 
-          {/* Feature callout below screen */}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActive(tab.id)}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  active === tab.id
-                    ? "border-primary/30 bg-primary/5"
-                    : "border-border/50 hover:border-border"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <tab.icon className={`w-4 h-4 ${active === tab.id ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className={`text-xs font-bold ${active === tab.id ? "text-white" : "text-muted-foreground"}`}>{tab.label}</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">{tab.desc}</p>
-                {active === tab.id && (
-                  <div className="flex items-center gap-1 mt-1.5">
-                    <Check className="w-3 h-3 text-primary" />
-                    <span className="text-[10px] text-primary font-semibold">Viewing now</span>
+            {PRODUCT_SHOWCASE_SURFACES.map((tab) => {
+              const TabIcon = TAB_ICONS[tab.id];
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActive(tab.id)}
+                  className={`p-3 rounded-xl border text-left transition-colors ${
+                    active === tab.id
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border/50 hover:border-border"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <TabIcon className={`w-4 h-4 ${active === tab.id ? "text-primary" : "text-muted-foreground"}`} aria-hidden />
+                    <span className={`text-xs font-bold ${active === tab.id ? "text-foreground" : "text-muted-foreground"}`}>
+                      {tab.label}
+                    </span>
                   </div>
-                )}
-              </button>
-            ))}
+                  <p className="text-[11px] text-muted-foreground leading-snug">{tab.desc}</p>
+                  {active === tab.id ? (
+                    <div className="flex items-center gap-1 mt-1.5">
+                      <Check className="w-3 h-3 text-primary" aria-hidden />
+                      <span className="text-[10px] text-primary font-semibold">Viewing now</span>
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

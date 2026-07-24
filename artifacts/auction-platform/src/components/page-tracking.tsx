@@ -52,9 +52,44 @@ export function PageTracking(): null {
   useEffect(() => {
     if (isBidWarLocalHost()) return;
     const blocked = BLOCKED_PREFIXES.some((p) => pathname.startsWith(p));
-    if (!blocked) {
+    if (blocked) return;
+
+    let cancelled = false;
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+
+    const schedule = () => {
+      if (cancelled || trackingLoaded) return;
       loadTracking();
+      tearDown();
+    };
+
+    const tearDown = () => {
+      window.removeEventListener("pointerdown", schedule);
+      window.removeEventListener("keydown", schedule);
+      const w = window as Window & {
+        cancelIdleCallback?: (id: number) => void;
+      };
+      if (idleId !== undefined) w.cancelIdleCallback?.(idleId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+
+    window.addEventListener("pointerdown", schedule, { once: true, passive: true });
+    window.addEventListener("keydown", schedule, { once: true });
+
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    };
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(schedule, { timeout: 8000 });
+    } else {
+      timeoutId = window.setTimeout(schedule, 8000);
     }
+
+    return () => {
+      cancelled = true;
+      tearDown();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally only fires on initial page load
 
