@@ -23,6 +23,7 @@ const AcademyLesson = lazy(() => import("@/pages/academy/lesson"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
+const PricingPage = lazy(() => import("@/pages/pricing"));
 const AuctionTipsPage = lazy(() => import("@/pages/auction-tips"));
 
 // Blog
@@ -149,6 +150,7 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
         <Route path="/contact" component={ContactPage} />
+        <Route path="/pricing" component={PricingPage} />
         <Route path="/auction-tips" component={AuctionTipsPage} />
         <Route path="/legal">{() => <Redirect to="/legal/terms" />}</Route>
         <Route path="/legal/:slug" component={LegalPage} />

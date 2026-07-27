@@ -1,6 +1,48 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState, type FormEvent, type MouseEvent } from "react";
 import { useLocation } from "wouter";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
+import type { PaymentPlan } from "@/components/payment-modal";
+import { BrandLogoImage } from "@/components/brand-logo-image";
+import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import {
+  HOME_SPORT_SOLUTION_HREFS,
+  MORE_NAV_LINKS,
+  SITE_CONTACT,
+  SITE_SOCIAL,
+  SITE_SOCIAL_PLACEHOLDERS,
+  SOLUTION_PLATFORM_LINKS,
+  SOLUTION_SPORT_LINKS,
+  waMeUrl,
+} from "@/lib/public-site-links";
+
+const PaymentModal = lazy(() =>
+  import("@/components/payment-modal").then((m) => ({ default: m.PaymentModal })),
+);
+
+const landingHeaderPreset = getBrandSurfacePreset("landing-header");
+const landingFooterPreset = getBrandSurfacePreset("landing-footer");
+const BRAND_NAME = "BidWar";
+const DEMO_WA_MESSAGE =
+  "Hi, I want to book a live BidWar demo for my sports auction. Can you help me set up?";
+
+function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>) {
+  event?.preventDefault();
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+}
+
+function BrandMark({ className }: { className?: string }) {
+  return (
+    <BrandLogoImage
+      src={getPublicBrandLogoSrc(landingHeaderPreset.logoOrder, 0)}
+      alt={getBrandLogoAlt(BRAND_NAME)}
+      className={className ?? "h-9 w-auto max-w-[140px]"}
+      width={168}
+      height={40}
+      loading="eager"
+    />
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Small building blocks                                              */
@@ -145,6 +187,10 @@ function Home() {
   const goSignup = () => navigate("/organizer?tab=signup");
   const goBlog = () => navigate("/blog");
   const goAcademy = () => navigate("/academy");
+  const goContact = () => navigate("/contact");
+  const openDemoWhatsApp = () => {
+    window.open(waMeUrl(DEMO_WA_MESSAGE), "_blank", "noopener,noreferrer");
+  };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
@@ -163,13 +209,15 @@ function Home() {
         <MobileDrawer
           onClose={() => setDrawerOpen(false)}
           goOrganizer={goOrganizer}
+          goSignup={goSignup}
           goBlog={goBlog}
           goAcademy={goAcademy}
+          goContact={goContact}
         />
       )}
 
       <main>
-        <Hero onContact={() => setContactOpen(true)} />
+        <Hero onContact={openDemoWhatsApp} goSignup={goSignup} />
         <TrustBadges />
         <Ticker />
         <TrustStrip />
@@ -180,20 +228,21 @@ function Home() {
         <HowItWorks />
         <BroadcastEcosystem />
         <RealTournaments />
-        <LiveShowcase />
+        <LiveShowcase goSignup={goSignup} />
         <Testimonials />
         <SuccessMetrics />
-        <AcademyPromo />
-        <Pricing />
+        <AcademyPromo goAcademy={goAcademy} />
+        <Pricing goSignup={goSignup} goContact={goContact} />
         <FAQ />
-        <FinalCTA onContact={() => setContactOpen(true)} />
+        <FinalCTA onContact={openDemoWhatsApp} goSignup={goSignup} />
         <ContactSection onOpen={() => setContactOpen(true)} />
         <Footer />
       </main>
 
       {/* Sticky CTA (desktop + mobile) */}
       <button
-        onClick={() => setContactOpen(true)}
+        type="button"
+        onClick={openDemoWhatsApp}
         className="gold-button gold-button-hover fixed bottom-5 right-5 z-40 hidden rounded-full px-6 py-3 text-sm shadow-2xl md:inline-flex"
         aria-label="Get a demo"
       >
@@ -201,7 +250,8 @@ function Home() {
       </button>
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 p-3 backdrop-blur md:hidden">
         <button
-          onClick={() => setContactOpen(true)}
+          type="button"
+          onClick={goSignup}
           className="gold-button w-full rounded-md py-3 text-sm"
         >
           Start Free Trial
@@ -234,25 +284,83 @@ function Header({ onOpenDrawer, goOrganizer, goSignup, goBlog, goAcademy }: {
       </div>
 
       <div className="relative mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
-        <a href="#top" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[image:var(--gradient-gold)] font-display text-lg text-[color:var(--primary-foreground)]">B</span>
+        <a href="/" className="flex items-center gap-2" aria-label={`${BRAND_NAME} Home`}>
+          <BrandMark />
           <span className="font-display text-xl tracking-wider">BidWar<span className="text-primary">.in</span></span>
         </a>
 
         <nav className="hidden items-center gap-7 text-sm text-muted-foreground lg:flex">
-          <a href="#features" className="hover:text-foreground">Features</a>
-          <a href="#solutions" className="hover:text-foreground">Solutions ▾</a>
-          <a href="#pricing" className="hover:text-foreground">Pricing</a>
+          <a href="#features" onClick={(e) => scrollToSection("features", e)} className="hover:text-foreground">Features</a>
+          <div className="relative group">
+            <a
+              href="#solutions"
+              onClick={(e) => scrollToSection("solutions", e)}
+              className="inline-flex items-center gap-1 hover:text-foreground"
+              aria-haspopup="true"
+            >
+              Solutions ▾
+            </a>
+            <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[520px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-3 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">By Sport</div>
+                  <div className="space-y-0.5">
+                    {SOLUTION_SPORT_LINKS.map((link) => (
+                      <a key={link.href} href={link.href} className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Platform</div>
+                  <div className="space-y-0.5">
+                    {SOLUTION_PLATFORM_LINKS.map((link) => (
+                      <a key={link.href} href={link.href} className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 border-t border-white/10 pt-2">
+                <a href="#solutions" onClick={(e) => scrollToSection("solutions", e)} className="block rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                  View all solutions →
+                </a>
+              </div>
+            </div>
+          </div>
+          <a href="#pricing" onClick={(e) => scrollToSection("pricing", e)} className="hover:text-foreground">Pricing</a>
           <a href="/academy" onClick={(e) => { e.preventDefault(); goAcademy(); }} className="hover:text-foreground">Academy</a>
           <a href="/blog" onClick={(e) => { e.preventDefault(); goBlog(); }} className="hover:text-foreground">Blog</a>
-          <a href="#more" className="hover:text-foreground">More ▾</a>
+          <div className="relative group">
+            <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" aria-haspopup="true" aria-label="Open more navigation links">
+              More ▾
+            </button>
+            <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-56 -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              {MORE_NAV_LINKS.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  onClick={(e) => {
+                    if ("sectionId" in link && link.sectionId) {
+                      scrollToSection(link.sectionId, e);
+                    }
+                  }}
+                  className="block rounded-md px-2 py-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
         </nav>
 
         <div className="flex items-center gap-2">
-          <a href="#pay" className="hidden text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground md:inline-block">Pay</a>
+          <a href="#pricing" onClick={(e) => scrollToSection("pricing", e)} className="hidden text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground md:inline-block">Pay</a>
           <button type="button" onClick={goOrganizer} className="ghost-button ghost-button-hover hidden rounded-md px-4 py-2 text-xs md:inline-block">Sign in</button>
           <button type="button" onClick={goSignup} className="gold-button gold-button-hover hidden rounded-md px-4 py-2 text-xs md:inline-block">Get Started</button>
-          <button onClick={onOpenDrawer} className="ghost-button rounded-md p-2 lg:hidden" aria-label="Open menu">
+          <button type="button" onClick={onOpenDrawer} className="ghost-button rounded-md p-2 lg:hidden" aria-label="Open menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/></svg>
           </button>
         </div>
@@ -262,26 +370,32 @@ function Header({ onOpenDrawer, goOrganizer, goSignup, goBlog, goAcademy }: {
 }
 
 
-function MobileDrawer({ onClose, goOrganizer, goBlog, goAcademy }: {
+function MobileDrawer({ onClose, goOrganizer, goSignup, goBlog, goAcademy, goContact }: {
   onClose: () => void;
   goOrganizer: () => void;
+  goSignup: () => void;
   goBlog: () => void;
   goAcademy: () => void;
+  goContact: () => void;
 }) {
+  const [solutionsOpen, setSolutionsOpen] = useState(false);
   return (
     <div className="fixed inset-0 z-50 bg-stage/98 backdrop-blur-lg lg:hidden">
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
         <span className="font-display text-xl">MENU</span>
-        <button onClick={onClose} className="ghost-button rounded-md px-3 py-2 text-xs" aria-label="Close menu">Close ✕</button>
+        <button type="button" onClick={onClose} className="ghost-button rounded-md px-3 py-2 text-xs" aria-label="Close menu">Close ✕</button>
       </div>
-      <nav className="flex flex-col p-5 text-xl font-display">
+      <nav className="flex flex-col overflow-y-auto p-5 text-xl font-display">
         {([
-          { label: "Features", href: "#features" },
-          { label: "Solutions", href: "#solutions" },
-          { label: "Pricing", href: "#pricing" },
+          { label: "Features", href: "#features", sectionId: "features" },
+          { label: "Pricing", href: "#pricing", sectionId: "pricing" },
           { label: "Academy", href: "/academy", action: goAcademy },
           { label: "Blog", href: "/blog", action: goBlog },
-          { label: "Pay", href: "#pricing" },
+          { label: "Upcoming Auctions", href: "/upcoming-auctions" },
+          { label: "Contact Us", href: "/contact", action: goContact },
+          { label: "Auction Tips", href: "/auction-tips" },
+          { label: "FAQ", href: "#faq", sectionId: "faq" },
+          { label: "Pay", href: "#pricing", sectionId: "pricing" },
           { label: "Sign in", href: "/organizer", action: goOrganizer },
         ] as const).map((item) => (
           <a
@@ -291,6 +405,8 @@ function MobileDrawer({ onClose, goOrganizer, goBlog, goAcademy }: {
               if ("action" in item && item.action) {
                 e.preventDefault();
                 item.action();
+              } else if ("sectionId" in item && item.sectionId) {
+                scrollToSection(item.sectionId, e);
               }
               onClose();
             }}
@@ -299,7 +415,30 @@ function MobileDrawer({ onClose, goOrganizer, goBlog, goAcademy }: {
             {item.label}
           </a>
         ))}
-        <a href="#pricing" onClick={onClose} className="gold-button mt-6 rounded-md py-4 text-center text-base">Get Started Free</a>
+        <button
+          type="button"
+          onClick={() => setSolutionsOpen((v) => !v)}
+          className="flex w-full items-center justify-between border-b border-white/5 py-4 text-left tracking-wider hover:text-primary"
+          aria-expanded={solutionsOpen}
+        >
+          Solutions
+          <span className="text-sm text-muted-foreground">{solutionsOpen ? "▴" : "▾"}</span>
+        </button>
+        {solutionsOpen ? (
+          <div className="border-b border-white/5 pb-4 text-base">
+            {[...SOLUTION_SPORT_LINKS, ...SOLUTION_PLATFORM_LINKS].map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={onClose}
+                className="block py-2 text-muted-foreground hover:text-primary"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
+        <button type="button" onClick={() => { goSignup(); onClose(); }} className="gold-button mt-6 rounded-md py-4 text-center text-base">Get Started Free</button>
       </nav>
     </div>
   );
@@ -309,7 +448,7 @@ function MobileDrawer({ onClose, goOrganizer, goBlog, goAcademy }: {
 /* Hero                                                                */
 /* ------------------------------------------------------------------ */
 
-function Hero({ onContact }: { onContact: () => void }) {
+function Hero({ onContact, goSignup }: { onContact: () => void; goSignup: () => void }) {
   return (
     <section id="top" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
@@ -338,8 +477,8 @@ function Hero({ onContact }: { onContact: () => void }) {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="#pricing" className="gold-button gold-button-hover rounded-md px-6 py-3 text-sm">Start Free Trial →</a>
-            <button onClick={onContact} className="ghost-button ghost-button-hover rounded-md px-6 py-3 text-sm">▶ Watch Live Demo</button>
+            <button type="button" onClick={goSignup} className="gold-button gold-button-hover rounded-md px-6 py-3 text-sm">Start Free Trial →</button>
+            <button type="button" onClick={onContact} className="ghost-button ghost-button-hover rounded-md px-6 py-3 text-sm">▶ Watch Live Demo</button>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -506,7 +645,7 @@ function UseCases() {
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {sports.map((s) => (
-          <a key={s.k} href="#pricing" className="panel group relative overflow-hidden p-5 transition hover:-translate-y-0.5">
+          <a key={s.k} href={HOME_SPORT_SOLUTION_HREFS[s.k] ?? "#pricing"} className="panel group relative overflow-hidden p-5 transition hover:-translate-y-0.5">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-display text-lg tracking-wider">{s.k}</span>
               <span className="rounded-sm bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] tracking-widest text-muted-foreground">SPORT</span>
@@ -620,7 +759,7 @@ function HowItWorks() {
 /* Live showcase                                                       */
 /* ------------------------------------------------------------------ */
 
-function LiveShowcase() {
+function LiveShowcase({ goSignup }: { goSignup: () => void }) {
   const cards: Array<React.ComponentProps<typeof AuctionCard> & { city: string; sport: string; date: string; teams: number; purse: string; status: "LIVE" | "UPCOMING" | "COMPLETED" }> = [
     { city: "Mumbai", sport: "Cricket · T10", date: "Nov 22", teams: 8, purse: "₹40L", status: "LIVE", player: "R. KAMBLE", role: "All-Rounder", base: 50, target: 340, team: "MUMBAI TITANS", sold: false },
     { city: "Pune", sport: "Football · 5-a-side", date: "Nov 25", teams: 6, purse: "₹22L", status: "UPCOMING", player: "A. SEQUEIRA", role: "Striker · Left Foot", base: 30, target: 210, team: "PUNE PHOENIX", sold: false, animate: false },
@@ -639,7 +778,7 @@ function LiveShowcase() {
           <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Live Showcase</div>
           <h2 className="text-display-lg mt-2 max-w-2xl">Tonight's auctions. And this week's.</h2>
         </div>
-        <a href="#pricing" className="ghost-button ghost-button-hover rounded-md px-4 py-2 text-xs">Host Yours →</a>
+        <button type="button" onClick={goSignup} className="ghost-button ghost-button-hover rounded-md px-4 py-2 text-xs">Host Yours →</button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
@@ -681,7 +820,7 @@ function LiveShowcase() {
 /* Academy promo                                                       */
 /* ------------------------------------------------------------------ */
 
-function AcademyPromo() {
+function AcademyPromo({ goAcademy }: { goAcademy: () => void }) {
   return (
     <section id="academy" className="mx-auto max-w-7xl px-5 py-16">
       <div className="panel-rail relative overflow-hidden p-8 md:p-12">
@@ -703,7 +842,7 @@ function AcademyPromo() {
                 </span>
               ))}
             </div>
-            <a href="#academy" className="gold-button gold-button-hover mt-8 inline-block rounded-md px-5 py-3 text-xs">Enter the Academy →</a>
+            <a href="/academy" onClick={(e) => { e.preventDefault(); goAcademy(); }} className="gold-button gold-button-hover mt-8 inline-block rounded-md px-5 py-3 text-xs">Enter the Academy →</a>
           </div>
           <div className="panel relative overflow-hidden p-4">
             <div className="grid grid-cols-2 gap-2">
@@ -741,15 +880,26 @@ function AcademyPromo() {
 /* Pricing                                                             */
 /* ------------------------------------------------------------------ */
 
-function Pricing() {
+function Pricing({ goSignup, goContact }: { goSignup: () => void; goContact: () => void }) {
   const tiers = [
-    { name: "Free Trial", price: "₹0", teams: 2, who: "Try the room before you buy.", inc: ["Full bidding engine", "Team-owner panel", "Basic LED mode", "1 tournament, capped at 2 teams"], cta: "Start Free", ghost: true },
-    { name: "Starter", price: "₹4,999", teams: 4, who: "Small friendly leagues, offices.", inc: ["Everything in Free", "Categories & purses", "QR registration", "CSV export"], cta: "Get License", ghost: true },
-    { name: "Pro", price: "₹9,999", teams: 8, who: "Serious local / district leagues.", inc: ["Everything in Starter", "LED broadcast mode", "Sponsor slots", "Analytics dashboard"], cta: "Get License", featured: true },
-    { name: "Advanced", price: "₹14,999", teams: 12, who: "Regional franchise auctions.", inc: ["Everything in Pro", "Broadcast overlay (OBS)", "RTM & retentions", "Priority support"], cta: "Get License", ghost: true },
-    { name: "Elite", price: "₹19,999", teams: 16, who: "State-level flagship events.", inc: ["Everything in Advanced", "Custom overlay branding", "Dedicated onboarding", "Same-day training call"], cta: "Get License", ghost: true },
-    { name: "Enterprise", price: "Custom", teams: 0, who: "Multi-tournament, federations, broadcasters.", inc: ["Custom seat count", "White-label overlay", "On-site auction support", "Custom SLA & billing"], cta: "Talk to Sales", ghost: true },
+    { name: "Free Trial", price: "₹0", teams: 2, who: "Try the room before you buy.", inc: ["Full bidding engine", "Team-owner panel", "Basic LED mode", "1 tournament, capped at 2 teams"], cta: "Start Free", ghost: true, action: "signup" as const },
+    { name: "Starter", price: "₹4,999", teams: 4, who: "Small friendly leagues, offices.", inc: ["Everything in Free", "Categories & purses", "QR registration", "CSV export"], cta: "Get License", ghost: true, action: "pay" as const, discountedPrice: 4999 },
+    { name: "Pro", price: "₹9,999", teams: 8, who: "Serious local / district leagues.", inc: ["Everything in Starter", "LED broadcast mode", "Sponsor slots", "Analytics dashboard"], cta: "Get License", featured: true, action: "pay" as const, discountedPrice: 9999 },
+    { name: "Advanced", price: "₹14,999", teams: 12, who: "Regional franchise auctions.", inc: ["Everything in Pro", "Broadcast overlay (OBS)", "RTM & retentions", "Priority support"], cta: "Get License", ghost: true, action: "pay" as const, discountedPrice: 14999 },
+    { name: "Elite", price: "₹19,999", teams: 16, who: "State-level flagship events.", inc: ["Everything in Advanced", "Custom overlay branding", "Dedicated onboarding", "Same-day training call"], cta: "Get License", ghost: true, action: "pay" as const, discountedPrice: 19999 },
+    { name: "Enterprise", price: "Custom", teams: 0, who: "Multi-tournament, federations, broadcasters.", inc: ["Custom seat count", "White-label overlay", "On-site auction support", "Custom SLA & billing"], cta: "Talk to Sales", ghost: true, action: "contact" as const },
   ];
+  const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
+
+  function handleCtaClick(t: (typeof tiers)[number]) {
+    if (t.action === "contact") { goContact(); return; }
+    if (t.action === "pay" && "discountedPrice" in t) {
+      setPayingPlan({ label: t.name, price: t.price, discountedPrice: t.discountedPrice });
+      return;
+    }
+    goSignup();
+  }
+
   return (
     <section id="pricing" className="mx-auto max-w-7xl px-5 py-16">
       <div className="mb-10">
@@ -789,9 +939,13 @@ function Pricing() {
                 </li>
               ))}
             </ul>
-            <a href="#contact" className={`${t.featured ? "gold-button gold-button-hover" : "ghost-button ghost-button-hover"} mt-6 rounded-md py-3 text-center text-xs`}>
+            <button
+              type="button"
+              onClick={() => handleCtaClick(t)}
+              className={`${t.featured ? "gold-button gold-button-hover" : "ghost-button ghost-button-hover"} mt-6 rounded-md py-3 text-center text-xs`}
+            >
               {t.cta} →
-            </a>
+            </button>
           </div>
         ))}
       </div>
@@ -799,6 +953,12 @@ function Pricing() {
       <p className="mt-8 text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
         No monthly fees · No auto-renewals · GST invoice · Sports scoring licensed separately
       </p>
+
+      {payingPlan ? (
+        <Suspense fallback={null}>
+          <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
+        </Suspense>
+      ) : null}
     </section>
   );
 }
@@ -819,7 +979,7 @@ function FAQ() {
     { q: "Do team owners need to install an app?", a: "No. Team owners open a link on their phone browser and log in. Any Android or iOS device works." },
   ];
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16">
+    <section id="faq" className="mx-auto max-w-7xl px-5 py-16">
       <div className="mb-10">
         <div className="text-[11px] uppercase tracking-[0.24em] text-primary">FAQ</div>
         <h2 className="text-display-lg mt-2">Questions from the commentary box.</h2>
@@ -857,9 +1017,9 @@ function ContactSection({ onOpen }: { onOpen: () => void }) {
               get you live within a week. No pressure, no monthly commitment.
             </p>
             <div className="mt-8 space-y-3 text-sm">
-              <div className="flex items-center gap-3 text-muted-foreground"><span className="font-mono text-primary">CALL</span> +91 90000 00000</div>
-              <div className="flex items-center gap-3 text-muted-foreground"><span className="font-mono text-primary">MAIL</span> hello@bidwar.in</div>
-              <div className="flex items-center gap-3 text-muted-foreground"><span className="font-mono text-primary">HQ&nbsp;&nbsp;</span> Bengaluru · India</div>
+              <a href={waMeUrl()} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-muted-foreground hover:text-foreground"><span className="font-mono text-primary">CALL</span> {SITE_CONTACT.phoneDisplay}</a>
+              <a href={`mailto:${SITE_CONTACT.email}`} className="flex items-center gap-3 text-muted-foreground hover:text-foreground"><span className="font-mono text-primary">MAIL</span> {SITE_CONTACT.email}</a>
+              <div className="flex items-center gap-3 text-muted-foreground"><span className="font-mono text-primary">HQ&nbsp;&nbsp;</span> {SITE_CONTACT.addressLine}</div>
             </div>
           </div>
           <ContactForm />
@@ -875,8 +1035,33 @@ function ContactSection({ onOpen }: { onOpen: () => void }) {
 }
 
 function ContactForm({ compact = false }: { compact?: boolean }) {
+  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const name = String(fd.get("name") || "").trim();
+    const mobile = String(fd.get("mobile") || "").trim();
+    const email = String(fd.get("email") || "").trim();
+    const city = String(fd.get("city") || "").trim();
+    const sport = String(fd.get("sport") || "").trim();
+    const teams = String(fd.get("teams") || "").trim();
+    const contact = String(fd.get("contact") || "").trim();
+    const message = String(fd.get("message") || "").trim();
+    const text = [
+      "Hi, I want a live BidWar demo for my sports auction.",
+      name && `Name: ${name}`,
+      mobile && `Mobile: ${mobile}`,
+      email && `Email: ${email}`,
+      city && `City: ${city}`,
+      sport && `Sport: ${sport}`,
+      teams && `Teams: ${teams}`,
+      contact && `Preferred contact: ${contact}`,
+      message && `Details: ${message}`,
+    ].filter(Boolean).join("\n");
+    window.open(waMeUrl(text), "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); alert("Thanks — we'll be in touch within 24 hours."); }}
+    <form onSubmit={onSubmit}
       className={`panel space-y-3 p-6 ${compact ? "text-sm" : ""}`}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Your Name" name="name" required />
@@ -951,29 +1136,107 @@ function ContactDrawer({ onClose }: { onClose: () => void }) {
 /* ------------------------------------------------------------------ */
 
 function Footer() {
-  const cols: Array<{ h: string; items: string[] }> = [
-    { h: "Product", items: ["Features", "Pricing", "LED Mode", "Team-Owner Panel", "Broadcast Overlay"] },
-    { h: "Solutions", items: ["Cricket Auctions", "Football Draft", "Kabaddi Leagues", "Corporate T20", "Esports"] },
-    { h: "Resources", items: ["Academy", "Blog", "Case Studies", "Help Center", "System Status"] },
-    { h: "Company", items: ["About", "Careers", "Contact", "Sign In", "Pay"] },
+  type FooterItem = { label: string; href?: string };
+  const cols: Array<{ h: string; items: FooterItem[] }> = [
+    {
+      h: "Product",
+      items: [
+        { label: "Features", href: "#features" },
+        { label: "Pricing", href: "#pricing" },
+        { label: "LED Mode", href: "#product" },
+        { label: "Team-Owner Panel", href: "#product" },
+        { label: "Broadcast Overlay", href: "#ecosystem" },
+      ],
+    },
+    {
+      h: "Solutions",
+      items: [
+        { label: "Cricket Auctions", href: "/cricket-auction-software" },
+        { label: "Football Draft", href: "/football-player-auction" },
+        { label: "Kabaddi Leagues", href: "/kabaddi-auction-platform" },
+        { label: "Corporate T20", href: "/business-league-auction" },
+        { label: "Esports", href: "/esports-auction-system" },
+      ],
+    },
+    {
+      h: "Resources",
+      items: [
+        { label: "Academy", href: "/academy" },
+        { label: "Blog", href: "/blog" },
+        { label: "Case Studies" },
+        { label: "Help Center" },
+        { label: "System Status" },
+      ],
+    },
+    {
+      h: "Company",
+      items: [
+        { label: "About" },
+        { label: "Careers" },
+        { label: "Contact", href: "/contact" },
+        { label: "Sign In", href: "/organizer" },
+        { label: "Pay", href: "#pricing" },
+      ],
+    },
   ];
+  // Visual slots: Instagram, Facebook (replaces unused LinkedIn), YouTube, X placeholder
+  const socialLabels = ["IN", "FB", "YT", "TW"] as const;
+  const socialByLabel = Object.fromEntries(SITE_SOCIAL.map((s) => [s.label, s]));
+  const placeholderSocial = new Set<string>(SITE_SOCIAL_PLACEHOLDERS);
+
   return (
     <footer className="border-t border-white/10 bg-black/40 pt-16">
       <div className="mx-auto max-w-7xl px-5 pb-10">
         <div className="grid gap-10 lg:grid-cols-[1.4fr_2fr]">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[image:var(--gradient-gold)] font-display text-black">B</span>
+            <a href="/" className="flex items-center gap-2" aria-label={`${BRAND_NAME} Home`}>
+              <BrandLogoImage
+                src={getPublicBrandLogoSrc(landingFooterPreset.logoOrder, 0)}
+                alt={getBrandLogoAlt(BRAND_NAME)}
+                className="h-9 w-auto max-w-[140px]"
+                width={168}
+                height={40}
+                loading="lazy"
+              />
               <span className="font-display text-2xl tracking-wider">BidWar<span className="text-primary">.in</span></span>
-            </div>
+            </a>
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
               India's auction-first platform for live sports player auctions. From street leagues
               to state finals — from auction to champion.
             </p>
             <div className="mt-6 flex gap-2">
-              {["IN", "TW", "YT", "LI"].map((s) => (
-                <a key={s} href="#" className="ghost-button ghost-button-hover flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-bold tracking-widest">{s}</a>
-              ))}
+              {socialLabels.map((label) => {
+                const social = socialByLabel[label];
+                if (social) {
+                  return (
+                    <a
+                      key={label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`BidWar on ${social.name}`}
+                      className="ghost-button ghost-button-hover flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-bold tracking-widest"
+                    >
+                      {label}
+                    </a>
+                  );
+                }
+                return (
+                  <span
+                    key={label}
+                    title={placeholderSocial.has(label) ? "Coming soon" : undefined}
+                    className="ghost-button flex h-9 w-9 cursor-default items-center justify-center rounded-md text-[10px] font-bold tracking-widest opacity-40"
+                    aria-disabled="true"
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+            <div className="mt-6 space-y-1 text-xs text-muted-foreground">
+              <a href={`mailto:${SITE_CONTACT.email}`} className="block hover:text-foreground">{SITE_CONTACT.email}</a>
+              <a href={waMeUrl()} target="_blank" rel="noopener noreferrer" className="block hover:text-foreground">{SITE_CONTACT.phoneDisplay}</a>
+              <p>{SITE_CONTACT.addressLine}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
@@ -981,7 +1244,25 @@ function Footer() {
               <div key={c.h}>
                 <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">{c.h}</div>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  {c.items.map((i) => <li key={i}><a href={`#${i.toLowerCase().replace(/\s+/g, "-")}`} className="hover:text-foreground">{i}</a></li>)}
+                  {c.items.map((i) => (
+                    <li key={i.label}>
+                      {i.href ? (
+                        <a
+                          href={i.href}
+                          onClick={(e) => {
+                            if (i.href?.startsWith("#")) {
+                              scrollToSection(i.href.slice(1), e);
+                            }
+                          }}
+                          className="hover:text-foreground"
+                        >
+                          {i.label}
+                        </a>
+                      ) : (
+                        <span className="cursor-default opacity-60" title="Coming soon">{i.label}</span>
+                      )}
+                    </li>
+                  ))}
                 </ul>
               </div>
             ))}
@@ -990,12 +1271,12 @@ function Footer() {
       </div>
       <div className="border-t border-white/5">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          <div>© {new Date().getFullYear()} BidWar Technologies · Made in India</div>
+          <div>© {new Date().getFullYear()} BidWar Technologies · Made in India · Operated by {SITE_CONTACT.billingEntity}</div>
           <div className="flex gap-5">
-            <a href="#privacy" className="hover:text-foreground">Privacy</a>
-            <a href="#terms" className="hover:text-foreground">Terms</a>
-            <a href="#refund" className="hover:text-foreground">Refund</a>
-            <a href="#gst" className="hover:text-foreground">GST</a>
+            <a href="/legal/privacy" className="hover:text-foreground">Privacy</a>
+            <a href="/legal/terms" className="hover:text-foreground">Terms</a>
+            <a href="/legal/refund" className="hover:text-foreground">Refund</a>
+            <a href="/legal" className="hover:text-foreground" title={`GSTIN ${SITE_CONTACT.gstin}`}>GST</a>
           </div>
         </div>
       </div>
@@ -1601,7 +1882,7 @@ function SuccessMetrics() {
 /* Final CTA                                                           */
 /* ------------------------------------------------------------------ */
 
-function FinalCTA({ onContact }: { onContact: () => void }) {
+function FinalCTA({ onContact, goSignup }: { onContact: () => void; goSignup: () => void }) {
   return (
     <section className="mx-auto max-w-7xl px-5 py-16">
       <div className="panel-rail relative overflow-hidden p-10 md:p-16">
@@ -1618,8 +1899,8 @@ function FinalCTA({ onContact }: { onContact: () => void }) {
             Free trial · No setup fee · Any device · Ready in five minutes. Book a live producer walkthrough and go live within a week.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <a href="#pricing" className="gold-button gold-button-hover rounded-md px-7 py-3.5 text-sm">Start Free Trial →</a>
-            <button onClick={onContact} className="ghost-button ghost-button-hover rounded-md px-7 py-3.5 text-sm">▶ Book a Producer Call</button>
+            <button type="button" onClick={goSignup} className="gold-button gold-button-hover rounded-md px-7 py-3.5 text-sm">Start Free Trial →</button>
+            <button type="button" onClick={onContact} className="ghost-button ghost-button-hover rounded-md px-7 py-3.5 text-sm">▶ Book a Producer Call</button>
           </div>
         </div>
       </div>

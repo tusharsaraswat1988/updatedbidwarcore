@@ -80,7 +80,9 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
   );
   const waLink = `https://wa.me/918707488250?text=${waText}`;
 
-  const savings = parseInt(plan.price.replace(/[₹,]/g, ""), 10) - plan.discountedPrice;
+  const originalPrice = parseInt(plan.price.replace(/[₹,]/g, ""), 10);
+  const savings = Number.isFinite(originalPrice) ? originalPrice - plan.discountedPrice : 0;
+  const hasSavings = savings > 0;
 
   function handleCopyUPI() {
     navigator.clipboard.writeText(UPI_ID).then(() => {
@@ -105,7 +107,7 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none">
+          <div className="lovable-home fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none">
             <motion.div
               key="pay-modal"
               initial={{ opacity: 0, y: 40, scale: 0.97 }}
@@ -113,52 +115,54 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
               exit={{ opacity: 0, y: 24, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 340, damping: 30 }}
               ref={modalRef}
-              className="pointer-events-auto w-full sm:max-w-sm bg-[#111113] border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden"
+              className="panel pointer-events-auto flex w-full max-h-[92vh] sm:max-h-[85vh] flex-col overflow-hidden rounded-t-2xl sm:max-w-[22rem] sm:rounded-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent bar */}
-              <div className="h-1 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+              <div className="h-1 w-full shrink-0 bg-[image:var(--gradient-gold)]" />
 
               {/* Header */}
-              <div className="relative px-6 pt-5 pb-4 border-b border-white/6">
+              <div className="relative shrink-0 border-b border-white/8 px-5 pb-3 pt-4">
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-white hover:bg-white/8 transition-colors"
+                  className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/8 hover:text-foreground"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />
                 </button>
 
-                <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-primary">
                   {plan.label} Plan
                 </p>
-                <div className="flex items-end gap-3">
-                  <p className="text-4xl font-display font-black text-white leading-none">
+                <div className="flex items-end gap-2.5">
+                  <p className="text-3xl font-display font-black leading-none text-foreground">
                     ₹{plan.discountedPrice.toLocaleString("en-IN")}
                   </p>
-                  <div className="mb-1 flex flex-col items-start gap-0.5">
-                    <span className="text-xs text-white/30 line-through leading-none">
-                      {plan.price}
-                    </span>
-                    <span className="text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 px-1.5 py-0.5 rounded-full leading-none">
-                      Save ₹{savings.toLocaleString("en-IN")}
-                    </span>
-                  </div>
+                  {hasSavings && (
+                    <div className="mb-0.5 flex flex-col items-start gap-0.5">
+                      <span className="text-xs leading-none text-muted-foreground line-through">
+                        {plan.price}
+                      </span>
+                      <span className="rounded-full border border-green-400/20 bg-green-400/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-green-400">
+                        Save ₹{savings.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-white/35 mt-1.5">
+                <p className="mt-1 text-xs text-muted-foreground">
                   One-time · All taxes included
                 </p>
               </div>
 
               {/* Body */}
-              <div className="px-6 py-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 py-4">
 
                 <AuctionLicenseInfo variant="checkout" />
 
                 {/* Pay via UPI — primary CTA */}
                 <a
                   href={upiLink}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-primary text-black font-bold text-sm hover:bg-primary/90 active:scale-[0.98] transition-all hover:shadow-[0_0_24px_rgba(234,179,8,0.35)]"
+                  className="gold-button gold-button-hover flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm active:scale-[0.98]"
                 >
                   <Smartphone className="w-4 h-4" />
                   Pay via UPI App
@@ -167,7 +171,7 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
                 {/* QR Toggle */}
                 <button
                   onClick={() => setShowQR(v => !v)}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-white/10 text-white/60 text-sm font-medium hover:bg-white/5 hover:text-white/80 transition-colors"
+                  className="ghost-button ghost-button-hover flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-xs normal-case"
                 >
                   <QrCode className="w-4 h-4" />
                   {showQR ? "Hide QR Code" : "Show QR Code"}
@@ -183,26 +187,26 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
                       transition={{ duration: 0.22 }}
                       className="overflow-hidden"
                     >
-                      <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-white">
+                      <div className="flex flex-col items-center gap-2.5 rounded-xl bg-white p-3">
                         <QRCodeSVG
                           value={upiLink}
-                          size={180}
+                          size={140}
                           level="M"
                           bgColor="#ffffff"
                           fgColor="#000000"
                         />
-                        <p className="text-[10px] text-black/40 text-center font-medium">
+                        <p className="text-center text-[10px] font-medium text-black/40">
                           Scan with any UPI app — PhonePe, GPay, Paytm
                         </p>
                         <button
                           onClick={handleCopyUPI}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/6 border border-black/10 hover:bg-black/10 transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg border border-black/10 bg-black/6 px-3 py-1.5 transition-colors hover:bg-black/10"
                         >
                           {copied
                             ? <Check className="w-3 h-3 text-green-600" />
                             : <Copy className="w-3 h-3 text-black/50" />
                           }
-                          <span className="text-[10px] font-mono text-black/60">
+                          <span className="font-mono text-[10px] text-black/60">
                             {copied ? "Copied!" : UPI_ID}
                           </span>
                         </button>
@@ -212,10 +216,10 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
                 </AnimatePresence>
 
                 {/* Divider */}
-                <div className="border-t border-white/6 pt-1" />
+                <div className="border-t border-white/8 pt-0.5" />
 
                 {/* After payment note */}
-                <p className="text-[11px] text-white/40 text-center leading-relaxed">
+                <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
                   After payment, share your screenshot on WhatsApp to activate your license.
                 </p>
 
@@ -224,7 +228,7 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
                   href={waLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
                   style={{ background: "linear-gradient(135deg, #25D366, #128C7E)" }}
                 >
                   <MessageCircle className="w-4 h-4 fill-white" />
@@ -232,7 +236,7 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
                 </a>
 
                 {/* Trust line */}
-                <p className="text-[11px] text-white/20 text-center pb-1">
+                <p className="pb-0.5 text-center text-[11px] text-muted-foreground/60">
                   License activation usually completed within minutes.
                 </p>
               </div>

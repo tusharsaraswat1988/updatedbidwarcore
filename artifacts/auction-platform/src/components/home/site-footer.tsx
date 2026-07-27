@@ -1,28 +1,19 @@
 import { Instagram, Facebook, Youtube, Mail, Phone, Globe } from "lucide-react";
 import { getBrandLogoAlt, getBrandLogoSrc, type BrandLogos } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { LEGAL_LINKS, SITE_CONTACT } from "@/lib/public-site-links";
 
 const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
 const PLATFORM_LINKS = [
   { label: "Features", href: "#features" },
-                  { label: "Use Cases", href: "#sports" },
+  { label: "Use Cases", href: "#sports" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
   { label: "Auction Gallery", href: "#gallery" },
   { label: "BidWar Academy", href: "/academy" },
   { label: "Blog & Guides", href: "/blog" },
   { label: "Contact Us", href: "/contact" },
-] as const;
-
-const LEGAL_LINKS = [
-  { label: "Legal Hub", href: "/legal" },
-  { label: "Terms & Conditions", href: "/legal/terms" },
-  { label: "Licensing Policy", href: "/legal/licensing" },
-  { label: "Privacy Policy", href: "/legal/privacy" },
-  { label: "Acceptable Use", href: "/legal/acceptable-use" },
-  { label: "Disclaimer", href: "/legal/disclaimer" },
-  { label: "Refund Policy", href: "/legal/refund" },
 ] as const;
 
 /**
@@ -94,17 +85,17 @@ export function SiteFooter({
           <div className="space-y-3">
             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Support</p>
             <div className="space-y-3">
-              <a href="mailto:bidwarsupport@gmail.com" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+              <a href={`mailto:${SITE_CONTACT.email}`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
                 <Mail className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
-                bidwarsupport@gmail.com
+                {SITE_CONTACT.email}
               </a>
-              <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+              <a href={`https://wa.me/${SITE_CONTACT.phoneWhatsApp}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
                 <Phone className="w-3.5 h-3.5 flex-shrink-0 text-green-400" aria-hidden />
-                +91 8707488250
+                {SITE_CONTACT.phoneDisplay}
               </a>
-              <a href="https://bidwar.in" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+              <a href={SITE_CONTACT.website} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
                 <Globe className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
-                bidwar.in
+                {SITE_CONTACT.websiteLabel}
               </a>
             </div>
           </div>

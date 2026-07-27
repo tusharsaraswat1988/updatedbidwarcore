@@ -1,6 +1,6 @@
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { PublicNavbar } from "@/components/public-navbar";
+import { PublicWebsiteLayout } from "@/components/public-website-layout";
 import {
   AUCTION_LICENSE_CLARIFICATION,
   AUCTION_LICENSE_CLARIFICATION_FOOTNOTE,
@@ -366,10 +366,14 @@ export default function LegalPage() {
   const policy = POLICIES[slug] ?? POLICIES["terms"];
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pt-16">
-      {/* Top bar */}
-      <PublicNavbar />
-
+    <PublicWebsiteLayout
+      readableContent
+      seo={{
+        title: `${policy.title} | BidWar`,
+        description: policy.subtitle,
+        canonical: `https://bidwar.in/legal/${slug}`,
+      }}
+    >
       <div className="max-w-6xl mx-auto px-6 py-10 flex gap-10">
         {/* Sidebar nav */}
         <aside className="hidden lg:block w-52 flex-shrink-0">
@@ -383,8 +387,8 @@ export default function LegalPage() {
                 onClick={() => navigate(`/legal/${link.slug}`)}
                 className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                   slug === link.slug
-                    ? "bg-white/8 text-white font-semibold"
-                    : "text-muted-foreground hover:text-white hover:bg-white/5"
+                    ? "bg-white/8 text-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                 }`}
               >
                 {link.label}
@@ -415,7 +419,7 @@ export default function LegalPage() {
           className="flex-1 min-w-0 max-w-3xl"
         >
           <div className="mb-8">
-            <h1 className="font-display font-black text-3xl md:text-4xl text-white leading-tight">
+            <h1 className="text-3xl md:text-4xl leading-tight">
               {policy.title}
             </h1>
             <p className="text-muted-foreground mt-2 text-sm">{policy.subtitle}</p>
@@ -425,10 +429,10 @@ export default function LegalPage() {
           <div className="space-y-8">
             {policy.sections.map((section, i) => (
               <section key={i}>
-                <h2 className="font-display font-bold text-base text-white mb-2">
+                <h2 className="text-base text-foreground mb-2">
                   {section.heading}
                 </h2>
-                <p className="text-sm text-white/70 leading-relaxed whitespace-pre-line">
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                   {section.body}
                 </p>
               </section>
@@ -440,7 +444,7 @@ export default function LegalPage() {
               <button
                 key={link.slug}
                 onClick={() => navigate(`/legal/${link.slug}`)}
-                className="text-xs text-muted-foreground hover:text-white transition-colors underline underline-offset-2"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
               >
                 {link.label}
               </button>
@@ -448,6 +452,6 @@ export default function LegalPage() {
           </div>
         </motion.main>
       </div>
-    </div>
+    </PublicWebsiteLayout>
   );
 }

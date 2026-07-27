@@ -407,3 +407,28 @@
 .lovable-home .ecosystem-line {
   animation: ecosystem-flow 2.4s linear infinite;
 }
+
+/*
+ * Phase 3 — Public Website Unification.
+ * Long-form content (blog articles, legal policy text) should NOT get the
+ * uppercase display treatment forced on shell/section headings above.
+ * Higher selector specificity (.lovable-home .content-readable h1 > .lovable-home h1)
+ * wins regardless of source order.
+ */
+.lovable-home .content-readable h1,
+.lovable-home .content-readable h2,
+.lovable-home .content-readable h3,
+.lovable-home .content-readable h4,
+.lovable-home .content-readable h5,
+.lovable-home .content-readable h6 {
+  font-family: var(--font-sans) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+.lovable-home .content-readable p,
+.lovable-home .content-readable li {
+  line-height: 1.7;
+}

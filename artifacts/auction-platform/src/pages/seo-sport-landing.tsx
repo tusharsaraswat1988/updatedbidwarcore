@@ -9,14 +9,11 @@ import {
 } from "lucide-react";
 import { SeoHead } from "@/components/seo-head";
 import { SportLandingSchemaMarkup } from "@/components/schema-markup";
-import { PublicNavbar } from "@/components/public-navbar";
+import { PublicWebsiteLayout } from "@/components/public-website-layout";
 import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
-import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { AuctionLicenseInfo } from "@/components/auction-license-info";
 import { AUCTION_LICENSE_FAQ, AUCTION_LICENSE_PRICING_NOTE } from "@/data/auction-license";
-
-const landingFooterPreset = getBrandSurfacePreset("landing-footer");
+import { PRICING_TIERS } from "@/components/home/pricing-section";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -953,10 +950,8 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function SeoSportLanding({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
-  const { logos, brandName } = useBranding();
+  const { logos } = useBranding();
   const config = SPORT_CONFIGS[slug];
-  const footerLogoSrc = getBrandLogoSrc(logos, landingFooterPreset.logoOrder);
-  const logoAlt = getBrandLogoAlt(brandName);
 
   if (!config) {
     navigate("/");
@@ -978,13 +973,10 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
         faqs={config.faqs}
       />
 
-      <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
-
-        {/* ── Nav ─────────────────────────────────────────── */}
-        <PublicNavbar />
+      <PublicWebsiteLayout mainClassName="bg-transparent">
 
         {/* ── Breadcrumb ───────────────────────────────────── */}
-        <div className="pt-20 pb-0 px-6">
+        <div className="pt-4 pb-0 px-6">
           <div className="max-w-6xl mx-auto">
             <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground py-4">
               <a href="/" className="hover:text-white transition-colors">Home</a>
@@ -1261,41 +1253,40 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
               <p className="text-xs text-muted-foreground/90 max-w-xl mx-auto">{AUCTION_LICENSE_PRICING_NOTE}</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {[
-                { label: "Trial", price: "Free", teams: "2 Teams", highlight: false },
-                { label: "Starter", price: "₹5,000", teams: "4 Teams", highlight: false },
-                { label: "Pro", price: "₹6,000", teams: "8 Teams", highlight: true },
-                { label: "Advanced", price: "₹8,000", teams: "12 Teams", highlight: false },
-                { label: "Elite", price: "₹10,000", teams: "16 Teams", highlight: false },
-                { label: "Champion", price: "₹15,000", teams: "30 Teams", highlight: false },
-              ].map((p) => (
+              {PRICING_TIERS.filter((p) => p.label !== "Premium").map((p) => (
                 <div
                   key={p.label}
-                  className={`relative p-4 rounded-xl border text-center transition-all ${p.highlight ? "border-primary bg-primary/5" : "border-border bg-card/20"}`}
+                  className={`panel relative p-4 text-center transition-all ${p.highlight ? "border-primary/50" : ""}`}
                 >
-                  {p.highlight && (
-                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-primary text-black text-[9px] font-black uppercase tracking-wider whitespace-nowrap">
-                      Most Popular
+                  {p.badge && (
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-foreground whitespace-nowrap">
+                      {p.badge}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{p.label}</p>
-                  <p className="font-black text-xl text-white">{p.price}</p>
+                  <p className="text-xl text-foreground">{p.discountedPrice ? `₹${p.discountedPrice.toLocaleString("en-IN")}` : p.price}</p>
                   <p className="text-xs text-muted-foreground mt-1">{p.teams}</p>
                   <p className="text-[10px] text-muted-foreground/70 mt-1">
-                    {p.price === "Free" ? "Trial Auction License" : "Auction License"}
+                    {p.label === "Trial" ? "Trial Auction License" : "Auction License"}
                   </p>
-                  {p.price !== "Free" && <p className="text-[10px] text-muted-foreground/60 mt-0.5">+ GST per auction</p>}
+                  {p.label !== "Trial" && <p className="text-[10px] text-muted-foreground/60 mt-0.5">+ GST per auction</p>}
                 </div>
               ))}
             </div>
             <AuctionLicenseInfo variant="compact" className="mt-6 max-w-2xl mx-auto" />
-            <div className="mt-6 text-center">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={() => navigate("/organizer?tab=signup")}
-                className="px-6 py-3 rounded-xl bg-primary text-black font-bold text-sm hover:bg-primary/90 transition-all inline-flex items-center gap-2"
+                className="gold-button gold-button-hover inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm"
               >
                 Start Free <ArrowRight className="w-4 h-4" />
               </button>
+              <a
+                href="/pricing"
+                className="ghost-button ghost-button-hover inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm"
+              >
+                See Full Pricing
+              </a>
               <p className="text-xs text-muted-foreground mt-3">
                 Payment via bank transfer · License activated on WhatsApp ·{" "}
                 <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">+91 8707488250</a>
@@ -1377,64 +1368,6 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {/* ── Footer ───────────────────────────────────────── */}
-        <footer className="border-t border-border/30 py-10 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-              <div className="col-span-2 md:col-span-1 space-y-3">
-                <div className="flex items-center gap-2">
-                  <img src={footerLogoSrc} alt={logoAlt} className={landingFooterPreset.sizeClass} loading="lazy" decoding="async" />
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">India's live sports auction platform for franchise tournaments.</p>
-                <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">
-                  <MessageCircle className="w-3.5 h-3.5" /> +91 8707488250
-                </a>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-white uppercase tracking-wide mb-3">Sports</p>
-                {[
-                  ["Cricket Auction Software", "/cricket-auction-software"],
-                  ["Football Player Auction", "/football-player-auction"],
-                  ["Kabaddi Auction Platform", "/kabaddi-auction-platform"],
-                  ["Esports Auction System", "/esports-auction-system"],
-                ].map(([label, href]) => (
-                  <a key={href} href={href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{label}</a>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-white uppercase tracking-wide mb-3">More</p>
-                {[
-                  ["Business League Auction", "/business-league-auction"],
-                  ["Live Player Bidding", "/live-player-bidding"],
-                  ["Tournament Auction Platform", "/tournament-auction-platform"],
-                  ["Pricing", "/#pricing"],
-                  ["FAQ", "/#faq"],
-                ].map(([label, href]) => (
-                  <a key={href} href={href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{label}</a>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-white uppercase tracking-wide mb-3">Legal</p>
-                {[
-                  ["Legal Hub", "/legal"],
-                  ["Terms of Service", "/legal/terms"],
-                  ["Licensing Policy", "/legal/licensing"],
-                  ["Privacy Policy", "/legal/privacy"],
-                  ["Acceptable Use", "/legal/acceptable-use"],
-                  ["Disclaimer", "/legal/disclaimer"],
-                  ["Refund Policy", "/legal/refund"],
-                ].map(([label, href]) => (
-                  <a key={href} href={href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{label}</a>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-border/30 pt-6 flex flex-col md:flex-row items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} BidWar. All rights reserved.</p>
-              <p className="text-xs text-muted-foreground">India's Live Sports Auction Platform</p>
-            </div>
-          </div>
-        </footer>
-
         {/* ── WhatsApp Float ───────────────────────────────── */}
         <a
           href={`https://wa.me/918707488250?text=${config.whatsappText}`}
@@ -1462,7 +1395,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
           </motion.div>
         </a>
 
-      </div>
+      </PublicWebsiteLayout>
     </>
   );
 }
