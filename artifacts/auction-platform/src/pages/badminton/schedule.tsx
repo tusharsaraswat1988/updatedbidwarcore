@@ -792,7 +792,7 @@ function ScheduleFixtureModal({
         </p>
       ) : (
         <>
-          <FormField label="Court">
+          <FormField label="Court" required>
             <DarkSelect
               value={courtId || "none"}
               onValueChange={(v) => setCourtId(v === "none" ? "" : v)}
@@ -806,17 +806,21 @@ function ScheduleFixtureModal({
             />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Date">
+            <FormField label="Date" required>
               <input
                 type="date"
+                required
+                aria-required="true"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className={cn(inputClass, "min-h-11")}
               />
             </FormField>
-            <FormField label="Time">
+            <FormField label="Time" required>
               <input
                 type="time"
+                required
+                aria-required="true"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 className={cn(inputClass, "min-h-11")}

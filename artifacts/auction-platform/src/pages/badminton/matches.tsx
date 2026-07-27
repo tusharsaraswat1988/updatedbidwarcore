@@ -1093,7 +1093,7 @@ function MatchFormModal({
         <FormField label="Match Name">
           <input {...f("matchLabel")} placeholder="League Match 1" className={inputClass} />
         </FormField>
-        <FormField label="Court (required)">
+        <FormField label="Court" required>
           <CourtAutocomplete
             tournamentId={tournamentId}
             value={form.courtNumber}
@@ -1108,11 +1108,11 @@ function MatchFormModal({
 
       {!rosterLocked ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="Scheduled date (required)">
-            <input type="date" {...f("scheduleDate")} className={inputClass} />
+          <FormField label="Scheduled date" required>
+            <input type="date" required aria-required="true" {...f("scheduleDate")} className={inputClass} />
           </FormField>
-          <FormField label="Scheduled time (required)">
-            <input type="time" {...f("scheduleTime")} className={inputClass} />
+          <FormField label="Scheduled time" required>
+            <input type="time" required aria-required="true" {...f("scheduleTime")} className={inputClass} />
           </FormField>
         </div>
       ) : null}

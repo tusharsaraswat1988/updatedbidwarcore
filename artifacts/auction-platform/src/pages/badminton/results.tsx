@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from "react";
-import { useRoute, Link, useLocation } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -43,7 +43,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { cn } from "@/lib/utils";
 
@@ -205,32 +204,15 @@ export default function BadmintonResultsPage() {
 
   const loading = matchesLoading || fixturesLoading || catsLoading;
 
-  const [, setLocation] = useLocation();
-
   return (
     <HubPageShell tournamentId={tournamentId}>
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="results"
+        titleOverride="Standings"
+        purposeOverride="Review completed match results and category standings."
+        taskOverride="Check champions, brackets, and recent results."
         continueLabel="Share Tournament"
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={["standings", "summary", "insights"] as const}
-            labels={{
-              standings: "Standings",
-              summary: "Summary",
-              insights: "Insights",
-            }}
-            value="standings"
-            onChange={(next) => {
-              if (next === "summary") {
-                setLocation(`/tournament/${tournamentId}/badminton/summary`);
-              } else if (next === "insights") {
-                setLocation(`/tournament/${tournamentId}/badminton/analytics`);
-              }
-            }}
-          />
-        }
       >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-10">

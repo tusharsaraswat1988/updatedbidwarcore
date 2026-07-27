@@ -48,8 +48,7 @@ export const selectItemClass =
 /** Standard hub card — matches shared `Card` */
 
 export const hubCardClass =
-
-  "rounded-xl border bg-card border-border text-card-foreground shadow";
+  "rounded-xl border bg-card border-border text-card-foreground shadow panel";
 
 
 
@@ -116,20 +115,39 @@ export function HubPageShell({
 
 
 
-export function FormField({ label, children }: { label: string; children: React.ReactNode }) {
-
+export function FormField({
+  label,
+  children,
+  required = false,
+  htmlFor,
+}: {
+  label: string;
+  children: React.ReactNode;
+  /** Shows a red asterisk and marks the field as required for assistive tech. */
+  required?: boolean;
+  htmlFor?: string;
+}) {
   return (
-
     <div>
-
-      <label className={labelClass}>{label}</label>
-
+      <label className={labelClass} htmlFor={htmlFor}>
+        {label}
+        {required ? (
+          <>
+            <span className="text-destructive ml-0.5" aria-hidden="true">
+              *
+            </span>
+            <span className="sr-only"> (required)</span>
+          </>
+        ) : null}
+      </label>
+      {required ? (
+        <p className="text-muted-foreground text-[10px] mb-2 -mt-1 normal-case tracking-normal font-normal">
+          Required
+        </p>
+      ) : null}
       {children}
-
     </div>
-
   );
-
 }
 
 
@@ -589,6 +607,8 @@ export function PickerTrigger({
 
   empty = true,
 
+  required = false,
+
 }: {
 
   onClick: () => void;
@@ -597,13 +617,13 @@ export function PickerTrigger({
 
   empty?: boolean;
 
+  required?: boolean;
+
 }) {
 
   return (
 
-    <div className="space-y-2">
-
-      <p className={labelClass}>{label}</p>
+    <FormField label={label} required={required}>
 
       <button
 
@@ -635,7 +655,7 @@ export function PickerTrigger({
 
       </button>
 
-    </div>
+    </FormField>
 
   );
 
@@ -681,7 +701,7 @@ export function BtnPrimary({
 
       className={cn(
 
-        "inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 transition-all",
+        "gold-button gold-button-hover inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 transition-all",
 
         className,
 
@@ -737,7 +757,7 @@ export function BtnSecondary({
 
       className={cn(
 
-        "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary text-secondary-foreground min-h-11 px-4 py-2.5 font-semibold text-sm hover-elevate active-elevate-2 disabled:opacity-50 transition-colors",
+        "ghost-button ghost-button-hover inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary text-secondary-foreground min-h-11 px-4 py-2.5 font-semibold text-sm hover-elevate active-elevate-2 disabled:opacity-50 transition-colors",
 
         className,
 

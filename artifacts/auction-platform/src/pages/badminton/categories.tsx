@@ -534,8 +534,8 @@ function CategoryFormModal({
       onClose={onClose}
       size="lg"
     >
-      <FormField label="Event Name *">
-        <input {...f("name")} placeholder="Men's Singles" className={inputClass} />
+      <FormField label="Event Name" required>
+        <input {...f("name")} required aria-required="true" placeholder="Men's Singles" className={inputClass} />
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
@@ -548,7 +548,7 @@ function CategoryFormModal({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Match Type">
+        <FormField label="Match Type" required>
           <DarkSelect
             value={form.matchType}
             onValueChange={(matchType) => setForm((prev) => ({ ...prev, matchType }))}
@@ -559,7 +559,7 @@ function CategoryFormModal({
             ]}
           />
         </FormField>
-        <FormField label="Draw Type">
+        <FormField label="Draw Type" required>
           <DarkSelect
             value={form.drawType}
             onValueChange={(drawType) => setForm((prev) => ({ ...prev, drawType }))}
@@ -676,7 +676,7 @@ function AddRegistrationModal({
         <AsyncLoadingPanel tone="inverse" compact message="Loading registered players…" />
       ) : (
         <>
-      <FormField label={isDoubles ? "Player 1 *" : "Player *"}>
+      <FormField label={isDoubles ? "Player 1" : "Player"} required>
         <DarkSelect
           value={player1Id || "none"}
           onValueChange={(v) => setPlayer1Id(v === "none" ? "" : v)}
@@ -689,7 +689,7 @@ function AddRegistrationModal({
       </FormField>
 
       {isDoubles && (
-        <FormField label="Player 2 (Partner) *">
+        <FormField label="Player 2 (Partner)" required>
           <DarkSelect
             value={player2Id || "none"}
             onValueChange={(v) => setPlayer2Id(v === "none" ? "" : v)}

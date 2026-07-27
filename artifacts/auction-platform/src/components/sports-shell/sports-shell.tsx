@@ -1,5 +1,5 @@
-import { ReactNode, createContext, useContext, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut } from "lucide-react";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import {
@@ -14,7 +14,7 @@ import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
-import type { SportNavConfig, SportNavItem } from "@/lib/sports-shell-types";
+import type { SportNavChild, SportNavConfig, SportNavItem } from "@/lib/sports-shell-types";
 import { cn } from "@/lib/utils";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
@@ -127,13 +127,123 @@ function LogoutButton({
   );
 }
 
+const NAV_MOTION =
+  "duration-[200ms] ease-out motion-reduce:transition-none motion-reduce:transform-none";
+
 function navItemClass(active: boolean, collapsed: boolean) {
   return cn(
-    "flex items-center rounded-md transition-colors",
+    "relative flex items-center rounded-md",
+    "transition-[background-color,color,box-shadow] ",
+    NAV_MOTION,
     collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full",
     active
       ? "bg-primary/10 text-primary"
-      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+      : "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
+  );
+}
+
+function childNavClass(active: boolean) {
+  return cn(
+    "relative flex items-center w-full rounded-md pl-2.5 pr-3 py-1.5 text-sm",
+    "transition-[background-color,color,font-weight] ",
+    NAV_MOTION,
+    active
+      ? "bg-primary/10 text-primary font-semibold"
+      : "bg-transparent text-muted-foreground font-normal hover:bg-accent hover:text-foreground",
+  );
+}
+
+function NavActiveAccent({ active }: { active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute left-0 top-1/2 w-[2px] -translate-y-1/2 rounded-full bg-primary",
+        "origin-center transition-[transform,opacity,height] ",
+        NAV_MOTION,
+        active ? "h-4 scale-y-100 opacity-100" : "h-4 scale-y-0 opacity-0",
+      )}
+      aria-hidden
+    />
+  );
+}
+
+/** Combine wouter pathname + search so query-based child active states work. */
+function locationWithSearch(pathname: string, search: string): string {
+  if (!search) return pathname;
+  return search.startsWith("?") ? `${pathname}${search}` : `${pathname}?${search}`;
+}
+
+function SportNavChildLink({
+  child,
+  tournamentId,
+  location,
+}: {
+  child: SportNavChild;
+  tournamentId: number;
+  location: string;
+}) {
+  const href = child.href(tournamentId);
+  const active = child.isActive(location, tournamentId);
+
+  return (
+    <Link
+      href={href}
+      title={child.label}
+      className={childNavClass(active)}
+      aria-current={active ? "page" : undefined}
+      onMouseEnter={child.preload}
+      onFocus={child.preload}
+    >
+      {/* Per-item tick on the shared vertical guide */}
+      <span
+        className={cn(
+          "pointer-events-none absolute -left-[calc(0.875rem+1px)] top-1/2 h-px w-2.5 -translate-y-1/2",
+          "transition-[background-color,opacity] ",
+          NAV_MOTION,
+          active ? "bg-primary/70 opacity-100" : "bg-border opacity-80",
+        )}
+        aria-hidden
+      />
+      <span className="truncate">{child.label}</span>
+    </Link>
+  );
+}
+
+function SportNavSubmenu({
+  expanded,
+  label,
+  children,
+}: {
+  expanded: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden transition-[max-height,opacity] ",
+        NAV_MOTION,
+        expanded ? "max-h-56 opacity-100" : "max-h-0 opacity-0 pointer-events-none",
+      )}
+      aria-hidden={!expanded}
+    >
+      <div
+        className={cn(
+          "relative ml-[1.375rem] transition-transform ",
+          NAV_MOTION,
+          expanded ? "translate-y-0" : "-translate-y-1.5",
+        )}
+        role="group"
+        aria-label={`${label} pages`}
+      >
+        {/* Vertical hierarchy guide — aligns under parent icon */}
+        <span
+          className="pointer-events-none absolute left-0 top-0.5 bottom-1 w-px bg-border/70"
+          aria-hidden
+        />
+        <div className="space-y-0.5 pl-3.5 pb-1">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -142,30 +252,64 @@ function SportNavLink({
   tournamentId,
   location,
   collapsed,
+  expanded,
+  onToggleExpanded,
 }: {
   item: SportNavItem;
   tournamentId: number;
   location: string;
   collapsed: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   const href = item.href(tournamentId);
   const active = item.isActive(location, tournamentId);
   const Icon = item.icon ?? LayoutDashboard;
-  const className = navItemClass(active, collapsed);
+  const children = item.children ?? [];
+  const hasChildren = children.length > 0;
 
-  if (item.external) {
+  // Collapsed rail: parent remains a direct link (children not visible).
+  if (collapsed || item.external || !hasChildren) {
+    const className = navItemClass(active, collapsed);
+
+    if (item.external) {
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={item.label}
+          className={cn(className, "font-medium")}
+        >
+          {!collapsed ? <NavActiveAccent active={active} /> : null}
+          <Icon className="w-5 h-5 flex-shrink-0" />
+          {!collapsed && (
+            <span className="flex flex-col leading-tight min-w-0">
+              <span className="font-medium truncate">{item.label}</span>
+              {item.hint ? (
+                <span className="text-[10px] text-muted-foreground/80 normal-case font-normal truncate">
+                  {item.hint}
+                </span>
+              ) : null}
+            </span>
+          )}
+        </a>
+      );
+    }
+
     return (
-      <a
+      <Link
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
         title={item.label}
         className={cn(className, "font-medium")}
+        onMouseEnter={item.preload}
+        onFocus={item.preload}
       >
+        {!collapsed ? <NavActiveAccent active={active} /> : null}
         <Icon className="w-5 h-5 flex-shrink-0" />
         {!collapsed && (
           <span className="flex flex-col leading-tight min-w-0">
-            <span className="font-medium truncate">{item.label}</span>
+            <span className="truncate">{item.label}</span>
             {item.hint ? (
               <span className="text-[10px] text-muted-foreground/80 normal-case font-normal truncate">
                 {item.hint}
@@ -173,21 +317,24 @@ function SportNavLink({
             ) : null}
           </span>
         )}
-      </a>
+      </Link>
     );
   }
 
   return (
-    <Link
-      href={href}
-      title={item.label}
-      className={cn(className, "font-medium")}
-      onMouseEnter={item.preload}
-      onFocus={item.preload}
-    >
-      <Icon className="w-5 h-5 flex-shrink-0" />
-      {!collapsed && (
-        <span className="flex flex-col leading-tight min-w-0">
+    <div className="space-y-0.5">
+      <button
+        type="button"
+        title={item.label}
+        aria-expanded={expanded}
+        onClick={onToggleExpanded}
+        onMouseEnter={item.preload}
+        onFocus={item.preload}
+        className={cn(navItemClass(active, false), "font-medium text-left")}
+      >
+        <NavActiveAccent active={active} />
+        <Icon className="w-5 h-5 flex-shrink-0" />
+        <span className="flex flex-col leading-tight min-w-0 flex-1">
           <span className="truncate">{item.label}</span>
           {item.hint ? (
             <span className="text-[10px] text-muted-foreground/80 normal-case font-normal truncate">
@@ -195,8 +342,26 @@ function SportNavLink({
             </span>
           ) : null}
         </span>
-      )}
-    </Link>
+        <ChevronRight
+          className={cn(
+            "w-4 h-4 shrink-0 text-muted-foreground transition-transform ",
+            NAV_MOTION,
+            expanded && "rotate-90",
+          )}
+          aria-hidden
+        />
+      </button>
+      <SportNavSubmenu expanded={expanded} label={item.label}>
+        {children.map((child) => (
+          <SportNavChildLink
+            key={child.id}
+            child={child}
+            tournamentId={tournamentId}
+            location={location}
+          />
+        ))}
+      </SportNavSubmenu>
+    </div>
   );
 }
 
@@ -215,6 +380,11 @@ export function SportsShell({
   className,
 }: SportsShellProps) {
   const [location] = useLocation();
+  const search = useSearch();
+  const pathForActive = useMemo(
+    () => locationWithSearch(location, search),
+    [location, search],
+  );
   const { logos, brandName, loading: brandingLoading } = useBranding();
   const sidebarLogoSrc =
     cldUrl(logos.appIcon, "appIcon") ||
@@ -246,6 +416,20 @@ export function SportsShell({
       return false;
     }
   });
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+
+  // Accordion: keep the active parent open; swap smoothly when the route module changes.
+  useEffect(() => {
+    const activeParent = nav.sections
+      .flatMap((section) => section.items)
+      .find((item) => item.children?.length && item.isActive(pathForActive, tournamentId));
+    if (!activeParent) return;
+    setExpandedIds((prev) => {
+      if (prev.size === 1 && prev.has(activeParent.id)) return prev;
+      return new Set([activeParent.id]);
+    });
+  }, [nav, pathForActive, tournamentId]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");
@@ -283,6 +467,7 @@ export function SportsShell({
       <div
         className={cn(
           "flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
+          isBadminton && "lovable-theme",
           className,
         )}
       >
@@ -376,8 +561,15 @@ export function SportsShell({
                     key={item.id}
                     item={item}
                     tournamentId={tournamentId}
-                    location={location}
+                    location={pathForActive}
                     collapsed={collapsed}
+                    expanded={expandedIds.has(item.id)}
+                    onToggleExpanded={() => {
+                      setExpandedIds((prev) => {
+                        if (prev.has(item.id)) return new Set();
+                        return new Set([item.id]);
+                      });
+                    }}
                   />
                 ))}
               </nav>
@@ -390,8 +582,23 @@ export function SportsShell({
         )}
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/20 via-background to-background pointer-events-none" />
+      <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
+        <div
+          className={cn(
+            "absolute inset-0 pointer-events-none",
+            isBadminton
+              ? "opacity-100"
+              : "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/20 via-background to-background",
+          )}
+          style={
+            isBadminton
+              ? {
+                  background:
+                    "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
+                }
+              : undefined
+          }
+        />
         {noPadding ? (
           <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">{children}</div>
         ) : (

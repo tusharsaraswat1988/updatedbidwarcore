@@ -181,7 +181,7 @@ function DisplayStage({
 
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="lovable-theme">
       <DisplayStageViewport>
         <StageThemeProvider initialTheme={initialTheme}>
           <StageFrame>

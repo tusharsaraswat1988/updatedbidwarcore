@@ -53,7 +53,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -208,24 +207,9 @@ export default function BadmintonSummaryPage() {
         tournamentId={tournamentId}
         stepId="results"
         hideContinue
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={["standings", "summary", "insights"] as const}
-            labels={{
-              standings: "Standings",
-              summary: "Summary",
-              insights: "Insights",
-            }}
-            value="summary"
-            onChange={(next) => {
-              if (next === "standings") {
-                navigate(`/tournament/${tournamentId}/badminton/results`);
-              } else if (next === "insights") {
-                navigate(`/tournament/${tournamentId}/badminton/analytics`);
-              }
-            }}
-          />
-        }
+        titleOverride="Summary"
+        purposeOverride="Close the tournament with an official summary and awards page."
+        taskOverride="Review champions, share links, and export or print the summary."
       >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-8">

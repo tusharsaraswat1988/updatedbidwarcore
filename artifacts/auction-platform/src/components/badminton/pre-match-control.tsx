@@ -464,7 +464,7 @@ function SideOutcomeModal({
 
   return (
     <FormModal title={title} subtitle={subtitle} onClose={onClose} size="md">
-      <FormField label={pickRetiring ? "Retiring side" : "Winning side"}>
+      <FormField label={pickRetiring ? "Retiring side" : "Winning side"} required>
         <DarkSelect
           value={side}
           onValueChange={(v) => setSide(v as "left" | "right")}
@@ -561,7 +561,7 @@ function AssignCourtTimeModal({
       onClose={onClose}
       size="md"
     >
-      <FormField label="Court (required)">
+      <FormField label="Court" required>
         <CourtAutocomplete
           tournamentId={tournamentId}
           value={courtNumber}
@@ -574,11 +574,11 @@ function AssignCourtTimeModal({
         />
       </FormField>
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Date">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
+        <FormField label="Date" required>
+          <input type="date" required aria-required="true" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
         </FormField>
-        <FormField label="Time">
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
+        <FormField label="Time" required>
+          <input type="time" required aria-required="true" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
         </FormField>
       </div>
       <FormError message={error} />

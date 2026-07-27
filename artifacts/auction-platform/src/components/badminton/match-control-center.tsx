@@ -160,7 +160,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             </BtnPrimary>
           ) : (
             <div className="space-y-3">
-              <FormField label="Pause reason">
+              <FormField label="Pause reason" required>
                 <DarkSelect
                   value={pauseReason}
                   onValueChange={(v) => setPauseReason(v as typeof pauseReason)}
@@ -174,9 +174,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 />
               </FormField>
               {pauseReason === "other" ? (
-                <FormField label="Detail">
+                <FormField label="Detail" required>
                   <input
                     className={inputClass}
+                    required
+                    aria-required="true"
                     value={pauseDetail}
                     onChange={(e) => setPauseDetail(e.target.value)}
                     placeholder="Describe the issue…"
@@ -339,12 +341,16 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                     { value: "right", label: "Right disqualified" },
                   ]}
                 />
-                <input
-                  className={inputClass}
-                  value={dqReason}
-                  onChange={(e) => setDqReason(e.target.value)}
-                  placeholder="Reason (required)"
-                />
+                <FormField label="Reason" required>
+                  <input
+                    className={inputClass}
+                    required
+                    aria-required="true"
+                    value={dqReason}
+                    onChange={(e) => setDqReason(e.target.value)}
+                    placeholder="Reason for disqualification"
+                  />
+                </FormField>
                 <button
                   type="button"
                   disabled={busy || !dqReason.trim()}
@@ -357,12 +363,16 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
                 <p className="text-white/50 text-xs font-semibold">Force End Match</p>
-                <input
-                  className={inputClass}
-                  value={forceEndReason}
-                  onChange={(e) => setForceEndReason(e.target.value)}
-                  placeholder="Reason (required)"
-                />
+                <FormField label="Reason" required>
+                  <input
+                    className={inputClass}
+                    required
+                    aria-required="true"
+                    value={forceEndReason}
+                    onChange={(e) => setForceEndReason(e.target.value)}
+                    placeholder="Reason for force end"
+                  />
+                </FormField>
                 <button
                   type="button"
                   disabled={busy || !forceEndReason.trim() || (!isLive && !isPaused)}

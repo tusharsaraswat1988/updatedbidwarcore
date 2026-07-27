@@ -189,7 +189,7 @@ export default function BadmintonScorerPage() {
 
   if (!ready) {
     return (
-      <FullscreenLayout>
+      <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <div className="text-center mb-8">
@@ -261,7 +261,7 @@ export default function BadmintonScorerPage() {
 
   if (isLoading) {
     return (
-      <FullscreenLayout>
+      <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-2 border-[#4fc3f7]/30 border-t-[#4fc3f7] rounded-full animate-spin" />
@@ -274,7 +274,7 @@ export default function BadmintonScorerPage() {
 
   if (error || !data?.state) {
     return (
-      <FullscreenLayout>
+      <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="text-center">
             <p className="text-white/60 text-lg font-semibold">Match not found</p>
@@ -295,7 +295,7 @@ export default function BadmintonScorerPage() {
 
   if (state.matchStatus === "scheduled") {
     return (
-      <FullscreenLayout>
+      <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <ScorerStartMatchPanel
             tournamentId={tournamentId}
@@ -310,7 +310,7 @@ export default function BadmintonScorerPage() {
   }
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="lovable-theme">
       <div className="h-[100dvh] overflow-hidden flex flex-col">
         {tournamentId > 0 ? (
           <div className="shrink-0 px-3 py-1.5 border-b border-border/60 bg-card/80 flex items-center justify-between gap-2">

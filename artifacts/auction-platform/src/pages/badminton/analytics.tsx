@@ -41,9 +41,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
-import { useLocation } from "wouter";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -90,7 +88,6 @@ interface RegistrationRow {
 export default function BadmintonAnalyticsPage() {
 
   const [, params] = useRoute("/tournament/:id/badminton/analytics");
-  const [, setLocation] = useLocation();
 
   const tournamentId = parseInt(params?.id ?? "0");
 
@@ -196,24 +193,9 @@ export default function BadmintonAnalyticsPage() {
         tournamentId={tournamentId}
         stepId="results"
         hideContinue
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={["standings", "summary", "insights"] as const}
-            labels={{
-              standings: "Standings",
-              summary: "Summary",
-              insights: "Insights",
-            }}
-            value="insights"
-            onChange={(next) => {
-              if (next === "standings") {
-                setLocation(`/tournament/${tournamentId}/badminton/results`);
-              } else if (next === "summary") {
-                setLocation(`/tournament/${tournamentId}/badminton/summary`);
-              }
-            }}
-          />
-        }
+        titleOverride="Insights"
+        purposeOverride="Understand participation, court load, and match progress."
+        taskOverride="Review analytics for planning and post-event reports."
       >
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">

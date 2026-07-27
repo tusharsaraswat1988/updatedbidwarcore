@@ -7,10 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import {
   AsyncLoadingPanel,
+  FormField,
   FormModal,
   SearchInput,
   PickerTrigger,
-  labelClass,
 } from "@/components/badminton/form-ui";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -114,6 +114,7 @@ function SelectedPlayerRow({
 export function MasterPlayerPicker({
   tournamentId,
   label,
+  required = false,
   value,
   selectedDisplayName,
   selectedPhotoUrl,
@@ -123,6 +124,7 @@ export function MasterPlayerPicker({
 }: {
   tournamentId: number;
   label: string;
+  required?: boolean;
   value: string | null;
   selectedDisplayName?: string;
   selectedPhotoUrl?: string;
@@ -255,8 +257,7 @@ export function MasterPlayerPicker({
 
   if (value && selectedDisplayName) {
     return (
-      <div className="space-y-2">
-        <p className={labelClass}>{label}</p>
+      <FormField label={label} required={required}>
         <SelectedPlayerRow
           displayName={selectedDisplayName}
           photoUrl={selectedPhotoUrl ?? ""}
@@ -267,13 +268,13 @@ export function MasterPlayerPicker({
           }}
         />
         {pickerModal}
-      </div>
+      </FormField>
     );
   }
 
   return (
     <>
-      <PickerTrigger label={label} onClick={() => setOpen(true)} />
+      <PickerTrigger label={label} required={required} onClick={() => setOpen(true)} />
       {pickerModal}
     </>
   );

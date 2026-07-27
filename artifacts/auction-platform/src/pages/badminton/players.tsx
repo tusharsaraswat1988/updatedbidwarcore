@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { useLocation, useRoute, useSearch } from "wouter";
+import { useRoute, useSearch } from "wouter";
 import { Users, Pencil, Trash2, Upload, User, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -45,7 +45,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonScorersPanel } from "@/pages/badminton/scorers";
 
@@ -94,15 +93,10 @@ function playerMeta(player: BadmintonPlayer): BadmintonPlayerMeta {
 
 const PARTICIPANT_SECTIONS = ["players", "officials"] as const;
 type ParticipantSection = (typeof PARTICIPANT_SECTIONS)[number];
-const PARTICIPANT_SECTION_LABELS: Record<ParticipantSection, string> = {
-  players: "Players",
-  officials: "Officials",
-};
 
 export default function BadmintonPlayersPage() {
   const [, params] = useRoute("/tournament/:id/badminton/players");
   const urlSearch = useSearch();
-  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
   const section: ParticipantSection =
@@ -235,6 +229,17 @@ export default function BadmintonPlayersPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="participants"
+        titleOverride={section === "officials" ? "Officials" : "Players"}
+        purposeOverride={
+          section === "officials"
+            ? "Manage scorers and officials who run matches on the day."
+            : "Manage everyone who will compete in the tournament."
+        }
+        taskOverride={
+          section === "officials"
+            ? "Add scorers with mobile + personal PIN for Scorer Login."
+            : "Import or add players, then prepare officials and scorers."
+        }
         headerActions={
           section === "players" ? (
             <div className="flex items-center gap-2 flex-wrap">
@@ -244,17 +249,6 @@ export default function BadmintonPlayersPage() {
               </BtnPrimary>
             </div>
           ) : undefined
-        }
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={PARTICIPANT_SECTIONS}
-            labels={PARTICIPANT_SECTION_LABELS}
-            value={section}
-            onChange={(next) => {
-              const base = `/tournament/${tournamentId}/badminton/players`;
-              setLocation(next === "players" ? base : `${base}?section=officials`);
-            }}
-          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6">
@@ -1125,9 +1119,10 @@ function PlayerFormModal({
         }}
       />
 
-      <FormField label="Mobile Number *">
+      <FormField label="Mobile Number" required>
         <input
           required
+          aria-required="true"
           value={form.mobile}
           onChange={(e) => {
             setField("mobile", sanitizeMobileInput(e.target.value));
@@ -1154,9 +1149,10 @@ function PlayerFormModal({
         inputClassName={inputClass}
       />
 
-      <FormField label="Full Name *">
+      <FormField label="Full Name" required>
         <input
           required
+          aria-required="true"
           value={form.name}
           onChange={(e) => setField("name", e.target.value)}
           placeholder="Your full name"
@@ -1190,7 +1186,7 @@ function PlayerFormModal({
       </div>
 
       <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
-        <FormField label="Role *">
+        <FormField label="Role" required>
           <DarkSelect
             value={form.role || "none"}
             onValueChange={(role) => setField("role", role === "none" ? "" : role)}

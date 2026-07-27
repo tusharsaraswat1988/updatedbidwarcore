@@ -35,7 +35,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonEventsPanel } from "@/pages/badminton/categories";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
@@ -123,10 +122,6 @@ function registrationLabel(row: RegistrationRow, doubles: boolean): string {
 
 const STRUCTURE_SECTIONS = ["events", "draw"] as const;
 type StructureSection = (typeof STRUCTURE_SECTIONS)[number];
-const STRUCTURE_SECTION_LABELS: Record<StructureSection, string> = {
-  events: "Events",
-  draw: "Draw",
-};
 
 export default function BadmintonFixturesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/fixtures");
@@ -174,16 +169,16 @@ export default function BadmintonFixturesPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="structure"
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={STRUCTURE_SECTIONS}
-            labels={STRUCTURE_SECTION_LABELS}
-            value={activeSection}
-            onChange={(next) => {
-              const base = `/tournament/${tournamentId}/badminton/fixtures`;
-              setLocation(next === "events" ? `${base}?section=events` : `${base}?section=draw`);
-            }}
-          />
+        titleOverride={activeSection === "events" ? "Events" : "Draw"}
+        purposeOverride={
+          activeSection === "events"
+            ? "Define the competitions that make up this tournament."
+            : "Decide who plays whom in each event."
+        }
+        taskOverride={
+          activeSection === "events"
+            ? "Create events and add entries before building the draw."
+            : "Generate or build the draw, then move on to Schedule."
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -604,8 +599,10 @@ function ManualFixturesModal({
       onClose={onClose}
       size="lg"
     >
-      <FormField label="Collection name">
+      <FormField label="Collection name" required>
         <input
+          required
+          aria-required="true"
           value={roundName}
           onChange={(e) => setRoundName(e.target.value)}
           placeholder="Manual Fixtures"

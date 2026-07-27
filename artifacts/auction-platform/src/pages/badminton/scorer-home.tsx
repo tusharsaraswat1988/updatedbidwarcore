@@ -356,7 +356,7 @@ export default function BadmintonScorerHomePage() {
 
   if (!authAccepted) {
     return (
-      <FullscreenLayout>
+      <FullscreenLayout className="lovable-theme">
         <div className="min-h-[100dvh] bg-background flex flex-col">
           <div className="flex-1 flex items-center justify-center p-5 sm:p-6">
             <div className="w-full max-w-sm">
@@ -445,7 +445,7 @@ export default function BadmintonScorerHomePage() {
   }
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="lovable-theme">
       <div className="min-h-[100dvh] bg-background flex flex-col">
         <header className="sticky top-0 z-20 border-b border-white/10 bg-background/95 backdrop-blur-md px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
           <div className="max-w-lg mx-auto flex items-start gap-3">

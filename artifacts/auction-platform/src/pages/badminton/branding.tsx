@@ -7,15 +7,13 @@
  */
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { useLocation, useRoute, useSearch } from "wouter";
+import { useRoute, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormField, inputClass, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
+import { FormField, inputClass, HubPageShell, BtnPrimary, BtnSecondary, hubPanelClass } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { SetupTerm } from "@/components/badminton/setup-guide-panel";
-import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { getSponsorsByPriority, parseSponsorLogos, validateSponsorList, type SponsorLogo } from "@/lib/sponsor-logo";
@@ -35,12 +33,6 @@ const BadmintonScoringFormatPanel = lazy(() =>
 
 const SETUP_SECTIONS = ["identity", "courts", "rules"] as const;
 type SetupSection = (typeof SETUP_SECTIONS)[number];
-
-const SETUP_SECTION_LABELS: Record<SetupSection, string> = {
-  identity: "Identity & Branding",
-  courts: "Courts",
-  rules: "Rules",
-};
 
 function parseSetupSection(search: string): SetupSection {
   const raw = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("section");
@@ -144,15 +136,9 @@ function applyBrandingState(
 export default function BadmintonBrandingPage() {
   const [, params] = useRoute("/tournament/:id/badminton/branding");
   const search = useSearch();
-  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
   const section = useMemo(() => parseSetupSection(search), [search]);
-
-  function setSection(next: SetupSection) {
-    const base = `/tournament/${tournamentId}/badminton/branding`;
-    setLocation(next === "identity" ? base : `${base}?section=${next}`);
-  }
 
   const { data: branding, isLoading } = useQuery<BadmintonBranding>({
     queryKey: ["badminton-branding", tournamentId],
@@ -166,8 +152,8 @@ export default function BadmintonBrandingPage() {
     logoPublicId: "",
     venue: "",
     organizerName: "",
-    primaryColor: "#F59E0B",
-    accentColor: "#3B82F6",
+    primaryColor: "#E8C84A",
+    accentColor: "#2A3566",
   });
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [scoreBoardSponsor, setScoreBoardSponsor] = useState<ScoreBoardSponsor>(EMPTY_SCOREBOARD_SPONSOR);
@@ -252,6 +238,10 @@ export default function BadmintonBrandingPage() {
   const persistBranding = useCallback(
     (immediate = false) => {
       if (!tournamentId) return;
+      if (!form.displayName.trim()) {
+        setSaveError("Tournament name is required");
+        return;
+      }
       const filtered = sponsorLogos.filter((l) => l.url.trim());
       const sponsorValidation = validateSponsorList(filtered);
       if (!sponsorValidation.ok) {
@@ -351,16 +341,37 @@ export default function BadmintonBrandingPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="setup"
+        titleOverride={
+          section === "courts"
+            ? "Courts"
+            : section === "rules"
+              ? "Rules"
+              : "Identity & Branding"
+        }
+        purposeOverride={
+          section === "courts"
+            ? "Define the playing areas used for this tournament."
+            : section === "rules"
+              ? "Set the default scoring rules every match will use."
+              : "Create the identity of your tournament before anyone arrives."
+        }
+        taskOverride={
+          section === "courts"
+            ? "Add at least one court so matches have a place to play."
+            : section === "rules"
+              ? "Choose a format or customize games, points, and win-by rules."
+              : "Set name, venue, branding, and sponsors for displays."
+        }
         headerActions={
           section === "identity" ? (
             <div className="flex flex-col items-end gap-1">
               <BtnPrimary
                 onClick={() => persistBranding(true)}
-                disabled={saveMutation.isPending || isLoading}
+                disabled={saveMutation.isPending || isLoading || !form.displayName.trim()}
               >
                 {saveMutation.isPending ? "Saving…" : "Save Details"}
               </BtnPrimary>
-              <p className="text-muted-foreground text-xs">
+              <p className={cn("text-xs", saveError ? "text-destructive" : "text-muted-foreground")}>
                 {saveError
                   ? saveError
                   : saveMutation.isPending
@@ -369,14 +380,6 @@ export default function BadmintonBrandingPage() {
               </p>
             </div>
           ) : undefined
-        }
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={SETUP_SECTIONS}
-            labels={SETUP_SECTION_LABELS}
-            value={section}
-            onChange={setSection}
-          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
@@ -398,88 +401,6 @@ export default function BadmintonBrandingPage() {
 
         {section === "identity" && !isLoading ? (
           <>
-            {/* Visual-first live preview */}
-            <section className={cn(hubCardClass, "overflow-hidden")}>
-              <div className="px-6 py-3 border-b border-border bg-primary/5">
-                <p className="text-xs font-bold uppercase tracking-widest text-primary">Live Scoreboard Preview</p>
-              </div>
-              {hasScoreBoardSponsor(scoreBoardSponsorPayload(scoreBoardSponsor)) && (
-                <div className="px-6 pt-4 pb-2 border-b border-border flex justify-end bg-background/50">
-                  <ScoreBoardSponsorPanel
-                    sponsor={scoreBoardSponsorPayload(scoreBoardSponsor)!}
-                    variant="bar"
-                    className="max-w-[360px]"
-                  />
-                </div>
-              )}
-              <div
-                className="px-8 py-10 flex items-center justify-between gap-6 min-h-[180px]"
-                style={{
-                  background: `linear-gradient(135deg, ${form.primaryColor}18 0%, hsl(var(--background)) 50%, ${form.accentColor}10 100%)`,
-                  borderBottom: `1px solid ${form.primaryColor}33`,
-                }}
-              >
-                <div className="flex items-center gap-5 min-w-0">
-                  {form.logoUrl ? (
-                    <img
-                      src={form.logoUrl}
-                      alt={form.displayName?.trim() ? `${form.displayName} logo` : "Tournament logo"}
-                      className="w-20 h-20 rounded-xl object-contain bg-card border border-border p-1"
-                      style={{ boxShadow: `0 0 32px ${form.primaryColor}33` }}
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground text-xs">
-                      Logo
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-display font-bold text-3xl truncate text-foreground">
-                      {form.displayName || "Tournament Name"}
-                    </p>
-                    <p className="text-muted-foreground text-sm mt-1 truncate font-mono">
-                      {[form.venue, form.organizerName].filter(Boolean).join(" · ") || "Venue · Organizer"}
-                    </p>
-                  </div>
-                </div>
-                {sponsorLogos.length > 0 && (
-                  <div className="flex items-center gap-4 flex-none">
-                    {sponsorLogos.slice(0, 2).map((l, i) => (
-                      <div key={i} className="text-right">
-                        {l.type?.trim() ? (
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            {l.type}
-                          </p>
-                        ) : null}
-                        <img src={l.url} alt="" className="h-8 max-w-[72px] object-contain opacity-90 ml-auto" />
-                        {l.name?.trim() ? (
-                          <p className="text-[10px] font-semibold text-foreground truncate max-w-[96px]">
-                            {l.name}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="px-6 py-4 bg-card/50 grid grid-cols-3 gap-4 border-t border-border">
-                <div className="text-center">
-                  <p className="text-primary font-display font-bold text-4xl tabular-nums">21</p>
-                  <p className="text-muted-foreground text-xs mt-1 uppercase tracking-wider">Player A</p>
-                </div>
-                <div className="text-center flex flex-col justify-center">
-                  <p className="text-muted-foreground text-xs font-mono">Game 1</p>
-                  <p className="text-foreground font-display font-bold text-lg">0 – 0</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-red-400 font-display font-bold text-4xl tabular-nums">18</p>
-                  <p className="text-muted-foreground text-xs mt-1 uppercase tracking-wider">Player B</p>
-                </div>
-              </div>
-              <p className="px-6 py-3 text-muted-foreground text-xs border-t border-border bg-background/30">
-                Preview updates as you edit — sponsor appears top-right on display and OBS overlays
-              </p>
-            </section>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Branding form */}
             <section className={cn(hubPanelClass, "space-y-5")}>
@@ -490,17 +411,25 @@ export default function BadmintonBrandingPage() {
                 </p>
               </div>
 
-              <FormField label="Tournament Name">
+              <FormField label="Tournament Name" required htmlFor="branding-display-name">
                 <input
+                  id="branding-display-name"
+                  required
+                  aria-required="true"
                   value={form.displayName}
-                  onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, displayName: e.target.value }));
+                    if (saveError === "Tournament name is required" && e.target.value.trim()) {
+                      setSaveError("");
+                    }
+                  }}
                   placeholder="Summer Open 2026"
                   className={inputClass}
                 />
               </FormField>
               <SetupTerm
                 term="Tournament Name"
-                meaning="shown on scoreboards, displays, and broadcasts."
+                meaning="required — shown on scoreboards, displays, and broadcasts."
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

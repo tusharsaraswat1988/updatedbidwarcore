@@ -153,7 +153,7 @@ export function MatchFormTossFields({
       {toss.enabled && !disabled ? (
         isPair ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField label="Toss winner">
+            <FormField label="Toss winner" required>
               <DarkSelect
                 value={toss.tossWinnerSide}
                 onValueChange={(v) =>
@@ -165,7 +165,7 @@ export function MatchFormTossFields({
                 ]}
               />
             </FormField>
-            <FormField label="Chose to">
+            <FormField label="Chose to" required>
               <DarkSelect
                 value={toss.tossDecision}
                 onValueChange={(v) =>
@@ -177,7 +177,7 @@ export function MatchFormTossFields({
                 ]}
               />
             </FormField>
-            <FormField label={`First server (${firstServingSide === "left" ? leftLabel : rightLabel})`}>
+            <FormField label={`First server (${firstServingSide === "left" ? leftLabel : rightLabel})`} required>
               <DarkSelect
                 value={String(toss.firstServerPlayerIndex)}
                 onValueChange={(v) =>
@@ -189,7 +189,7 @@ export function MatchFormTossFields({
                 options={servingPlayers}
               />
             </FormField>
-            <FormField label={`First receiver (${firstReceivingSide === "left" ? leftLabel : rightLabel})`}>
+            <FormField label={`First receiver (${firstReceivingSide === "left" ? leftLabel : rightLabel})`} required>
               <DarkSelect
                 value={String(toss.firstReceiverPlayerIndex)}
                 onValueChange={(v) =>
@@ -203,7 +203,7 @@ export function MatchFormTossFields({
             </FormField>
           </div>
         ) : (
-          <FormField label="First server">
+          <FormField label="First server" required>
             <DarkSelect
               value={toss.firstServer}
               onValueChange={(v) =>

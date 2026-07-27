@@ -4,101 +4,10 @@ import { cn } from "@/lib/utils";
 import { PageHeader, BtnPrimary, BtnSecondary, hubPanelClass } from "@/components/badminton/page-chrome";
 import { useBadmintonSetup } from "@/hooks/use-badminton-setup";
 import {
-  BADMINTON_IA_STEPS,
   evaluateBadmintonIaContinueGate,
   getBadmintonIaStep,
-  isBadmintonIaChapterComplete,
-  isBadmintonIaStepClickable,
   type BadmintonIaStepId,
 } from "@/lib/badminton-ia-workflow";
-
-/**
- * ✓ completed · ● current · ○ upcoming
- * Clickable when appropriate (never skip locked chapters).
- */
-export function BadmintonIaProgress({
-  tournamentId,
-  current,
-  className,
-}: {
-  tournamentId: number;
-  current: BadmintonIaStepId;
-  className?: string;
-}) {
-  const { snapshot, isLoading } = useBadmintonSetup(tournamentId);
-  const currentIndex = BADMINTON_IA_STEPS.findIndex((s) => s.id === current);
-
-  return (
-    <nav
-      aria-label="Tournament workflow"
-      className={cn(
-        "flex flex-wrap items-center gap-x-0.5 gap-y-1.5 text-[11px]",
-        className,
-      )}
-    >
-      {BADMINTON_IA_STEPS.map((step, index) => {
-        const done =
-          !isLoading && isBadmintonIaChapterComplete(step.id, snapshot);
-        const active = index === currentIndex;
-        const upcoming = index > currentIndex && !done;
-        const clickable =
-          !isLoading && isBadmintonIaStepClickable(step.id, current, snapshot);
-        const marker = done && !active ? "✓" : active ? "●" : "○";
-
-        const classNameInner = cn(
-          "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors",
-          active && "bg-primary/10 text-primary font-semibold",
-          done && !active && "text-muted-foreground/90",
-          upcoming && "text-muted-foreground/55",
-          clickable && !active && "hover:text-foreground hover:bg-muted/40 cursor-pointer",
-          !clickable && !active && "cursor-default",
-        );
-
-        const content = (
-          <>
-            <span className="tabular-nums w-3 text-center" aria-hidden>
-              {marker}
-            </span>
-            <span className="hidden sm:inline">{step.fullLabel}</span>
-            <span className="sm:hidden">{step.label}</span>
-          </>
-        );
-
-        return (
-          <span key={step.id} className="inline-flex items-center gap-0.5">
-            {index > 0 ? (
-              <span className="text-muted-foreground/30 mx-0.5" aria-hidden>
-                /
-              </span>
-            ) : null}
-            {clickable ? (
-              <Link
-                href={step.href(tournamentId)}
-                className={classNameInner}
-                aria-current={active ? "step" : undefined}
-                title={step.fullLabel}
-              >
-                {content}
-              </Link>
-            ) : (
-              <span
-                className={classNameInner}
-                aria-current={active ? "step" : undefined}
-                title={
-                  upcoming
-                    ? `Finish ${BADMINTON_IA_STEPS[currentIndex]?.fullLabel ?? "current step"} first`
-                    : step.fullLabel
-                }
-              >
-                {content}
-              </span>
-            )}
-          </span>
-        );
-      })}
-    </nav>
-  );
-}
 
 /**
  * Soft banner for legacy URLs that still work but moved into a chapter.
@@ -135,8 +44,8 @@ export function BadmintonMovedBanner({
 }
 
 /**
- * Host-page chrome — same rhythm on every chapter:
- * Title → Description → Workflow strip → Do now → Sections → Content → Sticky Continue
+ * Host-page chrome — title / purpose / task only.
+ * Module + section navigation lives in the left sidebar.
  */
 export function BadmintonIaPageChrome({
   tournamentId,
@@ -146,7 +55,6 @@ export function BadmintonIaPageChrome({
   continueHref,
   continueLabel,
   hideContinue,
-  sectionTabs,
   titleOverride,
   purposeOverride,
   taskOverride,
@@ -158,7 +66,6 @@ export function BadmintonIaPageChrome({
   continueHref?: string;
   continueLabel?: string;
   hideContinue?: boolean;
-  sectionTabs?: React.ReactNode;
   /** Page-local copy only — does not change IA step definitions. */
   titleOverride?: string;
   purposeOverride?: string;
@@ -180,13 +87,11 @@ export function BadmintonIaPageChrome({
         actions={headerActions}
       />
 
-      <div className="max-w-7xl mx-auto px-6 pt-3 pb-2 space-y-3">
-        <BadmintonIaProgress tournamentId={tournamentId} current={stepId} />
+      <div className="max-w-7xl mx-auto px-6 pt-3 pb-2">
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground/80">Do now: </span>
           {taskOverride ?? step.task}
         </p>
-        {sectionTabs}
       </div>
 
       {children}
@@ -242,47 +147,5 @@ export function BadmintonIaPageChrome({
         </div>
       ) : null}
     </>
-  );
-}
-
-/** In-page section switcher for consolidated hosts (not sidebar items). */
-export function BadmintonIaSectionTabs<T extends string>({
-  tabs,
-  labels,
-  value,
-  onChange,
-}: {
-  tabs: readonly T[];
-  labels: Record<T, string>;
-  value: T;
-  onChange: (tab: T) => void;
-}) {
-  return (
-    <div
-      className="flex items-center gap-2 overflow-x-auto pb-1"
-      role="tablist"
-      aria-label="Page sections"
-    >
-      {tabs.map((tab) => {
-        const active = value === tab;
-        return (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(tab)}
-            className={cn(
-              "min-h-10 px-3.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors border",
-              active
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card border-border text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            {labels[tab]}
-          </button>
-        );
-      })}
-    </div>
   );
 }

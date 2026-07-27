@@ -11,10 +11,16 @@
    (Vite/Tailwind strips external Google Fonts @import from this file). */
 
 /*
- * Exact :root token block from Lovable — scoped to homepage root.
+ * Exact :root token block from Lovable — scoped to homepage / app theme roots.
  * Re-bind --color-* so utilities do not use BidWar hsl(var(--token)).
+ *
+ * Specificity note: scoring shells also set `.dark` on the same node as
+ * `.lovable-theme`. Unlayered `:root, .dark` in index.css would otherwise
+ * win and keep near-black HSL tokens. `.dark.lovable-*` beats that.
  */
-.lovable-home {
+:is(.lovable-home, .lovable-theme),
+.dark:is(.lovable-home, .lovable-theme),
+:is(.lovable-home, .lovable-theme).dark {
   --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -115,45 +121,44 @@
  * silently fail and inherit --foreground (everything looks white).
  * Re-bind the utilities that the homepage actually uses.
  *
- * Do NOT set `border-color` on `.lovable-home *` — unlayered `*` beats
+ * Do NOT set `border-color` on `:is(.lovable-home, .lovable-theme) *` — unlayered `*` beats
  * Tailwind utilities like `border-white/10` and `border-primary/40`.
  */
-.lovable-home .text-foreground { color: var(--foreground) !important; }
-.lovable-home .text-foreground\/90 { color: color-mix(in oklab, var(--foreground) 90%, transparent) !important; }
-.lovable-home .hover\:text-foreground:hover { color: var(--foreground) !important; }
-.lovable-home .text-muted-foreground { color: var(--muted-foreground) !important; }
-.lovable-home .text-primary { color: var(--primary) !important; }
-.lovable-home .text-primary\/40 { color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
-.lovable-home .text-primary\/70 { color: color-mix(in oklab, var(--primary) 70%, transparent) !important; }
-.lovable-home .text-primary-foreground { color: var(--primary-foreground) !important; }
-.lovable-home .text-secondary-foreground { color: var(--secondary-foreground) !important; }
-.lovable-home .text-accent-foreground { color: var(--accent-foreground) !important; }
-.lovable-home .text-destructive { color: var(--destructive) !important; }
-.lovable-home .text-card-foreground { color: var(--card-foreground) !important; }
-.lovable-home .bg-background { background-color: var(--background) !important; }
-.lovable-home .bg-foreground { background-color: var(--foreground) !important; }
-.lovable-home .bg-primary { background-color: var(--primary) !important; }
-.lovable-home .bg-primary\/10 { background-color: color-mix(in oklab, var(--primary) 10%, transparent) !important; }
-.lovable-home .bg-primary\/20 { background-color: color-mix(in oklab, var(--primary) 20%, transparent) !important; }
-.lovable-home .bg-primary\/25 { background-color: color-mix(in oklab, var(--primary) 25%, transparent) !important; }
-.lovable-home .bg-primary\/30 { background-color: color-mix(in oklab, var(--primary) 30%, transparent) !important; }
-.lovable-home .bg-primary\/40 { background-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
-.lovable-home .bg-primary-foreground { background-color: var(--primary-foreground) !important; }
-.lovable-home .bg-secondary { background-color: var(--secondary) !important; }
-.lovable-home .bg-muted { background-color: var(--muted) !important; }
-.lovable-home .bg-accent { background-color: var(--accent) !important; }
-.lovable-home .bg-card { background-color: var(--card) !important; }
-.lovable-home .bg-destructive { background-color: var(--destructive) !important; }
-.lovable-home .border-border { border-color: var(--border) !important; }
-.lovable-home .border-primary { border-color: var(--primary) !important; }
-.lovable-home .border-primary\/40 { border-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
-.lovable-home .border-primary\/50 { border-color: color-mix(in oklab, var(--primary) 50%, transparent) !important; }
-.lovable-home .border-input { border-color: var(--input) !important; }
-.lovable-home .ring-ring { --tw-ring-color: var(--ring) !important; }
+:is(.lovable-home, .lovable-theme) .text-foreground { color: var(--foreground) !important; }
+:is(.lovable-home, .lovable-theme) .text-foreground\/90 { color: color-mix(in oklab, var(--foreground) 90%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .hover\:text-foreground:hover { color: var(--foreground) !important; }
+:is(.lovable-home, .lovable-theme) .text-muted-foreground { color: var(--muted-foreground) !important; }
+:is(.lovable-home, .lovable-theme) .text-primary { color: var(--primary) !important; }
+:is(.lovable-home, .lovable-theme) .text-primary\/40 { color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .text-primary\/70 { color: color-mix(in oklab, var(--primary) 70%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .text-primary-foreground { color: var(--primary-foreground) !important; }
+:is(.lovable-home, .lovable-theme) .text-secondary-foreground { color: var(--secondary-foreground) !important; }
+:is(.lovable-home, .lovable-theme) .text-accent-foreground { color: var(--accent-foreground) !important; }
+:is(.lovable-home, .lovable-theme) .text-destructive { color: var(--destructive) !important; }
+:is(.lovable-home, .lovable-theme) .text-card-foreground { color: var(--card-foreground) !important; }
+:is(.lovable-home, .lovable-theme) .bg-background { background-color: var(--background) !important; }
+:is(.lovable-home, .lovable-theme) .bg-foreground { background-color: var(--foreground) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary { background-color: var(--primary) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary\/10 { background-color: color-mix(in oklab, var(--primary) 10%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary\/20 { background-color: color-mix(in oklab, var(--primary) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary\/25 { background-color: color-mix(in oklab, var(--primary) 25%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary\/30 { background-color: color-mix(in oklab, var(--primary) 30%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary\/40 { background-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary-foreground { background-color: var(--primary-foreground) !important; }
+:is(.lovable-home, .lovable-theme) .bg-secondary { background-color: var(--secondary) !important; }
+:is(.lovable-home, .lovable-theme) .bg-muted { background-color: var(--muted) !important; }
+:is(.lovable-home, .lovable-theme) .bg-accent { background-color: var(--accent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card { background-color: var(--card) !important; }
+:is(.lovable-home, .lovable-theme) .bg-destructive { background-color: var(--destructive) !important; }
+:is(.lovable-home, .lovable-theme) .border-border { border-color: var(--border) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary { border-color: var(--primary) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary\/40 { border-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary\/50 { border-color: color-mix(in oklab, var(--primary) 50%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-input { border-color: var(--input) !important; }
+:is(.lovable-home, .lovable-theme) .ring-ring { --tw-ring-color: var(--ring) !important; }
 
-/* Match Lovable theme cascade: family/tracking/transform on display type.
-   Do NOT force line-height on every .font-display — Tailwind text-* utilities
-   must win on small labels (Next Lot / Queue), same as the export. */
+/* Homepage-only: Anton uppercase display type.
+   .lovable-theme (badminton app) keeps readable product headings. */
 .lovable-home h1,
 .lovable-home h2,
 .lovable-home h3,
@@ -173,18 +178,18 @@
   line-height: 0.95 !important;
 }
 
-.lovable-home .font-mono,
-.lovable-home [class*="tabular"] {
+:is(.lovable-home, .lovable-theme) .font-mono,
+:is(.lovable-home, .lovable-theme) [class*="tabular"] {
   font-family: "JetBrains Mono", ui-monospace, monospace !important;
   font-variant-numeric: tabular-nums;
 }
 
-.lovable-home ::selection {
+:is(.lovable-home, .lovable-theme) ::selection {
   background: oklch(0.82 0.16 82 / 0.35);
   color: var(--foreground);
 }
 
-.lovable-home :focus-visible {
+:is(.lovable-home, .lovable-theme) :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
   border-radius: 4px;
@@ -192,51 +197,51 @@
 
 /* Exact Lovable utility declarations as plain classes */
 
-.lovable-home .text-hero {
+:is(.lovable-home, .lovable-theme) .text-hero {
   font-size: clamp(2.75rem, 7vw, 6.5rem) !important;
   line-height: 0.9 !important;
   letter-spacing: -0.01em !important;
 }
 
-.lovable-home .text-display-lg {
+:is(.lovable-home, .lovable-theme) .text-display-lg {
   font-size: clamp(2rem, 4vw, 3.5rem);
   line-height: 0.95;
 }
 
-.lovable-home .text-display-md {
+:is(.lovable-home, .lovable-theme) .text-display-md {
   font-size: clamp(1.5rem, 2.5vw, 2.25rem);
   line-height: 1;
 }
 
-.lovable-home .gold-text {
+:is(.lovable-home, .lovable-theme) .gold-text {
   background: var(--gradient-gold);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-.lovable-home .panel {
+:is(.lovable-home, .lovable-theme) .panel {
   background: linear-gradient(180deg, oklch(0.3 0.11 265), oklch(0.24 0.12 265));
   border: 1px solid oklch(1 0 0 / 0.08);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
 }
 
-.lovable-home .panel-rail {
+:is(.lovable-home, .lovable-theme) .panel-rail {
   background: linear-gradient(180deg, oklch(0.32 0.1 265), oklch(0.26 0.11 265));
   border: 1px solid oklch(1 0 0 / 0.1);
   border-top: 1px solid oklch(0.85 0.17 88 / 0.5);
   border-radius: var(--radius-lg);
 }
 
-.lovable-home .scoreboard-tile {
+:is(.lovable-home, .lovable-theme) .scoreboard-tile {
   background: linear-gradient(180deg, oklch(0.18 0.1 265), oklch(0.14 0.09 265));
   border: 1px solid oklch(1 0 0 / 0.1);
   border-radius: 6px;
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.08), inset 0 -20px 40px oklch(0 0 0 / 0.35);
 }
 
-.lovable-home .sunburst {
+:is(.lovable-home, .lovable-theme) .sunburst {
   background-image: repeating-conic-gradient(
     from 0deg at 50% 100%,
     oklch(0.85 0.17 88 / 0.55) 0deg 3deg,
@@ -246,7 +251,7 @@
   mask-image: radial-gradient(ellipse at 50% 100%, black 0%, black 40%, transparent 75%);
 }
 
-.lovable-home .gold-button {
+:is(.lovable-home, .lovable-theme) .gold-button {
   background: var(--gradient-gold);
   color: var(--primary-foreground);
   font-weight: 700;
@@ -260,14 +265,14 @@
     box-shadow 0.2s ease;
 }
 
-.lovable-home .gold-button-hover:hover {
+:is(.lovable-home, .lovable-theme) .gold-button-hover:hover {
   transform: translateY(-1px);
   box-shadow:
     0 16px 40px -12px oklch(0.82 0.16 82 / 0.7),
     inset 0 1px 0 oklch(1 0 0 / 0.5);
 }
 
-.lovable-home .ghost-button {
+:is(.lovable-home, .lovable-theme) .ghost-button {
   background: oklch(1 0 0 / 0.04);
   border: 1px solid oklch(1 0 0 / 0.14);
   color: var(--foreground);
@@ -279,12 +284,12 @@
     border-color 0.15s ease;
 }
 
-.lovable-home .ghost-button-hover:hover {
+:is(.lovable-home, .lovable-theme) .ghost-button-hover:hover {
   background: oklch(1 0 0 / 0.08);
   border-color: oklch(0.82 0.16 82 / 0.5);
 }
 
-.lovable-home .live-dot {
+:is(.lovable-home, .lovable-theme) .live-dot {
   display: inline-block;
   width: 0.5rem;
   height: 0.5rem;
@@ -294,7 +299,7 @@
   animation: live-pulse 1.6s ease-out infinite;
 }
 
-.lovable-home .scan-lines {
+:is(.lovable-home, .lovable-theme) .scan-lines {
   background-image: repeating-linear-gradient(
     0deg,
     oklch(1 0 0 / 0.025) 0px,
@@ -304,14 +309,14 @@
   );
 }
 
-.lovable-home .grid-bg {
+:is(.lovable-home, .lovable-theme) .grid-bg {
   background-image:
     linear-gradient(oklch(1 0 0 / 0.035) 1px, transparent 1px),
     linear-gradient(90deg, oklch(1 0 0 / 0.035) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 
-.lovable-home .sold-stamp {
+:is(.lovable-home, .lovable-theme) .sold-stamp {
   color: var(--sold);
   border: 3px solid var(--sold);
   padding: 0.15rem 0.6rem;
@@ -343,16 +348,16 @@
   }
 }
 
-.lovable-home .ticker-track {
+:is(.lovable-home, .lovable-theme) .ticker-track {
   animation: ticker 40s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lovable-home .ticker-track,
-  .lovable-home [class*="ticker-track"],
-  .lovable-home .live-dot,
-  .lovable-home [class*="live-dot"],
-  .lovable-home .ecosystem-line {
+  :is(.lovable-home, .lovable-theme) .ticker-track,
+  :is(.lovable-home, .lovable-theme) [class*="ticker-track"],
+  :is(.lovable-home, .lovable-theme) .live-dot,
+  :is(.lovable-home, .lovable-theme) [class*="live-dot"],
+  :is(.lovable-home, .lovable-theme) .ecosystem-line {
     animation: none !important;
   }
 }
@@ -372,7 +377,7 @@
   }
 }
 
-.lovable-home .stamp-in {
+:is(.lovable-home, .lovable-theme) .stamp-in {
   animation: stamp-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.4s both;
 }
 
@@ -386,7 +391,7 @@
   }
 }
 
-.lovable-home .count-flicker {
+:is(.lovable-home, .lovable-theme) .count-flicker {
   animation: count-flicker 2.4s ease-in-out infinite;
 }
 
@@ -404,7 +409,7 @@
   }
 }
 
-.lovable-home .ecosystem-line {
+:is(.lovable-home, .lovable-theme) .ecosystem-line {
   animation: ecosystem-flow 2.4s linear infinite;
 }
 
@@ -412,8 +417,6 @@
  * Phase 3 — Public Website Unification.
  * Long-form content (blog articles, legal policy text) should NOT get the
  * uppercase display treatment forced on shell/section headings above.
- * Higher selector specificity (.lovable-home .content-readable h1 > .lovable-home h1)
- * wins regardless of source order.
  */
 .lovable-home .content-readable h1,
 .lovable-home .content-readable h2,
@@ -432,3 +435,62 @@
 .lovable-home .content-readable li {
   line-height: 1.7;
 }
+
+
+/*
+ * .lovable-theme — same navy/gold color system as the homepage, for app
+ * surfaces (badminton organizer + scorer). Does NOT force Anton/uppercase
+ * display typography; those stay homepage-only under .lovable-home.
+ */
+:is(.lovable-home, .lovable-theme),
+.dark:is(.lovable-home, .lovable-theme),
+:is(.lovable-home, .lovable-theme).dark {
+  --shadow-glow: 0 0 24px 0 oklch(0.82 0.16 82 / 0.45);
+  --shadow-glow-success: 0 0 20px 0 oklch(0.75 0.19 145 / 0.45);
+  --shadow-glow-danger: 0 0 20px 0 oklch(0.66 0.25 20 / 0.45);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* Extra utility rebinds used heavily by badminton hub/forms */
+:is(.lovable-home, .lovable-theme) .bg-primary\/5 { background-color: color-mix(in oklab, var(--primary) 5%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-primary\/15 { background-color: color-mix(in oklab, var(--primary) 15%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/30 { background-color: color-mix(in oklab, var(--card) 30%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/50 { background-color: color-mix(in oklab, var(--card) 50%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/80 { background-color: color-mix(in oklab, var(--card) 80%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-muted\/20 { background-color: color-mix(in oklab, var(--muted) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-muted\/30 { background-color: color-mix(in oklab, var(--muted) 30%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-accent\/20 { background-color: color-mix(in oklab, var(--accent) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .hover\:bg-accent:hover { background-color: var(--secondary) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary\/20 { border-color: color-mix(in oklab, var(--primary) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary\/30 { border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/40 { border-color: color-mix(in oklab, var(--border) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/50 { border-color: color-mix(in oklab, var(--border) 50%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/60 { border-color: color-mix(in oklab, var(--border) 60%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-popover { background-color: var(--popover) !important; }
+:is(.lovable-home, .lovable-theme) .text-popover-foreground { color: var(--popover-foreground) !important; }
+
+/*
+ * App theme: keep readable product headings (do not inherit homepage Anton lock).
+ * Space Grotesk / Inter from the scoring shell remain the display family.
+ */
+.lovable-theme h1,
+.lovable-theme h2,
+.lovable-theme h3,
+.lovable-theme h4,
+.lovable-theme h5,
+.lovable-theme h6,
+.lovable-theme .font-display {
+  font-family: var(--font-sans) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
