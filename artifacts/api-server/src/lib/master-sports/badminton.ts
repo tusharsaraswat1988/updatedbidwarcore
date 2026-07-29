@@ -2,7 +2,7 @@
  * Badminton ↔ Master Sports integration — import, resolve, statistics.
  */
 
-import { eq, and, inArray, asc, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, asc, desc, sql, or, isNotNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   globalPlayersTable,
@@ -12,6 +12,8 @@ import {
   playerTeamAssignmentsTable,
   playerStatisticsTable,
   masterPlayerIdMappingsTable,
+  playersTable,
+  teamsTable,
   tournamentsTable,
   type BadmintonPlayer,
   type GlobalPlayer,
@@ -702,6 +704,42 @@ export async function enrichMasterPlayerForTournament(
         }
       }
     }
+  } else if (masterPlayer.auctionPlayerId) {
+    const [auctionPlayer] = await db
+      .select({ teamId: playersTable.teamId })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.id, masterPlayer.auctionPlayerId),
+          eq(playersTable.tournamentId, lookupTournamentId),
+          or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
+        ),
+      )
+      .limit(1);
+
+    if (auctionPlayer?.teamId) {
+      const [auctionTeam] = await db
+        .select({ name: teamsTable.name, logoUrl: teamsTable.logoUrl, masterTeamId: teamsTable.masterTeamId })
+        .from(teamsTable)
+        .where(eq(teamsTable.id, auctionPlayer.teamId))
+        .limit(1);
+
+      if (auctionTeam) {
+        franchiseName = auctionTeam.name;
+        franchiseLogoUrl = auctionTeam.logoUrl;
+        if (auctionTeam.masterTeamId) {
+          const [masterTeam] = await db
+            .select()
+            .from(masterTeamsTable)
+            .where(eq(masterTeamsTable.id, auctionTeam.masterTeamId))
+            .limit(1);
+          if (masterTeam) {
+            franchiseName = masterTeam.name;
+            franchiseLogoUrl = masterTeam.logoUrl ?? franchiseLogoUrl;
+          }
+        }
+      }
+    }
   }
 
   if (masterPlayer.sponsorId) {
@@ -800,17 +838,104 @@ export async function getBadmintonRosterMasterPlayerIds(
   return masterIds;
 }
 
+/** Preserve first-seen order while deduplicating master player IDs. */
+export function mergeUniqueMasterPlayerIds(...lists: string[][]): string[] {
+  const masterIds: string[] = [];
+  const seen = new Set<string>();
+  for (const list of lists) {
+    for (const id of list) {
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        masterIds.push(id);
+      }
+    }
+  }
+  return masterIds;
+}
+
+/**
+ * Master player IDs from sold/retained auction roster players.
+ * Covers bulk import and manual status edits that synced global_players but skipped PTA.
+ */
+export async function getAuctionRegistryMasterPlayerIds(
+  sourceTournamentId: number,
+): Promise<string[]> {
+  const auctionRows = await db
+    .select({
+      globalPlayerId: playersTable.globalPlayerId,
+      auctionPlayerId: playersTable.id,
+    })
+    .from(playersTable)
+    .where(
+      and(
+        eq(playersTable.tournamentId, sourceTournamentId),
+        or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
+      ),
+    )
+    .orderBy(asc(playersTable.serialNo));
+
+  const masterIds: string[] = [];
+  const seen = new Set<string>();
+  const missingAuctionIds: number[] = [];
+
+  for (const row of auctionRows) {
+    if (row.globalPlayerId) {
+      if (!seen.has(row.globalPlayerId)) {
+        seen.add(row.globalPlayerId);
+        masterIds.push(row.globalPlayerId);
+      }
+    } else {
+      missingAuctionIds.push(row.auctionPlayerId);
+    }
+  }
+
+  if (missingAuctionIds.length === 0) return masterIds;
+
+  const linked = await db
+    .select({
+      id: globalPlayersTable.id,
+      auctionPlayerId: globalPlayersTable.auctionPlayerId,
+    })
+    .from(globalPlayersTable)
+    .where(
+      and(
+        inArray(globalPlayersTable.auctionPlayerId, missingAuctionIds),
+        isNotNull(globalPlayersTable.auctionPlayerId),
+      ),
+    );
+
+  const linkedByAuctionId = new Map(
+    linked
+      .filter((row) => row.auctionPlayerId != null)
+      .map((row) => [row.auctionPlayerId as number, row.id]),
+  );
+
+  for (const row of auctionRows) {
+    if (row.globalPlayerId) continue;
+    const masterId = linkedByAuctionId.get(row.auctionPlayerId);
+    if (masterId && !seen.has(masterId)) {
+      seen.add(masterId);
+      masterIds.push(masterId);
+    }
+  }
+
+  return masterIds;
+}
+
 /**
  * Resolve importable master IDs for a source tournament.
- * Prefer the badminton roster; fall back to Player Registry team assignments.
- * Never touches the auction players table.
+ * Merges Player Registry assignments, auction roster, and any existing badminton roster.
  */
 export async function resolveImportSourceMasterPlayerIds(
   sourceTournamentId: number,
 ): Promise<string[]> {
-  const fromBadminton = await getBadmintonRosterMasterPlayerIds(sourceTournamentId);
-  if (fromBadminton.length > 0) return fromBadminton;
-  return getPlayerRegistryMasterPlayerIds(sourceTournamentId);
+  const [fromRegistry, fromAuction, fromBadminton] = await Promise.all([
+    getPlayerRegistryMasterPlayerIds(sourceTournamentId),
+    getAuctionRegistryMasterPlayerIds(sourceTournamentId),
+    getBadmintonRosterMasterPlayerIds(sourceTournamentId),
+  ]);
+
+  return mergeUniqueMasterPlayerIds(fromRegistry, fromAuction, fromBadminton);
 }
 
 /** List master players available for import into a badminton tournament. */

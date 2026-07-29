@@ -686,7 +686,7 @@ function ImportMasterPlayersModal({
             options={sourceOptions}
           />
           <p className="text-white/35 text-xs mt-2">
-            Only your badminton tournaments appear here. Players come from that tournament’s badminton roster, or its Player Registry team assignments if no badminton roster exists. Licensed events have no import cap.
+            Only your badminton tournaments appear here. Players come from that tournament’s Player Registry, auction roster (sold/retained), and any existing badminton roster entries. Licensed events have no import cap.
           </p>
         </FormField>
 
@@ -715,7 +715,7 @@ function ImportMasterPlayersModal({
           <div className="text-center py-8 space-y-2">
             <p className="text-white/50">No players to import from this source.</p>
             <p className="text-white/30 text-sm">
-              This tournament needs a badminton roster or Player Registry team assignments with linked master players. Add players first, or choose a different source above.
+              This tournament needs a badminton roster, Player Registry team assignments, or sold/retained auction players linked to the registry. Add players first, or choose a different source above.
             </p>
           </div>
         ) : available.length === 0 ? (
