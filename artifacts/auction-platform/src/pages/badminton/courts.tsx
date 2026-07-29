@@ -31,6 +31,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { badmintonIaSetupCourtsPath, badmintonIaSetupRulesPath } from "@/lib/badminton-routes";
 import {
   Collapsible,
   CollapsibleContent,
@@ -228,12 +229,12 @@ export default function BadmintonCourtsPage() {
       <BadmintonSetupWizardChrome
         tournamentId={tournamentId}
         stepId="courts"
-        continueHref={`/tournament/${tournamentId}/badminton/branding?section=rules`}
+        continueHref={badmintonIaSetupRulesPath(tournamentId)}
         continueLabel="Continue to Rules"
       >
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
           <BadmintonMovedBanner
-            toHref={`/tournament/${tournamentId}/badminton/branding?section=courts`}
+            toHref={badmintonIaSetupCourtsPath(tournamentId)}
             toLabel="Tournament Setup"
             message="Court creation belongs in Tournament Setup → Courts."
           />

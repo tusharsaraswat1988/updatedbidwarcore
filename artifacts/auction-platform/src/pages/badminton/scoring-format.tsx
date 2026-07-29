@@ -19,6 +19,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { badmintonIaSetupRulesPath } from "@/lib/badminton-routes";
 import {
   useBadmintonScoringFormat,
   useSaveBadmintonScoringFormat,
@@ -399,7 +400,7 @@ export default function BadmintonScoringFormatPage() {
       >
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
           <BadmintonMovedBanner
-            toHref={`/tournament/${tournamentId}/badminton/branding?section=rules`}
+            toHref={badmintonIaSetupRulesPath(tournamentId)}
             toLabel="Tournament Setup"
             message="Scoring rules belong in Tournament Setup → Rules."
           />

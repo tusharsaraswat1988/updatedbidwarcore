@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  badmintonIaLiveControlPath,
+  badmintonIaSetupCourtsPath,
+  badmintonIaSetupRulesPath,
+  badmintonIaStructureEventsPath,
   detectBadmintonTournamentMode,
-  getBadmintonHubNavLayout,
 } from "../badminton-routes.ts";
 
 describe("detectBadmintonTournamentMode", () => {
@@ -60,81 +63,24 @@ describe("detectBadmintonTournamentMode", () => {
   });
 });
 
-describe("getBadmintonHubNavLayout", () => {
-  it("prioritizes setup modules in setup mode", () => {
-    const layout = getBadmintonHubNavLayout({ mode: "setup" });
-    assert.deepEqual(
-      layout.primary.map((i) => i.label),
-      [
-        "Tournament Information",
-        "Players",
-        "Teams / Events",
-        "Scoring Format",
-        "Venues & Courts",
-        "Fixtures",
-        "Match Schedule",
-      ],
-    );
-    assert.deepEqual(layout.secondary.map((i) => i.label), [
-      "Operator Panel",
-      "Results",
-    ]);
-    assert.equal(layout.setupCollapsed.length, 0);
-    assert.equal(layout.setupReadOnly, false);
-  });
-
-  it("prioritizes ops modules in live mode and collapses setup", () => {
-    const layout = getBadmintonHubNavLayout({
-      mode: "live",
-      broadcastEnabled: true,
-    });
-    assert.deepEqual(
-      layout.primary.map((i) => i.label),
-      [
-        "Operator Panel",
-        "Match Control",
-        "Live Scoring",
-        "Results",
-        "Display & Broadcast",
-      ],
-    );
-    assert.deepEqual(
-      layout.setupCollapsed.map((i) => i.id),
-      [
-        "branding",
-        "players",
-        "categories",
-        "scoring_format",
-        "courts",
-        "fixtures",
-        "schedule",
-      ],
-    );
-    assert.equal(layout.setupReadOnly, false);
-  });
-
-  it("omits broadcast from live primary when disabled", () => {
-    const layout = getBadmintonHubNavLayout({
-      mode: "live",
-      broadcastEnabled: false,
-    });
+describe("badminton IA destination helpers", () => {
+  it("points legacy chapters at Live Control / Structure / Setup hosts", () => {
+    assert.equal(badmintonIaLiveControlPath(7), "/tournament/7/badminton/control");
     assert.equal(
-      layout.primary.map((i) => i.label).includes("Display & Broadcast"),
-      false,
+      badmintonIaLiveControlPath(7, "broadcast"),
+      "/tournament/7/badminton/control?focus=broadcast",
     );
     assert.equal(
-      layout.more.some((i) => i.id === "broadcast"),
-      true,
+      badmintonIaStructureEventsPath(7),
+      "/tournament/7/badminton/fixtures?section=events",
     );
-  });
-
-  it("prioritizes results and summary in completed mode with read-only setup", () => {
-    const layout = getBadmintonHubNavLayout({ mode: "completed" });
-    assert.deepEqual(
-      layout.primary.map((i) => i.label),
-      ["Results", "Tournament Summary", "Analytics", "Archive"],
+    assert.equal(
+      badmintonIaSetupCourtsPath(7),
+      "/tournament/7/badminton/branding?section=courts",
     );
-    assert.ok(layout.setupCollapsed.length > 0);
-    assert.equal(layout.setupReadOnly, true);
+    assert.equal(
+      badmintonIaSetupRulesPath(7),
+      "/tournament/7/badminton/branding?section=rules",
+    );
   });
 });

@@ -10,7 +10,8 @@ import {
 } from "@/lib/badminton-ia-workflow";
 
 /**
- * Soft banner for legacy URLs that still work but moved into a chapter.
+ * Soft banner for legacy URLs that still work but live under the Phase 2 IA
+ * (Live Control / Tournament Structure / Tournament Setup / Participants).
  */
 export function BadmintonMovedBanner({
   toHref,
@@ -18,6 +19,7 @@ export function BadmintonMovedBanner({
   message,
 }: {
   toHref: string;
+  /** IA chapter label — e.g. Live Control, Tournament Structure, Tournament Setup */
   toLabel: string;
   message: string;
 }) {
@@ -30,12 +32,12 @@ export function BadmintonMovedBanner({
       role="status"
     >
       <p className="text-sm text-foreground/90">
-        <span className="font-semibold">This screen has moved. </span>
-        {message}
+        <span className="font-semibold">Prefer {toLabel}. </span>
+        {message} This URL still works during the transition.
       </p>
       <Link href={toHref}>
         <BtnSecondary className="w-full sm:w-auto shrink-0">
-          Go to {toLabel}
+          Open {toLabel}
           <ArrowRight className="w-3.5 h-3.5" aria-hidden />
         </BtnSecondary>
       </Link>

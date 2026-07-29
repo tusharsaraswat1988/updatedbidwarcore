@@ -25,6 +25,7 @@ import {
   hubCardClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
+import { badmintonIaParticipantsOfficialsPath } from "@/lib/badminton-routes";
 
 type ScorerRow = {
   id: number;
@@ -142,7 +143,7 @@ export default function BadmintonScorersPage() {
     <HubPageShell tournamentId={tournamentId}>
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
         <BadmintonMovedBanner
-          toHref={`/tournament/${tournamentId}/badminton/players?section=officials`}
+          toHref={badmintonIaParticipantsOfficialsPath(tournamentId)}
           toLabel="Participants"
           message="Scorers and officials belong in Participants → Officials."
         />

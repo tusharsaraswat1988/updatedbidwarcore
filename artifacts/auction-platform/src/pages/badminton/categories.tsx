@@ -15,6 +15,7 @@ import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialo
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { badmintonIaStructureDrawPath, badmintonIaStructureEventsPath } from "@/lib/badminton-routes";
 import {
   MatchFormatPicker,
   matchFormatJsonFromPicker,
@@ -168,12 +169,12 @@ export default function BadmintonCategoriesPage() {
       <BadmintonSetupWizardChrome
         tournamentId={tournamentId}
         stepId="categories"
-        continueHref={`/tournament/${tournamentId}/badminton/fixtures?section=draw`}
+        continueHref={badmintonIaStructureDrawPath(tournamentId)}
         continueLabel="Continue to Draw"
       >
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
           <BadmintonMovedBanner
-            toHref={`/tournament/${tournamentId}/badminton/fixtures?section=events`}
+            toHref={badmintonIaStructureEventsPath(tournamentId)}
             toLabel="Tournament Structure"
             message="Events belong in Tournament Structure → Events."
           />

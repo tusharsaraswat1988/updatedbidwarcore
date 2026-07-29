@@ -82,7 +82,7 @@ export function PageHeader({
 
   actions?: React.ReactNode;
 
-  /** @deprecated Use BadmintonHubNav back link instead */
+  /** @deprecated Prefer SportsShell sidebar back navigation */
 
   backHref?: string;
 
@@ -336,44 +336,6 @@ export function HubSectionHeader({
       {subtitle && <span className="text-muted-foreground text-sm">{subtitle}</span>}
 
     </div>
-
-  );
-
-}
-
-
-
-export function HubNavButton({
-
-  icon: Icon,
-
-  label,
-
-  href,
-
-}: {
-
-  icon: LucideIcon;
-
-  label: string;
-
-  href: string;
-
-}) {
-
-  return (
-
-    <Link href={href}>
-
-      <div className="flex items-center gap-2 bg-card hover:bg-accent border border-border hover:border-primary/25 rounded-lg px-3 py-2 cursor-pointer transition-colors">
-
-        <Icon className="w-4 h-4 text-primary" />
-
-        <span className="text-foreground/80 text-sm font-medium">{label}</span>
-
-      </div>
-
-    </Link>
 
   );
 
