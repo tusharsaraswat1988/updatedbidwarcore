@@ -48,8 +48,6 @@ import {
 } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonScorersPanel } from "@/pages/badminton/scorers";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
 interface BadmintonPlayerMeta {
   city?: string | null;
   age?: number | null;
@@ -113,26 +111,13 @@ export default function BadmintonPlayersPage() {
 
   const { data: players = [], isLoading } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players`,
-        { credentials: "include" },
-      );
-      return res.json();
-    },
+    queryFn: () => badmintonFetch<BadmintonPlayer[]>(tournamentId, `/players`),
     enabled: !!tournamentId,
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (playerId: number) => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${playerId}`,
-        { method: "DELETE", credentials: "include" },
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Could not delete player");
-      }
+      await badmintonFetch(tournamentId, `/players/${playerId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
@@ -521,13 +506,7 @@ function ImportMasterPlayersModal({
 
   const { data: rosterPlayers = [] } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players`,
-        { credentials: "include" },
-      );
-      return res.json();
-    },
+    queryFn: () => badmintonFetch<BadmintonPlayer[]>(tournamentId, `/players`),
     enabled: !!tournamentId,
   });
 
@@ -599,22 +578,10 @@ function ImportMasterPlayersModal({
     queryKey: ["master-players", tournamentId, sourceId],
     queryFn: async () => {
       const qs = new URLSearchParams({ sourceTournamentId: sourceId });
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players?${qs}`,
-        { credentials: "include" },
+      return badmintonFetch<MasterPlayerImport[]>(
+        tournamentId,
+        `/master-players?${qs.toString()}`,
       );
-      const body = (await res.json().catch(() => null)) as
-        | MasterPlayerImport[]
-        | { error?: string }
-        | null;
-      if (!res.ok) {
-        const message =
-          body && !Array.isArray(body) && body.error
-            ? body.error
-            : "Failed to load players";
-        throw new Error(message);
-      }
-      return Array.isArray(body) ? body : [];
     },
     enabled: !!tournamentId && !!sourceId && !savingSource,
     // Always re-check against current badminton roster when the modal opens.
@@ -648,22 +615,13 @@ function ImportMasterPlayersModal({
     setImporting(true);
     setError("");
     try {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/import-master-players`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            masterPlayerIds: [...selected],
-            sourceTournamentId: parseInt(sourceId, 10),
-          }),
-        },
-      );
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || "Import failed");
-      }
+      await badmintonFetch(tournamentId, `/import-master-players`, {
+        method: "POST",
+        body: JSON.stringify({
+          masterPlayerIds: [...selected],
+          sourceTournamentId: parseInt(sourceId, 10),
+        }),
+      });
       onImported();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
@@ -1041,22 +999,16 @@ function PlayerFormModal({
         jerseySize: form.jerseySize || undefined,
         achievements: form.achievements.trim() || undefined,
       };
-      const url = player
-        ? `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${player.id}`
-        : `${API_BASE}/api/tournaments/${tournamentId}/badminton/players`;
-      const res = await fetch(url, {
+      const path = player ? `/players/${player.id}` : `/players`;
+      await badmintonFetch(tournamentId, path, {
         method: player ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || "Failed to save player");
-      }
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error saving player");
+      const message = e instanceof Error ? e.message : "Error saving player";
+      setError(message);
+      toastError(e, message);
     } finally {
       setSaving(false);
     }

@@ -65,8 +65,6 @@ import {
   type MatchFormatPickerValue,
 } from "@/components/badminton/match-format-picker";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
 function toDateInputValue(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -202,13 +200,7 @@ export default function BadmintonMatchesPage() {
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches`,
-        { credentials: "include" },
-      );
-      return res.json();
-    },
+    queryFn: () => badmintonFetch<MatchRow[]>(tournamentId, `/matches`),
     enabled: !!tournamentId,
     staleTime: 8_000,
     refetchInterval: (q) => {
@@ -231,14 +223,7 @@ export default function BadmintonMatchesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (matchId: number) => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}`,
-        { method: "DELETE", credentials: "include" },
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Delete failed" }));
-        throw new Error(typeof err.error === "string" ? err.error : "Delete failed");
-      }
+      await badmintonFetch(tournamentId, `/matches/${matchId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
@@ -983,22 +968,14 @@ function MatchFormModal({
             }),
       };
 
-      const res = await fetch(
-        isEdit
-          ? `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${match.id}`
-          : `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches`,
+      const saved = await badmintonFetch<{ id?: number; detail?: { scorerPin?: string | null } }>(
+        tournamentId,
+        isEdit ? `/matches/${match.id}` : `/matches`,
         {
           method: isEdit ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify(payload),
         },
       );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: isEdit ? "Update failed" : "Create failed" }));
-        throw new Error(typeof err.error === "string" ? err.error : isEdit ? "Update failed" : "Create failed");
-      }
-      const saved = (await res.json()) as { id?: number; detail?: { scorerPin?: string | null } };
       toast({
         title: isEdit ? "Match updated" : "Match created",
         description: isEdit

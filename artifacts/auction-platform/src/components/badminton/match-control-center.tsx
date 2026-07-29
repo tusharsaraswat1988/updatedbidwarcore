@@ -12,9 +12,8 @@ import { BtnPrimary, DarkSelect, FormError, FormField, inputClass } from "@/comp
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { useBadmintonDirector } from "@/hooks/use-badminton-match";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
+import { badmintonFetch } from "@/lib/badminton-api";
 import { useToast } from "@/hooks/use-toast";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 type Props = {
   tournamentId: number;
@@ -72,14 +71,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
   const { data: incidentData } = useQuery<{ incidents: IncidentLogEntry[] }>({
     queryKey: ["badminton-incidents", tournamentId, matchId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/incidents`,
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error("Failed to load incidents");
-      return res.json();
-    },
+    queryFn: () =>
+      badmintonFetch<{ incidents: IncidentLogEntry[] }>(
+        tournamentId,
+        `/matches/${matchId}/incidents`,
+      ),
     enabled: !!tournamentId && !!matchId,
     staleTime: 10_000,
     refetchInterval: isLive || isPaused ? 5_000 : false,

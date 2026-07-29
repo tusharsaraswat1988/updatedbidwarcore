@@ -428,19 +428,9 @@ export default function BadmintonControlCenterPage() {
     }
     if (item.actionKind === "resume" && item.matchId != null) {
       try {
-        await fetch(
-          `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${item.matchId}/resume`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          },
-        ).then(async (res) => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: "Resume failed" }));
-            throw new Error(err.error ?? "Resume failed");
-          }
+        await badmintonFetch(tournamentId, `/matches/${item.matchId}/resume`, {
+          method: "POST",
+          body: JSON.stringify({}),
         });
         toast({ title: "Match resumed" });
         pushActivity("Match resumed");

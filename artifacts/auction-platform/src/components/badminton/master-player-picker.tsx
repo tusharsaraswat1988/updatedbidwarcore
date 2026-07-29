@@ -5,6 +5,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { badmintonFetch } from "@/lib/badminton-api";
 import {
   AsyncLoadingPanel,
   FormField,
@@ -12,8 +13,6 @@ import {
   SearchInput,
   PickerTrigger,
 } from "@/components/badminton/form-ui";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export type MasterPlayerOption = {
   badmintonPlayerId: number;
@@ -139,12 +138,10 @@ export function MasterPlayerPicker({
   const { data: players = [], isLoading, isFetching } = useQuery<MasterPlayerOption[]>({
     queryKey: ["badminton-match-roster", tournamentId],
     queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/match-roster`,
-        { credentials: "include" },
+      const rows = await badmintonFetch<Array<Record<string, unknown>>>(
+        tournamentId,
+        `/match-roster`,
       );
-      if (!res.ok) return [];
-      const rows = (await res.json()) as Array<Record<string, unknown>>;
       return rows.map((p) => ({
         badmintonPlayerId: Number(p.badmintonPlayerId),
         masterPlayerId: (p.masterPlayerId as string | null) ?? null,
@@ -170,14 +167,11 @@ export function MasterPlayerPicker({
     const pickKey = String(player.badmintonPlayerId);
     setPickingId(pickKey);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${player.badmintonPlayerId}/side-json`,
-        { credentials: "include" },
+      const sideJson = await badmintonFetch<SidePreview>(
+        tournamentId,
+        `/players/${player.badmintonPlayerId}/side-json`,
       );
-      const sideJson = res.ok ? ((await res.json()) as SidePreview) : null;
-      if (sideJson) {
-        onSelect(player, sideJson);
-      }
+      onSelect(player, sideJson);
       setOpen(false);
       setQuery("");
     } finally {
