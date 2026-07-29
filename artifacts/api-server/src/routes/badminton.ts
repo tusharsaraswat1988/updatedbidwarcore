@@ -77,12 +77,13 @@ import {
   friendlyBadmintonCommandMessage,
 } from "../lib/badminton-ops";
 import {
-  createScorerAccountForAdmin,
+  assertScorerMayAccessTournament,
+  createScorerAccountForTournament,
   extractBearerToken,
-  listScorerAccountsForAdmin,
+  listScorerAccountsForTournament,
   resolveScorerAuthFromToken,
   ScorerAuthError,
-  updateScorerAccountForAdmin,
+  updateScorerAccountForTournament,
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
 import {
@@ -96,6 +97,11 @@ import {
   createFixtureCollection,
   importFixtureCollectionStub,
 } from "../lib/fixture-collection-writer";
+import {
+  planKnockoutBracket,
+  wireKnockoutProgressionLinks,
+  advanceKnockoutWinner,
+} from "../lib/badminton-knockout-progression";
 import {
   canCreateMatchFromFixture,
   FixtureSchedulingError,
@@ -435,6 +441,7 @@ async function canWriteScoring(
 
   try {
     const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
     return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
   } catch (e) {
@@ -757,7 +764,7 @@ router.get("/scorers", async (req, res) => {
   if (!tournamentId) return;
 
   try {
-    const scorers = await listScorerAccountsForAdmin();
+    const scorers = await listScorerAccountsForTournament(tournamentId);
     res.json({ scorers });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
@@ -782,7 +789,7 @@ router.post("/scorers", async (req, res) => {
   }
 
   try {
-    const scorer = await createScorerAccountForAdmin(parsed.data);
+    const scorer = await createScorerAccountForTournament(tournamentId, parsed.data);
     res.status(201).json({ scorer });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
@@ -809,7 +816,7 @@ router.patch("/scorers/:scorerId", async (req, res) => {
   }
 
   try {
-    const scorer = await updateScorerAccountForAdmin(scorerId, parsed.data);
+    const scorer = await updateScorerAccountForTournament(tournamentId, scorerId, parsed.data);
     res.json({ scorer });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
@@ -1600,36 +1607,97 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
     return void res.status(400).json({ error: "Need at least 2 players to generate draw" });
   }
 
-  const planned = generateKnockoutDraw(tournamentId, catId, registrations);
+  // Sprint 1 / C5 — full bracket with progression links (not R1-only).
+  const plannedRounds = planKnockoutBracket(registrations);
+  const totalRounds = plannedRounds.length;
+  const insertedByRound = new Map<number, Array<{ id: number; slotNumber: number | null }>>();
+  let firstCollection: Awaited<ReturnType<typeof createFixtureCollection>>["collection"] | null =
+    null;
+  const allFixtures: Awaited<ReturnType<typeof createFixtureCollection>>["fixtures"] = [];
 
-  const { collection, fixtures: insertedFixtures } = await createFixtureCollection({
-    tournamentId,
-    categoryId: catId,
-    roundName: "Main Draw",
-    drawKind: "generated",
-    roundNumber: 1,
-    totalRounds: Math.ceil(Math.log2(registrations.length)),
-    status: "active",
-    metaJson: {
-      adapter: "auto_generate",
-      algorithm: "knockout",
-      // Legacy drawKind synonym for older clients / display
-      legacyDrawKind: "knockout_round",
-    },
-    fixtures: planned.map((f) => ({
-      slotNumber: f.slotNumber,
-      registrationAId: f.registrationAId,
-      registrationBId: f.registrationBId,
-      status: f.status,
-    })),
-    markCategoryLive: true,
-  });
+  for (const round of plannedRounds) {
+    const { collection, fixtures: insertedFixtures } = await createFixtureCollection({
+      tournamentId,
+      categoryId: catId,
+      roundName: round.roundName,
+      drawKind: "generated",
+      roundNumber: round.roundNumber,
+      totalRounds,
+      status: "active",
+      metaJson: {
+        adapter: "auto_generate",
+        algorithm: "knockout",
+        legacyDrawKind: "knockout_round",
+      },
+      fixtures: round.fixtures.map((f) => ({
+        slotNumber: f.slotNumber,
+        registrationAId: f.registrationAId,
+        registrationBId: f.registrationBId,
+        status: f.status,
+      })),
+      markCategoryLive: round.roundNumber === 1,
+    });
+    if (!firstCollection) firstCollection = collection;
+    insertedByRound.set(
+      round.roundNumber,
+      insertedFixtures.map((f) => ({ id: f.id, slotNumber: f.slotNumber })),
+    );
+    allFixtures.push(...insertedFixtures);
+  }
 
-  // Compatibility: existing clients expect `{ draw, fixtures }`
+  await wireKnockoutProgressionLinks(tournamentId, insertedByRound, plannedRounds);
+
+  // Auto-advance R1 byes (one side empty → walkover) into the next round.
+  const r1Inserted = insertedByRound.get(1) ?? [];
+  for (const f of r1Inserted) {
+    const [row] = await db
+      .select()
+      .from(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, f.id),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+    if (!row || row.status !== "walkover") continue;
+    const winnerSide =
+      row.registrationAId && !row.registrationBId
+        ? "left"
+        : row.registrationBId && !row.registrationAId
+          ? "right"
+          : null;
+    if (!winnerSide) continue;
+    await advanceKnockoutWinner({
+      tournamentId,
+      fixtureId: row.id,
+      winnerSide,
+    });
+    await db
+      .update(badmintonFixturesTable)
+      .set({
+        completedAt: new Date(),
+        resultSummary: "bye",
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, row.id),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
+  }
+
+  // Compatibility: existing clients expect `{ draw, fixtures }` — draw = R1 collection.
   res.status(201).json({
-    draw: collection,
-    collection,
-    fixtures: insertedFixtures,
+    draw: firstCollection,
+    collection: firstCollection,
+    fixtures: allFixtures,
+    rounds: plannedRounds.map((r) => ({
+      roundNumber: r.roundNumber,
+      roundName: r.roundName,
+      fixtureCount: r.fixtures.length,
+    })),
   });
 });
 
@@ -1939,7 +2007,8 @@ router.get("/scorer/session", async (req, res) => {
     if (!token) {
       return void res.status(401).json({ error: "Scorer login required", code: "AUTH_REQUIRED" });
     }
-    await resolveScorerAuthFromToken(token);
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
     res.json(session);
@@ -1968,7 +2037,8 @@ router.post("/scorer/session", async (req, res) => {
         ok: false,
       });
     }
-    await resolveScorerAuthFromToken(token);
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
     res.json(session);
@@ -1993,7 +2063,8 @@ router.get("/scorer/matches", async (req, res) => {
     if (!token) {
       return void res.status(401).json({ error: "Scorer login required", code: "AUTH_REQUIRED" });
     }
-    await resolveScorerAuthFromToken(token);
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
     if (!session.ok) {
@@ -2274,6 +2345,8 @@ router.post("/matches/:matchId/point", async (req, res) => {
   const schema = z.object({
     side: z.enum(["left", "right"]),
     rallyLength: z.number().int().optional(),
+    /** Client-generated key so retries do not double-award (Sprint 1 / C6). */
+    idempotencyKey: z.string().min(8).max(128).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -2291,7 +2364,10 @@ router.post("/matches/:matchId/point", async (req, res) => {
         tournamentId,
         parsed.data.side,
         actorFrom(req, scoringAuth),
-        { rallyLength: parsed.data.rallyLength },
+        {
+          rallyLength: parsed.data.rallyLength,
+          idempotencyKey: parsed.data.idempotencyKey,
+        },
       );
       markLatency("awardPoint_returned");
 
@@ -2479,6 +2555,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
       metadata: { retiringSide: parsed.data.retiringSide, reason: parsed.data.reason ?? null },
     });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2524,6 +2601,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
       metadata: { winningSide: parsed.data.winningSide, reason: parsed.data.reason ?? null },
     });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2561,6 +2639,7 @@ router.post("/matches/:matchId/disqualification", async (req, res) => {
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2673,6 +2752,7 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2795,48 +2875,12 @@ router.get("/dashboard", async (req, res) => {
     liveMatches: liveMatches.map(
       ({ match, detail }: { match: typeof scoringMatchesTable.$inferSelect; detail: typeof badmintonMatchDetailsTable.$inferSelect | null }) => ({
         ...match,
-        detail: detail ?? null,
+        // Public dashboard must never expose scorerPin (Sprint 1 / C2).
+        detail: serializeBadmintonMatchDetail(detail, { includeScorerPin: false }),
         state: detail?.stateSnapshotJson ?? null,
       }),
     ),
   });
 });
-
-// ─── Auto Generate algorithm (planning only — fixtures via writer) ───────────
-
-function generateKnockoutDraw(
-  _tournamentId: number,
-  _categoryId: number,
-  registrations: Array<{ id: number; seedNumber: number | null }>,
-): Array<{
-  slotNumber: number;
-  registrationAId: number | null;
-  registrationBId: number | null;
-  status: string;
-}> {
-  const seeds = registrations
-    .filter((r) => r.seedNumber !== null)
-    .sort((a, b) => (a.seedNumber ?? 99) - (b.seedNumber ?? 99));
-  const unseeded = registrations
-    .filter((r) => r.seedNumber === null)
-    .sort(() => Math.random() - 0.5);
-
-  const ordered = [...seeds, ...unseeded];
-  const bracketSize = Math.pow(2, Math.ceil(Math.log2(ordered.length)));
-  const slots: Array<number | null> = ordered
-    .map((r) => r.id)
-    .concat(Array(bracketSize - ordered.length).fill(null));
-
-  const fixtures = [];
-  for (let i = 0; i < bracketSize; i += 2) {
-    fixtures.push({
-      slotNumber: Math.floor(i / 2) + 1,
-      registrationAId: slots[i] ?? null,
-      registrationBId: slots[i + 1] ?? null,
-      status: slots[i] && slots[i + 1] ? "unscheduled" : "walkover",
-    });
-  }
-  return fixtures;
-}
 
 export default router;

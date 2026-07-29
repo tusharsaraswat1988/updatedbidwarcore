@@ -4,8 +4,13 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, asc, eq } from "drizzle-orm";
-import { db, scorerAccountsTable, scorerSessionsTable } from "@workspace/db";
+import { and, asc, eq, sql } from "drizzle-orm";
+import {
+  db,
+  scorerAccountsTable,
+  scorerSessionsTable,
+  scorerTournamentAssignmentsTable,
+} from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
 import { hashScorerPin, verifyScorerPin } from "./scorer-pin-crypto";
@@ -377,5 +382,171 @@ export async function updateScorerAccountForAdmin(
   });
 
   return serializeScorerAccountAdmin(updated);
+}
+
+/** Count assignments for a tournament (0 = legacy open access). */
+export async function countScorerAssignmentsForTournament(
+  tournamentId: number,
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(scorerTournamentAssignmentsTable)
+    .where(eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId));
+  return Number(row?.count ?? 0);
+}
+
+export async function isScorerAssignedToTournament(
+  scorerId: number,
+  tournamentId: number,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: scorerTournamentAssignmentsTable.id })
+    .from(scorerTournamentAssignmentsTable)
+    .where(
+      and(
+        eq(scorerTournamentAssignmentsTable.scorerId, scorerId),
+        eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
+/**
+ * Sprint 1 / C3 — when the tournament has ≥1 assignment, the scorer must be
+ * assigned. Zero assignments keeps legacy open access for gradual rollout.
+ */
+export async function assertScorerMayAccessTournament(
+  scorerId: number,
+  tournamentId: number,
+): Promise<void> {
+  const assignedCount = await countScorerAssignmentsForTournament(tournamentId);
+  if (assignedCount === 0) return;
+  const ok = await isScorerAssignedToTournament(scorerId, tournamentId);
+  if (!ok) {
+    throw new ScorerAuthError(
+      "You are not assigned to this tournament",
+      "TOURNAMENT_NOT_ASSIGNED",
+      403,
+    );
+  }
+}
+
+export async function assignScorerToTournament(
+  scorerId: number,
+  tournamentId: number,
+): Promise<void> {
+  await db
+    .insert(scorerTournamentAssignmentsTable)
+    .values({ scorerId, tournamentId })
+    .onConflictDoNothing({
+      target: [
+        scorerTournamentAssignmentsTable.scorerId,
+        scorerTournamentAssignmentsTable.tournamentId,
+      ],
+    });
+}
+
+/** Organizer: list scorers assigned to this tournament only (Sprint 1 / C7). */
+export async function listScorerAccountsForTournament(
+  tournamentId: number,
+): Promise<ScorerAccountAdminRow[]> {
+  const rows = await db
+    .select({ account: scorerAccountsTable })
+    .from(scorerTournamentAssignmentsTable)
+    .innerJoin(
+      scorerAccountsTable,
+      eq(scorerAccountsTable.id, scorerTournamentAssignmentsTable.scorerId),
+    )
+    .where(eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId))
+    .orderBy(asc(scorerAccountsTable.name), asc(scorerAccountsTable.id));
+  return rows.map((r) => serializeScorerAccountAdmin(r.account));
+}
+
+/**
+ * Create (or re-use by mobile) a scorer and assign them to this tournament.
+ * Does not expose/list scorers from other tournaments.
+ */
+export async function createScorerAccountForTournament(
+  tournamentId: number,
+  input: { name: string; mobile: string; pin: string },
+): Promise<ScorerAccountAdminRow> {
+  const name = input.name.trim();
+  if (!name) {
+    throw new ScorerAuthError("Name is required", "INVALID_NAME", 400);
+  }
+  const mobile = normalizeMobile(input.mobile);
+  const pin = input.pin.trim();
+  if (pin.length < 4) {
+    throw new ScorerAuthError("PIN must be at least 4 characters", "INVALID_PIN", 400);
+  }
+
+  const [existing] = await db
+    .select()
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.mobile, mobile))
+    .limit(1);
+
+  let account: typeof scorerAccountsTable.$inferSelect;
+  if (existing) {
+    // Re-use global identity but only expose via this tournament's assignment.
+    const already = await isScorerAssignedToTournament(existing.id, tournamentId);
+    if (already) {
+      throw new ScorerAuthError(
+        "This scorer is already assigned to this tournament",
+        "ALREADY_ASSIGNED",
+        409,
+      );
+    }
+    // Update PIN/name when re-assigning an existing mobile to this tournament.
+    const pinHash = await hashScorerPin(pin);
+    const [updated] = await db
+      .update(scorerAccountsTable)
+      .set({ name, pinHash, isActive: true })
+      .where(eq(scorerAccountsTable.id, existing.id))
+      .returning();
+    account = updated!;
+  } else {
+    const pinHash = await hashScorerPin(pin);
+    const [created] = await db
+      .insert(scorerAccountsTable)
+      .values({
+        name,
+        mobile,
+        pinHash,
+        isActive: true,
+      })
+      .returning();
+    account = created!;
+  }
+
+  await assignScorerToTournament(account.id, tournamentId);
+
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_account_created",
+    scorerId: account.id,
+    tournamentId,
+    payload: { mobile, name, tournamentId },
+  });
+
+  return serializeScorerAccountAdmin(account);
+}
+
+/** Update a scorer only if assigned to this tournament. */
+export async function updateScorerAccountForTournament(
+  tournamentId: number,
+  scorerId: number,
+  input: { name?: string; pin?: string; isActive?: boolean },
+): Promise<ScorerAccountAdminRow> {
+  const assigned = await isScorerAssignedToTournament(scorerId, tournamentId);
+  if (!assigned) {
+    throw new ScorerAuthError(
+      "Scorer is not assigned to this tournament",
+      "NOT_FOUND",
+      404,
+    );
+  }
+  return updateScorerAccountForAdmin(scorerId, input);
 }
 

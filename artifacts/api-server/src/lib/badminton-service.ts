@@ -49,6 +49,7 @@ import {
   STANDARD_FORMAT,
   getUndoTargetSequences,
   parseBadmintonMatchFormat,
+  BadmintonEventType,
   type BadmintonMatchFormat,
   type MatchPauseReason,
 } from "@workspace/badminton-core";
@@ -571,6 +572,20 @@ async function updateSnapshot(
             eq(badmintonFixturesTable.tournamentId, tournamentId),
           ),
         );
+
+      // Sprint 1 / C5 — advance winner into next-round fixture when linked.
+      if (state.winnerSide === "left" || state.winnerSide === "right") {
+        try {
+          const { advanceKnockoutWinner } = await import("./badminton-knockout-progression");
+          await advanceKnockoutWinner({
+            tournamentId,
+            fixtureId,
+            winnerSide: state.winnerSide,
+          });
+        } catch (err) {
+          console.error("[badminton] knockout advancement failed:", err);
+        }
+      }
     }
 
     const [detail] = await db
@@ -713,13 +728,23 @@ export async function awardPoint(
   tournamentId: number,
   winningSide: BadmintonSide,
   actor: Actor,
-  opts?: { rallyLength?: number },
+  opts?: { rallyLength?: number; idempotencyKey?: string },
 ): Promise<BadmintonMatchState> {
   markLatency("awardPoint_enter");
 
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
   markLatency("awardPoint_meta_loaded");
+
+  const idempotencyKey = opts?.idempotencyKey?.trim() || undefined;
+  if (idempotencyKey) {
+    const { findMatchEventByIdempotencyKey } = await import("./scoring-platform/event-store");
+    const existing = await findMatchEventByIdempotencyKey(matchId, idempotencyKey);
+    if (existing) {
+      // Idempotent replay — return current authoritative state without appending.
+      return loadCurrentMatchState(matchId, tournamentId, meta);
+    }
+  }
 
   const state = await loadCurrentMatchState(matchId, tournamentId, meta);
   markLatency("awardPoint_state_loaded");
@@ -734,12 +759,22 @@ export async function awardPoint(
   }
   markLatency("awardPoint_command_ok");
 
+  const events = result.events.map((event) => {
+    if (idempotencyKey && event.eventType === BadmintonEventType.POINT_WON) {
+      return {
+        ...event,
+        payload: { ...event.payload, idempotencyKey },
+      };
+    }
+    return event;
+  });
+
   const projected = await persistBadmintonCommandEvents(
     matchId,
     tournamentId,
     meta,
     state,
-    result.events,
+    events,
     actor,
     // Full replay after persist so a drifted snapshot cannot poison the next score.
     "replay",

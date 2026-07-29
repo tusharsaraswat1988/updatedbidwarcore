@@ -97,7 +97,28 @@ export const scorerAuditLogTable = pgTable(
   ],
 );
 
+/**
+ * Tournament membership for scorers (Sprint 1 / C3).
+ * When a tournament has ≥1 assignment, only assigned scorers may lock/score
+ * matches in that tournament. Zero assignments = legacy open (compat).
+ */
+export const scorerTournamentAssignmentsTable = pgTable(
+  "scorer_tournament_assignments",
+  {
+    id: serial("id").primaryKey(),
+    scorerId: integer("scorer_id").notNull(),
+    tournamentId: integer("tournament_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_scorer_tournament_assignment").on(t.scorerId, t.tournamentId),
+    index("ix_scorer_tournament_assignments_tournament").on(t.tournamentId),
+    index("ix_scorer_tournament_assignments_scorer").on(t.scorerId),
+  ],
+);
+
 export type ScorerAccount = typeof scorerAccountsTable.$inferSelect;
 export type ScorerSession = typeof scorerSessionsTable.$inferSelect;
 export type ScorerMatchLock = typeof scorerMatchLocksTable.$inferSelect;
 export type ScorerAuditLog = typeof scorerAuditLogTable.$inferSelect;
+export type ScorerTournamentAssignment = typeof scorerTournamentAssignmentsTable.$inferSelect;

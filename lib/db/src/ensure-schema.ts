@@ -729,6 +729,22 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_scorer_id ON scorer_audit_log (scorer_id);
     CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_created_at ON scorer_audit_log (created_at);
     CREATE INDEX IF NOT EXISTS ix_scorer_audit_log_action ON scorer_audit_log (action);
+
+    CREATE TABLE IF NOT EXISTS scorer_tournament_assignments (
+      id SERIAL PRIMARY KEY,
+      scorer_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scorer_tournament_assignment
+      ON scorer_tournament_assignments (scorer_id, tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_tournament_assignments_tournament
+      ON scorer_tournament_assignments (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_tournament_assignments_scorer
+      ON scorer_tournament_assignments (scorer_id);
+
+    ALTER TABLE badminton_match_details
+      ADD COLUMN IF NOT EXISTS pre_match_toss_json JSONB;
   `);
     success = true;
   } catch (err) {

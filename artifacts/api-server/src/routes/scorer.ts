@@ -10,6 +10,7 @@ import {
   loginScorer,
   logoutScorer,
   resolveScorerAuthFromToken,
+  assertScorerMayAccessTournament,
   ScorerAuthError,
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
@@ -22,6 +23,8 @@ import {
   ScorerLockError,
 } from "../lib/scorer-match-locks";
 import { logger } from "../lib/logger";
+import { db, scoringMatchesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -125,11 +128,29 @@ router.post("/matches/:matchId/lock", async (req, res) => {
 
   try {
     const auth = await requireScorer(req);
+    const tournamentId =
+      meta.success && meta.data.tournamentId ? meta.data.tournamentId : null;
+
+    // Resolve tournament from match when body omits it (Sprint 1 / C3).
+    let resolvedTournamentId = tournamentId;
+    if (!resolvedTournamentId) {
+      const [match] = await db
+        .select({ tournamentId: scoringMatchesTable.tournamentId })
+        .from(scoringMatchesTable)
+        .where(eq(scoringMatchesTable.id, matchId))
+        .limit(1);
+      resolvedTournamentId = match?.tournamentId ?? null;
+    }
+
+    if (resolvedTournamentId) {
+      await assertScorerMayAccessTournament(auth.scorerId, resolvedTournamentId);
+    }
+
     const result = await acquireMatchLock({
       matchId,
       scorerId: auth.scorerId,
       sessionId: auth.sessionId,
-      tournamentId: meta.success ? meta.data.tournamentId ?? null : null,
+      tournamentId: resolvedTournamentId,
       sport: meta.success ? meta.data.sport ?? null : null,
     });
 

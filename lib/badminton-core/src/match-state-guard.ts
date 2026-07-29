@@ -12,15 +12,17 @@ export function getEventSequence(state: BadmintonMatchState | null | undefined):
   return state?.lastSequence ?? 0;
 }
 
-export type RejectMatchStateReason = "duplicate" | "stale";
+export type RejectMatchStateReason = "duplicate" | "stale" | "wrong_match";
 
 export type ApplyMatchStateResult =
   | { applied: true; state: BadmintonMatchState }
   | { applied: false; reason: RejectMatchStateReason; state: BadmintonMatchState };
 
 /**
- * Apply incoming match state only when its event sequence is strictly newer.
+ * Apply incoming match state only when it belongs to the same match and its
+ * event sequence is strictly newer.
  *
+ * - wrong_match (incoming.matchId !== expected/current): ignore
  * - duplicate (incoming === current): ignore
  * - stale / out-of-order (incoming < current): ignore
  * - newer (incoming > current): accept
@@ -28,7 +30,23 @@ export type ApplyMatchStateResult =
 export function applyMatchStateIfNewer(
   current: BadmintonMatchState | null | undefined,
   incoming: BadmintonMatchState,
+  expectedMatchId?: number,
 ): ApplyMatchStateResult {
+  const expectedId = expectedMatchId ?? current?.matchId;
+  if (
+    expectedId != null &&
+    expectedId > 0 &&
+    incoming.matchId != null &&
+    incoming.matchId > 0 &&
+    incoming.matchId !== expectedId
+  ) {
+    return {
+      applied: false,
+      reason: "wrong_match",
+      state: current ?? incoming,
+    };
+  }
+
   if (current == null) {
     return { applied: true, state: incoming };
   }
@@ -52,12 +70,17 @@ export type MatchStateCache = {
   detail: unknown;
 };
 
-/** Merge SSE/POST snapshot into React Query cache with sequence guard. */
+/**
+ * Merge SSE/POST snapshot into React Query cache with match-id + sequence guard.
+ * Pass `expectedMatchId` when the cache key is match-scoped so foreign-match
+ * SSE frames cannot overwrite this match (Sprint 1 / C1).
+ */
 export function mergeMatchStateCache(
   prev: MatchStateCache | null | undefined,
   incoming: BadmintonMatchState,
+  expectedMatchId?: number,
 ): MatchStateCache {
-  const result = applyMatchStateIfNewer(prev?.state, incoming);
+  const result = applyMatchStateIfNewer(prev?.state, incoming, expectedMatchId);
   if (!result.applied) {
     return prev ?? { state: incoming, detail: null };
   }
