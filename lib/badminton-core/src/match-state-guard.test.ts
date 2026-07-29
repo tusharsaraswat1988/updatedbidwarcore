@@ -64,4 +64,24 @@ describe("match-state-guard", () => {
     expect(merged.state).toBe(incoming);
     expect(merged.detail).toEqual({ courtNumber: "1" });
   });
+
+  it("rejects foreign matchId even when sequence is newer", () => {
+    const current = { ...stateWithSeq(5), matchId: 10 };
+    const incoming = { ...stateWithSeq(99), matchId: 11 };
+    const result = applyMatchStateIfNewer(current, incoming, 10);
+    expect(result.applied).toBe(false);
+    if (!result.applied) expect(result.reason).toBe("wrong_match");
+    expect(result.state).toBe(current);
+  });
+
+  it("mergeMatchStateCache ignores foreign match snapshots", () => {
+    const prev = {
+      state: { ...stateWithSeq(20), matchId: 42 },
+      detail: { courtNumber: "1" },
+    };
+    const incoming = { ...stateWithSeq(100), matchId: 99 };
+    const merged = mergeMatchStateCache(prev, incoming, 42);
+    expect(merged.state).toBe(prev.state);
+    expect(merged.detail).toEqual({ courtNumber: "1" });
+  });
 });

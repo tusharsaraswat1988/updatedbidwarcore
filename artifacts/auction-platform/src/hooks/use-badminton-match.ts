@@ -56,6 +56,15 @@ function mergeIncomingMatchState(
   prev: MatchCache | null,
   incoming: BadmintonMatchState,
 ): MatchCache | null {
+  // Reject foreign-match SSE frames even if their sequence is higher (Sprint 1 / C1).
+  if (
+    matchId > 0 &&
+    incoming.matchId != null &&
+    incoming.matchId > 0 &&
+    incoming.matchId !== matchId
+  ) {
+    return prev;
+  }
   if (
     prev?.state &&
     shouldRejectRallyRegression(
@@ -66,7 +75,7 @@ function mergeIncomingMatchState(
   ) {
     return prev;
   }
-  return mergeMatchStateCache(prev, incoming);
+  return mergeMatchStateCache(prev, incoming, matchId > 0 ? matchId : undefined);
 }
 
 // ── Fetchers ─────────────────────────────────────────────────────────────────
@@ -140,6 +149,17 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "match_state" && msg.data) {
+          // Prefer envelope matchId; fall back to state.matchId.
+          const envelopeMatchId =
+            typeof msg.matchId === "number" ? msg.matchId : (msg.data as BadmintonMatchState).matchId;
+          if (
+            matchId > 0 &&
+            typeof envelopeMatchId === "number" &&
+            envelopeMatchId > 0 &&
+            envelopeMatchId !== matchId
+          ) {
+            return;
+          }
           queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
             mergeIncomingMatchState(
               tournamentId,
@@ -177,7 +197,7 @@ export function useBadmintonScorer(
 ) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-match", tournamentId, matchId];
-  const pointQueueRef = useRef<Array<{ side: "left" | "right" }>>([]);
+  const pointQueueRef = useRef<Array<{ side: "left" | "right"; idempotencyKey: string }>>([]);
   const drainPromiseRef = useRef<Promise<void> | null>(null);
 
   async function postAction(endpoint: string, body: unknown) {
@@ -223,10 +243,13 @@ export function useBadmintonScorer(
       while (pointQueueRef.current.length > 0) {
         const item = pointQueueRef.current[0];
         try {
-          await postAction("point", { side: item.side });
+          await postAction("point", {
+            side: item.side,
+            idempotencyKey: item.idempotencyKey,
+          });
           pointQueueRef.current.shift();
         } catch {
-          pointQueueRef.current = [];
+          // Keep unsent items for a later retry, but clear the floor so SSE can catch up.
           clearOptimisticRallyFloor(optimisticKey);
           await queryClient.invalidateQueries({ queryKey });
           throw new Error("Failed to score point");
@@ -244,6 +267,10 @@ export function useBadmintonScorer(
     (side: "left" | "right") => {
       let rejected: string | null = null;
       const optimisticKey = matchOptimisticKey(tournamentId, matchId);
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `pt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
       queryClient.setQueryData(queryKey, (prev: MatchCache | null) => {
         if (!prev?.state) return prev;
@@ -271,10 +298,10 @@ export function useBadmintonScorer(
 
       const cached = queryClient.getQueryData<MatchCache>(queryKey);
       if (!cached?.state) {
-        return postAction("point", { side });
+        return postAction("point", { side, idempotencyKey });
       }
 
-      pointQueueRef.current.push({ side });
+      pointQueueRef.current.push({ side, idempotencyKey });
       return drainPointQueue();
     },
     [drainPointQueue, matchId, queryClient, tournamentId],

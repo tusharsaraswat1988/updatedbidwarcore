@@ -71,13 +71,13 @@ describe("doubles court rotation", () => {
     expect(after.servingPlayerIndex).toBe(serverIndexForScore(1, after.courtPositions.right));
   });
 
-  it("swaps partners on old serving side when receiving side wins", () => {
+  it("keeps old serving side positions when receiving side wins (BWF 10.3.4)", () => {
     const court = buildInitialCourtPositions("left", 0, "right", 0);
     const beforeLeft = court.left.rightCourtPlayerIndex;
+    const beforeRight = court.right.rightCourtPlayerIndex;
     const after = advanceDoublesServeAfterPoint("right", "left", 0, 1, court);
-    expect(after.courtPositions.left.rightCourtPlayerIndex).toBe(
-      swapSidePartners({ rightCourtPlayerIndex: beforeLeft }).rightCourtPlayerIndex,
-    );
+    expect(after.courtPositions.left.rightCourtPlayerIndex).toBe(beforeLeft);
+    expect(after.courtPositions.right.rightCourtPlayerIndex).toBe(beforeRight);
   });
 
   it("receiver is always diagonal to server", () => {

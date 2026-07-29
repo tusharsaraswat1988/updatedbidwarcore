@@ -136,9 +136,13 @@ export function bwfReferenceAfterRally(
 
   let court = cloneCourt(before.courtPositions);
 
-  // BWF: partner exchange on the side that was serving when receiving side wins;
-  // when serving side wins, partners on serving side also exchange (same server, alternate court).
-  court = exchangePartnersOnSide(court, servingSideBeforeRally);
+  // BWF 10.3.3: when serving side wins, partners on serving side exchange courts
+  // (same server continues from the other court).
+  // BWF 10.3.4: when receiving side wins, no partner exchange — serve transfers
+  // to the player already standing in the court for the new serving score.
+  if (rallyWinner === servingSideBeforeRally) {
+    court = exchangePartnersOnSide(court, servingSideBeforeRally);
+  }
 
   const newServingSide = rallyWinner;
   const newReceivingSide = otherSide(newServingSide);
@@ -287,14 +291,14 @@ export function validateServiceTransfer(
         message: "Receiving side won — service must transfer to rally winner",
       });
     }
-    // Former serving side partners must have exchanged
+    // Former serving side partners must NOT exchange when receiving side wins.
     const beforePos = before.courtPositions[servingSideBeforeRally];
     const afterPos = after.courtPositions[servingSideBeforeRally];
-    const expectedSwap = { rightCourtPlayerIndex: leftCourtPlayer(beforePos) };
-    if (afterPos.rightCourtPlayerIndex !== expectedSwap.rightCourtPlayerIndex) {
+    if (afterPos.rightCourtPlayerIndex !== beforePos.rightCourtPlayerIndex) {
       violations.push({
         ruleId: "10.3.4",
-        message: "Former serving side partners must exchange positions when receiving side wins",
+        message:
+          "Former serving side partners must keep positions when receiving side wins (no exchange)",
       });
     }
   }

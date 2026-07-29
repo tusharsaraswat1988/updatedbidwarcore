@@ -583,6 +583,28 @@ void systemCQuery(`
     console.error("[db] failed to backfill badminton_match_details scorer_pin:", err);
   });
 
+/** Sprint 1 — toss JSON column + scorer tournament assignments. */
+void systemCQuery(`
+    ALTER TABLE badminton_match_details
+      ADD COLUMN IF NOT EXISTS pre_match_toss_json JSONB;
+
+    CREATE TABLE IF NOT EXISTS scorer_tournament_assignments (
+      id SERIAL PRIMARY KEY,
+      scorer_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scorer_tournament_assignment
+      ON scorer_tournament_assignments (scorer_id, tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_tournament_assignments_tournament
+      ON scorer_tournament_assignments (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_tournament_assignments_scorer
+      ON scorer_tournament_assignments (scorer_id);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure scorer assignments / pre_match_toss_json:", err);
+  });
+
 /** Master Sports Core — shared player/team/sponsor identity */
 void systemCQuery(`
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS first_name TEXT;

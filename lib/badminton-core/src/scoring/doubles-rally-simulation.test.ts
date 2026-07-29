@@ -162,7 +162,7 @@ function formatTransfer(kind: ServiceTransferKind): string {
     case "retain_same_server":
       return "Service retained — same server continues (partners swapped on serving side)";
     case "transfer_to_rally_winner":
-      return "Service transferred — rally winner's pair now serves (former serving pair swapped)";
+      return "Service transferred — rally winner's pair now serves (no partner swap)";
   }
 }
 
@@ -469,7 +469,7 @@ function generateFullReport(results: SequenceResult[]): string {
     "  • Server in correct service court for score parity (Law 10.5)",
     "  • Receiver diagonal to server (Law 10.6)",
     "  • Service retention when serving side wins (Law 10.3.3)",
-    "  • Service transfer + partner swap when receiving side wins (Law 10.3.4)",
+    "  • Service transfer without partner swap when receiving side wins (Law 10.3.4)",
     "  • Cross-check vs independent BWF reference oracle",
     "",
     "Summary:",
