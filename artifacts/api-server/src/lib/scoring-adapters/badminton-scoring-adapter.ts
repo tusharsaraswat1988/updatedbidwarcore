@@ -2,6 +2,7 @@ import {
   parseBadmintonEventPayload,
   replayBadmintonEvents,
   reduceBadminton,
+  isBadmintonTerminalMatchStatus,
   type BadmintonEventEnvelope,
   type BadmintonMatchMeta,
   type BadmintonMatchState,
@@ -27,13 +28,7 @@ const BADMINTON_MANIFEST: SportManifest = {
 };
 
 function isTerminalBadmintonStatus(status: string): boolean {
-  return (
-    status === "completed" ||
-    status === "walkover" ||
-    status === "retired" ||
-    status === "disqualified" ||
-    status === "abandoned"
-  );
+  return isBadmintonTerminalMatchStatus(status);
 }
 
 export const badmintonScoringAdapter: SportScoringAdapter<

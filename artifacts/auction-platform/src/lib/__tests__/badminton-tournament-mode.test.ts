@@ -17,6 +17,18 @@ describe("detectBadmintonTournamentMode", () => {
     );
   });
 
+  it("returns completed when scoring phase is completed", () => {
+    assert.equal(
+      detectBadmintonTournamentMode({
+        tournamentStatus: "active",
+        scoringPhase: "completed",
+        matchesLive: 0,
+        matchesCompleted: 8,
+      }),
+      "completed",
+    );
+  });
+
   it("returns live when any match is live", () => {
     assert.equal(
       detectBadmintonTournamentMode({

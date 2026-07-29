@@ -42,6 +42,7 @@ import {
   badmintonDrawsTable,
   badmintonFixturesTable,
   badmintonMatchDetailsTable,
+  badmintonAnalyticsTable,
   scoringMatchesTable,
   tournamentsTable,
 } from "@workspace/db";
@@ -132,6 +133,8 @@ import {
   markLatency,
   toPhaseBreakdown,
 } from "../lib/badminton-latency-trace";
+import { TERMINAL_SCORING_MATCH_STATUSES } from "../lib/scoring-match-terminal";
+import { scheduleBadmintonLifecycleRefresh } from "../lib/badminton-lifecycle";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
@@ -2025,6 +2028,7 @@ router.post("/matches", async (req, res) => {
     });
 
     broadcastTournamentUpdate(tournamentId, { type: "match_created", matchId: created.match.id });
+    scheduleBadmintonLifecycleRefresh(tournamentId);
     res.status(201).json({
       ...created.match,
       detail: serializeBadmintonMatchDetail(created.detail, { includeScorerPin: true }),
@@ -2908,11 +2912,25 @@ router.get("/matches/:matchId/report", async (req, res) => {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
+router.get("/analytics", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  const [row] = await db
+    .select()
+    .from(badmintonAnalyticsTable)
+    .where(eq(badmintonAnalyticsTable.tournamentId, tournamentId))
+    .limit(1);
+
+  res.json(row ?? null);
+});
+
 router.get("/dashboard", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const [totalPlayers, totalCourts, totalCategories, matchStats] = await Promise.all([
+  const [totalPlayers, totalCourts, totalCategories, matchStats, tournamentRow] =
+    await Promise.all([
     db
       .select({ count: count() })
       .from(badmintonPlayersTable)
@@ -2935,10 +2953,24 @@ router.get("/dashboard", async (req, res) => {
         ),
       )
       .groupBy(scoringMatchesTable.status),
+    db
+      .select({ scoringPhase: tournamentsTable.scoringPhase })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1),
   ]);
 
   const matchStatMap: Record<string, number> = {};
   for (const row of matchStats) matchStatMap[row.status] = Number(row.count);
+
+  const matchesCompletedBreakdown = Object.fromEntries(
+    TERMINAL_SCORING_MATCH_STATUSES.map((status) => [status, matchStatMap[status] ?? 0]),
+  ) as Record<(typeof TERMINAL_SCORING_MATCH_STATUSES)[number], number>;
+
+  const matchesCompleted = TERMINAL_SCORING_MATCH_STATUSES.reduce(
+    (sum, status) => sum + (matchStatMap[status] ?? 0),
+    0,
+  );
 
   const liveMatches = await db
     .select({ match: scoringMatchesTable, detail: badmintonMatchDetailsTable })
@@ -2962,9 +2994,11 @@ router.get("/dashboard", async (req, res) => {
     totalPlayers: Number(totalPlayers[0]?.count ?? 0),
     totalCourts: Number(totalCourts[0]?.count ?? 0),
     totalCategories: Number(totalCategories[0]?.count ?? 0),
+    scoringPhase: tournamentRow[0]?.scoringPhase ?? "disabled",
     matchesScheduled: matchStatMap["scheduled"] ?? 0,
     matchesLive: matchStatMap["live"] ?? 0,
-    matchesCompleted: matchStatMap["completed"] ?? 0,
+    matchesCompleted,
+    matchesCompletedBreakdown,
     liveMatches: liveMatches.map(
       ({ match, detail }: { match: typeof scoringMatchesTable.$inferSelect; detail: typeof badmintonMatchDetailsTable.$inferSelect | null }) => ({
         ...match,

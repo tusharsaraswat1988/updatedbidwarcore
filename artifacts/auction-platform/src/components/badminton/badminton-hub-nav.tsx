@@ -138,6 +138,7 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
 
   const mode = detectBadmintonTournamentMode({
     tournamentStatus: tournament?.status ?? null,
+    scoringPhase: tournament?.scoringPhase ?? dashboard?.scoringPhase ?? null,
     matchesLive: dashboard?.matchesLive ?? null,
     matchesCompleted: dashboard?.matchesCompleted ?? null,
   });

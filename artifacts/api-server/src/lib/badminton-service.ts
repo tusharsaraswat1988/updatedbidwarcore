@@ -92,6 +92,8 @@ export {
 import { appendMatchEventBatch, type ScoringActor as PlatformActor } from "./scoring-platform/orchestrator";
 import { runBadmintonMasterStatisticsPipeline } from "./scoring-platform/projections";
 import { ScoringPlatformError } from "./scoring-platform/errors";
+import { scheduleBadmintonAnalyticsRecompute, refreshBadmintonAnalyticsAfterDelete } from "./badminton-analytics";
+import { scheduleBadmintonLifecycleRefresh, refreshBadmintonLifecycle } from "./badminton-lifecycle";
 import {
   findOtherLiveMatchOnCourt,
   friendlyBadmintonCommandMessage,
@@ -585,10 +587,37 @@ async function updateSnapshot(
             winnerSide: state.winnerSide,
           });
         } catch (err) {
-          console.error("[badminton] knockout advancement failed:", err);
+          const { KnockoutProgressionError } = await import("./badminton-knockout-progression");
+          const message =
+            err instanceof Error ? err.message : "Knockout advancement failed";
+          console.error("[badminton] knockout advancement failed:", {
+            tournamentId,
+            matchId,
+            fixtureId,
+            winnerSide: state.winnerSide,
+            message,
+          });
+          if (err instanceof KnockoutProgressionError) {
+            state.matchNotes = [...(state.matchNotes ?? []), `[Bracket] ${message}`];
+            await db
+              .update(badmintonMatchDetailsTable)
+              .set({
+                stateSnapshotJson: state as unknown as Record<string, unknown>,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+                  eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+                ),
+              );
+          }
         }
       }
     }
+
+    scheduleBadmintonAnalyticsRecompute(tournamentId);
+    scheduleBadmintonLifecycleRefresh(tournamentId);
 
     const [detail] = await db
       .select({
@@ -649,6 +678,8 @@ async function updateSnapshot(
           ),
         );
     }
+
+    scheduleBadmintonLifecycleRefresh(tournamentId);
   }
 }
 
@@ -1922,4 +1953,7 @@ export async function deleteBadmintonMatch(
         ),
       );
   });
+
+  await refreshBadmintonAnalyticsAfterDelete(tournamentId);
+  await refreshBadmintonLifecycle(tournamentId);
 }

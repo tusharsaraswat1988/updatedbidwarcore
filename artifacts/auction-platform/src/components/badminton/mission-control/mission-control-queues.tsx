@@ -53,13 +53,8 @@ export function MissionControlQueues({
   const moveTargets = courts.filter((c) => moveTargetCourtIds.includes(c.id));
 
   return (
-    <section className="space-y-3" aria-label="Match queues">
-      <div>
-        <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">Queues</h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          Ready to start, waiting to assign, and last finishes — operate without leaving.
-        </p>
-      </div>
+    <section className="space-y-2" aria-label="Match queues">
+      <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">Queues</h2>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <QueuePanel title="Ready matches" empty="No matches waiting to start." count={Math.min(ready.length, 12)}>
           {ready.slice(0, 12).map((m) => (

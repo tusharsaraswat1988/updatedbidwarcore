@@ -4,6 +4,8 @@
  * No duplicated storage.
  */
 
+import { isTerminalScoringMatchStatus } from "@workspace/badminton-core";
+
 export type CourtOpsStatus = "EMPTY" | "READY" | "LIVE" | "FINISHED" | "DELAYED";
 
 export type ControlCourt = {
@@ -190,7 +192,7 @@ export function buildCourtBoard(
     const ready = scheduledOnCourt[0] ?? null;
     const readyOverflow = Math.max(0, scheduledOnCourt.length - 1);
     const completed = onCourt
-      .filter((m) => m.status === "completed")
+      .filter((m) => isTerminalScoringMatchStatus(m.status))
       .sort((a, b) => matchTime(b) - matchTime(a));
     const lastFinished = completed[0] ?? null;
 
@@ -270,7 +272,7 @@ export function listRecentlyCompleted(
   limit = 8,
 ): ControlMatch[] {
   return matches
-    .filter((m) => m.status === "completed")
+    .filter((m) => isTerminalScoringMatchStatus(m.status))
     .sort((a, b) => matchTime(b) - matchTime(a))
     .slice(0, limit);
 }

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import {
   isPairMatchKind,
+  isTerminalScoringMatchStatus,
   mergeDoublesSideJson,
   parseBadmintonMatchFormat,
 } from "@workspace/badminton-core";
@@ -44,7 +45,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
-import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
+import { friendlyBadmintonError, formatMatchStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -195,7 +196,7 @@ export default function BadmintonMatchesPage() {
     return Number.isFinite(id) ? id : undefined;
   }, [search]);
   const [showCreate, setShowCreate] = useState(!!initialFixtureId);
-  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "finished">("all");
   const { data: scoringFormat } = useBadmintonScoringFormat(tournamentId);
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
@@ -211,14 +212,15 @@ export default function BadmintonMatchesPage() {
 
   const filtered = matches.filter((m) => {
     if (filter === "all") return true;
+    if (filter === "finished") return isTerminalScoringMatchStatus(m.status);
     return m.status === filter;
   });
 
   const counts = {
     all: matches.length,
-    live: matches.filter((m) => m.status === "live").length,
+    live: matches.filter((m) => m.status === "live" || m.status === "paused").length,
     scheduled: matches.filter((m) => m.status === "scheduled").length,
-    completed: matches.filter((m) => m.status === "completed").length,
+    finished: matches.filter((m) => isTerminalScoringMatchStatus(m.status)).length,
   };
 
   const deleteMutation = useMutation({
@@ -277,7 +279,7 @@ export default function BadmintonMatchesPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <HubFilterTabs
-          tabs={["all", "live", "scheduled", "completed"] as const}
+          tabs={["all", "live", "scheduled", "finished"] as const}
           active={filter}
           onChange={(tab) => setFilter(tab as typeof filter)}
           counts={counts}
@@ -300,7 +302,7 @@ export default function BadmintonMatchesPage() {
                   ? "No live matches"
                   : filter === "scheduled"
                     ? "No scheduled matches"
-                    : "No completed matches"
+                    : "No finished matches"
             }
             desc={
               filter === "all"
@@ -309,7 +311,7 @@ export default function BadmintonMatchesPage() {
                   ? "Start a match from Match Control after court and time are set."
                   : filter === "scheduled"
                     ? "Create a match with court + time (from a scheduled fixture or manually), then open Match Control."
-                    : "Completed matches appear here after scoring finishes."
+                    : "Finished matches (including walkovers and retirements) appear here after scoring ends."
             }
             action={
               filter === "all" || filter === "scheduled"
@@ -384,12 +386,8 @@ function MatchRow({
   const state = match.state;
   const detail = match.detail ?? {};
   const isLive = match.status === "live" || match.status === "paused";
-  const isCompleted =
-    match.status === "completed" ||
-    match.status === "walkover" ||
-    match.status === "retired" ||
-    match.status === "disqualified" ||
-    match.status === "abandoned";
+  const isCompleted = isTerminalScoringMatchStatus(match.status);
+  const statusLabel = formatMatchStatusLabel(match.status);
   const hasCourt =
     typeof detail.courtId === "number" ||
     (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);
@@ -504,6 +502,11 @@ function MatchRow({
             {detail.matchType ? (
               <Badge variant="outline" className="text-[10px] capitalize">
                 {(detail.matchType as string).replace("_", " ")}
+              </Badge>
+            ) : null}
+            {isCompleted && statusLabel !== "Completed" ? (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-200">
+                {statusLabel}
               </Badge>
             ) : null}
             {(() => {

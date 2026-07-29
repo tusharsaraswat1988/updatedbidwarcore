@@ -150,7 +150,7 @@ export default function BadmintonSummaryPage() {
   const organizer =
     branding?.organizerName?.trim() || tournament?.organizerName?.trim() || "—";
   const dates = formatMatchDates(tournament?.matchDates);
-  const statusLabel = summary.isTournamentComplete
+  const statusLabel = summary.isTournamentComplete || tournament?.scoringPhase === "completed"
     ? "Completed"
     : matches.some((m) => m.status === "live")
       ? "Live"
@@ -461,12 +461,12 @@ export default function BadmintonSummaryPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground">
-                    {summary.isTournamentComplete
+                    {summary.isTournamentComplete || tournament?.scoringPhase === "completed"
                       ? "Tournament Completed Successfully"
                       : "Tournament Archive"}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {summary.isTournamentComplete
+                    {summary.isTournamentComplete || tournament?.scoringPhase === "completed"
                       ? "This tournament is now archived. Scoring history and champions remain available on Results and this Summary."
                       : "When every event is finished, this page becomes the official archived closing record."}
                   </p>

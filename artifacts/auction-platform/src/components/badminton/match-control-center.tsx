@@ -15,6 +15,8 @@ import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { useToast } from "@/hooks/use-toast";
 
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 type Props = {
   tournamentId: number;
   matchId: number;

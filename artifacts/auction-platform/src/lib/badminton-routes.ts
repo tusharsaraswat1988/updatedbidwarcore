@@ -240,9 +240,11 @@ export type BadmintonTournamentMode = "setup" | "live" | "completed";
 export type BadmintonTournamentModeSignals = {
   /** Tournament lifecycle status from GET /tournaments/:id */
   tournamentStatus?: string | null;
+  /** Scoring module phase from dashboard / tournament API. */
+  scoringPhase?: string | null;
   /** Count of matches with status "live" (from dashboard). */
   matchesLive?: number | null;
-  /** Count of matches with status "completed" (from dashboard). */
+  /** Count of finished matches — all terminal outcomes (from dashboard). */
   matchesCompleted?: number | null;
 };
 
@@ -250,14 +252,17 @@ export type BadmintonTournamentModeSignals = {
  * Automatic Tournament Mode detection from existing tournament + dashboard signals.
  * Navigation priority only — does not change permissions, routing, or lifecycle.
  *
- * - completed → tournament.status === "completed"
- * - live → at least one match has started (live or completed count > 0)
+ * - completed → scoringPhase === "completed" OR tournament.status === "completed"
+ * - live → at least one match has started (live or finished count > 0)
  * - setup → no match has started yet
  */
 export function detectBadmintonTournamentMode(
   signals: BadmintonTournamentModeSignals,
 ): BadmintonTournamentMode {
-  if (signals.tournamentStatus === "completed") {
+  if (
+    signals.scoringPhase === "completed" ||
+    signals.tournamentStatus === "completed"
+  ) {
     return "completed";
   }
   const live = signals.matchesLive ?? 0;

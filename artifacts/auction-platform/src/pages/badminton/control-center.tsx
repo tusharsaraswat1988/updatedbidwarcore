@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ChevronDown, LayoutDashboard } from "lucide-react";
+import { AlertCircle, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import {
@@ -43,18 +43,12 @@ import { MissionControlTopBar } from "@/components/badminton/mission-control/mis
 import { MissionControlOpsRail } from "@/components/badminton/mission-control/mission-control-ops-rail";
 import { MissionControlCourtCard } from "@/components/badminton/mission-control/mission-control-court-card";
 import { MissionControlQueues } from "@/components/badminton/mission-control/mission-control-queues";
-import { MissionControlAttentionPanel } from "@/components/badminton/mission-control/mission-control-attention";
+import { MissionControlAlerts } from "@/components/badminton/mission-control/mission-control-alerts";
 import { MissionControlHealthStrip } from "@/components/badminton/mission-control/mission-control-health";
-import { MissionControlSuggestions } from "@/components/badminton/mission-control/mission-control-suggestions";
 import {
   MissionControlActivityFeed,
   type ActivityEvent,
 } from "@/components/badminton/mission-control/mission-control-activity";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
 import { useBadmintonDirector } from "@/hooks/use-badminton-match";
 import type { BadmintonOverlayScene, BadmintonVenueScene } from "@/lib/badminton-broadcast-director";
@@ -486,9 +480,9 @@ export default function BadmintonControlCenterPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="live"
-        titleOverride="Mission Control"
-        purposeOverride="Run the entire tournament day from the courts — one workspace."
-        taskOverride="Watch every court, start matches, manage scorers and screens without leaving this page."
+        titleOverride="Live Control"
+        purposeOverride="Run tournament day from one screen."
+        taskOverride="Courts on the left · screens & scorers on the right · queues below."
       >
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 space-y-4">
           <MissionControlTopBar
@@ -506,23 +500,21 @@ export default function BadmintonControlCenterPage() {
           {!isLoading && !loadError && courts.length > 0 ? (
             <>
               <MissionControlHealthStrip health={health} />
-              <MissionControlAttentionPanel
-                items={attention}
-                dismissedIds={dismissedAttention}
-                onDismiss={(id) =>
+              <MissionControlAlerts
+                attention={attention}
+                suggestions={suggestions}
+                dismissedAttention={dismissedAttention}
+                dismissedSuggestions={dismissedSuggestions}
+                onDismissAttention={(id) =>
                   setDismissedAttention((prev) => new Set(prev).add(id))
                 }
-                onAction={(item) => {
-                  void handleAttentionAction(item);
-                }}
-              />
-              <MissionControlSuggestions
-                suggestions={suggestions}
-                dismissedIds={dismissedSuggestions}
-                onDismiss={(id) =>
+                onDismissSuggestion={(id) =>
                   setDismissedSuggestions((prev) => new Set(prev).add(id))
                 }
-                onAction={handleSuggestion}
+                onAttentionAction={(item) => {
+                  void handleAttentionAction(item);
+                }}
+                onSuggestionAction={handleSuggestion}
               />
             </>
           ) : null}
@@ -565,15 +557,10 @@ export default function BadmintonControlCenterPage() {
                   focusBroadcast && "ring-1 ring-amber-500/30 rounded-xl p-1",
                 )}
               >
-                <section className="space-y-3 min-w-0" aria-label="Live courts">
-                  <div>
-                    <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
-                      Live courts
-                    </h2>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Priority: Live → Delayed → Ready → Waiting → Empty → Finished.
-                    </p>
-                  </div>
+                <section className="space-y-3 min-w-0" aria-label="Courts">
+                  <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
+                    Courts
+                  </h2>
                   {liveCount === 0 && readyCount === 0 ? (
                     <div className={cn(hubCardClass, "p-4 border-amber-500/20 bg-amber-500/5")}>
                       <p className="text-sm text-foreground/90 font-medium">No live matches yet</p>
@@ -602,13 +589,10 @@ export default function BadmintonControlCenterPage() {
                   </div>
                 </section>
 
-                <div className="lg:sticky lg:top-28 space-y-4">
+                <div className="lg:sticky lg:top-28 space-y-3">
                   <MissionControlOpsRail
                     tournamentId={tournamentId}
                     onAnnouncement={(label) => pushActivity(`Announcement · ${label}`)}
-                    onEmergency={onEmergency}
-                    emergencyActive={emergencyActive}
-                    onResumeScreens={onResumePresentation}
                   />
                   <MissionControlActivityFeed events={activity} />
                 </div>
@@ -623,33 +607,6 @@ export default function BadmintonControlCenterPage() {
                 categoryName={categoryName}
                 moveTargetCourtIds={moveTargetCourtIds}
               />
-
-              <Collapsible className="pt-2">
-                <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3 text-left text-xs text-white/45 hover:text-white/70 hover:bg-white/[0.04]">
-                  <span className="font-semibold uppercase tracking-wider">
-                    Advanced · Developer
-                  </span>
-                  <ChevronDown className="w-4 h-4 shrink-0" aria-hidden />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className={cn(hubCardClass, "mt-2 p-4 space-y-2 text-xs text-muted-foreground")}>
-                    <p>Diagnostics stay hidden during the day.</p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Reconnect scorer on each court card clears a stuck match lock.</li>
-                      <li>
-                        Refetch:{" "}
-                        <button
-                          type="button"
-                          className="text-primary hover:underline"
-                          onClick={() => retryAll()}
-                        >
-                          Reload courts & matches
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
             </>
           )}
         </div>

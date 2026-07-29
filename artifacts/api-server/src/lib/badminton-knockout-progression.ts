@@ -7,6 +7,15 @@ import { db, badmintonFixturesTable } from "@workspace/db";
 import type { BadmintonSide } from "@workspace/badminton-core";
 import type { PlannedKnockoutRound } from "./badminton-knockout-plan";
 
+export class KnockoutProgressionError extends Error {
+  readonly code = "KNOCKOUT_PROGRESSION_FAILED";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "KnockoutProgressionError";
+  }
+}
+
 export {
   planKnockoutBracket,
   knockoutRoundName,
@@ -123,10 +132,26 @@ export async function advanceKnockoutWinner(input: {
   };
 
   if (advancesAs === "A") {
-    if (next.registrationAId == null || next.registrationAId === winnerRegistrationId) {
-      patch.registrationAId = winnerRegistrationId;
+    if (
+      next.registrationAId != null &&
+      next.registrationAId !== winnerRegistrationId
+    ) {
+      throw new KnockoutProgressionError(
+        `Next-round slot A (fixture #${next.id}) is already assigned to registration #${next.registrationAId}. ` +
+          `Cannot advance winner registration #${winnerRegistrationId}. Check bracket links in Fixtures.`,
+      );
     }
-  } else if (next.registrationBId == null || next.registrationBId === winnerRegistrationId) {
+    patch.registrationAId = winnerRegistrationId;
+  } else {
+    if (
+      next.registrationBId != null &&
+      next.registrationBId !== winnerRegistrationId
+    ) {
+      throw new KnockoutProgressionError(
+        `Next-round slot B (fixture #${next.id}) is already assigned to registration #${next.registrationBId}. ` +
+          `Cannot advance winner registration #${winnerRegistrationId}. Check bracket links in Fixtures.`,
+      );
+    }
     patch.registrationBId = winnerRegistrationId;
   }
 

@@ -20,6 +20,8 @@ export type BadmintonStatusLabel =
   | "Completed"
   | "Walkover"
   | "Retired"
+  | "Disqualified"
+  | "Abandoned"
   | "Cancelled"
   | "Scheduled"
   | "Unscheduled";
@@ -39,6 +41,11 @@ export function formatMatchStatusLabel(status: string | null | undefined): Badmi
     case "retired":
     case "retirement":
       return "Retired";
+    case "disqualified":
+    case "disqualification":
+      return "Disqualified";
+    case "abandoned":
+      return "Abandoned";
     case "cancelled":
     case "canceled":
       return "Cancelled";
@@ -61,6 +68,14 @@ export function formatFixtureStatusLabel(status: string | null | undefined): Bad
       return "Completed";
     case "walkover":
       return "Walkover";
+    case "retired":
+    case "retirement":
+      return "Retired";
+    case "disqualified":
+    case "disqualification":
+      return "Disqualified";
+    case "abandoned":
+      return "Abandoned";
     case "cancelled":
     case "canceled":
       return "Cancelled";

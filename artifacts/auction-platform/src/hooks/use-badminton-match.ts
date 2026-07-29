@@ -12,6 +12,7 @@ import {
   type CommandEvent,
 } from "@workspace/badminton-core";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import { getGetTournamentQueryKey } from "@workspace/api-client-react";
 import type { ScoringConnectionStatus } from "@/hooks/use-scoring-socket";
 import {
   clearOptimisticRallyFloor,
@@ -530,6 +531,8 @@ export function useBadmintonDashboard(tournamentId: number) {
     if (!tournamentId) return;
     return subscribeBadmintonDashboardStream(tournamentId, () => {
       void queryClient.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+      void queryClient.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
+      void queryClient.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
     });
   }, [tournamentId, queryClient]);
 

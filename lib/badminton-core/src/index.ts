@@ -10,4 +10,5 @@ export * from "./scoring";
 export * from "./replay/undo-targets";
 export * from "./sync-snapshot";
 export * from "./match-state-guard";
+export * from "./match-terminal-status";
 export * from "./match-director";

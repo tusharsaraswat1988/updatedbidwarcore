@@ -4,6 +4,7 @@
  */
 
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { isTerminalScoringMatchStatus } from "@workspace/badminton-core";
 import { matchDisplayLabel } from "@/lib/badminton-control-center";
 
 export type ResultsMatch = {
@@ -95,8 +96,17 @@ function roundLabelOf(m: ResultsMatch): string {
   return "";
 }
 
+/** Match has reached a terminal (finished) state — includes walkover, retired, DQ, abandoned. */
 export function isCompletedMatch(m: ResultsMatch): boolean {
-  return m.status === "completed";
+  return (
+    isTerminalScoringMatchStatus(m.status) ||
+    isTerminalScoringMatchStatus(m.state?.matchStatus ?? null)
+  );
+}
+
+/** Alias — same as isCompletedMatch for finished/terminal matches. */
+export function isFinishedMatch(m: ResultsMatch): boolean {
+  return isCompletedMatch(m);
 }
 
 export function isLiveMatch(m: ResultsMatch): boolean {

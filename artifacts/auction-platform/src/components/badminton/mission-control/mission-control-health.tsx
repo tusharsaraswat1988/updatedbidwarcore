@@ -2,19 +2,10 @@ import { cn } from "@/lib/utils";
 import { hubCardClass } from "@/components/badminton/page-chrome";
 import type { HealthLevel, SystemHealth } from "@/lib/mission-control-ops";
 
-const LABELS: { key: keyof SystemHealth; label: string }[] = [
-  { key: "internet", label: "Internet" },
-  { key: "realtime", label: "Realtime" },
-  { key: "broadcast", label: "Broadcast" },
-  { key: "venue", label: "Venue" },
-  { key: "obs", label: "OBS" },
-  { key: "scorers", label: "Scorers" },
-];
-
 function levelText(level: HealthLevel): string {
-  if (level === "healthy") return "Healthy";
-  if (level === "warning") return "Warning";
-  return "Disconnected";
+  if (level === "healthy") return "OK";
+  if (level === "warning") return "Check";
+  return "Offline";
 }
 
 function levelClass(level: HealthLevel): string {
@@ -23,19 +14,36 @@ function levelClass(level: HealthLevel): string {
   return "text-red-300";
 }
 
+/** Worst status among presentation-related signals. */
+function screensLevel(health: SystemHealth): HealthLevel {
+  const levels: HealthLevel[] = [health.broadcast, health.venue, health.obs];
+  if (levels.includes("disconnected")) return "disconnected";
+  if (levels.includes("warning")) return "warning";
+  return "healthy";
+}
+
+const METRICS: { key: keyof SystemHealth | "screens"; label: string; resolve?: (h: SystemHealth) => HealthLevel }[] = [
+  { key: "internet", label: "Connection" },
+  { key: "realtime", label: "Live sync" },
+  { key: "screens", label: "Screens", resolve: screensLevel },
+  { key: "scorers", label: "Scorers" },
+];
+
 export function MissionControlHealthStrip({ health }: { health: SystemHealth }) {
   return (
     <div
-      className={cn(hubCardClass, "px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1")}
-      aria-label="System health"
+      className={cn(hubCardClass, "px-3 py-2 flex flex-wrap items-center gap-x-5 gap-y-1")}
+      aria-label="System status"
     >
-      <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Health</span>
-      {LABELS.map(({ key, label }) => (
-        <span key={key} className="text-[11px] font-semibold inline-flex items-center gap-1.5">
-          <span className="text-white/45">{label}</span>
-          <span className={levelClass(health[key])}>{levelText(health[key])}</span>
-        </span>
-      ))}
+      {METRICS.map(({ key, label, resolve }) => {
+        const level = resolve ? resolve(health) : health[key as keyof SystemHealth];
+        return (
+          <span key={key} className="text-[11px] font-semibold inline-flex items-center gap-1.5">
+            <span className="text-white/45">{label}</span>
+            <span className={levelClass(level)}>{levelText(level)}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }
