@@ -6,7 +6,7 @@
  * Planning only: Schedule / Create Match. No Start Match / Scoring / Live.
  *
  * Fixture Source Adapters (all write via shared backend writer):
- *   Auto Generate | Manual Entry | Import (gated — not available yet)
+ *   Auto Generate | Manual Entry | Import Existing Draw (CSV)
  */
 
 import { useState } from "react";
@@ -69,6 +69,11 @@ interface BadmintonFixture {
   scoringMatchId?: number | null;
   courtId?: number | null;
   scheduledAt?: string | null;
+  metaJson?: {
+    sideA?: { label?: string; shortLabel?: string };
+    sideB?: { label?: string; shortLabel?: string };
+    roundName?: string;
+  } | null;
 }
 
 interface RegistrationRow {
@@ -194,11 +199,15 @@ export default function BadmintonFixturesPage() {
                 Who plays whom in each event. Schedule assigns courts and times next.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[
                 {
                   title: "Generate Automatically",
-                  desc: "Software builds the knockout draw from event entries.",
+                  desc: "Builds Knockout, Round Robin, or Group + Knockout from the event’s draw type.",
+                },
+                {
+                  title: "Import Existing Draw",
+                  desc: "Paste a CSV of pairings from an external draw.",
                 },
                 {
                   title: "Create Manually",
@@ -214,9 +223,6 @@ export default function BadmintonFixturesPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Import Existing Draw is not available in this release.
-            </p>
             {isLoading ? (
               <div className="space-y-3" aria-busy="true" aria-label="Loading draw">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -278,6 +284,7 @@ function CategoryFixturesPanel({
   const [generating, setGenerating] = useState(false);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [error, setError] = useState("");
 
   const { data: registrations = [] } = useQuery<RegistrationRow[]>({
@@ -394,7 +401,11 @@ function CategoryFixturesPanel({
               }}
               disabled={generating || acceptedCount < 2}
               className="min-h-11 px-4 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 disabled:opacity-40 text-purple-200 text-sm font-bold transition-colors"
-              title={acceptedCount < 2 ? "Need 2+ accepted entries" : "Generate knockout fixtures"}
+              title={
+                acceptedCount < 2
+                  ? "Need 2+ accepted entries"
+                  : `Generate ${category.drawType.replace(/_/g, " ")} fixtures`
+              }
             >
               {generating ? "Generating…" : "Auto Generate Draw"}
             </button>
@@ -411,11 +422,13 @@ function CategoryFixturesPanel({
             </button>
             <button
               type="button"
-              disabled
-              title="Import is not available in this release"
-              className="min-h-11 px-4 rounded-lg bg-white/5 text-white/35 text-xs font-semibold cursor-not-allowed"
+              onClick={() => {
+                setError("");
+                setShowImport(true);
+              }}
+              className="min-h-11 px-4 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold transition-colors"
             >
-              Import Existing Draw (coming soon)
+              Import Existing Draw
             </button>
           </div>
 
@@ -425,7 +438,7 @@ function CategoryFixturesPanel({
             <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-center space-y-2">
               <p className="text-white/70 text-sm font-semibold">No draw yet</p>
               <p className="text-white/40 text-xs max-w-md mx-auto">
-                Generate a draw for this event, or create pairings manually. Then open Schedule to assign courts and times.
+                Generate a draw, import a CSV, or create pairings manually. Then open Schedule to assign courts and times.
               </p>
             </div>
           ) : (
@@ -481,14 +494,32 @@ function CategoryFixturesPanel({
         />
       ) : null}
 
+      {showImport ? (
+        <ImportFixturesModal
+          tournamentId={tournamentId}
+          category={category}
+          onClose={() => setShowImport(false)}
+          onSaved={(unresolvedSideCount) => {
+            toastSuccess(
+              "Draw imported",
+              unresolvedSideCount > 0
+                ? `${unresolvedSideCount} side${unresolvedSideCount === 1 ? "" : "s"} kept as labels (no matching entry).`
+                : "Open Scheduling to assign courts and times.",
+            );
+            setShowImport(false);
+            invalidatePlanning();
+          }}
+        />
+      ) : null}
+
       <ConfirmActionDialog
         open={confirmGenerate}
         onOpenChange={setConfirmGenerate}
-        title="Generate knockout draw?"
+        title={`Generate ${category.drawType.replace(/_/g, " ")} draw?`}
         description={
           <div className="space-y-2">
             <p>
-              Create a knockout fixture collection for{" "}
+              Create a {category.drawType.replace(/_/g, " ")} fixture collection for{" "}
               <span className="text-foreground font-medium">{category.name}</span> using{" "}
               {acceptedCount} accepted entries.
             </p>
@@ -502,6 +533,139 @@ function CategoryFixturesPanel({
         onConfirm={() => void handleAutoGenerate()}
       />
     </div>
+  );
+}
+
+function ImportFixturesModal({
+  tournamentId,
+  category,
+  onClose,
+  onSaved,
+}: {
+  tournamentId: number;
+  category: BadmintonCategory;
+  onClose: () => void;
+  onSaved: (unresolvedSideCount: number) => void;
+}) {
+  const [roundName, setRoundName] = useState("Imported Fixtures");
+  const [csv, setCsv] = useState(
+    "round,slot,player_a,player_b\nQuarter Finals,1,Player One,Player Two\n",
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function handleFileChange(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setCsv(text);
+      setError("");
+    };
+    reader.onerror = () => setError("Could not read that file");
+    reader.readAsText(file);
+  }
+
+  async function handleSave() {
+    if (!csv.trim()) {
+      setError("Paste CSV text or choose a .csv file");
+      return;
+    }
+    if (!roundName.trim()) {
+      setError("Collection name is required");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      const result = await badmintonFetch<{ unresolvedSideCount?: number }>(
+        tournamentId,
+        `/categories/${category.id}/fixture-collections/import`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            csv: csv.trim(),
+            roundName: roundName.trim(),
+          }),
+        },
+      );
+      onSaved(result.unresolvedSideCount ?? 0);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to import draw");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <FormModal
+      title="Import Existing Draw"
+      subtitle={category.name}
+      onClose={onClose}
+      size="lg"
+    >
+      <FormField label="Collection name" required>
+        <input
+          required
+          aria-required="true"
+          value={roundName}
+          onChange={(e) => setRoundName(e.target.value)}
+          placeholder="Imported Fixtures"
+          className={inputClass}
+        />
+      </FormField>
+
+      <FormField label="CSV file (optional)">
+        <input
+          type="file"
+          accept=".csv,text/csv,text/plain"
+          onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+          className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-white/15"
+        />
+      </FormField>
+
+      <FormField label="CSV text" required>
+        <textarea
+          required
+          aria-required="true"
+          value={csv}
+          onChange={(e) => setCsv(e.target.value)}
+          rows={10}
+          spellCheck={false}
+          className={cn(inputClass, "font-mono text-xs leading-relaxed min-h-[10rem]")}
+          placeholder={"round,slot,player_a,player_b\nQuarter Finals,1,Alice,Bob"}
+        />
+      </FormField>
+
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 space-y-1.5">
+        <p className="text-xs font-semibold text-foreground">CSV format</p>
+        <p className="text-[11px] text-muted-foreground">
+          Header row required. Columns:{" "}
+          <code className="text-foreground/80">round</code>,{" "}
+          <code className="text-foreground/80">slot</code>,{" "}
+          <code className="text-foreground/80">player_a</code> (or{" "}
+          <code className="text-foreground/80">side_a</code>),{" "}
+          <code className="text-foreground/80">player_b</code> (or{" "}
+          <code className="text-foreground/80">side_b</code>).
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          Names are matched to accepted event entries when possible. Unmatched names are kept as
+          labels so you can still schedule the fixture.
+        </p>
+        <p className="text-[11px] text-muted-foreground font-mono">
+          Doubles: use &quot;Player A / Player B&quot; in a cell.
+        </p>
+      </div>
+
+      <FormError message={error} />
+      <FormActions
+        onCancel={onClose}
+        onSubmit={() => void handleSave()}
+        submitLabel="Import draw"
+        saving={saving}
+      />
+    </FormModal>
   );
 }
 
@@ -680,12 +844,18 @@ function FixturePlanCard({
   regIdentityMap: Map<number, TeamPlayerIdentity>;
   tournamentId: number;
 }) {
+  const importLabelA = fixture.metaJson?.sideA?.label?.trim();
+  const importLabelB = fixture.metaJson?.sideB?.label?.trim();
   const sideA = fixture.registrationAId
-    ? (regIdentityMap.get(fixture.registrationAId) ?? { playerName: "TBD" })
-    : { playerName: "BYE" };
+    ? (regIdentityMap.get(fixture.registrationAId) ?? {
+        playerName: importLabelA || "TBD",
+      })
+    : { playerName: importLabelA || "BYE" };
   const sideB = fixture.registrationBId
-    ? (regIdentityMap.get(fixture.registrationBId) ?? { playerName: "TBD" })
-    : { playerName: "BYE" };
+    ? (regIdentityMap.get(fixture.registrationBId) ?? {
+        playerName: importLabelB || "TBD",
+      })
+    : { playerName: importLabelB || "BYE" };
 
   return (
     <div className="rounded-xl bg-white/5 border border-white/8 p-4">

@@ -98,8 +98,16 @@ import {
 import { writeScorerAudit } from "../lib/scorer-audit";
 import {
   createFixtureCollection,
-  importFixtureCollectionStub,
+  importFixtureCollection,
 } from "../lib/fixture-collection-writer";
+import {
+  buildAliasesForRegistration,
+  buildImportedFixtureMeta,
+  buildRegistrationAliasMap,
+  FixtureImportParseError,
+  parseDrawCsv,
+  resolveImportFixtures,
+} from "../lib/fixture-import-csv";
 import {
   planKnockoutBracket,
   wireKnockoutProgressionLinks,
@@ -1888,7 +1896,9 @@ router.post("/categories/:catId/fixture-collections/manual", async (req, res) =>
 });
 
 /**
- * Import adapter — Phase 1 stub only (no parser / no processing).
+ * Import adapter — CSV or structured fixtures → Fixture Collection (drawKind: imported).
+ * Resolves player names to accepted registration IDs when possible; otherwise stores
+ * label-only sides in fixture metaJson. Does not create matches or start scoring.
  */
 router.post("/categories/:catId/fixture-collections/import", async (req, res) => {
   const tournamentId = await guardBadmintonWrite(req, res);
@@ -1896,17 +1906,169 @@ router.post("/categories/:catId/fixture-collections/import", async (req, res) =>
   const catId = parseId((req.params as MergedParams).catId);
   if (!catId) return void res.status(400).json({ error: "bad id" });
 
-  try {
-    importFixtureCollectionStub();
-  } catch (err) {
-    const e = err as { status?: number; code?: string; message?: string };
-    return void res.status(e.status ?? 501).json({
-      error: e.message ?? "Import not implemented",
-      code: e.code ?? "IMPORT_NOT_IMPLEMENTED",
+  const schema = z.union([
+    z.object({
+      csv: z.string().min(1),
+      roundName: z.string().min(1).max(100).optional(),
+    }),
+    z.object({
+      roundName: z.string().min(1).max(100).optional(),
+      fixtures: z
+        .array(
+          z.object({
+            playerA: z.string().min(1),
+            playerB: z.string().min(1),
+            roundName: z.string().min(1).max(100).optional(),
+            slotNumber: z.number().int().positive().optional(),
+          }),
+        )
+        .min(1),
+    }),
+  ]);
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return void res.status(400).json({
+      error: parsed.error.message,
+      code: "IMPORT_BODY_INVALID",
       message:
-        "Import Existing Draw is a Phase 1 placeholder. Excel/CSV/PDF parsers arrive in a later phase.",
+        "Body must be { csv, roundName? } or { fixtures: [{ playerA, playerB, roundName?, slotNumber? }], roundName? }",
     });
   }
+
+  const [category] = await db
+    .select()
+    .from(badmintonCategoriesTable)
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!category) return void res.status(404).json({ error: "category not found" });
+
+  let rawRows: Array<{
+    playerA: string;
+    playerB: string;
+    roundName?: string;
+    slotNumber?: number;
+  }>;
+
+  try {
+    if ("csv" in parsed.data) {
+      rawRows = parseDrawCsv(parsed.data.csv);
+    } else {
+      rawRows = parsed.data.fixtures.map((f) => ({
+        playerA: f.playerA.trim(),
+        playerB: f.playerB.trim(),
+        roundName: f.roundName?.trim() || undefined,
+        slotNumber: f.slotNumber,
+      }));
+    }
+  } catch (err) {
+    if (err instanceof FixtureImportParseError) {
+      return void res.status(400).json({
+        error: err.message,
+        code: err.code,
+      });
+    }
+    throw err;
+  }
+
+  const acceptedRegs = await db
+    .select()
+    .from(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        eq(badmintonRegistrationsTable.status, "accepted"),
+      ),
+    );
+
+  const playerIds = new Set<number>();
+  for (const reg of acceptedRegs) {
+    playerIds.add(reg.player1Id);
+    if (reg.player2Id) playerIds.add(reg.player2Id);
+  }
+
+  const players =
+    playerIds.size > 0
+      ? await db
+          .select()
+          .from(badmintonPlayersTable)
+          .where(
+            and(
+              eq(badmintonPlayersTable.tournamentId, tournamentId),
+              inArray(badmintonPlayersTable.id, [...playerIds]),
+            ),
+          )
+      : [];
+  const playerById = new Map(players.map((p) => [p.id, p]));
+
+  const aliasEntries = acceptedRegs.map((reg) =>
+    buildAliasesForRegistration({
+      registrationId: reg.id,
+      player1: playerById.get(reg.player1Id) ?? null,
+      player2: reg.player2Id ? playerById.get(reg.player2Id) ?? null : null,
+    }),
+  );
+  const aliasMap = buildRegistrationAliasMap(aliasEntries);
+  const resolved = resolveImportFixtures(rawRows, aliasMap);
+
+  for (const [i, f] of resolved.entries()) {
+    if (
+      f.sideA.registrationId != null &&
+      f.sideB.registrationId != null &&
+      f.sideA.registrationId === f.sideB.registrationId
+    ) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: Side A and Side B cannot be the same entry`,
+        code: "IMPORT_SAME_SIDE",
+      });
+    }
+  }
+
+  const collectionRoundName =
+    parsed.data.roundName?.trim() ||
+    resolved.find((r) => r.roundName)?.roundName ||
+    "Imported Fixtures";
+
+  const unresolvedCount = resolved.reduce((n, f) => {
+    let add = 0;
+    if (f.sideA.registrationId == null) add += 1;
+    if (f.sideB.registrationId == null) add += 1;
+    return n + add;
+  }, 0);
+
+  const { collection, fixtures } = await importFixtureCollection({
+    tournamentId,
+    categoryId: catId,
+    roundName: collectionRoundName,
+    roundNumber: 1,
+    totalRounds: 1,
+    status: "active",
+    metaJson: {
+      source: "csv" in parsed.data ? "csv" : "json",
+      unresolvedSideCount: unresolvedCount,
+    },
+    fixtures: resolved.map((f) => ({
+      slotNumber: f.slotNumber,
+      registrationAId: f.sideA.registrationId,
+      registrationBId: f.sideB.registrationId,
+      // Label-only sides are still planned fixtures (not BYEs) — stay unscheduled.
+      status: "unscheduled",
+      metaJson: buildImportedFixtureMeta(f),
+    })),
+  });
+
+  res.status(201).json({
+    collection,
+    fixtures,
+    unresolvedSideCount: unresolvedCount,
+  });
 });
 
 // ─── Matches ──────────────────────────────────────────────────────────────────
