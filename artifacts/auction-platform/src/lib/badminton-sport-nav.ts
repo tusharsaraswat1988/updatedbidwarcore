@@ -100,6 +100,7 @@ const PRELOAD: Record<string, () => Promise<unknown>> = {
   structure: () => import("../pages/badminton/fixtures"),
   schedule: () => import("../pages/badminton/schedule"),
   live: () => import("../pages/badminton/control-center"),
+  matches: () => import("../pages/badminton/matches"),
   results: () => import("../pages/badminton/results"),
   "results-summary": () => import("../pages/badminton/summary"),
   "results-insights": () => import("../pages/badminton/analytics"),
@@ -230,6 +231,22 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
       isMatchesListPath(path),
     icon: Radio,
     preload: () => preloadNav("live"),
+    children: [
+      {
+        id: "live-control",
+        label: "Mission Control",
+        href: (tid) => `${badmintonHubPath(tid)}/control`,
+        isActive: (path) => isControlPath(path) || sectionPath(path, "broadcast"),
+        preload: () => preloadNav("live"),
+      },
+      {
+        id: "live-matches",
+        label: "Matches",
+        href: (tid) => `${badmintonHubPath(tid)}/matches`,
+        isActive: (path) => isMatchesListPath(path) || isMatchControlPath(path),
+        preload: () => preloadNav("matches"),
+      },
+    ],
   },
   {
     id: "results",

@@ -271,7 +271,7 @@ export default function BadmintonMatchesPage() {
                 void navigator.clipboard.writeText(url).then(() => {
                   toast({
                     title: "Scorer Home copied",
-                    description: "Share this link + a PIN with court scorers.",
+                    description: "Share this link. Scorers sign in with mobile and personal PIN.",
                   });
                 });
               }}
@@ -529,8 +529,11 @@ function MatchRow({
               );
             })()}
             {detail.scorerPin ? (
-              <span className="text-muted-foreground text-xs font-mono" title="Share with court scorer">
-                PIN {String(detail.scorerPin)}
+              <span
+                className="text-muted-foreground text-xs font-mono"
+                title="Legacy court/match code — scorers sign in with mobile + personal PIN"
+              >
+                Legacy code {String(detail.scorerPin)}
               </span>
             ) : null}
           </div>
@@ -544,7 +547,7 @@ function MatchRow({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-h-11 px-4 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/35 text-red-200 text-sm font-bold flex items-center transition-colors"
-                title="Court scorer — scoring with PIN"
+                title="Court scorer — sign in with mobile and personal PIN"
               >
                 Open Scoring
               </a>
@@ -947,7 +950,7 @@ function MatchFormModal({
       return;
     }
     if (form.scorerPin.trim().length > 0 && form.scorerPin.trim().length < 4) {
-      setError("Scorer PIN must be at least 4 digits (or leave blank to inherit court PIN)");
+      setError("Legacy match code must be at least 4 digits (or leave blank)");
       return;
     }
     setSaving(true);
@@ -997,14 +1000,11 @@ function MatchFormModal({
         throw new Error(typeof err.error === "string" ? err.error : isEdit ? "Update failed" : "Create failed");
       }
       const saved = (await res.json()) as { id?: number; detail?: { scorerPin?: string | null } };
-      const pin = saved.detail?.scorerPin ?? form.scorerPin.trim();
       toast({
         title: isEdit ? "Match updated" : "Match created",
         description: isEdit
           ? "Court and time saved. Open Match Control to start."
-          : pin
-            ? `Scorer PIN: ${pin}. Opening Match Control — start the match there.`
-            : "Inherits court scorer PIN. Opening Match Control — start the match there.",
+          : "Opening Match Control — scorers sign in with mobile and personal PIN.",
       });
       onSaved(isEdit ? undefined : saved.id);
     } catch (e) {
@@ -1020,7 +1020,7 @@ function MatchFormModal({
       subtitle={
         isEdit
           ? rosterLocked
-            ? "Update match name, court, scorer name, or scorer PIN"
+            ? "Update match name, court, scorer name, or legacy court code"
             : "Court and time are required before Match Control can start the match"
           : "Court and time are required. Prefer linking a scheduled fixture; manual matches work if court + time are set."
       }
@@ -1140,7 +1140,7 @@ function MatchFormModal({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
-          Player lineup is locked while the match is live or completed. You can still update match name, court, scorer name, and scorer PIN.
+          Player lineup is locked while the match is live or completed. You can still update match name, court, scorer name, and legacy court code.
         </p>
       )}
 
@@ -1170,11 +1170,11 @@ function MatchFormModal({
         <FormField label="Scorer's Name">
           <input {...f("scorerName")} placeholder="Optional" className={inputClass} />
         </FormField>
-        <FormField label="Scorer PIN">
+        <FormField label="Legacy court code (optional)">
           <div className="flex gap-2">
             <input
               {...f("scorerPin")}
-              placeholder="4-digit PIN"
+              placeholder="Not used for login"
               type="tel"
               inputMode="numeric"
               maxLength={8}
@@ -1185,11 +1185,11 @@ function MatchFormModal({
               onClick={() => setForm((prev) => ({ ...prev, scorerPin: suggestScorerPin() }))}
               className="h-11 px-3 rounded-lg border border-border bg-secondary text-secondary-foreground text-xs font-semibold shrink-0 hover-elevate"
             >
-              New PIN
+              New code
             </button>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            Leave blank to inherit the court PIN. A match PIN overrides the court PIN.
+            Scorers sign in with mobile and personal PIN. This optional code is legacy only and does not unlock scoring.
           </p>
         </FormField>
       </div>

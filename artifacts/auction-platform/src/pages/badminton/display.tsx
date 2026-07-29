@@ -21,7 +21,6 @@ import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { DisplayStageViewport } from "@/components/display/display-stage-viewport";
 import { StageFrame } from "@/components/display/v1/StageFrame";
 import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";
-import { DevThemePicker } from "@/components/display/v1/DevThemePicker";
 import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { loadDisplayFonts } from "@/lib/load-display-fonts";
@@ -128,6 +127,17 @@ function DisplayStage({
   const isLoading = followMode
     ? liveFollow.matchesLoading || (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
     : fixedMatch.isLoading;
+  const loadError = followMode
+    ? liveFollow.matchesError || liveFollow.matchQuery.isError
+    : fixedMatch.isError;
+  const retryLoad = () => {
+    if (followMode) {
+      void liveFollow.refetchMatches();
+      void liveFollow.matchQuery.refetch();
+      return;
+    }
+    void fixedMatch.refetch();
+  };
   const matchDetail = data?.detail as BadmintonMatchDetailMeta | null | undefined;
 
   const search = useSearch();
@@ -162,7 +172,9 @@ function DisplayStage({
 
   const standbyMessage = !tournamentId
     ? "Missing tournament"
-    : branding?.venueScene === "standby" && !!data?.state
+    : loadError
+      ? "Could not load match — tap Retry"
+      : branding?.venueScene === "standby" && !!data?.state
       ? "Standby — director hold"
       : multiCourtMode
         ? multiRows.length > 0
@@ -185,7 +197,26 @@ function DisplayStage({
       <DisplayStageViewport>
         <StageThemeProvider initialTheme={initialTheme}>
           <StageFrame>
-            {showMultiBoard ? (
+            {loadError ? (
+              <div
+                className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv flex flex-col items-center justify-center gap-6 bg-[#070708] px-[4%]"
+                style={badmintonLedSurfaceStyle}
+              >
+                <p className="font-['Bebas_Neue'] text-2xl md:text-4xl tracking-[0.18em] uppercase text-white/90 text-center">
+                  {tournamentName}
+                </p>
+                <p className="text-white/55 text-sm md:text-base font-mono uppercase tracking-[0.2em] text-center">
+                  Connection lost
+                </p>
+                <button
+                  type="button"
+                  onClick={retryLoad}
+                  className="min-h-12 px-6 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-bold"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : showMultiBoard ? (
               <div
                 className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
                 style={badmintonLedSurfaceStyle}
@@ -226,7 +257,6 @@ function DisplayStage({
                 scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
               />
             )}
-            <DevThemePicker anchor="stage" />
           </StageFrame>
         </StageThemeProvider>
       </DisplayStageViewport>

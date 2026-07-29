@@ -62,6 +62,8 @@ export function useBadmintonLiveFollow(tournamentId: number) {
     liveMatches,
     matches: matchesQuery.data ?? [],
     matchesLoading: matchesQuery.isLoading,
+    matchesError: matchesQuery.isError,
+    refetchMatches: () => matchesQuery.refetch(),
     matchQuery,
     branding,
   };

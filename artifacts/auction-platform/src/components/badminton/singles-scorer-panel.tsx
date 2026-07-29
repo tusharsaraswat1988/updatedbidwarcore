@@ -19,6 +19,8 @@ export function SinglesScorerPanel({
   state,
   onAwardPoint,
   onUndo,
+  onStartTimeout,
+  onEndTimeout,
   scoringBlocked = false,
 }: SinglesScorerPanelProps) {
   const [undoBusy, setUndoBusy] = useState(false);
@@ -45,6 +47,9 @@ export function SinglesScorerPanel({
       {isTimeout && (
         <div className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2 text-amber-300 text-sm font-bold text-center">
           Timeout in progress
+          {state.activeTimeout?.side
+            ? ` · ${state.activeTimeout.side === "left" ? "Left" : "Right"}`
+            : ""}
         </div>
       )}
 
@@ -75,14 +80,34 @@ export function SinglesScorerPanel({
             + {formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}
           </button>
         </div>
-        <button
-          type="button"
-          onClick={undo}
-          disabled={undoBusy || state.totalRallies === 0}
-          className="w-full min-h-12 rounded-xl bg-white/5 text-white/55 text-sm font-semibold disabled:opacity-30"
-        >
-          Undo last point
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={undo}
+            disabled={undoBusy || state.totalRallies === 0}
+            className="flex-1 min-h-12 rounded-xl bg-white/5 text-white/55 text-sm font-semibold disabled:opacity-30"
+          >
+            Undo last point
+          </button>
+          {isTimeout && onEndTimeout ? (
+            <button
+              type="button"
+              onClick={() => void onEndTimeout()}
+              className="flex-1 min-h-12 rounded-xl bg-amber-600/30 border border-amber-500/40 text-amber-300 text-sm font-semibold"
+            >
+              End timeout
+            </button>
+          ) : onStartTimeout ? (
+            <button
+              type="button"
+              onClick={() => void onStartTimeout(state.servingSide ?? "left")}
+              disabled={undoBusy || state.matchStatus !== "live"}
+              className="flex-1 min-h-12 rounded-xl bg-white/5 border border-white/10 text-white/55 text-sm font-semibold disabled:opacity-30"
+            >
+              Timeout
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

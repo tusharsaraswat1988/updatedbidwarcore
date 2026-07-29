@@ -159,7 +159,7 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
     return "Set a date and time in Scheduling before continuing.";
   }
   if (lower.includes("pin")) {
-    return "Scorer PIN must be at least 4 digits.";
+    return "Personal PIN must be at least 4 digits.";
   }
   if (lower.includes("fixture") && lower.includes("match")) {
     return "Clear linked matches before changing this fixture collection.";

@@ -101,6 +101,17 @@ export default function BadmintonOverlayPage() {
     ? liveFollow.matchesLoading ||
       (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
     : fixedMatch.isLoading;
+  const loadError = followMode
+    ? liveFollow.matchesError || liveFollow.matchQuery.isError
+    : fixedMatch.isError;
+  const retryLoad = () => {
+    if (followMode) {
+      void liveFollow.refetchMatches();
+      void liveFollow.matchQuery.refetch();
+      return;
+    }
+    void fixedMatch.refetch();
+  };
 
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
@@ -118,7 +129,7 @@ export default function BadmintonOverlayPage() {
   const state = (data?.state ?? null) as BadmintonMatchState | null;
   const detail = (data?.detail ?? null) as Record<string, unknown> | null;
   const matchLabel = detail?.matchLabel as string | undefined;
-  const hasLiveGraphics = !!state;
+  const hasLiveGraphics = !!state && !loadError;
 
   const multiRows = useMemo(() => {
     if (!multiCourtMode) return [];
@@ -127,7 +138,9 @@ export default function BadmintonOverlayPage() {
 
   const waitingLabel = !tournamentId
     ? "Missing tournament"
-    : isLoading
+    : loadError
+      ? "Connection lost — Retry"
+      : isLoading
       ? "Loading…"
       : multiCourtMode
         ? multiRows.length > 0
@@ -140,6 +153,18 @@ export default function BadmintonOverlayPage() {
       className="relative h-screen w-screen overflow-hidden"
       style={{ ...stageStyle, background: "transparent" }}
     >
+      {loadError ? (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 pointer-events-auto">
+          <p className="text-white/80 text-sm font-semibold drop-shadow">{waitingLabel}</p>
+          <button
+            type="button"
+            onClick={retryLoad}
+            className="min-h-11 px-5 rounded-xl bg-black/70 border border-white/25 text-white text-sm font-bold"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
       {/* Top chrome — always visible (auction OBS style) */}
       <div className="absolute top-0 left-0 right-0 z-30">
         {hasLiveGraphics && type === "full" && !multiCourtMode ? (

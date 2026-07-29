@@ -22,6 +22,10 @@ export async function badmintonFetch<T>(
   return res.json() as Promise<T>;
 }
 
+/**
+ * @deprecated Court/match PIN login was replaced by scorer JWT (mobile + personal PIN).
+ * Kept as a no-op stub so legacy imports compile; always returns false.
+ */
 export async function verifyBadmintonScorerPin(
   _tournamentId: number,
   _matchId: number,

@@ -4,11 +4,13 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Monitor, Radio, Tablet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
   buildCourtBroadcastChips,
@@ -44,6 +46,8 @@ export function MissionControlOpsRail({
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: branding } = useBadmintonBranding(tournamentId);
+  const [emergencyConfirmOpen, setEmergencyConfirmOpen] = useState(false);
+  const [resumeConfirmOpen, setResumeConfirmOpen] = useState(false);
 
   const { data: matches = [] } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
@@ -238,7 +242,7 @@ export function MissionControlOpsRail({
         <button
           type="button"
           disabled={pending}
-          onClick={() => onResumeScreens?.()}
+          onClick={() => setResumeConfirmOpen(true)}
           className={cn(
             hubCardClass,
             "w-full min-h-12 px-4 text-sm font-bold text-emerald-100 border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 disabled:opacity-50",
@@ -250,7 +254,7 @@ export function MissionControlOpsRail({
         <button
           type="button"
           disabled={pending}
-          onClick={emergencyStandby}
+          onClick={() => setEmergencyConfirmOpen(true)}
           className={cn(
             hubCardClass,
             "w-full min-h-12 px-4 text-sm font-bold text-orange-100 border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 disabled:opacity-50",
@@ -259,6 +263,29 @@ export function MissionControlOpsRail({
           Emergency pause
         </button>
       )}
+
+      <ConfirmActionDialog
+        open={emergencyConfirmOpen}
+        onOpenChange={setEmergencyConfirmOpen}
+        title="Emergency pause all screens?"
+        description="Venue displays go to standby and OBS switches to the sponsor scene."
+        confirmLabel="Pause screens"
+        onConfirm={() => {
+          setEmergencyConfirmOpen(false);
+          emergencyStandby();
+        }}
+      />
+      <ConfirmActionDialog
+        open={resumeConfirmOpen}
+        onOpenChange={setResumeConfirmOpen}
+        title="Resume tournament screens?"
+        description="Venue and OBS return to the live presentation scene."
+        confirmLabel="Resume screens"
+        onConfirm={() => {
+          setResumeConfirmOpen(false);
+          onResumeScreens?.();
+        }}
+      />
     </aside>
   );
 }

@@ -621,11 +621,23 @@ async function updateSnapshot(
 
     const fixtureId = await getMatchFixtureId(matchId, tournamentId);
     if (fixtureId) {
+      // Sprint 2 / S2-08 — set fixture startedAt only on first live transition.
+      const [fixture] = await db
+        .select({ startedAt: badmintonFixturesTable.startedAt })
+        .from(badmintonFixturesTable)
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, fixtureId),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+
       await db
         .update(badmintonFixturesTable)
         .set({
           status: "live",
-          startedAt: new Date(),
+          ...(fixture?.startedAt ? {} : { startedAt: new Date() }),
           updatedAt: new Date(),
         })
         .where(
@@ -828,6 +840,15 @@ export async function handleTimeout(
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  // Sprint 2 / S2-08 — starting a timeout without a side must not silently end one.
+  if (action === "start" && !side) {
+    throw new BadmintonServiceError(
+      "SIDE_REQUIRED",
+      "Timeout start requires side (left or right).",
+      400,
+    );
+  }
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
@@ -1583,6 +1604,34 @@ export async function updateBadmintonMatch(
     // Empty PIN clears match override so the court PIN is inherited.
     if (trimmed.length > 0 && trimmed.length < 4) {
       throw new BadmintonServiceError("INVALID_PIN", "Scorer PIN must be at least 4 digits", 400);
+    }
+  }
+
+  // Sprint 2 / S2-09 — live court reassignment must respect COURT_BUSY.
+  if (input.courtId !== undefined && match?.status === "live" && input.courtId != null) {
+    const [currentCourt] = await db
+      .select({ courtId: badmintonMatchDetailsTable.courtId })
+      .from(badmintonMatchDetailsTable)
+      .where(
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+    if (currentCourt?.courtId !== input.courtId) {
+      const other = await findOtherLiveMatchOnCourt({
+        tournamentId,
+        courtId: input.courtId,
+        excludeMatchId: matchId,
+      });
+      if (other) {
+        throw new BadmintonServiceError(
+          "COURT_BUSY",
+          `Court already has a live match (#${other.id}). Finish or force-end that match before reassigning.`,
+          409,
+        );
+      }
     }
   }
 

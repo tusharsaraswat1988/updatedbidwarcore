@@ -523,9 +523,9 @@ export default function BadmintonScorerHomePage() {
             {session?.view === "matches" ? (
               session.matches.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
-                  <p className="text-white/70 font-semibold">No matches for this PIN</p>
+                  <p className="text-white/70 font-semibold">No matches assigned</p>
                   <p className="text-white/40 text-sm mt-2">
-                    Ask the organizer to assign a court PIN or match PIN.
+                    Ask the organizer to assign you to this tournament under Officials.
                   </p>
                 </div>
               ) : (
