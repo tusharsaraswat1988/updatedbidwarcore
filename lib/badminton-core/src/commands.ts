@@ -91,6 +91,16 @@ export function cmdAwardPoint(
     return err("No active game");
   }
 
+  const currentGameState = getCurrentGame(state);
+  if (
+    state.format.midGameSideChange &&
+    isDecidingGame(state.currentGame, state.format.totalGames) &&
+    currentGameState?.intervalReached &&
+    !currentGameState.sideChangeAcknowledged
+  ) {
+    return err("Acknowledge court change before scoring");
+  }
+
   const { format } = state;
   const currentLeft = state.leftScore;
   const currentRight = state.rightScore;

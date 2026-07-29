@@ -47,7 +47,6 @@ import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
-import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
@@ -399,8 +398,13 @@ function MatchRow({
   const qc = useQueryClient();
   const state = match.state;
   const detail = match.detail ?? {};
-  const isLive = match.status === "live";
-  const isCompleted = match.status === "completed";
+  const isLive = match.status === "live" || match.status === "paused";
+  const isCompleted =
+    match.status === "completed" ||
+    match.status === "walkover" ||
+    match.status === "retired" ||
+    match.status === "disqualified" ||
+    match.status === "abandoned";
   const hasCourt =
     typeof detail.courtId === "number" ||
     (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);
@@ -898,10 +902,10 @@ function MatchFormModal({
     | "matchType"
     | "courtNumber"
     | "matchLabel"
-    | "scorerPin"
     | "scorerName"
     | "scheduleDate"
     | "scheduleTime";
+  const legacyScorerPin = form.scorerPin.trim();
 
   const f = (field: StringFormField) => ({
     value: form[field] ?? "",
@@ -949,10 +953,6 @@ function MatchFormModal({
       setError("Scheduled date/time is invalid");
       return;
     }
-    if (form.scorerPin.trim().length > 0 && form.scorerPin.trim().length < 4) {
-      setError("Legacy match code must be at least 4 digits (or leave blank)");
-      return;
-    }
     setSaving(true);
     setError("");
     try {
@@ -964,7 +964,6 @@ function MatchFormModal({
         courtNumber: form.courtNumber || undefined,
         ...(scheduledAt != null ? { scheduledAt } : {}),
         matchLabel: form.matchLabel.trim() || undefined,
-        scorerPin: form.scorerPin.trim(),
         scorerName: form.scorerName || undefined,
         ...(rosterLocked
           ? {}
@@ -1170,28 +1169,19 @@ function MatchFormModal({
         <FormField label="Scorer's Name">
           <input {...f("scorerName")} placeholder="Optional" className={inputClass} />
         </FormField>
-        <FormField label="Legacy court code (optional)">
-          <div className="flex gap-2">
+        {legacyScorerPin ? (
+          <FormField label="Legacy court code">
             <input
-              {...f("scorerPin")}
-              placeholder="Not used for login"
-              type="tel"
-              inputMode="numeric"
-              maxLength={8}
-              className={inputClass}
+              value={legacyScorerPin}
+              readOnly
+              className={cn(inputClass, "font-mono bg-muted/40")}
+              aria-readonly="true"
             />
-            <button
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, scorerPin: suggestScorerPin() }))}
-              className="h-11 px-3 rounded-lg border border-border bg-secondary text-secondary-foreground text-xs font-semibold shrink-0 hover-elevate"
-            >
-              New code
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Scorers sign in with mobile and personal PIN. This optional code is legacy only and does not unlock scoring.
-          </p>
-        </FormField>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Read-only legacy code. Scorers sign in with mobile and personal PIN — new codes are no longer created.
+            </p>
+          </FormField>
+        ) : null}
       </div>
 
       <MatchFormatPicker

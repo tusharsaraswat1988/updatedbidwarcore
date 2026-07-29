@@ -67,8 +67,8 @@ Phases A–C of the Grade A migration are **complete and passing all tests** (23
 | Normal rally undo | ✅ |
 | Game-winning rally undo (match still live) | ✅ |
 | Match-winning rally (undo blocked — match completed) | ✅ |
-| Timeout after rally | ✅ |
-| Interval after rally (deciding game) | ✅ |
+| Timeout after rally | ✅ (timeout cleared with undo) |
+| Interval after rally (deciding game) | ✅ (interval cleared with undo) |
 
 ---
 

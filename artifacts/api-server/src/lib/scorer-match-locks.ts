@@ -231,6 +231,22 @@ export async function forceUnlockMatch(input: {
   return true;
 }
 
+/** Return a non-stale lock for the match, or null if none / expired. */
+export async function getFreshMatchLock(
+  matchId: number,
+): Promise<typeof scorerMatchLocksTable.$inferSelect | null> {
+  const existing = await db
+    .select()
+    .from(scorerMatchLocksTable)
+    .where(eq(scorerMatchLocksTable.matchId, matchId))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+
+  if (!existing) return null;
+  if (isStale(existing.lastHeartbeatAt)) return null;
+  return existing;
+}
+
 /** Assert the session owns a fresh lock — used before score mutations. */
 export async function assertSessionOwnsMatchLock(input: {
   matchId: number;

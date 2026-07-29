@@ -174,7 +174,11 @@ export function isIntervalDue(state: BadmintonMatchState): boolean {
 }
 
 export function isCourtChangeRequired(state: BadmintonMatchState): boolean {
-  return isIntervalDue(state);
+  if (!isIntervalThresholdReached(state)) return false;
+  const game = getCurrentGame(state);
+  // Prefer engine state when present so UI and command layer agree.
+  if (game?.sideChangeAcknowledged) return false;
+  return true;
 }
 
 export function deriveVoiceAssistPrompts(
@@ -207,7 +211,10 @@ export function deriveScorerAssistance(
   const courtChangeRequired = isCourtChangeRequired(state);
   const intervalThreshold = sideChangeScore(state.format.pointsPerGame);
   const intervalDisplayPoints = intervalThreshold;
-  const courtChangeAcknowledged = opts?.courtChangeAcknowledged ?? false;
+  const game = getCurrentGame(state);
+  // Prefer reducer state when set; fall back to UI-local ack during optimistic updates.
+  const courtChangeAcknowledged =
+    game?.sideChangeAcknowledged ?? opts?.courtChangeAcknowledged ?? false;
   const readyToScore = opts?.readyToScore ?? true;
 
   const banners: ScorerBanner[] = [];

@@ -13,6 +13,7 @@ import {
   type BadmintonWalkoverPayload,
   type BadmintonTimeoutStartedPayload,
   type BadmintonTimeoutEndedPayload,
+  type BadmintonSideChangedPayload,
   type BadmintonMatchPausedPayload,
   type BadmintonMatchResumedPayload,
   type BadmintonMatchNoteAddedPayload,
@@ -58,6 +59,7 @@ function applyMatchStarted(
     rightScore: 0,
     servingSide: payload.firstServer,
     intervalReached: false,
+    sideChangeAcknowledged: false,
     phase: "in_progress",
     startedAt: new Date().toISOString(),
   };
@@ -194,6 +196,7 @@ function applyGameEnded(
     rightScore: 0,
     servingSide: enginePatch.servingSide ?? nextServingSide,
     intervalReached: false,
+    sideChangeAcknowledged: false,
     phase: "in_progress",
     startedAt: new Date().toISOString(),
   };
@@ -268,6 +271,19 @@ function applyTimeoutEnded(
   _payload: BadmintonTimeoutEndedPayload,
 ): BadmintonMatchState {
   return { ...state, activeTimeout: null };
+}
+
+function applySideChanged(
+  state: BadmintonMatchState,
+  payload: BadmintonSideChangedPayload,
+): BadmintonMatchState {
+  const gameNumber = payload.gameNumber;
+  return {
+    ...state,
+    games: state.games.map((g) =>
+      g.gameNumber === gameNumber ? { ...g, sideChangeAcknowledged: true } : g,
+    ),
+  };
 }
 
 function applyRetirement(
@@ -395,7 +411,7 @@ export function reduceBadminton(
       next = applyTimeoutEnded(state, parsed.payload as BadmintonTimeoutEndedPayload);
       break;
     case BadmintonEventType.SIDE_CHANGED:
-      next = state; // Side change is visual-only; state doesn't change
+      next = applySideChanged(state, parsed.payload as BadmintonSideChangedPayload);
       break;
     case BadmintonEventType.RETIREMENT_DECLARED:
       next = applyRetirement(state, parsed.payload as BadmintonRetirementPayload);

@@ -6,9 +6,10 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cmdAwardPoint } from "../commands";
+import { cmdAwardPoint, cmdAcknowledgeCourtChange } from "../commands";
 import { BadmintonEventType, type BadmintonMatchStartedPayload } from "../events/badminton";
 import { replayBadmintonEvents } from "../reducer/reducer";
+import { getCurrentGame } from "../reducer/state";
 import type { BadmintonEventEnvelope, BadmintonMatchMeta, BadmintonSide } from "../types";
 import { STANDARD_FORMAT } from "../types";
 import {
@@ -131,6 +132,26 @@ function simulateBestOfThree(pattern: BadmintonSide[]): {
       const winner = pattern[patternIdx++] ?? TEAM_A;
       const servingBefore = beforeOracle!.servingSide;
       const preRallyOracle = beforeOracle;
+
+      const game = getCurrentGame(state);
+      if (game?.intervalReached && !game.sideChangeAcknowledged) {
+        const ack = cmdAcknowledgeCourtChange(state);
+        if (ack.ok) {
+          for (const e of ack.events) {
+            events.push({
+              matchId: 1,
+              tournamentId: 1,
+              sportSlug: "badminton",
+              eventType: e.eventType,
+              eventVersion: 1,
+              sequence: seq++,
+              actorType: "system",
+              payload: e.payload,
+            });
+          }
+          state = replayBadmintonEvents(META, events);
+        }
+      }
 
       const result = cmdAwardPoint(state, winner);
       if (!result.ok) {

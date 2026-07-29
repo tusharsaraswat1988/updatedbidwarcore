@@ -10,7 +10,8 @@
  * matches, dashboard, SSE stream) are intentionally public so that
  * audience displays, scoreboards and OBS overlays can be embedded without
  * auth.  All reads are scoped to the URL tournament; no cross-tournament
- * leakage is possible.
+ * leakage is possible. Player contact PII (mobile/email) is stripped on
+ * public reads; organizers with a valid session still receive full fields.
  *
  * WRITE endpoints (POST/PATCH/DELETE on entities and all scoring actions)
  * require EITHER:
@@ -89,6 +90,7 @@ import {
 import {
   assertSessionOwnsMatchLock,
   forceUnlockMatch,
+  getFreshMatchLock,
   releaseLockOnMatchFinish,
   ScorerLockError,
 } from "../lib/scorer-match-locks";
@@ -139,9 +141,14 @@ import {
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
 import {
+  canAccessPrivateTournamentData,
   isTournamentOrganizer,
   requireTournamentOrganizer,
 } from "../middleware/require-organizer";
+import {
+  publicBadmintonPlayerSerializer,
+  serializeBadmintonPlayerForAudience,
+} from "../lib/serializers/badminton-player";
 
 const router = Router({ mergeParams: true });
 
@@ -393,11 +400,11 @@ async function guardBadmintonScoring(
 
   const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) {
-    if (auth.code === "MATCH_LOCKED") {
+    if (auth.code === "MATCH_LOCKED" || auth.code === "LOCK_HELD") {
       res.status(409).json({
-        code: "MATCH_LOCKED",
-        message: "This match is currently being scored by another active session.",
-        error: "This match is currently being scored by another active session.",
+        code: auth.code,
+        message: auth.error,
+        error: auth.error,
       });
       return null;
     }
@@ -414,8 +421,11 @@ async function guardBadmintonScoring(
  * Check write permission for a scoring action.
  *
  * Priority:
- *  1. Tournament owner / admin → allowed (bypasses lock; still audited by caller)
- *  2. Scorer JWT + active session + account + lock ownership
+ *  1. Scorer JWT + active session + account + lock ownership
+ *  2. Tournament owner / admin — allowed when match is not live, or no foreign
+ *     scorer lock is held. During live, a foreign lock returns 409 LOCK_HELD
+ *     (force-unlock is the explicit takeover path). Director terminal routes
+ *     use guardBadmintonDirector and are unaffected.
  */
 async function canWriteScoring(
   req: Request,
@@ -425,11 +435,61 @@ async function canWriteScoring(
   | { ok: true; ctx: ScoringActorContext }
   | { ok: false; status: number; code: string; error: string }
 > {
+  const token = extractBearerToken(req.headers.authorization);
+
+  // Prefer scorer JWT when present so lock holders keep working even if they
+  // are also an organizer on the same request.
+  if (token) {
+    try {
+      const scorer = await resolveScorerAuthFromToken(token);
+      await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
+      await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
+      return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
+    } catch (e) {
+      // Fall through to owner path when token is not a scorer JWT (e.g. organizer
+      // Bearer) — only hard-fail lock/auth errors from a resolved scorer identity.
+      if (e instanceof ScorerLockError) {
+        return {
+          ok: false,
+          status: e.status,
+          code: e.code,
+          error: e.message,
+        };
+      }
+      if (e instanceof ScorerAuthError && e.code !== "INVALID_TOKEN" && e.code !== "AUTH_REQUIRED") {
+        return { ok: false, status: e.status, code: e.code, error: e.message };
+      }
+    }
+  }
+
   if (await resolveIsTournamentOwner(req, tournamentId)) {
+    const [match] = await db
+      .select({ status: scoringMatchesTable.status })
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (match?.status === "live") {
+      const lock = await getFreshMatchLock(matchId);
+      if (lock) {
+        return {
+          ok: false,
+          status: 409,
+          code: "LOCK_HELD",
+          error:
+            "A scorer holds the live match lock. Force-unlock (take over) before scoring from Match Control.",
+        };
+      }
+    }
+
     return { ok: true, ctx: { kind: "organizer_or_admin", usedScorer: false } };
   }
 
-  const token = extractBearerToken(req.headers.authorization);
   if (!token) {
     return {
       ok: false,
@@ -439,30 +499,12 @@ async function canWriteScoring(
     };
   }
 
-  try {
-    const scorer = await resolveScorerAuthFromToken(token);
-    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
-    await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
-    return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
-  } catch (e) {
-    if (e instanceof ScorerAuthError) {
-      return { ok: false, status: e.status, code: e.code, error: e.message };
-    }
-    if (e instanceof ScorerLockError) {
-      return {
-        ok: false,
-        status: e.status,
-        code: e.code,
-        error: e.message,
-      };
-    }
-    return {
-      ok: false,
-      status: 403,
-      code: "SCORING_FORBIDDEN",
-      error: "Scoring not allowed",
-    };
-  }
+  return {
+    ok: false,
+    status: 403,
+    code: "SCORING_FORBIDDEN",
+    error: "Scoring not allowed",
+  };
 }
 
 // ─── SSE stream ───────────────────────────────────────────────────────────────
@@ -470,8 +512,9 @@ async function canWriteScoring(
 /**
  * Public — scoreboards and OBS overlays embed this without auth.
  * Client is registered with tournamentId so broadcasts are tenant-scoped.
+ * Match-scoped clients (matchId > 0) receive one initial match_state snapshot.
  */
-router.get("/stream", (req, res) => {
+router.get("/stream", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -485,6 +528,24 @@ router.get("/stream", (req, res) => {
 
   const client = createBadmintonSseClient({ res, matchId: matchId ?? 0, tournamentId });
   addBadmintonSseClient(client);
+
+  if (matchId && matchId > 0) {
+    try {
+      const state = await replayMatch(matchId, tournamentId);
+      if (state) {
+        client.write(
+          `data: ${JSON.stringify({
+            type: "match_state",
+            matchId,
+            tournamentId,
+            data: state,
+          })}\n\n`,
+        );
+      }
+    } catch {
+      // Snapshot failure must not tear down the live stream.
+    }
+  }
 
   const cleanup = () => {
     clearInterval(heartbeat);
@@ -507,14 +568,18 @@ router.get("/stream", (req, res) => {
 
 // ─── Players ─────────────────────────────────────────────────────────────────
 
-/** Public read — scoped by tournamentId. */
+/**
+ * Public read — scoped by tournamentId.
+ * Contact PII (mobile/email) only for authenticated tournament organizers.
+ */
 router.get("/players", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
   const players = await listBadmintonPlayersForOrganizer(tournamentId);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
 
-  res.json(players);
+  res.json(players.map((p) => serializeBadmintonPlayerForAudience(p, isOrganizer)));
 });
 
 /** Registered roster for match creation — tournament players only, not global catalog. */
@@ -637,7 +702,11 @@ router.post("/players", async (req, res) => {
     .values({ tournamentId, ...values, status: "active" })
     .returning();
 
-  broadcastTournamentUpdate(tournamentId, { type: "player_created", player });
+  // SSE is public — never broadcast contact PII.
+  broadcastTournamentUpdate(tournamentId, {
+    type: "player_created",
+    player: publicBadmintonPlayerSerializer(player),
+  });
   res.status(201).json(player);
 });
 
@@ -658,7 +727,8 @@ router.get("/players/:playerId", async (req, res) => {
     .limit(1);
 
   if (!player) return void res.status(404).json({ error: "player not found" });
-  res.json(player);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  res.json(serializeBadmintonPlayerForAudience(player, isOrganizer));
 });
 
 router.patch("/players/:playerId", async (req, res) => {
@@ -857,7 +927,7 @@ router.post("/courts", async (req, res) => {
     sortOrder: z.number().int().optional(),
     streamUrl: z.string().max(500).optional(),
     hasDisplay: z.boolean().optional(),
-    // UI sends null when optional fields are left blank
+    // S3-10 — plaintext court PIN writes deprecated; null/blank clears legacy only
     scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).nullable().optional(),
   });
@@ -865,11 +935,14 @@ router.post("/courts", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const rawPin = parsed.data.scorerPin?.trim() ?? "";
-  const scorerPin = rawPin.length >= 4 ? rawPin : null;
-  if (rawPin.length > 0 && !scorerPin) {
-    return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+  if (parsed.data.scorerPin != null && parsed.data.scorerPin.trim().length > 0) {
+    return void res.status(400).json({
+      error:
+        "Court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.",
+      code: "SCORER_PIN_DEPRECATED",
+    });
   }
+  const scorerPin = null;
 
   const [court] = await db
     .insert(badmintonCourtsTable)
@@ -925,10 +998,14 @@ router.patch("/courts/:courtId", async (req, res) => {
   }
   if (parsed.data.scorerPin !== undefined) {
     const raw = parsed.data.scorerPin?.trim() ?? "";
-    if (raw.length > 0 && raw.length < 4) {
-      return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+    if (raw.length > 0) {
+      return void res.status(400).json({
+        error:
+          "Court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.",
+        code: "SCORER_PIN_DEPRECATED",
+      });
     }
-    patch.scorerPin = raw.length >= 4 ? raw : null;
+    patch.scorerPin = null;
   }
 
   const [court] = await db
@@ -992,7 +1069,8 @@ router.post("/categories", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
     ageGroup: z.string().max(20).optional(),
     gender: z.string().max(10).optional(),
-    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).default("knockout"),
+    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
+    drawType: z.literal("knockout").default("knockout"),
     numSeeds: z.number().int().min(0).max(32).default(0),
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
@@ -1031,7 +1109,8 @@ router.patch("/categories/:catId", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
     ageGroup: z.string().max(20).nullable().optional(),
     gender: z.string().max(10).nullable().optional(),
-    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
+    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
+    drawType: z.literal("knockout").optional(),
     numSeeds: z.number().int().min(0).max(32).optional(),
     maxPlayers: z.number().int().nullable().optional(),
     entryFee: z.number().int().nullable().optional(),
@@ -1102,41 +1181,44 @@ router.delete("/categories/:catId", async (req, res) => {
     });
   }
 
-  await db
-    .delete(badmintonRegistrationsTable)
-    .where(
-      and(
-        eq(badmintonRegistrationsTable.categoryId, catId),
-        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
-      ),
-    );
+  // S3-04 — delete registrations / fixtures / draws / category atomically (no orphans).
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(badmintonRegistrationsTable)
+      .where(
+        and(
+          eq(badmintonRegistrationsTable.categoryId, catId),
+          eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonFixturesTable)
-    .where(
-      and(
-        eq(badmintonFixturesTable.categoryId, catId),
-        eq(badmintonFixturesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.categoryId, catId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonDrawsTable)
-    .where(
-      and(
-        eq(badmintonDrawsTable.categoryId, catId),
-        eq(badmintonDrawsTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonDrawsTable)
+      .where(
+        and(
+          eq(badmintonDrawsTable.categoryId, catId),
+          eq(badmintonDrawsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonCategoriesTable)
-    .where(
-      and(
-        eq(badmintonCategoriesTable.id, catId),
-        eq(badmintonCategoriesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonCategoriesTable)
+      .where(
+        and(
+          eq(badmintonCategoriesTable.id, catId),
+          eq(badmintonCategoriesTable.tournamentId, tournamentId),
+        ),
+      );
+  });
 
   broadcastTournamentUpdate(tournamentId, { type: "category_deleted", categoryId: catId });
   res.json({ deleted: true });
@@ -1183,7 +1265,10 @@ router.get("/categories/:catId/registrations", async (req, res) => {
           )
       : [];
 
-  const playerById = new Map(players.map((p) => [p.id, p]));
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  const playerById = new Map(
+    players.map((p) => [p.id, serializeBadmintonPlayerForAudience(p, isOrganizer)]),
+  );
 
   res.json(
     regs.map((registration) => ({
@@ -1863,7 +1948,7 @@ router.post("/matches", async (req, res) => {
       .optional(),
     leftSideJson: z.record(z.unknown()),
     rightSideJson: z.record(z.unknown()),
-    scorerPin: z.string().max(20).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).optional(),
     preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().optional(),
@@ -2121,7 +2206,7 @@ router.patch("/matches/:matchId", async (req, res) => {
     roundName: z.string().max(100).nullable().optional(),
     leftSideJson: z.record(z.unknown()).optional(),
     rightSideJson: z.record(z.unknown()).optional(),
-    scorerPin: z.string().max(20).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).nullable().optional(),
     matchFormatJson: z
       .object({

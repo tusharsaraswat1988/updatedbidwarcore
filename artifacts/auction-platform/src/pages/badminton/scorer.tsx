@@ -75,7 +75,9 @@ export default function BadmintonScorerPage() {
   const [lockAccepted, setLockAccepted] = useState(false);
   const [authError, setAuthError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [viewingComplete, setViewingComplete] = useState(false);
   const lockHeldRef = useRef(false);
+  const releasedOnCompleteRef = useRef(false);
 
   async function ensureAuthAndLock(mobile?: string, pin?: string) {
     if (!tournamentId || !matchId) {
@@ -134,7 +136,7 @@ export default function BadmintonScorerPage() {
   }, [tournamentId, matchId]);
 
   useEffect(() => {
-    if (!lockAccepted || !matchId) return;
+    if (!lockAccepted || !matchId || viewingComplete) return;
     const token = getScorerAuthSession()?.token;
     if (!token) return;
 
@@ -147,10 +149,30 @@ export default function BadmintonScorerPage() {
     };
     const id = window.setInterval(tick, HEARTBEAT_MS);
     return () => window.clearInterval(id);
-  }, [lockAccepted, matchId]);
+  }, [lockAccepted, matchId, viewingComplete]);
 
   useEffect(() => {
+    function releaseOnUnload() {
+      if (!lockHeldRef.current || !matchId) return;
+      const token = getScorerAuthSession()?.token;
+      if (!token) return;
+      lockHeldRef.current = false;
+      const params = new URLSearchParams({
+        tournamentId: String(tournamentId),
+        sport: "badminton",
+      });
+      void fetch(
+        `${import.meta.env.VITE_API_URL ?? ""}/api/scorer/matches/${matchId}/lock?${params}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        },
+      ).catch(() => {});
+    }
+    window.addEventListener("pagehide", releaseOnUnload);
     return () => {
+      window.removeEventListener("pagehide", releaseOnUnload);
       if (!lockHeldRef.current || !matchId) return;
       const token = getScorerAuthSession()?.token;
       if (!token) return;
@@ -159,7 +181,7 @@ export default function BadmintonScorerPage() {
     };
   }, [matchId, tournamentId]);
 
-  const ready = authAccepted && lockAccepted;
+  const ready = authAccepted && (lockAccepted || viewingComplete);
 
   const { data, isLoading, error } = useBadmintonMatch(
     ready ? tournamentId : 0,
@@ -197,6 +219,22 @@ export default function BadmintonScorerPage() {
       navigate(badmintonScorerHomePath(tournamentId));
     }
   }
+
+  // Sprint 2 leftover — keep complete screen after server releases the lock.
+  useEffect(() => {
+    if (!ready || !data?.state) return;
+    const status = (data.state as BadmintonMatchState).matchStatus;
+    if (!TERMINAL_STATUSES.has(status)) return;
+    setViewingComplete(true);
+    if (releasedOnCompleteRef.current || !lockHeldRef.current) return;
+    releasedOnCompleteRef.current = true;
+    const token = getScorerAuthSession()?.token;
+    if (!token) return;
+    void releaseScorerMatchLock(matchId, token, { tournamentId, sport: "badminton" }).then(() => {
+      lockHeldRef.current = false;
+      setLockAccepted(false);
+    });
+  }, [ready, data?.state?.matchStatus, matchId, tournamentId]);
 
   if (!ready) {
     return (

@@ -191,7 +191,8 @@ export async function startAuctionEventSubscriber(): Promise<void> {
 
   await subscriber.psubscribe("auction:event:*");
 
-  subscriber.on("pmessage", (_pattern, _channel, message) => {
+  subscriber.on("pmessage", (_pattern, channel, message) => {
+    if (typeof channel !== "string" || !channel.startsWith("auction:event:")) return;
     try {
       const event = JSON.parse(message) as AuctionEventEnvelope;
       writeSseToLocalClients(event.tournamentId, event.version, event);

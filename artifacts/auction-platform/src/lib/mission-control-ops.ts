@@ -84,10 +84,6 @@ function courtLabel(row: CourtBoardRow): string {
   return row.court.shortName?.trim() || row.court.name;
 }
 
-function hasScorerPin(row: CourtBoardRow): boolean {
-  return !!(row.court.hasScorerPin || (row.court.scorerPin && row.court.scorerPin.trim()));
-}
-
 function isPaused(m: ControlMatch | null | undefined): boolean {
   return m?.status === "paused";
 }
@@ -137,9 +133,6 @@ export function explainStartBlocker(row: CourtBoardRow): string | null {
     return "Match not created yet — assign / create the next match for this court.";
   }
   if ((row.status === "READY" || row.status === "DELAYED") && row.currentMatch) {
-    if (!hasScorerPin(row)) {
-      return "No scorer assigned — set a court PIN in Tournament Setup → Courts.";
-    }
     return null;
   }
   if (row.status === "FINISHED" && !row.nextMatch && !row.nextFixture) {
@@ -177,20 +170,6 @@ export function buildAttentionItems(input: {
         actionKind: "resume",
         matchId: m.id,
         href: badmintonMatchControlPath(tid, m.id),
-        severity: "critical",
-      });
-    }
-
-    if (row.status === "LIVE" && m && !hasScorerPin(row)) {
-      items.push({
-        id: `nopin-live-${row.court.id}`,
-        problem: "Missing scorer assignment",
-        courtLabel: label,
-        courtId: row.court.id,
-        reason: "Live court has no PIN — scorers cannot reconnect reliably.",
-        actionLabel: "Open Court",
-        actionKind: "open_court",
-        href: `/tournament/${tid}/badminton/branding?section=courts`,
         severity: "critical",
       });
     }

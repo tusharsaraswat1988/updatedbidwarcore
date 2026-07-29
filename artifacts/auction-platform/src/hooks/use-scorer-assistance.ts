@@ -3,6 +3,7 @@ import type { BadmintonMatchState } from "@workspace/badminton-core";
 import {
   deriveScorerAssistance,
   deriveVoiceAssistPrompts,
+  getCurrentGame,
   type ScorerAssistanceSnapshot,
 } from "@workspace/badminton-core";
 
@@ -100,6 +101,10 @@ export function useScorerAssistance(state: BadmintonMatchState) {
     readyToScore,
   });
 
+  // Prefer engine ack when present so UI matches cmdAwardPoint enforcement.
+  const effectiveCourtChangeAcknowledged =
+    getCurrentGame(state)?.sideChangeAcknowledged === true || courtChangeAcknowledged;
+
   const confirmReady = useCallback(() => {
     setReadyToScore(true);
     setShowReadyConfirm(false);
@@ -115,7 +120,7 @@ export function useScorerAssistance(state: BadmintonMatchState) {
 
   return {
     snapshot,
-    courtChangeAcknowledged,
+    courtChangeAcknowledged: effectiveCourtChangeAcknowledged,
     markCourtChangeAcknowledged,
     readyToScore,
     showReadyConfirm,

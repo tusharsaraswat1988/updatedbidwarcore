@@ -143,7 +143,15 @@ export async function scheduleFixture(
     );
   }
 
-  if (fixture.status === "live" || fixture.status === "in_progress" || fixture.status === "completed") {
+  if (
+    fixture.status === "live" ||
+    fixture.status === "in_progress" ||
+    fixture.status === "completed" ||
+    fixture.status === "walkover" ||
+    fixture.status === "retired" ||
+    fixture.status === "disqualified" ||
+    fixture.status === "abandoned"
+  ) {
     throw new FixtureSchedulingError(
       "Cannot reschedule a fixture that is in progress or completed",
       400,
@@ -261,7 +269,14 @@ export async function unscheduleFixture(
     );
   }
 
-  if (fixture.status === "live" || fixture.status === "in_progress" || fixture.status === "completed") {
+  if (
+    fixture.status === "live" ||
+    fixture.status === "in_progress" ||
+    fixture.status === "completed" ||
+    fixture.status === "retired" ||
+    fixture.status === "disqualified" ||
+    fixture.status === "abandoned"
+  ) {
     throw new FixtureSchedulingError(
       "Cannot unschedule a fixture that is in progress or completed",
       400,

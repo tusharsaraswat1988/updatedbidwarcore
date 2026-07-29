@@ -12,12 +12,12 @@ export function badmintonMatchControlPath(tournamentId: number, matchId: number)
   return `/tournament/${tournamentId}/badminton/matches/${matchId}/control`;
 }
 
-/** Scorer tablet — PIN-protected, share with court scorer. */
+/** Scorer tablet — JWT login (mobile + personal PIN). */
 export function badmintonScorerMatchPath(matchId: number, tournamentId: number) {
   return `/badminton/${matchId}/score?tid=${tournamentId}`;
 }
 
-/** Recommended scorer entry — PIN once, then pick a match. */
+/** Recommended scorer entry — sign in once, then pick a match. */
 export function badmintonScorerHomePath(tournamentId: number) {
   return `/badminton/scorer?tid=${tournamentId}`;
 }

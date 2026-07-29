@@ -1511,7 +1511,14 @@ export async function updateBadmintonStatisticsFromMatch(
   leftSideJson: Record<string, unknown>,
   rightSideJson: Record<string, unknown>,
 ): Promise<void> {
-  if (state.matchStatus !== "completed" && state.matchStatus !== "walkover" && state.matchStatus !== "retired") {
+  // Include all terminal outcomes — walkover/retired/DQ/abandoned still credit a match.
+  if (
+    state.matchStatus !== "completed" &&
+    state.matchStatus !== "walkover" &&
+    state.matchStatus !== "retired" &&
+    state.matchStatus !== "disqualified" &&
+    state.matchStatus !== "abandoned"
+  ) {
     return;
   }
 
