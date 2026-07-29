@@ -74,7 +74,7 @@ export default function BadmintonScorerPage() {
   const [authAccepted, setAuthAccepted] = useState(false);
   const [lockAccepted, setLockAccepted] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(() => Boolean(getScorerAuthSession()));
   const [viewingComplete, setViewingComplete] = useState(false);
   const lockHeldRef = useRef(false);
   const releasedOnCompleteRef = useRef(false);
@@ -237,6 +237,17 @@ export default function BadmintonScorerPage() {
   }, [ready, data?.state?.matchStatus, matchId, tournamentId]);
 
   if (!ready) {
+    if (busy && getScorerAuthSession() && !authError) {
+      return (
+        <FullscreenLayout className="lovable-theme">
+          <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+            <BadmintonPublicBrandMark variant="scorer-bar" />
+            <p className="text-white/50 text-sm mt-6">Opening scorer console…</p>
+          </div>
+        </FullscreenLayout>
+      );
+    }
+
     return (
       <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center p-6">

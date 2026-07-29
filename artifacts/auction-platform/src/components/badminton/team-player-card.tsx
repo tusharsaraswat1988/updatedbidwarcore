@@ -65,6 +65,23 @@ const sizeStyles: Record<
   },
 };
 
+/** Right-aligned text that truncates with ellipsis on the left (for VS left column). */
+function EndAlignedTruncate({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  return (
+    <div className="min-w-0 max-w-full overflow-hidden">
+      <p className={cn("truncate text-left", className)} dir="rtl" title={text}>
+        <bdi dir="ltr">{text}</bdi>
+      </p>
+    </div>
+  );
+}
+
 function toneClasses(tone: TeamPlayerCardTone) {
   switch (tone) {
     case "inverse":
@@ -175,10 +192,25 @@ export function TeamPlayerCard({
 
   if (!hasTeamIdentity(identity)) {
     return (
-      <div className={cn("min-w-0", alignClass, className)}>
-        <p className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}>
-          {player}
-        </p>
+      <div className={cn("min-w-0 max-w-full overflow-hidden", alignClass, className)}>
+        {align === "end" ? (
+          <EndAlignedTruncate
+            text={player}
+            className={cn("font-semibold leading-tight", styles.player, tones.player, playerClassName)}
+          />
+        ) : (
+          <p
+            className={cn(
+              "font-semibold truncate leading-tight",
+              styles.player,
+              tones.player,
+              playerClassName,
+            )}
+            title={player}
+          >
+            {player}
+          </p>
+        )}
       </div>
     );
   }
@@ -206,8 +238,37 @@ export function TeamPlayerCard({
     );
   }
 
+  const teamEl =
+    align === "end" ? (
+      <EndAlignedTruncate
+        text={team}
+        className={cn("font-bold uppercase leading-tight", styles.team, tones.team, teamClassName)}
+      />
+    ) : (
+      <p
+        className={cn("font-bold uppercase truncate leading-tight", styles.team, tones.team, teamClassName)}
+        title={team}
+      >
+        {team}
+      </p>
+    );
+  const playerEl =
+    align === "end" ? (
+      <EndAlignedTruncate
+        text={player}
+        className={cn("font-semibold leading-tight", styles.player, tones.player, playerClassName)}
+      />
+    ) : (
+      <p
+        className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}
+        title={player}
+      >
+        {player}
+      </p>
+    );
+
   return (
-    <div className={cn("min-w-0 flex flex-col", styles.gap, alignClass, className)}>
+    <div className={cn("min-w-0 max-w-full overflow-hidden flex flex-col", styles.gap, alignClass, className)}>
       {showBadge ? (
         <TeamBadge
           teamName={team}
@@ -216,12 +277,8 @@ export function TeamPlayerCard({
           size={size}
         />
       ) : null}
-      <p className={cn("font-bold uppercase truncate leading-tight", styles.team, tones.team, teamClassName)}>
-        {team}
-      </p>
-      <p className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}>
-        {player}
-      </p>
+      {teamEl}
+      {playerEl}
     </div>
   );
 }
@@ -259,18 +316,18 @@ export function TeamPlayerVs({
   vsClassName,
 }: TeamPlayerVsProps) {
   return (
-    <div className={cn("flex items-center gap-3 min-w-0", className)}>
+    <div className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 min-w-0 w-full", className)}>
       <TeamPlayerCard
         identity={left}
         size={size}
         tone={tone}
         layout={layout}
         align="end"
-        className="flex-1 min-w-0"
+        className="min-w-0"
       />
       <span
         className={cn(
-          "flex-none text-[10px] font-black uppercase tracking-[0.2em] text-white/35",
+          "flex-none text-[10px] font-black uppercase tracking-[0.2em] text-white/35 px-0.5",
           vsClassName,
         )}
       >
@@ -282,7 +339,7 @@ export function TeamPlayerVs({
         tone={tone}
         layout={layout}
         align="start"
-        className="flex-1 min-w-0"
+        className="min-w-0"
       />
     </div>
   );
