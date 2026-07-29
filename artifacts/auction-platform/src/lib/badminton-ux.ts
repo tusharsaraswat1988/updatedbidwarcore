@@ -140,6 +140,13 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
   const msg = raw.trim() || fallback;
   const lower = msg.toLowerCase();
 
+  if (
+    lower.includes("lock_held") ||
+    lower.includes("holds the live match lock") ||
+    (lower.includes("force-unlock") && lower.includes("lock"))
+  ) {
+    return "A scorer holds this live match. Force-unlock / take over first, then score.";
+  }
   if (lower.includes("network") || lower.includes("failed to fetch")) {
     return "Could not reach the server. Check your connection and try again.";
   }
@@ -178,9 +185,20 @@ export function toastSuccess(title: string, description?: string) {
 }
 
 export function toastError(error: unknown, title = "Action failed") {
+  const description = friendlyBadmintonError(error);
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  const looksLikeLockHeld =
+    /LOCK_HELD|force-unlock|holds the live match lock/i.test(
+      `${title} ${description} ${raw}`,
+    );
   toast({
-    title,
-    description: friendlyBadmintonError(error),
+    title: looksLikeLockHeld ? "Match locked by scorer" : title,
+    description,
     variant: "destructive",
   });
 }

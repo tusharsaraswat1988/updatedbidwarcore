@@ -90,6 +90,7 @@ import {
 import {
   assertSessionOwnsMatchLock,
   forceUnlockMatch,
+  getFreshMatchLock,
   releaseLockOnMatchFinish,
   ScorerLockError,
 } from "../lib/scorer-match-locks";
@@ -399,11 +400,11 @@ async function guardBadmintonScoring(
 
   const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) {
-    if (auth.code === "MATCH_LOCKED") {
+    if (auth.code === "MATCH_LOCKED" || auth.code === "LOCK_HELD") {
       res.status(409).json({
-        code: "MATCH_LOCKED",
-        message: "This match is currently being scored by another active session.",
-        error: "This match is currently being scored by another active session.",
+        code: auth.code,
+        message: auth.error,
+        error: auth.error,
       });
       return null;
     }
@@ -420,8 +421,11 @@ async function guardBadmintonScoring(
  * Check write permission for a scoring action.
  *
  * Priority:
- *  1. Tournament owner / admin → allowed (bypasses lock; still audited by caller)
- *  2. Scorer JWT + active session + account + lock ownership
+ *  1. Scorer JWT + active session + account + lock ownership
+ *  2. Tournament owner / admin — allowed when match is not live, or no foreign
+ *     scorer lock is held. During live, a foreign lock returns 409 LOCK_HELD
+ *     (force-unlock is the explicit takeover path). Director terminal routes
+ *     use guardBadmintonDirector and are unaffected.
  */
 async function canWriteScoring(
   req: Request,
@@ -431,11 +435,61 @@ async function canWriteScoring(
   | { ok: true; ctx: ScoringActorContext }
   | { ok: false; status: number; code: string; error: string }
 > {
+  const token = extractBearerToken(req.headers.authorization);
+
+  // Prefer scorer JWT when present so lock holders keep working even if they
+  // are also an organizer on the same request.
+  if (token) {
+    try {
+      const scorer = await resolveScorerAuthFromToken(token);
+      await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
+      await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
+      return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
+    } catch (e) {
+      // Fall through to owner path when token is not a scorer JWT (e.g. organizer
+      // Bearer) — only hard-fail lock/auth errors from a resolved scorer identity.
+      if (e instanceof ScorerLockError) {
+        return {
+          ok: false,
+          status: e.status,
+          code: e.code,
+          error: e.message,
+        };
+      }
+      if (e instanceof ScorerAuthError && e.code !== "INVALID_TOKEN" && e.code !== "AUTH_REQUIRED") {
+        return { ok: false, status: e.status, code: e.code, error: e.message };
+      }
+    }
+  }
+
   if (await resolveIsTournamentOwner(req, tournamentId)) {
+    const [match] = await db
+      .select({ status: scoringMatchesTable.status })
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (match?.status === "live") {
+      const lock = await getFreshMatchLock(matchId);
+      if (lock) {
+        return {
+          ok: false,
+          status: 409,
+          code: "LOCK_HELD",
+          error:
+            "A scorer holds the live match lock. Force-unlock (take over) before scoring from Match Control.",
+        };
+      }
+    }
+
     return { ok: true, ctx: { kind: "organizer_or_admin", usedScorer: false } };
   }
 
-  const token = extractBearerToken(req.headers.authorization);
   if (!token) {
     return {
       ok: false,
@@ -445,30 +499,12 @@ async function canWriteScoring(
     };
   }
 
-  try {
-    const scorer = await resolveScorerAuthFromToken(token);
-    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
-    await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
-    return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
-  } catch (e) {
-    if (e instanceof ScorerAuthError) {
-      return { ok: false, status: e.status, code: e.code, error: e.message };
-    }
-    if (e instanceof ScorerLockError) {
-      return {
-        ok: false,
-        status: e.status,
-        code: e.code,
-        error: e.message,
-      };
-    }
-    return {
-      ok: false,
-      status: 403,
-      code: "SCORING_FORBIDDEN",
-      error: "Scoring not allowed",
-    };
-  }
+  return {
+    ok: false,
+    status: 403,
+    code: "SCORING_FORBIDDEN",
+    error: "Scoring not allowed",
+  };
 }
 
 // ─── SSE stream ───────────────────────────────────────────────────────────────
