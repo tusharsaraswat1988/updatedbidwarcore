@@ -165,6 +165,9 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
   if (lower.includes("scheduled") && (lower.includes("required") || lower.includes("time"))) {
     return "Set a date and time in Scheduling before continuing.";
   }
+  if (lower.includes("scorer pin") && lower.includes("deprecated")) {
+    return "Match/court codes can no longer be set. Scorers sign in with mobile and personal PIN.";
+  }
   if (lower.includes("pin")) {
     return "Personal PIN must be at least 4 digits.";
   }

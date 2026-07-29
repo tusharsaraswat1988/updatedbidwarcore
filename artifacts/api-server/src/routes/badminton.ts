@@ -927,7 +927,7 @@ router.post("/courts", async (req, res) => {
     sortOrder: z.number().int().optional(),
     streamUrl: z.string().max(500).optional(),
     hasDisplay: z.boolean().optional(),
-    // UI sends null when optional fields are left blank
+    // S3-10 — plaintext court PIN writes deprecated; null/blank clears legacy only
     scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).nullable().optional(),
   });
@@ -935,11 +935,14 @@ router.post("/courts", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const rawPin = parsed.data.scorerPin?.trim() ?? "";
-  const scorerPin = rawPin.length >= 4 ? rawPin : null;
-  if (rawPin.length > 0 && !scorerPin) {
-    return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+  if (parsed.data.scorerPin != null && parsed.data.scorerPin.trim().length > 0) {
+    return void res.status(400).json({
+      error:
+        "Court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.",
+      code: "SCORER_PIN_DEPRECATED",
+    });
   }
+  const scorerPin = null;
 
   const [court] = await db
     .insert(badmintonCourtsTable)
@@ -995,10 +998,14 @@ router.patch("/courts/:courtId", async (req, res) => {
   }
   if (parsed.data.scorerPin !== undefined) {
     const raw = parsed.data.scorerPin?.trim() ?? "";
-    if (raw.length > 0 && raw.length < 4) {
-      return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+    if (raw.length > 0) {
+      return void res.status(400).json({
+        error:
+          "Court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.",
+        code: "SCORER_PIN_DEPRECATED",
+      });
     }
-    patch.scorerPin = raw.length >= 4 ? raw : null;
+    patch.scorerPin = null;
   }
 
   const [court] = await db
@@ -1936,7 +1943,7 @@ router.post("/matches", async (req, res) => {
       .optional(),
     leftSideJson: z.record(z.unknown()),
     rightSideJson: z.record(z.unknown()),
-    scorerPin: z.string().max(20).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).optional(),
     preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().optional(),
@@ -2194,7 +2201,7 @@ router.patch("/matches/:matchId", async (req, res) => {
     roundName: z.string().max(100).nullable().optional(),
     leftSideJson: z.record(z.unknown()).optional(),
     rightSideJson: z.record(z.unknown()).optional(),
-    scorerPin: z.string().max(20).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).nullable().optional(),
     matchFormatJson: z
       .object({
