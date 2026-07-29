@@ -191,21 +191,25 @@ export function PreMatchControlPanel({
           />
           <InfoRow label="Team / Player (left)" value={snapshot.leftLabel} />
           <InfoRow label="Team / Player (right)" value={snapshot.rightLabel} />
-          {pinHint ? <InfoRow label="Scorer PIN" value={pinHint} /> : null}
+          {pinHint ? <InfoRow label="Legacy court code" value={pinHint} /> : null}
         </dl>
-        {pinHint ? (
-          <p className="text-white/45 text-xs">
-            Share PIN <span className="text-white font-semibold tracking-wider">{pinHint}</span> with
-            the court scorer — or open{" "}
-            <Link
-              href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
-              className="text-[#4fc3f7] font-semibold hover:underline"
-            >
-              Live Scoring
-            </Link>{" "}
-            after start (scorer enters this PIN).
-          </p>
-        ) : null}
+        <p className="text-white/45 text-xs">
+          Scorers open{" "}
+          <Link
+            href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
+            className="text-[#4fc3f7] font-semibold hover:underline"
+          >
+            Live Scoring
+          </Link>{" "}
+          and sign in with mobile and personal PIN
+          {pinHint ? (
+            <>
+              . Legacy code <span className="text-white font-semibold tracking-wider">{pinHint}</span> is
+              not used for login
+            </>
+          ) : null}
+          .
+        </p>
       </div>
 
       {hardWarnings.length > 0 ? (

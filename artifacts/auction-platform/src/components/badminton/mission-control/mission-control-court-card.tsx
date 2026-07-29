@@ -93,13 +93,11 @@ export function MissionControlCourtCard({
 
   const hasScorerPin = !!(court.hasScorerPin || (court.scorerPin && court.scorerPin.trim()));
   const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
-  const scorerLabel = !hasScorerPin
-    ? "No PIN"
-    : isLive
-      ? isPaused
-        ? "Paused — reconnect if needed"
-        : "Live scoring"
-      : "PIN ready";
+  const scorerLabel = isLive
+    ? isPaused
+      ? "Paused — reconnect if needed"
+      : "Live scoring"
+    : "JWT login";
 
   const nextLabel = nextMatch
     ? matchDisplayLabel(nextMatch)
@@ -170,7 +168,7 @@ export function MissionControlCourtCard({
         <span
           className={cn(
             "px-2 py-1 rounded border",
-            hasScorerPin
+            isLive
               ? "border-sky-500/35 bg-sky-500/10 text-sky-200"
               : "border-white/10 bg-white/5 text-white/45",
           )}
@@ -248,9 +246,7 @@ export function MissionControlCourtCard({
               void navigator.clipboard.writeText(scorerHomeUrl).then(() => {
                 toast({
                   title: "Scorer Home copied",
-                  description: hasScorerPin
-                    ? "Share with the court scorer along with the PIN."
-                    : "Set a court PIN in Tournament Setup → Courts.",
+                  description: "Share with the court scorer. They sign in with mobile and personal PIN.",
                 });
               });
             }}
@@ -294,7 +290,9 @@ export function MissionControlCourtCard({
           ) : null}
         </div>
         {hasScorerPin && court.scorerPin ? (
-          <p className="text-[11px] font-mono text-sky-300/90">PIN {court.scorerPin}</p>
+          <p className="text-[11px] font-mono text-sky-300/90">
+            Legacy court PIN {court.scorerPin} (not used for login)
+          </p>
         ) : null}
       </div>
 
@@ -456,7 +454,7 @@ export function MissionControlCourtCard({
               height={240}
             />
             <p className="text-xs text-muted-foreground text-center">
-              Scan to open Scorer Home. Court PIN still required.
+              Scan to open Scorer Home. Sign in with mobile and personal PIN.
             </p>
           </div>
         </DialogContent>

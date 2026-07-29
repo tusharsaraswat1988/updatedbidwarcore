@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { hubCardClass } from "@/components/badminton/page-chrome";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import type { PrimaryAction } from "@/lib/mission-control-ops";
 
 export function MissionControlTopBar({
@@ -32,6 +33,8 @@ export function MissionControlTopBar({
   const [now, setNow] = useState(() =>
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   );
+  const [emergencyConfirmOpen, setEmergencyConfirmOpen] = useState(false);
+  const [resumeConfirmOpen, setResumeConfirmOpen] = useState(false);
   useEffect(() => {
     const id = window.setInterval(() => {
       setNow(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
@@ -94,7 +97,7 @@ export function MissionControlTopBar({
         {emergencyActive ? (
           <button
             type="button"
-            onClick={onResumePresentation}
+            onClick={() => setResumeConfirmOpen(true)}
             className="min-h-12 px-4 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
           >
             Resume tournament screens
@@ -102,13 +105,36 @@ export function MissionControlTopBar({
         ) : (
           <button
             type="button"
-            onClick={onEmergency}
+            onClick={() => setEmergencyConfirmOpen(true)}
             className="min-h-12 px-4 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
           >
             Emergency pause
           </button>
         )}
       </div>
+
+      <ConfirmActionDialog
+        open={emergencyConfirmOpen}
+        onOpenChange={setEmergencyConfirmOpen}
+        title="Emergency pause all screens?"
+        description="Venue displays go to standby and OBS switches to the sponsor scene. Confirm only if you intend to blank the hall."
+        confirmLabel="Pause screens"
+        onConfirm={() => {
+          setEmergencyConfirmOpen(false);
+          onEmergency?.();
+        }}
+      />
+      <ConfirmActionDialog
+        open={resumeConfirmOpen}
+        onOpenChange={setResumeConfirmOpen}
+        title="Resume tournament screens?"
+        description="Venue and OBS return to the live presentation scene."
+        confirmLabel="Resume screens"
+        onConfirm={() => {
+          setResumeConfirmOpen(false);
+          onResumePresentation?.();
+        }}
+      />
     </header>
   );
 }

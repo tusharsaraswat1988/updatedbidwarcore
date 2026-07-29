@@ -2451,6 +2451,14 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  // Sprint 2 / S2-08 — require side when starting a timeout (do not fall through to end).
+  if (parsed.data.action === "start" && !parsed.data.side) {
+    return void res.status(400).json({
+      error: "Timeout start requires side (left or right)",
+      code: "SIDE_REQUIRED",
+    });
+  }
+
   try {
     const state = await handleTimeout(
       matchId,

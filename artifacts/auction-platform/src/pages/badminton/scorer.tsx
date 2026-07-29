@@ -30,8 +30,35 @@ import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
+import {
+  formatTeamPlayerLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 
 const HEARTBEAT_MS = 20_000;
+
+const TERMINAL_STATUSES = new Set([
+  "completed",
+  "walkover",
+  "retired",
+  "disqualified",
+  "abandoned",
+]);
+
+function terminalStatusLabel(status: string): string {
+  switch (status) {
+    case "walkover":
+      return "Walkover";
+    case "retired":
+      return "Retired";
+    case "disqualified":
+      return "Disqualified";
+    case "abandoned":
+      return "Abandoned";
+    default:
+      return "Match complete";
+  }
+}
 
 export default function BadmintonScorerPage() {
   const [, params] = useRoute("/badminton/:matchId/score");
@@ -171,22 +198,6 @@ export default function BadmintonScorerPage() {
     }
   }
 
-  // Navigate home when match finishes
-  useEffect(() => {
-    if (!ready || !data?.state) return;
-    const status = (data.state as BadmintonMatchState).matchStatus;
-    if (
-      status === "completed" ||
-      status === "walkover" ||
-      status === "retired" ||
-      status === "disqualified" ||
-      status === "abandoned"
-    ) {
-      void exitScorer(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.state?.matchStatus]);
-
   if (!ready) {
     return (
       <FullscreenLayout className="lovable-theme">
@@ -309,6 +320,66 @@ export default function BadmintonScorerPage() {
     );
   }
 
+  // Sprint 2 / S2-03 — stay on a complete screen until the scorer exits explicitly.
+  if (TERMINAL_STATUSES.has(state.matchStatus)) {
+    const leftLabel = formatTeamPlayerLine(identityFromSideInfo(state.leftSide));
+    const rightLabel = formatTeamPlayerLine(identityFromSideInfo(state.rightSide));
+    const winnerLabel =
+      state.winnerSide === "left"
+        ? leftLabel
+        : state.winnerSide === "right"
+          ? rightLabel
+          : null;
+
+    return (
+      <FullscreenLayout className="lovable-theme">
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="w-full max-w-md text-center space-y-6">
+            <BadmintonPublicBrandMark variant="scorer-bar" className="mx-auto" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/40">
+                {terminalStatusLabel(state.matchStatus)}
+              </p>
+              <h1 className="text-white text-3xl font-black mt-2">
+                {winnerLabel ? `${winnerLabel} wins` : "Match finished"}
+              </h1>
+              <p className="text-white/55 text-lg font-semibold mt-3 tabular-nums">
+                {state.gamesLeft} – {state.gamesRight}
+              </p>
+              {state.resultReason ? (
+                <p className="text-white/35 text-sm mt-2">{state.resultReason}</p>
+              ) : null}
+              {courtNumber || categoryName ? (
+                <p className="text-white/35 text-xs mt-3">
+                  {[courtNumber ? `Court ${courtNumber}` : null, categoryName]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-left text-sm">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                <p className="text-white/40 text-[10px] uppercase tracking-wider">Left</p>
+                <p className="text-white font-semibold mt-1 truncate">{leftLabel}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                <p className="text-white/40 text-[10px] uppercase tracking-wider">Right</p>
+                <p className="text-white font-semibold mt-1 truncate">{rightLabel}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void exitScorer(false)}
+              className="w-full min-h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base"
+            >
+              Exit to Scorer Home
+            </button>
+          </div>
+        </div>
+      </FullscreenLayout>
+    );
+  }
+
   return (
     <FullscreenLayout className="lovable-theme">
       <div className="h-[100dvh] overflow-hidden flex flex-col">
@@ -327,6 +398,23 @@ export default function BadmintonScorerPage() {
               className="min-h-10 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
               Logout
+            </button>
+          </div>
+        ) : null}
+        {scorer.pointSyncError ? (
+          <div
+            className="shrink-0 px-3 py-2 bg-red-500/15 border-b border-red-500/30 flex items-center justify-between gap-3"
+            role="alert"
+          >
+            <p className="text-red-200 text-xs font-semibold min-w-0 truncate">
+              {scorer.pointSyncError}
+            </p>
+            <button
+              type="button"
+              onClick={() => void scorer.retryPointQueue()}
+              className="shrink-0 min-h-9 px-3 rounded-lg bg-red-500/25 text-red-100 text-xs font-bold"
+            >
+              Retry
             </button>
           </div>
         ) : null}

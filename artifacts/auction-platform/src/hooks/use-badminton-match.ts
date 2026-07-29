@@ -199,6 +199,7 @@ export function useBadmintonScorer(
   const queryKey = ["badminton-match", tournamentId, matchId];
   const pointQueueRef = useRef<Array<{ side: "left" | "right"; idempotencyKey: string }>>([]);
   const drainPromiseRef = useRef<Promise<void> | null>(null);
+  const [pointSyncError, setPointSyncError] = useState<string | null>(null);
 
   async function postAction(endpoint: string, body: unknown) {
     const { scorerAuthHeaders } = await import("@/lib/badminton-scorer-session");
@@ -248,11 +249,17 @@ export function useBadmintonScorer(
             idempotencyKey: item.idempotencyKey,
           });
           pointQueueRef.current.shift();
-        } catch {
+          setPointSyncError(null);
+        } catch (err) {
           // Keep unsent items for a later retry, but clear the floor so SSE can catch up.
           clearOptimisticRallyFloor(optimisticKey);
           await queryClient.invalidateQueries({ queryKey });
-          throw new Error("Failed to score point");
+          const message =
+            err instanceof Error && err.message
+              ? err.message
+              : "Failed to score point — tap Retry to send again";
+          setPointSyncError(message);
+          throw new Error(message);
         }
       }
       clearOptimisticRallyFloor(optimisticKey);
@@ -262,6 +269,11 @@ export function useBadmintonScorer(
 
     return drainPromiseRef.current;
   }, [matchId, queryClient, tournamentId]);
+
+  const retryPointQueue = useCallback(() => {
+    setPointSyncError(null);
+    return drainPointQueue();
+  }, [drainPointQueue]);
 
   const awardPoint = useCallback(
     (side: "left" | "right") => {
@@ -337,6 +349,8 @@ export function useBadmintonScorer(
     endInterval,
     acknowledgeCourtChange,
     startMatch,
+    pointSyncError,
+    retryPointQueue,
   };
 }
 

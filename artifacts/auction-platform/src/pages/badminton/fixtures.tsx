@@ -6,7 +6,7 @@
  * Planning only: Schedule / Create Match. No Start Match / Scoring / Live.
  *
  * Fixture Source Adapters (all write via shared backend writer):
- *   Auto Generate | Manual Entry | Import (Phase 1 stub)
+ *   Auto Generate | Manual Entry | Import (gated — not available yet)
  */
 
 import { useState } from "react";
@@ -194,15 +194,11 @@ export default function BadmintonFixturesPage() {
                 Who plays whom in each event. Schedule assigns courts and times next.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 {
                   title: "Generate Automatically",
-                  desc: "Software builds the draw from event entries.",
-                },
-                {
-                  title: "Import Existing Draw",
-                  desc: "Bring in a draw you already planned elsewhere.",
+                  desc: "Software builds the knockout draw from event entries.",
                 },
                 {
                   title: "Create Manually",
@@ -218,6 +214,9 @@ export default function BadmintonFixturesPage() {
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Import Existing Draw is not available in this release.
+            </p>
             {isLoading ? (
               <div className="space-y-3" aria-busy="true" aria-label="Loading draw">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -279,7 +278,6 @@ function CategoryFixturesPanel({
   const [generating, setGenerating] = useState(false);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [showManual, setShowManual] = useState(false);
-  const [showImportInfo, setShowImportInfo] = useState(false);
   const [error, setError] = useState("");
 
   const { data: registrations = [] } = useQuery<RegistrationRow[]>({
@@ -413,10 +411,11 @@ function CategoryFixturesPanel({
             </button>
             <button
               type="button"
-              onClick={() => setShowImportInfo(true)}
-              className="min-h-11 px-4 rounded-lg bg-white/5 hover:bg-white/8 text-white/50 text-xs font-semibold transition-colors"
+              disabled
+              title="Import is not available in this release"
+              className="min-h-11 px-4 rounded-lg bg-white/5 text-white/35 text-xs font-semibold cursor-not-allowed"
             >
-              Import Existing Draw
+              Import Existing Draw (coming soon)
             </button>
           </div>
 
@@ -480,10 +479,6 @@ function CategoryFixturesPanel({
             invalidatePlanning();
           }}
         />
-      ) : null}
-
-      {showImportInfo ? (
-        <ImportPlaceholderModal onClose={() => setShowImportInfo(false)} />
       ) : null}
 
       <ConfirmActionDialog
@@ -672,24 +667,6 @@ function ManualFixturesModal({
         submitLabel="Create collection"
         saving={saving}
       />
-    </FormModal>
-  );
-}
-
-function ImportPlaceholderModal({ onClose }: { onClose: () => void }) {
-  return (
-    <FormModal
-      title="Import Existing Draw"
-      subtitle="Coming in a later phase"
-      onClose={onClose}
-      size="md"
-    >
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        Import will accept association draws, Excel sheets, CSV lists, and PDF brackets. This is a
-        placeholder for now — nothing is uploaded yet. When ready, Import will add the same kind of
-        draw you get from Generate Automatically or Create Manually.
-      </p>
-      <FormActions onCancel={onClose} onSubmit={onClose} submitLabel="Got it" saving={false} />
     </FormModal>
   );
 }
