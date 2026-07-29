@@ -3,8 +3,10 @@ import type {
   BadmintonMatchMeta,
   BadmintonMatchState,
   BadmintonSide,
+  CourtEnd,
+  EndAssignment,
 } from "../types";
-import { STANDARD_FORMAT } from "../types";
+import { DEFAULT_END_ASSIGNMENT, STANDARD_FORMAT } from "../types";
 
 export function createInitialBadmintonState(meta: BadmintonMatchMeta): BadmintonMatchState {
   return {
@@ -36,7 +38,54 @@ export function createInitialBadmintonState(meta: BadmintonMatchMeta): Badminton
     totalRallies: 0,
     isPaused: false,
     matchNotes: [],
+    endAssignment: DEFAULT_END_ASSIGNMENT,
   };
+}
+
+export function otherCourtEnd(end: CourtEnd): CourtEnd {
+  return end === "END_1" ? "END_2" : "END_1";
+}
+
+export function resolveEndAssignment(state: BadmintonMatchState): EndAssignment {
+  return state.endAssignment ?? DEFAULT_END_ASSIGNMENT;
+}
+
+/**
+ * How many times ends have flipped so far.
+ * - +1 after each completed game (BWF: change ends between games)
+ * - +1 when deciding-game mid-interval court change is acknowledged
+ */
+export function endsFlipCount(state: BadmintonMatchState): number {
+  const gamesCompleted = Math.max(0, state.currentGame - 1);
+  const game = getCurrentGame(state);
+  const decidingMidAcknowledged =
+    isDecidingGame(state.currentGame, state.format.totalGames) &&
+    game?.sideChangeAcknowledged === true;
+  return gamesCompleted + (decidingMidAcknowledged ? 1 : 0);
+}
+
+/** Physical end currently occupied by a scoreboard side. */
+export function endForSide(state: BadmintonMatchState, side: BadmintonSide): CourtEnd {
+  const assignment = resolveEndAssignment(state);
+  const flips = endsFlipCount(state);
+  const leftEnd =
+    flips % 2 === 0 ? assignment.leftStartsAt : otherCourtEnd(assignment.leftStartsAt);
+  return side === "left" ? leftEnd : otherCourtEnd(leftEnd);
+}
+
+/**
+ * True at the start of game 2+ (0–0) while the match is still live —
+ * scorer should prompt players to change ends before the next rally.
+ */
+export function isPostGameEndsChangeDue(state: BadmintonMatchState): boolean {
+  if (state.matchStatus !== "live") return false;
+  if (state.currentGame <= 1) return false;
+  if (state.leftScore !== 0 || state.rightScore !== 0) return false;
+  const gamesNeeded = gamesNeededToWin(state.format.totalGames);
+  if (state.gamesLeft >= gamesNeeded || state.gamesRight >= gamesNeeded) return false;
+  const game = getCurrentGame(state);
+  if (!game || game.phase !== "in_progress") return false;
+  return true;
 }
 
 /** Get current game state (mutable reference). */

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import type { BadmintonMatchFormat, BadmintonMatchKind, BadmintonSide, BadmintonSideInfo } from "../types";
+import type {
+  BadmintonMatchFormat,
+  BadmintonMatchKind,
+  BadmintonSide,
+  BadmintonSideInfo,
+  EndAssignment,
+} from "../types";
 
 export const BadmintonEventType = {
   MATCH_STARTED: "badminton.match.started",
@@ -108,6 +114,11 @@ export type BadmintonMatchStartedPayload = {
     firstReceivingSide: BadmintonSide;
     firstReceiverPlayerIndex: 0 | 1;
   };
+  /**
+   * Which physical end the scoreboard-left side starts at.
+   * Defaults to END_1 when omitted.
+   */
+  endAssignment?: EndAssignment;
   courtNumber?: string;
   matchLabel?: string;
 };
@@ -240,6 +251,10 @@ export type BadmintonMatchNoteAddedPayload = {
 
 // ── Payload parse helpers ────────────────────────────────────────────────────
 
+const endAssignmentSchema = z.object({
+  leftStartsAt: z.enum(["END_1", "END_2"]),
+});
+
 const matchStartedSchema = z.object({
   matchKind: z.enum(["singles", "doubles", "mixed_doubles"]),
   format: formatSchema,
@@ -247,6 +262,7 @@ const matchStartedSchema = z.object({
   rightSide: sideInfoSchema,
   firstServer: z.enum(["left", "right"]),
   doublesSetup: doublesSetupSchema.optional(),
+  endAssignment: endAssignmentSchema.optional(),
   courtNumber: z.string().optional(),
   matchLabel: z.string().optional(),
 });

@@ -28,7 +28,11 @@ export function ScorerStatusStrip({ panel }: { panel: PanelData }) {
           👁 {panel.receiverLabel}
         </span>
         {panel.serviceCourt ? (
-          <span className="text-white/40 truncate">{panel.serviceCourt}</span>
+          <span className="text-emerald-300/90 font-semibold truncate">
+            {panel.serviceCourt === "Right" || panel.serviceCourt === "Left"
+              ? `Serve from ${panel.serviceCourt}`
+              : panel.serviceCourt}
+          </span>
         ) : null}
       </div>
     </div>

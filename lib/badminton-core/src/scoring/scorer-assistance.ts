@@ -3,7 +3,7 @@
  * Does not mutate match state or scoring logic.
  */
 
-import type { BadmintonMatchState, BadmintonSide } from "../types";
+import type { BadmintonMatchState, BadmintonSide, CourtEnd } from "../types";
 import { getSidePlayerSlots, isPairMatchKind } from "../side-utils";
 import {
   currentReceiverLabel,
@@ -11,10 +11,13 @@ import {
   sideInfoFor,
 } from "./display-utils";
 import {
+  endForSide,
+  endsFlipCount,
   gamesNeededToWin,
   getCurrentGame,
   isDecidingGame,
   isGameOver,
+  isPostGameEndsChangeDue,
   sideChangeScore,
 } from "../reducer/state";
 import { opposingSide } from "./doubles-court";
@@ -25,6 +28,7 @@ export type ScorerBannerKind =
   | "interval_due"
   | "court_change_required"
   | "game_completed"
+  | "ends_change_required"
   | "match_completed";
 
 export type ScorerBanner = {
@@ -43,6 +47,10 @@ export type ScorerConfidencePanel = {
   serviceCourt: string | null;
   gamesLeft: number;
   gamesRight: number;
+  /** Physical end for scoreboard-left (derived). */
+  leftEnd: CourtEnd;
+  /** Physical end for scoreboard-right (derived). */
+  rightEnd: CourtEnd;
 };
 
 export type ScorerAssistanceSnapshot = {
@@ -55,6 +63,9 @@ export type ScorerAssistanceSnapshot = {
   matchPointSide: BadmintonSide | null;
   intervalDue: boolean;
   courtChangeRequired: boolean;
+  /** Between games: players should change ends before next rally. */
+  endsChangeDue: boolean;
+  endsFlipCount: number;
   intervalThreshold: number;
   scoringBlocked: boolean;
   scoringBlockReason: "interval" | "court_change" | "timeout" | "paused" | null;
@@ -64,7 +75,8 @@ export type VoiceAssistPrompt =
   | "Game Point"
   | "Match Point"
   | "Interval"
-  | "Court Change";
+  | "Court Change"
+  | "Change Ends";
 
 function sideDisplayLabel(state: BadmintonMatchState, side: BadmintonSide): string {
   const info = sideInfoFor(state, side);
@@ -97,6 +109,11 @@ export function resolveReceiverLabel(state: BadmintonMatchState): string {
   return singlesReceiverLabel(state);
 }
 
+/**
+ * Service court for the current server.
+ * Singles (BWF): even score → Right; odd score → Left (of the server's score).
+ * Doubles: derived from courtPositions + servingPlayerIndex.
+ */
 export function resolveServiceCourt(state: BadmintonMatchState): string | null {
   if (state.matchStatus !== "live") return null;
 
@@ -108,7 +125,10 @@ export function resolveServiceCourt(state: BadmintonMatchState): string | null {
     return inRightCourt ? "Right service court" : "Left service court";
   }
 
-  return state.servingSide === "left" ? "Left side" : "Right side";
+  // Singles half-court: based on serving side's own score parity.
+  const serverScore =
+    state.servingSide === "left" ? state.leftScore : state.rightScore;
+  return serverScore % 2 === 0 ? "Right" : "Left";
 }
 
 export function wouldSideWinGame(
@@ -190,6 +210,7 @@ export function deriveVoiceAssistPrompts(
   } else if (snapshot.gamePointSide) {
     prompts.push("Game Point");
   }
+  if (snapshot.endsChangeDue) prompts.push("Change Ends");
   if (snapshot.intervalDue) prompts.push("Interval");
   if (snapshot.courtChangeRequired) prompts.push("Court Change");
   return prompts;
@@ -209,6 +230,10 @@ export function deriveScorerAssistance(
   const matchPointSide = detectMatchPointSide(state);
   const intervalDue = isIntervalDue(state);
   const courtChangeRequired = isCourtChangeRequired(state);
+  const endsChangeDue = isPostGameEndsChangeDue(state);
+  const flipCount = endsFlipCount(state);
+  const leftEnd = endForSide(state, "left");
+  const rightEnd = endForSide(state, "right");
   const intervalThreshold = sideChangeScore(state.format.pointsPerGame);
   const intervalDisplayPoints = intervalThreshold;
   const game = getCurrentGame(state);
@@ -229,6 +254,14 @@ export function deriveScorerAssistance(
       emoji: "🏆",
     });
   } else if (state.matchStatus === "live") {
+    if (endsChangeDue) {
+      banners.push({
+        kind: "ends_change_required",
+        label: `CHANGE ENDS — Game ${state.currentGame}`,
+        emoji: "🔄",
+      });
+    }
+
     if (matchPointSide) {
       banners.push({
         kind: "match_point",
@@ -297,11 +330,15 @@ export function deriveScorerAssistance(
       serviceCourt,
       gamesLeft: state.gamesLeft,
       gamesRight: state.gamesRight,
+      leftEnd,
+      rightEnd,
     },
     gamePointSide,
     matchPointSide,
     intervalDue,
     courtChangeRequired,
+    endsChangeDue,
+    endsFlipCount: flipCount,
     intervalThreshold,
     scoringBlocked,
     scoringBlockReason,

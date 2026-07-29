@@ -24,6 +24,7 @@ import type {
   BadmintonMatchState,
   BadmintonMatchStatus,
 } from "../types";
+import { DEFAULT_END_ASSIGNMENT } from "../types";
 import {
   createInitialBadmintonState,
   gamesNeededToWin,
@@ -86,6 +87,7 @@ function applyMatchStarted(
     activeTimeout: null,
     isPaused: false,
     matchNotes: [],
+    endAssignment: payload.endAssignment ?? DEFAULT_END_ASSIGNMENT,
     startedAt: new Date().toISOString(),
   };
 }
