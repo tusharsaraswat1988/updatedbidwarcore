@@ -6,7 +6,7 @@
  * Always shows LED chrome (top strip + sponsor chyron); center waits until a match is live.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useRoute, useSearch } from "wouter";
 import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import {
@@ -24,15 +24,25 @@ import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";
 import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { loadDisplayFonts } from "@/lib/load-display-fonts";
-import { isLiveFollowMatchId } from "@/lib/badminton-broadcast-console";
+import {
+  findUpNextMatch,
+  isLiveFollowMatchId,
+} from "@/lib/badminton-broadcast-console";
 import {
   isMultiCourtVenueScene,
+  isVenueMomentScene,
   shouldShowVenueLiveBoard,
 } from "@/lib/badminton-broadcast-director";
 import {
   MultiCourtScoreStrip,
   multiCourtRowsFromMatches,
 } from "@/components/badminton/multi-court-score-strip";
+import {
+  VenueIntroScene,
+  VenueNextMatchScene,
+  VenueSponsorScene,
+  VenueWinnerScene,
+} from "@/components/badminton/venue-moment-scenes";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import type { ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 
@@ -146,11 +156,23 @@ function DisplayStage({
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
   const sponsorLogos = sponsorLogosFromBranding(branding);
   const tournamentLogoUrl = branding?.logoUrl ?? undefined;
-  const multiCourtMode = isMultiCourtVenueScene(branding?.venueScene);
+  const venueScene = branding?.venueScene ?? "auto";
+  const multiCourtMode = isMultiCourtVenueScene(venueScene);
   const multiRows = useMemo(
     () => (multiCourtMode ? multiCourtRowsFromMatches(liveFollow.liveMatches) : []),
     [multiCourtMode, liveFollow.liveMatches],
   );
+  const upNextMatch = useMemo(
+    () => findUpNextMatch(liveFollow.matches, liveFollow.primaryMatchId),
+    [liveFollow.matches, liveFollow.primaryMatchId],
+  );
+  const matchState = (data?.state ?? null) as BadmintonMatchState | null;
+  const chrome = {
+    tournamentName,
+    tournamentLogoUrl,
+    sponsorLogos,
+    scoreBoardSponsor: branding?.scoreBoardSponsor ?? null,
+  };
 
   const initialTheme = useMemo((): DisplayTheme => {
     const accent =
@@ -174,8 +196,10 @@ function DisplayStage({
     ? "Missing tournament"
     : loadError
       ? "Could not load match — tap Retry"
-      : branding?.venueScene === "standby" && !!data?.state
+      : venueScene === "standby" && !!matchState
       ? "Standby — director hold"
+      : isVenueMomentScene(venueScene) && !matchState && venueScene !== "sponsor" && venueScene !== "next"
+        ? "Waiting for match…"
       : multiCourtMode
         ? multiRows.length > 0
           ? `${multiRows.length} court${multiRows.length > 1 ? "s" : ""} live`
@@ -188,76 +212,107 @@ function DisplayStage({
             ? "Connecting to match…"
             : "Match not available";
 
-  const showLiveBoard = shouldShowVenueLiveBoard(branding?.venueScene, !!data?.state);
+  const showLiveBoard = shouldShowVenueLiveBoard(venueScene, !!matchState);
   const showMultiBoard = multiCourtMode && multiRows.length > 0;
+  const resolvedCourt = courtNumber ?? matchDetail?.courtNumber;
 
+  let stageContent: ReactNode;
+  if (loadError) {
+    stageContent = (
+      <div
+        className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv flex flex-col items-center justify-center gap-6 bg-[#070708] px-[4%]"
+        style={badmintonLedSurfaceStyle}
+      >
+        <p className="font-['Bebas_Neue'] text-2xl md:text-4xl tracking-[0.18em] uppercase text-white/90 text-center">
+          {tournamentName}
+        </p>
+        <p className="text-white/55 text-sm md:text-base font-mono uppercase tracking-[0.2em] text-center">
+          Connection lost
+        </p>
+        <button
+          type="button"
+          onClick={retryLoad}
+          className="min-h-12 px-6 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-bold"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  } else if (venueScene === "sponsor") {
+    stageContent = <VenueSponsorScene chrome={chrome} />;
+  } else if (venueScene === "next") {
+    stageContent = <VenueNextMatchScene match={upNextMatch} chrome={chrome} />;
+  } else if (venueScene === "intro" && matchState) {
+    stageContent = (
+      <VenueIntroScene
+        state={matchState}
+        chrome={chrome}
+        courtNumber={resolvedCourt}
+        matchLabel={matchDetail?.matchLabel}
+        roundName={matchDetail?.roundName}
+      />
+    );
+  } else if (venueScene === "winner" && matchState) {
+    stageContent = (
+      <VenueWinnerScene
+        state={matchState}
+        chrome={chrome}
+        courtNumber={resolvedCourt}
+      />
+    );
+  } else if (showMultiBoard) {
+    stageContent = (
+      <div
+        className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
+        style={badmintonLedSurfaceStyle}
+      >
+        <BadmintonLedTopStrip
+          tournamentName={tournamentName}
+          tournamentLogoUrl={tournamentLogoUrl}
+          roundName={standbyMessage}
+          matchStatus="live"
+          isTimeout={false}
+          leftLabel="Side A"
+          rightLabel="Side B"
+          scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+        />
+        <div className="relative z-10 min-h-0 flex items-center justify-center bg-[#070708] px-[3%]">
+          <MultiCourtScoreStrip rows={multiRows} variant="venue" />
+        </div>
+        <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
+      </div>
+    );
+  } else if (showLiveBoard && matchState) {
+    stageContent = (
+      <BroadcastDisplay
+        state={matchState}
+        tournamentName={tournamentName}
+        tournamentLogoUrl={tournamentLogoUrl}
+        courtNumber={resolvedCourt}
+        matchNumber={matchDetail?.matchNumber}
+        roundName={matchDetail?.roundName}
+        matchLabel={matchDetail?.matchLabel}
+        sponsorLogos={sponsorLogos}
+        scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+      />
+    );
+  } else {
+    stageContent = (
+      <LedStandby
+        message={standbyMessage}
+        tournamentName={tournamentName}
+        tournamentLogoUrl={tournamentLogoUrl}
+        sponsorLogos={sponsorLogos}
+        scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+      />
+    );
+  }
 
   return (
     <FullscreenLayout className="lovable-theme">
       <DisplayStageViewport>
         <StageThemeProvider initialTheme={initialTheme}>
-          <StageFrame>
-            {loadError ? (
-              <div
-                className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv flex flex-col items-center justify-center gap-6 bg-[#070708] px-[4%]"
-                style={badmintonLedSurfaceStyle}
-              >
-                <p className="font-['Bebas_Neue'] text-2xl md:text-4xl tracking-[0.18em] uppercase text-white/90 text-center">
-                  {tournamentName}
-                </p>
-                <p className="text-white/55 text-sm md:text-base font-mono uppercase tracking-[0.2em] text-center">
-                  Connection lost
-                </p>
-                <button
-                  type="button"
-                  onClick={retryLoad}
-                  className="min-h-12 px-6 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-bold"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : showMultiBoard ? (
-              <div
-                className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
-                style={badmintonLedSurfaceStyle}
-              >
-                <BadmintonLedTopStrip
-                  tournamentName={tournamentName}
-                  tournamentLogoUrl={tournamentLogoUrl}
-                  roundName={standbyMessage}
-                  matchStatus="live"
-                  isTimeout={false}
-                  leftLabel="Side A"
-                  rightLabel="Side B"
-                  scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
-                />
-                <div className="relative z-10 min-h-0 flex items-center justify-center bg-[#070708] px-[3%]">
-                  <MultiCourtScoreStrip rows={multiRows} variant="venue" />
-                </div>
-                <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
-              </div>
-            ) : showLiveBoard ? (
-              <BroadcastDisplay
-                state={data.state as BadmintonMatchState}
-                tournamentName={tournamentName}
-                tournamentLogoUrl={tournamentLogoUrl}
-                courtNumber={courtNumber ?? matchDetail?.courtNumber}
-                matchNumber={matchDetail?.matchNumber}
-                roundName={matchDetail?.roundName}
-                matchLabel={matchDetail?.matchLabel}
-                sponsorLogos={sponsorLogos}
-                scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
-              />
-            ) : (
-              <LedStandby
-                message={standbyMessage}
-                tournamentName={tournamentName}
-                tournamentLogoUrl={tournamentLogoUrl}
-                sponsorLogos={sponsorLogos}
-                scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
-              />
-            )}
-          </StageFrame>
+          <StageFrame>{stageContent}</StageFrame>
         </StageThemeProvider>
       </DisplayStageViewport>
     </FullscreenLayout>

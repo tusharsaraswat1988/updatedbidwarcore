@@ -359,7 +359,18 @@ router.patch("/broadcast-presentation", async (req, res) => {
       overlayScene: z
         .enum(["auto", "compact", "full", "intro", "winner", "sponsor", "multi"])
         .optional(),
-      venueScene: z.enum(["auto", "live_score", "standby", "multi"]).optional(),
+      venueScene: z
+        .enum([
+          "auto",
+          "live_score",
+          "standby",
+          "multi",
+          "intro",
+          "winner",
+          "sponsor",
+          "next",
+        ])
+        .optional(),
     })
     .refine((v) => v.overlayScene !== undefined || v.venueScene !== undefined, {
       message: "At least one scene field required",

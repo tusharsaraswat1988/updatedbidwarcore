@@ -32,10 +32,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const ANNOUNCEMENTS: { id: BadmintonOverlayScene; label: string }[] = [
+const VENUE_MOMENTS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "intro", label: "Intro" },
   { id: "winner", label: "Winner" },
   { id: "sponsor", label: "Sponsor" },
+  { id: "next", label: "Next" },
 ];
 
 export function MissionControlOpsRail({
@@ -183,28 +184,40 @@ export function MissionControlOpsRail({
       <div className={cn(hubPanelClass, "p-3 space-y-3")}>
         <div>
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45 mb-2">
-            OBS scene
+            Moments (Venue + OBS)
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {ANNOUNCEMENTS.map((opt) => (
+            {VENUE_MOMENTS.map((opt) => (
               <RailButton
                 key={opt.id}
                 label={opt.label}
-                active={overlayScene === opt.id}
+                active={venueScene === opt.id || overlayScene === opt.id}
                 disabled={pending}
                 onClick={() => {
                   setPresentationMutation.mutate(
-                    { overlayScene: opt.id },
+                    {
+                      venueScene: opt.id,
+                      ...(opt.id === "next"
+                        ? { overlayScene: "sponsor" as const }
+                        : {
+                            overlayScene: opt.id as Extract<
+                              BadmintonOverlayScene,
+                              "intro" | "winner" | "sponsor"
+                            >,
+                          }),
+                    },
                     { onSuccess: () => onAnnouncement?.(opt.label) },
                   );
                 }}
               />
             ))}
             <RailButton
-              label="Auto"
-              active={overlayScene === "auto"}
+              label="Clear"
+              active={venueScene === "auto" && overlayScene === "auto"}
               disabled={pending}
-              onClick={() => setPresentationMutation.mutate({ overlayScene: "auto" })}
+              onClick={() =>
+                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" })
+              }
             />
           </div>
         </div>

@@ -37,10 +37,11 @@ const OVERLAY_LAYOUT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
 ];
 
 /** Hall / stream moments — same presentation API, organizer language. */
-const OVERLAY_ANNOUNCEMENT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
+const VENUE_MOMENT_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "intro", label: "Intro" },
   { id: "winner", label: "Winner" },
   { id: "sponsor", label: "Sponsor" },
+  { id: "next", label: "Next match" },
 ];
 
 const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
@@ -207,18 +208,38 @@ export function BadmintonBroadcastDirectorPanel({
             Announcements
           </p>
           <p className="text-xs text-muted-foreground">
-            Push intro, winner, or sponsor moments to OBS. Use Venue standby for breaks.
+            Push intro, winner, sponsor, or next-match moments to Venue + OBS together.
           </p>
           <div className="flex flex-wrap gap-2">
-            {OVERLAY_ANNOUNCEMENT_OPTIONS.map((opt) => (
+            {VENUE_MOMENT_OPTIONS.map((opt) => (
               <SceneButton
                 key={opt.id}
                 label={opt.label}
-                active={overlayScene === opt.id}
+                active={venueScene === opt.id || overlayScene === opt.id}
                 disabled={pending}
-                onClick={() => setPresentationMutation.mutate({ overlayScene: opt.id })}
+                onClick={() =>
+                  setPresentationMutation.mutate({
+                    venueScene: opt.id,
+                    ...(opt.id === "next"
+                      ? { overlayScene: "sponsor" }
+                      : {
+                          overlayScene: opt.id as Extract<
+                            BadmintonOverlayScene,
+                            "intro" | "winner" | "sponsor"
+                          >,
+                        }),
+                  })
+                }
               />
             ))}
+            <SceneButton
+              label="Clear moments"
+              active={venueScene === "auto" && overlayScene === "auto"}
+              disabled={pending}
+              onClick={() =>
+                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" })
+              }
+            />
             <SceneButton
               label="Venue standby"
               active={venueScene === "standby"}

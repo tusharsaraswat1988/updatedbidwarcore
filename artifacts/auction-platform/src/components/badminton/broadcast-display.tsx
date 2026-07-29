@@ -164,6 +164,8 @@ export function BroadcastDisplay({
       : null;
   const urgencySide = matchPointSide ?? gamePointSide;
   const urgencyKind = matchPointSide ? "match" : gamePointSide ? "game" : null;
+  /** Match point — hide sponsor bar and enlarge score for hall readability ("crowd mode"). */
+  const crowdMode = urgencyKind === "match";
 
   const isDeuce =
     state.matchStatus === "live" &&
@@ -172,7 +174,10 @@ export function BroadcastDisplay({
 
   return (
     <div
-      className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
+      className={cn(
+        "badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]",
+        crowdMode && "badminton-led-surface--crowd",
+      )}
       style={badmintonLedSurfaceStyle}
     >
       <div
@@ -230,6 +235,7 @@ export function BroadcastDisplay({
           isDeuce={isDeuce}
           urgencyKind={urgencyKind}
           urgencySide={urgencySide}
+          pointFlash={pointFlash}
         />
 
         <PlayerBlock
@@ -252,7 +258,15 @@ export function BroadcastDisplay({
           matchName={displayMatchName}
           games={state.games}
         />
-        <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
+        {crowdMode ? (
+          <div className="badminton-crowd-strip border-t border-red-500/40 bg-red-600/20 h-[10vh] min-h-[72px] max-h-[104px] flex items-center justify-center">
+            <span className="bw-heading text-red-100 tracking-[0.35em] text-2xl md:text-3xl animate-pulse">
+              MATCH POINT
+            </span>
+          </div>
+        ) : (
+          <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
+        )}
       </footer>
 
       {isTimeout && state.activeTimeout ? (
@@ -577,6 +591,7 @@ function CentrePanel({
   isDeuce,
   urgencyKind,
   urgencySide,
+  pointFlash,
 }: {
   state: BadmintonMatchState;
   isDoubles?: boolean;
@@ -585,16 +600,18 @@ function CentrePanel({
   isDeuce: boolean;
   urgencyKind: "game" | "match" | null;
   urgencySide: BadmintonSide | null;
+  pointFlash: FlashSide;
 }) {
   return (
     <div className="badminton-score-centre flex flex-col items-center min-w-0">
       <div
-        className="badminton-score-centre-score flex items-center justify-center"
+        className="badminton-score-centre-score flex items-center justify-center relative"
         style={{ gap: "calc(var(--score-panel-gap) * 0.75)" }}
       >
         <ScoreDigit
           score={state.leftScore}
           active={state.matchStatus === "live"}
+          celebrate={pointFlash === "left"}
         />
         <div
           className="text-white/25 font-thin leading-none"
@@ -605,7 +622,16 @@ function CentrePanel({
         <ScoreDigit
           score={state.rightScore}
           active={state.matchStatus === "live"}
+          celebrate={pointFlash === "right"}
         />
+        {pointFlash ? (
+          <span
+            className="badminton-point-burst bw-heading"
+            key={`${pointFlash}-${state.leftScore}-${state.rightScore}`}
+          >
+            +1
+          </span>
+        ) : null}
       </div>
 
       <div
@@ -705,10 +731,21 @@ function CentrePanel({
   );
 }
 
-function ScoreDigit({ score, active }: { score: number; active: boolean }) {
+function ScoreDigit({
+  score,
+  active,
+  celebrate,
+}: {
+  score: number;
+  active: boolean;
+  celebrate?: boolean;
+}) {
   return (
     <div
-      className="badminton-score-digit bw-display-xl font-black leading-none tabular-nums tracking-tighter transition-all duration-200"
+      className={cn(
+        "badminton-score-digit bw-display-xl font-black leading-none tabular-nums tracking-tighter transition-all duration-200",
+        celebrate && "badminton-score-digit--celebrate",
+      )}
       style={fixedScoreStyle(active)}
     >
       {score}

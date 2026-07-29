@@ -11,7 +11,15 @@ export type BadmintonOverlayScene =
   | "sponsor"
   | "multi";
 
-export type BadmintonVenueScene = "auto" | "live_score" | "standby" | "multi";
+export type BadmintonVenueScene =
+  | "auto"
+  | "live_score"
+  | "standby"
+  | "multi"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "next";
 
 export type OverlayGraphicType = "compact" | "full" | "intro" | "winner" | "sponsor";
 
@@ -24,6 +32,13 @@ const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
 ] as const;
 
 export const MAX_MULTI_COURT_ROWS = 3;
+
+const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
+  "intro",
+  "winner",
+  "sponsor",
+  "next",
+] as const;
 
 export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
   if (
@@ -41,7 +56,16 @@ export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
 }
 
 export function parseVenueScene(raw: unknown): BadmintonVenueScene {
-  if (raw === "auto" || raw === "live_score" || raw === "standby" || raw === "multi") {
+  if (
+    raw === "auto" ||
+    raw === "live_score" ||
+    raw === "standby" ||
+    raw === "multi" ||
+    raw === "intro" ||
+    raw === "winner" ||
+    raw === "sponsor" ||
+    raw === "next"
+  ) {
     return raw;
   }
   return "auto";
@@ -57,6 +81,12 @@ export function isMultiCourtVenueScene(
   venueScene: BadmintonVenueScene | undefined | null,
 ): boolean {
   return venueScene === "multi";
+}
+
+export function isVenueMomentScene(
+  venueScene: BadmintonVenueScene | undefined | null,
+): boolean {
+  return !!venueScene && (VENUE_MOMENT_SCENES as readonly string[]).includes(venueScene);
 }
 
 /** Effective OBS graphic type — server scene wins over URL `?type=` when not `auto`/`multi`. */
@@ -75,12 +105,14 @@ export function resolveOverlayGraphicType(
 
 /**
  * Whether Venue Scoreboard should show the single-match live board.
- * `standby` / `multi` do not use the single-match board.
+ * Standby, multi-court, and director moment scenes use dedicated layouts.
  */
 export function shouldShowVenueLiveBoard(
   venueScene: BadmintonVenueScene | undefined | null,
   hasMatchState: boolean,
 ): boolean {
-  if (venueScene === "standby" || venueScene === "multi") return false;
+  if (venueScene === "standby" || venueScene === "multi" || isVenueMomentScene(venueScene)) {
+    return false;
+  }
   return hasMatchState;
 }

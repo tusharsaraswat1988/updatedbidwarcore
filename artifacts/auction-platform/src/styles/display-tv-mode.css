@@ -495,6 +495,57 @@
   }
 }
 
+.badminton-led-surface--crowd {
+  --score-digit-size: clamp(8.5rem, 24vw, 19rem);
+}
+
+.badminton-score-digit--celebrate {
+  animation: badmintonPointPop 0.55s ease-out;
+}
+
+@keyframes badmintonPointPop {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  35% {
+    transform: scale(1.12);
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.badminton-point-burst {
+  position: absolute;
+  top: -0.35em;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffd700;
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 18px rgba(255, 215, 0, 0.65);
+  animation: badmintonPointBurst 0.75s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes badmintonPointBurst {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(0.4em) scale(0.7);
+  }
+  30% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-0.8em) scale(1);
+  }
+}
+
 /* V1 LED stage — theme tokens + broadcast animations ───────────── */
 .auction-stage {
   --accent: #ffc400;

@@ -11,7 +11,15 @@ export type BadmintonOverlayScene =
   | "sponsor"
   | "multi";
 
-export type BadmintonVenueScene = "auto" | "live_score" | "standby" | "multi";
+export type BadmintonVenueScene =
+  | "auto"
+  | "live_score"
+  | "standby"
+  | "multi"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "next";
 
 export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "auto",
@@ -28,6 +36,10 @@ export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
   "live_score",
   "standby",
   "multi",
+  "intro",
+  "winner",
+  "sponsor",
+  "next",
 ] as const;
 
 export type BadmintonBranding = {

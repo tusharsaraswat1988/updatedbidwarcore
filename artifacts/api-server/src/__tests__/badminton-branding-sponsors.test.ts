@@ -64,4 +64,14 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.overlayScene).toBe("multi");
     expect(branding.venueScene).toBe("multi");
   });
+
+  it("parses venue moment scenes intro/winner/sponsor/next", () => {
+    for (const venueScene of ["intro", "winner", "sponsor", "next"] as const) {
+      const branding = getBadmintonBranding(
+        { name: "League" },
+        { branding: {}, broadcast: { venueScene } },
+      );
+      expect(branding.venueScene).toBe(venueScene);
+    }
+  });
 });
