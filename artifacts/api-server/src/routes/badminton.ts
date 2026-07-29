@@ -1179,41 +1179,44 @@ router.delete("/categories/:catId", async (req, res) => {
     });
   }
 
-  await db
-    .delete(badmintonRegistrationsTable)
-    .where(
-      and(
-        eq(badmintonRegistrationsTable.categoryId, catId),
-        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
-      ),
-    );
+  // S3-04 — delete registrations / fixtures / draws / category atomically (no orphans).
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(badmintonRegistrationsTable)
+      .where(
+        and(
+          eq(badmintonRegistrationsTable.categoryId, catId),
+          eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonFixturesTable)
-    .where(
-      and(
-        eq(badmintonFixturesTable.categoryId, catId),
-        eq(badmintonFixturesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.categoryId, catId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonDrawsTable)
-    .where(
-      and(
-        eq(badmintonDrawsTable.categoryId, catId),
-        eq(badmintonDrawsTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonDrawsTable)
+      .where(
+        and(
+          eq(badmintonDrawsTable.categoryId, catId),
+          eq(badmintonDrawsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonCategoriesTable)
-    .where(
-      and(
-        eq(badmintonCategoriesTable.id, catId),
-        eq(badmintonCategoriesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonCategoriesTable)
+      .where(
+        and(
+          eq(badmintonCategoriesTable.id, catId),
+          eq(badmintonCategoriesTable.tournamentId, tournamentId),
+        ),
+      );
+  });
 
   broadcastTournamentUpdate(tournamentId, { type: "category_deleted", categoryId: catId });
   res.json({ deleted: true });

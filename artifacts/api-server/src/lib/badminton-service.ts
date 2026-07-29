@@ -15,6 +15,7 @@ import { markLatency } from "./badminton-latency-trace";
 import {
   scoringMatchesTable,
   scoringEventsTable,
+  scoringSessionsTable,
   badmintonMatchDetailsTable,
   badmintonFixturesTable,
   badmintonAnalyticsTable,
@@ -1839,7 +1840,7 @@ export async function deleteBadmintonMatch(
     )
     .limit(1);
 
-  if (match?.status === "live") {
+  if (match?.status === "live" || match?.status === "paused") {
     throw new BadmintonServiceError(
       "MATCH_LIVE",
       "Cannot delete a live match. Complete, retire, or walk over the match first.",
@@ -1847,58 +1848,78 @@ export async function deleteBadmintonMatch(
     );
   }
 
-  // Restore fixture to scheduled (court/time kept) so operators can recreate the match.
-  await db
-    .update(badmintonFixturesTable)
-    .set({
-      scoringMatchId: null,
-      status: "scheduled",
-      startedAt: null,
-      completedAt: null,
-      resultSummary: null,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(badmintonFixturesTable.scoringMatchId, matchId),
-        eq(badmintonFixturesTable.tournamentId, tournamentId),
-      ),
-    );
+  /**
+   * S3-04 — organizer-initiated delete is a hard delete inside one transaction.
+   *
+   * Append-only contract note: `scoring_events` are INSERT-only in normal scoring.
+   * Organizer match delete intentionally forfeits forensic event history so the
+   * fixture can be recreated. Soft-delete/tombstone (abandoned+hidden) is deferred
+   * until a product-visible "hidden match" surface exists.
+   *
+   * FK follow-up (deferred): `badminton_match_details.scoring_match_id` →
+   * `scoring_matches(id)` ON DELETE CASCADE — skipped here to avoid breaking
+   * existing dirty/orphan rows; integrity is enforced by this transaction instead
+   * (details deleted before/with the match; no orphan match_details).
+   */
+  await db.transaction(async (tx) => {
+    // Restore fixture to scheduled (court/time kept) so operators can recreate the match.
+    await tx
+      .update(badmintonFixturesTable)
+      .set({
+        scoringMatchId: null,
+        status: "scheduled",
+        startedAt: null,
+        completedAt: null,
+        resultSummary: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(badmintonFixturesTable.scoringMatchId, matchId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .update(badmintonAnalyticsTable)
-    .set({ longestRallyMatchId: null, updatedAt: new Date() })
-    .where(
-      and(
-        eq(badmintonAnalyticsTable.tournamentId, tournamentId),
-        eq(badmintonAnalyticsTable.longestRallyMatchId, matchId),
-      ),
-    );
+    await tx
+      .update(badmintonAnalyticsTable)
+      .set({ longestRallyMatchId: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(badmintonAnalyticsTable.tournamentId, tournamentId),
+          eq(badmintonAnalyticsTable.longestRallyMatchId, matchId),
+        ),
+      );
 
-  await db
-    .delete(scoringEventsTable)
-    .where(
-      and(
-        eq(scoringEventsTable.matchId, matchId),
-        eq(scoringEventsTable.tournamentId, tournamentId),
-      ),
-    );
+    // Child rows first — prevents orphan match_details / dangling sessions/events.
+    await tx
+      .delete(scoringSessionsTable)
+      .where(eq(scoringSessionsTable.matchId, matchId));
 
-  await db
-    .delete(badmintonMatchDetailsTable)
-    .where(
-      and(
-        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
-        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(scoringEventsTable)
+      .where(
+        and(
+          eq(scoringEventsTable.matchId, matchId),
+          eq(scoringEventsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(scoringMatchesTable)
-    .where(
-      and(
-        eq(scoringMatchesTable.id, matchId),
-        eq(scoringMatchesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonMatchDetailsTable)
+      .where(
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      );
+
+    await tx
+      .delete(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+  });
 }
