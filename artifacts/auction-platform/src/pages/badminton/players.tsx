@@ -74,6 +74,14 @@ interface BadmintonPlayer {
   metaJson?: BadmintonPlayerMeta | null;
   franchiseName?: string | null;
   franchiseLogoUrl?: string | null;
+  franchiseAuctionTeamId?: number | null;
+}
+
+interface FranchiseTeam {
+  auctionTeamId: number;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
 }
 
 interface SportRole {
@@ -113,6 +121,12 @@ export default function BadmintonPlayersPage() {
     queryKey: ["badminton-players", tournamentId],
     queryFn: () => badmintonFetch<BadmintonPlayer[]>(tournamentId, `/players`),
     enabled: !!tournamentId,
+  });
+
+  const { data: franchiseTeams = [] } = useQuery<FranchiseTeam[]>({
+    queryKey: ["badminton-franchise-teams", tournamentId],
+    queryFn: () => badmintonFetch<FranchiseTeam[]>(tournamentId, `/franchise-teams`),
+    enabled: !!tournamentId && section === "players",
   });
 
   const deleteMutation = useMutation({
@@ -360,7 +374,7 @@ export default function BadmintonPlayersPage() {
                           {group.players.length} player{group.players.length === 1 ? "" : "s"}
                           {group.teamName !== "Players without Team"
                             ? " · team identity from Player Registry"
-                            : " · add a team later if needed"}
+                            : " · edit player to assign a team"}
                         </p>
                       </div>
                     </div>
@@ -389,6 +403,7 @@ export default function BadmintonPlayersPage() {
         <PlayerFormModal
           tournamentId={tournamentId}
           player={editPlayer}
+          franchiseTeams={franchiseTeams}
           onClose={() => { setShowForm(false); setEditPlayer(null); }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
@@ -910,15 +925,19 @@ function PlayerCard({
 function PlayerFormModal({
   tournamentId,
   player,
+  franchiseTeams,
   onClose,
   onSaved,
 }: {
   tournamentId: number;
   player: BadmintonPlayer | null;
+  franchiseTeams: FranchiseTeam[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const existingMeta = player ? playerMeta(player) : null;
+  const initialTeamId =
+    player?.franchiseAuctionTeamId != null ? String(player.franchiseAuctionTeamId) : "none";
   const [form, setForm] = useState({
     name: player ? playerFullName(player) : "",
     mobile: player?.mobile ? sanitizeMobileInput(player.mobile) : "",
@@ -933,6 +952,7 @@ function PlayerFormModal({
     jerseyNumber: existingMeta?.jerseyNumber ?? "",
     jerseySize: (existingMeta?.jerseySize as JerseySize | "") ?? "",
     achievements: existingMeta?.achievements ?? "",
+    franchiseTeamId: initialTeamId,
   });
   const [sportRoles, setSportRoles] = useState<SportRole[]>([]);
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
@@ -1000,10 +1020,25 @@ function PlayerFormModal({
         achievements: form.achievements.trim() || undefined,
       };
       const path = player ? `/players/${player.id}` : `/players`;
-      await badmintonFetch(tournamentId, path, {
+      const saved = await badmintonFetch<BadmintonPlayer>(tournamentId, path, {
         method: player ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
+
+      const savedPlayerId = player?.id ?? saved.id;
+      const teamChanged = form.franchiseTeamId !== initialTeamId;
+      if (savedPlayerId && teamChanged && franchiseTeams.length > 0) {
+        await badmintonFetch(tournamentId, `/players/${savedPlayerId}/franchise-team`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            auctionTeamId:
+              form.franchiseTeamId === "none"
+                ? null
+                : parseInt(form.franchiseTeamId, 10),
+          }),
+        });
+      }
+
       onSaved();
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error saving player";
@@ -1155,6 +1190,26 @@ function PlayerFormModal({
             ]}
           />
         </FormField>
+
+        {franchiseTeams.length > 0 ? (
+          <FormField label="Team">
+            <DarkSelect
+              value={form.franchiseTeamId}
+              onValueChange={(teamId) => setField("franchiseTeamId", teamId)}
+              placeholder="Select team…"
+              options={[
+                { value: "none", label: "No team assigned" },
+                ...franchiseTeams.map((team) => ({
+                  value: String(team.auctionTeamId),
+                  label: team.name,
+                })),
+              ]}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Assign or change the player&apos;s auction franchise team for scoring and match setup.
+            </p>
+          </FormField>
+        ) : null}
 
         <FormField label="Playing Hand">
           <DarkSelect

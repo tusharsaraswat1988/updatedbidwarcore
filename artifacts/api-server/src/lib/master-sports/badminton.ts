@@ -1226,6 +1226,212 @@ export async function listMasterPlayersForBadminton(
   return items;
 }
 
+type BadmintonFranchiseEnrichment = {
+  franchiseName: string | null;
+  franchiseLogoUrl: string | null;
+  franchiseAuctionTeamId: number | null;
+};
+
+/** Batch-load franchise metadata for a tournament roster (avoids per-player N+1 queries). */
+async function batchFranchiseEnrichmentForBadmintonPlayers(
+  tournamentId: number,
+  rows: BadmintonPlayer[],
+  settings: BadmintonTournamentSettings,
+): Promise<Map<number, BadmintonFranchiseEnrichment>> {
+  const empty: BadmintonFranchiseEnrichment = {
+    franchiseName: null,
+    franchiseLogoUrl: null,
+    franchiseAuctionTeamId: null,
+  };
+
+  if (rows.length === 0) return new Map();
+
+  const lookupTournamentId =
+    settings.linkedPlayerRegistryTournamentId ??
+    settings.linkedAuctionTournamentId ??
+    tournamentId;
+
+  const badmintonIdToMasterId = new Map<number, string>();
+  const needsMapping: number[] = [];
+
+  for (const bp of rows) {
+    if (bp.masterPlayerId) {
+      badmintonIdToMasterId.set(bp.id, bp.masterPlayerId);
+    } else {
+      needsMapping.push(bp.id);
+    }
+  }
+
+  if (needsMapping.length > 0) {
+    const mappings = await db
+      .select({
+        sourcePlayerId: masterPlayerIdMappingsTable.sourcePlayerId,
+        masterPlayerId: masterPlayerIdMappingsTable.masterPlayerId,
+      })
+      .from(masterPlayerIdMappingsTable)
+      .where(
+        and(
+          eq(masterPlayerIdMappingsTable.sourceModule, "badminton"),
+          eq(masterPlayerIdMappingsTable.tournamentId, tournamentId),
+          inArray(masterPlayerIdMappingsTable.sourcePlayerId, needsMapping),
+        ),
+      );
+
+    for (const mapping of mappings) {
+      if (mapping.masterPlayerId) {
+        badmintonIdToMasterId.set(mapping.sourcePlayerId, mapping.masterPlayerId);
+      }
+    }
+  }
+
+  const masterIds = [...new Set(badmintonIdToMasterId.values())];
+  const enrichmentByMasterId = new Map<string, BadmintonFranchiseEnrichment>();
+
+  if (masterIds.length === 0) {
+    return new Map(rows.map((bp) => [bp.id, empty]));
+  }
+
+  const masterPlayers = await db
+    .select()
+    .from(globalPlayersTable)
+    .where(inArray(globalPlayersTable.id, masterIds));
+  const masterById = new Map(masterPlayers.map((mp) => [mp.id, mp]));
+
+  const assignments = await db
+    .select()
+    .from(playerTeamAssignmentsTable)
+    .where(
+      and(
+        inArray(playerTeamAssignmentsTable.playerId, masterIds),
+        eq(playerTeamAssignmentsTable.tournamentId, lookupTournamentId),
+        eq(playerTeamAssignmentsTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
+
+  const assignmentByMasterId = new Map<string, (typeof assignments)[number]>();
+  for (const assignment of assignments) {
+    if (!assignmentByMasterId.has(assignment.playerId)) {
+      assignmentByMasterId.set(assignment.playerId, assignment);
+    }
+  }
+
+  const masterTeamIds = new Set<string>();
+  for (const assignment of assignmentByMasterId.values()) {
+    if (assignment.teamId) masterTeamIds.add(assignment.teamId);
+  }
+
+  const auctionPlayerIds = masterPlayers
+    .filter((mp) => mp.auctionPlayerId != null)
+    .map((mp) => mp.auctionPlayerId as number);
+
+  const auctionPlayers =
+    auctionPlayerIds.length > 0
+      ? await db
+          .select({
+            id: playersTable.id,
+            teamId: playersTable.teamId,
+          })
+          .from(playersTable)
+          .where(
+            and(
+              inArray(playersTable.id, auctionPlayerIds),
+              eq(playersTable.tournamentId, lookupTournamentId),
+              or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
+            ),
+          )
+      : [];
+
+  const auctionPlayerById = new Map(auctionPlayers.map((row) => [row.id, row]));
+  const auctionTeamIds = new Set<number>();
+  for (const row of auctionPlayers) {
+    if (row.teamId != null) auctionTeamIds.add(row.teamId);
+  }
+
+  const auctionTeams =
+    auctionTeamIds.size > 0
+      ? await db
+          .select({
+            id: teamsTable.id,
+            name: teamsTable.name,
+            logoUrl: teamsTable.logoUrl,
+            masterTeamId: teamsTable.masterTeamId,
+          })
+          .from(teamsTable)
+          .where(inArray(teamsTable.id, [...auctionTeamIds]))
+      : [];
+
+  const auctionTeamById = new Map(auctionTeams.map((team) => [team.id, team]));
+  for (const team of auctionTeams) {
+    if (team.masterTeamId) masterTeamIds.add(team.masterTeamId);
+  }
+
+  const masterTeams =
+    masterTeamIds.size > 0
+      ? await db
+          .select()
+          .from(masterTeamsTable)
+          .where(inArray(masterTeamsTable.id, [...masterTeamIds]))
+      : [];
+  const masterTeamById = new Map(masterTeams.map((team) => [team.id, team]));
+
+  for (const masterId of masterIds) {
+    const mp = masterById.get(masterId);
+    if (!mp) {
+      enrichmentByMasterId.set(masterId, empty);
+      continue;
+    }
+
+    let franchiseName: string | null = null;
+    let franchiseLogoUrl: string | null = null;
+    let franchiseAuctionTeamId: number | null = null;
+
+    const assignment = assignmentByMasterId.get(masterId);
+    if (assignment) {
+      franchiseAuctionTeamId = assignment.auctionTeamId ?? null;
+      const team = masterTeamById.get(assignment.teamId);
+      if (team) {
+        franchiseName = team.name;
+        franchiseLogoUrl = team.logoUrl;
+      }
+    } else if (mp.auctionPlayerId) {
+      const auctionPlayer = auctionPlayerById.get(mp.auctionPlayerId);
+      if (auctionPlayer?.teamId) {
+        franchiseAuctionTeamId = auctionPlayer.teamId;
+        const auctionTeam = auctionTeamById.get(auctionPlayer.teamId);
+        if (auctionTeam) {
+          franchiseName = auctionTeam.name;
+          franchiseLogoUrl = auctionTeam.logoUrl;
+          if (auctionTeam.masterTeamId) {
+            const masterTeam = masterTeamById.get(auctionTeam.masterTeamId);
+            if (masterTeam) {
+              franchiseName = masterTeam.name;
+              franchiseLogoUrl = masterTeam.logoUrl ?? franchiseLogoUrl;
+            }
+          }
+        }
+      }
+    }
+
+    enrichmentByMasterId.set(masterId, {
+      franchiseName,
+      franchiseLogoUrl,
+      franchiseAuctionTeamId,
+    });
+  }
+
+  const result = new Map<number, BadmintonFranchiseEnrichment>();
+  for (const bp of rows) {
+    const masterId = badmintonIdToMasterId.get(bp.id);
+    result.set(
+      bp.id,
+      masterId ? (enrichmentByMasterId.get(masterId) ?? empty) : empty,
+    );
+  }
+
+  return result;
+}
+
 export type MatchRosterPlayerItem = {
   badmintonPlayerId: number;
   masterPlayerId: string | null;
@@ -1260,41 +1466,23 @@ export async function listBadmintonPlayersForMatchRoster(
     )
     .orderBy(asc(badmintonPlayersTable.lastName), asc(badmintonPlayersTable.firstName));
 
-  const items: MatchRosterPlayerItem[] = [];
+  const franchiseByBadmintonId = await batchFranchiseEnrichmentForBadmintonPlayers(
+    tournamentId,
+    rows,
+    settings,
+  );
 
-  for (const bp of rows) {
-    let franchiseName: string | null = null;
-    let franchiseLogoUrl: string | null = null;
-
-    const masterPlayerId = await resolveMasterPlayerId(bp);
-    if (masterPlayerId) {
-      const [mp] = await db
-        .select()
-        .from(globalPlayersTable)
-        .where(eq(globalPlayersTable.id, masterPlayerId))
-        .limit(1);
-      if (mp) {
-        const enriched = await enrichMasterPlayerForTournament(
-          mp,
-          tournamentId,
-          settings.linkedPlayerRegistryTournamentId ?? settings.linkedAuctionTournamentId,
-        );
-        franchiseName = enriched.franchiseName;
-        franchiseLogoUrl = enriched.franchiseLogoUrl;
-      }
-    }
-
-    items.push({
+  return rows.map((bp) => {
+    const franchise = franchiseByBadmintonId.get(bp.id);
+    return {
       badmintonPlayerId: bp.id,
-      masterPlayerId,
+      masterPlayerId: bp.masterPlayerId ?? null,
       displayName: bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim(),
       photoUrl: bp.photoUrl ?? null,
-      franchiseName,
-      franchiseLogoUrl,
-    });
-  }
-
-  return items;
+      franchiseName: franchise?.franchiseName ?? null,
+      franchiseLogoUrl: franchise?.franchiseLogoUrl ?? null,
+    };
+  });
 }
 
 export type BadmintonPlayerListItem = BadmintonPlayer & {
@@ -1328,44 +1516,21 @@ export async function listBadmintonPlayersForOrganizer(
     )
     .orderBy(asc(badmintonPlayersTable.lastName), asc(badmintonPlayersTable.firstName));
 
-  const items: BadmintonPlayerListItem[] = [];
+  const franchiseByBadmintonId = await batchFranchiseEnrichmentForBadmintonPlayers(
+    tournamentId,
+    rows,
+    settings,
+  );
 
-  for (const bp of rows) {
-    let franchiseName: string | null = null;
-    let franchiseLogoUrl: string | null = null;
-    let franchiseAuctionTeamId: number | null = null;
-
-    const masterPlayerId = await resolveMasterPlayerId(bp);
-    if (masterPlayerId) {
-      const [mp] = await db
-        .select()
-        .from(globalPlayersTable)
-        .where(eq(globalPlayersTable.id, masterPlayerId))
-        .limit(1);
-      if (mp) {
-        const enriched = await enrichMasterPlayerForTournament(
-          mp,
-          tournamentId,
-          settings.linkedPlayerRegistryTournamentId ?? settings.linkedAuctionTournamentId,
-        );
-        franchiseName = enriched.franchiseName;
-        franchiseLogoUrl = enriched.franchiseLogoUrl;
-        franchiseAuctionTeamId = await resolveFranchiseAuctionTeamId(
-          mp,
-          resolveRegistrySourceTournamentId(tournamentId, settings),
-        );
-      }
-    }
-
-    items.push({
+  return rows.map((bp) => {
+    const franchise = franchiseByBadmintonId.get(bp.id);
+    return {
       ...bp,
-      franchiseName,
-      franchiseLogoUrl,
-      franchiseAuctionTeamId,
-    });
-  }
-
-  return items;
+      franchiseName: franchise?.franchiseName ?? null,
+      franchiseLogoUrl: franchise?.franchiseLogoUrl ?? null,
+      franchiseAuctionTeamId: franchise?.franchiseAuctionTeamId ?? null,
+    };
+  });
 }
 
 /** Build side JSON from a registered badminton player row. */

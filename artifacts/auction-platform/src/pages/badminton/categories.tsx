@@ -13,6 +13,10 @@ import { formatCategoryPhaseLabel } from "@/lib/badminton-ux";
 import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import {
+  formatPlayerEntryLabel,
+  RegistrationPlayerSelect,
+} from "@/components/badminton/registration-player-select";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import {
@@ -211,6 +215,7 @@ function CategoryPanel({
     queryKey: ["badminton-players", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/players`),
     enabled: expanded && !!tournamentId,
+    staleTime: 60_000,
   });
 
   const [showAddReg, setShowAddReg] = useState(false);
@@ -632,10 +637,17 @@ function AddRegistrationModal({
 }) {
   const isDoubles = category.matchType !== "singles";
 
-  const { data: players = [], isLoading: playersLoading } = useQuery<BadmintonPlayer[]>({
+  const {
+    data: players = [],
+    isLoading: playersLoading,
+    isError: playersLoadFailed,
+    error: playersLoadError,
+    refetch,
+  } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/players`),
     enabled: !!tournamentId,
+    staleTime: 60_000,
   });
 
   const [player1Id, setPlayer1Id] = useState("");
@@ -677,36 +689,49 @@ function AddRegistrationModal({
     <FormModal title="Add Entry" subtitle={category.name} onClose={onClose} size="md">
       {playersLoading ? (
         <AsyncLoadingPanel tone="inverse" compact message="Loading registered players…" />
+      ) : playersLoadFailed ? (
+        <>
+          <FormError
+            message={
+              playersLoadError instanceof Error
+                ? playersLoadError.message
+                : "Could not load players. Check your connection and try again."
+            }
+          />
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="w-full h-11 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-semibold hover-elevate"
+          >
+            Retry
+          </button>
+        </>
       ) : (
         <>
-      <FormField label={isDoubles ? "Player 1" : "Player"} required>
-        <DarkSelect
-          value={player1Id || "none"}
-          onValueChange={(v) => setPlayer1Id(v === "none" ? "" : v)}
-          placeholder="Select player…"
-          options={[
-            { value: "none", label: "Select player…" },
-            ...players.map((p) => ({ value: String(p.id), label: formatPlayerName(p) })),
-          ]}
-        />
-      </FormField>
+      <RegistrationPlayerSelect
+        label={isDoubles ? "Player 1" : "Player"}
+        required
+        value={player1Id}
+        onChange={(id) => {
+          setPlayer1Id(id);
+          if (id && id === player2Id) setPlayer2Id("");
+        }}
+        players={players}
+        excludePlayerIds={player2Id ? [parseInt(player2Id, 10)] : []}
+        placeholder="Select player…"
+      />
 
-      {isDoubles && (
-        <FormField label="Player 2 (Partner)" required>
-          <DarkSelect
-            value={player2Id || "none"}
-            onValueChange={(v) => setPlayer2Id(v === "none" ? "" : v)}
-            placeholder="Select partner…"
-            options={[
-              { value: "none", label: "Select partner…" },
-              ...players.filter((p) => String(p.id) !== player1Id).map((p) => ({
-                value: String(p.id),
-                label: formatPlayerName(p),
-              })),
-            ]}
-          />
-        </FormField>
-      )}
+      {isDoubles ? (
+        <RegistrationPlayerSelect
+          label="Player 2 (Partner)"
+          required
+          value={player2Id}
+          onChange={setPlayer2Id}
+          players={players}
+          excludePlayerIds={player1Id ? [parseInt(player1Id, 10)] : []}
+          placeholder="Select partner…"
+        />
+      ) : null}
 
       <FormField label="Seed Number (optional)">
         <input
@@ -749,9 +774,7 @@ function PhaseBadge({ phase }: { phase: string }) {
 }
 
 function formatPlayerName(p: BadmintonPlayer): string {
-  const name = p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
-  const team = p.franchiseName?.trim();
-  return team ? `${team} · ${name}` : name;
+  return formatPlayerEntryLabel(p);
 }
 
 function formatRegistrationEntryName(
