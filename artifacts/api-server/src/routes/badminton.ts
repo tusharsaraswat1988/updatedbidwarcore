@@ -10,7 +10,8 @@
  * matches, dashboard, SSE stream) are intentionally public so that
  * audience displays, scoreboards and OBS overlays can be embedded without
  * auth.  All reads are scoped to the URL tournament; no cross-tournament
- * leakage is possible.
+ * leakage is possible. Player contact PII (mobile/email) is stripped on
+ * public reads; organizers with a valid session still receive full fields.
  *
  * WRITE endpoints (POST/PATCH/DELETE on entities and all scoring actions)
  * require EITHER:
@@ -139,9 +140,14 @@ import {
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
 import {
+  canAccessPrivateTournamentData,
   isTournamentOrganizer,
   requireTournamentOrganizer,
 } from "../middleware/require-organizer";
+import {
+  publicBadmintonPlayerSerializer,
+  serializeBadmintonPlayerForAudience,
+} from "../lib/serializers/badminton-player";
 
 const router = Router({ mergeParams: true });
 
@@ -526,14 +532,18 @@ router.get("/stream", async (req, res) => {
 
 // ─── Players ─────────────────────────────────────────────────────────────────
 
-/** Public read — scoped by tournamentId. */
+/**
+ * Public read — scoped by tournamentId.
+ * Contact PII (mobile/email) only for authenticated tournament organizers.
+ */
 router.get("/players", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
   const players = await listBadmintonPlayersForOrganizer(tournamentId);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
 
-  res.json(players);
+  res.json(players.map((p) => serializeBadmintonPlayerForAudience(p, isOrganizer)));
 });
 
 /** Registered roster for match creation — tournament players only, not global catalog. */
@@ -656,7 +666,11 @@ router.post("/players", async (req, res) => {
     .values({ tournamentId, ...values, status: "active" })
     .returning();
 
-  broadcastTournamentUpdate(tournamentId, { type: "player_created", player });
+  // SSE is public — never broadcast contact PII.
+  broadcastTournamentUpdate(tournamentId, {
+    type: "player_created",
+    player: publicBadmintonPlayerSerializer(player),
+  });
   res.status(201).json(player);
 });
 
@@ -677,7 +691,8 @@ router.get("/players/:playerId", async (req, res) => {
     .limit(1);
 
   if (!player) return void res.status(404).json({ error: "player not found" });
-  res.json(player);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  res.json(serializeBadmintonPlayerForAudience(player, isOrganizer));
 });
 
 router.patch("/players/:playerId", async (req, res) => {
@@ -1202,7 +1217,10 @@ router.get("/categories/:catId/registrations", async (req, res) => {
           )
       : [];
 
-  const playerById = new Map(players.map((p) => [p.id, p]));
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  const playerById = new Map(
+    players.map((p) => [p.id, serializeBadmintonPlayerForAudience(p, isOrganizer)]),
+  );
 
   res.json(
     regs.map((registration) => ({

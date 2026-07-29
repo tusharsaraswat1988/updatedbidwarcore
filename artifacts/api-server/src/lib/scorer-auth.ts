@@ -16,8 +16,21 @@ import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
 import { hashScorerPin, verifyScorerPin } from "./scorer-pin-crypto";
 import { writeScorerAudit } from "./scorer-audit";
 import { logger } from "./logger";
+import {
+  clearScorerLoginFailures,
+  isScorerLoginRateLimited,
+  recordScorerLoginFailure,
+} from "./scorer-login-rate-limit";
 
 export const SCORER_SESSION_TTL_SEC = 12 * 60 * 60; // 12 hours
+
+export {
+  SCORER_LOGIN_MAX_FAILURES,
+  SCORER_LOGIN_WINDOW_MS,
+  resetScorerLoginRateLimitForTests,
+  recordScorerLoginFailure as recordScorerLoginFailureForTests,
+  isScorerLoginRateLimited as isScorerLoginRateLimitedForTests,
+} from "./scorer-login-rate-limit";
 
 export class ScorerAuthError extends Error {
   constructor(
@@ -101,6 +114,26 @@ export async function loginScorer(input: {
     throw new ScorerAuthError("PIN must be at least 4 characters", "INVALID_PIN", 400);
   }
 
+  if (isScorerLoginRateLimited(mobile, input.ipAddress)) {
+    throw new ScorerAuthError(
+      "Too many failed login attempts. Try again in 15 minutes.",
+      "RATE_LIMITED",
+      429,
+    );
+  }
+
+  const failAuth = (): never => {
+    recordScorerLoginFailure(mobile, input.ipAddress);
+    if (isScorerLoginRateLimited(mobile, input.ipAddress)) {
+      throw new ScorerAuthError(
+        "Too many failed login attempts. Try again in 15 minutes.",
+        "RATE_LIMITED",
+        429,
+      );
+    }
+    throw new ScorerAuthError("Invalid mobile or PIN", "AUTH_FAILED", 401);
+  };
+
   const [account] = await db
     .select()
     .from(scorerAccountsTable)
@@ -108,13 +141,16 @@ export async function loginScorer(input: {
     .limit(1);
 
   if (!account || !account.isActive) {
-    throw new ScorerAuthError("Invalid mobile or PIN", "AUTH_FAILED", 401);
+    failAuth();
   }
 
-  const pinOk = await verifyScorerPin(pin, account.pinHash);
+  const activeAccount = account!;
+  const pinOk = await verifyScorerPin(pin, activeAccount.pinHash);
   if (!pinOk) {
-    throw new ScorerAuthError("Invalid mobile or PIN", "AUTH_FAILED", 401);
+    failAuth();
   }
+
+  clearScorerLoginFailures(mobile, input.ipAddress);
 
   const sessionId = randomUUID();
   const now = new Date();
@@ -122,7 +158,7 @@ export async function loginScorer(input: {
 
   await db.insert(scorerSessionsTable).values({
     id: sessionId,
-    scorerId: account.id,
+    scorerId: activeAccount.id,
     deviceName: input.deviceName ?? null,
     ipAddress: input.ipAddress ?? null,
     userAgent: input.userAgent ?? null,
@@ -135,18 +171,18 @@ export async function loginScorer(input: {
   await db
     .update(scorerAccountsTable)
     .set({ lastLoginAt: now })
-    .where(eq(scorerAccountsTable.id, account.id));
+    .where(eq(scorerAccountsTable.id, activeAccount.id));
 
   const token = signScorerJwt({
     purpose: "scorer",
-    scorerId: account.id,
+    scorerId: activeAccount.id,
     sessionId,
   });
 
   await writeScorerAudit({
     actorType: "scorer",
-    actorId: String(account.id),
-    scorerId: account.id,
+    actorId: String(activeAccount.id),
+    scorerId: activeAccount.id,
     sessionId,
     action: "login",
     payload: { mobile },
@@ -154,7 +190,7 @@ export async function loginScorer(input: {
 
   return {
     token,
-    scorer: { id: account.id, name: account.name, mobile: account.mobile },
+    scorer: { id: activeAccount.id, name: activeAccount.name, mobile: activeAccount.mobile },
     expiresAt: expiresAt.toISOString(),
   };
 }
