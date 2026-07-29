@@ -59,6 +59,13 @@ import {
   queueImageFieldChange,
   type ImageFieldChange,
 } from "../cloudinary-image-fields";
+import {
+  assignPlayerToFranchiseRoster,
+  endActiveRosterAssignment,
+} from "@workspace/player-registry/roster-assignments";
+import {
+  syncAuctionTeamToMaster,
+} from "./sync";
 
 export type {
   BadmintonBranding,
@@ -141,6 +148,204 @@ function parseLinkedRegistryTournamentId(raw: unknown): number | undefined {
     if (Number.isFinite(parsed) && parsed > 0) return Math.trunc(parsed);
   }
   return undefined;
+}
+
+export function resolveRegistrySourceTournamentId(
+  tournamentId: number,
+  settings: BadmintonTournamentSettings,
+): number {
+  return (
+    settings.linkedPlayerRegistryTournamentId ??
+    settings.linkedAuctionTournamentId ??
+    tournamentId
+  );
+}
+
+export type BadmintonFranchiseTeamItem = {
+  auctionTeamId: number;
+  masterTeamId: string | null;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+};
+
+/** Auction franchise teams for the linked Player Registry tournament. */
+export async function listBadmintonFranchiseTeams(
+  tournamentId: number,
+): Promise<BadmintonFranchiseTeamItem[]> {
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const settings = getBadmintonSettings(
+    tournament?.scoringSettingsJson as Record<string, unknown> | null,
+  );
+  const registryTournamentId = resolveRegistrySourceTournamentId(tournamentId, settings);
+
+  const rows = await db
+    .select({
+      id: teamsTable.id,
+      name: teamsTable.name,
+      shortCode: teamsTable.shortCode,
+      logoUrl: teamsTable.logoUrl,
+      color: teamsTable.color,
+      masterTeamId: teamsTable.masterTeamId,
+    })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, registryTournamentId))
+    .orderBy(asc(teamsTable.name));
+
+  return rows.map((team) => ({
+    auctionTeamId: team.id,
+    masterTeamId: team.masterTeamId,
+    name: team.name,
+    shortName: team.shortCode,
+    logoUrl: team.logoUrl,
+    primaryColor: team.color,
+  }));
+}
+
+async function resolveFranchiseAuctionTeamId(
+  masterPlayer: GlobalPlayer,
+  lookupTournamentId: number,
+): Promise<number | null> {
+  const [assignment] = await db
+    .select({ auctionTeamId: playerTeamAssignmentsTable.auctionTeamId })
+    .from(playerTeamAssignmentsTable)
+    .where(
+      and(
+        eq(playerTeamAssignmentsTable.playerId, masterPlayer.id),
+        eq(playerTeamAssignmentsTable.tournamentId, lookupTournamentId),
+        eq(playerTeamAssignmentsTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(playerTeamAssignmentsTable.assignedAt))
+    .limit(1);
+
+  if (assignment?.auctionTeamId) return assignment.auctionTeamId;
+
+  if (masterPlayer.auctionPlayerId) {
+    const [auctionPlayer] = await db
+      .select({ teamId: playersTable.teamId })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.id, masterPlayer.auctionPlayerId),
+          eq(playersTable.tournamentId, lookupTournamentId),
+        ),
+      )
+      .limit(1);
+    return auctionPlayer?.teamId ?? null;
+  }
+
+  return null;
+}
+
+/** Assign or clear a badminton player's franchise team in Player Registry. */
+export async function assignBadmintonPlayerFranchiseTeam(
+  tournamentId: number,
+  badmintonPlayerId: number,
+  auctionTeamId: number | null,
+): Promise<BadmintonPlayerListItem> {
+  const [bp] = await db
+    .select()
+    .from(badmintonPlayersTable)
+    .where(
+      and(
+        eq(badmintonPlayersTable.id, badmintonPlayerId),
+        eq(badmintonPlayersTable.tournamentId, tournamentId),
+        eq(badmintonPlayersTable.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (!bp) throw new Error("Player not found");
+
+  const masterPlayerId = await resolveMasterPlayerId(bp);
+  if (!masterPlayerId) {
+    throw new Error(
+      "This player is not linked to the Player Registry yet. Import from Player Registry first, then assign a team.",
+    );
+  }
+
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const settings = getBadmintonSettings(
+    tournament?.scoringSettingsJson as Record<string, unknown> | null,
+  );
+  const registryTournamentId = resolveRegistrySourceTournamentId(tournamentId, settings);
+
+  if (auctionTeamId === null) {
+    await endActiveRosterAssignment(masterPlayerId, registryTournamentId, "badminton");
+    const items = await listBadmintonPlayersForOrganizer(tournamentId);
+    const updated = items.find((p) => p.id === badmintonPlayerId);
+    if (!updated) throw new Error("Player not found");
+    return updated;
+  }
+
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(
+      and(
+        eq(teamsTable.id, auctionTeamId),
+        eq(teamsTable.tournamentId, registryTournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!team) throw new Error("Team not found for this tournament");
+
+  const masterTeamId = await syncAuctionTeamToMaster(team.id, registryTournamentId);
+  if (!masterTeamId) throw new Error("Could not sync team to Player Registry");
+
+  const [mp] = await db
+    .select({ auctionPlayerId: globalPlayersTable.auctionPlayerId })
+    .from(globalPlayersTable)
+    .where(eq(globalPlayersTable.id, masterPlayerId))
+    .limit(1);
+
+  let auctionPlayerId = mp?.auctionPlayerId ?? null;
+
+  if (!auctionPlayerId) {
+    const [auctionPlayer] = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.globalPlayerId, masterPlayerId),
+          eq(playersTable.tournamentId, registryTournamentId),
+        ),
+      )
+      .limit(1);
+    auctionPlayerId = auctionPlayer?.id ?? null;
+  }
+
+  if (!auctionPlayerId) {
+    auctionPlayerId = badmintonPlayerId;
+  }
+
+  await assignPlayerToFranchiseRoster({
+    masterPlayerId,
+    masterTeamId,
+    tournamentId: registryTournamentId,
+    auctionPlayerId,
+    auctionTeamId: team.id,
+    assignmentType: "transfer",
+    sport: "badminton",
+  });
+
+  const items = await listBadmintonPlayersForOrganizer(tournamentId);
+  const updated = items.find((p) => p.id === badmintonPlayerId);
+  if (!updated) throw new Error("Player not found");
+  return updated;
 }
 
 export function getBadmintonSettings(
@@ -1095,6 +1300,7 @@ export async function listBadmintonPlayersForMatchRoster(
 export type BadmintonPlayerListItem = BadmintonPlayer & {
   franchiseName: string | null;
   franchiseLogoUrl: string | null;
+  franchiseAuctionTeamId: number | null;
 };
 
 /** Organizer players page — full rows plus Player Registry franchise when assigned. */
@@ -1127,6 +1333,7 @@ export async function listBadmintonPlayersForOrganizer(
   for (const bp of rows) {
     let franchiseName: string | null = null;
     let franchiseLogoUrl: string | null = null;
+    let franchiseAuctionTeamId: number | null = null;
 
     const masterPlayerId = await resolveMasterPlayerId(bp);
     if (masterPlayerId) {
@@ -1143,6 +1350,10 @@ export async function listBadmintonPlayersForOrganizer(
         );
         franchiseName = enriched.franchiseName;
         franchiseLogoUrl = enriched.franchiseLogoUrl;
+        franchiseAuctionTeamId = await resolveFranchiseAuctionTeamId(
+          mp,
+          resolveRegistrySourceTournamentId(tournamentId, settings),
+        );
       }
     }
 
@@ -1150,6 +1361,7 @@ export async function listBadmintonPlayersForOrganizer(
       ...bp,
       franchiseName,
       franchiseLogoUrl,
+      franchiseAuctionTeamId,
     });
   }
 

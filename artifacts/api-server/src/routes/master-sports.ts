@@ -19,6 +19,8 @@ import {
   importTournamentBrandingToBadminton,
   importAuctionBrandingToBadminton,
   importPlayersFromTournament,
+  listBadmintonFranchiseTeams,
+  assignBadmintonPlayerFranchiseTeam,
 } from "../lib/master-sports/badminton";
 import {
   migrateBadmintonPlayersToMaster,
@@ -37,6 +39,19 @@ function tid(req: { params: Record<string, string> }): number | null {
   const n = parseInt(req.params.id, 10);
   return Number.isNaN(n) ? null : n;
 }
+
+/** GET auction franchise teams for player team assignment. */
+router.get("/franchise-teams", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const items = await listBadmintonFranchiseTeams(tournamentId);
+  res.json(items);
+});
 
 /** GET master players for badminton import / match creation */
 router.get("/master-players", async (req, res) => {
