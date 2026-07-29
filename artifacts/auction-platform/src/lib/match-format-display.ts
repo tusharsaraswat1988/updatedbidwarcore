@@ -19,6 +19,7 @@ export function matchFormatChipLabel(
   const points = `${format.pointsPerGame} Points`;
   if (presetId === "fast_match") return `Fast Match • ${points}`;
   if (presetId === "single_game") return `Single Game • ${points}`;
+  if (presetId === "best_of_5") return `Best of 5 • ${points}`;
   if (presetId === "standard_bwf") {
     return format.totalGames === 1
       ? `Single Game • ${points}`

@@ -42,6 +42,7 @@ const PRESET_ORDER: BadmintonFormatPresetId[] = [
   "standard_bwf",
   "fast_match",
   "single_game",
+  "best_of_5",
   "custom",
 ];
 
@@ -75,6 +76,13 @@ const PRESET_CARDS: PresetCardCopy[] = [
     id: "single_game",
     name: "Single Game",
     bestOf: "1 Game",
+    points: "21 Points",
+    winBy: "Win by 2 Points",
+  },
+  {
+    id: "best_of_5",
+    name: "Best of 5",
+    bestOf: "Best of 5",
     points: "21 Points",
     winBy: "Win by 2 Points",
   },

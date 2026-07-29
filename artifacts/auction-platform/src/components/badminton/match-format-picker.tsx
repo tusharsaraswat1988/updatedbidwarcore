@@ -27,6 +27,7 @@ const PRESET_CARDS: Array<{
   { id: "standard_bwf", name: "Standard BWF", summary: "Best of 3 · 21 points" },
   { id: "fast_match", name: "Fast Match", summary: "Best of 3 · 15 points" },
   { id: "single_game", name: "Single Game", summary: "1 game · 21 points" },
+  { id: "best_of_5", name: "Best of 5", summary: "Best of 5 · 21 points" },
   { id: "custom", name: "Custom", summary: "Your games / points / win-by" },
 ];
 

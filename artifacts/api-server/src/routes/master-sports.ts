@@ -245,7 +245,7 @@ router.put("/scoring-format", async (req, res) => {
   if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
-    presetId: z.enum(["standard_bwf", "fast_match", "single_game", "custom"]),
+    presetId: z.enum(["standard_bwf", "fast_match", "single_game", "best_of_5", "custom"]),
     format: z.object({
       totalGames: z.number().int(),
       pointsPerGame: z.number().int(),
