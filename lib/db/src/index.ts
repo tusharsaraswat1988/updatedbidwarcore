@@ -588,6 +588,9 @@ void systemCQuery(`
     ALTER TABLE badminton_match_details
       ADD COLUMN IF NOT EXISTS pre_match_toss_json JSONB;
 
+    ALTER TABLE badminton_match_details
+      ADD COLUMN IF NOT EXISTS master_stats_applied_at TIMESTAMPTZ;
+
     CREATE TABLE IF NOT EXISTS scorer_tournament_assignments (
       id SERIAL PRIMARY KEY,
       scorer_id INTEGER NOT NULL,

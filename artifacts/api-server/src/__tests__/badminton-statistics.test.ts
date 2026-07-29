@@ -413,4 +413,34 @@ describe("updateBadmintonStatisticsFromMatch", () => {
     expect(mockDbInsertValues).not.toHaveBeenCalled();
     expect(mockDbUpdateSet).not.toHaveBeenCalled();
   });
+
+  it("applies statistics for disqualified and abandoned terminals", async () => {
+    for (const matchStatus of ["disqualified", "abandoned"] as const) {
+      statsStore.clear();
+      selectPlayerIdQueue.length = 0;
+      vi.clearAllMocks();
+      mockDbLimit.mockImplementation(async () => {
+        const playerId = selectPlayerIdQueue.shift();
+        lastSelectedPlayerId = playerId ?? null;
+        if (!playerId) return [];
+        const row = statsStore.get(playerId);
+        return row ? [row] : [];
+      });
+      mockDbInsertValues.mockImplementation(async (values: Omit<StatsRow, "id">) => {
+        const row: StatsRow = { id: nextId++, ...values };
+        statsStore.set(values.playerId, row);
+        return [row];
+      });
+
+      queueSelects("gp_left", "gp_right");
+      await updateBadmintonStatisticsFromMatch(
+        baseState({ matchStatus, matchKind: "singles" }),
+        42,
+        singlesSide("gp_left", "Left"),
+        singlesSide("gp_right", "Right"),
+      );
+      expect(mockDbInsertValues).toHaveBeenCalledTimes(2);
+      expect(getStats("gp_left")!.matchesPlayed).toBe(1);
+    }
+  });
 });

@@ -396,6 +396,11 @@ export const badmintonMatchDetailsTable = pgTable(
     preMatchTossJson: jsonb("pre_match_toss_json").$type<Record<string, unknown>>(),
     /** Replay of current match state (computed after each event). */
     stateSnapshotJson: jsonb("state_snapshot_json").$type<Record<string, unknown>>(),
+    /**
+     * S3-08 — set when master player_statistics have been applied for this match.
+     * Re-running the stats pipeline is a no-op while this is non-null (idempotent).
+     */
+    masterStatsAppliedAt: timestamp("master_stats_applied_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

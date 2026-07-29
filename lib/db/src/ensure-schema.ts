@@ -745,6 +745,10 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
 
     ALTER TABLE badminton_match_details
       ADD COLUMN IF NOT EXISTS pre_match_toss_json JSONB;
+
+    -- S3-08: idempotent master-stats processed marker (nullable until first apply)
+    ALTER TABLE badminton_match_details
+      ADD COLUMN IF NOT EXISTS master_stats_applied_at TIMESTAMPTZ;
   `);
     success = true;
   } catch (err) {

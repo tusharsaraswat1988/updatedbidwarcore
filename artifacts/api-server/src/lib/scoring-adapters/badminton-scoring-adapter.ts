@@ -61,9 +61,14 @@ export const badmintonScoringAdapter: SportScoringAdapter<
   },
   projectMatchFromState(state) {
     const terminal = isTerminalBadmintonStatus(state.matchStatus);
+    // S3-08 — preserve walkover/retired/disqualified/abandoned (do not collapse to completed).
     return {
-      matchStatus: terminal ? "completed" : state.matchStatus === "live" ? "live" : state.matchStatus,
-      resultSummary: state.resultReason ?? (terminal ? "completed" : null),
+      matchStatus: terminal
+        ? state.matchStatus
+        : state.matchStatus === "live"
+          ? "live"
+          : state.matchStatus,
+      resultSummary: state.resultReason ?? (terminal ? state.matchStatus : null),
       winnerTeamId: null,
       setStartedAt: state.matchStatus === "live",
       setCompletedAt: terminal,

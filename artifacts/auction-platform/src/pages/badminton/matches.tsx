@@ -399,8 +399,13 @@ function MatchRow({
   const qc = useQueryClient();
   const state = match.state;
   const detail = match.detail ?? {};
-  const isLive = match.status === "live";
-  const isCompleted = match.status === "completed";
+  const isLive = match.status === "live" || match.status === "paused";
+  const isCompleted =
+    match.status === "completed" ||
+    match.status === "walkover" ||
+    match.status === "retired" ||
+    match.status === "disqualified" ||
+    match.status === "abandoned";
   const hasCourt =
     typeof detail.courtId === "number" ||
     (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);

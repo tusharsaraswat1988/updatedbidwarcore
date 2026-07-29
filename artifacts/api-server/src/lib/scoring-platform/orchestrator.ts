@@ -27,6 +27,7 @@ import {
 } from "./event-store";
 import { getScoringAdapter, runPostMatchProjectionPipeline } from "./projections";
 import { parseScoringEvent, replayScoringMatchState } from "../scoring-platform";
+import { isTerminalScoringMatchStatus } from "../scoring-match-terminal";
 
 export type ScoringActor = {
   type: "organizer" | "admin" | "scorer_pin" | "system";
@@ -194,7 +195,7 @@ export async function appendSingleMatchEvent(
     throw new ScoringPlatformError(parsed.error, 400, "INVALID_PAYLOAD");
   }
 
-  if (match.status === "completed" || match.status === "abandoned") {
+  if (isTerminalScoringMatchStatus(match.status)) {
     throw new ScoringPlatformError("Match is no longer live", 409, "MATCH_CLOSED");
   }
 
