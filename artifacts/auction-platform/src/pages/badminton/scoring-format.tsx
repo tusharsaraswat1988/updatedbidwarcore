@@ -19,6 +19,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { badmintonIaSetupRulesPath } from "@/lib/badminton-routes";
 import {
   useBadmintonScoringFormat,
   useSaveBadmintonScoringFormat,
@@ -42,6 +43,7 @@ const PRESET_ORDER: BadmintonFormatPresetId[] = [
   "standard_bwf",
   "fast_match",
   "single_game",
+  "best_of_5",
   "custom",
 ];
 
@@ -75,6 +77,13 @@ const PRESET_CARDS: PresetCardCopy[] = [
     id: "single_game",
     name: "Single Game",
     bestOf: "1 Game",
+    points: "21 Points",
+    winBy: "Win by 2 Points",
+  },
+  {
+    id: "best_of_5",
+    name: "Best of 5",
+    bestOf: "Best of 5",
     points: "21 Points",
     winBy: "Win by 2 Points",
   },
@@ -391,7 +400,7 @@ export default function BadmintonScoringFormatPage() {
       >
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
           <BadmintonMovedBanner
-            toHref={`/tournament/${tournamentId}/badminton/branding?section=rules`}
+            toHref={badmintonIaSetupRulesPath(tournamentId)}
             toLabel="Tournament Setup"
             message="Scoring rules belong in Tournament Setup → Rules."
           />

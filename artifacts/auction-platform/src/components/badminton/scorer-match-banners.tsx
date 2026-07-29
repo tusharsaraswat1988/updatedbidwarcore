@@ -7,6 +7,7 @@ const BANNER_STYLES: Record<ScorerBanner["kind"], string> = {
   interval_due: "bg-purple-700/90 border-purple-400 text-white",
   court_change_required: "bg-cyan-700/90 border-cyan-300 text-white",
   game_completed: "bg-emerald-700/90 border-emerald-400 text-white",
+  ends_change_required: "bg-teal-700/90 border-teal-300 text-white",
   match_completed: "bg-amber-600/95 border-amber-300 text-white",
 };
 

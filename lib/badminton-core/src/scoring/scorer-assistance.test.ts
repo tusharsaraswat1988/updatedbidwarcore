@@ -31,7 +31,9 @@ import {
   isIntervalDue,
   resolveReceiverLabel,
   resolveServerLabel,
+  resolveServiceCourt,
 } from "./scorer-assistance";
+import { endForSide, endsFlipCount, isPostGameEndsChangeDue } from "../reducer/state";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPORT_PATH = join(__dirname, "../../test-reports/scorer-assistance-report.txt");
@@ -187,6 +189,133 @@ function playToScore(
 }
 
 describe("Scorer assistance — singles", () => {
+  it("singles service court: even→Right, odd→Left", () => {
+    const evenState = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, []);
+    // firstServer left at 0–0 → even → Right
+    record(
+      "Singles even score → Right",
+      resolveServiceCourt(evenState) === "Right",
+      `At 0-0 serving ${evenState.servingSide}: ${resolveServiceCourt(evenState)}`,
+    );
+
+    const oddState = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, ["left"]);
+    // left won → still serving, score 1 → odd → Left
+    record(
+      "Singles odd score → Left",
+      resolveServiceCourt(oddState) === "Left",
+      `At ${oddState.leftScore}-${oddState.rightScore} serving ${oddState.servingSide}: ${resolveServiceCourt(oddState)}`,
+    );
+
+    const evenAgain = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, [
+      "left",
+      "left",
+    ]);
+    record(
+      "Singles even score again → Right",
+      resolveServiceCourt(evenAgain) === "Right",
+      `At ${evenAgain.leftScore}-${evenAgain.rightScore}: ${resolveServiceCourt(evenAgain)}`,
+    );
+
+    // Right side serving with even score
+    const rightEven = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, ["right"]);
+    // right at 1 (odd) serving → Left
+    record(
+      "Singles right serving odd → Left",
+      resolveServiceCourt(rightEven) === "Left",
+      `At ${rightEven.leftScore}-${rightEven.rightScore} serving ${rightEven.servingSide}: ${resolveServiceCourt(rightEven)}`,
+    );
+  });
+
+  it("derives ends flip after each game and shows change-ends banner", () => {
+    const afterGame1 = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, [
+      ...Array(21).fill("left"),
+    ] as BadmintonSide[]);
+
+    record(
+      "Ends flip count after game 1",
+      endsFlipCount(afterGame1) === 1,
+      `flips=${endsFlipCount(afterGame1)} game=${afterGame1.currentGame}`,
+    );
+    record(
+      "Left occupies END_2 after game 1",
+      endForSide(afterGame1, "left") === "END_2",
+      `leftEnd=${endForSide(afterGame1, "left")}`,
+    );
+    record(
+      "Post-game ends change due at start of game 2",
+      isPostGameEndsChangeDue(afterGame1) === true,
+      `endsChangeDue=${isPostGameEndsChangeDue(afterGame1)} score=${afterGame1.leftScore}-${afterGame1.rightScore}`,
+    );
+
+    const snapshot = deriveScorerAssistance(afterGame1);
+    record(
+      "Change ends banner between games",
+      snapshot.banners.some((b) => b.kind === "ends_change_required"),
+      `Banners: ${snapshot.banners.map((b) => b.kind).join(", ")}`,
+    );
+    record(
+      "endsChangeDue on snapshot",
+      snapshot.endsChangeDue === true,
+      `endsChangeDue=${snapshot.endsChangeDue}`,
+    );
+
+    // First rally of game 2 clears the between-game prompt
+    const afterFirstRally = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, [
+      ...Array(21).fill("left"),
+      "left",
+    ] as BadmintonSide[]);
+    record(
+      "Ends change prompt clears after first rally of next game",
+      isPostGameEndsChangeDue(afterFirstRally) === false,
+      `score=${afterFirstRally.leftScore}-${afterFirstRally.rightScore}`,
+    );
+    record(
+      "Ends still flipped during game 2",
+      endsFlipCount(afterFirstRally) === 1 && endForSide(afterFirstRally, "left") === "END_2",
+      `flips=${endsFlipCount(afterFirstRally)} leftEnd=${endForSide(afterFirstRally, "left")}`,
+    );
+  });
+
+  it("adds deciding mid-change ack to ends flip count", () => {
+    const decidingAtInterval = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, [
+      ...Array(21).fill("left"),
+      ...Array(21).fill("right"),
+      ...Array(11).fill("left"),
+    ] as BadmintonSide[]);
+
+    record(
+      "Deciding game before mid-change ack: 2 flips",
+      endsFlipCount(decidingAtInterval) === 2,
+      `flips=${endsFlipCount(decidingAtInterval)} leftEnd=${endForSide(decidingAtInterval, "left")}`,
+    );
+
+    const ack = cmdAcknowledgeCourtChange(decidingAtInterval);
+    expect(ack.ok).toBe(true);
+    let afterAck = decidingAtInterval;
+    if (ack.ok) {
+      let seq = afterAck.lastSequence ?? 0;
+      for (const event of ack.events) {
+        seq += 1;
+        afterAck = reduceBadminton(afterAck, {
+          matchId: 1,
+          tournamentId: 1,
+          sportSlug: "badminton",
+          eventType: event.eventType,
+          eventVersion: 1,
+          sequence: seq,
+          actorType: "scorer_pin",
+          payload: event.payload,
+        });
+      }
+    }
+
+    record(
+      "Deciding mid-change ack adds flip",
+      endsFlipCount(afterAck) === 3 && endForSide(afterAck, "left") === "END_2",
+      `flips=${endsFlipCount(afterAck)} leftEnd=${endForSide(afterAck, "left")}`,
+    );
+  });
+
   it("shows server/receiver labels and accurate confidence panel", () => {
     const state = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, ["left", "left"]);
     record(

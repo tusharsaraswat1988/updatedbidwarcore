@@ -1,11 +1,12 @@
 import type { BadmintonMatchFormat } from "./types";
-import { STANDARD_FORMAT } from "./types";
+import { BEST_OF_5_FORMAT, STANDARD_FORMAT } from "./types";
 
 /** Preset ids shown in the Scoring Format UI. */
 export type BadmintonFormatPresetId =
   | "standard_bwf"
   | "fast_match"
   | "single_game"
+  | "best_of_5"
   | "custom";
 
 export const BADMINTON_FORMAT_PRESET_META: Record<
@@ -23,6 +24,10 @@ export const BADMINTON_FORMAT_PRESET_META: Record<
   single_game: {
     label: "Single Game",
     summary: "1 game • 21 points",
+  },
+  best_of_5: {
+    label: "Best of 5",
+    summary: "Best of 5 • 21 points • Win by 2 • Cap 30",
   },
   custom: {
     label: "Custom",
@@ -49,12 +54,14 @@ export const BADMINTON_FORMAT_PRESETS: Record<
     maxPoints: 30,
     midGameSideChange: false,
   },
+  best_of_5: BEST_OF_5_FORMAT,
 };
 
 export function isBadmintonFormatPresetId(value: string): value is BadmintonFormatPresetId {
   return value === "standard_bwf"
     || value === "fast_match"
     || value === "single_game"
+    || value === "best_of_5"
     || value === "custom";
 }
 
@@ -144,7 +151,7 @@ function formatsEqual(a: BadmintonMatchFormat, b: BadmintonMatchFormat): boolean
 export function inferBadmintonFormatPresetId(
   format: BadmintonMatchFormat,
 ): BadmintonFormatPresetId {
-  for (const id of ["standard_bwf", "fast_match", "single_game"] as const) {
+  for (const id of ["standard_bwf", "fast_match", "single_game", "best_of_5"] as const) {
     if (formatsEqual(format, BADMINTON_FORMAT_PRESETS[id])) return id;
   }
   return "custom";

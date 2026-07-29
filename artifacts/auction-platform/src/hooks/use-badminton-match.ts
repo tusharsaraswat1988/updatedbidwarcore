@@ -24,6 +24,55 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 type MatchCache = { state: BadmintonMatchState; detail: unknown };
 
+/** Durable scorer point queue item (S4-08). */
+type PointQueueItem = { side: "left" | "right"; idempotencyKey: string };
+
+function pointQueueStorageKey(tournamentId: number, matchId: number) {
+  return `badmintonPointQueue:v1:${tournamentId}:${matchId}`;
+}
+
+function loadPointQueue(tournamentId: number, matchId: number): PointQueueItem[] {
+  if (typeof localStorage === "undefined" || tournamentId <= 0 || matchId <= 0) {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem(pointQueueStorageKey(tournamentId, matchId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is PointQueueItem =>
+        !!item &&
+        typeof item === "object" &&
+        ((item as PointQueueItem).side === "left" ||
+          (item as PointQueueItem).side === "right") &&
+        typeof (item as PointQueueItem).idempotencyKey === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function savePointQueue(
+  tournamentId: number,
+  matchId: number,
+  queue: PointQueueItem[],
+) {
+  if (typeof localStorage === "undefined" || tournamentId <= 0 || matchId <= 0) {
+    return;
+  }
+  const key = pointQueueStorageKey(tournamentId, matchId);
+  try {
+    if (queue.length === 0) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(queue));
+    }
+  } catch {
+    // quota / private mode — in-memory queue still works for the session
+  }
+}
+
 function applyOptimisticCommandEvents(
   state: BadmintonMatchState,
   events: CommandEvent[],
@@ -194,9 +243,19 @@ export function useBadmintonScorer(
 ) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-match", tournamentId, matchId];
-  const pointQueueRef = useRef<Array<{ side: "left" | "right"; idempotencyKey: string }>>([]);
+  const pointQueueRef = useRef<PointQueueItem[]>([]);
   const drainPromiseRef = useRef<Promise<void> | null>(null);
+  const restoredMatchKeyRef = useRef<string>("");
   const [pointSyncError, setPointSyncError] = useState<string | null>(null);
+  const [pendingPointCount, setPendingPointCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
+
+  const persistPointQueue = useCallback(() => {
+    savePointQueue(tournamentId, matchId, pointQueueRef.current);
+    setPendingPointCount(pointQueueRef.current.length);
+  }, [matchId, tournamentId]);
 
   async function postAction(endpoint: string, body: unknown) {
     const { scorerAuthHeaders } = await import("@/lib/badminton-scorer-session");
@@ -235,10 +294,19 @@ export function useBadmintonScorer(
       return drainPromiseRef.current;
     }
 
+    // Keep accepting optimistic points offline; drain when connectivity returns.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return Promise.resolve();
+    }
+
     const optimisticKey = matchOptimisticKey(tournamentId, matchId);
 
     drainPromiseRef.current = (async () => {
       while (pointQueueRef.current.length > 0) {
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          persistPointQueue();
+          return;
+        }
         const item = pointQueueRef.current[0];
         try {
           await postAction("point", {
@@ -246,9 +314,11 @@ export function useBadmintonScorer(
             idempotencyKey: item.idempotencyKey,
           });
           pointQueueRef.current.shift();
+          persistPointQueue();
           setPointSyncError(null);
         } catch (err) {
           // Keep unsent items for a later retry, but clear the floor so SSE can catch up.
+          persistPointQueue();
           clearOptimisticRallyFloor(optimisticKey);
           await queryClient.invalidateQueries({ queryKey });
           const message =
@@ -259,13 +329,46 @@ export function useBadmintonScorer(
           throw new Error(message);
         }
       }
+      persistPointQueue();
       clearOptimisticRallyFloor(optimisticKey);
     })().finally(() => {
       drainPromiseRef.current = null;
     });
 
     return drainPromiseRef.current;
-  }, [matchId, queryClient, tournamentId]);
+  }, [matchId, persistPointQueue, queryClient, tournamentId]);
+
+  // Restore durable queue once per match, then auto-drain if online.
+  useEffect(() => {
+    if (tournamentId <= 0 || matchId <= 0) return;
+    const key = `${tournamentId}:${matchId}`;
+    if (restoredMatchKeyRef.current === key) return;
+    restoredMatchKeyRef.current = key;
+    const restored = loadPointQueue(tournamentId, matchId);
+    pointQueueRef.current = restored;
+    setPendingPointCount(restored.length);
+    if (restored.length > 0 && (typeof navigator === "undefined" || navigator.onLine)) {
+      void drainPointQueue().catch(() => {
+        // Sync error state is set inside drainPointQueue.
+      });
+    }
+  }, [drainPointQueue, matchId, tournamentId]);
+
+  // Offline banner + auto-drain when the browser comes back online.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOnline = () => {
+      setIsOnline(true);
+      void drainPointQueue().catch(() => {});
+    };
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [drainPointQueue]);
 
   const retryPointQueue = useCallback(() => {
     setPointSyncError(null);
@@ -311,9 +414,10 @@ export function useBadmintonScorer(
       }
 
       pointQueueRef.current.push({ side, idempotencyKey });
+      persistPointQueue();
       return drainPointQueue();
     },
-    [drainPointQueue, matchId, queryClient, tournamentId],
+    [drainPointQueue, matchId, persistPointQueue, queryClient, tournamentId],
   );
 
   const undo = useCallback(() => postAction("undo", {}), [matchId]);
@@ -348,6 +452,8 @@ export function useBadmintonScorer(
     startMatch,
     pointSyncError,
     retryPointQueue,
+    isOnline,
+    pendingPointCount,
   };
 }
 
@@ -392,6 +498,8 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
     disqualification: (disqualifiedSide: "left" | "right", reason: string) =>
       postDirector("disqualification", { disqualifiedSide, reason }),
     forceEnd: (reason: string) => postDirector("force-end", { reason }),
+    amendScore: (leftScore: number, rightScore: number, reason: string) =>
+      postDirector("amend-score", { leftScore, rightScore, reason }),
   };
 }
 

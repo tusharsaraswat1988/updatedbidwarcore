@@ -15,6 +15,7 @@ import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialo
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { badmintonIaStructureDrawPath, badmintonIaStructureEventsPath } from "@/lib/badminton-routes";
 import {
   MatchFormatPicker,
   matchFormatJsonFromPicker,
@@ -168,12 +169,12 @@ export default function BadmintonCategoriesPage() {
       <BadmintonSetupWizardChrome
         tournamentId={tournamentId}
         stepId="categories"
-        continueHref={`/tournament/${tournamentId}/badminton/fixtures?section=draw`}
+        continueHref={badmintonIaStructureDrawPath(tournamentId)}
         continueLabel="Continue to Draw"
       >
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
           <BadmintonMovedBanner
-            toHref={`/tournament/${tournamentId}/badminton/fixtures?section=events`}
+            toHref={badmintonIaStructureEventsPath(tournamentId)}
             toLabel="Tournament Structure"
             message="Events belong in Tournament Structure → Events."
           />
@@ -497,7 +498,7 @@ function CategoryFormModal({
         matchType: form.matchType,
         ageGroup: form.ageGroup.trim() || undefined,
         gender: form.gender.trim() || undefined,
-        drawType: "knockout",
+        drawType: form.drawType,
         numSeeds: parseInt(String(form.numSeeds), 10) || 0,
         maxPlayers: form.maxPlayers ? parseInt(String(form.maxPlayers), 10) : undefined,
         colorCode: form.colorCode || undefined,
@@ -561,18 +562,16 @@ function CategoryFormModal({
         </FormField>
         <FormField label="Draw Type" required>
           <DarkSelect
-            value="knockout"
-            onValueChange={() => setForm((prev) => ({ ...prev, drawType: "knockout" }))}
+            value={form.drawType}
+            onValueChange={(drawType) => setForm((prev) => ({ ...prev, drawType }))}
             options={[
               { value: "knockout", label: "Knockout" },
+              { value: "round_robin", label: "Round Robin" },
+              { value: "group_knockout", label: "Group + Knockout" },
             ]}
           />
           <p className="text-xs text-muted-foreground mt-1.5">
-            Only Knockout is supported in this release
-            {form.drawType !== "knockout"
-              ? ` (current value “${form.drawType.replace(/_/g, " ")}” will be saved as Knockout).`
-              : "."}{" "}
-            Round Robin and Group + Knockout are unavailable.
+            Knockout is single-elimination. Round Robin plays every pair once. Group + Knockout runs group RR then a knockout of group winners.
           </p>
         </FormField>
       </div>

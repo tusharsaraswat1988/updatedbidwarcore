@@ -75,7 +75,7 @@ export default function BadmintonTournamentHub() {
           title={atReady ? "Tournament Ready" : "Tournament Setup"}
           subtitle={
             atReady
-              ? "Setup is complete — open the Operator Panel to run the tournament."
+              ? "Setup is complete — open Live Control to run the tournament."
               : remaining === 1
                 ? "One step left to finish setup"
                 : `${remaining} steps remaining (${percent}%)`
@@ -96,13 +96,13 @@ export default function BadmintonTournamentHub() {
                       Ready to operate
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Use the Operator Panel for live courts, scorers, and match day.
+                      Use Live Control for live courts, scorers, and match day. Matches live under Live Control in the sidebar.
                     </p>
                   </div>
                 </div>
                 <BtnPrimary className="w-full sm:w-auto shrink-0" onClick={openLiveOperations}>
                   <Target className="w-4 h-4" />
-                  Open Operator Panel
+                  Open Live Control
                 </BtnPrimary>
               </div>
               <BadmintonSetupChecklist
@@ -129,7 +129,7 @@ export default function BadmintonTournamentHub() {
         title="Tournament Dashboard"
         subtitle={
           isLive
-            ? "Matches in progress — run courts and broadcast from the Operator Panel"
+            ? "Matches in progress — run courts and displays from Live Control"
             : "Setup complete — manage matches and operations from the sidebar"
         }
         badge={isLive ? `${liveCount} Live` : "Ready"}
@@ -151,15 +151,15 @@ export default function BadmintonTournamentHub() {
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {isLive
-                  ? "Use the Operator Panel to run courts without jumping between pages."
-                  : "Open the Operator Panel for court control, or Matches to create the next match."}
+                  ? "Use Live Control to run courts without jumping between pages."
+                  : "Open Live Control for court control, or Live Control → Matches to create the next match."}
               </p>
             </div>
           </div>
           <Link href={`/tournament/${tournamentId}/badminton/control`}>
             <BtnPrimary className="w-full sm:w-auto shrink-0">
               <Target className="w-4 h-4" />
-              Open Operator Panel
+              Open Live Control
             </BtnPrimary>
           </Link>
         </div>

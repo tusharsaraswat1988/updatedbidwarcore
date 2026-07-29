@@ -18,6 +18,8 @@ interface ScorerAssistanceShellProps {
   tournamentName: string;
   courtNumber?: string;
   categoryName?: string;
+  /** Header chrome label — "Umpire Console" for /umpire alias (S4-05). */
+  consoleTitle?: string;
   onStartInterval: () => Promise<unknown>;
   onEndInterval: () => Promise<unknown>;
   onAcknowledgeCourtChange: () => Promise<unknown>;
@@ -33,6 +35,7 @@ export function ScorerAssistanceShell({
   tournamentName,
   courtNumber,
   categoryName,
+  consoleTitle,
   onStartInterval,
   onEndInterval,
   onAcknowledgeCourtChange,
@@ -78,6 +81,7 @@ export function ScorerAssistanceShell({
         courtNumber={courtNumber}
         voiceEnabled={voiceEnabled}
         onToggleVoice={toggleVoice}
+        consoleTitle={consoleTitle}
       />
 
       <MatchIdentityStrip
@@ -88,6 +92,14 @@ export function ScorerAssistanceShell({
 
       <ScorerMatchBanners banners={snapshot.banners} />
       <ScorerStatusStrip panel={snapshot.panel} />
+
+      {snapshot.endsChangeDue && (
+        <div className="shrink-0 mx-3 mb-2 rounded-lg border border-teal-400/35 bg-teal-900/40 px-3 py-2 text-center">
+          <p className="text-teal-100 text-sm font-bold">
+            Change ends before Game {snapshot.panel.currentGame}
+          </p>
+        </div>
+      )}
 
       {showIntervalPrompt && (
         <div className="shrink-0 px-3 pb-2">

@@ -130,13 +130,26 @@ async function markCategoryLive(tournamentId: number, categoryId: number): Promi
     );
 }
 
+export type ImportFixtureCollectionInput = Omit<
+  CreateFixtureCollectionInput,
+  "drawKind" | "markCategoryLive"
+>;
+
 /**
- * Import adapter — Phase 1 stub only.
- * No parser / no backend processing. Future Excel/CSV/PDF plug in here.
+ * Import adapter — creates a Fixture Collection (drawKind: imported) via the shared writer.
+ * Does not create matches, start scoring, or change category phase.
+ * Callers parse CSV / structured payloads and resolve registration IDs before calling.
  */
-export function importFixtureCollectionStub(): never {
-  throw Object.assign(new Error("Import adapter not implemented (Phase 1 stub)"), {
-    status: 501,
-    code: "IMPORT_NOT_IMPLEMENTED",
+export async function importFixtureCollection(
+  input: ImportFixtureCollectionInput,
+): Promise<CreateFixturesResult> {
+  return createFixtureCollection({
+    ...input,
+    drawKind: "imported",
+    markCategoryLive: false,
+    metaJson: {
+      adapter: "import",
+      ...(input.metaJson ?? {}),
+    },
   });
 }

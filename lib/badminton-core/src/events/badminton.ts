@@ -1,10 +1,17 @@
 import { z } from "zod";
-import type { BadmintonMatchFormat, BadmintonMatchKind, BadmintonSide, BadmintonSideInfo } from "../types";
+import type {
+  BadmintonMatchFormat,
+  BadmintonMatchKind,
+  BadmintonSide,
+  BadmintonSideInfo,
+  EndAssignment,
+} from "../types";
 
 export const BadmintonEventType = {
   MATCH_STARTED: "badminton.match.started",
   POINT_WON: "badminton.point.won",
   POINT_UNDONE: "badminton.point.undone",
+  SCORE_AMENDED: "badminton.score.amended",
   GAME_ENDED: "badminton.game.ended",
   MATCH_ENDED: "badminton.match.ended",
   INTERVAL_STARTED: "badminton.interval.started",
@@ -108,6 +115,11 @@ export type BadmintonMatchStartedPayload = {
     firstReceivingSide: BadmintonSide;
     firstReceiverPlayerIndex: 0 | 1;
   };
+  /**
+   * Which physical end the scoreboard-left side starts at.
+   * Defaults to END_1 when omitted.
+   */
+  endAssignment?: EndAssignment;
   courtNumber?: string;
   matchLabel?: string;
 };
@@ -147,6 +159,16 @@ export type BadmintonPointUndonePayload = {
   undoneSequence: number;
   /** All sequences removed by this undo (point + game/match boundary events). */
   undoneSequences?: number[];
+};
+
+
+/** Director-only correction of the current in-progress game score. */
+export type BadmintonScoreAmendedPayload = {
+  leftScore: number;
+  rightScore: number;
+  /** Game number being amended (must be the current in-progress game). */
+  gameNumber: number;
+  reason?: string;
 };
 
 export type BadmintonGameEndedPayload = {
@@ -240,6 +262,10 @@ export type BadmintonMatchNoteAddedPayload = {
 
 // ── Payload parse helpers ────────────────────────────────────────────────────
 
+const endAssignmentSchema = z.object({
+  leftStartsAt: z.enum(["END_1", "END_2"]),
+});
+
 const matchStartedSchema = z.object({
   matchKind: z.enum(["singles", "doubles", "mixed_doubles"]),
   format: formatSchema,
@@ -247,6 +273,7 @@ const matchStartedSchema = z.object({
   rightSide: sideInfoSchema,
   firstServer: z.enum(["left", "right"]),
   doublesSetup: doublesSetupSchema.optional(),
+  endAssignment: endAssignmentSchema.optional(),
   courtNumber: z.string().optional(),
   matchLabel: z.string().optional(),
 });
@@ -266,6 +293,14 @@ const pointWonSchema = z.object({
 const pointUndoneSchema = z.object({
   undoneSequence: z.number(),
   undoneSequences: z.array(z.number()).optional(),
+});
+
+
+const scoreAmendedSchema = z.object({
+  leftScore: z.number().int().min(0),
+  rightScore: z.number().int().min(0),
+  gameNumber: z.number().int().positive(),
+  reason: z.string().optional(),
 });
 
 const gameEndedDoublesServeSchema = z.object({
@@ -377,6 +412,8 @@ export function parseBadmintonEventPayload(
       return parseWith(pointWonSchema, eventType, data);
     case BadmintonEventType.POINT_UNDONE:
       return parseWith(pointUndoneSchema, eventType, data);
+    case BadmintonEventType.SCORE_AMENDED:
+      return parseWith(scoreAmendedSchema, eventType, data);
     case BadmintonEventType.GAME_ENDED:
       return parseWith(gameEndedSchema, eventType, data);
     case BadmintonEventType.MATCH_ENDED:

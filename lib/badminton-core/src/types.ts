@@ -1,6 +1,19 @@
 /** Which side of the court — left/right as shown on scoreboard. */
 export type BadmintonSide = "left" | "right";
 
+/**
+ * Permanent physical court-end identity (not the scoreboard left/right axis).
+ * Which scoreboard side occupies which end is derived from flip count.
+ */
+export type CourtEnd = "END_1" | "END_2";
+
+/** Which physical end the scoreboard-left side starts at (match start). */
+export type EndAssignment = {
+  leftStartsAt: CourtEnd;
+};
+
+export const DEFAULT_END_ASSIGNMENT: EndAssignment = { leftStartsAt: "END_1" };
+
 /** Type of match play. */
 export type BadmintonMatchKind = "singles" | "doubles" | "mixed_doubles";
 
@@ -232,6 +245,13 @@ export type BadmintonMatchState = {
 
   /** ISO timestamp when match ended (from MATCH_ENDED). */
   endedAt?: string;
+
+  /**
+   * Physical end assignment at match start (left scoreboard side → END_1|END_2).
+   * Current end per side is derived via {@link endsFlipCount} — not stored.
+   * Defaults to left→END_1 when absent (legacy replays).
+   */
+  endAssignment?: EndAssignment;
 };
 
 /** Minimal input to create initial state. */

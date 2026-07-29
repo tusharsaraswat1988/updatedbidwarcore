@@ -3,12 +3,16 @@
  * Route: /tournament/:id/badminton/scorers
  *
  * Accounts are global (one mobile works across tournaments); only organizers can manage.
+ *
+ * S4-05: Officials also includes an Umpire / Court Official briefing (JWT scorer
+ * login + Scorer Home QR). A dedicated native mobile badminton app is future work —
+ * court officials use the same web Scorer Home / console today.
  */
 
 import { useState } from "react";
 import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Smartphone } from "lucide-react";
+import { Smartphone, Scale } from "lucide-react";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
@@ -25,6 +29,8 @@ import {
   hubCardClass,
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
+import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
+import { badmintonIaParticipantsOfficialsPath } from "@/lib/badminton-routes";
 
 type ScorerRow = {
   id: number;
@@ -66,70 +72,121 @@ export function BadmintonScorersPanel({ tournamentId }: { tournamentId: number }
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-foreground font-display font-bold text-lg">Officials & Scorers</h2>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-            People who will score matches. They sign in with mobile + personal PIN.
+    <div className="max-w-4xl space-y-8">
+      <UmpireCourtOfficialSection tournamentId={tournamentId} />
+
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-foreground font-display font-bold text-lg">Officials & Scorers</h2>
+            <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+              People who will score matches. They sign in with mobile + personal PIN.
+            </p>
+          </div>
+          <BtnPrimary
+            onClick={() => {
+              setEditScorer(null);
+              setShowForm(true);
+            }}
+          >
+            + Add Scorer
+          </BtnPrimary>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-3" aria-busy="true">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : scorers.length === 0 ? (
+          <EmptyState
+            icon={Smartphone}
+            title="No scorers yet"
+            desc="Add a scorer with name, mobile, and personal PIN so they can open Scorer Home on match day."
+            action={{ label: "Add Scorer", onClick: () => setShowForm(true) }}
+          />
+        ) : (
+          <div className="space-y-3">
+            {scorers.map((scorer) => (
+              <ScorerCard
+                key={scorer.id}
+                scorer={scorer}
+                tournamentId={tournamentId}
+                onEdit={() => {
+                  setEditScorer(scorer);
+                  setShowForm(true);
+                }}
+                onChanged={refresh}
+              />
+            ))}
+          </div>
+        )}
+
+        {showForm ? (
+          <ScorerFormModal
+            tournamentId={tournamentId}
+            scorer={editScorer}
+            onClose={() => {
+              setShowForm(false);
+              setEditScorer(null);
+            }}
+            onSaved={() => {
+              setShowForm(false);
+              setEditScorer(null);
+              refresh();
+            }}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Organizer briefing for court officials / umpires.
+ * Same JWT scorer accounts — no separate umpire role in the DB (S4-05 MVP).
+ * Native mobile badminton is future work.
+ */
+function UmpireCourtOfficialSection({ tournamentId }: { tournamentId: number }) {
+  return (
+    <section
+      className={cn(hubCardClass, "p-5 space-y-4 border-sky-500/25 bg-sky-500/5")}
+      aria-labelledby="umpire-officials-heading"
+    >
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-sky-500/15 shrink-0">
+          <Scale className="w-4 h-4 text-sky-300" />
+        </div>
+        <div className="min-w-0">
+          <h2
+            id="umpire-officials-heading"
+            className="text-foreground font-display font-bold text-lg"
+          >
+            Umpire / Court Official
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            Court officials use the same Scorer Login as tablet scorers: mobile number + personal
+            PIN (JWT session). Add them below under Officials &amp; Scorers, then share Scorer Home
+            so they can pick an assigned match on the day. Open a match via Scorer Home, or use the
+            per-match Umpire Console URL (
+            <code className="text-[11px] text-sky-200/90">/badminton/:matchId/umpire?tid=…</code>
+            ) for umpire-oriented chrome — same scoring engine.
+          </p>
+          <p className="text-xs text-muted-foreground/80 mt-2">
+            A dedicated native mobile badminton app is future work; this web flow is the MVP.
           </p>
         </div>
-        <BtnPrimary
-          onClick={() => {
-            setEditScorer(null);
-            setShowForm(true);
-          }}
-        >
-          + Add Scorer
-        </BtnPrimary>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3" aria-busy="true">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
-          ))}
-        </div>
-      ) : scorers.length === 0 ? (
-        <EmptyState
-          icon={Smartphone}
-          title="No scorers yet"
-          desc="Add a scorer with name, mobile, and personal PIN so they can open Scorer Home on match day."
-          action={{ label: "Add Scorer", onClick: () => setShowForm(true) }}
-        />
-      ) : (
-        <div className="space-y-3">
-          {scorers.map((scorer) => (
-            <ScorerCard
-              key={scorer.id}
-              scorer={scorer}
-              tournamentId={tournamentId}
-              onEdit={() => {
-                setEditScorer(scorer);
-                setShowForm(true);
-              }}
-              onChanged={refresh}
-            />
-          ))}
-        </div>
-      )}
-
-      {showForm ? (
-        <ScorerFormModal
-          tournamentId={tournamentId}
-          scorer={editScorer}
-          onClose={() => {
-            setShowForm(false);
-            setEditScorer(null);
-          }}
-          onSaved={() => {
-            setShowForm(false);
-            setEditScorer(null);
-            refresh();
-          }}
-        />
-      ) : null}
-    </div>
+      <BroadcastLinkCard
+        kind="scorer-home"
+        tournamentId={tournamentId}
+        title="Scorer Home"
+        help="QR / URL for court officials — sign in with mobile + PIN, then choose a match."
+        icon={Smartphone}
+      />
+    </section>
   );
 }
 
@@ -142,7 +199,7 @@ export default function BadmintonScorersPage() {
     <HubPageShell tournamentId={tournamentId}>
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
         <BadmintonMovedBanner
-          toHref={`/tournament/${tournamentId}/badminton/players?section=officials`}
+          toHref={badmintonIaParticipantsOfficialsPath(tournamentId)}
           toLabel="Participants"
           message="Scorers and officials belong in Participants → Officials."
         />

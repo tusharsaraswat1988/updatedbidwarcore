@@ -27,6 +27,7 @@ type PendingOutcome =
   | { kind: "walkover" }
   | { kind: "disqualification" }
   | { kind: "force_end" }
+  | { kind: "amend_score" }
   | null;
 
 function formatIncidentTime(iso: string): string {
@@ -62,6 +63,9 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const [dqSide, setDqSide] = useState<"left" | "right">("right");
   const [dqReason, setDqReason] = useState("");
   const [forceEndReason, setForceEndReason] = useState("");
+  const [amendLeft, setAmendLeft] = useState("");
+  const [amendRight, setAmendRight] = useState("");
+  const [amendReason, setAmendReason] = useState("");
   const [pendingOutcome, setPendingOutcome] = useState<PendingOutcome>(null);
 
   const isLive = state.matchStatus === "live";
@@ -100,6 +104,15 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
     }
   }
 
+  const amendLeftScore = Number.parseInt(amendLeft, 10);
+  const amendRightScore = Number.parseInt(amendRight, 10);
+  const amendScoresValid =
+    Number.isInteger(amendLeftScore) &&
+    Number.isInteger(amendRightScore) &&
+    amendLeftScore >= 0 &&
+    amendRightScore >= 0 &&
+    amendReason.trim().length > 0;
+
   const confirmCopy =
     pendingOutcome?.kind === "retirement"
       ? {
@@ -129,7 +142,19 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 confirmLabel: "Force End Match",
                 action: () => director.forceEnd(forceEndReason),
               }
-            : null;
+            : pendingOutcome?.kind === "amend_score"
+              ? {
+                  title: "Correct current game score?",
+                  description: `Set game ${state.currentGame} to ${amendLeftScore}–${amendRightScore} (was ${state.leftScore}–${state.rightScore}). Reason: ${amendReason.trim()}. Serving and completed games are unchanged.`,
+                  confirmLabel: "Correct Score",
+                  action: async () => {
+                    await director.amendScore(amendLeftScore, amendRightScore, amendReason.trim());
+                    setAmendLeft("");
+                    setAmendRight("");
+                    setAmendReason("");
+                  },
+                }
+              : null;
 
   return (
     <div className="rounded-xl border border-primary/30 bg-card overflow-hidden">
@@ -202,6 +227,69 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             </p>
           ) : null}
         </section>
+
+        {/* Score correction */}
+        {(isLive || isPaused) && !isTerminal ? (
+          <section>
+            <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+              Correct Score
+            </h3>
+            <p className="text-white/40 text-[11px] leading-relaxed mb-3">
+              Director override for the current game only when undo is not enough. Does not change
+              completed games or who is serving.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField label="Left points" required>
+                <input
+                  className={inputClass}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={state.format.maxPoints}
+                  value={amendLeft}
+                  onChange={(e) => setAmendLeft(e.target.value)}
+                  placeholder={String(state.leftScore)}
+                />
+              </FormField>
+              <FormField label="Right points" required>
+                <input
+                  className={inputClass}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={state.format.maxPoints}
+                  value={amendRight}
+                  onChange={(e) => setAmendRight(e.target.value)}
+                  placeholder={String(state.rightScore)}
+                />
+              </FormField>
+            </div>
+            <div className="mt-3">
+              <FormField label="Reason" required>
+                <input
+                  className={inputClass}
+                  required
+                  aria-required="true"
+                  value={amendReason}
+                  onChange={(e) => setAmendReason(e.target.value)}
+                  placeholder="Why is the score being corrected?"
+                />
+              </FormField>
+            </div>
+            <BtnPrimary
+              disabled={busy || !amendScoresValid || state.inInterval}
+              onClick={() => setPendingOutcome({ kind: "amend_score" })}
+              className="w-full mt-3 bg-sky-700 hover:bg-sky-600"
+            >
+              Correct Score
+            </BtnPrimary>
+            {state.inInterval ? (
+              <p className="text-amber-300/80 text-xs mt-2">
+                End the interval before correcting the score.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         {/* Incidents */}
         <section>

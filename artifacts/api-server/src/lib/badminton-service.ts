@@ -50,6 +50,7 @@ import {
   cmdResumeMatch,
   cmdAddMatchNote,
   cmdForceEndMatch,
+  cmdAmendScore,
   buildMatchReport,
   deriveIncidentLog,
   STANDARD_FORMAT,
@@ -1126,6 +1127,23 @@ export async function handleForceEndMatch(
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdForceEndMatch(state, reason);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+}
+
+export async function handleAmendScore(
+  matchId: number,
+  tournamentId: number,
+  leftScore: number,
+  rightScore: number,
+  actor: Actor,
+  reason?: string,
+): Promise<BadmintonMatchState> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  const result = cmdAmendScore(state, { leftScore, rightScore, reason });
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
 

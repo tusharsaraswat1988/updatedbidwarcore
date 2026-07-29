@@ -17,6 +17,7 @@ import {
   type BadmintonMatchStartedPayload,
   type BadmintonPointWonPayload,
   type BadmintonPointUndonePayload,
+  type BadmintonScoreAmendedPayload,
   type BadmintonIntervalStartedPayload,
   type BadmintonIntervalEndedPayload,
   type BadmintonSideChangedPayload,
@@ -209,6 +210,75 @@ export function cmdUndoLastPoint(
     {
       eventType: BadmintonEventType.POINT_UNDONE,
       payload: undoPayload as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+/**
+ * Director-only correction of the current in-progress game score.
+ * Does not alter completed games or gamesLeft/gamesRight.
+ */
+export function cmdAmendScore(
+  state: BadmintonMatchState,
+  input: { leftScore: number; rightScore: number; reason?: string },
+): CommandResult {
+  const liveOrPaused =
+    state.matchStatus === "live" ||
+    state.matchStatus === "paused" ||
+    state.isPaused;
+  if (!liveOrPaused) {
+    return err("Can only amend score while match is live or paused");
+  }
+  if (state.currentGame === 0) {
+    return err("No active game");
+  }
+  if (state.inInterval) {
+    return err("Cannot amend score during interval — end the interval first");
+  }
+
+  const { leftScore, rightScore } = input;
+  if (!Number.isInteger(leftScore) || !Number.isInteger(rightScore)) {
+    return err("Scores must be whole numbers");
+  }
+  if (leftScore < 0 || rightScore < 0) {
+    return err("Scores cannot be negative");
+  }
+
+  const { format } = state;
+  if (leftScore > format.maxPoints || rightScore > format.maxPoints) {
+    return err(`Scores cannot exceed ${format.maxPoints}`);
+  }
+
+  if (
+    isGameOver(
+      leftScore,
+      rightScore,
+      format.pointsPerGame,
+      format.deuceAt,
+      format.maxPoints,
+    )
+  ) {
+    return err(
+      "Amended score would complete the game — use point scoring or match outcomes instead",
+    );
+  }
+
+  if (leftScore === state.leftScore && rightScore === state.rightScore) {
+    return err("Amended score matches the current score");
+  }
+
+  const reason = input.reason?.trim();
+  const payload: BadmintonScoreAmendedPayload = {
+    leftScore,
+    rightScore,
+    gameNumber: state.currentGame,
+    ...(reason ? { reason } : {}),
+  };
+
+  return ok([
+    {
+      eventType: BadmintonEventType.SCORE_AMENDED,
+      payload: payload as unknown as Record<string, unknown>,
     },
   ]);
 }

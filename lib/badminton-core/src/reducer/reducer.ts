@@ -8,6 +8,7 @@ import {
   type BadmintonMatchStartedPayload,
   type BadmintonPointUndonePayload,
   type BadmintonPointWonPayload,
+  type BadmintonScoreAmendedPayload,
   type BadmintonRetirementPayload,
   type BadmintonDisqualificationPayload,
   type BadmintonWalkoverPayload,
@@ -24,6 +25,7 @@ import type {
   BadmintonMatchState,
   BadmintonMatchStatus,
 } from "../types";
+import { DEFAULT_END_ASSIGNMENT } from "../types";
 import {
   createInitialBadmintonState,
   gamesNeededToWin,
@@ -86,6 +88,7 @@ function applyMatchStarted(
     activeTimeout: null,
     isPaused: false,
     matchNotes: [],
+    endAssignment: payload.endAssignment ?? DEFAULT_END_ASSIGNMENT,
     startedAt: new Date().toISOString(),
   };
 }
@@ -147,6 +150,45 @@ function applyPointWon(
     doublesServe: enginePatch.doublesServe ?? state.doublesServe,
     games: updatedGames,
     totalRallies: state.totalRallies + 1,
+  };
+}
+
+
+function applyScoreAmended(
+  state: BadmintonMatchState,
+  payload: BadmintonScoreAmendedPayload,
+): BadmintonMatchState {
+  if (state.matchStatus !== "live" && state.matchStatus !== "paused") {
+    return state;
+  }
+  if (payload.gameNumber !== state.currentGame) return state;
+
+  const threshold = sideChangeScore(state.format.pointsPerGame);
+  const atIntervalThreshold =
+    state.format.midGameSideChange &&
+    isDecidingGame(payload.gameNumber, state.format.totalGames) &&
+    Math.max(payload.leftScore, payload.rightScore) >= threshold;
+
+  const updatedGames = state.games.map((g) => {
+    if (g.gameNumber !== payload.gameNumber) return g;
+    return {
+      ...g,
+      leftScore: payload.leftScore,
+      rightScore: payload.rightScore,
+      intervalReached: atIntervalThreshold,
+      // Dropping below the interval score invalidates a prior court-change ack.
+      sideChangeAcknowledged: atIntervalThreshold ? g.sideChangeAcknowledged : false,
+    };
+  });
+
+  return {
+    ...state,
+    leftScore: payload.leftScore,
+    rightScore: payload.rightScore,
+    games: updatedGames,
+    // Amending mid-timeout clears the timeout so scoring can resume cleanly.
+    activeTimeout: null,
+    inInterval: false,
   };
 }
 
@@ -385,6 +427,9 @@ export function reduceBadminton(
       break;
     case BadmintonEventType.POINT_WON:
       next = applyPointWon(state, parsed.payload as BadmintonPointWonPayload);
+      break;
+    case BadmintonEventType.SCORE_AMENDED:
+      next = applyScoreAmended(state, parsed.payload as BadmintonScoreAmendedPayload);
       break;
     case BadmintonEventType.POINT_UNDONE:
       // Undo markers are resolved before replay (compensating event pattern)

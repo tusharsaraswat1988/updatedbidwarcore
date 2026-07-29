@@ -66,6 +66,7 @@ import {
   handleResumeMatch,
   handleAddMatchNote,
   handleForceEndMatch,
+  handleAmendScore,
   getMatchIncidentLog,
   getMatchReportData,
   replayMatch,
@@ -97,13 +98,18 @@ import {
 import { writeScorerAudit } from "../lib/scorer-audit";
 import {
   createFixtureCollection,
-  importFixtureCollectionStub,
+  importFixtureCollection,
 } from "../lib/fixture-collection-writer";
 import {
-  planKnockoutBracket,
-  wireKnockoutProgressionLinks,
-  advanceKnockoutWinner,
-} from "../lib/badminton-knockout-progression";
+  buildAliasesForRegistration,
+  buildImportedFixtureMeta,
+  buildRegistrationAliasMap,
+  FixtureImportParseError,
+  parseDrawCsv,
+  resolveImportFixtures,
+} from "../lib/fixture-import-csv";
+import { generateCategoryDraw } from "../lib/badminton-generate-draw";
+import { computeGroupedStandings } from "../lib/badminton-standings";
 import {
   canCreateMatchFromFixture,
   FixtureSchedulingError,
@@ -1069,8 +1075,7 @@ router.post("/categories", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
     ageGroup: z.string().max(20).optional(),
     gender: z.string().max(10).optional(),
-    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
-    drawType: z.literal("knockout").default("knockout"),
+    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).default("knockout"),
     numSeeds: z.number().int().min(0).max(32).default(0),
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
@@ -1109,8 +1114,7 @@ router.patch("/categories/:catId", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
     ageGroup: z.string().max(20).nullable().optional(),
     gender: z.string().max(10).nullable().optional(),
-    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
-    drawType: z.literal("knockout").optional(),
+    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
     numSeeds: z.number().int().min(0).max(32).optional(),
     maxPlayers: z.number().int().nullable().optional(),
     entryFee: z.number().int().nullable().optional(),
@@ -1656,6 +1660,7 @@ router.post("/fixtures/:fixtureId/unschedule", async (req, res) => {
 /**
  * Auto Generate adapter — wraps existing generate-draw for client compatibility.
  * Internally calls the shared Fixture Collection writer (kind: generated).
+ * Branches on category.drawType: knockout | round_robin | group_knockout.
  * Does not create matches or start scoring.
  */
 router.post("/categories/:catId/generate-draw", async (req, res) => {
@@ -1663,6 +1668,16 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
   if (!tournamentId) return;
   const catId = parseId((req.params as MergedParams).catId);
   if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const bodySchema = z.object({
+    groupCount: z.number().int().min(2).max(16).optional(),
+    groupSize: z.number().int().min(2).max(32).optional(),
+    qualifyPerGroup: z.number().int().min(1).max(4).optional(),
+  });
+  const bodyParsed = bodySchema.safeParse(req.body ?? {});
+  if (!bodyParsed.success) {
+    return void res.status(400).json({ error: bodyParsed.error.message });
+  }
 
   const [category] = await db
     .select()
@@ -1692,98 +1707,110 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
     return void res.status(400).json({ error: "Need at least 2 players to generate draw" });
   }
 
-  // Sprint 1 / C5 — full bracket with progression links (not R1-only).
-  const plannedRounds = planKnockoutBracket(registrations);
-  const totalRounds = plannedRounds.length;
-  const insertedByRound = new Map<number, Array<{ id: number; slotNumber: number | null }>>();
-  let firstCollection: Awaited<ReturnType<typeof createFixtureCollection>>["collection"] | null =
-    null;
-  const allFixtures: Awaited<ReturnType<typeof createFixtureCollection>>["fixtures"] = [];
-
-  for (const round of plannedRounds) {
-    const { collection, fixtures: insertedFixtures } = await createFixtureCollection({
-      tournamentId,
-      categoryId: catId,
-      roundName: round.roundName,
-      drawKind: "generated",
-      roundNumber: round.roundNumber,
-      totalRounds,
-      status: "active",
-      metaJson: {
-        adapter: "auto_generate",
-        algorithm: "knockout",
-        legacyDrawKind: "knockout_round",
-      },
-      fixtures: round.fixtures.map((f) => ({
-        slotNumber: f.slotNumber,
-        registrationAId: f.registrationAId,
-        registrationBId: f.registrationBId,
-        status: f.status,
-      })),
-      markCategoryLive: round.roundNumber === 1,
-    });
-    if (!firstCollection) firstCollection = collection;
-    insertedByRound.set(
-      round.roundNumber,
-      insertedFixtures.map((f) => ({ id: f.id, slotNumber: f.slotNumber })),
-    );
-    allFixtures.push(...insertedFixtures);
-  }
-
-  await wireKnockoutProgressionLinks(tournamentId, insertedByRound, plannedRounds);
-
-  // Auto-advance R1 byes (one side empty → walkover) into the next round.
-  const r1Inserted = insertedByRound.get(1) ?? [];
-  for (const f of r1Inserted) {
-    const [row] = await db
-      .select()
-      .from(badmintonFixturesTable)
-      .where(
-        and(
-          eq(badmintonFixturesTable.id, f.id),
-          eq(badmintonFixturesTable.tournamentId, tournamentId),
-        ),
-      )
-      .limit(1);
-    if (!row || row.status !== "walkover") continue;
-    const winnerSide =
-      row.registrationAId && !row.registrationBId
-        ? "left"
-        : row.registrationBId && !row.registrationAId
-          ? "right"
-          : null;
-    if (!winnerSide) continue;
-    await advanceKnockoutWinner({
-      tournamentId,
-      fixtureId: row.id,
-      winnerSide,
-    });
-    await db
-      .update(badmintonFixturesTable)
-      .set({
-        completedAt: new Date(),
-        resultSummary: "bye",
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(badmintonFixturesTable.id, row.id),
-          eq(badmintonFixturesTable.tournamentId, tournamentId),
-        ),
-      );
-  }
-
-  // Compatibility: existing clients expect `{ draw, fixtures }` — draw = R1 collection.
-  res.status(201).json({
-    draw: firstCollection,
-    collection: firstCollection,
-    fixtures: allFixtures,
-    rounds: plannedRounds.map((r) => ({
-      roundNumber: r.roundNumber,
-      roundName: r.roundName,
-      fixtureCount: r.fixtures.length,
-    })),
+  const result = await generateCategoryDraw({
+    tournamentId,
+    categoryId: catId,
+    drawType: category.drawType,
+    registrations,
+    options: bodyParsed.data,
   });
+
+  // Compatibility: existing clients expect `{ draw, fixtures }` — draw = first collection.
+  res.status(201).json({
+    draw: result.draw,
+    collection: result.collection,
+    fixtures: result.fixtures,
+    rounds: result.rounds,
+    algorithm: result.algorithm,
+  });
+});
+
+/**
+ * Round-robin / group standings from completed fixtures (W-L).
+ * Knockout categories return empty groups (use bracket progress instead).
+ */
+router.get("/categories/:catId/standings", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const [category] = await db
+    .select()
+    .from(badmintonCategoriesTable)
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!category) return void res.status(404).json({ error: "category not found" });
+
+  const drawType = category.drawType;
+  if (drawType !== "round_robin" && drawType !== "group_knockout") {
+    return void res.json({
+      categoryId: catId,
+      drawType,
+      groups: [],
+      note: "Standings apply to round_robin and group_knockout categories",
+    });
+  }
+
+  const collections = await db
+    .select()
+    .from(badmintonDrawsTable)
+    .where(
+      and(
+        eq(badmintonDrawsTable.tournamentId, tournamentId),
+        eq(badmintonDrawsTable.categoryId, catId),
+      ),
+    );
+
+  const groupCollections = collections.filter((c) => {
+    if (drawType === "round_robin") return true;
+    // Group stage only — skip knockout playoff collections.
+    const meta = c.metaJson as { stage?: string } | null;
+    if (meta?.stage === "knockout") return false;
+    return c.groupId != null || meta?.stage === "group";
+  });
+
+  const collectionIds = groupCollections.map((c) => c.id);
+  if (collectionIds.length === 0) {
+    return void res.json({ categoryId: catId, drawType, groups: [] });
+  }
+
+  const fixtures = await db
+    .select()
+    .from(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.tournamentId, tournamentId),
+        eq(badmintonFixturesTable.categoryId, catId),
+        inArray(badmintonFixturesTable.drawId, collectionIds),
+      ),
+    );
+
+  const groupIdByDraw = new Map(groupCollections.map((c) => [c.id, c.groupId ?? null]));
+  const standingsInput = fixtures.map((f) => ({
+    registrationAId: f.registrationAId,
+    registrationBId: f.registrationBId,
+    winnerRegistrationId: f.winnerRegistrationId,
+    status: f.status,
+    groupId: groupIdByDraw.get(f.drawId) ?? null,
+  }));
+
+  const groups = computeGroupedStandings(standingsInput).map((g) => {
+    const collection = groupCollections.find((c) => (c.groupId ?? null) === g.groupId);
+    return {
+      groupId: g.groupId,
+      label: collection?.roundName ?? (g.groupId ? `Group ${g.groupId}` : "Round Robin"),
+      rows: g.rows,
+    };
+  });
+
+  res.json({ categoryId: catId, drawType, groups });
 });
 
 /**
@@ -1887,7 +1914,9 @@ router.post("/categories/:catId/fixture-collections/manual", async (req, res) =>
 });
 
 /**
- * Import adapter — Phase 1 stub only (no parser / no processing).
+ * Import adapter — CSV or structured fixtures → Fixture Collection (drawKind: imported).
+ * Resolves player names to accepted registration IDs when possible; otherwise stores
+ * label-only sides in fixture metaJson. Does not create matches or start scoring.
  */
 router.post("/categories/:catId/fixture-collections/import", async (req, res) => {
   const tournamentId = await guardBadmintonWrite(req, res);
@@ -1895,17 +1924,169 @@ router.post("/categories/:catId/fixture-collections/import", async (req, res) =>
   const catId = parseId((req.params as MergedParams).catId);
   if (!catId) return void res.status(400).json({ error: "bad id" });
 
-  try {
-    importFixtureCollectionStub();
-  } catch (err) {
-    const e = err as { status?: number; code?: string; message?: string };
-    return void res.status(e.status ?? 501).json({
-      error: e.message ?? "Import not implemented",
-      code: e.code ?? "IMPORT_NOT_IMPLEMENTED",
+  const schema = z.union([
+    z.object({
+      csv: z.string().min(1),
+      roundName: z.string().min(1).max(100).optional(),
+    }),
+    z.object({
+      roundName: z.string().min(1).max(100).optional(),
+      fixtures: z
+        .array(
+          z.object({
+            playerA: z.string().min(1),
+            playerB: z.string().min(1),
+            roundName: z.string().min(1).max(100).optional(),
+            slotNumber: z.number().int().positive().optional(),
+          }),
+        )
+        .min(1),
+    }),
+  ]);
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return void res.status(400).json({
+      error: parsed.error.message,
+      code: "IMPORT_BODY_INVALID",
       message:
-        "Import Existing Draw is a Phase 1 placeholder. Excel/CSV/PDF parsers arrive in a later phase.",
+        "Body must be { csv, roundName? } or { fixtures: [{ playerA, playerB, roundName?, slotNumber? }], roundName? }",
     });
   }
+
+  const [category] = await db
+    .select()
+    .from(badmintonCategoriesTable)
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!category) return void res.status(404).json({ error: "category not found" });
+
+  let rawRows: Array<{
+    playerA: string;
+    playerB: string;
+    roundName?: string;
+    slotNumber?: number;
+  }>;
+
+  try {
+    if ("csv" in parsed.data) {
+      rawRows = parseDrawCsv(parsed.data.csv);
+    } else {
+      rawRows = parsed.data.fixtures.map((f) => ({
+        playerA: f.playerA.trim(),
+        playerB: f.playerB.trim(),
+        roundName: f.roundName?.trim() || undefined,
+        slotNumber: f.slotNumber,
+      }));
+    }
+  } catch (err) {
+    if (err instanceof FixtureImportParseError) {
+      return void res.status(400).json({
+        error: err.message,
+        code: err.code,
+      });
+    }
+    throw err;
+  }
+
+  const acceptedRegs = await db
+    .select()
+    .from(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        eq(badmintonRegistrationsTable.status, "accepted"),
+      ),
+    );
+
+  const playerIds = new Set<number>();
+  for (const reg of acceptedRegs) {
+    playerIds.add(reg.player1Id);
+    if (reg.player2Id) playerIds.add(reg.player2Id);
+  }
+
+  const players =
+    playerIds.size > 0
+      ? await db
+          .select()
+          .from(badmintonPlayersTable)
+          .where(
+            and(
+              eq(badmintonPlayersTable.tournamentId, tournamentId),
+              inArray(badmintonPlayersTable.id, [...playerIds]),
+            ),
+          )
+      : [];
+  const playerById = new Map(players.map((p) => [p.id, p]));
+
+  const aliasEntries = acceptedRegs.map((reg) =>
+    buildAliasesForRegistration({
+      registrationId: reg.id,
+      player1: playerById.get(reg.player1Id) ?? null,
+      player2: reg.player2Id ? playerById.get(reg.player2Id) ?? null : null,
+    }),
+  );
+  const aliasMap = buildRegistrationAliasMap(aliasEntries);
+  const resolved = resolveImportFixtures(rawRows, aliasMap);
+
+  for (const [i, f] of resolved.entries()) {
+    if (
+      f.sideA.registrationId != null &&
+      f.sideB.registrationId != null &&
+      f.sideA.registrationId === f.sideB.registrationId
+    ) {
+      return void res.status(400).json({
+        error: `Fixture ${i + 1}: Side A and Side B cannot be the same entry`,
+        code: "IMPORT_SAME_SIDE",
+      });
+    }
+  }
+
+  const collectionRoundName =
+    parsed.data.roundName?.trim() ||
+    resolved.find((r) => r.roundName)?.roundName ||
+    "Imported Fixtures";
+
+  const unresolvedCount = resolved.reduce((n, f) => {
+    let add = 0;
+    if (f.sideA.registrationId == null) add += 1;
+    if (f.sideB.registrationId == null) add += 1;
+    return n + add;
+  }, 0);
+
+  const { collection, fixtures } = await importFixtureCollection({
+    tournamentId,
+    categoryId: catId,
+    roundName: collectionRoundName,
+    roundNumber: 1,
+    totalRounds: 1,
+    status: "active",
+    metaJson: {
+      source: "csv" in parsed.data ? "csv" : "json",
+      unresolvedSideCount: unresolvedCount,
+    },
+    fixtures: resolved.map((f) => ({
+      slotNumber: f.slotNumber,
+      registrationAId: f.sideA.registrationId,
+      registrationBId: f.sideB.registrationId,
+      // Label-only sides are still planned fixtures (not BYEs) — stay unscheduled.
+      status: "unscheduled",
+      metaJson: buildImportedFixtureMeta(f),
+    })),
+  });
+
+  res.status(201).json({
+    collection,
+    fixtures,
+    unresolvedSideCount: unresolvedCount,
+  });
 });
 
 // ─── Matches ──────────────────────────────────────────────────────────────────
@@ -2850,6 +3031,56 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/amend-score", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    leftScore: z.number().int().min(0),
+    rightScore: z.number().int().min(0),
+    reason: z.string().min(1).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleAmendScore(
+      matchId,
+      tournamentId,
+      parsed.data.leftScore,
+      parsed.data.rightScore,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.reason,
+    );
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.score_amended",
+      summary: `Match #${matchId} score amended to ${parsed.data.leftScore}-${parsed.data.rightScore}`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+      metadata: {
+        leftScore: parsed.data.leftScore,
+        rightScore: parsed.data.rightScore,
+        reason: parsed.data.reason ?? null,
+      },
+    });
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({
+        error: friendlyBadmintonCommandMessage(e.message),
+        code: e.code,
+      });
     }
     throw e;
   }

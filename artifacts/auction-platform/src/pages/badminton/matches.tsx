@@ -286,7 +286,7 @@ export default function BadmintonMatchesPage() {
         <BadmintonMovedBanner
           toHref={`/tournament/${tournamentId}/badminton/control`}
           toLabel="Live Control"
-          message="Running the tournament day belongs in Live Control — courts, queue, and displays."
+          message="Match day ops belong in Live Control — courts, queue, and displays. Matches stay nested under Live Control in the sidebar."
         />
       </div>
 

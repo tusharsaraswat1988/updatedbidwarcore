@@ -12,6 +12,7 @@ import type {
   BadmintonRetirementPayload,
   BadmintonWalkoverPayload,
   BadmintonTimeoutStartedPayload,
+  BadmintonScoreAmendedPayload,
 } from "./events/badminton";
 import type {
   BadmintonEventEnvelope,
@@ -141,6 +142,13 @@ function incidentLabel(event: BadmintonEventEnvelope): string | null {
     case BadmintonEventType.MATCH_NOTE_ADDED: {
       const payload = p as BadmintonMatchNoteAddedPayload;
       return `Note: ${payload.text}`;
+    }
+    case BadmintonEventType.SCORE_AMENDED: {
+      const payload = p as BadmintonScoreAmendedPayload;
+      const score = `${payload.leftScore}-${payload.rightScore}`;
+      return payload.reason
+        ? `Score Amended — ${score} (${payload.reason})`
+        : `Score Amended — ${score}`;
     }
     case BadmintonEventType.GAME_ENDED:
       return "Game Completed";
