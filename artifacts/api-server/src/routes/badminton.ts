@@ -1069,7 +1069,8 @@ router.post("/categories", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
     ageGroup: z.string().max(20).optional(),
     gender: z.string().max(10).optional(),
-    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).default("knockout"),
+    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
+    drawType: z.literal("knockout").default("knockout"),
     numSeeds: z.number().int().min(0).max(32).default(0),
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
@@ -1108,7 +1109,8 @@ router.patch("/categories/:catId", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
     ageGroup: z.string().max(20).nullable().optional(),
     gender: z.string().max(10).nullable().optional(),
-    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
+    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
+    drawType: z.literal("knockout").optional(),
     numSeeds: z.number().int().min(0).max(32).optional(),
     maxPlayers: z.number().int().nullable().optional(),
     entryFee: z.number().int().nullable().optional(),
