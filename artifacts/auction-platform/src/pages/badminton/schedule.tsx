@@ -14,7 +14,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { findCourtScheduleConflicts } from "@/lib/badminton-control-center";
+import {
+  findCourtScheduleConflicts,
+  suggestCourtScheduleTimes,
+} from "@/lib/badminton-control-center";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
 import { friendlyBadmintonError, formatFixtureStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
@@ -164,6 +167,13 @@ export default function BadmintonSchedulePage() {
   const [unscheduleTarget, setUnscheduleTarget] = useState<BadmintonFixture | null>(null);
   const [unscheduling, setUnscheduling] = useState(false);
   const [unscheduleError, setUnscheduleError] = useState("");
+  const [bulkTarget, setBulkTarget] = useState<
+    | null
+    | { scope: "all"; count: number }
+    | { scope: "court"; courtId: number; courtLabel: string; count: number }
+  >(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState("");
 
   const {
     data: courts = [],
@@ -307,9 +317,67 @@ export default function BadmintonSchedulePage() {
     return map;
   }, [fixtures]);
 
+  const creatableFixtures = useMemo(
+    () => fixtures.filter((f) => planningStatus(f) === "scheduled"),
+    [fixtures],
+  );
+
+  const creatableCountByCourt = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const f of creatableFixtures) {
+      if (f.courtId == null) continue;
+      map.set(f.courtId, (map.get(f.courtId) ?? 0) + 1);
+    }
+    return map;
+  }, [creatableFixtures]);
+
   function invalidate() {
     void qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
     void qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+    void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+  }
+
+  async function handleBulkCreateConfirm() {
+    if (!bulkTarget) return;
+    setBulkBusy(true);
+    setBulkError("");
+    try {
+      const body =
+        bulkTarget.scope === "court" ? { courtId: bulkTarget.courtId } : {};
+      const result = await badmintonFetch<{
+        created: Array<{ fixtureId: number; matchId: number }>;
+        skipped: Array<{ fixtureId: number; reason: string }>;
+        failed: Array<{ fixtureId: number; error: string }>;
+      }>(tournamentId, "/matches/bulk-from-fixtures", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      if (result.created.length > 0) {
+        toastSuccess(
+          `${result.created.length} match${result.created.length !== 1 ? "es" : ""} created`,
+          "Open Match Control to start play — toss is done on court when you start each match.",
+        );
+      } else {
+        toastError(
+          new Error("No matches created"),
+          [
+            result.skipped.length ? `${result.skipped.length} skipped` : "",
+            result.failed.length ? `${result.failed.length} failed` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ") || "Every scheduled fixture already has a match.",
+        );
+      }
+
+      setBulkTarget(null);
+      invalidate();
+    } catch (e) {
+      setBulkError(friendlyBadmintonError(e, "Could not create matches"));
+      toastError(e, "Bulk create failed");
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   async function handleUnscheduleConfirm() {
@@ -365,6 +433,15 @@ export default function BadmintonSchedulePage() {
                 onClick={() => setScheduleTarget(unscheduled[0] ?? null)}
               >
                 Schedule next match
+              </BtnPrimary>
+            ) : creatableFixtures.length > 0 ? (
+              <BtnPrimary
+                type="button"
+                onClick={() =>
+                  setBulkTarget({ scope: "all", count: creatableFixtures.length })
+                }
+              >
+                Create all matches ({creatableFixtures.length})
               </BtnPrimary>
             ) : null}
           </div>
@@ -439,6 +516,27 @@ export default function BadmintonSchedulePage() {
             </section>
 
             <section className="space-y-4">
+              {creatableFixtures.length > 0 ? (
+                <div className="rounded-xl border border-purple-500/25 bg-purple-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-sm">Create scoring matches</p>
+                    <p className="text-white/45 text-xs mt-0.5">
+                      {creatableFixtures.length} scheduled fixture
+                      {creatableFixtures.length !== 1 ? "s" : ""} ready — pairs and times come from
+                      the fixture. Toss is recorded when you start each match in Match Control.
+                    </p>
+                  </div>
+                  <BtnPrimary
+                    type="button"
+                    onClick={() =>
+                      setBulkTarget({ scope: "all", count: creatableFixtures.length })
+                    }
+                  >
+                    Create all ({creatableFixtures.length})
+                  </BtnPrimary>
+                </div>
+              ) : null}
+
               <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest">
                 Scheduled by court
               </h2>
@@ -455,21 +553,40 @@ export default function BadmintonSchedulePage() {
               ) : (
                 sortedCourts.map((court) => {
                   const list = scheduledByCourt.get(court.id) ?? [];
+                  const creatableOnCourt = creatableCountByCourt.get(court.id) ?? 0;
                   return (
                     <div key={court.id} className={cn(hubCardClass, "p-5 space-y-3")}>
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
                         <h3 className="text-white font-bold text-lg">
                           {court.shortName?.trim() || court.name}
                         </h3>
-                        <span className="text-white/30 text-xs">
-                          {list.length} fixture{list.length !== 1 ? "s" : ""}
-                          {list.length === 0 ? " — create Matches separately" : ""}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {creatableOnCourt > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setBulkTarget({
+                                  scope: "court",
+                                  courtId: court.id,
+                                  courtLabel: court.shortName?.trim() || court.name,
+                                  count: creatableOnCourt,
+                                })
+                              }
+                              className="min-h-9 px-3 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 text-purple-100 text-xs font-bold transition-colors"
+                            >
+                              Create all on court ({creatableOnCourt})
+                            </button>
+                          ) : null}
+                          <span className="text-white/30 text-xs">
+                            {list.length} fixture{list.length !== 1 ? "s" : ""}
+                            {list.length === 0 ? " — schedule fixtures here first" : ""}
+                          </span>
+                        </div>
                       </div>
                       {list.length === 0 ? (
                         <p className="text-white/30 text-sm">
-                          No fixtures on this court yet. After you schedule fixtures here, create
-                          scoring matches under Operations → Matches.
+                          No fixtures on this court yet. After you schedule fixtures here, use
+                          Create all on court or create matches one by one.
                         </p>
                       ) : (
                         <div className="space-y-2">
@@ -567,6 +684,40 @@ export default function BadmintonSchedulePage() {
         busy={unscheduling}
         error={unscheduleError}
         onConfirm={() => void handleUnscheduleConfirm()}
+      />
+
+      <ConfirmActionDialog
+        open={bulkTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !bulkBusy) {
+            setBulkTarget(null);
+            setBulkError("");
+          }
+        }}
+        title={
+          bulkTarget?.scope === "court"
+            ? `Create all matches on ${bulkTarget.courtLabel}?`
+            : "Create all scheduled matches?"
+        }
+        description={
+          <div className="space-y-2 text-sm">
+            <p>
+              This creates{" "}
+              <span className="font-medium text-foreground">{bulkTarget?.count ?? 0}</span> scoring
+              match{bulkTarget?.count !== 1 ? "es" : ""} from scheduled fixtures — players, court,
+              and time are copied automatically.
+            </p>
+            <p className="text-muted-foreground">
+              Toss is not set here. Record it in Match Control when you start each match on court
+              (or pre-save toss on individual Create Match if needed).
+            </p>
+          </div>
+        }
+        confirmLabel="Create matches"
+        destructive={false}
+        busy={bulkBusy}
+        error={bulkError}
+        onConfirm={() => void handleBulkCreateConfirm()}
       />
       </BadmintonIaPageChrome>
     </HubPageShell>
@@ -716,14 +867,25 @@ function ScheduleFixtureModal({
 
   const catLabel = category?.code?.trim() || category?.name || "Fixture";
 
+  const parsedCourtId = courtId ? parseInt(courtId, 10) : NaN;
+
   const conflicts = useMemo(() => {
     if (!courtId || !date || !time) return [];
     return findCourtScheduleConflicts(allFixtures, {
-      courtId: parseInt(courtId, 10),
+      courtId: parsedCourtId,
       scheduledAtIso: combineLocalDateTime(date, time),
       excludeFixtureId: fixture.id,
     });
-  }, [allFixtures, courtId, date, time, fixture.id]);
+  }, [allFixtures, courtId, date, parsedCourtId, time, fixture.id]);
+
+  const suggestedTimes = useMemo(() => {
+    if (!courtId || !date || Number.isNaN(parsedCourtId)) return [];
+    return suggestCourtScheduleTimes(allFixtures, {
+      courtId: parsedCourtId,
+      date,
+      excludeFixtureId: fixture.id,
+    });
+  }, [allFixtures, courtId, date, parsedCourtId, fixture.id]);
 
   useEffect(() => {
     setConflictAck(false);
@@ -827,6 +989,37 @@ function ScheduleFixtureModal({
               />
             </FormField>
           </div>
+          {suggestedTimes.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Suggested times
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedTimes.map((suggestion) => {
+                  const selected = time === suggestion.time;
+                  const displayTime = formatTime(combineLocalDateTime(date, suggestion.time));
+                  return (
+                    <button
+                      key={suggestion.time}
+                      type="button"
+                      onClick={() => setTime(suggestion.time)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2 text-left transition-colors min-w-[6.5rem] max-w-[10rem]",
+                        selected
+                          ? "border-primary/45 bg-primary/15 text-primary"
+                          : "border-white/10 bg-white/[0.04] hover:bg-white/10 text-white/85",
+                      )}
+                    >
+                      <span className="block text-sm font-bold tabular-nums">{displayTime}</span>
+                      <span className="block text-[10px] leading-snug text-white/45 truncate">
+                        {suggestion.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {conflicts.length > 0 ? (
             <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-3 space-y-2">
               <p className="text-amber-100 text-sm font-semibold">

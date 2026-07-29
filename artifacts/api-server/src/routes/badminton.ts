@@ -145,6 +145,7 @@ import {
   listLeagueGroups,
   replaceLeagueGroups,
 } from "../lib/badminton-league-service";
+import { bulkCreateBadmintonMatchesFromFixtures } from "../lib/badminton-bulk-match-create";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
 import {
   queueImageFieldChange,
@@ -2176,6 +2177,54 @@ router.post("/matches", async (req, res) => {
       return void res.status(e.status).json({ error: e.message, code: e.code });
     }
     throw e;
+  }
+});
+
+router.post("/matches/bulk-from-fixtures", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const schema = z.object({
+    courtId: z.number().int().optional(),
+    fixtureIds: z.array(z.number().int().positive()).optional(),
+  });
+
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const result = await bulkCreateBadmintonMatchesFromFixtures(tournamentId, parsed.data);
+
+    if (result.created.length > 0) {
+      auditLog(req, {
+        category: "tournament",
+        action: "badminton.matches_bulk_created",
+        summary: `${result.created.length} match(es) created from fixtures`,
+        tournamentId,
+        metadata: {
+          courtId: parsed.data.courtId ?? null,
+          created: result.created.length,
+          skipped: result.skipped.length,
+          failed: result.failed.length,
+        },
+      });
+
+      for (const item of result.created) {
+        broadcastTournamentUpdate(tournamentId, {
+          type: "match_created",
+          matchId: item.matchId,
+        });
+      }
+      scheduleBadmintonLifecycleRefresh(tournamentId);
+    }
+
+    res.status(result.created.length > 0 ? 201 : 200).json(result);
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    const message = e instanceof Error ? e.message : "Bulk create failed";
+    res.status(500).json({ error: message });
   }
 });
 

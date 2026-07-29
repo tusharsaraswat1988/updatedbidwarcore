@@ -999,9 +999,9 @@ function MatchFormModal({
       subtitle={
         isEdit
           ? rosterLocked
-            ? "Update match name, court, scorer name, or legacy court code"
+            ? "Update match name, court, organizer note, or legacy court code"
             : "Court and time are required before Match Control can start the match"
-          : "Court and time are required. Prefer linking a scheduled fixture; manual matches work if court + time are set."
+          : "Court and time are required. Link a scheduled fixture when possible — scorers are added separately under Participants → Officials."
       }
       onClose={onClose}
       size="lg"
@@ -1145,24 +1145,54 @@ function MatchFormModal({
         />
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField label="Scorer's Name">
-          <input {...f("scorerName")} placeholder="Optional" className={inputClass} />
-        </FormField>
-        {legacyScorerPin ? (
-          <FormField label="Legacy court code">
+      {!isEdit ? (
+        <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
+          <p className="text-sm font-semibold text-foreground">Who will score this match?</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Scorers are not picked here. Add officials under{" "}
+            <Link
+              href={`/tournament/${tournamentId}/badminton/players?section=officials`}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Participants → Officials
+            </Link>
+            . They sign in on{" "}
+            <Link
+              href={badmintonScorerHomePath(tournamentId)}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Scorer Home
+            </Link>{" "}
+            with mobile and personal PIN, then choose this court.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Organizer note (optional)">
             <input
-              value={legacyScorerPin}
-              readOnly
-              className={cn(inputClass, "font-mono bg-muted/40")}
-              aria-readonly="true"
+              {...f("scorerName")}
+              placeholder="Internal label only"
+              className={inputClass}
             />
             <p className="text-xs text-muted-foreground mt-1.5">
-              Read-only legacy code. Scorers sign in with mobile and personal PIN — new codes are no longer created.
+              Not used for scorer login. Officials sign in via Scorer Home with mobile + PIN.
             </p>
           </FormField>
-        ) : null}
-      </div>
+          {legacyScorerPin ? (
+            <FormField label="Legacy court code">
+              <input
+                value={legacyScorerPin}
+                readOnly
+                className={cn(inputClass, "font-mono bg-muted/40")}
+                aria-readonly="true"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Read-only legacy code. Scorers sign in with mobile and personal PIN — new codes are no longer created.
+              </p>
+            </FormField>
+          ) : null}
+        </div>
+      )}
 
       <MatchFormatPicker
         value={formatPicker}
