@@ -453,7 +453,21 @@ export default function BadmintonScorerPage() {
             </button>
           </div>
         ) : null}
-        {scorer.pointSyncError ? (
+        {!scorer.isOnline ? (
+          <div
+            className="shrink-0 px-3 py-2 bg-amber-500/15 border-b border-amber-500/30"
+            role="status"
+          >
+            <p className="text-amber-100 text-xs font-semibold">
+              Offline — points stay on this device
+              {scorer.pendingPointCount > 0
+                ? ` (${scorer.pendingPointCount} queued)`
+                : ""}
+              {" "}and sync when you reconnect.
+            </p>
+          </div>
+        ) : null}
+        {scorer.isOnline && scorer.pointSyncError ? (
           <div
             className="shrink-0 px-3 py-2 bg-red-500/15 border-b border-red-500/30 flex items-center justify-between gap-3"
             role="alert"
