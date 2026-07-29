@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useBranding } from "@/hooks/use-branding";import { cldUrl } from "@/lib/cloudinary";
+import { useBranding } from "@/hooks/use-branding";
+import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
 import { cn } from "@/lib/utils";
 
@@ -145,11 +146,11 @@ export function BadmintonPublicBrandMark({
         <img
           src={markLogoSrc}
           alt={logoAlt}
-          className="block h-6 w-auto max-w-[5rem] object-contain"
+          className="block h-7 w-auto max-w-[6.5rem] object-contain"
           loading="eager"
           decoding="async"
         />
-        <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.08em] text-white/60 leading-none hidden min-[360px]:inline">
+        <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.08em] text-white/70 leading-none hidden min-[360px]:inline">
           {poweredByText}
         </span>
         <span className="text-[9px] font-bold text-white/60 leading-none min-[360px]:hidden">

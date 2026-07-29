@@ -55,29 +55,35 @@ export function SinglesScorerPanel({
 
       <div className="flex-1 min-h-2" />
 
-      <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 space-y-2 bg-[#070b16]">
+      <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border space-y-2 bg-card/90">
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => award("left")}
             disabled={cannotScore}
             className={cn(
-              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-lg sm:text-xl",
-              "bg-[#0070f3] text-white active:scale-[0.98] disabled:opacity-40",
+              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
+              "bg-primary text-primary-foreground active:scale-[0.98] shadow-[var(--shadow-glow)] disabled:opacity-40",
             )}
           >
-            + {formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))}
+            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-70 mb-1">
+              End 1
+            </span>
+            + {formatTeamPlayerLine(identityFromSideInfo(state.leftSide))}
           </button>
           <button
             type="button"
             onClick={() => award("right")}
             disabled={cannotScore}
             className={cn(
-              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-lg sm:text-xl",
-              "bg-[#7c3aed] text-white active:scale-[0.98] disabled:opacity-40",
+              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
+              "bg-sky-500 text-white active:scale-[0.98] disabled:opacity-40",
             )}
           >
-            + {formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}
+            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">
+              End 2
+            </span>
+            + {formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}
           </button>
         </div>
         <div className="flex gap-2">
@@ -85,7 +91,7 @@ export function SinglesScorerPanel({
             type="button"
             onClick={undo}
             disabled={undoBusy || state.totalRallies === 0}
-            className="flex-1 min-h-12 rounded-xl bg-white/5 text-white/55 text-sm font-semibold disabled:opacity-30"
+            className="flex-1 min-h-12 rounded-xl bg-white/5 border border-border text-muted-foreground text-sm font-semibold disabled:opacity-30"
           >
             Undo last point
           </button>
@@ -102,7 +108,7 @@ export function SinglesScorerPanel({
               type="button"
               onClick={() => void onStartTimeout(state.servingSide ?? "left")}
               disabled={undoBusy || state.matchStatus !== "live"}
-              className="flex-1 min-h-12 rounded-xl bg-white/5 border border-white/10 text-white/55 text-sm font-semibold disabled:opacity-30"
+              className="flex-1 min-h-12 rounded-xl bg-white/5 border border-border text-muted-foreground text-sm font-semibold disabled:opacity-30"
             >
               Timeout
             </button>

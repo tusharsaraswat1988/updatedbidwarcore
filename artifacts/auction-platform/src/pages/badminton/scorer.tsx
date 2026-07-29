@@ -60,6 +60,29 @@ function terminalStatusLabel(status: string): string {
   }
 }
 
+/** Map raw API lock/sync errors into umpire-friendly copy. */
+function friendlyScorerSyncError(message: string): { text: string; isLock: boolean } {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("match lock required") ||
+    lower.includes("lock_not_found") ||
+    lower.includes("lock expired") ||
+    lower.includes("connection lost")
+  ) {
+    return {
+      text: "Scoring paused — this device lost the match lock. Tap Reconnect to continue scoring.",
+      isLock: true,
+    };
+  }
+  if (lower.includes("held by") || lower.includes("already locked")) {
+    return {
+      text: message,
+      isLock: true,
+    };
+  }
+  return { text: message, isLock: false };
+}
+
 export default function BadmintonScorerPage() {
   const [, params] = useRoute("/badminton/:matchId/score");
   const search = useSearch();
@@ -217,6 +240,37 @@ export default function BadmintonScorerPage() {
     }
     if (tournamentId > 0) {
       navigate(badmintonScorerHomePath(tournamentId));
+    }
+  }
+
+  async function reconnectAndRetry() {
+    setBusy(true);
+    try {
+      const token = getScorerAuthSession()?.token;
+      if (!token) {
+        setAuthError("Sign in required");
+        setAuthAccepted(false);
+        setLockAccepted(false);
+        return;
+      }
+      const lock = await acquireScorerMatchLock(matchId, token, {
+        tournamentId,
+        sport: "badminton",
+      });
+      if (!lock.ok) {
+        setLockAccepted(false);
+        lockHeldRef.current = false;
+        setAuthError(lock.message);
+        return;
+      }
+      lockHeldRef.current = true;
+      setLockAccepted(true);
+      setAuthError("");
+      await scorer.retryPointQueue();
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : "Could not reconnect");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -379,47 +433,84 @@ export default function BadmintonScorerPage() {
         : state.winnerSide === "right"
           ? rightLabel
           : null;
+    const completedGames = (state.games ?? []).filter((g) => g.phase === "completed");
 
     return (
       <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
-          <div className="w-full max-w-md text-center space-y-6">
+          <div className="w-full max-w-md text-center space-y-5">
             <BadmintonPublicBrandMark variant="scorer-bar" className="mx-auto" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/40">
-                {terminalStatusLabel(state.matchStatus)}
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">
+                Match summary · {terminalStatusLabel(state.matchStatus)}
               </p>
-              <h1 className="text-white text-3xl font-black mt-2">
+              <h1 className="text-foreground text-2xl sm:text-3xl font-black mt-2 leading-tight">
                 {winnerLabel ? `${winnerLabel} wins` : "Match finished"}
               </h1>
-              <p className="text-white/55 text-lg font-semibold mt-3 tabular-nums">
+              <p className="text-primary text-3xl font-black mt-3 tabular-nums">
                 {state.gamesLeft} – {state.gamesRight}
               </p>
-              {state.resultReason ? (
-                <p className="text-white/35 text-sm mt-2">{state.resultReason}</p>
+              <p className="text-muted-foreground text-sm mt-1">Games won</p>
+              {state.resultReason && state.resultReason !== "normal" ? (
+                <p className="text-muted-foreground text-sm mt-2 capitalize">{state.resultReason}</p>
+              ) : null}
+              {tournamentName ? (
+                <p className="text-muted-foreground text-xs mt-3 truncate" title={tournamentName}>
+                  {tournamentName}
+                </p>
               ) : null}
               {courtNumber || categoryName ? (
-                <p className="text-white/35 text-xs mt-3">
+                <p className="text-muted-foreground text-xs mt-1">
                   {[courtNumber ? `Court ${courtNumber}` : null, categoryName]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
               ) : null}
             </div>
+
             <div className="grid grid-cols-2 gap-3 text-left text-sm">
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
-                <p className="text-white/40 text-[10px] uppercase tracking-wider">Left</p>
-                <p className="text-white font-semibold mt-1 truncate">{leftLabel}</p>
+              <div className="rounded-xl border border-border bg-card/80 px-3 py-3 min-w-0">
+                <p className="text-muted-foreground text-[10px] uppercase tracking-wider">End 1</p>
+                <p className="text-foreground font-semibold mt-1 break-words">{leftLabel}</p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
-                <p className="text-white/40 text-[10px] uppercase tracking-wider">Right</p>
-                <p className="text-white font-semibold mt-1 truncate">{rightLabel}</p>
+              <div className="rounded-xl border border-border bg-card/80 px-3 py-3 min-w-0">
+                <p className="text-muted-foreground text-[10px] uppercase tracking-wider">End 2</p>
+                <p className="text-foreground font-semibold mt-1 break-words">{rightLabel}</p>
               </div>
             </div>
+
+            {completedGames.length > 0 ? (
+              <div className="rounded-xl border border-border bg-card/80 px-4 py-3 text-left">
+                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-2">
+                  Game scores
+                </p>
+                <ul className="space-y-2">
+                  {completedGames.map((game) => (
+                    <li
+                      key={game.gameNumber}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="text-muted-foreground">Game {game.gameNumber}</span>
+                      <span className="font-bold tabular-nums text-foreground">
+                        {game.leftScore} – {game.rightScore}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground w-16 text-right">
+                        {game.winner === "left"
+                          ? "End 1"
+                          : game.winner === "right"
+                            ? "End 2"
+                            : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <button
               type="button"
               onClick={() => void exitScorer(false)}
-              className="w-full min-h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base"
+              className="w-full min-h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base shadow-[var(--shadow-glow)]"
             >
               Exit to Scorer Home
             </button>
@@ -431,9 +522,9 @@ export default function BadmintonScorerPage() {
 
   return (
     <FullscreenLayout className="lovable-theme">
-      <div className="h-[100dvh] overflow-hidden flex flex-col">
+      <div className="h-[100dvh] overflow-hidden flex flex-col bg-background">
         {tournamentId > 0 ? (
-          <div className="shrink-0 px-3 py-1.5 border-b border-border/60 bg-card/80 flex items-center justify-between gap-2">
+          <div className="shrink-0 px-3 py-1.5 border-b border-border bg-card/80 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => void exitScorer(false)}
@@ -452,18 +543,30 @@ export default function BadmintonScorerPage() {
         ) : null}
         {scorer.pointSyncError ? (
           <div
-            className="shrink-0 px-3 py-2 bg-red-500/15 border-b border-red-500/30 flex items-center justify-between gap-3"
+            className="shrink-0 px-3 py-2.5 bg-destructive/15 border-b border-destructive/30 flex items-center justify-between gap-3"
             role="alert"
           >
-            <p className="text-red-200 text-xs font-semibold min-w-0 truncate">
-              {scorer.pointSyncError}
+            <p className="text-destructive-foreground text-xs font-semibold min-w-0">
+              {friendlyScorerSyncError(scorer.pointSyncError).text}
             </p>
             <button
               type="button"
-              onClick={() => void scorer.retryPointQueue()}
-              className="shrink-0 min-h-9 px-3 rounded-lg bg-red-500/25 text-red-100 text-xs font-bold"
+              disabled={busy}
+              onClick={() => {
+                const { isLock } = friendlyScorerSyncError(scorer.pointSyncError!);
+                if (isLock) {
+                  void reconnectAndRetry();
+                } else {
+                  void scorer.retryPointQueue();
+                }
+              }}
+              className="shrink-0 min-h-9 px-3 rounded-lg bg-destructive/25 text-destructive-foreground text-xs font-bold disabled:opacity-50"
             >
-              Retry
+              {busy
+                ? "…"
+                : friendlyScorerSyncError(scorer.pointSyncError).isLock
+                  ? "Reconnect"
+                  : "Retry"}
             </button>
           </div>
         ) : null}

@@ -72,7 +72,7 @@ export function ScorerAssistanceShell({
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0f1e]">
+    <div className="h-full flex flex-col bg-background">
       <ScorerConsoleHeader
         tournamentName={tournamentName}
         courtNumber={courtNumber}
