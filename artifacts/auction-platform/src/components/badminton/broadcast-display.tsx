@@ -142,7 +142,7 @@ export function BroadcastDisplay({
     matchLabel?.trim() ||
     (roundName?.trim()
       ? null
-      : `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}`);
+      : `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}`);
 
   const showMatchWinner =
     (state.matchStatus === "completed" ||
@@ -201,8 +201,8 @@ export function BroadcastDisplay({
         matchStatus={state.matchStatus}
         isTimeout={isTimeout}
         timeoutSide={state.activeTimeout?.side}
-        leftLabel={formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))}
-        rightLabel={formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}
+        leftLabel={formatTeamPlayerLine(identityFromSideInfo(state.leftSide))}
+        rightLabel={formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}
         scoreBoardSponsor={scoreBoardSponsor}
       />
 
@@ -326,7 +326,7 @@ function ScoreboardMetaRow({
       <div className="min-w-0 justify-self-start">
         {matchName ? (
           <p
-            className="bw-caption text-white/75 truncate"
+            className="bw-caption text-white/75 bw-name-full"
             style={{ fontSize: "var(--score-player-meta)" }}
           >
             {matchName}
@@ -514,7 +514,7 @@ function PlayerBlock({
           {info.countryName ? (
             <p
               className={cn(
-                "bw-meta opacity-80 truncate w-full",
+                "bw-meta opacity-80 bw-name-full w-full",
                 isLeft ? "text-[#ffc400]" : "text-[#ce93d8]",
               )}
               style={{ fontSize: "var(--score-player-meta)" }}

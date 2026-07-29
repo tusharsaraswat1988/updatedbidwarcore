@@ -61,6 +61,15 @@ export function DoublesScorerPanel({
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 flex flex-col items-center justify-center">
         <DoublesCourtDisplay state={state} variant="scorer" className="max-w-[320px] w-full" />
 
+        {(state.isPaused || state.matchStatus === "paused") && (
+          <div
+            className="mt-3 w-full rounded-lg bg-amber-600/20 border border-amber-400/40 px-3 py-2.5 text-amber-100 text-sm font-bold text-center"
+            role="status"
+          >
+            Scoring locked — director must resume the match
+          </div>
+        )}
+
         {isTimeout && (
           <div className="mt-3 w-full rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2 text-amber-300 text-sm font-bold text-center">
             Timeout in progress

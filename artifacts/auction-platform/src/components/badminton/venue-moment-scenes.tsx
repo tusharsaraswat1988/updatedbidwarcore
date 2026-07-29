@@ -19,7 +19,13 @@ import {
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
-import type { BroadcastConsoleMatch } from "@/lib/badminton-broadcast-console";
+import {
+  matchCourtLabel,
+  matchIdentityLine,
+  resolveBroadcastMatchSides,
+  type BroadcastConsoleMatch,
+} from "@/lib/badminton-broadcast-console";
+import { VenueSponsorShowcase } from "@/components/badminton/venue-sponsor-showcase";
 import { cn } from "@/lib/utils";
 
 type ChromeProps = {
@@ -36,14 +42,24 @@ function VenueChromeShell({
   chrome,
   children,
   showChyron = true,
+  /** Sponsor showcase needs max stage height — skip reserved chyron spacer. */
+  footer = "auto",
 }: {
   chrome: ChromeProps;
   children: ReactNode;
   showChyron?: boolean;
+  footer?: "auto" | "none";
 }) {
+  const showFooter = footer !== "none" && (showChyron || footer === "auto");
+
   return (
     <div
-      className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
+      className={cn(
+        "badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv",
+        showFooter
+          ? "grid grid-rows-[auto_1fr_auto]"
+          : "grid grid-rows-[auto_1fr]",
+      )}
       style={badmintonLedSurfaceStyle}
     >
       <div
@@ -68,17 +84,19 @@ function VenueChromeShell({
         rightLabel="Side B"
         scoreBoardSponsor={chrome.scoreBoardSponsor}
       />
-      <div className="relative z-10 min-h-0 flex items-center justify-center bg-[#070708] px-[4%]">
+      <div className="relative z-10 min-h-0 flex items-stretch justify-center bg-[#070708] px-[3%] py-2">
         {children}
       </div>
-      {showChyron ? (
-        <BadmintonLedChyron
-          sponsors={chrome.sponsorLogos}
-          tournamentName={chrome.tournamentName}
-        />
-      ) : (
-        <div className="h-[10vh] min-h-[72px] max-h-[104px] border-t border-white/10 bg-black/50" />
-      )}
+      {showFooter ? (
+        showChyron ? (
+          <BadmintonLedChyron
+            sponsors={chrome.sponsorLogos}
+            tournamentName={chrome.tournamentName}
+          />
+        ) : (
+          <div className="h-[10vh] min-h-[72px] max-h-[104px] border-t border-white/10 bg-black/50" />
+        )
+      ) : null}
     </div>
   );
 }
@@ -98,10 +116,11 @@ function MomentSideCard({
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-3 min-w-0 flex-1 max-w-[min(420px,38vw)]",
+        "flex flex-col items-center gap-3 min-w-0 flex-1 px-1",
         isLeft ? "text-right items-end" : "text-left items-start",
       )}
     >
+
       <div
         className={cn(
           "rounded-2xl p-2 border",
@@ -123,8 +142,8 @@ function MomentSideCard({
         tone="led"
         layout="stack"
         align={isLeft ? "end" : "start"}
-        playerClassName="bw-heading text-3xl md:text-4xl text-white"
-        teamClassName="bw-label text-white/70"
+        playerClassName="bw-heading bw-name-full text-2xl md:text-3xl lg:text-4xl text-white"
+        teamClassName="bw-label bw-name-full text-white/70"
       />
     </div>
   );
@@ -286,48 +305,16 @@ export function VenueWinnerScene({
   );
 }
 
-/** Full-screen sponsor beat for breaks / commercial holds. */
+/** Full-screen sponsor beat — looping title → co → partners×4. Header stays fixed. */
 export function VenueSponsorScene({ chrome }: { chrome: ChromeProps }) {
-  const logos = chrome.sponsorLogos.filter((s) => s.url || s.name);
-
   return (
-    <VenueChromeShell chrome={{ ...chrome, roundName: "Our sponsors" }} showChyron={false}>
-      <div className="w-full max-w-5xl flex flex-col items-center gap-8 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
-        <div className="text-center space-y-2">
-          <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
-            OUR SPONSORS
-          </p>
-          <p className="bw-heading text-white text-4xl md:text-5xl">{chrome.tournamentName}</p>
-        </div>
-
-        {logos.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-            {logos.map((s, i) => (
-              <div
-                key={`${s.url}-${i}`}
-                className="rounded-2xl border border-white/15 bg-white/[0.06] px-5 py-6 flex flex-col items-center justify-center gap-3 min-h-[140px]"
-              >
-                {s.url ? (
-                  <img
-                    src={s.url}
-                    alt={s.name ?? "Sponsor"}
-                    className="max-h-16 max-w-[220px] w-auto object-contain"
-                  />
-                ) : null}
-                <div className="text-center">
-                  <p className="bw-heading text-white text-xl">
-                    {s.name?.trim() || "Partner"}
-                  </p>
-                  {s.type?.trim() ? (
-                    <p className="bw-caption text-white/50 text-xs mt-1">{s.type}</p>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="bw-meta text-white/50 text-xl">Sponsors coming soon</p>
-        )}
+    <VenueChromeShell
+      chrome={{ ...chrome, roundName: "Our sponsors" }}
+      showChyron={false}
+      footer="none"
+    >
+      <div className="w-full h-full min-h-0">
+        <VenueSponsorShowcase sponsors={chrome.sponsorLogos} />
       </div>
     </VenueChromeShell>
   );
@@ -352,53 +339,60 @@ export function VenueNextMatchScene({
     );
   }
 
-  const state = match.state;
   const detail = (match.detail ?? {}) as {
     courtNumber?: string;
     matchLabel?: string;
     roundName?: string;
     matchNumber?: string;
+    categoryName?: string;
   };
-  const label =
-    detail.matchLabel?.trim() ||
-    (state
-      ? `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}`
-      : "Upcoming match");
+  const sides = resolveBroadcastMatchSides(match);
+  const courtLabel = matchCourtLabel(match);
+  const metaBits = [
+    detail.categoryName?.trim() || detail.roundName?.trim(),
+    detail.matchLabel?.trim(),
+    detail.matchNumber?.trim() ? `Match ${detail.matchNumber.trim()}` : null,
+  ].filter(Boolean);
+  const metaLine = metaBits.join(" · ");
+  const vsFallback = matchIdentityLine(match);
 
   return (
     <VenueChromeShell
       chrome={{
         ...chrome,
         courtNumber: detail.courtNumber,
-        roundName: detail.roundName ?? "Up next",
+        roundName: "Up next",
         matchStatus: "scheduled",
       }}
     >
-      <div className="w-full max-w-6xl flex flex-col items-center gap-6 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
-        <div className="text-center space-y-2">
+      <div className="w-full max-w-6xl h-full min-h-0 flex flex-col items-center justify-center gap-5 md:gap-7 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
+        <div className="text-center space-y-1.5 shrink-0">
           <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
             UP NEXT
           </p>
-          {detail.courtNumber ? (
-            <p className="bw-heading text-white text-4xl md:text-5xl">
-              Court {detail.courtNumber}
+          {courtLabel !== "Court —" ? (
+            <p className="bw-caption text-white/70 text-base md:text-xl tracking-[0.12em] uppercase">
+              {courtLabel}
             </p>
           ) : null}
-          <p className="bw-caption text-white/65 text-sm md:text-base max-w-3xl">{label}</p>
-          {detail.matchNumber ? (
-            <p className="bw-meta text-white/45">Match {detail.matchNumber}</p>
+          {metaLine ? (
+            <p className="bw-meta text-white/45 text-sm md:text-base max-w-3xl">{metaLine}</p>
           ) : null}
         </div>
 
-        {state ? (
-          <div className="w-full flex items-center justify-center gap-4 md:gap-8">
-            <MomentSideCard side="left" info={state.leftSide} matchKind={state.matchKind} />
+        {sides ? (
+          <div className="w-full flex items-center justify-center gap-4 md:gap-8 min-h-0">
+            <MomentSideCard side="left" info={sides.left} matchKind={sides.matchKind} />
             <div className="shrink-0 rounded-2xl border border-white/20 bg-white/10 px-5 py-3">
               <span className="bw-heading text-white text-3xl md:text-4xl tracking-[0.2em]">VS</span>
             </div>
-            <MomentSideCard side="right" info={state.rightSide} matchKind={state.matchKind} />
+            <MomentSideCard side="right" info={sides.right} matchKind={sides.matchKind} />
           </div>
-        ) : null}
+        ) : (
+          <p className="bw-heading text-white text-3xl md:text-5xl text-center max-w-4xl leading-tight">
+            {vsFallback}
+          </p>
+        )}
       </div>
     </VenueChromeShell>
   );

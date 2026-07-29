@@ -5,7 +5,7 @@
  * Mobile + personal PIN login → JWT → all scoreable matches for the tournament.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearch, useLocation } from "wouter";
 import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
@@ -251,11 +251,14 @@ export default function BadmintonScorerHomePage() {
   const [pinInput, setPinInput] = useState("");
   const [authAccepted, setAuthAccepted] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [verifying, setVerifying] = useState(() => Boolean(getScorerAuthSession()));
+  // Never seed verifying=true from session — that skipped the restore effect forever
+  // ("Restoring your session…" stuck, no login / no home).
+  const [verifying, setVerifying] = useState(false);
   const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scorerName, setScorerName] = useState(() => getScorerAuthSession()?.scorer.name ?? "");
+  const sessionRestoreAttemptedRef = useRef(false);
 
   const { data: branding } = useBadmintonBranding(authAccepted ? tournamentId : 0);
   const tournamentName =
@@ -320,9 +323,11 @@ export default function BadmintonScorerHomePage() {
   }
 
   useEffect(() => {
-    if (!tournamentId || authAccepted || verifying) return;
+    if (!tournamentId || authAccepted) return;
     const existing = getScorerAuthSession();
     if (!existing) return;
+    if (sessionRestoreAttemptedRef.current) return;
+    sessionRestoreAttemptedRef.current = true;
     setScorerName(existing.scorer.name);
     setVerifying(true);
     void loadHomeSession(tournamentId)
@@ -332,7 +337,7 @@ export default function BadmintonScorerHomePage() {
       })
       .finally(() => setVerifying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId]);
+  }, [tournamentId, authAccepted]);
 
   async function refreshSession() {
     if (!tournamentId || !getScorerAuthSession()) return;
@@ -373,9 +378,21 @@ export default function BadmintonScorerHomePage() {
     if (verifying) {
       return (
         <FullscreenLayout className="lovable-theme">
-          <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
+          <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-6 gap-4">
             <BadmintonPublicBrandMark variant="scorer-bar" />
-            <p className="text-white/50 text-sm mt-6">Restoring your session…</p>
+            <p className="text-white/50 text-sm mt-2">Restoring your session…</p>
+            <button
+              type="button"
+              onClick={() => {
+                sessionRestoreAttemptedRef.current = false;
+                setVerifying(false);
+                clearScorerAuthSession();
+                setAuthError("Sign in again to continue.");
+              }}
+              className="text-white/45 text-sm hover:text-white/70 underline-offset-2 hover:underline"
+            >
+              Cancel · Sign in again
+            </button>
           </div>
         </FullscreenLayout>
       );

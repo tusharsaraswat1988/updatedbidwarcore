@@ -21,14 +21,14 @@ export function ScorerStatusStrip({ panel }: { panel: PanelData }) {
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm border-t border-border/60 pt-2">
-        <span className="text-primary font-semibold truncate max-w-[45%]">
+        <span className="text-primary font-semibold break-words min-w-0">
           🟡 {panel.serverLabel}
         </span>
-        <span className="text-sky-300 font-semibold truncate max-w-[45%]">
+        <span className="text-sky-300 font-semibold break-words min-w-0">
           👁 {panel.receiverLabel}
         </span>
         {panel.serviceCourt ? (
-          <span className="text-muted-foreground truncate">{panel.serviceCourt}</span>
+          <span className="text-muted-foreground break-words">{panel.serviceCourt}</span>
         ) : null}
       </div>
     </div>

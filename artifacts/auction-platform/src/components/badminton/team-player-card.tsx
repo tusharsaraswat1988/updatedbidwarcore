@@ -2,6 +2,8 @@
  * Reusable Team → Player identity display.
  * Auction tournaments: team logo/badge → team name → player name.
  * Standalone (no team): player name only.
+ *
+ * Full names are mandatory on scoring/broadcast surfaces — never ellipsis-truncate.
  */
 
 import { cn } from "@/lib/utils";
@@ -65,20 +67,29 @@ const sizeStyles: Record<
   },
 };
 
-/** Right-aligned text that truncates with ellipsis on the left (for VS left column). */
-function EndAlignedTruncate({
+/** Full name text — wraps instead of cutting with ellipsis. */
+function NameText({
   text,
   className,
+  align,
 }: {
   text: string;
   className?: string;
+  align: TeamPlayerCardAlign;
 }) {
   return (
-    <div className="min-w-0 max-w-full overflow-hidden">
-      <p className={cn("truncate text-left", className)} dir="rtl" title={text}>
-        <bdi dir="ltr">{text}</bdi>
-      </p>
-    </div>
+    <p
+      className={cn(
+        // Full names mandatory — wrap, never ellipsis-cut.
+        "bw-name-full leading-tight max-w-full whitespace-normal break-words [overflow-wrap:anywhere] overflow-visible text-clip",
+        align === "end" && "text-right",
+        align === "center" && "text-center",
+        align === "start" && "text-left",
+        className,
+      )}
+    >
+      {text}
+    </p>
   );
 }
 
@@ -192,25 +203,12 @@ export function TeamPlayerCard({
 
   if (!hasTeamIdentity(identity)) {
     return (
-      <div className={cn("min-w-0 max-w-full overflow-hidden", alignClass, className)}>
-        {align === "end" ? (
-          <EndAlignedTruncate
-            text={player}
-            className={cn("font-semibold leading-tight", styles.player, tones.player, playerClassName)}
-          />
-        ) : (
-          <p
-            className={cn(
-              "font-semibold truncate leading-tight",
-              styles.player,
-              tones.player,
-              playerClassName,
-            )}
-            title={player}
-          >
-            {player}
-          </p>
-        )}
+      <div className={cn("min-w-0 max-w-full", alignClass, className)}>
+        <NameText
+          text={player}
+          align={align}
+          className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+        />
       </div>
     );
   }
@@ -227,48 +225,23 @@ export function TeamPlayerCard({
           />
         ) : null}
         <div className={cn("min-w-0 flex flex-col", styles.gap, alignClass)}>
-          <p className={cn("font-bold uppercase truncate leading-tight", styles.team, tones.team, teamClassName)}>
-            {team}
-          </p>
-          <p className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}>
-            {player}
-          </p>
+          <NameText
+            text={team}
+            align={align}
+            className={cn("font-bold uppercase", styles.team, tones.team, teamClassName)}
+          />
+          <NameText
+            text={player}
+            align={align}
+            className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+          />
         </div>
       </div>
     );
   }
 
-  const teamEl =
-    align === "end" ? (
-      <EndAlignedTruncate
-        text={team}
-        className={cn("font-bold uppercase leading-tight", styles.team, tones.team, teamClassName)}
-      />
-    ) : (
-      <p
-        className={cn("font-bold uppercase truncate leading-tight", styles.team, tones.team, teamClassName)}
-        title={team}
-      >
-        {team}
-      </p>
-    );
-  const playerEl =
-    align === "end" ? (
-      <EndAlignedTruncate
-        text={player}
-        className={cn("font-semibold leading-tight", styles.player, tones.player, playerClassName)}
-      />
-    ) : (
-      <p
-        className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}
-        title={player}
-      >
-        {player}
-      </p>
-    );
-
   return (
-    <div className={cn("min-w-0 max-w-full overflow-hidden flex flex-col", styles.gap, alignClass, className)}>
+    <div className={cn("min-w-0 max-w-full flex flex-col", styles.gap, alignClass, className)}>
       {showBadge ? (
         <TeamBadge
           teamName={team}
@@ -277,8 +250,16 @@ export function TeamPlayerCard({
           size={size}
         />
       ) : null}
-      {teamEl}
-      {playerEl}
+      <NameText
+        text={team}
+        align={align}
+        className={cn("font-bold uppercase", styles.team, tones.team, teamClassName)}
+      />
+      <NameText
+        text={player}
+        align={align}
+        className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+      />
     </div>
   );
 }

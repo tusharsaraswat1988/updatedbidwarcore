@@ -13,6 +13,7 @@ import {
   cmdAwardPoint,
   cmdEndInterval,
   cmdEndTimeout,
+  cmdPauseMatch,
   cmdStartInterval,
   cmdStartMatch,
   cmdStartTimeout,
@@ -210,6 +211,47 @@ describe("Scorer assistance — singles", () => {
       "Singles panel games won",
       snapshot.panel.gamesLeft === 0 && snapshot.panel.gamesRight === 0,
       `Games ${snapshot.panel.gamesLeft}-${snapshot.panel.gamesRight}`,
+    );
+  });
+
+  it("shows match paused banner and blocks scoring", () => {
+    let state = applyCommands({ ...META, matchKind: "singles" }, SINGLES_START, ["left", "right"]);
+    const pause = cmdPauseMatch(state, "medical");
+    expect(pause.ok).toBe(true);
+    if (!pause.ok) return;
+
+    let seq = state.lastSequence;
+    for (const event of pause.events) {
+      seq += 1;
+      state = reduceBadminton(state, {
+        matchId: META.matchId,
+        tournamentId: META.tournamentId,
+        sportSlug: "badminton",
+        eventType: event.eventType,
+        eventVersion: 1,
+        sequence: seq,
+        actorType: "organizer",
+        payload: event.payload,
+      });
+    }
+
+    const snapshot = deriveScorerAssistance(state);
+    record(
+      "Singles pause blocks scoring",
+      snapshot.scoringBlocked === true && snapshot.scoringBlockReason === "paused",
+      `blocked=${snapshot.scoringBlocked} reason=${snapshot.scoringBlockReason}`,
+    );
+    record(
+      "Singles pause banner",
+      snapshot.banners.some((b) => b.kind === "match_paused"),
+      `Banners: ${snapshot.banners.map((b) => b.label).join(" | ")}`,
+    );
+    record(
+      "Singles pause banner mentions director",
+      snapshot.banners.some(
+        (b) => b.kind === "match_paused" && b.label.includes("WAITING FOR DIRECTOR"),
+      ),
+      snapshot.banners.map((b) => b.label).join(" | "),
     );
   });
 

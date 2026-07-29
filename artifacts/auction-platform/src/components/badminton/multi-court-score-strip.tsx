@@ -58,10 +58,10 @@ function CourtRow({
 }) {
   const { state, courtLabel } = row;
   const left = formatTeamPlayerLine(
-    identityFromSideInfo(state.leftSide, { preferShort: true }),
+    identityFromSideInfo(state.leftSide),
   );
   const right = formatTeamPlayerLine(
-    identityFromSideInfo(state.rightSide, { preferShort: true }),
+    identityFromSideInfo(state.rightSide),
   );
   const totalGames = state.format?.totalGames ?? 3;
   const dense = variant === "overlay";
@@ -93,7 +93,7 @@ function CourtRow({
       <div className="min-w-0 text-right">
         <p
           className={cn(
-            "font-['Bebas_Neue'] uppercase tracking-wide text-white truncate",
+            "font-['Bebas_Neue'] uppercase tracking-wide text-white bw-name-full",
             dense ? "text-base" : "text-xl",
           )}
         >
@@ -125,7 +125,7 @@ function CourtRow({
       <div className="min-w-0 text-left">
         <p
           className={cn(
-            "font-['Bebas_Neue'] uppercase tracking-wide text-white truncate",
+            "font-['Bebas_Neue'] uppercase tracking-wide text-white bw-name-full",
             dense ? "text-base" : "text-xl",
           )}
         >

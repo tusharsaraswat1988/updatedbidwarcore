@@ -51,39 +51,60 @@ export function ScoreBoardSponsorPanel({
     return (
       <div
         className={cn(
-          "flex items-center gap-4 rounded-xl border-2",
+          "flex items-center rounded-xl border-2",
           "bg-gradient-to-r from-[#1a1400]/95 via-[#0d1529]/95 to-[#0a1628]/95",
-          compact ? "gap-2.5 px-3 py-1.5" : "px-5 py-2.5",
+          compact ? "gap-2.5 px-3 py-1.5" : "gap-3.5 px-4 py-2.5 md:px-5 md:py-3",
           className,
         )}
         style={{
-          borderColor: "color-mix(in srgb, var(--accent) 45%, transparent)",
-          boxShadow: "0 0 24px color-mix(in srgb, var(--accent) 12%, transparent)",
+          borderColor: "color-mix(in srgb, var(--accent) 55%, transparent)",
+          boxShadow:
+            "0 0 28px color-mix(in srgb, var(--accent) 18%, transparent), inset 0 1px 0 rgba(255,255,255,0.08)",
         }}
       >
         {sponsor.logoUrl ? (
-          <div className={cn("rounded-lg bg-white/95 flex-none shadow-md", compact ? "p-1" : "p-1.5")}>
+          <div
+            className={cn(
+              "rounded-lg bg-white/95 flex-none shadow-md",
+              compact ? "p-1" : "p-1.5 md:p-2",
+            )}
+          >
             <img
               src={sponsor.logoUrl}
               alt={sponsor.name ?? "Scoreboard sponsor"}
-              className={compact ? "h-8 w-12 object-contain" : "h-10 w-16 object-contain"}
+              className={
+                compact
+                  ? "h-8 w-12 object-contain"
+                  : "h-11 w-[4.5rem] md:h-14 md:w-[5.5rem] object-contain"
+              }
             />
           </div>
         ) : null}
-        <div className="min-w-0 text-left">
-          {sponsor.title && (
+        <div className="min-w-0 text-left flex-1">
+          {sponsor.title ? (
             <p
-              className={cn("bw-label truncate", compact ? "text-[9px]" : "text-[10px]")}
+              className={cn("bw-label bw-name-full", compact ? "text-[9px]" : "text-[10px] md:text-[11px]")}
               style={{ color: "var(--accent)" }}
             >
               {sponsor.title}
             </p>
-          )}
-          {sponsor.name && (
-            <p className={cn("bw-heading text-white truncate", compact ? "text-sm leading-tight" : "text-base")}>
-              {sponsor.name}
+          ) : (
+            <p
+              className={cn("bw-label text-white/45", compact ? "text-[9px]" : "text-[10px]")}
+            >
+              Scoreboard Sponsor
             </p>
           )}
+          {sponsor.name ? (
+            <p
+              className={cn(
+                "bw-heading text-white bw-name-full",
+                compact ? "text-sm leading-tight" : "text-base md:text-lg leading-tight",
+              )}
+            >
+              {sponsor.name}
+            </p>
+          ) : null}
         </div>
       </div>
     );
@@ -106,12 +127,12 @@ export function ScoreBoardSponsorPanel({
         )}
         <div className="min-w-0 text-left">
           {sponsor.title && (
-            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffd700]/90 truncate">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffd700]/90 bw-name-full">
               {sponsor.title}
             </p>
           )}
           {sponsor.name && (
-            <p className="text-xs font-black text-white truncate">{sponsor.name}</p>
+            <p className="text-xs font-black text-white bw-name-full">{sponsor.name}</p>
           )}
         </div>
       </div>

@@ -215,19 +215,19 @@ export function BadmintonBroadcastDirectorPanel({
               <SceneButton
                 key={opt.id}
                 label={opt.label}
-                active={venueScene === opt.id || overlayScene === opt.id}
+                active={venueScene === opt.id}
                 disabled={pending}
                 onClick={() =>
                   setPresentationMutation.mutate({
                     venueScene: opt.id,
-                    ...(opt.id === "next"
-                      ? { overlayScene: "sponsor" }
-                      : {
-                          overlayScene: opt.id as Extract<
+                    // Next is venue-only — never piggyback OBS sponsor.
+                    overlayScene:
+                      opt.id === "next"
+                        ? "auto"
+                        : (opt.id as Extract<
                             BadmintonOverlayScene,
                             "intro" | "winner" | "sponsor"
-                          >,
-                        }),
+                          >),
                   })
                 }
               />

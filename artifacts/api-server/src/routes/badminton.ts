@@ -2371,15 +2371,22 @@ router.post("/matches/:matchId/force-unlock", async (req, res) => {
     ? "admin"
     : (req.jwtUser?.organizerAccountId?.toString() ?? "organizer");
 
-  const cleared = await forceUnlockMatch({
-    matchId,
-    actorType,
-    actorId,
-    tournamentId,
-    sport: "badminton",
-  });
-
-  res.json({ ok: true, cleared });
+  try {
+    const cleared = await forceUnlockMatch({
+      matchId,
+      actorType,
+      actorId,
+      tournamentId,
+      sport: "badminton",
+    });
+    res.json({ ok: true, cleared });
+  } catch (e) {
+    console.error("[badminton] force-unlock failed", e);
+    res.status(500).json({
+      error: e instanceof Error ? e.message : "Force unlock failed",
+      code: "FORCE_UNLOCK_FAILED",
+    });
+  }
 });
 
 router.patch("/matches/:matchId", async (req, res) => {

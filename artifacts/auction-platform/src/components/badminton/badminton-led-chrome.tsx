@@ -23,7 +23,46 @@ import { ChyronTickerScroller } from "@/components/display/v1/ChyronTickerScroll
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { cn } from "@/lib/utils";
 
-/** Auction LED-style top strip — BidWar reverse logo + tournament + court/match + status. */
+/** Only LIVE / TIMEOUT / FINAL — skip SCHEDULED boxes that steal header height. */
+function UrgentStatusDot({
+  matchStatus,
+  isTimeout,
+  isLive,
+}: {
+  matchStatus: BadmintonMatchState["matchStatus"];
+  isTimeout: boolean;
+  isLive: boolean;
+}) {
+  if (isTimeout) {
+    return (
+      <span className="inline-flex items-center gap-1 bw-label text-[9px] md:text-[10px] text-amber-200 tracking-[0.14em]">
+        <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+        TIMEOUT
+      </span>
+    );
+  }
+  if (isLive) {
+    return (
+      <span className="inline-flex items-center gap-1 bw-label text-[9px] md:text-[10px] text-red-200 tracking-[0.18em]">
+        <span className="size-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
+        LIVE
+      </span>
+    );
+  }
+  if (matchStatus === "completed") {
+    return (
+      <span className="bw-label text-[9px] md:text-[10px] text-emerald-200/90 tracking-[0.16em]">
+        FINAL
+      </span>
+    );
+  }
+  return null;
+}
+
+/**
+ * LED header — BidWar top-center; tournament logo left + name center;
+ * scoreboard sponsor locked to a prominent right rail.
+ */
 export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   tournamentName,
   tournamentLogoUrl,
@@ -53,94 +92,74 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
   const isLive = matchStatus === "live" && !isTimeout;
 
+  const metaParts = [
+    courtNumber?.trim()
+      ? courtNumber.toLowerCase().startsWith("court")
+        ? courtNumber.trim()
+        : `Court ${courtNumber.trim()}`
+      : null,
+    matchNumber?.trim() ? `Match ${matchNumber.trim()}` : null,
+    roundName?.trim() || null,
+  ].filter(Boolean) as string[];
+
   return (
-    <div className="relative z-20 pointer-events-none shrink-0 bg-black/40 border-b border-white/10">
-      {/* Group 1 — BidWar brand (compact so score stage keeps height) */}
-      <div className="flex justify-center pt-2 pb-1 md:pt-2.5 md:pb-1.5">
+    <div className="relative z-20 pointer-events-none shrink-0 bg-black/45 border-b border-white/10">
+      {/* Tournament logo — vertical mid of full header */}
+      {tournamentLogoUrl ? (
+        <div className="absolute left-[2%] md:left-[2.5%] top-0 bottom-0 z-10 flex items-center">
+          <div className="rounded-xl border border-white/12 bg-white/[0.05] p-1.5 md:p-2">
+            <img
+              src={tournamentLogoUrl}
+              alt=""
+              className="h-14 md:h-[4.75rem] w-auto max-w-[min(160px,17vw)] object-contain"
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Scoreboard sponsor — vertical mid, right rail */}
+      {showScoreBoardSponsor ? (
+        <div className="absolute right-[2%] md:right-[2.5%] top-0 bottom-0 z-10 flex items-center">
+          <ScoreBoardSponsorPanel
+            sponsor={scoreBoardSponsor}
+            variant="bar"
+            className="max-w-[min(300px,26vw)]"
+          />
+        </div>
+      ) : null}
+
+      {/* Center stack — BidWar + tournament name (true screen center) */}
+      <div className="flex flex-col items-center pt-3 pb-2 md:pt-4 md:pb-2.5 px-[min(180px,20vw)]">
         {logoSrc ? (
           <img
             src={logoSrc}
             alt={logoAlt}
-            className="block h-7 md:h-9 w-auto max-w-[min(200px,28vw)] object-contain shrink-0"
-            style={{ filter: "drop-shadow(0 2px 12px rgba(0,0,0,0.6))" }}
+            className="block h-10 md:h-12 w-auto max-w-[min(260px,36vw)] object-contain shrink-0 mb-1.5 md:mb-2"
+            style={{ filter: "drop-shadow(0 2px 14px rgba(0,0,0,0.65))" }}
             loading="eager"
             decoding="async"
           />
         ) : null}
-      </div>
-
-      {/* Group 2 — Tournament: secondary to brand, centered below logo */}
-      <div className="flex items-center justify-center gap-2 pb-1.5 md:pb-2 px-[3%] min-w-0">
-        {tournamentLogoUrl ? (
-          <img
-            src={tournamentLogoUrl}
-            alt=""
-            className="h-5 w-auto max-w-[40px] object-contain shrink-0"
-          />
-        ) : null}
-        <div className="flex flex-col items-center leading-none min-w-0">
-          <span className="bw-subheading text-white/90 truncate">
-            {tournamentName}
-          </span>
-          {roundName ? (
-            <span className="bw-caption text-[10px] text-white/50 mt-1 truncate">
-              {roundName}
+        <span className="bw-tournament-title text-white text-center">
+          {tournamentName}
+        </span>
+        <div className="flex items-center justify-center gap-x-2 gap-y-0.5 flex-wrap max-w-full mt-1">
+          {metaParts.length > 0 ? (
+            <span className="bw-caption text-[10px] md:text-xs text-white/50 text-center bw-name-full">
+              {metaParts.join(" · ")}
             </span>
           ) : null}
-        </div>
-      </div>
-
-      {/* Group 3 — Court / Sponsor / Live: tertiary metadata row */}
-      <div className="flex items-center justify-center gap-2.5 md:gap-3.5 flex-wrap pb-2.5 md:pb-3 px-[3%]">
-        {courtNumber ? (
-          <div className="bg-white/10 border border-white/20 rounded-md px-3 py-1 text-center min-w-[4.5rem]">
-            <p className="bw-caption text-[9px] md:text-[10px] text-white/55">Court</p>
-            <p className="bw-meta-lg text-white text-sm md:text-base">{courtNumber}</p>
-          </div>
-        ) : null}
-        {matchNumber ? (
-          <div className="bg-white/10 border border-white/20 rounded-md px-3 py-1 text-center min-w-[4.5rem]">
-            <p className="bw-caption text-[9px] md:text-[10px] text-white/55">Match</p>
-            <p className="bw-meta-lg text-white text-sm md:text-base">{matchNumber}</p>
-          </div>
-        ) : null}
-        {isTimeout ? (
-          <div className="bg-amber-500/25 border border-amber-400/55 rounded-full px-4 py-1.5 flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-amber-400 animate-pulse" />
-            <span className="bw-label text-xs md:text-sm text-amber-200">
-              Timeout — {timeoutSide === "left" ? leftLabel : rightLabel}
-            </span>
-          </div>
-        ) : null}
-
-        {showScoreBoardSponsor ? (
-          <ScoreBoardSponsorPanel
-            sponsor={scoreBoardSponsor}
-            variant="strip"
-            className="max-w-[min(280px,26vw)] shrink-0"
+          <UrgentStatusDot
+            matchStatus={matchStatus}
+            isTimeout={isTimeout}
+            isLive={isLive}
           />
+        </div>
+        {isTimeout ? (
+          <span className="bw-caption text-[10px] text-amber-200/85 text-center bw-name-full mt-0.5">
+            {timeoutSide === "left" ? leftLabel : rightLabel}
+          </span>
         ) : null}
-
-        {isLive ? (
-          <div className="flex items-center gap-2.5 px-4 py-2 border-2 border-red-500/70 bg-red-600/25 shadow-[0_0_20px_rgba(239,68,68,0.35)]">
-            <span className="size-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_14px_#ef4444]" />
-            <span className="bw-label text-xs md:text-sm text-red-100 tracking-[0.22em]">
-              LIVE
-            </span>
-          </div>
-        ) : matchStatus === "completed" ? (
-          <div className="border-2 border-emerald-400/50 bg-emerald-500/15 px-4 py-2">
-            <span className="bw-label text-xs md:text-sm text-emerald-200 tracking-[0.22em]">
-              FINAL
-            </span>
-          </div>
-        ) : (
-          <div className="border border-white/20 bg-white/8 px-4 py-2">
-            <span className="bw-label text-xs md:text-sm text-white/65 tracking-[0.18em]">
-              {matchStatus === "scheduled" ? "SCHEDULED" : "AWAITING"}
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );

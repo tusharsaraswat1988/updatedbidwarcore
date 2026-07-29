@@ -45,8 +45,8 @@ function QuadrantCell({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center border transition-all duration-300 min-w-0 overflow-hidden",
-        isMini ? "p-2.5 min-h-[58px]" : isScorer ? "p-3 min-h-[76px]" : "p-5 min-h-[80px]",
+        "relative flex flex-col items-center justify-center border transition-all duration-300 min-w-0",
+        isMini ? "p-2.5 min-h-[58px] overflow-hidden" : isScorer ? "p-3 min-h-[76px]" : "p-5 min-h-[80px]",
         !ledTheme && isServer
           ? "bg-primary/15 border-primary/50 shadow-[inset_0_0_20px_color-mix(in_srgb,var(--primary)_20%,transparent)]"
           : !ledTheme && isReceiver
@@ -58,8 +58,8 @@ function QuadrantCell({
     >
       <span
         className={cn(
-          "font-bold text-white text-center leading-tight max-w-full",
-          isMini ? "text-sm truncate" : isScorer ? "text-[11px] sm:text-xs break-words" : "text-base truncate",
+          "font-bold text-white text-center leading-tight max-w-full bw-name-full",
+          isMini ? "text-sm" : isScorer ? "text-[11px] sm:text-xs" : "text-base",
         )}
         style={
           ledTheme && isServer
@@ -68,7 +68,6 @@ function QuadrantCell({
               ? undefined
               : undefined
         }
-        title={label}
       >
         <span className={cn(!ledTheme && isServer && "text-primary")}>{label}</span>
       </span>
@@ -114,7 +113,8 @@ export function DoublesCourtDisplay({
   preferShortNames,
   className,
 }: DoublesCourtDisplayProps & { ledTheme?: boolean }) {
-  const preferShort = preferShortNames ?? variant !== "scorer";
+  // Full names on scorer + LED unless caller explicitly requests short labels.
+  const preferShort = preferShortNames === true;
   const court = getCourtQuadrantPlayers(state, { preferShort });
   if (!court) return null;
 

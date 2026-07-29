@@ -58,7 +58,8 @@ export function getCourtQuadrantPlayers(
 } | null {
   const ds = state.doublesServe;
   if (!ds) return null;
-  const preferShort = opts?.preferShort !== false;
+  // Full names by default — short labels only when explicitly requested.
+  const preferShort = opts?.preferShort === true;
 
   function quadrant(
     serveState: DoublesServeState,

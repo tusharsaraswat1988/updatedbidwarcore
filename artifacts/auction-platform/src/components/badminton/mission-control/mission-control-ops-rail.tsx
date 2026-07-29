@@ -191,20 +191,21 @@ export function MissionControlOpsRail({
               <RailButton
                 key={opt.id}
                 label={opt.label}
-                active={venueScene === opt.id || overlayScene === opt.id}
+                active={venueScene === opt.id}
                 disabled={pending}
                 onClick={() => {
+                  // Next is venue-only (OBS has no next-match graphic).
+                  // Do not map Next → sponsor — that dual-activates Sponsor.
                   setPresentationMutation.mutate(
                     {
                       venueScene: opt.id,
-                      ...(opt.id === "next"
-                        ? { overlayScene: "sponsor" as const }
-                        : {
-                            overlayScene: opt.id as Extract<
+                      overlayScene:
+                        opt.id === "next"
+                          ? "auto"
+                          : (opt.id as Extract<
                               BadmintonOverlayScene,
                               "intro" | "winner" | "sponsor"
-                            >,
-                          }),
+                            >),
                     },
                     { onSuccess: () => onAnnouncement?.(opt.label) },
                   );

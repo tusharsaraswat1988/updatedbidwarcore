@@ -162,9 +162,16 @@ export function getSponsorChyronItemStyle(tier: SponsorBroadcastTier): CSSProper
 }
 
 export function getSponsorChyronNameStyle(tier: SponsorBroadcastTier): CSSProperties {
+  const fullName: CSSProperties = {
+    whiteSpace: "nowrap",
+    overflow: "visible",
+    textOverflow: "clip",
+    maxWidth: "none",
+  };
   switch (tier) {
     case "title":
       return {
+        ...fullName,
         color: TITLE_GOLD,
         fontSize: "clamp(0.9rem, 1.25vw, 1.1rem)",
         letterSpacing: "0.28em",
@@ -173,13 +180,14 @@ export function getSponsorChyronNameStyle(tier: SponsorBroadcastTier): CSSProper
       };
     case "co_sponsor":
       return {
+        ...fullName,
         color: CO_SILVER,
         fontSize: "clamp(0.85rem, 1.15vw, 1rem)",
         letterSpacing: "0.26em",
         textShadow: "0 0 10px rgba(180, 200, 220, 0.45), 0 1px 3px rgba(0,0,0,0.75)",
       };
     default:
-      return { color: "rgba(255,255,255,0.9)" };
+      return { ...fullName, color: "rgba(255,255,255,0.9)" };
   }
 }
 

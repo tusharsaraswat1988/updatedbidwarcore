@@ -97,10 +97,13 @@ export default function BadmintonScorerPage() {
   const [authAccepted, setAuthAccepted] = useState(false);
   const [lockAccepted, setLockAccepted] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [busy, setBusy] = useState(() => Boolean(getScorerAuthSession()));
+  // Never seed busy=true from session — that blocked the auto-lock effect forever
+  // ("Opening scorer console…" with no Back / no progress on Resume Match).
+  const [busy, setBusy] = useState(false);
   const [viewingComplete, setViewingComplete] = useState(false);
   const lockHeldRef = useRef(false);
   const releasedOnCompleteRef = useRef(false);
+  const autoLockAttemptedRef = useRef(false);
 
   async function ensureAuthAndLock(mobile?: string, pin?: string) {
     if (!tournamentId || !matchId) {
@@ -151,12 +154,14 @@ export default function BadmintonScorerPage() {
   }
 
   useEffect(() => {
-    if (authAccepted || busy) return;
+    if (authAccepted || lockAccepted) return;
     if (!tournamentId || !matchId) return;
     if (!getScorerAuthSession()) return;
+    if (autoLockAttemptedRef.current) return;
+    autoLockAttemptedRef.current = true;
     void ensureAuthAndLock();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId, matchId]);
+  }, [tournamentId, matchId, authAccepted, lockAccepted]);
 
   useEffect(() => {
     if (!lockAccepted || !matchId || viewingComplete) return;
@@ -294,9 +299,17 @@ export default function BadmintonScorerPage() {
     if (busy && getScorerAuthSession() && !authError) {
       return (
         <FullscreenLayout className="lovable-theme">
-          <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+          <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 gap-4">
             <BadmintonPublicBrandMark variant="scorer-bar" />
-            <p className="text-white/50 text-sm mt-6">Opening scorer console…</p>
+            <p className="text-white/50 text-sm mt-2">Opening scorer console…</p>
+            {tournamentId > 0 ? (
+              <Link
+                href={badmintonScorerHomePath(tournamentId)}
+                className="text-white/45 text-sm hover:text-white/70 underline-offset-2 hover:underline"
+              >
+                Cancel · Back to Scorer Home
+              </Link>
+            ) : null}
           </div>
         </FullscreenLayout>
       );

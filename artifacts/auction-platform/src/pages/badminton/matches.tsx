@@ -395,8 +395,8 @@ function MatchRow({
   const needsCourtOrTime = !isLive && !isCompleted && (!hasCourt || !hasSchedule);
   const matchLabel = state
     ? formatTeamPlayerVsLine(
-        identityFromSideInfo(state.leftSide, { preferShort: true }),
-        identityFromSideInfo(state.rightSide, { preferShort: true }),
+        identityFromSideInfo(state.leftSide),
+        identityFromSideInfo(state.rightSide),
       )
     : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
 
@@ -437,7 +437,7 @@ function MatchRow({
           {state ? (
             <div className="flex items-center gap-3 flex-wrap">
               <TeamPlayerCard
-                identity={identityFromSideInfo(state.leftSide, { preferShort: true })}
+                identity={identityFromSideInfo(state.leftSide)}
                 size="xs"
                 layout="inline"
                 className="min-w-0"
@@ -459,7 +459,7 @@ function MatchRow({
                 </span>
               </div>
               <TeamPlayerCard
-                identity={identityFromSideInfo(state.rightSide, { preferShort: true })}
+                identity={identityFromSideInfo(state.rightSide)}
                 size="xs"
                 layout="inline"
                 className="min-w-0"

@@ -132,6 +132,25 @@
   font-size: var(--bw-size-subheading);
 }
 
+/* LED header tournament title — hall-readable, max 2 lines */
+.badminton-led-surface .bw-tournament-title {
+  font-family: var(--bw-font-primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.08;
+  font-size: clamp(1.15rem, 2.2vw, 1.85rem) !important;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 /* Broadcast Label — tags/status/court-sponsor group (Live, Final, Court, Match…) */
 .bw-label {
   font-family: var(--bw-font-label);
@@ -250,6 +269,17 @@
   width: 100%;
 }
 
+/* Full player/team names — never ellipsis-cut on LED / venue / scoreboard */
+.bw-name-full {
+  max-width: 100%;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
 .badminton-score-player-name {
   font-size: var(--score-player-name);
   line-height: 1.05;
@@ -258,17 +288,21 @@
   overflow: visible !important;
   text-overflow: unset !important;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
-/* Doubles pairs — smaller size so both full names comfortably fit on 2 lines */
+/* Doubles pairs — smaller size so both full names comfortably fit on 2–3 lines */
 .badminton-score-player-name--pair {
   font-size: var(--score-player-name-pair) !important;
   line-height: 1.12;
 }
 
-.badminton-score-identity-card .truncate {
+.badminton-score-identity-card .truncate,
+.badminton-score-identity-card .bw-name-full {
   max-width: 100%;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
 }
 
 .badminton-score-games-won {
@@ -544,6 +578,49 @@
     opacity: 0;
     transform: translateX(-50%) translateY(-0.8em) scale(1);
   }
+}
+
+/* Venue Moments — Sponsor showcase cards */
+.venue-sponsor-stage {
+  min-height: 0;
+}
+
+.venue-sponsor-card {
+  border-radius: 1.25rem;
+  padding: clamp(1rem, 2.5vh, 1.75rem) clamp(1rem, 2vw, 1.5rem);
+  min-height: clamp(10rem, 22vh, 16rem);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.venue-sponsor-card--featured {
+  min-height: clamp(18rem, 48vh, 28rem);
+  padding: clamp(1.75rem, 4vh, 3rem) clamp(1.5rem, 4vw, 3rem);
+}
+
+.venue-sponsor-card--title {
+  border-color: rgba(247, 223, 138, 0.55);
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(247, 223, 138, 0.18), transparent 55%),
+    linear-gradient(160deg, rgba(60, 45, 10, 0.85), rgba(10, 10, 12, 0.95));
+  box-shadow:
+    0 0 40px rgba(247, 223, 138, 0.22),
+    inset 0 1px 0 rgba(247, 223, 138, 0.25);
+}
+
+.venue-sponsor-card--co {
+  border-color: rgba(200, 212, 228, 0.4);
+  background:
+    radial-gradient(ellipse at 50% 15%, rgba(200, 212, 228, 0.12), transparent 55%),
+    linear-gradient(160deg, rgba(40, 48, 60, 0.75), rgba(10, 10, 12, 0.95));
+  box-shadow:
+    0 0 28px rgba(180, 200, 220, 0.15),
+    inset 0 1px 0 rgba(220, 230, 245, 0.18);
+}
+
+.venue-sponsor-card--normal {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(10, 10, 12, 0.9));
 }
 
 /* V1 LED stage — theme tokens + broadcast animations ───────────── */

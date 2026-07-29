@@ -219,8 +219,8 @@ export default function BadmintonTournamentHub() {
                     status="live"
                     leftLabel={state?.leftSide.shortLabel}
                     rightLabel={state?.rightSide.shortLabel}
-                    leftIdentity={state ? identityFromSideInfo(state.leftSide, { preferShort: true }) : undefined}
-                    rightIdentity={state ? identityFromSideInfo(state.rightSide, { preferShort: true }) : undefined}
+                    leftIdentity={state ? identityFromSideInfo(state.leftSide) : undefined}
+                    rightIdentity={state ? identityFromSideInfo(state.rightSide) : undefined}
                     leftScore={state?.leftScore}
                     rightScore={state?.rightScore}
                     currentGame={state?.currentGame}

@@ -8,6 +8,7 @@ const BANNER_STYLES: Record<ScorerBanner["kind"], string> = {
   court_change_required: "bg-cyan-700/90 border-cyan-300 text-white",
   game_completed: "bg-emerald-700/90 border-emerald-400 text-white",
   match_completed: "bg-amber-600/95 border-amber-300 text-white",
+  match_paused: "bg-amber-600/95 border-amber-300 text-white",
 };
 
 export function ScorerMatchBanners({ banners }: { banners: ScorerBanner[] }) {

@@ -168,8 +168,8 @@ function CompactOverlay({
     matchLabel?.trim() ||
     `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}`;
   const flashSide = useServeSideFlash(state.servingSide);
-  const leftIdentity = identityFromSideInfo(state.leftSide, { preferShort: true });
-  const rightIdentity = identityFromSideInfo(state.rightSide, { preferShort: true });
+  const leftIdentity = identityFromSideInfo(state.leftSide);
+  const rightIdentity = identityFromSideInfo(state.rightSide);
 
   return (
     <div
@@ -239,10 +239,10 @@ function CompactOverlay({
           )}
           <span className="text-white/40 text-xs font-semibold">G{state.currentGame}</span>
           {isDoubles && serverLabel && (
-            <span className="text-[#ffd700] text-[8px] font-bold truncate max-w-[80px]">🟡 {serverLabel}</span>
+            <span className="text-[#ffd700] text-[8px] font-bold break-words min-w-0">🟡 {serverLabel}</span>
           )}
           {isDoubles && receiverLabel && (
-            <span className="text-white/50 text-[8px] font-bold truncate max-w-[80px]">👁 {receiverLabel}</span>
+            <span className="text-white/50 text-[8px] font-bold break-words min-w-0">👁 {receiverLabel}</span>
           )}
           {courtNumber && (
             <span className="text-white/25 text-[9px] font-medium">Court {courtNumber}</span>

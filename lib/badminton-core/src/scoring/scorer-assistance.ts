@@ -5,6 +5,7 @@
 
 import type { BadmintonMatchState, BadmintonSide } from "../types";
 import { getSidePlayerSlots, isPairMatchKind } from "../side-utils";
+import { formatPauseReason } from "../match-director";
 import {
   currentReceiverLabel,
   currentServerLabel,
@@ -25,7 +26,8 @@ export type ScorerBannerKind =
   | "interval_due"
   | "court_change_required"
   | "game_completed"
-  | "match_completed";
+  | "match_completed"
+  | "match_paused";
 
 export type ScorerBanner = {
   kind: ScorerBannerKind;
@@ -72,7 +74,8 @@ function sideDisplayLabel(state: BadmintonMatchState, side: BadmintonSide): stri
   if (slots.length === 1) {
     return slots[0]?.label ?? slots[0]?.shortLabel ?? info.label;
   }
-  return info.shortLabel || info.label;
+  // Prefer full pair label over abbreviated shortLabel.
+  return info.label || info.shortLabel;
 }
 
 export function singlesServerLabel(state: BadmintonMatchState): string {
@@ -219,7 +222,18 @@ export function deriveScorerAssistance(
 
   const banners: ScorerBanner[] = [];
 
-  if (state.matchStatus === "completed" || state.matchStatus === "walkover") {
+  if (state.isPaused || state.matchStatus === "paused") {
+    const reason = state.pauseReason
+      ? formatPauseReason(state.pauseReason, state.pauseDetail)
+      : null;
+    banners.push({
+      kind: "match_paused",
+      label: reason
+        ? `MATCH PAUSED · ${reason} — WAITING FOR DIRECTOR`
+        : "MATCH PAUSED — WAITING FOR DIRECTOR",
+      emoji: "⏸",
+    });
+  } else if (state.matchStatus === "completed" || state.matchStatus === "walkover") {
     banners.push({
       kind: "match_completed",
       side: state.winnerSide ?? undefined,

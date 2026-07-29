@@ -44,6 +44,15 @@ export function SinglesScorerPanel({
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      {(state.isPaused || state.matchStatus === "paused") && (
+        <div
+          className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-600/20 border border-amber-400/40 px-3 py-2.5 text-amber-100 text-sm font-bold text-center"
+          role="status"
+        >
+          Scoring locked — director must resume the match
+        </div>
+      )}
+
       {isTimeout && (
         <div className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2 text-amber-300 text-sm font-bold text-center">
           Timeout in progress

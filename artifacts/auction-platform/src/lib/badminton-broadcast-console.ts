@@ -3,7 +3,11 @@
  * Display-only orchestration — does not change scoring or match lifecycle.
  */
 
-import type { BadmintonMatchState } from "@workspace/badminton-core";
+import type {
+  BadmintonMatchKind,
+  BadmintonMatchState,
+  BadmintonSideInfo,
+} from "@workspace/badminton-core";
 import {
   formatTeamPlayerLine,
   identityFromSideInfo,
@@ -85,27 +89,124 @@ function matchStartMs(match: BroadcastConsoleMatch): number {
   return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
 }
 
-/** Next non-live match by schedule (then id). */
+function matchCourtKey(match: BroadcastConsoleMatch): string {
+  const courtId = match.detail?.courtId;
+  if (typeof courtId === "number") return `id:${courtId}`;
+  const num =
+    (match.detail?.courtNumber as string | undefined)?.trim() ||
+    (match.detail?.courtName as string | undefined)?.trim();
+  return num ? `n:${num.toLowerCase()}` : "";
+}
+
+/** Next non-live match — prefer same court as primary live, then schedule order. */
 export function findUpNextMatch(
   matches: BroadcastConsoleMatch[],
   primaryLiveId: number | null,
 ): BroadcastConsoleMatch | null {
+  const primary = findMatchById(matches, primaryLiveId);
+  const primaryCourt = primary ? matchCourtKey(primary) : "";
+
   const candidates = matches
     .filter((m) => {
       if (m.id === primaryLiveId) return false;
       if (isLiveMatchStatus(m.status) || isLiveMatchStatus(m.state?.matchStatus)) return false;
-      if (m.status === "completed" || m.status === "walkover" || m.status === "retired") {
+      if (
+        m.status === "completed" ||
+        m.status === "walkover" ||
+        m.status === "retired" ||
+        m.status === "disqualified" ||
+        m.status === "abandoned"
+      ) {
         return false;
       }
       return true;
     })
     .sort((a, b) => {
+      if (primaryCourt) {
+        const aSame = matchCourtKey(a) === primaryCourt ? 0 : 1;
+        const bSame = matchCourtKey(b) === primaryCourt ? 0 : 1;
+        if (aSame !== bSame) return aSame - bSame;
+      }
       const ta = matchStartMs(a);
       const tb = matchStartMs(b);
       if (ta !== tb) return ta - tb;
       return a.id - b.id;
     });
   return candidates[0] ?? null;
+}
+
+/** Coerce stored side JSON / snapshot side into display SideInfo. */
+export function coerceBroadcastSideInfo(raw: unknown): BadmintonSideInfo | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const label =
+    (typeof o.label === "string" && o.label.trim()) ||
+    (typeof o.shortLabel === "string" && o.shortLabel.trim()) ||
+    (typeof o.displayName === "string" && o.displayName.trim()) ||
+    "";
+  const shortLabel =
+    (typeof o.shortLabel === "string" && o.shortLabel.trim()) || label;
+  if (!label && !shortLabel) return null;
+
+  const playerIds = Array.isArray(o.playerIds)
+    ? o.playerIds.filter((id): id is number => typeof id === "number")
+    : [];
+
+  return {
+    label: label || shortLabel,
+    shortLabel: shortLabel || label,
+    countryCode: typeof o.countryCode === "string" ? o.countryCode : undefined,
+    countryName: typeof o.countryName === "string" ? o.countryName : undefined,
+    photoUrl: typeof o.photoUrl === "string" ? o.photoUrl : undefined,
+    flagUrl: typeof o.flagUrl === "string" ? o.flagUrl : undefined,
+    teamColor: typeof o.teamColor === "string" ? o.teamColor : undefined,
+    franchiseName: typeof o.franchiseName === "string" ? o.franchiseName : undefined,
+    franchiseLogoUrl:
+      typeof o.franchiseLogoUrl === "string" ? o.franchiseLogoUrl : undefined,
+    teamName: typeof o.teamName === "string" ? o.teamName : undefined,
+    teamLogoUrl: typeof o.teamLogoUrl === "string" ? o.teamLogoUrl : undefined,
+    sponsorName: typeof o.sponsorName === "string" ? o.sponsorName : undefined,
+    sponsorLogoUrl:
+      typeof o.sponsorLogoUrl === "string" ? o.sponsorLogoUrl : undefined,
+    masterPlayerId:
+      typeof o.masterPlayerId === "string" ? o.masterPlayerId : undefined,
+    playerIds,
+    players: Array.isArray(o.players) ? (o.players as BadmintonSideInfo["players"]) : undefined,
+  };
+}
+
+export type BroadcastMatchSides = {
+  left: BadmintonSideInfo;
+  right: BadmintonSideInfo;
+  matchKind: BadmintonMatchKind;
+};
+
+/**
+ * Resolve sides for venue/OBS cards — live snapshot first, else detail side JSON
+ * (scheduled matches often have no stateSnapshot yet).
+ */
+export function resolveBroadcastMatchSides(
+  match: BroadcastConsoleMatch | null | undefined,
+): BroadcastMatchSides | null {
+  if (!match) return null;
+
+  const leftFromState = coerceBroadcastSideInfo(match.state?.leftSide);
+  const rightFromState = coerceBroadcastSideInfo(match.state?.rightSide);
+  const leftFromDetail = coerceBroadcastSideInfo(match.detail?.leftSideJson);
+  const rightFromDetail = coerceBroadcastSideInfo(match.detail?.rightSideJson);
+
+  const left = leftFromState ?? leftFromDetail;
+  const right = rightFromState ?? rightFromDetail;
+  if (!left || !right) return null;
+
+  const rawKind =
+    match.state?.matchKind ||
+    (match.detail?.matchType as string | undefined) ||
+    "singles";
+  const matchKind: BadmintonMatchKind =
+    rawKind === "doubles" || rawKind === "mixed_doubles" ? rawKind : "singles";
+
+  return { left, right, matchKind };
 }
 
 export function deriveBroadcastConsoleStatus(
@@ -159,8 +260,9 @@ export function matchCategoryLabel(match: BroadcastConsoleMatch | null | undefin
 
 export function matchIdentityLine(match: BroadcastConsoleMatch | null | undefined): string {
   if (!match) return "TBD";
-  if (match.state) {
-    return `${formatTeamPlayerLine(identityFromSideInfo(match.state.leftSide))} vs ${formatTeamPlayerLine(identityFromSideInfo(match.state.rightSide))}`;
+  const sides = resolveBroadcastMatchSides(match);
+  if (sides) {
+    return `${formatTeamPlayerLine(identityFromSideInfo(sides.left))} vs ${formatTeamPlayerLine(identityFromSideInfo(sides.right))}`;
   }
   const label = (match.detail?.matchLabel as string | undefined)?.trim();
   return label || `Match #${match.id}`;
