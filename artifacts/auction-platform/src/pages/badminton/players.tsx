@@ -686,7 +686,7 @@ function ImportMasterPlayersModal({
             options={sourceOptions}
           />
           <p className="text-white/35 text-xs mt-2">
-            Only your badminton tournaments appear here. Players come from that tournament’s Player Registry, auction roster (sold/retained), and any existing badminton roster entries. Licensed events have no import cap.
+            Only your badminton tournaments appear here. Players come from that tournament’s sold/retained auction roster when available, otherwise Player Registry team assignments and existing badminton roster entries. Licensed events have no import cap.
           </p>
         </FormField>
 
@@ -740,9 +740,9 @@ function ImportMasterPlayersModal({
               </button>
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-              {available.map((p) => (
+              {available.map((p, index) => (
             <label
-              key={p.id}
+              key={`${p.id}-${index}`}
               className="flex items-center gap-4 p-3 rounded-xl border border-white/10 bg-[#121c34]/50 hover:border-[#4fc3f7]/25 cursor-pointer transition-colors"
             >
               <input

@@ -875,15 +875,11 @@ export async function getAuctionRegistryMasterPlayerIds(
     .orderBy(asc(playersTable.serialNo));
 
   const masterIds: string[] = [];
-  const seen = new Set<string>();
   const missingAuctionIds: number[] = [];
 
   for (const row of auctionRows) {
     if (row.globalPlayerId) {
-      if (!seen.has(row.globalPlayerId)) {
-        seen.add(row.globalPlayerId);
-        masterIds.push(row.globalPlayerId);
-      }
+      masterIds.push(row.globalPlayerId);
     } else {
       missingAuctionIds.push(row.auctionPlayerId);
     }
@@ -910,32 +906,37 @@ export async function getAuctionRegistryMasterPlayerIds(
       .map((row) => [row.auctionPlayerId as number, row.id]),
   );
 
+  const resolved: string[] = [];
   for (const row of auctionRows) {
-    if (row.globalPlayerId) continue;
-    const masterId = linkedByAuctionId.get(row.auctionPlayerId);
-    if (masterId && !seen.has(masterId)) {
-      seen.add(masterId);
-      masterIds.push(masterId);
+    if (row.globalPlayerId) {
+      resolved.push(row.globalPlayerId);
+      continue;
     }
+    const masterId = linkedByAuctionId.get(row.auctionPlayerId);
+    if (masterId) resolved.push(masterId);
   }
 
-  return masterIds;
+  return resolved;
 }
 
 /**
  * Resolve importable master IDs for a source tournament.
- * Merges Player Registry assignments, auction roster, and any existing badminton roster.
+ * Prefer the live auction roster (sold/retained) so stale PTA rows and withdrawn
+ * badminton test imports do not inflate the import list. Fall back to registry merge
+ * only when the tournament has no sold/retained auction players yet.
  */
 export async function resolveImportSourceMasterPlayerIds(
   sourceTournamentId: number,
 ): Promise<string[]> {
-  const [fromRegistry, fromAuction, fromBadminton] = await Promise.all([
+  const fromAuction = await getAuctionRegistryMasterPlayerIds(sourceTournamentId);
+  if (fromAuction.length > 0) return fromAuction;
+
+  const [fromRegistry, fromBadminton] = await Promise.all([
     getPlayerRegistryMasterPlayerIds(sourceTournamentId),
-    getAuctionRegistryMasterPlayerIds(sourceTournamentId),
     getBadmintonRosterMasterPlayerIds(sourceTournamentId),
   ]);
 
-  return mergeUniqueMasterPlayerIds(fromRegistry, fromAuction, fromBadminton);
+  return mergeUniqueMasterPlayerIds(fromRegistry, fromBadminton);
 }
 
 /** List master players available for import into a badminton tournament. */
@@ -990,23 +991,20 @@ export async function listMasterPlayersForBadminton(
 
   const masterPlayerIds = await resolveImportSourceMasterPlayerIds(registrySourceTournamentId);
 
-  let masterPlayers: GlobalPlayer[];
-  if (masterPlayerIds.length === 0) {
-    masterPlayers = [];
-  } else {
-    masterPlayers = await db
+  let masterPlayersById = new Map<string, GlobalPlayer>();
+  if (masterPlayerIds.length > 0) {
+    const masterPlayers = await db
       .select()
       .from(globalPlayersTable)
-      .where(inArray(globalPlayersTable.id, masterPlayerIds));
+      .where(inArray(globalPlayersTable.id, [...new Set(masterPlayerIds)]));
 
-    const order = new Map(masterPlayerIds.map((id, index) => [id, index]));
-    masterPlayers.sort(
-      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
-    );
+    masterPlayersById = new Map(masterPlayers.map((mp) => [mp.id, mp]));
   }
 
   const items: MasterPlayerListItem[] = [];
-  for (const mp of masterPlayers) {
+  for (const masterId of masterPlayerIds) {
+    const mp = masterPlayersById.get(masterId);
+    if (!mp) continue;
     const enriched = await enrichMasterPlayerForTournament(
       mp,
       tournamentId,
