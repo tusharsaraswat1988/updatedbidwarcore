@@ -8,10 +8,11 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cmdAwardPoint, cmdUndoLastPoint } from "../commands";
+import { cmdAwardPoint, cmdAcknowledgeCourtChange, cmdUndoLastPoint } from "../commands";
 import { BadmintonEventType, type BadmintonMatchStartedPayload } from "../events/badminton";
 import { getUndoTargetSequences } from "../replay/undo-targets";
 import { replayBadmintonEvents, reduceBadminton } from "../reducer/reducer";
+import { getCurrentGame } from "../reducer/state";
 import type { BadmintonEventEnvelope, BadmintonMatchMeta, BadmintonMatchState, BadmintonSide } from "../types";
 import { STANDARD_FORMAT } from "../types";
 
@@ -110,6 +111,37 @@ function simulateSequence(id: string, label: string, winners: BadmintonSide[]): 
 
   for (let i = 0; i < winners.length; i++) {
     const winner = winners[i]!;
+
+    const game = getCurrentGame(liveState);
+    if (game?.intervalReached && !game.sideChangeAcknowledged) {
+      const ack = cmdAcknowledgeCourtChange(liveState);
+      if (ack.ok) {
+        for (const e of ack.events) {
+          liveState = reduceBadminton(liveState, {
+            matchId: 1,
+            tournamentId: 1,
+            sportSlug: "badminton",
+            eventType: e.eventType,
+            eventVersion: 1,
+            sequence: seq,
+            actorType: "system",
+            payload: e.payload,
+          });
+          events.push({
+            matchId: 1,
+            tournamentId: 1,
+            sportSlug: "badminton",
+            eventType: e.eventType,
+            eventVersion: 1,
+            sequence: seq,
+            actorType: "system",
+            payload: e.payload,
+          });
+          seq++;
+        }
+      }
+    }
+
     const result = cmdAwardPoint(liveState, winner);
     if (!result.ok) break;
 

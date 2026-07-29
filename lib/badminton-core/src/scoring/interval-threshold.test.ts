@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cmdAwardPoint,
+  cmdAcknowledgeCourtChange,
   cmdStartInterval,
   cmdStartMatch,
 } from "../commands";
@@ -9,7 +10,7 @@ import { createInitialBadmintonState, sideChangeScore } from "../reducer/state";
 import type { BadmintonMatchMeta, BadmintonMatchState, BadmintonSide } from "../types";
 import { STANDARD_FORMAT } from "../types";
 import type { BadmintonMatchStartedPayload } from "../events/badminton";
-import { isIntervalDue } from "./scorer-assistance";
+import { isCourtChangeRequired, isIntervalDue } from "./scorer-assistance";
 
 const META: BadmintonMatchMeta = {
   matchId: 1,
@@ -112,5 +113,27 @@ describe("BWF deciding-game interval threshold", () => {
 
     const blocked = cmdAwardPoint(during, "left");
     expect(blocked.ok).toBe(false);
+  });
+
+  it("blocks award until SIDE_CHANGED after intervalReached", () => {
+    const state = playTo(11, 0, true);
+    expect(state.games[2]?.intervalReached).toBe(true);
+    expect(state.games[2]?.sideChangeAcknowledged).toBeFalsy();
+    expect(isCourtChangeRequired(state)).toBe(true);
+
+    const blocked = cmdAwardPoint(state, "left");
+    expect(blocked.ok).toBe(false);
+    if (blocked.ok) throw new Error("expected block");
+    expect(blocked.error).toMatch(/court change/i);
+
+    const ack = cmdAcknowledgeCourtChange(state);
+    expect(ack.ok).toBe(true);
+    if (!ack.ok) throw new Error("ack failed");
+    const afterAck = apply(state, ack.events);
+    expect(afterAck.games[2]?.sideChangeAcknowledged).toBe(true);
+    expect(isCourtChangeRequired(afterAck)).toBe(false);
+
+    const allowed = cmdAwardPoint(afterAck, "left");
+    expect(allowed.ok).toBe(true);
   });
 });

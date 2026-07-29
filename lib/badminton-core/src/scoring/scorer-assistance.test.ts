@@ -19,7 +19,7 @@ import {
 } from "../commands";
 import { BadmintonEventType, type BadmintonMatchStartedPayload } from "../events/badminton";
 import { reduceBadminton } from "../reducer/reducer";
-import { createInitialBadmintonState } from "../reducer/state";
+import { createInitialBadmintonState, getCurrentGame } from "../reducer/state";
 import type { BadmintonMatchMeta, BadmintonMatchState, BadmintonSide } from "../types";
 import { STANDARD_FORMAT } from "../types";
 import {
@@ -123,6 +123,26 @@ function applyCommands(
   }
 
   for (const side of sides) {
+    const game = getCurrentGame(state);
+    if (game?.intervalReached && !game.sideChangeAcknowledged) {
+      const ack = cmdAcknowledgeCourtChange(state);
+      expect(ack.ok).toBe(true);
+      if (!ack.ok) break;
+      for (const event of ack.events) {
+        seq += 1;
+        state = reduceBadminton(state, {
+          matchId: meta.matchId,
+          tournamentId: meta.tournamentId,
+          sportSlug: "badminton",
+          eventType: event.eventType,
+          eventVersion: 1,
+          sequence: seq,
+          actorType: "scorer_pin",
+          payload: event.payload,
+        });
+      }
+    }
+
     const result = cmdAwardPoint(state, side);
     expect(result.ok).toBe(true);
     if (!result.ok) break;

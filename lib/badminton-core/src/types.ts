@@ -102,6 +102,11 @@ export type BadmintonGameState = {
   servingSide: BadmintonSide;
   /** Has the 11-point interval been reached in the deciding game? */
   intervalReached: boolean;
+  /**
+   * Has the scorer acknowledged the deciding-game court change (SIDE_CHANGED)?
+   * Defaults to false when absent (older replays / new games).
+   */
+  sideChangeAcknowledged?: boolean;
   /** Phase: in_progress | completed. */
   phase: "in_progress" | "completed";
   /** Winning side (set when phase = completed). */
