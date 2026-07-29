@@ -55,13 +55,13 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
 
   return (
     <div className="relative z-20 pointer-events-none shrink-0 bg-black/40 border-b border-white/10">
-      {/* Group 1 — BidWar: primary broadcast brand, top-center, generous breathing room */}
-      <div className="flex justify-center pt-3 pb-2 md:pt-4 md:pb-2.5">
+      {/* Group 1 — BidWar brand (compact so score stage keeps height) */}
+      <div className="flex justify-center pt-2 pb-1 md:pt-2.5 md:pb-1.5">
         {logoSrc ? (
           <img
             src={logoSrc}
             alt={logoAlt}
-            className="block h-9 md:h-11 w-auto max-w-[min(240px,32vw)] object-contain shrink-0"
+            className="block h-7 md:h-9 w-auto max-w-[min(200px,28vw)] object-contain shrink-0"
             style={{ filter: "drop-shadow(0 2px 12px rgba(0,0,0,0.6))" }}
             loading="eager"
             decoding="async"
@@ -70,20 +70,20 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
       </div>
 
       {/* Group 2 — Tournament: secondary to brand, centered below logo */}
-      <div className="flex items-center justify-center gap-2 pb-2 md:pb-2.5 px-[3%] min-w-0">
+      <div className="flex items-center justify-center gap-2 pb-1.5 md:pb-2 px-[3%] min-w-0">
         {tournamentLogoUrl ? (
           <img
             src={tournamentLogoUrl}
             alt=""
-            className="h-6 w-auto max-w-[44px] object-contain shrink-0"
+            className="h-5 w-auto max-w-[40px] object-contain shrink-0"
           />
         ) : null}
         <div className="flex flex-col items-center leading-none min-w-0">
-          <span className="bw-subheading text-white/85 truncate">
+          <span className="bw-subheading text-white/90 truncate">
             {tournamentName}
           </span>
           {roundName ? (
-            <span className="bw-caption text-[9px] text-white/40 mt-1 truncate">
+            <span className="bw-caption text-[10px] text-white/50 mt-1 truncate">
               {roundName}
             </span>
           ) : null}
@@ -91,23 +91,23 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
       </div>
 
       {/* Group 3 — Court / Sponsor / Live: tertiary metadata row */}
-      <div className="flex items-center justify-center gap-2 md:gap-3 flex-wrap pb-2 md:pb-2.5 px-[3%]">
+      <div className="flex items-center justify-center gap-2.5 md:gap-3.5 flex-wrap pb-2.5 md:pb-3 px-[3%]">
         {courtNumber ? (
-          <div className="bg-white/8 border border-white/10 rounded px-2 py-0.5 text-center">
-            <p className="bw-caption text-[8px] text-white/40">Court</p>
-            <p className="bw-meta-lg text-white/80">{courtNumber}</p>
+          <div className="bg-white/10 border border-white/20 rounded-md px-3 py-1 text-center min-w-[4.5rem]">
+            <p className="bw-caption text-[9px] md:text-[10px] text-white/55">Court</p>
+            <p className="bw-meta-lg text-white text-sm md:text-base">{courtNumber}</p>
           </div>
         ) : null}
         {matchNumber ? (
-          <div className="bg-white/8 border border-white/10 rounded px-2 py-0.5 text-center">
-            <p className="bw-caption text-[8px] text-white/40">Match</p>
-            <p className="bw-meta-lg text-white/80">{matchNumber}</p>
+          <div className="bg-white/10 border border-white/20 rounded-md px-3 py-1 text-center min-w-[4.5rem]">
+            <p className="bw-caption text-[9px] md:text-[10px] text-white/55">Match</p>
+            <p className="bw-meta-lg text-white text-sm md:text-base">{matchNumber}</p>
           </div>
         ) : null}
         {isTimeout ? (
-          <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-3 py-1 flex items-center gap-2">
-            <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="bw-label text-[10px] md:text-xs text-amber-300">
+          <div className="bg-amber-500/25 border border-amber-400/55 rounded-full px-4 py-1.5 flex items-center gap-2">
+            <span className="size-2.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="bw-label text-xs md:text-sm text-amber-200">
               Timeout — {timeoutSide === "left" ? leftLabel : rightLabel}
             </span>
           </div>
@@ -122,22 +122,22 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
         ) : null}
 
         {isLive ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 border border-red-500/50 bg-red-500/10">
-            <span className="size-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]" />
-            <span className="bw-label text-[10px] text-red-300">
-              Live
+          <div className="flex items-center gap-2.5 px-4 py-2 border-2 border-red-500/70 bg-red-600/25 shadow-[0_0_20px_rgba(239,68,68,0.35)]">
+            <span className="size-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_14px_#ef4444]" />
+            <span className="bw-label text-xs md:text-sm text-red-100 tracking-[0.22em]">
+              LIVE
             </span>
           </div>
         ) : matchStatus === "completed" ? (
-          <div className="border border-green-500/40 bg-green-500/10 px-3 py-1.5">
-            <span className="bw-label text-[10px] text-green-300">
-              Final
+          <div className="border-2 border-emerald-400/50 bg-emerald-500/15 px-4 py-2">
+            <span className="bw-label text-xs md:text-sm text-emerald-200 tracking-[0.22em]">
+              FINAL
             </span>
           </div>
         ) : (
-          <div className="border border-white/15 bg-white/5 px-3 py-1.5">
-            <span className="bw-label text-[10px] text-white/55">
-              {matchStatus === "scheduled" ? "Scheduled" : "Awaiting"}
+          <div className="border border-white/20 bg-white/8 px-4 py-2">
+            <span className="bw-label text-xs md:text-sm text-white/65 tracking-[0.18em]">
+              {matchStatus === "scheduled" ? "SCHEDULED" : "AWAITING"}
             </span>
           </div>
         )}
