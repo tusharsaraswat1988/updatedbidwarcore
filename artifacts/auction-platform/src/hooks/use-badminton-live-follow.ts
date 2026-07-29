@@ -7,7 +7,10 @@ import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
-import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import {
+  subscribeBadmintonDashboardStream,
+  useBadmintonMatch,
+} from "@/hooks/use-badminton-match";
 import {
   findMatchById,
   listLiveMatches,
@@ -15,8 +18,6 @@ import {
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
 import { MAX_MULTI_COURT_ROWS } from "@/lib/badminton-broadcast-director";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export function useBadmintonLiveFollow(tournamentId: number) {
   const queryClient = useQueryClient();
@@ -31,13 +32,10 @@ export function useBadmintonLiveFollow(tournamentId: number) {
 
   useEffect(() => {
     if (!tournamentId) return;
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
-    const es = new EventSource(url, { withCredentials: true });
-    es.onmessage = () => {
+    return subscribeBadmintonDashboardStream(tournamentId, () => {
       void queryClient.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
       void queryClient.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
-    };
-    return () => es.close();
+    });
   }, [tournamentId, queryClient]);
 
   const primaryMatchId = useMemo(

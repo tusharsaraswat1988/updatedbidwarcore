@@ -470,8 +470,9 @@ async function canWriteScoring(
 /**
  * Public — scoreboards and OBS overlays embed this without auth.
  * Client is registered with tournamentId so broadcasts are tenant-scoped.
+ * Match-scoped clients (matchId > 0) receive one initial match_state snapshot.
  */
-router.get("/stream", (req, res) => {
+router.get("/stream", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -485,6 +486,24 @@ router.get("/stream", (req, res) => {
 
   const client = createBadmintonSseClient({ res, matchId: matchId ?? 0, tournamentId });
   addBadmintonSseClient(client);
+
+  if (matchId && matchId > 0) {
+    try {
+      const state = await replayMatch(matchId, tournamentId);
+      if (state) {
+        client.write(
+          `data: ${JSON.stringify({
+            type: "match_state",
+            matchId,
+            tournamentId,
+            data: state,
+          })}\n\n`,
+        );
+      }
+    } catch {
+      // Snapshot failure must not tear down the live stream.
+    }
+  }
 
   const cleanup = () => {
     clearInterval(heartbeat);
@@ -992,7 +1011,7 @@ router.post("/categories", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
     ageGroup: z.string().max(20).optional(),
     gender: z.string().max(10).optional(),
-    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).default("knockout"),
+    drawType: z.literal("knockout").default("knockout"),
     numSeeds: z.number().int().min(0).max(32).default(0),
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
@@ -1031,7 +1050,7 @@ router.patch("/categories/:catId", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
     ageGroup: z.string().max(20).nullable().optional(),
     gender: z.string().max(10).nullable().optional(),
-    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
+    drawType: z.literal("knockout").optional(),
     numSeeds: z.number().int().min(0).max(32).optional(),
     maxPlayers: z.number().int().nullable().optional(),
     entryFee: z.number().int().nullable().optional(),

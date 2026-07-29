@@ -97,7 +97,6 @@ async function fetchMatchState(
 export function useBadmintonMatch(tournamentId: number, matchId: number) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-match", tournamentId, matchId];
-  const esRef = useRef<EventSource | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ScoringConnectionStatus>("reconnecting");
   const setStatusRef = useRef(setConnectionStatus);
 
@@ -119,7 +118,7 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
     },
   });
 
-  // SSE subscription
+  // Shared SSE subscription (one EventSource per tournament+match)
   useEffect(() => {
     if (!tournamentId || !matchId) return;
 
@@ -138,50 +137,48 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
       }, 5000);
     }
 
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream?matchId=${matchId}`;
-    const es = new EventSource(url, { withCredentials: true });
-    esRef.current = es;
-
-    es.onopen = () => markConnected();
-
-    es.onmessage = (event) => {
-      markConnected();
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "match_state" && msg.data) {
-          // Prefer envelope matchId; fall back to state.matchId.
-          const envelopeMatchId =
-            typeof msg.matchId === "number" ? msg.matchId : (msg.data as BadmintonMatchState).matchId;
-          if (
-            matchId > 0 &&
-            typeof envelopeMatchId === "number" &&
-            envelopeMatchId > 0 &&
-            envelopeMatchId !== matchId
-          ) {
-            return;
+    const unsubscribe = subscribeBadmintonMatchStream(
+      tournamentId,
+      matchId,
+      (msg) => {
+        markConnected();
+        try {
+          if (msg.type === "match_state" && msg.data) {
+            // Prefer envelope matchId; fall back to state.matchId.
+            const envelopeMatchId =
+              typeof msg.matchId === "number"
+                ? msg.matchId
+                : (msg.data as BadmintonMatchState).matchId;
+            if (
+              matchId > 0 &&
+              typeof envelopeMatchId === "number" &&
+              envelopeMatchId > 0 &&
+              envelopeMatchId !== matchId
+            ) {
+              return;
+            }
+            queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
+              mergeIncomingMatchState(
+                tournamentId,
+                matchId,
+                prev,
+                msg.data as BadmintonMatchState,
+              ),
+            );
           }
-          queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
-            mergeIncomingMatchState(
-              tournamentId,
-              matchId,
-              prev,
-              msg.data as BadmintonMatchState,
-            ),
-          );
+        } catch {
+          // ignore malformed events
         }
-      } catch {
-        // ignore malformed events
-      }
-    };
-
-    es.onerror = () => {
-      markReconnecting();
-    };
+      },
+      (status) => {
+        if (status === "connected") markConnected();
+        else markReconnecting();
+      },
+    );
 
     return () => {
       clearTimeout(disconnectedTimer);
-      es.close();
-      esRef.current = null;
+      unsubscribe();
     };
   }, [tournamentId, matchId, queryClient]);
 
@@ -398,9 +395,78 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
   };
 }
 
-// ── Tournament live matches hook ──────────────────────────────────────────────
+// ── Shared EventSource pools (refcount) ───────────────────────────────────────
 
-// ── Tournament live matches hook ──────────────────────────────────────────────
+type MatchStreamMessage = {
+  type?: string;
+  matchId?: number;
+  tournamentId?: number;
+  data?: unknown;
+};
+
+type MatchStreamEntry = {
+  es: EventSource;
+  refs: number;
+  listeners: Set<(msg: MatchStreamMessage) => void>;
+  statusListeners: Set<(status: ScoringConnectionStatus) => void>;
+};
+
+/** One EventSource per tournament+match — N components share one connection. */
+const matchStreams = new Map<string, MatchStreamEntry>();
+
+function matchStreamKey(tournamentId: number, matchId: number): string {
+  return `${tournamentId}:${matchId}`;
+}
+
+function subscribeBadmintonMatchStream(
+  tournamentId: number,
+  matchId: number,
+  onMessage: (msg: MatchStreamMessage) => void,
+  onStatus?: (status: ScoringConnectionStatus) => void,
+): () => void {
+  const key = matchStreamKey(tournamentId, matchId);
+  let entry = matchStreams.get(key);
+  if (!entry) {
+    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream?matchId=${matchId}`;
+    const es = new EventSource(url, { withCredentials: true });
+    entry = { es, refs: 0, listeners: new Set(), statusListeners: new Set() };
+    es.onopen = () => {
+      entry?.statusListeners.forEach((listener) => listener("connected"));
+    };
+    es.onmessage = (event) => {
+      entry?.statusListeners.forEach((listener) => listener("connected"));
+      try {
+        const msg = JSON.parse(event.data) as MatchStreamMessage;
+        entry?.listeners.forEach((listener) => listener(msg));
+      } catch {
+        // ignore malformed events
+      }
+    };
+    es.onerror = () => {
+      entry?.statusListeners.forEach((listener) => listener("reconnecting"));
+    };
+    matchStreams.set(key, entry);
+  }
+
+  entry.refs += 1;
+  entry.listeners.add(onMessage);
+  if (onStatus) entry.statusListeners.add(onStatus);
+  if (entry.es.readyState === EventSource.OPEN) {
+    onStatus?.("connected");
+  }
+
+  return () => {
+    const current = matchStreams.get(key);
+    if (!current) return;
+    current.listeners.delete(onMessage);
+    if (onStatus) current.statusListeners.delete(onStatus);
+    current.refs -= 1;
+    if (current.refs <= 0) {
+      current.es.close();
+      matchStreams.delete(key);
+    }
+  };
+}
 
 type DashboardStreamEntry = {
   es: EventSource;
@@ -411,7 +477,7 @@ type DashboardStreamEntry = {
 /** One EventSource per tournament — setup pages share it instead of reconnecting on every nav. */
 const dashboardStreams = new Map<number, DashboardStreamEntry>();
 
-function subscribeBadmintonDashboardStream(
+export function subscribeBadmintonDashboardStream(
   tournamentId: number,
   onMessage: () => void,
 ): () => void {

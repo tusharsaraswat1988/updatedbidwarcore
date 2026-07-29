@@ -9,6 +9,7 @@ import { seedCommunicationDefaults } from "./lib/communication/seed-templates.js
 import { getRuntimeConfig } from "./lib/runtime-env";
 import { initRedisClients } from "./lib/redis";
 import { startAuctionEventSubscriber } from "./lib/auction-events";
+import { startBadmintonEventSubscriber } from "./lib/badminton-broadcast";
 import { ensureCoreSchema, pool } from "@workspace/db";
 import { brandingService } from "./lib/branding-service.js";
 import { refreshBrandingIconCache } from "./lib/branding-asset-resolver.js";
@@ -28,6 +29,7 @@ async function start() {
   await seedCommunicationDefaults();
   await initRedisClients();
   await startAuctionEventSubscriber();
+  await startBadmintonEventSubscriber();
 
   app.listen(port, "0.0.0.0", (err) => {
     if (err) {
