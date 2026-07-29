@@ -98,8 +98,7 @@ export function BadmintonBroadcastActions({
       `Scorer Home — ${label}`,
       homeUrl,
       "",
-      "Enter the match PIN once, then choose which match to score.",
-      "Assign the same PIN to every match this scorer should open.",
+      "Sign in with your mobile number and personal PIN, then choose which match to score.",
       "",
       `Direct match link (optional): ${directUrl}`,
       "Match Control (pause, retirement) stays with the organizer.",
@@ -107,7 +106,7 @@ export function BadmintonBroadcastActions({
     navigator.clipboard.writeText(message).then(() => {
       toast({
         title: "Scorer access copied",
-        description: "Share Scorer Home + PIN with your court official.",
+        description: "Share Scorer Home — officials sign in with mobile and personal PIN.",
       });
     });
   }
