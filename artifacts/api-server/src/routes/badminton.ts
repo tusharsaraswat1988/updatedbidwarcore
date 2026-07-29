@@ -116,6 +116,7 @@ import {
   buildSideJsonFromBadmintonPlayer,
   listBadmintonPlayersForMatchRoster,
   listBadmintonPlayersForOrganizer,
+  assignBadmintonPlayerFranchiseTeam,
 } from "../lib/master-sports/badminton";
 import {
   validateBadmintonCategoryEntry,
@@ -138,6 +139,12 @@ import { scheduleBadmintonLifecycleRefresh } from "../lib/badminton-lifecycle";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
+import {
+  generateLeagueFixtures,
+  getCategoryPairStandings,
+  listLeagueGroups,
+  replaceLeagueGroups,
+} from "../lib/badminton-league-service";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
 import {
   queueImageFieldChange,
@@ -807,6 +814,30 @@ router.patch("/players/:playerId", async (req, res) => {
   res.json(player);
 });
 
+router.patch("/players/:playerId/franchise-team", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const playerId = parseId((req.params as MergedParams).playerId);
+  if (!playerId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    auctionTeamId: z.number().int().positive().nullable(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const updated = await assignBadmintonPlayerFranchiseTeam(
+      tournamentId,
+      playerId,
+      parsed.data.auctionTeamId,
+    );
+    res.json(updated);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Team assignment failed" });
+  }
+});
+
 router.delete("/players/:playerId", async (req, res) => {
   const tournamentId = await guardBadmintonWrite(req, res);
   if (!tournamentId) return;
@@ -1072,8 +1103,8 @@ router.post("/categories", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
     ageGroup: z.string().max(20).optional(),
     gender: z.string().max(10).optional(),
-    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
-    drawType: z.literal("knockout").default("knockout"),
+    // Sprint 4 — knockout | round_robin | group_knockout
+    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).default("knockout"),
     numSeeds: z.number().int().min(0).max(32).default(0),
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
@@ -1113,7 +1144,7 @@ router.patch("/categories/:catId", async (req, res) => {
     ageGroup: z.string().max(20).nullable().optional(),
     gender: z.string().max(10).nullable().optional(),
     // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
-    drawType: z.literal("knockout").optional(),
+    drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
     numSeeds: z.number().int().min(0).max(32).optional(),
     maxPlayers: z.number().int().nullable().optional(),
     entryFee: z.number().int().nullable().optional(),
@@ -1680,6 +1711,12 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
 
   if (!category) return void res.status(404).json({ error: "category not found" });
 
+  if (category.drawType === "round_robin" || category.drawType === "group_knockout") {
+    return void res.status(400).json({
+      error: "This category uses league format. Use POST /generate-league instead.",
+    });
+  }
+
   const registrations = await db
     .select()
     .from(badmintonRegistrationsTable)
@@ -1787,6 +1824,107 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
       fixtureCount: r.fixtures.length,
     })),
   });
+});
+
+// ─── League Groups ───────────────────────────────────────────────────────────
+
+router.get("/categories/:catId/groups", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const groups = await listLeagueGroups(tournamentId, catId);
+  res.json(groups);
+});
+
+router.put("/categories/:catId/groups", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    groups: z
+      .array(
+        z.object({
+          name: z.string().min(1).max(100),
+          sortOrder: z.number().int().min(0).optional(),
+          teamIds: z.array(z.number().int().positive()).min(1),
+        }),
+      )
+      .min(1),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const groups = await replaceLeagueGroups(tournamentId, catId, parsed.data.groups);
+    res.json(groups);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to save groups";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/categories/:catId/generate-league", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const result = await generateLeagueFixtures(tournamentId, catId);
+    res.status(201).json(result);
+  } catch (err) {
+    const status =
+      err && typeof err === "object" && "status" in err && typeof err.status === "number"
+        ? err.status
+        : 500;
+    const message = err instanceof Error ? err.message : "League generation failed";
+    res.status(status).json({ error: message });
+  }
+});
+
+router.get("/categories/:catId/standings", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const limitRaw = req.query.limit;
+  const limit =
+    typeof limitRaw === "string" && limitRaw.trim()
+      ? Number.parseInt(limitRaw, 10)
+      : undefined;
+
+  const standings = await getCategoryPairStandings(
+    tournamentId,
+    catId,
+    limit && !Number.isNaN(limit) ? limit : undefined,
+  );
+  res.json(standings);
+});
+
+router.get("/categories/:catId/qualifiers", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const limitRaw = req.query.limit;
+  const limit =
+    typeof limitRaw === "string" && limitRaw.trim()
+      ? Number.parseInt(limitRaw, 10)
+      : 4;
+
+  const qualifiers = await getCategoryPairStandings(
+    tournamentId,
+    catId,
+    Number.isNaN(limit) ? 4 : limit,
+  );
+  res.json(qualifiers);
 });
 
 /**

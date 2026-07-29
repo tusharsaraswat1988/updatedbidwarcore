@@ -9,7 +9,7 @@
  *   Auto Generate | Manual Entry | Import (gated — not available yet)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link, useSearch, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -303,6 +303,8 @@ function CategoryFixturesPanel({
   const accepted = registrations.filter((r) => r.registration.status === "accepted");
   const acceptedCount = accepted.length;
   const isDoubles = category.matchType !== "singles";
+  const isLeague =
+    category.drawType === "round_robin" || category.drawType === "group_knockout";
   const regIdentityMap = new Map<number, TeamPlayerIdentity>();
   for (const row of registrations) {
     const playersForReg = [
@@ -334,11 +336,17 @@ function CategoryFixturesPanel({
     setGenerating(true);
     setError("");
     try {
-      await badmintonFetch(tournamentId, `/categories/${category.id}/generate-draw`, {
+      const endpoint = isLeague
+        ? `/categories/${category.id}/generate-league`
+        : `/categories/${category.id}/generate-draw`;
+      await badmintonFetch(tournamentId, endpoint, {
         method: "POST",
         body: JSON.stringify({}),
       });
-      toastSuccess("Fixtures generated", `${category.name} draw is ready to schedule.`);
+      toastSuccess(
+        isLeague ? "League fixtures generated" : "Fixtures generated",
+        `${category.name} draw is ready to schedule.`,
+      );
       setConfirmGenerate(false);
       invalidatePlanning();
     } catch (e) {
@@ -381,22 +389,40 @@ function CategoryFixturesPanel({
 
       {expanded ? (
         <div className="border-t border-white/8 p-5 space-y-6">
+          {isLeague ? (
+            <LeagueGroupsPanel tournamentId={tournamentId} categoryId={category.id} />
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 setError("");
+                if (isLeague) {
+                  setConfirmGenerate(true);
+                  return;
+                }
                 if (acceptedCount < 2) {
                   setError("Add at least 2 accepted entries in Categories before generating a draw.");
                   return;
                 }
                 setConfirmGenerate(true);
               }}
-              disabled={generating || acceptedCount < 2}
+              disabled={generating || (!isLeague && acceptedCount < 2)}
               className="min-h-11 px-4 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 disabled:opacity-40 text-purple-200 text-sm font-bold transition-colors"
-              title={acceptedCount < 2 ? "Need 2+ accepted entries" : "Generate knockout fixtures"}
+              title={
+                isLeague
+                  ? "Generate pair-vs-pair league fixtures from groups"
+                  : acceptedCount < 2
+                    ? "Need 2+ accepted entries"
+                    : "Generate knockout fixtures"
+              }
             >
-              {generating ? "Generating…" : "Auto Generate Draw"}
+              {generating
+                ? "Generating…"
+                : isLeague
+                  ? "Generate League Fixtures"
+                  : "Auto Generate Draw"}
             </button>
             <button
               type="button"
@@ -484,18 +510,28 @@ function CategoryFixturesPanel({
       <ConfirmActionDialog
         open={confirmGenerate}
         onOpenChange={setConfirmGenerate}
-        title="Generate knockout draw?"
+        title={isLeague ? "Generate league fixtures?" : "Generate knockout draw?"}
         description={
           <div className="space-y-2">
             <p>
-              Create a knockout fixture collection for{" "}
-              <span className="text-foreground font-medium">{category.name}</span> using{" "}
-              {acceptedCount} accepted entries.
+              {isLeague ? (
+                <>
+                  Create team-tie league fixtures for{" "}
+                  <span className="text-foreground font-medium">{category.name}</span> from
+                  configured groups (pair slot vs pair slot).
+                </>
+              ) : (
+                <>
+                  Create a knockout fixture collection for{" "}
+                  <span className="text-foreground font-medium">{category.name}</span> using{" "}
+                  {acceptedCount} accepted entries.
+                </>
+              )}
             </p>
             <p>You can schedule courts and times afterward in Scheduling.</p>
           </div>
         }
-        confirmLabel="Generate draw"
+        confirmLabel={isLeague ? "Generate league" : "Generate draw"}
         destructive={false}
         busy={generating}
         error={error}
@@ -668,6 +704,231 @@ function ManualFixturesModal({
         saving={saving}
       />
     </FormModal>
+  );
+}
+
+function LeagueGroupsPanel({
+  tournamentId,
+  categoryId,
+}: {
+  tournamentId: number;
+  categoryId: number;
+}) {
+  const qc = useQueryClient();
+  type LeagueGroup = {
+    id: number;
+    name: string;
+    sortOrder: number;
+    teams: Array<{ teamId: number; teamName: string; seed: number | null }>;
+  };
+  type FranchiseTeam = {
+    auctionTeamId: number;
+    name: string;
+    shortName?: string;
+  };
+  type StandingRow = {
+    rank: number;
+    label: string;
+    played: number;
+    won: number;
+    lost: number;
+    marginPoints: number;
+  };
+
+  const { data: groups = [], isLoading } = useQuery<LeagueGroup[]>({
+    queryKey: ["badminton-league-groups", tournamentId, categoryId],
+    queryFn: () => badmintonFetch(tournamentId, `/categories/${categoryId}/groups`),
+  });
+
+  const { data: franchiseTeams = [] } = useQuery<FranchiseTeam[]>({
+    queryKey: ["badminton-franchise-teams", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/franchise-teams`),
+  });
+
+  const { data: standings = [] } = useQuery<StandingRow[]>({
+    queryKey: ["badminton-league-standings", tournamentId, categoryId],
+    queryFn: () => badmintonFetch(tournamentId, `/categories/${categoryId}/standings`),
+  });
+
+  const [draftGroups, setDraftGroups] = useState<
+    Array<{ name: string; teamIds: number[] }>
+  >([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (initialized) return;
+    if (isLoading) return;
+    if (groups.length > 0) {
+      setDraftGroups(
+        groups.map((g) => ({
+          name: g.name,
+          teamIds: g.teams.map((t) => t.teamId),
+        })),
+      );
+      setInitialized(true);
+      return;
+    }
+    setDraftGroups([
+      { name: "Group 1", teamIds: [] },
+      { name: "Group 2", teamIds: [] },
+    ]);
+    setInitialized(true);
+  }, [groups, isLoading, initialized]);
+
+  function toggleTeam(groupIndex: number, teamId: number) {
+    setDraftGroups((prev) =>
+      prev.map((g, i) => {
+        if (i !== groupIndex) {
+          return { ...g, teamIds: g.teamIds.filter((id) => id !== teamId) };
+        }
+        const has = g.teamIds.includes(teamId);
+        return {
+          ...g,
+          teamIds: has ? g.teamIds.filter((id) => id !== teamId) : [...g.teamIds, teamId],
+        };
+      }),
+    );
+  }
+
+  async function saveGroups() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      await badmintonFetch(tournamentId, `/categories/${categoryId}/groups`, {
+        method: "PUT",
+        body: JSON.stringify({
+          groups: draftGroups.map((g, idx) => ({
+            name: g.name,
+            sortOrder: idx,
+            teamIds: g.teamIds,
+          })),
+        }),
+      });
+      void qc.invalidateQueries({
+        queryKey: ["badminton-league-groups", tournamentId, categoryId],
+      });
+      toastSuccess("Groups saved", "Assign pairs to franchise teams, then generate league.");
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save groups");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-4">
+      <div>
+        <h4 className="text-white font-semibold">League Groups</h4>
+        <p className="text-white/40 text-xs mt-1">
+          Assign franchise teams to each group. Pairs are matched by slot (Rubber 1 vs Rubber 1, etc.).
+        </p>
+      </div>
+
+      {isLoading ? (
+        <p className="text-white/40 text-sm">Loading groups…</p>
+      ) : (
+        <div className="space-y-4">
+          {draftGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+              <input
+                value={group.name}
+                onChange={(e) =>
+                  setDraftGroups((prev) =>
+                    prev.map((g, i) =>
+                      i === groupIndex ? { ...g, name: e.target.value } : g,
+                    ),
+                  )
+                }
+                className={inputClass}
+                placeholder="Group name"
+              />
+              <div className="flex flex-wrap gap-2">
+                {franchiseTeams.map((team) => {
+                  const selected = group.teamIds.includes(team.auctionTeamId);
+                  const usedElsewhere = draftGroups.some(
+                    (g, i) => i !== groupIndex && g.teamIds.includes(team.auctionTeamId),
+                  );
+                  return (
+                    <button
+                      key={team.auctionTeamId}
+                      type="button"
+                      disabled={usedElsewhere && !selected}
+                      onClick={() => toggleTeam(groupIndex, team.auctionTeamId)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                        selected
+                          ? "bg-cyan-500/30 text-cyan-100 border border-cyan-400/40"
+                          : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10",
+                        usedElsewhere && !selected && "opacity-40 cursor-not-allowed",
+                      )}
+                    >
+                      {team.shortName ?? team.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              setDraftGroups((prev) => [
+                ...prev,
+                { name: `Group ${prev.length + 1}`, teamIds: [] },
+              ])
+            }
+            className="text-xs font-semibold text-cyan-300 hover:underline"
+          >
+            + Add group
+          </button>
+        </div>
+      )}
+
+      {saveError ? <FormError message={saveError} /> : null}
+
+      <div className="flex flex-wrap gap-2">
+        <BtnPrimary type="button" onClick={() => void saveGroups()} disabled={saving}>
+          {saving ? "Saving…" : "Save Groups"}
+        </BtnPrimary>
+      </div>
+
+      {standings.length > 0 ? (
+        <div className="overflow-x-auto">
+          <h5 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">
+            Pair Standings (margin points)
+          </h5>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-white/40 text-left">
+                <th className="py-1 pr-2">#</th>
+                <th className="py-1 pr-2">Pair</th>
+                <th className="py-1 pr-2">P</th>
+                <th className="py-1 pr-2">W</th>
+                <th className="py-1 pr-2">L</th>
+                <th className="py-1">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((row) => (
+                <tr key={row.rank} className="border-t border-white/5 text-white/80">
+                  <td className="py-1.5 pr-2">{row.rank}</td>
+                  <td className="py-1.5 pr-2">{row.label}</td>
+                  <td className="py-1.5 pr-2">{row.played}</td>
+                  <td className="py-1.5 pr-2">{row.won}</td>
+                  <td className="py-1.5 pr-2">{row.lost}</td>
+                  <td className="py-1.5 font-bold text-cyan-200">{row.marginPoints}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-white/35 mt-2">
+            Top 4 pairs qualify (by margin points from won games).
+          </p>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

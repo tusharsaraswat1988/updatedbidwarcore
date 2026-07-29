@@ -560,6 +560,7 @@ async function updateSnapshot(
       );
 
     const fixtureId = await getMatchFixtureId(matchId, tournamentId);
+    let leagueCategoryId: number | null = null;
     if (fixtureId) {
       const fixtureStatus = mapBadmintonStatusToFixtureStatus(state.matchStatus);
       await db
@@ -576,6 +577,18 @@ async function updateSnapshot(
             eq(badmintonFixturesTable.tournamentId, tournamentId),
           ),
         );
+
+      const [fixtureRow] = await db
+        .select({ categoryId: badmintonFixturesTable.categoryId })
+        .from(badmintonFixturesTable)
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, fixtureId),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+      leagueCategoryId = fixtureRow?.categoryId ?? null;
 
       // Sprint 1 / C5 — advance winner into next-round fixture when linked.
       if (state.winnerSide === "left" || state.winnerSide === "right") {
@@ -618,6 +631,16 @@ async function updateSnapshot(
 
     scheduleBadmintonAnalyticsRecompute(tournamentId);
     scheduleBadmintonLifecycleRefresh(tournamentId);
+
+    if (leagueCategoryId) {
+      void import("./badminton-league-service")
+        .then(({ rebuildCategoryPairStandings }) =>
+          rebuildCategoryPairStandings(tournamentId, leagueCategoryId!),
+        )
+        .catch((err) => {
+          console.error("[badminton] league standings rebuild failed:", err);
+        });
+    }
 
     const [detail] = await db
       .select({

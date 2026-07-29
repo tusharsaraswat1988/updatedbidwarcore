@@ -12,3 +12,5 @@ export * from "./sync-snapshot";
 export * from "./match-state-guard";
 export * from "./match-terminal-status";
 export * from "./match-director";
+export * from "./league/standings";
+export * from "./league/group-fixtures";
