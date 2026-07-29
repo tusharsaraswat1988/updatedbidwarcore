@@ -1,5 +1,5 @@
 SCORER ASSISTANCE TEST REPORT
-Generated: 2026-07-14T13:36:14.342Z
+Generated: 2026-07-29T14:07:18.857Z
 
 1. [PASS] Singles server label
    Expected Abhinav Keshri, got Abhinav Keshri
@@ -16,7 +16,7 @@ Generated: 2026-07-14T13:36:14.342Z
 7. [PASS] Singles match point side
    Match point at 20-18, games 1-1
 8. [PASS] Singles match point banner
-   Banners: match_point, interval_due, court_change_required
+   Banners: match_point, interval_due
 9. [PASS] Singles interval due at 11 in deciding game
    intervalDue=true score=11-0 game=3
 10. [PASS] Singles court change required
@@ -44,7 +44,7 @@ Generated: 2026-07-14T13:36:14.342Z
 21. [PASS] Mixed doubles server label present
    Player B2
 22. [PASS] Mixed doubles receiver label present
-   Player A2
+   Abhinav Keshri
 23. [PASS] Mixed doubles interval due
    intervalDue=true
 24. [PASS] Mixed doubles interval start command
