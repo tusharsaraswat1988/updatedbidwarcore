@@ -392,6 +392,8 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
     disqualification: (disqualifiedSide: "left" | "right", reason: string) =>
       postDirector("disqualification", { disqualifiedSide, reason }),
     forceEnd: (reason: string) => postDirector("force-end", { reason }),
+    amendScore: (leftScore: number, rightScore: number, reason: string) =>
+      postDirector("amend-score", { leftScore, rightScore, reason }),
   };
 }
 

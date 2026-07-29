@@ -11,6 +11,7 @@ export const BadmintonEventType = {
   MATCH_STARTED: "badminton.match.started",
   POINT_WON: "badminton.point.won",
   POINT_UNDONE: "badminton.point.undone",
+  SCORE_AMENDED: "badminton.score.amended",
   GAME_ENDED: "badminton.game.ended",
   MATCH_ENDED: "badminton.match.ended",
   INTERVAL_STARTED: "badminton.interval.started",
@@ -160,6 +161,16 @@ export type BadmintonPointUndonePayload = {
   undoneSequences?: number[];
 };
 
+
+/** Director-only correction of the current in-progress game score. */
+export type BadmintonScoreAmendedPayload = {
+  leftScore: number;
+  rightScore: number;
+  /** Game number being amended (must be the current in-progress game). */
+  gameNumber: number;
+  reason?: string;
+};
+
 export type BadmintonGameEndedPayload = {
   gameNumber: number;
   winningSide: BadmintonSide;
@@ -284,6 +295,14 @@ const pointUndoneSchema = z.object({
   undoneSequences: z.array(z.number()).optional(),
 });
 
+
+const scoreAmendedSchema = z.object({
+  leftScore: z.number().int().min(0),
+  rightScore: z.number().int().min(0),
+  gameNumber: z.number().int().positive(),
+  reason: z.string().optional(),
+});
+
 const gameEndedDoublesServeSchema = z.object({
   nextServingSide: z.enum(["left", "right"]),
   nextServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
@@ -393,6 +412,8 @@ export function parseBadmintonEventPayload(
       return parseWith(pointWonSchema, eventType, data);
     case BadmintonEventType.POINT_UNDONE:
       return parseWith(pointUndoneSchema, eventType, data);
+    case BadmintonEventType.SCORE_AMENDED:
+      return parseWith(scoreAmendedSchema, eventType, data);
     case BadmintonEventType.GAME_ENDED:
       return parseWith(gameEndedSchema, eventType, data);
     case BadmintonEventType.MATCH_ENDED:

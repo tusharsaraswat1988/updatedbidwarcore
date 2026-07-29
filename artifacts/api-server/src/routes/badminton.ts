@@ -66,6 +66,7 @@ import {
   handleResumeMatch,
   handleAddMatchNote,
   handleForceEndMatch,
+  handleAmendScore,
   getMatchIncidentLog,
   getMatchReportData,
   replayMatch,
@@ -2850,6 +2851,56 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/amend-score", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    leftScore: z.number().int().min(0),
+    rightScore: z.number().int().min(0),
+    reason: z.string().min(1).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleAmendScore(
+      matchId,
+      tournamentId,
+      parsed.data.leftScore,
+      parsed.data.rightScore,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.reason,
+    );
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.score_amended",
+      summary: `Match #${matchId} score amended to ${parsed.data.leftScore}-${parsed.data.rightScore}`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+      metadata: {
+        leftScore: parsed.data.leftScore,
+        rightScore: parsed.data.rightScore,
+        reason: parsed.data.reason ?? null,
+      },
+    });
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({
+        error: friendlyBadmintonCommandMessage(e.message),
+        code: e.code,
+      });
     }
     throw e;
   }
