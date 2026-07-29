@@ -601,6 +601,44 @@ export async function updateBroadcastPresentation(
   });
 }
 
+const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
+  "intro",
+  "sponsor",
+]);
+const RALLY_UNSAFE_VENUE: ReadonlySet<BadmintonVenueScene> = new Set([
+  "intro",
+  "sponsor",
+]);
+
+/**
+ * After the first rally of a live match, clear intro/sponsor packages so OBS +
+ * Venue (and Mission Control chips) return to live score. Winner/next untouched.
+ * Returns updated branding when a change was applied; null when already safe.
+ */
+export async function clearRallyUnsafeBroadcastScenes(
+  tournamentId: number,
+): Promise<BadmintonBranding | null> {
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+  if (!tournament) return null;
+
+  const branding = getBadmintonBranding(
+    tournament,
+    tournament.scoringSettingsJson as Record<string, unknown>,
+  );
+  const overlayNeedsClear = RALLY_UNSAFE_OVERLAY.has(branding.overlayScene);
+  const venueNeedsClear = RALLY_UNSAFE_VENUE.has(branding.venueScene);
+  if (!overlayNeedsClear && !venueNeedsClear) return null;
+
+  return updateBroadcastPresentation(tournamentId, {
+    ...(overlayNeedsClear ? { overlayScene: "auto" as const } : {}),
+    ...(venueNeedsClear ? { venueScene: "auto" as const } : {}),
+  });
+}
+
 async function updateBroadcastSettings(
   tournamentId: number,
   patch: Record<string, unknown>,

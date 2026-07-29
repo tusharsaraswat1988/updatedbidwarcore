@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { hubCardClass } from "@/components/badminton/page-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
@@ -30,6 +30,7 @@ export function MissionControlTopBar({
   onEmergency?: () => void;
   onResumePresentation?: () => void;
 }) {
+  const [, navigate] = useLocation();
   const [now, setNow] = useState(() =>
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   );
@@ -65,7 +66,7 @@ export function MissionControlTopBar({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+        <div className="relative z-30 flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
           {primaryAction.disabled ? (
             <div className="min-w-[12rem]">
               <button
@@ -81,12 +82,13 @@ export function MissionControlTopBar({
               ) : null}
             </div>
           ) : primaryAction.href ? (
-            <Link
-              href={primaryAction.href}
+            <button
+              type="button"
+              onClick={() => navigate(primaryAction.href!)}
               className="w-full sm:w-auto min-h-11 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
             >
               {primaryAction.label}
-            </Link>
+            </button>
           ) : null}
 
           {emergencyActive ? (

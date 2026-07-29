@@ -3,13 +3,14 @@
  * Persistent screen links + primary match + remote scene switches for Venue / OBS.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleDot, Monitor, Radio, Tablet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
+import { ObsSafeAreaPreview } from "@/components/badminton/obs-safe-area-preview";
 import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import { identityFromSideInfo } from "@/lib/team-player-identity";
@@ -28,6 +29,16 @@ import type {
   BadmintonOverlayScene,
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
+import { BROADCAST_MOMENT_AUTO_CLEAR_MS } from "@/lib/badminton-broadcast-director";
+import {
+  onPresentationError,
+  onPresentationMutate,
+  onPresentationSuccess,
+  type PresentationMutateContext,
+  type PresentationPatch,
+} from "@/lib/badminton-presentation-mutation";
+import { friendlyBadmintonError } from "@/lib/badminton-ux";
+import { useToast } from "@/hooks/use-toast";
 
 const OVERLAY_LAYOUT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
   { id: "auto", label: "Auto" },
@@ -54,24 +65,25 @@ const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
 function SceneButton({
   active,
   label,
-  disabled,
+  busy,
   onClick,
 }: {
   active: boolean;
   label: string;
-  disabled?: boolean;
+  busy?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={disabled}
+      aria-busy={busy || undefined}
       onClick={onClick}
       className={cn(
-        "min-h-9 px-3 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50",
+        "min-h-9 px-3 rounded-lg text-xs font-semibold border transition-colors",
         active
           ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
           : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
+        busy && "opacity-80",
       )}
     >
       {label}
@@ -87,7 +99,10 @@ export function BadmintonBroadcastDirectorPanel({
   highlight?: boolean;
 }) {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const { data: branding } = useBadmintonBranding(tournamentId);
+  const autoSyncedSoleIdRef = useRef<number | null>(null);
+  const momentClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: matches = [] } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
@@ -118,37 +133,85 @@ export function BadmintonBroadcastDirectorPanel({
     onSuccess: (data) => {
       qc.setQueryData(["badminton-branding", tournamentId], data);
     },
+    onError: (err) => {
+      toast({
+        title: "Could not set primary court",
+        description: friendlyBadmintonError(err, "Try again."),
+        variant: "destructive",
+      });
+    },
   });
 
   const setPresentationMutation = useMutation({
-    mutationFn: (body: { overlayScene?: BadmintonOverlayScene; venueScene?: BadmintonVenueScene }) =>
+    mutationFn: (body: PresentationPatch) =>
       badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    onMutate: (body) => onPresentationMutate(qc, tournamentId, body),
+    onError: (err, _body, context) => {
+      onPresentationError(qc, tournamentId, context as PresentationMutateContext | undefined);
+      toast({
+        title: "Screen update failed",
+        description: friendlyBadmintonError(err, "Scene did not apply. Try again."),
+        variant: "destructive",
+      });
+    },
     onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
+      onPresentationSuccess(qc, tournamentId, data);
     },
   });
+
+  useEffect(
+    () => () => {
+      if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+    },
+    [],
+  );
+
+  /** Timed packages — auto-clear intro/winner/sponsor so they cannot stick on air. */
+  function pushTimedMoment(venueScene: BadmintonVenueScene) {
+    if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+    setPresentationMutation.mutate({
+      venueScene,
+      overlayScene:
+        venueScene === "next"
+          ? "auto"
+          : (venueScene as Extract<BadmintonOverlayScene, "intro" | "winner" | "sponsor">),
+    });
+    momentClearTimerRef.current = setTimeout(() => {
+      setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
+    }, BROADCAST_MOMENT_AUTO_CLEAR_MS);
+  }
 
   useEffect(() => {
     if (!highlight) return;
     document.getElementById("broadcast")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [highlight]);
 
-  // Keep stored primary in sync when only one court is live.
+  // Keep stored primary in sync when only one court is live (once per sole match).
   useEffect(() => {
-    if (!tournamentId || liveMatches.length !== 1) return;
+    if (!tournamentId || liveMatches.length !== 1) {
+      if (liveMatches.length !== 1) autoSyncedSoleIdRef.current = null;
+      return;
+    }
     const soleId = liveMatches[0].id;
-    if (branding?.primaryBroadcastMatchId === soleId) return;
+    if (branding?.primaryBroadcastMatchId === soleId) {
+      autoSyncedSoleIdRef.current = soleId;
+      return;
+    }
     if (branding === undefined) return;
+    if (autoSyncedSoleIdRef.current === soleId) return;
+    if (setPrimaryMutation.isPending) return;
+    autoSyncedSoleIdRef.current = soleId;
     setPrimaryMutation.mutate(soleId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-sync on sole-live transitions
   }, [tournamentId, liveMatches.length, liveMatches[0]?.id, branding?.primaryBroadcastMatchId]);
 
   const overlayScene = branding?.overlayScene ?? "auto";
   const venueScene = branding?.venueScene ?? "auto";
-  const pending = setPresentationMutation.isPending || setPrimaryMutation.isPending;
+  const presentationBusy = setPresentationMutation.isPending;
+  const primaryBusy = setPrimaryMutation.isPending;
 
   return (
     <section
@@ -202,6 +265,10 @@ export function BadmintonBroadcastDirectorPanel({
         />
       </div>
 
+      <div className={cn(hubPanelClass, "p-4")}>
+        <ObsSafeAreaPreview />
+      </div>
+
       <div className={cn(hubPanelClass, "p-4 space-y-4")}>
         <div className="space-y-2">
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
@@ -209,6 +276,7 @@ export function BadmintonBroadcastDirectorPanel({
           </p>
           <p className="text-xs text-muted-foreground">
             Push intro, winner, sponsor, or next-match moments to Venue + OBS together.
+            Moments auto-clear after {BROADCAST_MOMENT_AUTO_CLEAR_MS / 1000}s.
           </p>
           <div className="flex flex-wrap gap-2">
             {VENUE_MOMENT_OPTIONS.map((opt) => (
@@ -216,34 +284,25 @@ export function BadmintonBroadcastDirectorPanel({
                 key={opt.id}
                 label={opt.label}
                 active={venueScene === opt.id}
-                disabled={pending}
-                onClick={() =>
-                  setPresentationMutation.mutate({
-                    venueScene: opt.id,
-                    // Next is venue-only — never piggyback OBS sponsor.
-                    overlayScene:
-                      opt.id === "next"
-                        ? "auto"
-                        : (opt.id as Extract<
-                            BadmintonOverlayScene,
-                            "intro" | "winner" | "sponsor"
-                          >),
-                  })
-                }
+                busy={presentationBusy && venueScene === opt.id}
+                onClick={() => pushTimedMoment(opt.id)}
               />
             ))}
             <SceneButton
               label="Clear moments"
               active={venueScene === "auto" && overlayScene === "auto"}
-              disabled={pending}
-              onClick={() =>
-                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" })
+              busy={
+                presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
+              onClick={() => {
+                if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
+              }}
             />
             <SceneButton
               label="Venue standby"
               active={venueScene === "standby"}
-              disabled={pending}
+              busy={presentationBusy && venueScene === "standby"}
               onClick={() => setPresentationMutation.mutate({ venueScene: "standby" })}
             />
           </div>
@@ -258,7 +317,7 @@ export function BadmintonBroadcastDirectorPanel({
                 key={opt.id}
                 label={opt.label}
                 active={overlayScene === opt.id}
-                disabled={pending}
+                busy={presentationBusy && overlayScene === opt.id}
                 onClick={() => setPresentationMutation.mutate({ overlayScene: opt.id })}
               />
             ))}
@@ -274,7 +333,7 @@ export function BadmintonBroadcastDirectorPanel({
                 key={opt.id}
                 label={opt.label}
                 active={venueScene === opt.id}
-                disabled={pending}
+                busy={presentationBusy && venueScene === opt.id}
                 onClick={() => setPresentationMutation.mutate({ venueScene: opt.id })}
               />
             ))}
@@ -312,7 +371,7 @@ export function BadmintonBroadcastDirectorPanel({
                   ) : (
                     <button
                       type="button"
-                      disabled={pending || chip.matchId == null}
+                      disabled={primaryBusy || chip.matchId == null}
                       onClick={() => chip.matchId != null && setPrimaryMutation.mutate(chip.matchId)}
                       className="ml-1 rounded border border-white/15 px-1.5 py-0.5 font-semibold hover:bg-white/10 transition-colors disabled:opacity-50"
                     >

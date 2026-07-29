@@ -3,7 +3,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, Monitor, QrCode, Radio, Tablet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
@@ -20,10 +20,19 @@ import type {
   BadmintonOverlayScene,
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
+import { BROADCAST_MOMENT_AUTO_CLEAR_MS } from "@/lib/badminton-broadcast-director";
+import {
+  onPresentationError,
+  onPresentationMutate,
+  onPresentationSuccess,
+  type PresentationMutateContext,
+  type PresentationPatch,
+} from "@/lib/badminton-presentation-mutation";
 import {
   badmintonQrImageUrl,
   badmintonScorerHomePublicUrl,
 } from "@/lib/badminton-broadcast-urls";
+import { friendlyBadmintonError } from "@/lib/badminton-ux";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -50,6 +59,7 @@ export function MissionControlOpsRail({
   const { toast } = useToast();
   const { data: branding } = useBadmintonBranding(tournamentId);
   const [qrOpen, setQrOpen] = useState(false);
+  const momentClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
 
@@ -77,25 +87,65 @@ export function MissionControlOpsRail({
       qc.setQueryData(["badminton-branding", tournamentId], data);
       toast({ title: "Screens follow this court" });
     },
+    onError: (err) => {
+      toast({
+        title: "Could not switch court",
+        description: friendlyBadmintonError(err, "Try again."),
+        variant: "destructive",
+      });
+    },
   });
 
   const setPresentationMutation = useMutation({
-    mutationFn: (body: {
-      overlayScene?: BadmintonOverlayScene;
-      venueScene?: BadmintonVenueScene;
-    }) =>
+    mutationFn: (body: PresentationPatch) =>
       badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    onMutate: (body) => onPresentationMutate(qc, tournamentId, body),
+    onError: (err, _body, context) => {
+      onPresentationError(qc, tournamentId, context as PresentationMutateContext | undefined);
+      toast({
+        title: "Screen update failed",
+        description: friendlyBadmintonError(err, "Moments / scene did not apply. Try again."),
+        variant: "destructive",
+      });
+    },
     onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
+      onPresentationSuccess(qc, tournamentId, data);
     },
   });
 
   const overlayScene = branding?.overlayScene ?? "auto";
   const venueScene = branding?.venueScene ?? "auto";
-  const pending = setPresentationMutation.isPending || setPrimaryMutation.isPending;
+  // Never gate Moments / Venue on primary-court PATCH — that made buttons feel dead
+  // while "Screens follow" or a slow request was in flight.
+  const presentationBusy = setPresentationMutation.isPending;
+  const primaryBusy = setPrimaryMutation.isPending;
+
+  useEffect(
+    () => () => {
+      if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+    },
+    [],
+  );
+
+  function pushTimedMoment(id: BadmintonVenueScene, label: string) {
+    if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+    setPresentationMutation.mutate(
+      {
+        venueScene: id,
+        overlayScene:
+          id === "next"
+            ? "auto"
+            : (id as Extract<BadmintonOverlayScene, "intro" | "winner" | "sponsor">),
+      },
+      { onSuccess: () => onAnnouncement?.(label) },
+    );
+    momentClearTimerRef.current = setTimeout(() => {
+      setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
+    }, BROADCAST_MOMENT_AUTO_CLEAR_MS);
+  }
 
   return (
     <aside className="space-y-3" aria-label="Screen and scorer controls">
@@ -164,7 +214,7 @@ export function MissionControlOpsRail({
               <button
                 key={chip.key}
                 type="button"
-                disabled={pending || chip.matchId == null || chip.status !== "LIVE"}
+                disabled={primaryBusy || chip.matchId == null || chip.status !== "LIVE"}
                 onClick={() => chip.matchId != null && setPrimaryMutation.mutate(chip.matchId)}
                 className={cn(
                   "min-h-9 px-3 rounded-lg border text-left text-xs font-semibold transition-colors disabled:opacity-40",
@@ -192,33 +242,20 @@ export function MissionControlOpsRail({
                 key={opt.id}
                 label={opt.label}
                 active={venueScene === opt.id}
-                disabled={pending}
-                onClick={() => {
-                  // Next is venue-only (OBS has no next-match graphic).
-                  // Do not map Next → sponsor — that dual-activates Sponsor.
-                  setPresentationMutation.mutate(
-                    {
-                      venueScene: opt.id,
-                      overlayScene:
-                        opt.id === "next"
-                          ? "auto"
-                          : (opt.id as Extract<
-                              BadmintonOverlayScene,
-                              "intro" | "winner" | "sponsor"
-                            >),
-                    },
-                    { onSuccess: () => onAnnouncement?.(opt.label) },
-                  );
-                }}
+                busy={presentationBusy && venueScene === opt.id}
+                onClick={() => pushTimedMoment(opt.id, opt.label)}
               />
             ))}
             <RailButton
               label="Clear"
               active={venueScene === "auto" && overlayScene === "auto"}
-              disabled={pending}
-              onClick={() =>
-                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" })
+              busy={
+                presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
+              onClick={() => {
+                if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
+              }}
             />
           </div>
         </div>
@@ -239,7 +276,7 @@ export function MissionControlOpsRail({
                 key={id}
                 label={label}
                 active={venueScene === id}
-                disabled={pending}
+                busy={presentationBusy && venueScene === id}
                 onClick={() => setPresentationMutation.mutate({ venueScene: id })}
               />
             ))}
@@ -273,24 +310,25 @@ export function MissionControlOpsRail({
 function RailButton({
   label,
   active,
-  disabled,
+  busy,
   onClick,
 }: {
   label: string;
   active: boolean;
-  disabled?: boolean;
+  busy?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={disabled}
+      aria-busy={busy || undefined}
       onClick={onClick}
       className={cn(
-        "min-h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-50",
+        "min-h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors",
         active
           ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
           : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
+        busy && "opacity-80",
       )}
     >
       {label}

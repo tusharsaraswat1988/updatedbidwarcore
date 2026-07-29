@@ -48,7 +48,9 @@ export function useBadmintonBranding(tournamentId: number) {
     queryKey: ["badminton-branding", tournamentId],
     queryFn: async () => normalizeBranding(await badmintonFetch<BadmintonBranding>(tournamentId, `/branding`)),
     enabled: !!tournamentId,
-    staleTime: 15_000,
+    // Scene chips must track play-safe auto-clears after the first rally.
+    staleTime: 4_000,
+    refetchInterval: 8_000,
   });
 }
 

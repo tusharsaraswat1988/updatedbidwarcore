@@ -755,6 +755,23 @@ export function scoringAppDevProxyPlugin(): Plugin {
     name: "bidwar-scoring-app-asset-proxy",
     apply: "serve",
     configureServer(server) {
+      // Common typo: /scoring/app → /scoring-app (auction SPA otherwise mounts and hangs).
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const q = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
+        const pathname = raw.split("?")[0] ?? "/";
+        if (pathname === "/scoring/app" || pathname.startsWith("/scoring/app/")) {
+          const rest = pathname === "/scoring/app" ? "/" : pathname.slice("/scoring/app".length);
+          const dest = `/scoring-app${rest === "/" ? "/" : rest}${q}`;
+          res.statusCode = 302;
+          res.setHeader("Location", dest);
+          res.setHeader("Cache-Control", "no-store");
+          res.end();
+          return;
+        }
+        next();
+      });
+
       server.middlewares.use((req, res, next) => {
         const raw = req.url ?? "/";
         const pathname = raw.split("?")[0] ?? "/";

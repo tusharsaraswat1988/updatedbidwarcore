@@ -117,6 +117,7 @@ import {
   listBadmintonPlayersForMatchRoster,
   listBadmintonPlayersForOrganizer,
   assignBadmintonPlayerFranchiseTeam,
+  clearRallyUnsafeBroadcastScenes,
 } from "../lib/master-sports/badminton";
 import {
   validateBadmintonCategoryEntry,
@@ -2658,6 +2659,22 @@ router.post("/matches/:matchId/point", async (req, res) => {
       // blocked by audit I/O. Audit is still awaited before the HTTP response.
       markLatency("pre_broadcast");
       broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+
+      // Keep Mission Control / Venue / OBS scene chips in sync with play-safe
+      // remaps (intro/sponsor must not stick after the first rally).
+      void clearRallyUnsafeBroadcastScenes(tournamentId)
+        .then((branding) => {
+          if (!branding) return;
+          broadcastTournamentUpdate(tournamentId, {
+            kind: "broadcast_presentation",
+            primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
+            overlayScene: branding.overlayScene,
+            venueScene: branding.venueScene,
+          });
+        })
+        .catch(() => {
+          /* non-blocking — score already on air */
+        });
 
       const auditActor = auditActorFrom(req, scoringAuth);
       await writeScorerAudit({

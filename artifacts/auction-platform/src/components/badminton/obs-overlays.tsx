@@ -14,12 +14,14 @@
  * - sponsor    — sponsor display loop
  */
 
-import type { BadmintonMatchState } from "@workspace/badminton-core";
+import type { BadmintonMatchState, BadmintonSide } from "@workspace/badminton-core";
 import { useEffect, useRef, useState } from "react";
 import {
   isPairMatchKind,
   currentReceiverLabel,
   currentServerLabel,
+  detectGamePointSide,
+  detectMatchPointSide,
 } from "@workspace/badminton-core";
 import { SidePlayerPhotos } from "@/components/badminton/side-players";
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
@@ -36,6 +38,7 @@ import {
 } from "@/lib/bidwar-broadcast-colors";
 
 type OverlayType = "compact" | "full" | "intro" | "winner" | "sponsor";
+type PointFlashSide = BadmintonSide | null;
 
 function useServeSideFlash(servingSide: "left" | "right") {
   const prevRef = useRef(servingSide);
@@ -52,20 +55,114 @@ function useServeSideFlash(servingSide: "left" | "right") {
   return flashSide;
 }
 
+/** Brief score-digit pop when a side wins a rally (venue parity). */
+function usePointScoreFlash(leftScore: number, rightScore: number): PointFlashSide {
+  const prevRef = useRef({ left: leftScore, right: rightScore });
+  const [flashSide, setFlashSide] = useState<PointFlashSide>(null);
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (leftScore > prev.left) {
+      setFlashSide("left");
+      const timer = window.setTimeout(() => setFlashSide(null), 800);
+      prevRef.current = { left: leftScore, right: rightScore };
+      return () => window.clearTimeout(timer);
+    }
+    if (rightScore > prev.right) {
+      setFlashSide("right");
+      const timer = window.setTimeout(() => setFlashSide(null), 800);
+      prevRef.current = { left: leftScore, right: rightScore };
+      return () => window.clearTimeout(timer);
+    }
+    prevRef.current = { left: leftScore, right: rightScore };
+  }, [leftScore, rightScore]);
+
+  return flashSide;
+}
+
+function overlayUrgency(state: BadmintonMatchState): {
+  kind: "game" | "match" | "deuce" | null;
+  side: BadmintonSide | null;
+} {
+  const busy =
+    state.matchStatus !== "live" || !!state.activeTimeout || !!state.inInterval;
+  if (busy) return { kind: null, side: null };
+
+  const matchSide = detectMatchPointSide(state);
+  if (matchSide) return { kind: "match", side: matchSide };
+  const gameSide = detectGamePointSide(state);
+  if (gameSide) return { kind: "game", side: gameSide };
+
+  const deuce =
+    state.leftScore >= state.format.deuceAt &&
+    state.rightScore >= state.format.deuceAt;
+  if (deuce) return { kind: "deuce", side: null };
+  return { kind: null, side: null };
+}
+
+function ObsUrgencyBanner({ state }: { state: BadmintonMatchState }) {
+  const { kind } = overlayUrgency(state);
+  if (!kind) return null;
+
+  return (
+    <div
+      className={cn(
+        "badminton-urgency-banner mx-auto",
+        kind === "match" && "badminton-urgency-banner--match",
+        kind === "game" && "badminton-urgency-banner--game",
+        kind === "deuce" && "badminton-urgency-banner--deuce",
+      )}
+    >
+      <span className="bw-heading">
+        {kind === "match" ? "MATCH POINT" : kind === "game" ? "GAME POINT" : "DEUCE"}
+      </span>
+    </div>
+  );
+}
+
+function OverlayScoreDigit({
+  score,
+  celebrate,
+  className,
+}: {
+  score: number;
+  celebrate?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "badminton-score-digit font-black leading-none tabular-nums",
+        celebrate && "badminton-score-digit--celebrate",
+        className,
+      )}
+    >
+      {score}
+    </span>
+  );
+}
+
 function overlayServeSideShellClass(isServing: boolean, isFlash: boolean) {
   return cn(
     "relative transition-[background-color,box-shadow,border-color] duration-500 ease-out",
     isServing && !isFlash && "badminton-serve-side--active border-2 border-[#ffd700]/45",
     isFlash && "badminton-serve-side--flash border-2 border-[#ffd700]/70",
-    !isServing && "border-2 border-transparent bg-white/[0.015]",
+    !isServing && "border-2 border-transparent",
   );
 }
 
 /** OBS-safe anchor positions per overlay variant. */
-export function overlayPlacementClass(type: OverlayType, withBottomTicker = false): string {
+export function overlayPlacementClass(
+  type: OverlayType,
+  withBottomTicker = false,
+  slimTicker = false,
+): string {
+  const tickerBottom = slimTicker ? "bottom-[8vh]" : "bottom-[11vh]";
+  const sponsorBottom = slimTicker ? "bottom-[9vh]" : "bottom-[12vh]";
+  /** Full lower-third — wide enough for broadcast-readable names + scores. */
   const compactBottom = withBottomTicker
-    ? "bottom-[11vh] left-1/2 -translate-x-1/2 max-w-[min(960px,96vw)]"
-    : "bottom-[5vh] left-1/2 -translate-x-1/2 max-w-[min(960px,96vw)]";
+    ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(1280px,94vw)]`
+    : "bottom-[5vh] left-1/2 -translate-x-1/2 w-[min(1280px,94vw)]";
   switch (type) {
     case "full":
       return "bottom-0 left-0 right-0 w-full";
@@ -76,7 +173,7 @@ export function overlayPlacementClass(type: OverlayType, withBottomTicker = fals
       return "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2";
     case "sponsor":
       return withBottomTicker
-        ? "bottom-[12vh] left-1/2 -translate-x-1/2"
+        ? `${sponsorBottom} left-1/2 -translate-x-1/2`
         : "bottom-[6vh] left-1/2 -translate-x-1/2";
     default:
       return compactBottom;
@@ -93,6 +190,8 @@ interface OverlayProps {
   roundName?: string;
   sponsorLogos?: SponsorLogo[];
   showPlatformCredit?: boolean;
+  /** OBS CEF: longer sponsor hold */
+  sponsorRotateMs?: number;
 }
 
 export function BadmintonOverlay({
@@ -105,6 +204,7 @@ export function BadmintonOverlay({
   roundName,
   sponsorLogos = [],
   showPlatformCredit = false,
+  sponsorRotateMs,
 }: OverlayProps) {
   switch (type) {
     case "compact":
@@ -135,7 +235,13 @@ export function BadmintonOverlay({
         />
       ) : null;
     case "sponsor":
-      return <SponsorOverlay sponsorLogos={sponsorLogos} tournamentName={tournamentName} />;
+      return (
+        <SponsorOverlay
+          sponsorLogos={sponsorLogos}
+          tournamentName={tournamentName}
+          rotateMs={sponsorRotateMs}
+        />
+      );
     default:
       return (
         <CompactOverlay
@@ -147,7 +253,147 @@ export function BadmintonOverlay({
   }
 }
 
-// ── Compact Overlay — lower-third score bar ───────────────────────────────────
+/** Timeout / interval / game-win cards — translucent, not full opaque veil. */
+export function ObsPlayMoments({ state }: { state: BadmintonMatchState }) {
+  const [gameWin, setGameWin] = useState<{
+    side: BadmintonSide;
+    winner: number;
+    loser: number;
+    gameNumber: number;
+  } | null>(null);
+  const prevRef = useRef(state);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (
+      state.gamesLeft > prev.gamesLeft ||
+      state.gamesRight > prev.gamesRight
+    ) {
+      const completed = [...state.games].reverse().find((g) => g.phase === "completed");
+      const side: BadmintonSide =
+        state.gamesLeft > prev.gamesLeft ? "left" : "right";
+      if (completed) {
+        setGameWin({
+          side,
+          winner: side === "left" ? completed.leftScore : completed.rightScore,
+          loser: side === "left" ? completed.rightScore : completed.leftScore,
+          gameNumber: completed.gameNumber,
+        });
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setGameWin(null), 3200);
+      }
+    }
+    prevRef.current = state;
+  }, [state]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  if (state.activeTimeout) {
+    const side = state.activeTimeout.side;
+    const player = side === "left" ? state.leftSide : state.rightSide;
+    return (
+      <div className="absolute inset-0 z-[26] flex items-center justify-center pointer-events-none bg-black/40">
+        <div
+          className={cn(
+            "badminton-moment-card border px-10 py-6",
+            side === "left"
+              ? "border-[#ffc400]/45 bg-[#1a1400]/92"
+              : "border-[#ce93d8]/45 bg-[#180523]/92",
+          )}
+        >
+          <p className="bw-label text-amber-300/90 mb-2 tracking-[0.3em]">Timeout</p>
+          <p className="bw-heading text-white text-4xl mb-3">TIMEOUT</p>
+          <TeamPlayerCard
+            identity={identityFromSideInfo(player)}
+            size="md"
+            tone="led"
+            align="center"
+            playerClassName="text-white text-2xl font-black"
+            teamClassName="text-white/60"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (state.inInterval && !state.activeTimeout) {
+    return (
+      <div className="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none bg-black/35">
+        <div className="badminton-moment-card border border-sky-400/40 bg-[#0a1e33]/92 px-10 py-6">
+          <p className="bw-label text-sky-300/90 mb-2 tracking-[0.3em]">Interval</p>
+          <p className="bw-heading text-white text-4xl mb-2">INTERVAL</p>
+          <p className="text-white/70 text-lg font-semibold">
+            Game {state.currentGame} · {state.leftScore} – {state.rightScore}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameWin && !state.winnerSide) {
+    return (
+      <div className="absolute inset-0 z-[28] flex items-center justify-center pointer-events-none bg-black/35">
+        <div
+          className={cn(
+            "rounded-2xl px-12 py-6 text-center border shadow-2xl animate-[badmintonMomentIn_0.4s_ease-out_forwards]",
+            gameWin.side === "left"
+              ? "bg-[#ffc400]/85 border-[#ffc400]/50"
+              : "bg-[#7c3aed]/85 border-[#ce93d8]/50",
+          )}
+        >
+          <p className="bw-label text-white/85 text-xs mb-1">Game {gameWin.gameNumber} Won</p>
+          <TeamPlayerCard
+            identity={identityFromSideInfo(
+              gameWin.side === "left" ? state.leftSide : state.rightSide,
+            )}
+            size="md"
+            tone="led"
+            align="center"
+            playerClassName="text-white text-3xl font-black"
+            teamClassName="text-white/80"
+          />
+          <p className="text-white text-3xl font-black tabular-nums mt-2">
+            {gameWin.winner} – {gameWin.loser}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ── Compact Overlay — BWF-style broadcast lower-third ─────────────────────────
+
+function CompactGameDots({
+  won,
+  total,
+}: {
+  won: number;
+  total: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 shrink-0" aria-hidden>
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className={cn(
+            "h-2.5 w-2.5 rounded-full border-2",
+            i < won
+              ? "bg-[#ffd700] border-[#ffd700]"
+              : "bg-transparent border-white/35",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
 
 function CompactOverlay({
   state,
@@ -164,140 +410,147 @@ function CompactOverlay({
   const isDoubles = isPairMatchKind(state.matchKind);
   const serverLabel = isDoubles ? currentServerLabel(state) : null;
   const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
-  const displayMatchName =
-    matchLabel?.trim() ||
-    `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}`;
   const flashSide = useServeSideFlash(state.servingSide);
+  const pointFlash = usePointScoreFlash(state.leftScore, state.rightScore);
   const leftIdentity = identityFromSideInfo(state.leftSide);
   const rightIdentity = identityFromSideInfo(state.rightSide);
+  const leftServing = state.servingSide === "left";
+  const rightServing = state.servingSide === "right";
 
   return (
     <div
-      className="inline-flex flex-col gap-2 w-full"
+      className="flex w-full flex-col gap-2"
       style={{ fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif" }}
     >
       <DirectorStatusBanner state={state} />
-      {matchLabel || displayMatchName ? (
-        <p className="text-center text-white/70 text-xs font-semibold uppercase tracking-[0.18em] truncate px-2">
-          {displayMatchName}
-        </p>
-      ) : null}
-      <div className="inline-flex items-stretch rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.55)] border border-white/10 mx-auto max-w-full">
-      {/* Left side */}
-      <div
-        className={cn(
-          "flex items-center gap-3 bg-[#101013]/95 px-4 py-3 min-w-[180px]",
-          overlayServeSideShellClass(
-            state.servingSide === "left",
-            flashSide === "left",
-          ),
-        )}
-      >
-        {(!isDoubles && state.servingSide === "left") && (
-          <div className="w-2 h-2 rounded-full bg-[#ffd700] flex-none animate-pulse relative z-10" />
-        )}
-        <div className="flex-1 min-w-0">
-          <TeamPlayerCard
-            identity={leftIdentity}
-            size="xs"
-            tone="led"
-            layout="inline"
-            playerClassName="text-white font-black text-base"
-            teamClassName="text-white/55"
-          />
-          {state.leftSide.countryCode && (
-            <p className="text-white/45 text-[10px] font-semibold uppercase tracking-widest">
-              {state.leftSide.countryCode}
-            </p>
-          )}
-        </div>
-        {/* Game dots */}
-        <div className="flex flex-col gap-0.5">
-          {Array.from({ length: state.format.totalGames }).map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                i < state.gamesLeft ? "bg-white" : "bg-white/15",
-              )}
-            />
-          ))}
-        </div>
-        <div className="text-white text-4xl font-black leading-none tabular-nums w-10 text-center">
-          {state.leftScore}
-        </div>
-      </div>
+      <ObsUrgencyBanner state={state} />
 
-      {/* Divider */}
-      <div className="flex items-center justify-center bg-[#101013]/95 px-3 min-w-[72px]">
-        <div className="flex flex-col items-center gap-1">
-          {isLive && (
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-red-400 text-[9px] font-black tracking-widest">LIVE</span>
+      <div className="w-full overflow-hidden rounded-2xl border border-white/15 bg-[#050507] shadow-[0_12px_48px_rgba(0,0,0,0.65)]">
+        {/* Meta row */}
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black px-4 py-1.5 min-h-[32px]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {isLive ? (
+              <span className="inline-flex items-center gap-1.5 shrink-0">
+                <span className="size-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
+                <span className="text-[11px] font-black tracking-[0.2em] text-red-300">LIVE</span>
+              </span>
+            ) : null}
+            <span className="text-sm font-bold uppercase tracking-wider text-white/80">
+              Game {state.currentGame}
+            </span>
+            {matchLabel?.trim() ? (
+              <span className="truncate text-xs font-semibold uppercase tracking-wider text-white/40">
+                {matchLabel.trim()}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3 shrink-0 text-xs font-semibold uppercase tracking-wider text-white/45">
+            {isDoubles && serverLabel ? (
+              <span className="inline-flex items-center gap-1.5 text-[#ffd700]">
+                <span className="badminton-serve-pip badminton-serve-pip--active" aria-hidden />
+                <span className="max-w-[10rem] truncate">{serverLabel}</span>
+              </span>
+            ) : null}
+            {isDoubles && receiverLabel ? (
+              <span className="inline-flex items-center gap-1.5 text-white/55">
+                <span className="badminton-receive-pip" aria-hidden />
+                <span className="max-w-[10rem] truncate">{receiverLabel}</span>
+              </span>
+            ) : null}
+            {courtNumber ? <span>Court {courtNumber}</span> : null}
+          </div>
+        </div>
+
+        {/* Score row — opaque panels, large digits, serve never washes scores */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch min-h-[96px]">
+          {/* Left */}
+          <div
+            className={cn(
+              "relative flex items-center gap-3 bg-[#0c0c10] px-4 py-3 sm:gap-4 sm:px-5",
+              leftServing && "ring-1 ring-inset ring-[#ffd700]/55",
+              flashSide === "left" && "badminton-serve-side--flash",
+            )}
+          >
+            {leftServing ? (
+              <div className="absolute inset-y-3 left-0 w-1.5 rounded-r-full bg-[#ffd700]" aria-hidden />
+            ) : null}
+            {!isDoubles && leftServing ? (
+              <span className="badminton-serve-pip badminton-serve-pip--active shrink-0" aria-hidden />
+            ) : (
+              <span className="w-3 shrink-0" aria-hidden />
+            )}
+            <div className="min-w-0 flex-1">
+              <TeamPlayerCard
+                identity={leftIdentity}
+                size="sm"
+                tone="led"
+                layout="stack"
+                playerClassName="text-white font-black text-xl sm:text-2xl leading-tight"
+                teamClassName="text-white/55 text-xs sm:text-sm"
+              />
             </div>
-          )}
-          <span className="text-white/40 text-xs font-semibold">G{state.currentGame}</span>
-          {isDoubles && serverLabel && (
-            <span className="text-[#ffd700] text-[8px] font-bold break-words min-w-0">🟡 {serverLabel}</span>
-          )}
-          {isDoubles && receiverLabel && (
-            <span className="text-white/50 text-[8px] font-bold break-words min-w-0">👁 {receiverLabel}</span>
-          )}
-          {courtNumber && (
-            <span className="text-white/25 text-[9px] font-medium">Court {courtNumber}</span>
-          )}
+            <CompactGameDots won={state.gamesLeft} total={state.format.totalGames} />
+            <div className="flex h-[72px] w-[88px] sm:h-[80px] sm:w-[100px] shrink-0 items-center justify-center rounded-xl bg-black border border-white/15">
+              <OverlayScoreDigit
+                score={state.leftScore}
+                celebrate={pointFlash === "left"}
+                className="text-white text-5xl sm:text-6xl font-black"
+              />
+            </div>
+          </div>
+
+          {/* Center */}
+          <div className="flex w-[72px] sm:w-[88px] flex-col items-center justify-center gap-1 border-x border-white/10 bg-[#08080c] px-2">
+            <span className="text-[10px] font-black tracking-[0.22em] text-white/35">SET</span>
+            <span className="text-2xl sm:text-3xl font-black tabular-nums text-[#ffd700]">
+              {state.currentGame}
+            </span>
+            <span className="text-[11px] font-bold tabular-nums text-white/50">
+              {state.gamesLeft}–{state.gamesRight}
+            </span>
+          </div>
+
+          {/* Right */}
+          <div
+            className={cn(
+              "relative flex items-center gap-3 bg-[#0c0c10] px-4 py-3 flex-row-reverse sm:gap-4 sm:px-5",
+              rightServing && "ring-1 ring-inset ring-[#ffd700]/55",
+              flashSide === "right" && "badminton-serve-side--flash",
+            )}
+          >
+            {rightServing ? (
+              <div className="absolute inset-y-3 right-0 w-1.5 rounded-l-full bg-[#ffd700]" aria-hidden />
+            ) : null}
+            {!isDoubles && rightServing ? (
+              <span className="badminton-serve-pip badminton-serve-pip--active shrink-0" aria-hidden />
+            ) : (
+              <span className="w-3 shrink-0" aria-hidden />
+            )}
+            <div className="min-w-0 flex-1 text-right">
+              <TeamPlayerCard
+                identity={rightIdentity}
+                size="sm"
+                tone="led"
+                layout="stack"
+                align="end"
+                playerClassName="text-white font-black text-xl sm:text-2xl leading-tight"
+                teamClassName="text-white/55 text-xs sm:text-sm"
+              />
+            </div>
+            <CompactGameDots won={state.gamesRight} total={state.format.totalGames} />
+            <div className="flex h-[72px] w-[88px] sm:h-[80px] sm:w-[100px] shrink-0 items-center justify-center rounded-xl bg-black border border-white/15">
+              <OverlayScoreDigit
+                score={state.rightScore}
+                celebrate={pointFlash === "right"}
+                className="text-white text-5xl sm:text-6xl font-black"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Right side */}
-      <div
-        className={cn(
-          "flex items-center gap-3 bg-[#101013]/95 px-4 py-3 min-w-[180px] flex-row-reverse",
-          overlayServeSideShellClass(
-            state.servingSide === "right",
-            flashSide === "right",
-          ),
-        )}
-      >
-        {(!isDoubles && state.servingSide === "right") && (
-          <div className="w-2 h-2 rounded-full bg-[#ffd700] flex-none animate-pulse relative z-10" />
-        )}
-        <div className="flex-1 min-w-0 text-right">
-          <TeamPlayerCard
-            identity={rightIdentity}
-            size="xs"
-            tone="led"
-            layout="inline"
-            align="end"
-            playerClassName="text-white font-black text-base"
-            teamClassName="text-white/55"
-          />
-          {state.rightSide.countryCode && (
-            <p className="text-white/45 text-[10px] font-semibold uppercase tracking-widest">
-              {state.rightSide.countryCode}
-            </p>
-          )}
-        </div>
-        {/* Game dots */}
-        <div className="flex flex-col gap-0.5">
-          {Array.from({ length: state.format.totalGames }).map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                i < state.gamesRight ? "bg-white" : "bg-white/15",
-              )}
-            />
-          ))}
-        </div>
-        <div className="text-white text-4xl font-black leading-none tabular-nums w-10 text-center">
-          {state.rightScore}
-        </div>
-      </div>
-    </div>
       {showPlatformCredit ? (
-        <p className="text-center text-[9px] font-bold uppercase tracking-[0.22em] text-white/25 mt-1">
+        <p className="text-center text-[9px] font-bold uppercase tracking-[0.22em] text-white/25">
           Powered by BidWar
         </p>
       ) : null}
@@ -327,6 +580,7 @@ function FullOverlay({
     `Game ${state.currentGame}`,
   ].filter(Boolean);
   const flashSide = useServeSideFlash(state.servingSide);
+  const pointFlash = usePointScoreFlash(state.leftScore, state.rightScore);
 
   return (
     <div
@@ -334,6 +588,7 @@ function FullOverlay({
       style={{ fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif" }}
     >
       <DirectorStatusBanner state={state} />
+      <ObsUrgencyBanner state={state} />
 
       <div className="rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.55)] border border-white/10 bg-[#070708]/95 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-3 px-3 py-1.5 border-b border-white/10 bg-black/50 min-h-[28px]">
@@ -366,6 +621,7 @@ function FullOverlay({
             isServing={state.servingSide === "left"}
             isServeFlash={flashSide === "left"}
             isWinner={state.winnerSide === "left"}
+            celebrate={pointFlash === "left"}
             format={state.format}
           />
 
@@ -379,6 +635,7 @@ function FullOverlay({
             isServing={state.servingSide === "right"}
             isServeFlash={flashSide === "right"}
             isWinner={state.winnerSide === "right"}
+            celebrate={pointFlash === "right"}
             format={state.format}
           />
         </div>
@@ -441,6 +698,7 @@ function FullOverlaySide({
   isServing,
   isServeFlash,
   isWinner,
+  celebrate,
   format,
 }: {
   align: "left" | "right";
@@ -450,6 +708,7 @@ function FullOverlaySide({
   isServing: boolean;
   isServeFlash: boolean;
   isWinner: boolean;
+  celebrate?: boolean;
   format: { totalGames: number };
 }) {
   const isRight = align === "right";
@@ -507,14 +766,14 @@ function FullOverlaySide({
         ))}
       </div>
 
-      <span
+      <OverlayScoreDigit
+        score={score}
+        celebrate={celebrate}
         className={cn(
-          "text-2xl sm:text-3xl font-black tabular-nums leading-none text-white shrink-0",
+          "text-2xl sm:text-3xl text-white shrink-0",
           isWinner && "text-[#ffd700]",
         )}
-      >
-        {score}
-      </span>
+      />
       </div>
     </div>
   );
@@ -653,7 +912,7 @@ function WinnerOverlay({
   return (
     <div
       className={cn(
-        "rounded-3xl overflow-hidden shadow-2xl w-[480px]",
+        "rounded-3xl overflow-hidden shadow-2xl w-[480px] animate-[badmintonMomentIn_0.45s_ease-out_forwards]",
         isLeft
           ? "bg-gradient-to-br from-[#0d1e4a]/95 to-[#0a3080]/90"
           : "bg-gradient-to-br from-[#1a052e]/95 to-[#3a0a5e]/90",
@@ -663,7 +922,9 @@ function WinnerOverlay({
       style={{ fontFamily: "'Inter', 'system-ui', sans-serif" }}
     >
       <div className="p-8 text-center">
-        <div className="text-5xl mb-3">🏆</div>
+        <div className="badminton-winner-seal mx-auto mb-4">
+          <span className="bw-heading">WINNER</span>
+        </div>
         <p className="text-white/40 text-xs font-bold uppercase tracking-[0.4em] mb-2">
           {tournamentName ?? "Match Winner"}
         </p>
@@ -723,9 +984,11 @@ function WinnerOverlay({
 function SponsorOverlay({
   sponsorLogos,
   tournamentName,
+  rotateMs,
 }: {
   sponsorLogos: SponsorLogo[];
   tournamentName?: string;
+  rotateMs?: number;
 }) {
   if (!sponsorLogos.length) return null;
 
@@ -739,7 +1002,7 @@ function SponsorOverlay({
           Supported by
         </span>
       ) : null}
-      <SponsorCarousel logos={sponsorLogos} overlay />
+      <SponsorCarousel logos={sponsorLogos} overlay rotateMs={rotateMs} />
     </div>
   );
 }

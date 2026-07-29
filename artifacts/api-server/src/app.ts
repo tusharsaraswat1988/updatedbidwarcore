@@ -355,6 +355,22 @@ if (serveStatic) {
       logger.info({ path: ownerDist }, "Static: owner-app at /owner-app");
     }
 
+    // Typo redirect: /scoring/app → /scoring-app (auction SPA would otherwise 404)
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        next();
+        return;
+      }
+      const pathname = req.path || "/";
+      if (pathname === "/scoring/app" || pathname.startsWith("/scoring/app/")) {
+        const rest = pathname === "/scoring/app" ? "/" : pathname.slice("/scoring/app".length);
+        const qs = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+        res.redirect(302, `/scoring-app${rest === "/" ? "/" : rest}${qs}`);
+        return;
+      }
+      next();
+    });
+
     // Scoring app at /scoring-app/ — before auction catch-all
     if (existsSync(scoringDist)) {
       app.use("/scoring-app", expressStaticGzip(scoringDist, staticOpts));

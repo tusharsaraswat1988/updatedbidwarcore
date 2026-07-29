@@ -166,6 +166,7 @@ export default function BadmintonControlCenterPage() {
     es.onmessage = () => {
       setLastRealtimeAt(Date.now());
       void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
     };
     es.onerror = () => {
       /* polling remains fallback */
@@ -331,6 +332,28 @@ export default function BadmintonControlCenterPage() {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    onMutate: async (body) => {
+      await qc.cancelQueries({ queryKey: ["badminton-branding", tournamentId] });
+      const previous = qc.getQueryData<BadmintonBranding>(["badminton-branding", tournamentId]);
+      if (previous) {
+        qc.setQueryData<BadmintonBranding>(["badminton-branding", tournamentId], {
+          ...previous,
+          ...(body.overlayScene !== undefined ? { overlayScene: body.overlayScene } : {}),
+          ...(body.venueScene !== undefined ? { venueScene: body.venueScene } : {}),
+        });
+      }
+      return { previous };
+    },
+    onError: (err, _body, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["badminton-branding", tournamentId], context.previous);
+      }
+      toast({
+        title: "Screen update failed",
+        description: friendlyBadmintonError(err, "Try Emergency / Resume again."),
+        variant: "destructive",
+      });
+    },
     onSuccess: (data) => {
       qc.setQueryData(["badminton-branding", tournamentId], data);
     },

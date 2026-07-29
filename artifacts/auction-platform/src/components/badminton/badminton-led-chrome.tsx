@@ -62,6 +62,7 @@ function UrgentStatusDot({
 /**
  * LED header — BidWar top-center; tournament logo left + name center;
  * scoreboard sponsor locked to a prominent right rail.
+ * `density="slim"` — BWF-style play bug: logo + LIVE only (OBS during rallies).
  */
 export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   tournamentName,
@@ -75,6 +76,7 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   leftLabel,
   rightLabel,
   scoreBoardSponsor,
+  density = "full",
 }: {
   tournamentName: string;
   tournamentLogoUrl?: string;
@@ -87,10 +89,14 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   leftLabel: string;
   rightLabel: string;
   scoreBoardSponsor?: ScoreBoardSponsor | null;
+  /** full = venue/break identity; slim = live OBS play bug */
+  density?: "full" | "slim";
 }) {
   const { logoSrc, logoAlt } = useBadmintonBidWarTheme();
-  const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
+  const showScoreBoardSponsor =
+    density === "full" && hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
   const isLive = matchStatus === "live" && !isTimeout;
+  const slim = density === "slim";
 
   const metaParts = [
     courtNumber?.trim()
@@ -101,6 +107,56 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
     matchNumber?.trim() ? `Match ${matchNumber.trim()}` : null,
     roundName?.trim() || null,
   ].filter(Boolean) as string[];
+
+  if (slim) {
+    return (
+      <div className="relative z-20 pointer-events-none shrink-0 bg-black/35 border-b border-white/8">
+        <div className="flex items-center justify-between gap-3 px-[2%] py-1.5 md:py-2 min-h-[40px]">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {tournamentLogoUrl ? (
+              <img
+                src={tournamentLogoUrl}
+                alt=""
+                className="h-7 md:h-8 w-auto max-w-[72px] object-contain shrink-0"
+              />
+            ) : null}
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={logoAlt}
+                className="h-6 md:h-7 w-auto max-w-[120px] object-contain shrink-0"
+                style={{ filter: "drop-shadow(0 1px 8px rgba(0,0,0,0.55))" }}
+                loading="eager"
+                decoding="async"
+              />
+            ) : null}
+            <span className="text-[11px] md:text-xs font-bold text-white/85 uppercase tracking-wide truncate">
+              {tournamentName}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {metaParts[0] ? (
+              <span className="bw-caption text-[9px] text-white/40 hidden sm:inline">
+                {metaParts[0]}
+              </span>
+            ) : null}
+            <UrgentStatusDot
+              matchStatus={matchStatus}
+              isTimeout={isTimeout}
+              isLive={isLive}
+            />
+          </div>
+        </div>
+        {isTimeout ? (
+          <div className="px-[2%] pb-1 text-center">
+            <span className="bw-caption text-[9px] text-amber-200/85">
+              {timeoutSide === "left" ? leftLabel : rightLabel}
+            </span>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="relative z-20 pointer-events-none shrink-0 bg-black/45 border-b border-white/10">
@@ -171,22 +227,61 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   tournamentName,
   className,
   accentMode = "theme",
+  density = "full",
+  urgencyKind = null,
+  tickerPxPerSec,
 }: {
   sponsors: SponsorLogo[];
   tournamentName: string;
   className?: string;
   /** OBS overlays use fixed BidWar yellow — display pages follow stage theme. */
   accentMode?: "theme" | "bidwar";
+  /** slim = shorter ticker during live play (~7vh vs ~10vh) */
+  density?: "full" | "slim";
+  /** Replace sponsor scroll with GAME/MATCH POINT strip (venue crowd parity). */
+  urgencyKind?: "game" | "match" | null;
+  /** OBS CEF throttle — slower px/s */
+  tickerPxPerSec?: number;
 }) {
   const { brandName, poweredByText, miniSrc, logoAlt } = useBadmintonBidWarTheme();
   const chyronPreset = getBrandSurfacePreset("led-chyron");
   const accentBg = accentMode === "bidwar" ? BIDWAR_BROADCAST_YELLOW : "var(--accent)";
   const accentOn = accentMode === "bidwar" ? BIDWAR_BROADCAST_YELLOW_ON : "var(--accent-on)";
+  const slim = density === "slim";
+  const crowdMode = urgencyKind === "match" || urgencyKind === "game";
+
+  if (crowdMode) {
+    return (
+      <div
+        className={cn(
+          "border-t border-red-500/40 bg-red-600/25 flex items-center justify-center",
+          slim
+            ? "h-[7vh] min-h-[52px] max-h-[72px]"
+            : "h-[10vh] min-h-[72px] max-h-[104px]",
+          urgencyKind === "game" && "border-orange-400/45 bg-orange-600/22",
+          className,
+        )}
+      >
+        <span
+          className={cn(
+            "bw-heading tracking-[0.35em]",
+            urgencyKind === "match" ? "text-red-100" : "text-orange-100",
+            slim ? "text-xl md:text-2xl" : "text-2xl md:text-3xl",
+          )}
+        >
+          {urgencyKind === "match" ? "MATCH POINT" : "GAME POINT"}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
-        "border-t border-white/10 bg-black/50 h-[10vh] min-h-[72px] max-h-[104px] grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
+        "border-t border-white/10 bg-black/50 grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
+        slim
+          ? "h-[7vh] min-h-[52px] max-h-[72px]"
+          : "h-[10vh] min-h-[72px] max-h-[104px]",
         className,
       )}
     >
@@ -198,9 +293,23 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
           clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%)",
         }}
       >
-        <div className="flex flex-col leading-none gap-1" aria-label="Our Sponsors">
-          <span className="bw-caption text-sm md:text-base opacity-70">Our</span>
-          <span className="bw-caption text-sm md:text-base">Sponsors</span>
+        <div className="flex flex-col leading-none gap-0.5" aria-label="Our Sponsors">
+          <span
+            className={cn(
+              "bw-caption opacity-70",
+              slim ? "text-[10px] md:text-xs" : "text-sm md:text-base",
+            )}
+          >
+            Our
+          </span>
+          <span
+            className={cn(
+              "bw-caption",
+              slim ? "text-[10px] md:text-xs" : "text-sm md:text-base",
+            )}
+          >
+            Sponsors
+          </span>
         </div>
       </div>
 
@@ -208,6 +317,7 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
         {sponsors.length > 0 ? (
           <ChyronTickerScroller
             items={sponsors}
+            pxPerSec={tickerPxPerSec}
             renderItem={(s, index) => {
               const tier = sponsorBroadcastTier(resolveSponsorPriorityType(s));
               const typeLabel =
