@@ -53,6 +53,7 @@ export type ResultsCollection = {
   totalRounds?: number | null;
   drawKind?: string;
   status?: string;
+  groupId?: string | null;
 };
 
 export type ChampionInfo = {
@@ -430,4 +431,93 @@ export function buildCategoryResultsBlocks(
 
 export function categoryDisplayName(c: ResultsCategory): string {
   return c.code?.trim() || c.name;
+}
+
+export type StandingsRow = {
+  registrationId: number;
+  played: number;
+  wins: number;
+  losses: number;
+  winPct: number | null;
+};
+
+export type StandingsGroup = {
+  groupId: string | null;
+  label: string;
+  rows: StandingsRow[];
+};
+
+/** Client-side W-L from completed fixtures (mirrors API standings helper). */
+export function computeStandingsFromFixtures(
+  fixtures: ResultsFixture[],
+  collections: ResultsCollection[],
+): StandingsGroup[] {
+  const groupIdByDraw = new Map(
+    collections.map((c) => [c.id, c.groupId ?? null] as const),
+  );
+  const labelByGroup = new Map(
+    collections.map((c) => [c.groupId ?? null, c.roundName] as const),
+  );
+
+  const byGroup = new Map<
+    string | null,
+    Map<number, { played: number; wins: number; losses: number }>
+  >();
+
+  for (const f of fixtures) {
+    if (f.status !== "completed" && f.status !== "walkover") continue;
+    const a = f.registrationAId;
+    const b = f.registrationBId;
+    const winner = f.winnerRegistrationId;
+    if (a == null || b == null || winner == null) continue;
+    if (winner !== a && winner !== b) continue;
+    const groupId = groupIdByDraw.get(f.drawId) ?? null;
+    let stats = byGroup.get(groupId);
+    if (!stats) {
+      stats = new Map();
+      byGroup.set(groupId, stats);
+    }
+    const ensure = (id: number) => {
+      if (!stats!.has(id)) stats!.set(id, { played: 0, wins: 0, losses: 0 });
+      return stats!.get(id)!;
+    };
+    const loser = winner === a ? b : a;
+    const w = ensure(winner);
+    const l = ensure(loser);
+    w.played += 1;
+    w.wins += 1;
+    l.played += 1;
+    l.losses += 1;
+  }
+
+  const groups: StandingsGroup[] = [];
+  for (const [groupId, stats] of byGroup) {
+    const rows: StandingsRow[] = [...stats.entries()].map(([registrationId, s]) => ({
+      registrationId,
+      played: s.played,
+      wins: s.wins,
+      losses: s.losses,
+      winPct: s.played > 0 ? Math.round((s.wins / s.played) * 1000) / 10 : null,
+    }));
+    rows.sort(
+      (x, y) =>
+        y.wins - x.wins ||
+        x.losses - y.losses ||
+        y.played - x.played ||
+        x.registrationId - y.registrationId,
+    );
+    groups.push({
+      groupId,
+      label: labelByGroup.get(groupId) ?? (groupId ? `Group ${groupId}` : "Round Robin"),
+      rows,
+    });
+  }
+
+  groups.sort((a, b) => {
+    if (a.groupId == null) return 1;
+    if (b.groupId == null) return -1;
+    return a.groupId.localeCompare(b.groupId);
+  });
+
+  return groups;
 }

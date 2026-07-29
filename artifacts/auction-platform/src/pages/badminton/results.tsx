@@ -26,6 +26,7 @@ import {
   outcomeLabel,
   winnerLabel,
   winnerTeamFields,
+  computeStandingsFromFixtures,
   type ResultsCategory,
   type ResultsCollection,
   type ResultsFixture,
@@ -179,6 +180,29 @@ export default function BadmintonResultsPage() {
       ),
     [blocks],
   );
+
+  const standingsBlocks = useMemo(() => {
+    return blocks
+      .filter(
+        (b) =>
+          b.category.drawType === "round_robin" ||
+          b.category.drawType === "group_knockout",
+      )
+      .map((b) => {
+        const groupCollections =
+          b.category.drawType === "group_knockout"
+            ? b.collections.filter((c) => c.groupId != null)
+            : b.collections;
+        const collectionIds = new Set(groupCollections.map((c) => c.id));
+        const groupFixtures = b.fixtures.filter((f) => collectionIds.has(f.drawId));
+        const groups = computeStandingsFromFixtures(
+          groupFixtures,
+          groupCollections,
+        );
+        return { category: b.category, groups };
+      })
+      .filter((s) => s.groups.some((g) => g.rows.length > 0));
+  }, [blocks]);
 
   const recentResults = useMemo(() => {
     const today = listWonToday(matches, 20);
@@ -420,8 +444,71 @@ export default function BadmintonResultsPage() {
               )}
             </section>
 
-            {/* 5. Standings + future placeholders */}
-            <section className="space-y-3">
+            {/* 5. Standings (RR / group) */}
+            <section className="space-y-4">
+              <SectionHeading
+                id="standings"
+                eyebrow="Standings"
+                title="Round robin & groups"
+                subtitle="Wins and losses from completed fixtures"
+              />
+              {standingsBlocks.length === 0 ? (
+                <p className={cn(hubCardClass, "p-4 text-white/35 text-sm")}>
+                  Standings appear for Round Robin and Group + Knockout events after matches are completed.
+                </p>
+              ) : (
+                <div className="space-y-6">
+                  {standingsBlocks.map(({ category, groups }) => (
+                    <div key={category.id} className="space-y-3">
+                      <h3 className="text-white/80 font-semibold">
+                        {categoryDisplayName(category)}
+                      </h3>
+                      {groups.map((g) => (
+                        <div key={g.groupId ?? "rr"} className={cn(hubCardClass, "overflow-hidden")}>
+                          <div className="px-4 py-2.5 border-b border-white/8">
+                            <p className="text-white/70 text-sm font-semibold">{g.label}</p>
+                          </div>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-white/35 text-[10px] uppercase tracking-wider">
+                                <th className="text-left font-bold px-4 py-2">Entry</th>
+                                <th className="text-center font-bold px-2 py-2 w-12">P</th>
+                                <th className="text-center font-bold px-2 py-2 w-12">W</th>
+                                <th className="text-center font-bold px-2 py-2 w-12">L</th>
+                                <th className="text-center font-bold px-3 py-2 w-14">%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {g.rows.map((row) => (
+                                <tr
+                                  key={row.registrationId}
+                                  className="border-t border-white/6 text-white/80"
+                                >
+                                  <td className="px-4 py-2 truncate max-w-[14rem]">
+                                    {registrationMaps[category.id]?.get(row.registrationId) ??
+                                      `Entry #${row.registrationId}`}
+                                  </td>
+                                  <td className="text-center font-mono px-2 py-2">{row.played}</td>
+                                  <td className="text-center font-mono px-2 py-2 text-emerald-400/90">
+                                    {row.wins}
+                                  </td>
+                                  <td className="text-center font-mono px-2 py-2 text-rose-300/80">
+                                    {row.losses}
+                                  </td>
+                                  <td className="text-center font-mono px-3 py-2 text-white/50">
+                                    {row.winPct != null ? row.winPct : "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <Link
                 href={`/tournament/${tournamentId}/badminton/summary`}
                 className={cn(
@@ -441,18 +528,17 @@ export default function BadmintonResultsPage() {
                 <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
                   <div>
                     <p className="text-white/45 text-[10px] font-bold uppercase tracking-widest">
-                      Standings
+                      More
                     </p>
-                    <p className="text-white/70 text-sm font-semibold mt-0.5">Coming soon</p>
+                    <p className="text-white/70 text-sm font-semibold mt-0.5">Player rankings</p>
                     <p className="text-white/35 text-xs mt-0.5">
-                      League tables and player rankings
+                      Cross-category rankings — coming later
                     </p>
                   </div>
                   <span className="text-white/30 text-xs group-open:hidden">Show</span>
                   <span className="text-white/30 text-xs hidden group-open:inline">Hide</span>
                 </summary>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pt-1">
-                  <FuturePlaceholder title="League Standings" note="Round-robin tables — coming later" />
                   <FuturePlaceholder title="Player Rankings" note="Architecture reserved" />
                 </div>
               </details>
