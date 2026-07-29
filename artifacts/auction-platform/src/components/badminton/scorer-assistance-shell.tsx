@@ -18,6 +18,8 @@ interface ScorerAssistanceShellProps {
   tournamentName: string;
   courtNumber?: string;
   categoryName?: string;
+  /** Header chrome label — "Umpire Console" for /umpire alias (S4-05). */
+  consoleTitle?: string;
   onStartInterval: () => Promise<unknown>;
   onEndInterval: () => Promise<unknown>;
   onAcknowledgeCourtChange: () => Promise<unknown>;
@@ -33,6 +35,7 @@ export function ScorerAssistanceShell({
   tournamentName,
   courtNumber,
   categoryName,
+  consoleTitle,
   onStartInterval,
   onEndInterval,
   onAcknowledgeCourtChange,
@@ -78,6 +81,7 @@ export function ScorerAssistanceShell({
         courtNumber={courtNumber}
         voiceEnabled={voiceEnabled}
         onToggleVoice={toggleVoice}
+        consoleTitle={consoleTitle}
       />
 
       <MatchIdentityStrip

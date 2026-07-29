@@ -8,6 +8,8 @@ interface ScorerConsoleHeaderProps {
   onToggleVoice: () => void;
   showVoiceToggle?: boolean;
   showBrandMark?: boolean;
+  /** UX label only — scorer accounts have no separate umpire role (S4-05). */
+  consoleTitle?: string;
   className?: string;
 }
 
@@ -19,6 +21,7 @@ export function ScorerConsoleHeader({
   onToggleVoice,
   showVoiceToggle = true,
   showBrandMark = true,
+  consoleTitle = "Scorer",
   className,
 }: ScorerConsoleHeaderProps) {
   return (
@@ -30,6 +33,12 @@ export function ScorerConsoleHeader({
       )}
     >
       <div className="flex-1 min-w-0 flex items-center gap-1.5 text-[11px] sm:text-xs leading-tight">
+        <span className="shrink-0 font-bold uppercase tracking-wide text-sky-300/90">
+          {consoleTitle}
+        </span>
+        <span className="text-muted-foreground/50 shrink-0" aria-hidden>
+          |
+        </span>
         <span className="font-semibold text-foreground truncate">{tournamentName}</span>
         {courtNumber ? (
           <>

@@ -17,6 +17,15 @@ export function badmintonScorerMatchPath(matchId: number, tournamentId: number) 
   return `/badminton/${matchId}/score?tid=${tournamentId}`;
 }
 
+/**
+ * Court official / umpire console — same JWT scorer session as Scorer,
+ * with umpire-oriented chrome only (S4-05 MVP).
+ * Native mobile badminton app is future work — this is a thin web alias.
+ */
+export function badmintonUmpireMatchPath(matchId: number, tournamentId: number) {
+  return `/badminton/${matchId}/umpire?tid=${tournamentId}`;
+}
+
 /** Recommended scorer entry — sign in once, then pick a match. */
 export function badmintonScorerHomePath(tournamentId: number) {
   return `/badminton/scorer?tid=${tournamentId}`;

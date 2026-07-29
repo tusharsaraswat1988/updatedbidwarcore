@@ -1,9 +1,16 @@
 /**
  * Badminton Scorer Page
- * Route: /badminton/:matchId/score?tid=YYY
+ * Routes:
+ *   /badminton/:matchId/score?tid=YYY
+ *   /badminton/:matchId/umpire?tid=YYY  (S4-05 — same console, umpire chrome)
+ *   /badminton/:matchId/score?tid=YYY&role=umpire  (alias)
  *
  * Requires Scorer JWT (mobile + personal PIN login). Acquires match lock
  * before entering the console; heartbeats while open; unlocks on exit/finish.
+ *
+ * Native mobile badminton (dedicated umpire app) is future work — this MVP
+ * reuses the web scorer console with umpire-oriented labels only. Scorer
+ * accounts have no separate role field; "umpire" is UX labeling.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -61,13 +68,20 @@ function terminalStatusLabel(status: string): string {
 }
 
 export default function BadmintonScorerPage() {
-  const [, params] = useRoute("/badminton/:matchId/score");
+  const [, scoreParams] = useRoute("/badminton/:matchId/score");
+  const [, umpireParams] = useRoute("/badminton/:matchId/umpire");
   const search = useSearch();
   const [, navigate] = useLocation();
   const searchParams = new URLSearchParams(search);
 
+  const params = scoreParams ?? umpireParams;
   const matchId = parseInt(params?.matchId ?? "0");
   const tournamentId = parseInt(searchParams.get("tid") ?? "0");
+  const isUmpire =
+    Boolean(umpireParams) || searchParams.get("role") === "umpire";
+  const accessTitle = isUmpire ? "Umpire Access" : "Scorer Access";
+  const accessButton = isUmpire ? "Access Umpire Console" : "Access Scorer";
+  const consoleTitle = isUmpire ? "Umpire Console" : "Scorer";
 
   const [mobileInput, setMobileInput] = useState("");
   const [pinInput, setPinInput] = useState("");
@@ -245,7 +259,7 @@ export default function BadmintonScorerPage() {
               <div className="flex justify-center mb-6">
                 <BadmintonPublicBrandMark variant="scorer-bar" />
               </div>
-              <h1 className="text-white text-2xl font-black">Scorer Access</h1>
+              <h1 className="text-white text-2xl font-black">{accessTitle}</h1>
               <p className="text-white/40 text-sm mt-2">
                 Sign in with your mobile and personal PIN
               </p>
@@ -290,7 +304,7 @@ export default function BadmintonScorerPage() {
                 onClick={() => void ensureAuthAndLock(mobileInput, pinInput)}
                 className="w-full h-16 rounded-lg bg-primary text-primary-foreground font-display font-bold text-lg shadow-[var(--shadow-glow)] disabled:opacity-50"
               >
-                {busy ? "Opening…" : getScorerAuthSession() ? "Retry lock" : "Access Scorer"}
+                {busy ? "Opening…" : getScorerAuthSession() ? "Retry lock" : accessButton}
               </button>
 
               {tournamentId > 0 ? (
@@ -462,6 +476,7 @@ export default function BadmintonScorerPage() {
             tournamentName={tournamentName}
             courtNumber={courtNumber}
             categoryName={categoryName}
+            consoleTitle={consoleTitle}
             onAwardPoint={scorer.awardPoint}
             onStartInterval={scorer.startInterval}
             onEndInterval={scorer.endInterval}

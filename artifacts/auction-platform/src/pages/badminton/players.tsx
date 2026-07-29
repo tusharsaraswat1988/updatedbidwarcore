@@ -232,12 +232,12 @@ export default function BadmintonPlayersPage() {
         titleOverride={section === "officials" ? "Officials" : "Players"}
         purposeOverride={
           section === "officials"
-            ? "Manage scorers and officials who run matches on the day."
+            ? "Manage scorers, umpires, and court officials who run matches on the day."
             : "Manage everyone who will compete in the tournament."
         }
         taskOverride={
           section === "officials"
-            ? "Add scorers with mobile + personal PIN for Scorer Login."
+            ? "Add scorers with mobile + PIN, then share Scorer Home with court officials."
             : "Import or add players, then prepare officials and scorers."
         }
         headerActions={

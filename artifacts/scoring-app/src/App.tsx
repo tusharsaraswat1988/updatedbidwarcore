@@ -115,6 +115,9 @@ function Router() {
         <Route path="/badminton/scorer">
           {() => <ScoringFeatureGuard><BadmintonScorerHomePage /></ScoringFeatureGuard>}
         </Route>
+        <Route path="/badminton/:matchId/umpire">
+          {() => <ScoringFeatureGuard><BadmintonScorerPage /></ScoringFeatureGuard>}
+        </Route>
         <Route path="/badminton/:matchId/score">
           {() => <ScoringFeatureGuard><BadmintonScorerPage /></ScoringFeatureGuard>}
         </Route>
