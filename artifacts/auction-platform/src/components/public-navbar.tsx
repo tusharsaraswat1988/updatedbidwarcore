@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "reac
 import { useLocation } from "wouter";
 import { BookOpen, ChevronDown, GraduationCap, Menu, X } from "lucide-react";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
-import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { BrandLogoImage } from "@/components/brand-logo-image";
 import {
@@ -27,10 +27,13 @@ const ALL_SOLUTION_HREFS = new Set<string>([
  */
 export function PublicNavbar() {
   const [path, navigate] = useLocation();
-  const { colors, brandName, iconVersion } = usePublicBranding();
+  const { colors, brandName, iconVersion, logos } = usePublicBranding();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSolutionsOpen, setMobileSolutionsOpen] = useState(false);
-  const headerLogoSrc = getPublicBrandLogoSrc(landingHeaderPreset.logoOrder, iconVersion);
+  const headerLogoSrc = useMemo(() => {
+    const adminWordmark = getBrandWordmarkSrc(logos, landingHeaderPreset.logoOrder);
+    return adminWordmark || getPublicBrandLogoSrc(landingHeaderPreset.logoOrder, iconVersion);
+  }, [logos, iconVersion]);
   const logoAlt = getBrandLogoAlt(brandName);
 
   const isHome = useMemo(() => path === "/", [path]);

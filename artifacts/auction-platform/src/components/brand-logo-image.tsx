@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BRAND_LOGO_FALLBACK_TEXT } from "@/lib/brand-assets";
 
 type BrandLogoImageProps = {
@@ -9,6 +9,8 @@ type BrandLogoImageProps = {
   height: number;
   loading?: "eager" | "lazy";
   fallbackText?: string;
+  /** Shown instead of fallbackText when the image fails to load. */
+  fallback?: ReactNode;
 };
 
 export function BrandLogoImage({
@@ -19,6 +21,7 @@ export function BrandLogoImage({
   height,
   loading = "eager",
   fallbackText = BRAND_LOGO_FALLBACK_TEXT,
+  fallback,
 }: BrandLogoImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [failed, setFailed] = useState(false);
@@ -33,6 +36,7 @@ export function BrandLogoImage({
   }, []);
 
   if (failed) {
+    if (fallback) return fallback;
     return (
       <span
         className={className}

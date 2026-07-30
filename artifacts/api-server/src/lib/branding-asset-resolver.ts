@@ -20,6 +20,7 @@ import {
   type BrandingLogoPath,
 } from "@workspace/api-base/branding-assets";
 import { buildBrandingIconHeadLinks } from "@workspace/api-base/branding-icon-head";
+import { withCloudinaryTransform } from "@workspace/media/cloudinary-media";
 import { getAsset, getMaxBrandingAssetVersion } from "./branding-service.js";
 import { coerceFaviconPipelineMetadata } from "./favicon-pipeline.js";
 import { patchBrandingIconsInCachedHtml } from "./html-meta-injector.js";
@@ -301,7 +302,12 @@ async function serveBrandingAsset(
       res.status(304).end();
       return;
     }
-    res.redirect(302, resolved.fileUrl);
+    const isWordmarkLogo =
+      assetPath === BRANDING_LOGO_PATHS.primary || assetPath === BRANDING_LOGO_PATHS.reverse;
+    const redirectUrl = isWordmarkLogo
+      ? withCloudinaryTransform(resolved.fileUrl)
+      : resolved.fileUrl;
+    res.redirect(302, redirectUrl);
     return;
   }
 

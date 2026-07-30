@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  CLOUDINARY_BRAND_WORDMARK_TRANSFORM,
   isBidWarManagedPublicId,
   parseCloudinaryPublicIdFromUrl,
   resolveCloudinaryPublicId,
+  withCloudinaryTransform,
 } from "../cloudinary-media";
 
 describe("cloudinary-media", () => {
@@ -27,5 +29,14 @@ describe("cloudinary-media", () => {
     expect(isBidWarManagedPublicId("bidwar/player_1")).toBe(true);
     expect(isBidWarManagedPublicId("bidwar/branding/logo")).toBe(true);
     expect(isBidWarManagedPublicId("other-folder/image")).toBe(false);
+  });
+
+  it("injects brand wordmark delivery transform for Cloudinary URLs", () => {
+    const raw = "https://res.cloudinary.com/demo/image/upload/v1/bidwar/logo.png";
+    expect(withCloudinaryTransform(raw)).toBe(
+      `https://res.cloudinary.com/demo/image/upload/${CLOUDINARY_BRAND_WORDMARK_TRANSFORM}/v1/bidwar/logo.png`,
+    );
+    expect(withCloudinaryTransform("/assets/branding/logo.png")).toBe("/assets/branding/logo.png");
+    expect(withCloudinaryTransform(withCloudinaryTransform(raw))).toContain(CLOUDINARY_BRAND_WORDMARK_TRANSFORM);
   });
 });

@@ -1,5 +1,5 @@
 const PRESETS = {
-  brandWordmark: "w_960,c_limit,f_auto,q_auto",
+  brandWordmark: "w_1120,c_limit,f_auto,q_auto:best",
   obsBroadcastLogo: "w_960,c_limit,e_trim,f_auto,q_auto",
 } as const;
 

@@ -1,5 +1,5 @@
 import { Instagram, Facebook, Youtube, Mail, Phone, Globe } from "lucide-react";
-import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import { BrandLogoImage } from "@/components/brand-logo-image";
@@ -61,8 +61,11 @@ const SOCIAL_ICONS: Record<string, typeof Instagram> = {
  * footer implementations across the marketing site.
  */
 export function PublicFooter() {
-  const { brandName, iconVersion } = usePublicBranding();
+  const { brandName, iconVersion, logos } = usePublicBranding();
   const logoAlt = getBrandLogoAlt(brandName);
+  const adminWordmark = getBrandWordmarkSrc(logos, landingFooterPreset.logoOrder);
+  const logoSrc =
+    adminWordmark || getPublicBrandLogoSrc(landingFooterPreset.logoOrder, iconVersion);
 
   return (
     <footer className="border-t border-white/10 bg-black/40 pt-16">
@@ -71,18 +74,22 @@ export function PublicFooter() {
           <div>
             <a href="/" className="flex items-center gap-2" aria-label={`${brandName} Home`}>
               <BrandLogoImage
-                src={getPublicBrandLogoSrc(landingFooterPreset.logoOrder, iconVersion)}
+                src={logoSrc}
                 alt={logoAlt}
-                className="h-9 w-auto max-w-[140px]"
+                className="h-10 w-auto max-w-[168px] object-contain object-left"
                 width={168}
                 height={40}
                 loading="lazy"
+                fallback={
+                  <span className="font-display text-2xl tracking-wider" role="img" aria-label={logoAlt}>
+                    BidWar<span className="text-primary">.in</span>
+                  </span>
+                }
               />
-              <span className="font-display text-2xl tracking-wider">BidWar<span className="text-primary">.in</span></span>
             </a>
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-              India&rsquo;s auction-first platform for live sports player auctions. From street leagues
-              to state finals — from auction to champion.
+              India&rsquo;s auction-first platform for live sports player auctions. Team owners bid in
+              points — not money. From street leagues to state finals — from auction to champion.
             </p>
             <div className="mt-6 flex gap-2">
               {SITE_SOCIAL.map((social) => {
@@ -134,7 +141,13 @@ export function PublicFooter() {
         </div>
       </div>
       <div className="border-t border-white/5">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="mx-auto max-w-7xl px-5 py-4 text-xs leading-relaxed text-muted-foreground">
+          Bidding on BidWar uses a virtual <strong className="text-foreground/80">points purse</strong> only.
+          Players are not bought or sold for money through the platform. BidWar provides auction software
+          and is not responsible for how organizers run tournament fees, settlements, or other internal
+          arrangements outside BidWar.
+        </div>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-t border-white/5 px-5 py-5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           <div>© {new Date().getFullYear()} {brandName} · Made in India · Operated by {SITE_CONTACT.billingEntity}</div>
           <div className="flex gap-5">
             {LEGAL_LINKS.slice(1).map((l) => (

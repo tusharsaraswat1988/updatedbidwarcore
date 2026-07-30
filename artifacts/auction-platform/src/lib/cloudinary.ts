@@ -43,9 +43,9 @@ const PRESETS = {
   headerLogo: "w_112,h_112,c_pad,b_transparent,f_auto,q_auto",
 
   /**
-   * Full wordmark — trim empty margins, preserve aspect ratio (no square letterbox).
+   * Full wordmark — enough pixels for retina headers, preserve aspect ratio.
    */
-  brandWordmark: "w_960,c_limit,f_auto,q_auto",
+  brandWordmark: "w_1120,c_limit,f_auto,q_auto:best",
 
   /**
    * Admin-uploaded OBS broadcast badge — trim transparent margins, preserve aspect ratio.
