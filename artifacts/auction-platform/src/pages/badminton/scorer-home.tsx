@@ -66,17 +66,36 @@ function primaryActionLabel(match: ScorerHomeMatchCard | null): string {
   return "Start Scoring";
 }
 
+/** Short vs line so the primary button names the match it opens. */
+function matchActionSubtitle(match: ScorerHomeMatchCard): string {
+  const left = identityFromCombinedLabel(match.playerA);
+  const right = identityFromCombinedLabel(match.playerB);
+  const leftName = left.playerName || left.teamName || "TBD";
+  const rightName = right.playerName || right.teamName || "TBD";
+  return `${leftName} vs ${rightName}`;
+}
+
 function MatchSummary({
   label,
   match,
   emptyHint,
+  emphasized,
 }: {
   label: string;
   match: ScorerHomeMatchCard | null;
   emptyHint?: string;
+  /** Stronger border when this is the match the primary button opens. */
+  emphasized?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 min-w-0 overflow-hidden">
+    <div
+      className={cn(
+        "rounded-xl border p-4 min-w-0 overflow-hidden",
+        emphasized
+          ? "border-red-500/45 bg-red-500/[0.07] ring-1 ring-red-500/20"
+          : "border-white/10 bg-white/[0.03]",
+      )}
+    >
       <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-2">{label}</p>
       {match ? (
         <>
@@ -115,6 +134,47 @@ function MatchSummary({
         </div>
       )}
     </div>
+  );
+}
+
+function PrimaryMatchAction({
+  match,
+  canOpen,
+  onOpen,
+}: {
+  match: ScorerHomeMatchCard | null;
+  canOpen: boolean;
+  onOpen: () => void;
+}) {
+  const label = primaryActionLabel(match);
+  const isLive = match?.status === "LIVE" || match?.status === "PAUSED";
+
+  return (
+    <button
+      type="button"
+      disabled={!canOpen}
+      onClick={onOpen}
+      className={cn(
+        "w-full min-h-16 rounded-xl font-display font-bold px-4 py-3 text-left",
+        canOpen
+          ? isLive
+            ? "bg-red-500 text-white"
+            : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
+          : "bg-white/10 text-white/40",
+      )}
+    >
+      <span className="block text-lg leading-tight">{label}</span>
+      {match && canOpen ? (
+        <span
+          className={cn(
+            "block mt-1 text-xs font-semibold truncate",
+            isLive ? "text-white/85" : "text-primary-foreground/80",
+          )}
+        >
+          {matchActionSubtitle(match)}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -162,14 +222,19 @@ function MatchListCard({
           "w-full min-h-14 rounded-xl font-display font-bold text-base",
           match.readOnly
             ? "bg-white/10 text-white/85 border border-white/15"
-            : match.status === "LIVE"
+            : match.status === "LIVE" || match.status === "PAUSED"
               ? "bg-red-500 text-white"
               : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]",
         )}
       >
-        {match.status === "LIVE" || match.status === "PAUSED"
-          ? "Resume Live Match"
-          : match.actionLabel}
+        <span className="block">
+          {match.status === "LIVE" || match.status === "PAUSED"
+            ? "Resume Live Match"
+            : match.actionLabel}
+        </span>
+        <span className="block mt-0.5 text-xs font-semibold opacity-85 truncate px-1">
+          {matchActionSubtitle(match)}
+        </span>
       </button>
     </article>
   );
@@ -188,8 +253,7 @@ function CourtFocusView({
     court.currentMatch?.status === "LIVE" || court.currentMatch?.status === "PAUSED",
   );
   const focus = hasLiveMatch ? court.currentMatch : court.nextMatch;
-  const canOpen = focus && !focus.readOnly;
-  const primaryLabel = primaryActionLabel(focus);
+  const canOpen = Boolean(focus && !focus.readOnly);
 
   return (
     <div className="space-y-4">
@@ -202,27 +266,27 @@ function CourtFocusView({
       </div>
 
       {hasLiveMatch ? (
-        <MatchSummary label="Current Match" match={court.currentMatch} />
+        <>
+          <MatchSummary label="Current Match" match={court.currentMatch} emphasized />
+          {/* Action sits under the live match — not under Next — so resume target is obvious. */}
+          <PrimaryMatchAction
+            match={focus}
+            canOpen={canOpen}
+            onOpen={() => focus && onOpenMatch(focus)}
+          />
+          <MatchSummary label="Next Match" match={court.nextMatch} />
+        </>
       ) : (
-        <MatchSummary label="In Progress" match={null} emptyHint="No match in progress" />
+        <>
+          <MatchSummary label="In Progress" match={null} emptyHint="No match in progress" />
+          <MatchSummary label="Up Next" match={court.nextMatch} emphasized={Boolean(focus)} />
+          <PrimaryMatchAction
+            match={focus}
+            canOpen={canOpen}
+            onOpen={() => focus && onOpenMatch(focus)}
+          />
+        </>
       )}
-      <MatchSummary label={hasLiveMatch ? "Next Match" : "Up Next"} match={court.nextMatch} />
-
-      <button
-        type="button"
-        disabled={!canOpen}
-        onClick={() => focus && onOpenMatch(focus)}
-        className={cn(
-          "w-full min-h-16 rounded-xl font-display font-bold text-lg sticky bottom-4",
-          canOpen
-            ? focus?.status === "LIVE" || focus?.status === "PAUSED"
-              ? "bg-red-500 text-white"
-              : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
-            : "bg-white/10 text-white/40",
-        )}
-      >
-        {primaryLabel}
-      </button>
 
       {court.matches.length > 1 ? (
         <div className="pt-2 space-y-3">

@@ -133,6 +133,11 @@ describe("BWF deciding-game interval threshold", () => {
     expect(afterAck.games[2]?.sideChangeAcknowledged).toBe(true);
     expect(isCourtChangeRequired(afterAck)).toBe(false);
 
+    const ackAgain = cmdAcknowledgeCourtChange(afterAck);
+    expect(ackAgain.ok).toBe(true);
+    if (!ackAgain.ok) throw new Error("re-ack failed");
+    expect(ackAgain.events).toEqual([]);
+
     const allowed = cmdAwardPoint(afterAck, "left");
     expect(allowed.ok).toBe(true);
   });

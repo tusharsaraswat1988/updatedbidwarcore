@@ -114,7 +114,7 @@ export function ScoreBoardSponsorPanel({
     return (
       <div
         className={cn(
-          "flex items-center gap-2.5 rounded-lg border border-[#ffd700]/35 bg-gradient-to-r from-[#ffd700]/15 to-[#f59e0b]/10 px-3 py-2",
+          "flex items-center gap-2.5 rounded-lg border border-[#ffd700]/35 bg-gradient-to-r from-[#ffd700]/15 to-[#ffd700]/10 px-3 py-2",
           className,
         )}
       >
@@ -151,7 +151,7 @@ export function ScoreBoardSponsorPanel({
         className,
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#ffd700]/8 via-transparent to-[#f59e0b]/5 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#ffd700]/8 via-transparent to-[#ffd700]/5 pointer-events-none" />
       <div className="absolute -top-8 -right-8 w-24 h-24 bg-[#ffd700]/10 rounded-full blur-2xl pointer-events-none" />
 
       <div className="relative flex flex-col items-center text-center gap-3">

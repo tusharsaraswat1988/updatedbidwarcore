@@ -215,9 +215,9 @@ export function deriveScorerAssistance(
   const intervalThreshold = sideChangeScore(state.format.pointsPerGame);
   const intervalDisplayPoints = intervalThreshold;
   const game = getCurrentGame(state);
-  // Prefer reducer state when set; fall back to UI-local ack during optimistic updates.
+  // Prefer engine ack when true; OR with UI-local ack (false must not mask local ack via ??).
   const courtChangeAcknowledged =
-    game?.sideChangeAcknowledged ?? opts?.courtChangeAcknowledged ?? false;
+    game?.sideChangeAcknowledged === true || (opts?.courtChangeAcknowledged ?? false);
   const readyToScore = opts?.readyToScore ?? true;
 
   const banners: ScorerBanner[] = [];

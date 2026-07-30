@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  cmdAcknowledgeCourtChange,
   cmdAwardPoint,
   mergeMatchStateCache,
   reduceBadminton,
@@ -198,6 +199,8 @@ export function useBadmintonScorer(
   const pointQueueRef = useRef<Array<{ side: "left" | "right"; idempotencyKey: string }>>([]);
   const drainPromiseRef = useRef<Promise<void> | null>(null);
   const [pointSyncError, setPointSyncError] = useState<string | null>(null);
+  const [pendingPointCount, setPendingPointCount] = useState(0);
+  const [pointsSyncing, setPointsSyncing] = useState(false);
 
   async function postAction(endpoint: string, body: unknown) {
     const { scorerAuthHeaders } = await import("@/lib/badminton-scorer-session");
@@ -214,8 +217,23 @@ export function useBadmintonScorer(
       },
     );
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "unknown error" }));
-      throw new Error(err.message ?? err.error ?? "Request failed");
+      const raw = await res.text().catch(() => "");
+      let message = "";
+      try {
+        const err = raw ? (JSON.parse(raw) as { message?: string; error?: string }) : null;
+        message = err?.message ?? err?.error ?? "";
+      } catch {
+        // Non-JSON (often HTML 404/500 when API dist is stale)
+      }
+      if (!message) {
+        if (res.status === 404) {
+          message =
+            "Edit toss API not found — rebuild/restart the API server, then try again.";
+        } else {
+          message = raw.trim().slice(0, 180) || `Request failed (${res.status})`;
+        }
+      }
+      throw new Error(message);
     }
     const data = await res.json();
     if (data.state) {
@@ -238,6 +256,7 @@ export function useBadmintonScorer(
 
     const optimisticKey = matchOptimisticKey(tournamentId, matchId);
 
+    setPointsSyncing(true);
     drainPromiseRef.current = (async () => {
       while (pointQueueRef.current.length > 0) {
         const item = pointQueueRef.current[0];
@@ -247,10 +266,12 @@ export function useBadmintonScorer(
             idempotencyKey: item.idempotencyKey,
           });
           pointQueueRef.current.shift();
+          setPendingPointCount(pointQueueRef.current.length);
           setPointSyncError(null);
         } catch (err) {
           // Keep unsent items for a later retry, but clear the floor so SSE can catch up.
           clearOptimisticRallyFloor(optimisticKey);
+          setPendingPointCount(pointQueueRef.current.length);
           await queryClient.invalidateQueries({ queryKey });
           const message =
             err instanceof Error && err.message
@@ -263,6 +284,8 @@ export function useBadmintonScorer(
       clearOptimisticRallyFloor(optimisticKey);
     })().finally(() => {
       drainPromiseRef.current = null;
+      setPointsSyncing(false);
+      setPendingPointCount(pointQueueRef.current.length);
     });
 
     return drainPromiseRef.current;
@@ -271,6 +294,16 @@ export function useBadmintonScorer(
   const retryPointQueue = useCallback(() => {
     setPointSyncError(null);
     return drainPointQueue();
+  }, [drainPointQueue]);
+
+  /** Wait for optimistic points to reach the server before interval/court-change/exit. */
+  const ensurePointsSynced = useCallback(async () => {
+    if (drainPromiseRef.current) {
+      await drainPromiseRef.current;
+    }
+    if (pointQueueRef.current.length > 0) {
+      await drainPointQueue();
+    }
   }, [drainPointQueue]);
 
   const awardPoint = useCallback(
@@ -312,31 +345,80 @@ export function useBadmintonScorer(
       }
 
       pointQueueRef.current.push({ side, idempotencyKey });
+      setPendingPointCount(pointQueueRef.current.length);
       return drainPointQueue();
     },
     [drainPointQueue, matchId, queryClient, tournamentId],
   );
 
-  const undo = useCallback(() => postAction("undo", {}), [matchId]);
+  const undo = useCallback(async () => {
+    await ensurePointsSynced();
+    return postAction("undo", {});
+  }, [ensurePointsSynced, matchId]);
 
   const startTimeout = useCallback(
-    (side: "left" | "right", kind: "regular" | "medical" = "regular") =>
-      postAction("timeout", { action: "start", side, kind }),
-    [matchId],
+    async (side: "left" | "right", kind: "regular" | "medical" = "regular") => {
+      await ensurePointsSynced();
+      return postAction("timeout", { action: "start", side, kind });
+    },
+    [ensurePointsSynced, matchId],
   );
 
-  const endTimeout = useCallback(() => postAction("timeout", { action: "end" }), [matchId]);
+  const endTimeout = useCallback(async () => {
+    await ensurePointsSynced();
+    return postAction("timeout", { action: "end" });
+  }, [ensurePointsSynced, matchId]);
 
   const startMatch = useCallback(
     (payload: unknown) => postAction("start", payload),
     [matchId],
   );
 
-  const startInterval = useCallback(() => postAction("interval", { action: "start" }), [matchId]);
+  const startInterval = useCallback(async () => {
+    await ensurePointsSynced();
+    return postAction("interval", { action: "start" });
+  }, [ensurePointsSynced, matchId]);
 
-  const endInterval = useCallback(() => postAction("interval", { action: "end" }), [matchId]);
+  const endInterval = useCallback(async () => {
+    await ensurePointsSynced();
+    return postAction("interval", { action: "end" });
+  }, [ensurePointsSynced, matchId]);
 
-  const acknowledgeCourtChange = useCallback(() => postAction("court-change", {}), [matchId]);
+  const acknowledgeCourtChange = useCallback(async () => {
+    await ensurePointsSynced();
+
+    queryClient.setQueryData(queryKey, (prev: MatchCache | null) => {
+      if (!prev?.state) return prev;
+      const result = cmdAcknowledgeCourtChange(prev.state);
+      if (!result.ok || result.events.length === 0) return prev;
+      return {
+        state: applyOptimisticCommandEvents(
+          prev.state,
+          result.events,
+          matchId,
+          tournamentId,
+        ),
+        detail: prev.detail,
+      };
+    });
+
+    try {
+      return await postAction("court-change", {});
+    } catch (err) {
+      await queryClient.invalidateQueries({ queryKey });
+      throw err;
+    }
+  }, [ensurePointsSynced, matchId, queryClient, tournamentId]);
+
+  const correctToss = useCallback(
+    async (payload: unknown) => {
+      await ensurePointsSynced();
+      const state = await postAction("edit-toss", payload);
+      await queryClient.invalidateQueries({ queryKey });
+      return state;
+    },
+    [ensurePointsSynced, matchId, queryClient, tournamentId],
+  );
 
   return {
     awardPoint,
@@ -346,9 +428,13 @@ export function useBadmintonScorer(
     startInterval,
     endInterval,
     acknowledgeCourtChange,
+    correctToss,
     startMatch,
     pointSyncError,
     retryPointQueue,
+    pendingPointCount,
+    pointsSyncing,
+    ensurePointsSynced,
   };
 }
 

@@ -61,6 +61,7 @@ import {
   handleTimeout,
   handleInterval,
   handleCourtChangeAck,
+  handleCorrectToss,
   handleWalkover,
   handleDisqualification,
   handlePauseMatch,
@@ -2828,6 +2829,89 @@ router.post("/matches/:matchId/court-change", async (req, res) => {
       return void res.status(e.status).json({ error: e.message, code: e.code });
     }
     throw e;
+  }
+});
+
+router.post("/matches/:matchId/edit-toss", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonScoring(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId, auth: scoringAuth } = auth;
+
+  const sideSchema = z.object({
+    label: z.string(),
+    shortLabel: z.string(),
+    countryCode: z.string().optional(),
+    countryName: z.string().optional(),
+    photoUrl: z.string().optional(),
+    flagUrl: z.string().optional(),
+    teamColor: z.string().optional(),
+    franchiseName: z.string().optional(),
+    franchiseLogoUrl: z.string().optional(),
+    teamName: z.string().optional(),
+    teamLogoUrl: z.string().optional(),
+    sponsorName: z.string().optional(),
+    sponsorLogoUrl: z.string().optional(),
+    masterPlayerId: z.string().optional(),
+    playerIds: z.array(z.number()),
+    players: z
+      .array(
+        z.object({
+          label: z.string(),
+          shortLabel: z.string(),
+          countryCode: z.string().optional(),
+          countryName: z.string().optional(),
+          photoUrl: z.string().optional(),
+          flagUrl: z.string().optional(),
+          teamColor: z.string().optional(),
+          teamName: z.string().optional(),
+          teamLogoUrl: z.string().optional(),
+          sponsorName: z.string().optional(),
+          sponsorLogoUrl: z.string().optional(),
+          masterPlayerId: z.string().optional(),
+        }),
+      )
+      .optional(),
+  });
+
+  const schema = z.object({
+    leftSide: sideSchema,
+    rightSide: sideSchema,
+    firstServer: z.enum(["left", "right"]),
+    doublesSetup: z
+      .object({
+        tossWinnerSide: z.enum(["left", "right"]),
+        tossDecision: z.enum(["serve", "receive"]),
+        firstServingSide: z.enum(["left", "right"]),
+        firstServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+        firstReceivingSide: z.enum(["left", "right"]),
+        firstReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+      })
+      .optional(),
+    endsSwapped: z.boolean(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleCorrectToss(
+      matchId,
+      tournamentId,
+      parsed.data,
+      actorFrom(req, scoringAuth),
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    const message = e instanceof Error ? e.message : "Could not update toss";
+    console.error("[badminton] edit-toss failed:", e);
+    return void res.status(500).json({ error: message, code: "EDIT_TOSS_FAILED" });
   }
 });
 

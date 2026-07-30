@@ -36,6 +36,9 @@ import {
   BIDWAR_BROADCAST_YELLOW_BORDER,
   BIDWAR_BROADCAST_YELLOW_MUTED,
   BIDWAR_BROADCAST_YELLOW_SOFT,
+  BIDWAR_SCOREBOARD_INSET,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
 } from "@/lib/bidwar-broadcast-colors";
 import type { BroadcastConsoleMatch } from "@/lib/badminton-broadcast-console";
 import {
@@ -335,16 +338,20 @@ export function ObsPlayMoments({ state }: { state: BadmintonMatchState }) {
     const side = state.activeTimeout.side;
     const player = side === "left" ? state.leftSide : state.rightSide;
     return (
-      <div className="absolute inset-0 z-[26] flex items-center justify-center pointer-events-none bg-black/40">
+      <div className="absolute inset-0 z-[26] flex items-center justify-center pointer-events-none bg-black/45">
         <div
-          className={cn(
-            "badminton-moment-card border px-10 py-6",
-            side === "left"
-              ? "border-[#ffc400]/45 bg-[#1a1400]/92"
-              : "border-[#ce93d8]/45 bg-[#180523]/92",
-          )}
+          className="badminton-moment-card border px-10 py-6"
+          style={{
+            backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+            borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+          }}
         >
-          <p className="bw-label text-amber-300/90 mb-2 tracking-[0.3em]">Timeout</p>
+          <p
+            className="bw-label mb-2 tracking-[0.3em]"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+          >
+            Timeout
+          </p>
           <p className="bw-heading text-white text-4xl mb-3">TIMEOUT</p>
           <TeamPlayerCard
             identity={identityFromSideInfo(player)}
@@ -352,7 +359,7 @@ export function ObsPlayMoments({ state }: { state: BadmintonMatchState }) {
             tone="led"
             align="center"
             playerClassName="text-white text-2xl font-black"
-            teamClassName="text-white/60"
+            teamClassName="text-white/55"
           />
         </div>
       </div>
@@ -361,11 +368,22 @@ export function ObsPlayMoments({ state }: { state: BadmintonMatchState }) {
 
   if (state.inInterval && !state.activeTimeout) {
     return (
-      <div className="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none bg-black/35">
-        <div className="badminton-moment-card border border-sky-400/40 bg-[#0a1e33]/92 px-10 py-6">
-          <p className="bw-label text-sky-300/90 mb-2 tracking-[0.3em]">Interval</p>
+      <div className="absolute inset-0 z-[25] flex items-center justify-center pointer-events-none bg-black/40">
+        <div
+          className="badminton-moment-card border px-10 py-6"
+          style={{
+            backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+            borderColor: "rgba(255,255,255,0.15)",
+          }}
+        >
+          <p
+            className="bw-label mb-2 tracking-[0.3em]"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+          >
+            Interval
+          </p>
           <p className="bw-heading text-white text-4xl mb-2">INTERVAL</p>
-          <p className="text-white/70 text-lg font-semibold">
+          <p className="text-white/60 text-lg font-semibold">
             Game {state.currentGame} · {state.leftScore} – {state.rightScore}
           </p>
         </div>
@@ -375,16 +393,20 @@ export function ObsPlayMoments({ state }: { state: BadmintonMatchState }) {
 
   if (gameWin && !state.winnerSide) {
     return (
-      <div className="absolute inset-0 z-[28] flex items-center justify-center pointer-events-none bg-black/35">
+      <div className="absolute inset-0 z-[28] flex items-center justify-center pointer-events-none bg-black/40">
         <div
-          className={cn(
-            "rounded-2xl px-12 py-6 text-center border shadow-2xl animate-[badmintonMomentIn_0.4s_ease-out_forwards]",
-            gameWin.side === "left"
-              ? "bg-[#ffc400]/85 border-[#ffc400]/50"
-              : "bg-[#7c3aed]/85 border-[#ce93d8]/50",
-          )}
+          className="rounded-2xl px-12 py-6 text-center border shadow-[0_12px_48px_rgba(0,0,0,0.65)] animate-[badmintonMomentIn_0.4s_ease-out_forwards]"
+          style={{
+            backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+            borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+          }}
         >
-          <p className="bw-label text-white/85 text-xs mb-1">Game {gameWin.gameNumber} Won</p>
+          <p
+            className="bw-label text-xs mb-1 tracking-[0.2em]"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+          >
+            Game {gameWin.gameNumber} Won
+          </p>
           <TeamPlayerCard
             identity={identityFromSideInfo(
               gameWin.side === "left" ? state.leftSide : state.rightSide,
@@ -393,9 +415,12 @@ export function ObsPlayMoments({ state }: { state: BadmintonMatchState }) {
             tone="led"
             align="center"
             playerClassName="text-white text-3xl font-black"
-            teamClassName="text-white/80"
+            teamClassName="text-white/55"
           />
-          <p className="text-white text-3xl font-black tabular-nums mt-2">
+          <p
+            className="text-3xl font-black tabular-nums mt-2"
+            style={{ color: BIDWAR_BROADCAST_YELLOW }}
+          >
             {gameWin.winner} – {gameWin.loser}
           </p>
         </div>
@@ -422,10 +447,16 @@ function CompactGameDots({
           key={i}
           className={cn(
             "h-2.5 w-2.5 rounded-full border-2",
-            i < won
-              ? "bg-[#ffd700] border-[#ffd700]"
-              : "bg-transparent border-white/35",
+            i < won ? "border-transparent" : "bg-transparent border-white/35",
           )}
+          style={
+            i < won
+              ? {
+                  backgroundColor: BIDWAR_BROADCAST_YELLOW,
+                  borderColor: BIDWAR_BROADCAST_YELLOW,
+                }
+              : undefined
+          }
         />
       ))}
     </div>
@@ -462,7 +493,10 @@ function CompactOverlay({
       <DirectorStatusBanner state={state} />
       <ObsUrgencyBanner state={state} />
 
-      <div className="w-full overflow-hidden rounded-2xl border border-white/15 bg-[#050507] shadow-[0_12px_48px_rgba(0,0,0,0.65)]">
+      <div
+        className="w-full overflow-hidden rounded-2xl border border-white/15 shadow-[0_12px_48px_rgba(0,0,0,0.65)]"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
         {/* Meta row */}
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black px-4 py-1.5 min-h-[32px]">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -483,7 +517,10 @@ function CompactOverlay({
           </div>
           <div className="flex items-center gap-3 shrink-0 text-xs font-semibold uppercase tracking-wider text-white/45">
             {isDoubles && serverLabel ? (
-              <span className="inline-flex items-center gap-1.5 text-[#ffd700]">
+              <span
+                className="inline-flex items-center gap-1.5"
+                style={{ color: BIDWAR_BROADCAST_YELLOW }}
+              >
                 <span className="badminton-serve-pip badminton-serve-pip--active" aria-hidden />
                 <span className="max-w-[10rem] truncate">{serverLabel}</span>
               </span>
@@ -503,13 +540,18 @@ function CompactOverlay({
           {/* Left */}
           <div
             className={cn(
-              "relative flex items-center gap-3 bg-[#0c0c10] px-4 py-3 sm:gap-4 sm:px-5",
+              "relative flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5",
               leftServing && "ring-1 ring-inset ring-[#ffd700]/55",
               flashSide === "left" && "badminton-serve-side--flash",
             )}
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
           >
             {leftServing ? (
-              <div className="absolute inset-y-3 left-0 w-1.5 rounded-r-full bg-[#ffd700]" aria-hidden />
+              <div
+                className="absolute inset-y-3 left-0 w-1.5 rounded-r-full"
+                style={{ backgroundColor: BIDWAR_BROADCAST_YELLOW }}
+                aria-hidden
+              />
             ) : null}
             {!isDoubles && leftServing ? (
               <span className="badminton-serve-pip badminton-serve-pip--active shrink-0" aria-hidden />
@@ -537,9 +579,15 @@ function CompactOverlay({
           </div>
 
           {/* Center */}
-          <div className="flex w-[72px] sm:w-[88px] flex-col items-center justify-center gap-1 border-x border-white/10 bg-[#08080c] px-2">
+          <div
+            className="flex w-[72px] sm:w-[88px] flex-col items-center justify-center gap-1 border-x border-white/10 px-2"
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+          >
             <span className="text-[10px] font-black tracking-[0.22em] text-white/35">SET</span>
-            <span className="text-2xl sm:text-3xl font-black tabular-nums text-[#ffd700]">
+            <span
+              className="text-2xl sm:text-3xl font-black tabular-nums"
+              style={{ color: BIDWAR_BROADCAST_YELLOW }}
+            >
               {state.currentGame}
             </span>
             <span className="text-[11px] font-bold tabular-nums text-white/50">
@@ -550,13 +598,18 @@ function CompactOverlay({
           {/* Right */}
           <div
             className={cn(
-              "relative flex items-center gap-3 bg-[#0c0c10] px-4 py-3 flex-row-reverse sm:gap-4 sm:px-5",
+              "relative flex items-center gap-3 px-4 py-3 flex-row-reverse sm:gap-4 sm:px-5",
               rightServing && "ring-1 ring-inset ring-[#ffd700]/55",
               flashSide === "right" && "badminton-serve-side--flash",
             )}
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
           >
             {rightServing ? (
-              <div className="absolute inset-y-3 right-0 w-1.5 rounded-l-full bg-[#ffd700]" aria-hidden />
+              <div
+                className="absolute inset-y-3 right-0 w-1.5 rounded-l-full"
+                style={{ backgroundColor: BIDWAR_BROADCAST_YELLOW }}
+                aria-hidden
+              />
             ) : null}
             {!isDoubles && rightServing ? (
               <span className="badminton-serve-pip badminton-serve-pip--active shrink-0" aria-hidden />
@@ -627,8 +680,11 @@ function FullOverlay({
       <DirectorStatusBanner state={state} />
       <ObsUrgencyBanner state={state} />
 
-      <div className="rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.55)] border border-white/10 bg-[#070708]/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-3 px-3 py-1.5 border-b border-white/10 bg-black/50 min-h-[28px]">
+      <div
+        className="rounded-2xl overflow-hidden shadow-[0_12px_48px_rgba(0,0,0,0.65)] border border-white/15"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        <div className="flex items-center justify-between gap-3 px-3 py-1.5 border-b border-white/10 bg-black min-h-[28px]">
           <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 min-w-0 flex-1">
             {metaParts.map((part, i) => (
               <span key={`${part}-${i}`} className="inline-flex items-center gap-2">
@@ -649,7 +705,7 @@ function FullOverlay({
           <FullOverlayCompletedSets games={completedGames} />
         </div>
 
-        <div className="flex items-stretch min-h-[52px]">
+        <div className="flex items-stretch min-h-[64px]">
           <FullOverlaySide
             align="left"
             identity={identityFromSideInfo(state.leftSide)}
@@ -662,7 +718,19 @@ function FullOverlay({
             format={state.format}
           />
 
-          <div className="w-px bg-white/10 shrink-0" aria-hidden />
+          <div
+            className="w-[56px] sm:w-[64px] shrink-0 flex flex-col items-center justify-center gap-0.5 border-x border-white/10"
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+            aria-hidden
+          >
+            <span className="text-[9px] font-black tracking-[0.18em] text-white/35">SET</span>
+            <span
+              className="text-lg sm:text-xl font-black tabular-nums"
+              style={{ color: BIDWAR_BROADCAST_YELLOW }}
+            >
+              {state.currentGame}
+            </span>
+          </div>
 
           <FullOverlaySide
             align="right"
@@ -712,7 +780,7 @@ function FullOverlayCompletedSets({
           >
             {g.leftScore}
           </span>
-          <span className="text-[10px] font-bold" style={{ color: "rgba(255, 196, 0, 0.45)" }}>
+          <span className="text-[10px] font-bold" style={{ color: "rgba(255, 215, 0, 0.45)" }}>
             –
           </span>
           <span
@@ -756,25 +824,30 @@ function FullOverlaySide({
         "flex flex-1 min-w-0",
         overlayServeSideShellClass(isServing, isServeFlash),
       )}
+      style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
     >
       {isServing ? (
         <div
           className={cn(
-            "absolute inset-y-2 w-1 rounded-full bg-[#ffd700]/90 pointer-events-none",
+            "absolute inset-y-2 w-1 rounded-full pointer-events-none",
             isRight ? "right-1.5" : "left-1.5",
           )}
+          style={{ backgroundColor: BIDWAR_BROADCAST_YELLOW }}
           aria-hidden
         />
       ) : null}
 
       <div
         className={cn(
-          "relative z-10 flex flex-1 items-center gap-2 sm:gap-3 px-3 py-2 min-w-0",
+          "relative z-10 flex flex-1 items-center gap-2 sm:gap-3 px-3 py-2.5 min-w-0",
           isRight && "flex-row-reverse",
         )}
       >
       {isServing ? (
-        <div className="w-2 h-2 rounded-full bg-[#ffd700] animate-pulse shrink-0" />
+        <div
+          className="w-2 h-2 rounded-full animate-pulse shrink-0"
+          style={{ backgroundColor: BIDWAR_BROADCAST_YELLOW }}
+        />
       ) : (
         <div className="w-2 shrink-0" />
       )}
@@ -796,21 +869,28 @@ function FullOverlaySide({
           <div
             key={i}
             className={cn(
-              "w-1.5 h-1.5 rounded-full",
-              i < gamesWon ? "bg-white" : "bg-white/12",
+              "w-1.5 h-1.5 rounded-full border",
+              i < gamesWon ? "border-transparent" : "bg-transparent border-white/35",
             )}
+            style={
+              i < gamesWon
+                ? { backgroundColor: BIDWAR_BROADCAST_YELLOW, borderColor: BIDWAR_BROADCAST_YELLOW }
+                : undefined
+            }
           />
         ))}
       </div>
 
-      <OverlayScoreDigit
-        score={score}
-        celebrate={celebrate}
-        className={cn(
-          "text-2xl sm:text-3xl text-white shrink-0",
-          isWinner && "text-[#ffd700]",
-        )}
-      />
+      <div className="flex h-11 w-14 sm:h-12 sm:w-16 shrink-0 items-center justify-center rounded-lg bg-black border border-white/15">
+        <OverlayScoreDigit
+          score={score}
+          celebrate={celebrate}
+          className={cn(
+            "text-2xl sm:text-3xl text-white shrink-0",
+            isWinner && "text-[#ffd700]",
+          )}
+        />
+      </div>
       </div>
     </div>
   );
@@ -843,11 +923,19 @@ function IntroOverlay({
 
       {/* VS separator */}
       <div className="flex flex-col items-center gap-2 pb-4">
-        <div className="bg-white/10 rounded-xl px-4 py-2">
-          <span className="text-white font-black text-xl">VS</span>
+        <div
+          className="rounded-xl px-4 py-2 border border-white/15"
+          style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+        >
+          <span
+            className="font-black text-xl"
+            style={{ color: BIDWAR_BROADCAST_YELLOW }}
+          >
+            VS
+          </span>
         </div>
         {state.matchKind && (
-          <span className="text-white/30 text-[10px] font-medium uppercase tracking-widest text-center">
+          <span className="text-white/40 text-[10px] font-medium uppercase tracking-widest text-center">
             {state.matchKind.replace("_", " ")}
           </span>
         )}
@@ -883,31 +971,36 @@ function IntroCard({
 
   return (
     <div
-      className={cn(
-        "rounded-2xl overflow-hidden w-52",
-        isLeft
-          ? "bg-gradient-to-b from-[#0d2560]/95 to-[#071535]/95"
-          : "bg-gradient-to-b from-[#2d0a4a]/95 to-[#12052a]/95",
-      )}
+      className="rounded-2xl overflow-hidden w-52 border border-white/15 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
+      style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
     >
-      <div className="relative h-36 overflow-hidden flex items-center justify-center gap-1 px-2">
+      <div
+        className="relative h-36 overflow-hidden flex items-center justify-center gap-1 px-2"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
+      >
         <SidePlayerPhotos
           info={info}
           matchKind={matchKind}
           side={side}
           size="md"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0d2560]/80 via-transparent to-transparent pointer-events-none" />
+        <div
+          className="absolute inset-0 bg-gradient-to-t via-transparent to-transparent pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(to top, ${BIDWAR_SCOREBOARD_SHELL}, transparent)`,
+          }}
+        />
       </div>
 
-      <div className="px-4 pt-2 pb-4">
+      <div className="px-4 pt-2 pb-4" style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}>
         <TeamPlayerCard
           identity={identity}
           size="sm"
           tone="led"
           layout="stack"
           align={isLeft ? "start" : "end"}
-          playerClassName="text-base font-bold"
+          playerClassName="text-base font-bold text-white"
+          teamClassName="text-white/50"
         />
         <div className="flex items-center gap-2 mt-1">
           {info.sponsorLogoUrl && (
@@ -915,10 +1008,10 @@ function IntroCard({
           )}
         </div>
         {info.countryName && (
-          <p className={cn(
-            "text-xs font-bold uppercase tracking-wider mt-1",
-            isLeft ? "text-[#4fc3f7]" : "text-[#ce93d8]",
-          )}>
+          <p
+            className="text-xs font-bold uppercase tracking-wider mt-1"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+          >
             {info.countryName}
           </p>
         )}
@@ -948,21 +1041,17 @@ function WinnerOverlay({
 
   return (
     <div
-      className={cn(
-        "rounded-3xl overflow-hidden shadow-2xl w-[480px] animate-[badmintonMomentIn_0.45s_ease-out_forwards]",
-        isLeft
-          ? "bg-gradient-to-br from-[#0d1e4a]/95 to-[#0a3080]/90"
-          : "bg-gradient-to-br from-[#1a052e]/95 to-[#3a0a5e]/90",
-        "border",
-        isLeft ? "border-[#ffc400]/20" : "border-[#ff6b6b]/20",
-      )}
-      style={{ fontFamily: "'Inter', 'system-ui', sans-serif" }}
+      className="rounded-3xl overflow-hidden shadow-[0_12px_48px_rgba(0,0,0,0.65)] w-[480px] animate-[badmintonMomentIn_0.45s_ease-out_forwards] border border-white/15"
+      style={{
+        fontFamily: "'Inter', 'system-ui', sans-serif",
+        backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+      }}
     >
-      <div className="p-8 text-center">
+      <div className="p-8 text-center" style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}>
         <div className="badminton-winner-seal mx-auto mb-4">
           <span className="bw-heading">WINNER</span>
         </div>
-        <p className="text-white/40 text-xs font-bold uppercase tracking-[0.4em] mb-2">
+        <p className="text-white/45 text-xs font-bold uppercase tracking-[0.4em] mb-2">
           {tournamentName ?? "Match Winner"}
         </p>
 
@@ -970,7 +1059,8 @@ function WinnerOverlay({
           <img
             src={winner.photoUrl}
             alt={identity.playerName}
-            className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-4 border-[#ffd700]/50"
+            className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-4"
+            style={{ borderColor: BIDWAR_BROADCAST_YELLOW_BORDER }}
           />
         )}
 
@@ -981,30 +1071,42 @@ function WinnerOverlay({
             tone="led"
             align="center"
             playerClassName="text-3xl font-black text-white"
-            teamClassName="text-white/55"
+            teamClassName="text-white/50"
           />
         </div>
 
         {winner.countryName && (
-          <p className={cn(
-            "text-sm font-bold uppercase tracking-widest mb-4",
-            isLeft ? "text-[#4fc3f7]" : "text-[#ce93d8]",
-          )}>
+          <p
+            className="text-sm font-bold uppercase tracking-widest mb-4"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+          >
             {winner.countryName}
           </p>
         )}
 
         <div className="flex items-center justify-center gap-2 mb-4">
-          <span className={cn("text-4xl font-black", isLeft ? "text-[#ffc400]" : "text-[#ff6b6b]")}>
+          <span
+            className="text-4xl font-black"
+            style={{ color: isLeft ? BIDWAR_BROADCAST_YELLOW : "rgba(255,255,255,0.85)" }}
+          >
             {state.gamesLeft}
           </span>
           <span className="text-white/30 text-2xl">–</span>
-          <span className="text-white/40 text-4xl font-black">{state.gamesRight}</span>
+          <span
+            className="text-4xl font-black"
+            style={{ color: !isLeft ? BIDWAR_BROADCAST_YELLOW : "rgba(255,255,255,0.45)" }}
+          >
+            {state.gamesRight}
+          </span>
         </div>
 
         <div className="flex items-center justify-center gap-2">
           {completedGames.map((g) => (
-            <div key={g.gameNumber} className="bg-white/8 rounded-lg px-3 py-1.5">
+            <div
+              key={g.gameNumber}
+              className="rounded-lg px-3 py-1.5 border border-white/10"
+              style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+            >
               <span className="text-white text-xs font-bold">
                 {g.leftScore}–{g.rightScore}
               </span>
@@ -1031,11 +1133,17 @@ function SponsorOverlay({
 
   return (
     <div
-      className="rounded-xl overflow-hidden bg-[#101013]/90 border border-white/10 px-6 py-4 flex items-center gap-6 shadow-2xl"
-      style={{ fontFamily: "'Inter', 'system-ui', sans-serif" }}
+      className="rounded-2xl overflow-hidden border border-white/15 px-6 py-4 flex items-center gap-6 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
+      style={{
+        fontFamily: "'Inter', 'system-ui', sans-serif",
+        backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+      }}
     >
       {tournamentName ? (
-        <span className="text-white/40 text-xs font-bold uppercase tracking-widest whitespace-nowrap">
+        <span
+          className="text-xs font-bold uppercase tracking-widest whitespace-nowrap"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
           Supported by
         </span>
       ) : null}
@@ -1080,8 +1188,14 @@ export function ObsRecentResultsOverlay({
 
   if (results.length === 0) {
     return (
-      <div className="rounded-xl border border-white/15 bg-black/80 px-5 py-3 shadow-2xl backdrop-blur-sm">
-        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/80">
+      <div
+        className="rounded-2xl border border-white/15 px-5 py-3 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        <p
+          className="text-[10px] font-mono uppercase tracking-[0.28em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
           Results
         </p>
         <p className="text-white/70 text-sm font-semibold mt-1">No completed matches yet</p>
@@ -1104,11 +1218,17 @@ export function ObsRecentResultsOverlay({
   return (
     <div
       key={match.id}
-      className="rounded-xl border border-amber-400/35 bg-black/85 px-5 py-3.5 shadow-2xl backdrop-blur-sm animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
-      style={{ fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif" }}
+      className="rounded-2xl border border-white/15 px-5 py-3.5 shadow-[0_12px_48px_rgba(0,0,0,0.55)] animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
+      style={{
+        fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif",
+        backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+      }}
     >
       <div className="flex items-center justify-between gap-3 mb-2">
-        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/90">
+        <p
+          className="text-[10px] font-mono uppercase tracking-[0.28em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW }}
+        >
           Result{results.length > 1 ? ` · ${index + 1}/${results.length}` : ""}
         </p>
         {metaBits.length > 0 ? (
@@ -1122,15 +1242,18 @@ export function ObsRecentResultsOverlay({
           <p className="text-white text-xl md:text-2xl font-bold leading-tight truncate">
             {winner}
           </p>
-          <p className="text-white/55 text-xs md:text-sm mt-0.5 truncate">
+          <p className="text-white/50 text-xs md:text-sm mt-0.5 truncate">
             def <span className="text-white/80">{loser}</span>
             {sets.length > 0 ? (
-              <span className="text-white/40"> · {sets.join(", ")}</span>
+              <span className="text-white/35"> · {sets.join(", ")}</span>
             ) : null}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <div className="text-center">
+          <div
+            className="text-center rounded-lg px-2.5 py-1.5 border border-white/10"
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+          >
             <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40">
               Games
             </p>
@@ -1138,11 +1261,23 @@ export function ObsRecentResultsOverlay({
               {gamesWonLine(match)}
             </p>
           </div>
-          <div className="text-center min-w-[3.25rem]">
-            <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald-300/70">
+          <div
+            className="text-center min-w-[3.25rem] rounded-lg px-2.5 py-1.5 border"
+            style={{
+              backgroundColor: BIDWAR_BROADCAST_YELLOW_SOFT,
+              borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+            }}
+          >
+            <p
+              className="text-[9px] font-mono uppercase tracking-[0.2em]"
+              style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+            >
               Diff
             </p>
-            <p className="text-emerald-300 text-2xl font-black tabular-nums leading-none">
+            <p
+              className="text-2xl font-black tabular-nums leading-none"
+              style={{ color: BIDWAR_BROADCAST_YELLOW }}
+            >
               {diff}
             </p>
           </div>
@@ -1178,8 +1313,14 @@ export function ObsLeaderboardsOverlay({
 
   if (loading && pages.length === 0) {
     return (
-      <div className="rounded-xl border border-white/15 bg-black/80 px-5 py-3 shadow-2xl backdrop-blur-sm">
-        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/80">
+      <div
+        className="rounded-2xl border border-white/15 px-5 py-3 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        <p
+          className="text-[10px] font-mono uppercase tracking-[0.28em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
           Leaderboard
         </p>
         <p className="text-white/70 text-sm font-semibold mt-1">Loading…</p>
@@ -1189,8 +1330,14 @@ export function ObsLeaderboardsOverlay({
 
   if (pages.length === 0) {
     return (
-      <div className="rounded-xl border border-white/15 bg-black/80 px-5 py-3 shadow-2xl backdrop-blur-sm">
-        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/80">
+      <div
+        className="rounded-2xl border border-white/15 px-5 py-3 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        <p
+          className="text-[10px] font-mono uppercase tracking-[0.28em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
           Leaderboard
         </p>
         <p className="text-white/70 text-sm font-semibold mt-1">No league standings yet</p>
@@ -1205,12 +1352,18 @@ export function ObsLeaderboardsOverlay({
   return (
     <div
       key={page.key}
-      className="rounded-xl border border-amber-400/35 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur-sm animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
-      style={{ fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif" }}
+      className="rounded-2xl border border-white/15 px-4 py-3 shadow-[0_12px_48px_rgba(0,0,0,0.55)] animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
+      style={{
+        fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif",
+        backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+      }}
     >
       <div className="flex items-center justify-between gap-3 mb-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/90">
+          <p
+            className="text-[10px] font-mono uppercase tracking-[0.28em]"
+            style={{ color: BIDWAR_BROADCAST_YELLOW }}
+          >
             Leaderboard
             {pages.length > 1 ? ` · ${safe + 1}/${pages.length}` : ""}
           </p>
@@ -1229,13 +1382,23 @@ export function ObsLeaderboardsOverlay({
         {topRows.map((row) => (
           <div
             key={row.registrationId}
-            className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-2 items-center"
+            className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-2 items-center rounded-md px-1.5 py-1"
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
           >
-            <span className="text-white/50 text-sm font-bold tabular-nums">{row.rank}</span>
+            <span
+              className="text-sm font-bold tabular-nums"
+              style={{
+                color: row.rank <= 3 ? BIDWAR_BROADCAST_YELLOW : "rgba(255,255,255,0.45)",
+              }}
+            >
+              {row.rank}
+            </span>
             <span className="text-white text-sm font-semibold truncate">{row.label}</span>
-            <span className="text-right text-xs tabular-nums text-white/70 whitespace-nowrap">
+            <span className="text-right text-xs tabular-nums text-white/65 whitespace-nowrap">
               {row.played}-{row.won}-{row.lost}
-              <span className="text-amber-300 font-black ml-2">{row.marginPoints}</span>
+              <span className="font-black ml-2" style={{ color: BIDWAR_BROADCAST_YELLOW }}>
+                {row.marginPoints}
+              </span>
             </span>
           </div>
         ))}

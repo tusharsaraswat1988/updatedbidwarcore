@@ -4,6 +4,7 @@ import { useBadmintonBidWarTheme } from "@/components/badminton/bidwar-badminton
 import {
   BIDWAR_BROADCAST_YELLOW,
   BIDWAR_BROADCAST_YELLOW_ON,
+  BIDWAR_SCOREBOARD_SHELL,
 } from "@/lib/bidwar-broadcast-colors";
 import {
   ScoreBoardSponsorPanel,
@@ -110,50 +111,51 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
 
   if (slim) {
     return (
-      <div className="relative z-20 pointer-events-none shrink-0 bg-black/35 border-b border-white/8">
-        <div className="flex items-center justify-between gap-3 px-[2%] py-1.5 md:py-2 min-h-[40px]">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div
+        className="relative z-20 pointer-events-none shrink-0 border-b border-white/15"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-[2%] py-1.5 md:py-2 min-h-[44px]">
+          {/* Left — tournament identity only */}
+          <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
             {tournamentLogoUrl ? (
               <img
                 src={tournamentLogoUrl}
                 alt=""
-                className="h-7 md:h-8 w-auto max-w-[72px] object-contain shrink-0"
-              />
-            ) : null}
-            {logoSrc ? (
-              <img
-                src={logoSrc}
-                alt={logoAlt}
-                className="h-6 md:h-7 w-auto max-w-[120px] object-contain shrink-0"
-                style={{ filter: "drop-shadow(0 1px 8px rgba(0,0,0,0.55))" }}
+                className="h-8 md:h-9 w-auto max-w-[80px] object-contain shrink-0"
                 loading="eager"
                 decoding="async"
               />
             ) : null}
-            <span className="text-[11px] md:text-xs font-bold text-white/85 uppercase tracking-wide truncate">
+            <span className="text-[11px] md:text-xs font-bold text-white uppercase tracking-wide truncate">
               {tournamentName}
             </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {metaParts[0] ? (
-              <span className="bw-caption text-[9px] text-white/40 hidden sm:inline">
-                {metaParts[0]}
+
+          {/* Center — BidWar wordmark (true midpoint) */}
+          <div className="flex flex-col items-center justify-center shrink-0 px-2">
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={logoAlt}
+                width={200}
+                height={48}
+                className="block h-8 md:h-9 w-auto max-w-[min(200px,28vw)] object-contain object-center"
+                loading="eager"
+                decoding="sync"
+                fetchPriority="high"
+              />
+            ) : null}
+            {isTimeout ? (
+              <span className="bw-caption text-[9px] text-amber-200/85 mt-0.5 text-center">
+                TIMEOUT · {timeoutSide === "left" ? leftLabel : rightLabel}
               </span>
             ) : null}
-            <UrgentStatusDot
-              matchStatus={matchStatus}
-              isTimeout={isTimeout}
-              isLive={isLive}
-            />
           </div>
+
+          {/* Right — keep empty for balance (no court / LIVE here) */}
+          <div className="justify-self-end" aria-hidden />
         </div>
-        {isTimeout ? (
-          <div className="px-[2%] pb-1 text-center">
-            <span className="bw-caption text-[9px] text-amber-200/85">
-              {timeoutSide === "left" ? leftLabel : rightLabel}
-            </span>
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -278,12 +280,13 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   return (
     <div
       className={cn(
-        "border-t border-white/10 bg-black/50 grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
+        "border-t border-white/10 grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
         slim
           ? "h-[7vh] min-h-[52px] max-h-[72px]"
           : "h-[10vh] min-h-[72px] max-h-[104px]",
         className,
       )}
+      style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
     >
       <div
         className="relative h-full shrink-0 flex items-center px-5 md:px-6"

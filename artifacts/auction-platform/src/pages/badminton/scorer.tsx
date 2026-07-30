@@ -11,6 +11,10 @@ import { useSearch, useRoute, Link, useLocation } from "wouter";
 import { ScorerPanel } from "@/components/badminton/scorer-panel";
 import { ScorerAssistanceShell } from "@/components/badminton/scorer-assistance-shell";
 import { ScorerStartMatchPanel } from "@/components/badminton/scorer-start-match";
+import {
+  canShowEditToss,
+  ScorerEditTossPanel,
+} from "@/components/badminton/scorer-edit-toss-panel";
 import { useBadmintonMatch, useBadmintonDirector, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
@@ -101,6 +105,7 @@ export default function BadmintonScorerPage() {
   // ("Opening scorer console…" with no Back / no progress on Resume Match).
   const [busy, setBusy] = useState(false);
   const [viewingComplete, setViewingComplete] = useState(false);
+  const [editingToss, setEditingToss] = useState(false);
   const lockHeldRef = useRef(false);
   const releasedOnCompleteRef = useRef(false);
   const autoLockAttemptedRef = useRef(false);
@@ -232,19 +237,35 @@ export default function BadmintonScorerPage() {
         : undefined;
 
   async function exitScorer(logout = false) {
-    const token = getScorerAuthSession()?.token;
-    if (token && matchId && lockHeldRef.current) {
-      await releaseScorerMatchLock(matchId, token, { tournamentId, sport: "badminton" });
-      lockHeldRef.current = false;
-    }
-    setLockAccepted(false);
-    if (logout && token) {
-      await logoutScorer(token);
-      clearScorerAuthSession();
-      setAuthAccepted(false);
-    }
-    if (tournamentId > 0) {
-      navigate(badmintonScorerHomePath(tournamentId));
+    setBusy(true);
+    try {
+      // Final points must reach the server before unlock — otherwise home stays LIVE.
+      try {
+        await scorer.ensurePointsSynced();
+      } catch {
+        setAuthError(
+          scorer.pointSyncError ??
+            "Final score not saved yet. Tap Retry, then exit again.",
+        );
+        return;
+      }
+
+      const token = getScorerAuthSession()?.token;
+      if (token && matchId && lockHeldRef.current) {
+        await releaseScorerMatchLock(matchId, token, { tournamentId, sport: "badminton" });
+        lockHeldRef.current = false;
+      }
+      setLockAccepted(false);
+      if (logout && token) {
+        await logoutScorer(token);
+        clearScorerAuthSession();
+        setAuthAccepted(false);
+      }
+      if (tournamentId > 0) {
+        navigate(badmintonScorerHomePath(tournamentId));
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -279,12 +300,17 @@ export default function BadmintonScorerPage() {
     }
   }
 
-  // Sprint 2 leftover — keep complete screen after server releases the lock.
+  const pointsUnsynced =
+    scorer.pendingPointCount > 0 || scorer.pointsSyncing || Boolean(scorer.pointSyncError);
+
+  // Release lock only after the terminal result is synced — early unlock drops
+  // queued MATCH_ENDED points and leaves Scorer Home stuck on Resume Live.
   useEffect(() => {
     if (!ready || !data?.state) return;
     const status = (data.state as BadmintonMatchState).matchStatus;
     if (!TERMINAL_STATUSES.has(status)) return;
     setViewingComplete(true);
+    if (pointsUnsynced) return;
     if (releasedOnCompleteRef.current || !lockHeldRef.current) return;
     releasedOnCompleteRef.current = true;
     const token = getScorerAuthSession()?.token;
@@ -293,7 +319,13 @@ export default function BadmintonScorerPage() {
       lockHeldRef.current = false;
       setLockAccepted(false);
     });
-  }, [ready, data?.state?.matchStatus, matchId, tournamentId]);
+  }, [
+    ready,
+    data?.state?.matchStatus,
+    matchId,
+    tournamentId,
+    pointsUnsynced,
+  ]);
 
   if (!ready) {
     if (busy && getScorerAuthSession() && !authError) {
@@ -520,12 +552,52 @@ export default function BadmintonScorerPage() {
               </div>
             ) : null}
 
+            {scorer.pendingPointCount > 0 || scorer.pointsSyncing ? (
+              <p className="text-amber-200/90 text-sm font-semibold" role="status">
+                Saving final score to server…
+              </p>
+            ) : null}
+
+            {scorer.pointSyncError ? (
+              <div
+                className="rounded-xl border border-destructive/40 bg-destructive/15 px-3 py-3 text-left space-y-2"
+                role="alert"
+              >
+                <p className="text-destructive-foreground text-xs font-semibold">
+                  {friendlyScorerSyncError(scorer.pointSyncError).text}
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    const { isLock } = friendlyScorerSyncError(scorer.pointSyncError!);
+                    if (isLock) void reconnectAndRetry();
+                    else void scorer.retryPointQueue();
+                  }}
+                  className="w-full min-h-11 rounded-lg bg-destructive/25 text-destructive-foreground text-sm font-bold disabled:opacity-50"
+                >
+                  {busy ? "…" : "Retry save"}
+                </button>
+              </div>
+            ) : null}
+
+            {authError ? (
+              <p className="text-red-400 text-sm" role="alert">
+                {authError}
+              </p>
+            ) : null}
+
             <button
               type="button"
+              disabled={busy || pointsUnsynced}
               onClick={() => void exitScorer(false)}
-              className="w-full min-h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base shadow-[var(--shadow-glow)]"
+              className="w-full min-h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base shadow-[var(--shadow-glow)] disabled:opacity-50"
             >
-              Exit to Scorer Home
+              {scorer.pointsSyncing || scorer.pendingPointCount > 0
+                ? "Saving…"
+                : scorer.pointSyncError
+                  ? "Save failed — retry above"
+                  : "Exit to Scorer Home"}
             </button>
           </div>
         </div>
@@ -583,32 +655,57 @@ export default function BadmintonScorerPage() {
             </button>
           </div>
         ) : null}
+        {canShowEditToss(state) && !editingToss ? (
+          <div className="shrink-0 px-3 py-2 border-b border-border bg-cyan-500/10">
+            <button
+              type="button"
+              onClick={() => setEditingToss(true)}
+              className="w-full min-h-11 rounded-xl bg-cyan-600/90 hover:bg-cyan-500 text-white text-sm font-bold"
+            >
+              Edit Toss
+            </button>
+            <p className="text-cyan-100/70 text-[11px] text-center mt-1.5">
+              Change serve setup or swap court ends, then continue scoring.
+            </p>
+          </div>
+        ) : null}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <ScorerAssistanceShell
-            state={state}
-            tournamentName={tournamentName}
-            courtNumber={courtNumber}
-            categoryName={categoryName}
-            onAwardPoint={scorer.awardPoint}
-            onStartInterval={scorer.startInterval}
-            onEndInterval={scorer.endInterval}
-            onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
-          >
-            {({ scoringBlocked, onAwardPoint }) => (
-              <ScorerPanel
-                tournamentId={tournamentId}
-                matchId={matchId}
-                state={state}
-                onAwardPoint={onAwardPoint}
-                onUndo={scorer.undo}
-                onStartTimeout={scorer.startTimeout}
-                onEndTimeout={scorer.endTimeout}
-                onRetirement={director.retirement}
-                onWalkover={director.walkover}
-                scoringBlocked={scoringBlocked}
-              />
-            )}
-          </ScorerAssistanceShell>
+          {editingToss ? (
+            <ScorerEditTossPanel
+              state={state}
+              onCancel={() => setEditingToss(false)}
+              onCorrectToss={async (payload) => {
+                await scorer.correctToss(payload);
+                setEditingToss(false);
+              }}
+            />
+          ) : (
+            <ScorerAssistanceShell
+              state={state}
+              tournamentName={tournamentName}
+              courtNumber={courtNumber}
+              categoryName={categoryName}
+              onAwardPoint={scorer.awardPoint}
+              onStartInterval={scorer.startInterval}
+              onEndInterval={scorer.endInterval}
+              onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
+            >
+              {({ scoringBlocked, onAwardPoint }) => (
+                <ScorerPanel
+                  tournamentId={tournamentId}
+                  matchId={matchId}
+                  state={state}
+                  onAwardPoint={onAwardPoint}
+                  onUndo={scorer.undo}
+                  onStartTimeout={scorer.startTimeout}
+                  onEndTimeout={scorer.endTimeout}
+                  onRetirement={director.retirement}
+                  onWalkover={director.walkover}
+                  scoringBlocked={scoringBlocked}
+                />
+              )}
+            </ScorerAssistanceShell>
+          )}
         </div>
       </div>
     </FullscreenLayout>

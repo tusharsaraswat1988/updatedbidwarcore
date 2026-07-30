@@ -153,7 +153,7 @@ export default function BadmintonBrandingPage() {
     logoPublicId: "",
     venue: "",
     organizerName: "",
-    primaryColor: "#E8C84A",
+    primaryColor: "#FFD700",
     accentColor: "#2A3566",
   });
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);

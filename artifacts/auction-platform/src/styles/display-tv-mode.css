@@ -434,7 +434,7 @@
   width: 0.7em;
   height: 0.7em;
   border-radius: 999px;
-  border: 2px solid #ffc400;
+  border: 2px solid #ffd700;
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
 }
 
@@ -445,7 +445,7 @@
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
   background: #ffd700;
-  color: #0a0a0a;
+  color: #0c0c10;
   box-shadow: 0 0 14px rgba(255, 215, 0, 0.65);
   white-space: nowrap;
 }
@@ -453,7 +453,7 @@
 .badminton-serve-badge .bw-label {
   font-size: 0.7rem;
   letter-spacing: 0.14em;
-  color: #0a0a0a;
+  color: #0c0c10;
 }
 
 .badminton-serve-badge .badminton-serve-pip,
@@ -462,8 +462,8 @@
   height: 0.55rem;
   animation: none;
   box-shadow: none;
-  background: #0a0a0a;
-  border-color: #0a0a0a;
+  background: #0c0c10;
+  border-color: #0c0c10;
 }
 
 .badminton-urgency-banner {
@@ -493,9 +493,9 @@
 }
 
 .badminton-urgency-banner--deuce {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: rgba(251, 191, 36, 0.45);
-  color: #fcd34d;
+  background: rgba(255, 215, 0, 0.14);
+  border-color: rgba(255, 215, 0, 0.45);
+  color: #ffd700;
   animation: none;
 }
 
@@ -516,7 +516,9 @@
   padding: clamp(1.5rem, 4vh, 2.75rem) clamp(2rem, 6vw, 4rem);
   border-radius: 1.5rem;
   border-width: 1px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  background: #050507;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.65);
   animation: badmintonMomentIn 0.4s ease-out forwards;
 }
 
@@ -527,8 +529,8 @@
   min-width: 9rem;
   padding: 0.55rem 1.4rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ffd700, #c9a227);
-  color: #0a0a0a;
+  background: #ffd700;
+  color: #0c0c10;
   box-shadow: 0 0 32px rgba(255, 215, 0, 0.45);
 }
 
@@ -645,12 +647,12 @@
 
 /* V1 LED stage — theme tokens + broadcast animations ───────────── */
 .auction-stage {
-  --accent: #ffc400;
-  --accent-strong: #ffd633;
-  --accent-glow: rgba(255, 196, 0, 0.35);
-  --accent-on: #0a0a0a;
-  --stage-bg: #070708;
-  --stage-surface: #101013;
+  --accent: #ffd700;
+  --accent-strong: #ffd700;
+  --accent-glow: rgba(255, 215, 0, 0.35);
+  --accent-on: #0c0c10;
+  --stage-bg: #050507;
+  --stage-surface: #0c0c10;
   --stage-text: #ffffff;
 }
 

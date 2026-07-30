@@ -33,6 +33,8 @@ export function DoublesPreMatchSetup({
   onStart,
   embedded = false,
   onCancel,
+  submitLabel = "Start Doubles Match",
+  busyLabel = "Starting…",
 }: {
   state?: BadmintonMatchState | null;
   detail: unknown;
@@ -40,6 +42,8 @@ export function DoublesPreMatchSetup({
   /** Render inside Match Control instead of a fullscreen card. */
   embedded?: boolean;
   onCancel?: () => void;
+  submitLabel?: string;
+  busyLabel?: string;
 }) {
   const d = detail as Record<string, unknown> | null;
   const leftSideJson = (d?.leftSideJson ?? {}) as Record<string, unknown>;
@@ -232,7 +236,7 @@ export function DoublesPreMatchSetup({
               disabled={starting}
               className="w-full h-12 text-base"
             >
-              {starting ? "Starting…" : "Start Doubles Match"}
+              {starting ? busyLabel : submitLabel}
             </BtnPrimary>
 
             <button
@@ -425,11 +429,15 @@ export function SinglesPreMatchSetup({
   onStart,
   embedded = false,
   onCancel,
+  submitLabel = "Start Match",
+  busyLabel = "Starting…",
 }: {
   detail: unknown;
   onStart: (payload: unknown) => Promise<BadmintonMatchState | void>;
   embedded?: boolean;
   onCancel?: () => void;
+  submitLabel?: string;
+  busyLabel?: string;
 }) {
   const d = detail as Record<string, unknown> | null;
   const leftSideJson = (d?.leftSideJson ?? {}) as Record<string, unknown>;
@@ -505,7 +513,7 @@ export function SinglesPreMatchSetup({
           disabled={starting}
           className="w-full h-12 text-base"
         >
-          {starting ? "Starting…" : "Start Match"}
+          {starting ? busyLabel : submitLabel}
         </BtnPrimary>
 
         {onCancel ? (

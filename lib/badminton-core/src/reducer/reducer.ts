@@ -14,6 +14,7 @@ import {
   type BadmintonTimeoutStartedPayload,
   type BadmintonTimeoutEndedPayload,
   type BadmintonSideChangedPayload,
+  type BadmintonTossCorrectedPayload,
   type BadmintonMatchPausedPayload,
   type BadmintonMatchResumedPayload,
   type BadmintonMatchNoteAddedPayload,
@@ -87,6 +88,46 @@ function applyMatchStarted(
     isPaused: false,
     matchNotes: [],
     startedAt: new Date().toISOString(),
+  };
+}
+
+function applyTossCorrected(
+  state: BadmintonMatchState,
+  payload: BadmintonTossCorrectedPayload,
+): BadmintonMatchState {
+  const startLike: BadmintonMatchStartedPayload = {
+    matchKind: state.matchKind,
+    format: state.format,
+    leftSide: payload.leftSide,
+    rightSide: payload.rightSide,
+    firstServer: payload.firstServer,
+    doublesSetup: payload.doublesSetup,
+  };
+  const engine = getScoringEngine(state.matchKind);
+  const enginePatch = engine.applyMatchStarted(state, startLike);
+  const game0 = state.games[0];
+
+  return {
+    ...state,
+    leftSide: payload.leftSide,
+    rightSide: payload.rightSide,
+    leftScore: 0,
+    rightScore: 0,
+    servingSide: enginePatch.servingSide ?? payload.firstServer,
+    doublesServe: enginePatch.doublesServe,
+    games: game0
+      ? [
+          {
+            ...game0,
+            leftScore: 0,
+            rightScore: 0,
+            servingSide: payload.firstServer,
+            intervalReached: false,
+            sideChangeAcknowledged: false,
+            phase: "in_progress",
+          },
+        ]
+      : state.games,
   };
 }
 
@@ -382,6 +423,9 @@ export function reduceBadminton(
   switch (event.eventType) {
     case BadmintonEventType.MATCH_STARTED:
       next = applyMatchStarted(state, parsed.payload as BadmintonMatchStartedPayload);
+      break;
+    case BadmintonEventType.TOSS_CORRECTED:
+      next = applyTossCorrected(state, parsed.payload as BadmintonTossCorrectedPayload);
       break;
     case BadmintonEventType.POINT_WON:
       next = applyPointWon(state, parsed.payload as BadmintonPointWonPayload);

@@ -33,6 +33,7 @@ import type {
   BadmintonMatchState,
   BadmintonSide,
   BadmintonMatchStartedPayload,
+  BadmintonTossCorrectedPayload,
 } from "@workspace/badminton-core";
 import {
   cmdAwardPoint,
@@ -43,6 +44,7 @@ import {
   cmdStartInterval,
   cmdEndInterval,
   cmdAcknowledgeCourtChange,
+  cmdCorrectToss,
   cmdDeclareRetirement,
   cmdDeclareWalkover,
   cmdDeclareDisqualification,
@@ -980,6 +982,9 @@ export async function handleCourtChangeAck(
       friendlyBadmintonCommandMessage(result.error),
     );
   }
+  if (result.events.length === 0) {
+    return state;
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -990,6 +995,68 @@ export async function handleCourtChangeAck(
     actor,
     "replay",
   );
+}
+
+export async function handleCorrectToss(
+  matchId: number,
+  tournamentId: number,
+  input: BadmintonTossCorrectedPayload,
+  actor: Actor,
+): Promise<BadmintonMatchState> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  const result = cmdCorrectToss(state, input);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
+
+  const next = await persistBadmintonCommandEvents(
+    matchId,
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
+  );
+
+  // Keep roster JSON on detail/scoring match aligned when ends are swapped.
+  const leftSideJson = input.leftSide as unknown as Record<string, unknown>;
+  const rightSideJson = input.rightSide as unknown as Record<string, unknown>;
+  await db
+    .update(badmintonMatchDetailsTable)
+    .set({
+      leftSideJson,
+      rightSideJson,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    );
+  await db
+    .update(scoringMatchesTable)
+    .set({
+      homeSideJson: buildScoringSideFromBadmintonSide(leftSideJson),
+      awaySideJson: buildScoringSideFromBadmintonSide(rightSideJson),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    );
+
+  return next;
 }
 
 export async function handleRetirement(
@@ -1289,9 +1356,15 @@ function toScorerHomeMatchCard(input: {
       ? (snapshot.rightSide as Record<string, unknown>)
       : null;
 
+  const snapshotStatus =
+    typeof snapshot?.matchStatus === "string" ? snapshot.matchStatus.trim() : "";
+  const tableStatus = typeof match.status === "string" ? match.status.trim() : "";
+  // Prefer any terminal status so Scorer Home never shows Resume after a finish.
   const matchStatus =
-    (typeof snapshot?.matchStatus === "string" && snapshot.matchStatus) ||
-    match.status ||
+    (isBadmintonTerminalMatchStatus(snapshotStatus) ? snapshotStatus : null) ||
+    (isBadmintonTerminalMatchStatus(tableStatus) ? tableStatus : null) ||
+    snapshotStatus ||
+    tableStatus ||
     "scheduled";
   const ui = mapMatchStatusToScorerHomeUi(matchStatus);
 

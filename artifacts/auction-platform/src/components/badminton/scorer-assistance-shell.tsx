@@ -63,7 +63,12 @@ export function ScorerAssistanceShell({
   async function handleCourtChangeAck() {
     await onAcknowledgeCourtChange();
     markCourtChangeAcknowledged();
-    await onStartInterval();
+    // Interval is assistive — don't keep the court-change modal stuck if start fails.
+    try {
+      await onStartInterval();
+    } catch {
+      // Scorer can use the "Start interval" banner.
+    }
   }
 
   function guardedAward(side: "left" | "right") {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function ScorerCourtChangeModal({
   open,
@@ -8,6 +8,14 @@ export function ScorerCourtChangeModal({
   onAcknowledge: () => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setBusy(false);
+      setError(null);
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -21,20 +29,32 @@ export function ScorerCourtChangeModal({
         <p className="mt-3 text-white/60 text-sm">
           Players must change ends. Confirm when the court change is complete.
         </p>
+        {error ? (
+          <p className="mt-4 rounded-xl border border-red-400/40 bg-red-950/50 px-3 py-2 text-sm text-red-200">
+            {error}
+          </p>
+        ) : null}
         <button
           disabled={busy}
           onClick={async () => {
             if (busy) return;
             setBusy(true);
+            setError(null);
             try {
               await onAcknowledge();
+            } catch (err) {
+              setError(
+                err instanceof Error && err.message
+                  ? err.message
+                  : "Could not confirm court change. Try again.",
+              );
             } finally {
               setBusy(false);
             }
           }}
           className="mt-6 w-full h-16 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-lg disabled:opacity-40"
         >
-          Court Change Complete
+          {busy ? "Confirming…" : "Court Change Complete"}
         </button>
       </div>
     </div>

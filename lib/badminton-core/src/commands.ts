@@ -15,6 +15,7 @@ import {
   type BadmintonGameEndedPayload,
   type BadmintonMatchEndedPayload,
   type BadmintonMatchStartedPayload,
+  type BadmintonTossCorrectedPayload,
   type BadmintonPointWonPayload,
   type BadmintonPointUndonePayload,
   type BadmintonIntervalStartedPayload,
@@ -38,6 +39,7 @@ import {
   sideChangeScore,
 } from "./reducer/state";
 import { getScoringEngine } from "./scoring";
+import { isPairMatchKind } from "./side-utils";
 
 export type CommandEvent = {
   eventType: string;
@@ -68,6 +70,46 @@ export function cmdStartMatch(
     return err(validation.error);
   }
   return ok(engine.buildMatchStartedEvents(state, input));
+}
+
+/** True when umpire may re-enter toss (live, game 1, 0–0, no rallies). */
+export function canCorrectToss(state: BadmintonMatchState): boolean {
+  if (state.matchStatus !== "live") return false;
+  if (state.isPaused || state.inInterval || state.activeTimeout) return false;
+  if ((state.totalRallies ?? 0) !== 0) return false;
+  if (state.currentGame !== 1) return false;
+  if (state.leftScore !== 0 || state.rightScore !== 0) return false;
+  if (state.gamesLeft !== 0 || state.gamesRight !== 0) return false;
+  if (state.games.length !== 1) return false;
+  const game = state.games[0];
+  return game?.phase === "in_progress" && game.leftScore === 0 && game.rightScore === 0;
+}
+
+export function cmdCorrectToss(
+  state: BadmintonMatchState,
+  input: BadmintonTossCorrectedPayload,
+): CommandResult {
+  if (!canCorrectToss(state)) {
+    return err(
+      "Toss can only be edited at 0–0 with no points scored. Undo points back to the start first.",
+    );
+  }
+
+  if (isPairMatchKind(state.matchKind)) {
+    if (!input.doublesSetup) {
+      return err("Doubles matches require doublesSetup (toss, server, receiver)");
+    }
+    if (input.doublesSetup.firstServingSide === input.doublesSetup.firstReceivingSide) {
+      return err("Serving and receiving sides must be different");
+    }
+  }
+
+  return ok([
+    {
+      eventType: BadmintonEventType.TOSS_CORRECTED,
+      payload: input as unknown as Record<string, unknown>,
+    },
+  ]);
 }
 
 export function cmdAwardPoint(
@@ -272,6 +314,10 @@ export function cmdAcknowledgeCourtChange(state: BadmintonMatchState): CommandRe
   const game = getCurrentGame(state);
   if (!game?.intervalReached) {
     return err("Court change not required yet");
+  }
+  // Idempotent — double-tap / retry after success must not fail the scorer UI.
+  if (game.sideChangeAcknowledged) {
+    return ok([]);
   }
 
   const payload: BadmintonSideChangedPayload = {

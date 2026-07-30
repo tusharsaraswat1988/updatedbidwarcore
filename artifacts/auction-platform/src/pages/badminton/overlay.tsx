@@ -24,8 +24,6 @@ import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
-import { DISPLAY_THEMES } from "@/lib/display-theme";
-import { displayThemeToPickerState, resolveStageTheme } from "@/lib/led-stage-theme";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import {
   detectGamePointSide,
@@ -35,6 +33,12 @@ import {
 import { cn } from "@/lib/utils";
 import { isLiveFollowMatchId } from "@/lib/badminton-broadcast-console";
 import { BROADCAST_OVERLAY_HEIGHT } from "@/lib/broadcast-overlay";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_BROADCAST_YELLOW_ON,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
 import {
   isMultiCourtOverlayScene,
   OBS_CHYRON_PX_PER_SEC,
@@ -48,6 +52,16 @@ import {
   multiCourtRowsFromMatches,
 } from "@/components/badminton/multi-court-score-strip";
 import { useObsBrowserSource } from "@/components/broadcast/use-obs-browser-source";
+
+const OBS_STAGE_STYLE = {
+  "--accent": BIDWAR_BROADCAST_YELLOW,
+  "--accent-strong": BIDWAR_BROADCAST_YELLOW,
+  "--accent-glow": "rgba(255, 215, 0, 0.35)",
+  "--accent-on": BIDWAR_BROADCAST_YELLOW_ON,
+  "--stage-bg": BIDWAR_SCOREBOARD_SHELL,
+  "--stage-surface": BIDWAR_SCOREBOARD_PANEL,
+  "--stage-text": "#ffffff",
+} as CSSProperties;
 
 /** Force transparent document chrome so OBS / browser don't paint app dark bg. */
 function useObsTransparentDocument() {
@@ -153,10 +167,7 @@ export default function BadmintonOverlayPage() {
   const sponsorLogos =
     urlSponsorLogos.length > 0 ? urlSponsorLogos : sponsorLogosFromBranding(branding);
 
-  const stageStyle = useMemo((): CSSProperties => {
-    const { themeId, customAccent } = displayThemeToPickerState(DISPLAY_THEMES["stadium-gold"]);
-    return resolveStageTheme(themeId, customAccent).vars as CSSProperties;
-  }, []);
+  const stageStyle = OBS_STAGE_STYLE;
 
   const state = (data?.state ?? null) as BadmintonMatchState | null;
   const detail = (data?.detail ?? null) as Record<string, unknown> | null;

@@ -36,6 +36,14 @@ import {
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_BROADCAST_YELLOW_BORDER,
+  BIDWAR_BROADCAST_YELLOW_MUTED,
+  BIDWAR_SCOREBOARD_INSET,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
 
 interface BroadcastDisplayProps {
   state: BadmintonMatchState;
@@ -206,7 +214,10 @@ export function BroadcastDisplay({
         scoreBoardSponsor={scoreBoardSponsor}
       />
 
-      <div className="badminton-score-stage relative z-10 min-h-0 bg-[#070708]">
+      <div
+        className="badminton-score-stage relative z-10 min-h-0"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
         {!suppressDirectorBanner ? (
           <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
             <DirectorStatusBanner state={state} />
@@ -514,10 +525,7 @@ function PlayerBlock({
           </div>
           {info.countryName ? (
             <p
-              className={cn(
-                "bw-meta opacity-80 bw-name-full w-full",
-                isLeft ? "text-[#ffc400]" : "text-[#ce93d8]",
-              )}
+              className="bw-meta opacity-80 bw-name-full w-full text-[#ffd700]/75"
               style={{ fontSize: "var(--score-player-meta)" }}
             >
               {info.countryName}
@@ -533,15 +541,8 @@ function PlayerBlock({
         )}
         style={
           {
-            ...(isLeft
-              ? {
-                  "--gw-tint": "rgba(255, 215, 0, 0.16)",
-                  "--gw-border": "rgba(255, 215, 0, 0.35)",
-                }
-              : {
-                  "--gw-tint": "rgba(224, 176, 255, 0.16)",
-                  "--gw-border": "rgba(224, 176, 255, 0.35)",
-                }),
+            "--gw-tint": "rgba(255, 215, 0, 0.14)",
+            "--gw-border": "rgba(255, 215, 0, 0.32)",
           } as CSSProperties
         }
       >
@@ -571,10 +572,8 @@ function PlayerBlock({
           className="bw-meta"
           style={{
             fontSize: "var(--score-game-count)",
-            color: isLeft ? "#ffd700" : "#e0b0ff",
-            textShadow: isLeft
-              ? "0 0 10px rgba(255,215,0,0.55)"
-              : "0 0 10px rgba(224,176,255,0.5)",
+            color: "#ffd700",
+            textShadow: "0 0 10px rgba(255,215,0,0.5)",
           }}
         >
           {gamesWon}
@@ -665,7 +664,7 @@ function CentrePanel({
         </span>
         <span className="text-white/35">–</span>
         <span
-          className="bw-display-l tabular-nums text-[#e0b0ff]"
+          className="bw-display-l tabular-nums text-white"
           style={{ fontSize: "var(--score-game-count)" }}
         >
           {state.gamesRight}
@@ -686,7 +685,7 @@ function CentrePanel({
             <div className="flex items-center gap-2">
               <span className="badminton-receive-pip" aria-hidden />
               <span className="bw-label text-white/55">Receiving</span>
-              <span className="bw-meta text-[#ffc400]">{receiverLabel}</span>
+              <span className="bw-meta text-[#ffd700]/80">{receiverLabel}</span>
             </div>
           ) : null}
         </div>
@@ -755,7 +754,7 @@ function ScoreDigit({
 }
 
 function TimeoutOverlay({
-  side,
+  side: _side,
   player,
 }: {
   side: BadmintonSide;
@@ -765,14 +764,18 @@ function TimeoutOverlay({
   return (
     <div className="badminton-moment-overlay z-[26]">
       <div
-        className={cn(
-          "badminton-moment-card bg-gradient-to-br",
-          side === "left"
-            ? "border-[#ffc400]/50 from-[#2a2108] to-[#0a0a0c]"
-            : "border-[#ce93d8]/50 from-[#241433] to-[#0a0a0c]",
-        )}
+        className="badminton-moment-card border"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+        }}
       >
-        <p className="bw-label text-amber-300/90 mb-3 tracking-[0.35em]">Timeout</p>
+        <p
+          className="bw-label mb-3 tracking-[0.35em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Timeout
+        </p>
         <p className="bw-heading text-white text-5xl md:text-6xl mb-4">TIMEOUT</p>
         <TeamPlayerCard
           identity={identity}
@@ -780,7 +783,7 @@ function TimeoutOverlay({
           tone="led"
           align="center"
           playerClassName="bw-heading text-3xl text-white"
-          teamClassName="bw-label text-white/70"
+          teamClassName="bw-label text-white/55"
         />
       </div>
     </div>
@@ -798,11 +801,25 @@ function IntervalOverlay({
 }) {
   return (
     <div className="badminton-moment-overlay z-[25]">
-      <div className="badminton-moment-card bg-gradient-to-br border-sky-400/40 from-[#0a1e33] to-[#0a0a0c]">
-        <p className="bw-label text-sky-300/90 mb-3 tracking-[0.35em]">Interval</p>
+      <div
+        className="badminton-moment-card border"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: "rgba(255,255,255,0.15)",
+        }}
+      >
+        <p
+          className="bw-label mb-3 tracking-[0.35em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Interval
+        </p>
         <p className="bw-heading text-white text-5xl md:text-6xl mb-4">INTERVAL</p>
-        <p className="bw-meta text-white/70 text-xl mb-2">Game {currentGame}</p>
-        <div className="bw-display-l text-5xl" style={fixedScoreStyle()}>
+        <p className="bw-meta text-white/60 text-xl mb-2">Game {currentGame}</p>
+        <div
+          className="bw-display-l text-5xl"
+          style={{ ...fixedScoreStyle(), color: BIDWAR_BROADCAST_YELLOW }}
+        >
           {leftScore} – {rightScore}
         </div>
       </div>
@@ -811,7 +828,7 @@ function IntervalOverlay({
 }
 
 function GameWinOverlay({
-  side,
+  side: _side,
   player,
   score,
   gameNumber,
@@ -822,17 +839,20 @@ function GameWinOverlay({
   gameNumber: number;
 }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[28] bg-black/45">
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[28] bg-black/50">
       <div
-        className={cn(
-          "relative overflow-hidden rounded-3xl px-16 py-8 text-center border shadow-2xl backdrop-blur-xl",
-          "animate-[badmintonMomentIn_0.4s_ease-out_forwards]",
-          side === "left"
-            ? "bg-gradient-to-br from-[#ffc400]/85 to-[#b8860b]/45 border-[#ffc400]/45"
-            : "bg-gradient-to-br from-[#7c3aed]/85 to-[#4a1d96]/45 border-[#ce93d8]/45",
-        )}
+        className="relative overflow-hidden rounded-3xl px-16 py-8 text-center border shadow-[0_12px_48px_rgba(0,0,0,0.65)] animate-[badmintonMomentIn_0.4s_ease-out_forwards]"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+        }}
       >
-        <p className="bw-label text-white/80 text-sm mb-2">Game {gameNumber} Won</p>
+        <p
+          className="bw-label text-sm mb-2 tracking-[0.2em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Game {gameNumber} Won
+        </p>
         <div className="mb-3 flex justify-center">
           <TeamPlayerCard
             identity={identityFromSideInfo(player)}
@@ -840,10 +860,13 @@ function GameWinOverlay({
             tone="led"
             align="center"
             playerClassName="bw-heading text-4xl text-white"
-            teamClassName="bw-label text-white/80"
+            teamClassName="bw-label text-white/55"
           />
         </div>
-        <div className="bw-display-l text-5xl" style={fixedScoreStyle()}>
+        <div
+          className="bw-display-l text-5xl"
+          style={{ ...fixedScoreStyle(), color: BIDWAR_BROADCAST_YELLOW }}
+        >
           {score.winner} – {score.loser}
         </div>
       </div>
@@ -876,19 +899,17 @@ function MatchWinOverlay({
   return (
     <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/75 backdrop-blur-sm">
       <div
-        className={cn(
-          "relative overflow-hidden rounded-3xl px-16 py-10 text-center max-w-3xl w-full border shadow-2xl",
-          "animate-[badmintonMomentIn_0.45s_ease-out_forwards]",
-          side === "left"
-            ? "bg-gradient-to-br from-[#1a1400] to-[#0a0a0c] border-[#ffc400]/40"
-            : "bg-gradient-to-br from-[#180523] to-[#0a0a0c] border-[#ce93d8]/40",
-        )}
+        className="relative overflow-hidden rounded-3xl px-16 py-10 text-center max-w-3xl w-full border shadow-[0_12px_48px_rgba(0,0,0,0.65)] animate-[badmintonMomentIn_0.45s_ease-out_forwards]"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+        }}
       >
         <div className="badminton-winner-seal mx-auto mb-5">
           <span className="bw-heading">WINNER</span>
         </div>
 
-        <p className="bw-label text-white/55 text-xs mb-4 uppercase tracking-[0.3em]">
+        <p className="bw-label text-white/50 text-xs mb-4 uppercase tracking-[0.3em]">
           {subtitle}
         </p>
 
@@ -896,7 +917,8 @@ function MatchWinOverlay({
           <img
             src={player.photoUrl}
             alt={identity.playerName}
-            className="w-28 h-28 rounded-2xl mx-auto mb-4 object-cover border-4 border-[#ffd700] shadow-[0_0_28px_rgba(255,215,0,0.35)]"
+            className="w-28 h-28 rounded-2xl mx-auto mb-4 object-cover border-4 shadow-[0_0_28px_rgba(255,215,0,0.35)]"
+            style={{ borderColor: BIDWAR_BROADCAST_YELLOW }}
           />
         ) : null}
 
@@ -907,29 +929,39 @@ function MatchWinOverlay({
             tone="led"
             align="center"
             playerClassName="bw-heading text-5xl text-white leading-tight"
-            teamClassName="bw-label text-white/75"
+            teamClassName="bw-label text-white/55"
           />
         </div>
 
         {player.countryName ? (
           <p
-            className={cn(
-              "bw-meta text-lg mb-6",
-              side === "left" ? "text-[#ffc400]" : "text-[#ce93d8]",
-            )}
+            className="bw-meta text-lg mb-6"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
           >
             {player.countryName}
           </p>
         ) : null}
 
-        <div className="bg-white/8 rounded-2xl px-8 py-4 mb-6 inline-block border border-white/10">
-          <span className="bw-display-l text-5xl" style={fixedScoreStyle(side === "left")}>
+        <div
+          className="rounded-2xl px-8 py-4 mb-6 inline-block border border-white/10"
+          style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
+        >
+          <span
+            className="bw-display-l text-5xl"
+            style={{
+              ...fixedScoreStyle(side === "left"),
+              color: side === "left" ? BIDWAR_BROADCAST_YELLOW : undefined,
+            }}
+          >
             {gamesLeft}
           </span>
           <span className="text-white/30 text-3xl mx-3">–</span>
           <span
             className="bw-display-l text-5xl"
-            style={fixedScoreStyle(side === "right")}
+            style={{
+              ...fixedScoreStyle(side === "right"),
+              color: side === "right" ? BIDWAR_BROADCAST_YELLOW : undefined,
+            }}
           >
             {gamesRight}
           </span>
@@ -939,9 +971,10 @@ function MatchWinOverlay({
           {completedGames.map((g) => (
             <div
               key={g.gameNumber}
-              className="bg-white/10 rounded-lg px-3 py-2 border border-white/10"
+              className="rounded-lg px-3 py-2 border border-white/10"
+              style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
             >
-              <span className="text-white/50 text-xs block text-center mb-1">
+              <span className="text-white/45 text-xs block text-center mb-1">
                 G{g.gameNumber}
               </span>
               <span className="font-bold text-white text-sm">

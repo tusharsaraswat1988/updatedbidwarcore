@@ -3,6 +3,8 @@ import type { BadmintonMatchFormat, BadmintonMatchKind, BadmintonSide, Badminton
 
 export const BadmintonEventType = {
   MATCH_STARTED: "badminton.match.started",
+  /** Re-apply toss / first serve / court ends while still 0–0 (after undos). */
+  TOSS_CORRECTED: "badminton.toss.corrected",
   POINT_WON: "badminton.point.won",
   POINT_UNDONE: "badminton.point.undone",
   GAME_ENDED: "badminton.game.ended",
@@ -27,37 +29,37 @@ export type BadmintonEventTypeValue = (typeof BadmintonEventType)[keyof typeof B
 const playerSlotSchema = z.object({
   label: z.string(),
   shortLabel: z.string(),
-  countryCode: z.string().optional(),
-  countryName: z.string().optional(),
-  photoUrl: z.string().optional(),
-  flagUrl: z.string().optional(),
-  teamColor: z.string().optional(),
-  franchiseName: z.string().optional(),
-  franchiseLogoUrl: z.string().optional(),
-  teamName: z.string().optional(),
-  teamLogoUrl: z.string().optional(),
-  sponsorName: z.string().optional(),
-  sponsorLogoUrl: z.string().optional(),
-  masterPlayerId: z.string().optional(),
+  countryCode: z.string().nullish(),
+  countryName: z.string().nullish(),
+  photoUrl: z.string().nullish(),
+  flagUrl: z.string().nullish(),
+  teamColor: z.string().nullish(),
+  franchiseName: z.string().nullish(),
+  franchiseLogoUrl: z.string().nullish(),
+  teamName: z.string().nullish(),
+  teamLogoUrl: z.string().nullish(),
+  sponsorName: z.string().nullish(),
+  sponsorLogoUrl: z.string().nullish(),
+  masterPlayerId: z.string().nullish(),
 });
 
 const sideInfoSchema = z.object({
   label: z.string(),
   shortLabel: z.string(),
-  countryCode: z.string().optional(),
-  countryName: z.string().optional(),
-  photoUrl: z.string().optional(),
-  flagUrl: z.string().optional(),
-  teamColor: z.string().optional(),
-  franchiseName: z.string().optional(),
-  franchiseLogoUrl: z.string().optional(),
-  teamName: z.string().optional(),
-  teamLogoUrl: z.string().optional(),
-  sponsorName: z.string().optional(),
-  sponsorLogoUrl: z.string().optional(),
-  masterPlayerId: z.string().optional(),
+  countryCode: z.string().nullish(),
+  countryName: z.string().nullish(),
+  photoUrl: z.string().nullish(),
+  flagUrl: z.string().nullish(),
+  teamColor: z.string().nullish(),
+  franchiseName: z.string().nullish(),
+  franchiseLogoUrl: z.string().nullish(),
+  teamName: z.string().nullish(),
+  teamLogoUrl: z.string().nullish(),
+  sponsorName: z.string().nullish(),
+  sponsorLogoUrl: z.string().nullish(),
+  masterPlayerId: z.string().nullish(),
   playerIds: z.array(z.number()),
-  players: z.array(playerSlotSchema).optional(),
+  players: z.array(playerSlotSchema).nullish(),
 });
 
 const formatSchema = z.object({
@@ -110,6 +112,16 @@ export type BadmintonMatchStartedPayload = {
   };
   courtNumber?: string;
   matchLabel?: string;
+};
+
+/** Correct toss / ends while live at 0–0 (typically after undoing points). */
+export type BadmintonTossCorrectedPayload = {
+  leftSide: BadmintonSideInfo;
+  rightSide: BadmintonSideInfo;
+  firstServer: BadmintonSide;
+  doublesSetup?: BadmintonMatchStartedPayload["doublesSetup"];
+  /** True when left/right teams were swapped vs previous ends. */
+  endsSwapped: boolean;
 };
 
 export type BadmintonPointWonPayload = {
@@ -251,6 +263,14 @@ const matchStartedSchema = z.object({
   matchLabel: z.string().optional(),
 });
 
+const tossCorrectedSchema = z.object({
+  leftSide: sideInfoSchema,
+  rightSide: sideInfoSchema,
+  firstServer: z.enum(["left", "right"]),
+  doublesSetup: doublesSetupSchema.optional(),
+  endsSwapped: z.boolean(),
+});
+
 const pointWonSchema = z.object({
   winningSide: z.enum(["left", "right"]),
   gameNumber: z.number(),
@@ -373,6 +393,8 @@ export function parseBadmintonEventPayload(
   switch (eventType) {
     case BadmintonEventType.MATCH_STARTED:
       return parseWith(matchStartedSchema, eventType, data);
+    case BadmintonEventType.TOSS_CORRECTED:
+      return parseWith(tossCorrectedSchema, eventType, data);
     case BadmintonEventType.POINT_WON:
       return parseWith(pointWonSchema, eventType, data);
     case BadmintonEventType.POINT_UNDONE:

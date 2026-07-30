@@ -15,6 +15,11 @@ import {
 import { badmintonLedSurfaceStyle, fixedScoreStyle } from "@/components/badminton/badminton-led-theme";
 import type { ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import {
+  BIDWAR_BROADCAST_YELLOW_BORDER,
+  BIDWAR_BROADCAST_YELLOW_SOFT,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
+import {
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
@@ -102,7 +107,10 @@ function VenueChromeShell({
         rightLabel="Side B"
         scoreBoardSponsor={chrome.scoreBoardSponsor}
       />
-      <div className="relative z-10 min-h-0 flex items-stretch justify-center bg-[#070708] px-[3%] py-2">
+      <div
+        className="relative z-10 min-h-0 flex items-stretch justify-center px-[3%] py-2"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
         {children}
       </div>
       {showFooter ? (
@@ -112,7 +120,10 @@ function VenueChromeShell({
             tournamentName={chrome.tournamentName}
           />
         ) : (
-          <div className="h-[10vh] min-h-[72px] max-h-[104px] border-t border-white/10 bg-black/50" />
+          <div
+            className="h-[10vh] min-h-[72px] max-h-[104px] border-t border-white/10"
+            style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+          />
         )
       ) : null}
     </div>
@@ -140,12 +151,11 @@ function MomentSideCard({
     >
 
       <div
-        className={cn(
-          "rounded-2xl p-2 border",
-          isLeft
-            ? "border-[#ffc400]/35 bg-[#ffc400]/8"
-            : "border-[#ce93d8]/35 bg-[#ce93d8]/8",
-        )}
+        className="rounded-2xl p-2 border"
+        style={{
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+          backgroundColor: BIDWAR_BROADCAST_YELLOW_SOFT,
+        }}
       >
         <SidePlayerPhotos
           info={info}
@@ -265,7 +275,7 @@ export function VenueWinnerScene({
           "w-full max-w-3xl rounded-3xl border px-10 py-10 text-center shadow-2xl",
           "animate-[badmintonMomentIn_0.45s_ease-out_forwards]",
           isLeft
-            ? "border-[#ffc400]/40 bg-gradient-to-br from-[#1a1400] to-[#0a0a0c]"
+            ? "border-[#ffd700]/40 bg-gradient-to-br from-[#1a1400] to-[#0a0a0c]"
             : "border-[#ce93d8]/40 bg-gradient-to-br from-[#180523] to-[#0a0a0c]",
         )}
       >
@@ -511,7 +521,11 @@ export function VenueRecentResultsScene({
 
         <div
           key={`highlight-${focused.id}-${safePage}`}
-          className="shrink-0 rounded-2xl border border-[#ffd700]/35 bg-gradient-to-br from-[#1a1400] to-[#0a0a0c] px-5 py-4 md:px-8 md:py-5"
+          className="shrink-0 rounded-2xl border border-white/15 px-5 py-4 md:px-8 md:py-5"
+          style={{
+            backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+            boxShadow: "inset 0 0 0 1px rgba(255,215,0,0.2)",
+          }}
         >
           <ResultHighlightCard match={focused} />
         </div>
@@ -551,7 +565,7 @@ export function VenueRecentResultsScene({
                   <p
                     className={cn(
                       "bw-heading text-lg md:text-xl tabular-nums shrink-0 min-w-[3.5rem] text-right",
-                      active ? "text-[#ffd700]" : "text-emerald-300/90",
+                      active ? "text-[#ffd700]" : "text-[#ffd700]/75",
                     )}
                   >
                     {diff}
@@ -617,9 +631,15 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
             {gamesWonLine(match)}
           </p>
         </div>
-        <div className="text-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 min-w-[5.5rem]">
-          <p className="bw-label text-emerald-200/70 text-[10px] tracking-[0.2em]">DIFF</p>
-          <p className="bw-display-l text-3xl md:text-4xl text-emerald-300 tabular-nums leading-none mt-1">
+        <div
+          className="text-center rounded-xl border px-4 py-2.5 min-w-[5.5rem]"
+          style={{
+            borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+            backgroundColor: BIDWAR_BROADCAST_YELLOW_SOFT,
+          }}
+        >
+          <p className="bw-label text-[10px] tracking-[0.2em] text-[#ffd700]/80">DIFF</p>
+          <p className="bw-display-l text-3xl md:text-4xl text-[#ffd700] tabular-nums leading-none mt-1">
             {diff}
           </p>
         </div>
@@ -707,7 +727,10 @@ export function VenueLeaderboardsScene({
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+        <div
+          className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/15"
+          style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+        >
           <div className="grid grid-cols-[3rem_minmax(0,1fr)_3.5rem_3.5rem_3.5rem_4.5rem] gap-2 px-4 py-2 border-b border-white/10 text-[10px] md:text-xs font-mono uppercase tracking-[0.18em] text-white/40">
             <span>#</span>
             <span>Pair</span>
@@ -734,7 +757,7 @@ export function VenueLeaderboardsScene({
                 <span className="text-center text-white/70 tabular-nums text-base md:text-lg">
                   {row.played}
                 </span>
-                <span className="text-center text-emerald-300/90 tabular-nums text-base md:text-lg">
+                <span className="text-center text-[#ffd700]/85 tabular-nums text-base md:text-lg">
                   {row.won}
                 </span>
                 <span className="text-center text-white/50 tabular-nums text-base md:text-lg">

@@ -14,10 +14,10 @@ export function displayThemeToPickerState(theme: DisplayTheme | undefined): {
   const t = theme ?? {
     id: "stadium-gold" as const,
     label: "Stadium Gold",
-    dot: "#FFC400",
-    bg: "#070708",
+    dot: "#FFD700",
+    bg: "#050507",
     secondaryGlow: null,
-    accentColor: "#FFC400",
+    accentColor: "#FFD700",
     stagePreset: "gold" as const,
   };
 
