@@ -206,7 +206,7 @@ export function BroadcastDisplay({
         scoreBoardSponsor={scoreBoardSponsor}
       />
 
-      <div className="badminton-score-stage relative z-10 min-h-0 flex bg-[#070708]">
+      <div className="badminton-score-stage relative z-10 min-h-0 bg-[#070708]">
         {!suppressDirectorBanner ? (
           <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
             <DirectorStatusBanner state={state} />
@@ -409,13 +409,14 @@ function PlayerBlock({
   const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
   const identity = identityFromSideInfo(info);
   const isPair = isPairMatchKind(matchKind);
-  const towardScore = isLeft ? "end" : "start";
+  /* Outer-edge alignment uses the available side space so names stay clear of the score */
+  const towardEdge = isLeft ? "start" : "end";
 
   return (
     <div
       className={cn(
         "badminton-score-side-panel flex flex-col shrink-0 min-w-0 relative",
-        towardScore === "end" ? "items-end" : "items-start",
+        towardEdge === "end" ? "items-end" : "items-start",
         heat && "badminton-score-side-panel--heat",
         isWinner && "badminton-score-side-panel--winner",
       )}
@@ -431,7 +432,7 @@ function PlayerBlock({
         className={cn(
           "badminton-score-identity-card",
           isPair && "badminton-score-identity-card--pair",
-          towardScore === "end" ? "items-end text-right" : "items-start text-left",
+          towardEdge === "end" ? "items-end text-right" : "items-start text-left",
           isWinner && "badminton-score-identity-card--winner",
         )}
       >
@@ -459,7 +460,7 @@ function PlayerBlock({
         <div
           className={cn(
             "badminton-score-identity-copy flex flex-col w-full min-w-0",
-            towardScore === "end" ? "items-end" : "items-start",
+            towardEdge === "end" ? "items-end" : "items-start",
           )}
         >
           <TeamPlayerCard
@@ -467,7 +468,7 @@ function PlayerBlock({
             size="md"
             tone="led"
             layout="stack"
-            align={towardScore}
+            align={towardEdge}
             showBadge={Boolean(franchiseName)}
             className="w-full max-w-full"
             playerClassName={cn(
@@ -487,7 +488,7 @@ function PlayerBlock({
           <div
             className={cn(
               "flex items-center gap-1.5 mt-0.5",
-              towardScore === "end" && "flex-row-reverse",
+              towardEdge === "end" && "flex-row-reverse",
             )}
           >
             {!franchiseLogoUrl && info.flagUrl ? (
@@ -528,7 +529,7 @@ function PlayerBlock({
       <div
         className={cn(
           "badminton-score-games-won badminton-score-games-won--glam flex items-center",
-          towardScore === "end" && "flex-row-reverse",
+          towardEdge === "end" && "flex-row-reverse",
         )}
         style={
           {
