@@ -178,6 +178,95 @@ function PrimaryMatchAction({
   );
 }
 
+type CourtMatchListFilter = "all" | "live" | "ready" | "completed";
+
+function matchPassesListFilter(
+  match: ScorerHomeMatchCard,
+  filter: CourtMatchListFilter,
+): boolean {
+  switch (filter) {
+    case "live":
+      return match.status === "LIVE" || match.status === "PAUSED";
+    case "ready":
+      return match.status === "READY";
+    case "completed":
+      return match.status === "COMPLETED";
+    case "all":
+    default:
+      return true;
+  }
+}
+
+function CourtMatchListFilterChips({
+  matches,
+  value,
+  onChange,
+}: {
+  matches: ScorerHomeMatchCard[];
+  value: CourtMatchListFilter;
+  onChange: (next: CourtMatchListFilter) => void;
+}) {
+  let live = 0;
+  let ready = 0;
+  let completed = 0;
+  for (const m of matches) {
+    if (m.status === "LIVE" || m.status === "PAUSED") live += 1;
+    else if (m.status === "READY") ready += 1;
+    else if (m.status === "COMPLETED") completed += 1;
+  }
+
+  const chips: { id: CourtMatchListFilter; label: string; count: number }[] = [
+    { id: "all", label: "All", count: matches.length },
+    { id: "live", label: "Live", count: live },
+    { id: "ready", label: "Ready", count: ready },
+    { id: "completed", label: "Completed", count: completed },
+  ];
+
+  return (
+    <div
+      className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-none"
+      role="tablist"
+      aria-label="Filter court matches by status"
+    >
+      {chips.map((chip) => {
+        if (chip.id !== "all" && chip.count === 0) return null;
+        const selected = value === chip.id;
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(chip.id)}
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1.5 min-h-9 px-3 rounded-full border text-xs font-bold uppercase tracking-wide transition-colors",
+              selected
+                ? chip.id === "live"
+                  ? "bg-red-500/25 text-red-100 border-red-500/50"
+                  : chip.id === "ready"
+                    ? "bg-sky-500/20 text-sky-100 border-sky-500/45"
+                    : chip.id === "completed"
+                      ? "bg-emerald-500/20 text-emerald-100 border-emerald-500/40"
+                      : "bg-white/15 text-white border-white/25"
+                : "bg-white/[0.04] text-white/55 border-white/10",
+            )}
+          >
+            {chip.label}
+            <span
+              className={cn(
+                "min-w-5 px-1 rounded-md text-[10px] font-black tabular-nums",
+                selected ? "bg-black/25 text-inherit" : "bg-white/10 text-white/45",
+              )}
+            >
+              {chip.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function MatchListCard({
   match,
   onOpen,
@@ -242,29 +331,31 @@ function MatchListCard({
 
 function CourtFocusView({
   court,
-  scorerName,
   onOpenMatch,
 }: {
   court: ScorerHomeCourtCard;
-  scorerName: string;
   onOpenMatch: (match: ScorerHomeMatchCard) => void;
 }) {
+  const [listFilter, setListFilter] = useState<CourtMatchListFilter>("all");
   const hasLiveMatch = Boolean(
     court.currentMatch?.status === "LIVE" || court.currentMatch?.status === "PAUSED",
   );
   const focus = hasLiveMatch ? court.currentMatch : court.nextMatch;
   const canOpen = Boolean(focus && !focus.readOnly);
+  const filteredMatches =
+    listFilter === "all"
+      ? court.matches
+      : court.matches.filter((m) => matchPassesListFilter(m, listFilter));
+
+  // If the selected filter no longer has matches (e.g. after refresh), fall back to All.
+  useEffect(() => {
+    if (listFilter === "all") return;
+    const stillHasMatches = court.matches.some((m) => matchPassesListFilter(m, listFilter));
+    if (!stillHasMatches) setListFilter("all");
+  }, [court.matches, listFilter]);
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-sky-500/25 bg-sky-500/10 p-5">
-        <p className="text-sky-200/80 text-[10px] font-bold uppercase tracking-wider">Your court</p>
-        <h2 className="text-white text-2xl font-black mt-1">{court.name}</h2>
-        {scorerName ? (
-          <p className="text-white/50 text-sm mt-1">Scorer · {scorerName}</p>
-        ) : null}
-      </div>
-
       {hasLiveMatch ? (
         <>
           <MatchSummary label="Current Match" match={court.currentMatch} emphasized />
@@ -291,9 +382,18 @@ function CourtFocusView({
       {court.matches.length > 1 ? (
         <div className="pt-2 space-y-3">
           <p className="text-white/40 text-xs font-bold uppercase tracking-wider">All court matches</p>
-          {court.matches.map((m) => (
-            <MatchListCard key={m.id} match={m} onOpen={() => onOpenMatch(m)} />
-          ))}
+          <CourtMatchListFilterChips
+            matches={court.matches}
+            value={listFilter}
+            onChange={setListFilter}
+          />
+          {filteredMatches.length === 0 ? (
+            <p className="text-white/35 text-sm py-2">No matches in this status</p>
+          ) : (
+            filteredMatches.map((m) => (
+              <MatchListCard key={m.id} match={m} onOpen={() => onOpenMatch(m)} />
+            ))
+          )}
         </div>
       ) : null}
     </div>
@@ -561,9 +661,18 @@ export default function BadmintonScorerHomePage() {
                 <BadmintonPublicBrandMark variant="scorer-bar" />
               </div>
               <h1 className="text-white text-lg font-black truncate">{tournamentName}</h1>
-              <p className="text-white/40 text-xs mt-0.5">
-                {scorerName ? `${scorerName} · ` : ""}
-                {session?.view === "matches" ? "All matches" : "Court scoring"}
+              <p className="text-white/40 text-xs mt-0.5 truncate">
+                {selectedCourt ? (
+                  <>
+                    <span className="text-sky-200/90 font-semibold">{selectedCourt.name}</span>
+                    {scorerName ? ` · ${scorerName}` : ""}
+                  </>
+                ) : (
+                  <>
+                    {scorerName ? `${scorerName} · ` : ""}
+                    {session?.view === "matches" ? "All matches" : "Court scoring"}
+                  </>
+                )}
               </p>
             </div>
             <button
@@ -622,7 +731,7 @@ export default function BadmintonScorerHomePage() {
                     ← All courts
                   </button>
                 ) : null}
-                <CourtFocusView court={selectedCourt} scorerName={scorerName} onOpenMatch={openMatch} />
+                <CourtFocusView court={selectedCourt} onOpenMatch={openMatch} />
               </>
             ) : null}
 
