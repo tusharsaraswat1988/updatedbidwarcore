@@ -20,7 +20,7 @@ import type {
   BadmintonOverlayScene,
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
-import { BROADCAST_MOMENT_AUTO_CLEAR_MS } from "@/lib/badminton-broadcast-director";
+import { momentAutoClearMs } from "@/lib/badminton-broadcast-director";
 import {
   onPresentationError,
   onPresentationMutate,
@@ -47,6 +47,7 @@ const VENUE_MOMENTS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "sponsor", label: "Sponsor" },
   { id: "next", label: "Next" },
   { id: "results", label: "Results" },
+  { id: "leaderboards", label: "Boards" },
 ];
 
 export function MissionControlOpsRail({
@@ -142,14 +143,14 @@ export function MissionControlOpsRail({
             ? "auto"
             : (id as Extract<
                 BadmintonOverlayScene,
-                "intro" | "winner" | "sponsor" | "results"
+                "intro" | "winner" | "sponsor" | "results" | "leaderboards"
               >),
       },
       { onSuccess: () => onAnnouncement?.(label) },
     );
     momentClearTimerRef.current = setTimeout(() => {
       setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
-    }, BROADCAST_MOMENT_AUTO_CLEAR_MS);
+    }, momentAutoClearMs(id));
   }
 
   return (

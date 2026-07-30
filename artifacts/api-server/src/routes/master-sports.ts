@@ -367,6 +367,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
           "sponsor",
           "multi",
           "results",
+          "leaderboards",
         ])
         .optional(),
       venueScene: z
@@ -380,6 +381,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
           "sponsor",
           "next",
           "results",
+          "leaderboards",
         ])
         .optional(),
       venueMusicPlaying: z.boolean().optional(),

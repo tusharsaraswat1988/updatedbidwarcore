@@ -100,8 +100,15 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.venueScene).toBe("multi");
   });
 
-  it("parses venue moment scenes intro/winner/sponsor/next/results", () => {
-    for (const venueScene of ["intro", "winner", "sponsor", "next", "results"] as const) {
+  it("parses venue moment scenes intro/winner/sponsor/next/results/leaderboards", () => {
+    for (const venueScene of [
+      "intro",
+      "winner",
+      "sponsor",
+      "next",
+      "results",
+      "leaderboards",
+    ] as const) {
       const branding = getBadmintonBranding(
         { name: "League" },
         { branding: {}, broadcast: { venueScene } },
@@ -110,11 +117,13 @@ describe("badminton sponsor logo isolation", () => {
     }
   });
 
-  it("parses overlay results scene", () => {
-    const branding = getBadmintonBranding(
-      { name: "League" },
-      { branding: {}, broadcast: { overlayScene: "results" } },
-    );
-    expect(branding.overlayScene).toBe("results");
+  it("parses overlay results and leaderboards scenes", () => {
+    for (const overlayScene of ["results", "leaderboards"] as const) {
+      const branding = getBadmintonBranding(
+        { name: "League" },
+        { branding: {}, broadcast: { overlayScene } },
+      );
+      expect(branding.overlayScene).toBe(overlayScene);
+    }
   });
 });

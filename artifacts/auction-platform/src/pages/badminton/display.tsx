@@ -42,6 +42,7 @@ import {
 } from "@/components/badminton/multi-court-score-strip";
 import {
   VenueIntroScene,
+  VenueLeaderboardsScene,
   VenueNextMatchScene,
   VenueRecentResultsScene,
   VenueSponsorScene,
@@ -49,6 +50,7 @@ import {
 } from "@/components/badminton/venue-moment-scenes";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import type { ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
+import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
 
 function LedStandby({
   message,
@@ -171,6 +173,8 @@ function DisplayStage({
   const tournamentLogoUrl = branding?.logoUrl ?? undefined;
   const venueScene = branding?.venueScene ?? "auto";
   const multiCourtMode = isMultiCourtVenueScene(venueScene);
+  const leaderboardsEnabled = venueScene === "leaderboards";
+  const leaderboards = useBadmintonLeaderboardBoards(tournamentId, leaderboardsEnabled);
   const multiRows = useMemo(
     () => (multiCourtMode ? multiCourtRowsFromMatches(liveFollow.liveMatches) : []),
     [multiCourtMode, liveFollow.liveMatches],
@@ -230,7 +234,8 @@ function DisplayStage({
           !matchState &&
           venueScene !== "sponsor" &&
           venueScene !== "next" &&
-          venueScene !== "results"
+          venueScene !== "results" &&
+          venueScene !== "leaderboards"
         ? "Waiting for match…"
       : multiCourtMode
         ? multiRows.length > 0
@@ -275,6 +280,14 @@ function DisplayStage({
   } else if (venueScene === "results") {
     stageContent = (
       <VenueRecentResultsScene matches={liveFollow.matches} chrome={chrome} />
+    );
+  } else if (venueScene === "leaderboards") {
+    stageContent = (
+      <VenueLeaderboardsScene
+        pages={leaderboards.pages}
+        loading={leaderboards.loading}
+        chrome={chrome}
+      />
     );
   } else if (venueScene === "next") {
     stageContent = <VenueNextMatchScene match={upNextMatch} chrome={chrome} />;

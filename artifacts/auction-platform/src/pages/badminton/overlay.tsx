@@ -10,6 +10,7 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { useRoute, useSearch } from "wouter";
 import {
   BadmintonOverlay,
+  ObsLeaderboardsOverlay,
   ObsPlayMoments,
   ObsRecentResultsOverlay,
   overlayPlacementClass,
@@ -22,6 +23,7 @@ import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminto
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
+import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
 import { DISPLAY_THEMES } from "@/lib/display-theme";
 import { displayThemeToPickerState, resolveStageTheme } from "@/lib/led-stage-theme";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
@@ -123,6 +125,8 @@ export default function BadmintonOverlayPage() {
     searchParams.get("type"),
   );
   const multiCourtMode = isMultiCourtOverlayScene(branding?.overlayScene);
+  const leaderboardsEnabled = requestedType === "leaderboards" || branding?.overlayScene === "leaderboards";
+  const leaderboards = useBadmintonLeaderboardBoards(tournamentId, leaderboardsEnabled);
 
   const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
   const isLoading = followMode
@@ -244,12 +248,14 @@ export default function BadmintonOverlayPage() {
             roundName={
               type === "results"
                 ? "Match results"
+                : type === "leaderboards"
+                  ? "Leaderboards"
                 : hasLiveGraphics && !multiCourtMode
                 ? (detail?.roundName as string | undefined)
                 : waitingLabel
             }
             matchStatus={
-              type === "results"
+              type === "results" || type === "leaderboards"
                 ? "completed"
                 : hasLiveGraphics && !multiCourtMode
                   ? state.matchStatus
@@ -284,6 +290,18 @@ export default function BadmintonOverlayPage() {
           )}
         >
           <ObsRecentResultsOverlay matches={liveFollow.matches} />
+        </div>
+      ) : type === "leaderboards" ? (
+        <div
+          className={cn(
+            "absolute z-20 pointer-events-none",
+            overlayPlacementClass("leaderboards", true, playDensity),
+          )}
+        >
+          <ObsLeaderboardsOverlay
+            pages={leaderboards.pages}
+            loading={leaderboards.loading}
+          />
         </div>
       ) : hasLiveGraphics ? (
         type === "full" ? (
@@ -328,7 +346,8 @@ export default function BadmintonOverlayPage() {
       !multiCourtMode &&
       type !== "intro" &&
       type !== "winner" &&
-      type !== "results" ? (
+      type !== "results" &&
+      type !== "leaderboards" ? (
         <ObsPlayMoments state={state} />
       ) : null}
 

@@ -48,11 +48,23 @@ import {
   winnerPointDifference,
   type ResultsMatch,
 } from "@/lib/badminton-results";
+import {
+  BROADCAST_CAROUSEL_PAGE_MS,
+  BROADCAST_RESULTS_LIMIT,
+} from "@/lib/badminton-broadcast-director";
+import type { LeaderboardPage } from "@/lib/badminton-leaderboards";
 
-type OverlayType = "compact" | "full" | "intro" | "winner" | "sponsor" | "results";
+type OverlayType =
+  | "compact"
+  | "full"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "results"
+  | "leaderboards";
 type PointFlashSide = BadmintonSide | null;
 
-const OBS_RESULTS_ROTATE_MS = 4_500;
+const OBS_RESULTS_ROTATE_MS = BROADCAST_CAROUSEL_PAGE_MS;
 
 function useServeSideFlash(servingSide: "left" | "right") {
   const prevRef = useRef(servingSide);
@@ -189,6 +201,10 @@ export function overlayPlacementClass(
       return withBottomTicker
         ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(920px,92vw)]`
         : "bottom-[5vh] left-1/2 -translate-x-1/2 w-[min(920px,92vw)]";
+    case "leaderboards":
+      return withBottomTicker
+        ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(980px,94vw)]`
+        : "bottom-[5vh] left-1/2 -translate-x-1/2 w-[min(980px,94vw)]";
     case "sponsor":
       return withBottomTicker
         ? `${sponsorBottom} left-1/2 -translate-x-1/2`
@@ -261,6 +277,7 @@ export function BadmintonOverlay({
         />
       );
     case "results":
+    case "leaderboards":
       return null;
     default:
       return (
@@ -1050,7 +1067,7 @@ export function ObsRecentResultsOverlay({
   matches: BroadcastConsoleMatch[];
   rotateMs?: number;
 }) {
-  const results = listRecentCompleted(matches.map(toResultsMatch), 8);
+  const results = listRecentCompleted(matches.map(toResultsMatch), BROADCAST_RESULTS_LIMIT);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -1130,6 +1147,98 @@ export function ObsRecentResultsOverlay({
             </p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** OBS lower-third — cycles league/group standings pages. */
+export function ObsLeaderboardsOverlay({
+  pages,
+  loading,
+  rotateMs = BROADCAST_CAROUSEL_PAGE_MS,
+}: {
+  pages: LeaderboardPage[];
+  loading?: boolean;
+  rotateMs?: number;
+}) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [pages.length]);
+
+  useEffect(() => {
+    if (pages.length <= 1) return;
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % pages.length);
+    }, rotateMs);
+    return () => clearInterval(id);
+  }, [pages.length, rotateMs]);
+
+  if (loading && pages.length === 0) {
+    return (
+      <div className="rounded-xl border border-white/15 bg-black/80 px-5 py-3 shadow-2xl backdrop-blur-sm">
+        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/80">
+          Leaderboard
+        </p>
+        <p className="text-white/70 text-sm font-semibold mt-1">Loading…</p>
+      </div>
+    );
+  }
+
+  if (pages.length === 0) {
+    return (
+      <div className="rounded-xl border border-white/15 bg-black/80 px-5 py-3 shadow-2xl backdrop-blur-sm">
+        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/80">
+          Leaderboard
+        </p>
+        <p className="text-white/70 text-sm font-semibold mt-1">No league standings yet</p>
+      </div>
+    );
+  }
+
+  const safe = Math.min(index, pages.length - 1);
+  const page = pages[safe]!;
+  const topRows = page.rows.slice(0, 5);
+
+  return (
+    <div
+      key={page.key}
+      className="rounded-xl border border-amber-400/35 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur-sm animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
+      style={{ fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif" }}
+    >
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/90">
+            Leaderboard
+            {pages.length > 1 ? ` · ${safe + 1}/${pages.length}` : ""}
+          </p>
+          <p className="text-white text-lg font-bold leading-tight truncate">
+            {page.board.boardTitle}
+            <span className="text-white/45 font-semibold text-sm ml-2">
+              {page.board.categoryName}
+            </span>
+          </p>
+        </div>
+        <p className="text-[10px] uppercase tracking-wide text-white/40 shrink-0">
+          P · W · L · Pts
+        </p>
+      </div>
+      <div className="space-y-1">
+        {topRows.map((row) => (
+          <div
+            key={row.registrationId}
+            className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-2 items-center"
+          >
+            <span className="text-white/50 text-sm font-bold tabular-nums">{row.rank}</span>
+            <span className="text-white text-sm font-semibold truncate">{row.label}</span>
+            <span className="text-right text-xs tabular-nums text-white/70 whitespace-nowrap">
+              {row.played}-{row.won}-{row.lost}
+              <span className="text-amber-300 font-black ml-2">{row.marginPoints}</span>
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

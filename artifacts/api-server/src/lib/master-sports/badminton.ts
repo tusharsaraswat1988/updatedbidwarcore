@@ -639,11 +639,13 @@ const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
   "intro",
   "sponsor",
   "results",
+  "leaderboards",
 ]);
 const RALLY_UNSAFE_VENUE: ReadonlySet<BadmintonVenueScene> = new Set([
   "intro",
   "sponsor",
   "results",
+  "leaderboards",
 ]);
 
 /**

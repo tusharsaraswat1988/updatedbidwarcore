@@ -17,6 +17,7 @@ describe("badminton broadcast director venue scenes", () => {
     expect(parseVenueScene("sponsor")).toBe("sponsor");
     expect(parseVenueScene("next")).toBe("next");
     expect(parseVenueScene("results")).toBe("results");
+    expect(parseVenueScene("leaderboards")).toBe("leaderboards");
     expect(parseVenueScene("nope")).toBe("auto");
   });
 
@@ -24,6 +25,7 @@ describe("badminton broadcast director venue scenes", () => {
     expect(isVenueMomentScene("intro")).toBe(true);
     expect(isVenueMomentScene("next")).toBe(true);
     expect(isVenueMomentScene("results")).toBe(true);
+    expect(isVenueMomentScene("leaderboards")).toBe(true);
     expect(isVenueMomentScene("live_score")).toBe(false);
     expect(isVenueMomentScene("auto")).toBe(false);
   });
@@ -34,6 +36,7 @@ describe("badminton broadcast director venue scenes", () => {
     expect(shouldShowVenueLiveBoard("sponsor", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("next", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("results", true)).toBe(false);
+    expect(shouldShowVenueLiveBoard("leaderboards", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("standby", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("multi", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("auto", true)).toBe(true);
@@ -72,10 +75,11 @@ describe("OBS play-safe overlay resolution", () => {
     expect(resolvePlaySafeOverlayType("sponsor", liveIdle)).toBe("sponsor");
   });
 
-  it("forces compact when intro/sponsor/results left up after scoring starts", () => {
+  it("forces compact when intro/sponsor/results/leaderboards left up after scoring starts", () => {
     expect(resolvePlaySafeOverlayType("intro", liveRally)).toBe("compact");
     expect(resolvePlaySafeOverlayType("sponsor", liveRally)).toBe("compact");
     expect(resolvePlaySafeOverlayType("results", liveRally)).toBe("compact");
+    expect(resolvePlaySafeOverlayType("leaderboards", liveRally)).toBe("compact");
     expect(resolvePlaySafeOverlayType("full", liveRally)).toBe("full");
     expect(resolvePlaySafeOverlayType("compact", liveRally)).toBe("compact");
   });

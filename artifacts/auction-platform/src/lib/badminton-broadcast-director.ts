@@ -12,7 +12,8 @@ export type BadmintonOverlayScene =
   | "winner"
   | "sponsor"
   | "multi"
-  | "results";
+  | "results"
+  | "leaderboards";
 
 export type BadmintonVenueScene =
   | "auto"
@@ -23,7 +24,8 @@ export type BadmintonVenueScene =
   | "winner"
   | "sponsor"
   | "next"
-  | "results";
+  | "results"
+  | "leaderboards";
 
 export type OverlayGraphicType =
   | "compact"
@@ -31,7 +33,8 @@ export type OverlayGraphicType =
   | "intro"
   | "winner"
   | "sponsor"
-  | "results";
+  | "results"
+  | "leaderboards";
 
 const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "compact",
@@ -40,6 +43,7 @@ const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "winner",
   "sponsor",
   "results",
+  "leaderboards",
 ] as const;
 
 /** Camera-covering moment graphics that must not stay up during a live rally. */
@@ -47,10 +51,20 @@ const RALLY_UNSAFE_OVERLAY_TYPES: readonly OverlayGraphicType[] = [
   "intro",
   "sponsor",
   "results",
+  "leaderboards",
 ] as const;
 
 /** Max live courts shown on OBS/venue multi strip (was 3 — raised for multi-hall events). */
 export const MAX_MULTI_COURT_ROWS = 6;
+
+/** Completed match results shown on Results moment (paginated). */
+export const BROADCAST_RESULTS_LIMIT = 30;
+/** Rows per venue results page. */
+export const BROADCAST_RESULTS_PAGE_SIZE = 6;
+/** Rows per venue/OBS leaderboard page. */
+export const BROADCAST_LEADERBOARD_PAGE_SIZE = 8;
+/** Seconds between carousel pages on Results / Leaderboards. */
+export const BROADCAST_CAROUSEL_PAGE_MS = 6_000;
 
 const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
   "intro",
@@ -58,6 +72,7 @@ const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
   "sponsor",
   "next",
   "results",
+  "leaderboards",
 ] as const;
 
 export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
@@ -69,7 +84,8 @@ export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
     raw === "winner" ||
     raw === "sponsor" ||
     raw === "multi" ||
-    raw === "results"
+    raw === "results" ||
+    raw === "leaderboards"
   ) {
     return raw;
   }
@@ -86,7 +102,8 @@ export function parseVenueScene(raw: unknown): BadmintonVenueScene {
     raw === "winner" ||
     raw === "sponsor" ||
     raw === "next" ||
-    raw === "results"
+    raw === "results" ||
+    raw === "leaderboards"
   ) {
     return raw;
   }
@@ -206,6 +223,20 @@ export function shouldUseObsCornerBug(
 
 /** Director moment packages auto-clear so they cannot stick over live play. */
 export const BROADCAST_MOMENT_AUTO_CLEAR_MS = 12_000;
+
+/**
+ * Longer hold for Results / Leaderboards carousels (up to ~30 results or
+ * multiple group tables). Director can still clear manually via Clear.
+ */
+export const BROADCAST_CAROUSEL_MOMENT_MS = 90_000;
+
+/** Auto-clear duration for a venue moment scene. */
+export function momentAutoClearMs(scene: BadmintonVenueScene): number {
+  if (scene === "results" || scene === "leaderboards") {
+    return BROADCAST_CAROUSEL_MOMENT_MS;
+  }
+  return BROADCAST_MOMENT_AUTO_CLEAR_MS;
+}
 
 /** OBS CEF: slower ticker / longer sponsor holds to cut rAF + image churn. */
 export const OBS_CHYRON_PX_PER_SEC = 36;

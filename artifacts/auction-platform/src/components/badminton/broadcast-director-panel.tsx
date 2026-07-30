@@ -29,7 +29,7 @@ import type {
   BadmintonOverlayScene,
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
-import { BROADCAST_MOMENT_AUTO_CLEAR_MS } from "@/lib/badminton-broadcast-director";
+import { momentAutoClearMs } from "@/lib/badminton-broadcast-director";
 import {
   onPresentationError,
   onPresentationMutate,
@@ -54,6 +54,7 @@ const VENUE_MOMENT_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "sponsor", label: "Sponsor" },
   { id: "next", label: "Next match" },
   { id: "results", label: "Results" },
+  { id: "leaderboards", label: "Leaderboards" },
 ];
 
 const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
@@ -170,7 +171,7 @@ export function BadmintonBroadcastDirectorPanel({
     [],
   );
 
-  /** Timed packages — auto-clear intro/winner/sponsor/results so they cannot stick on air. */
+  /** Timed packages — auto-clear so they cannot stick on air. */
   function pushTimedMoment(venueScene: BadmintonVenueScene) {
     if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
     setPresentationMutation.mutate({
@@ -180,12 +181,12 @@ export function BadmintonBroadcastDirectorPanel({
           ? "auto"
           : (venueScene as Extract<
               BadmintonOverlayScene,
-              "intro" | "winner" | "sponsor" | "results"
+              "intro" | "winner" | "sponsor" | "results" | "leaderboards"
             >),
     });
     momentClearTimerRef.current = setTimeout(() => {
       setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
-    }, BROADCAST_MOMENT_AUTO_CLEAR_MS);
+    }, momentAutoClearMs(venueScene));
   }
 
   useEffect(() => {
@@ -279,7 +280,7 @@ export function BadmintonBroadcastDirectorPanel({
             Announcements
           </p>
           <p className="text-xs text-muted-foreground">
-            Push intro, winner, sponsor, next-match, or results moments to Venue + OBS together.
+            Push intro, winner, sponsor, next-match, results, or leaderboards to Venue + OBS.
             Moments auto-clear after {BROADCAST_MOMENT_AUTO_CLEAR_MS / 1000}s.
           </p>
           <div className="flex flex-wrap gap-2">

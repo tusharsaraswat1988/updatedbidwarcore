@@ -260,7 +260,7 @@ export function listWonToday(matches: ResultsMatch[], limit = 12): ResultsMatch[
 }
 
 /** Recent completed matches with a winner — prefer today, else latest overall. */
-export function listRecentCompleted(matches: ResultsMatch[], limit = 8): ResultsMatch[] {
+export function listRecentCompleted(matches: ResultsMatch[], limit = 30): ResultsMatch[] {
   const today = listWonToday(matches, limit).filter((m) => m.state?.winnerSide);
   if (today.length > 0) return today;
   return matches

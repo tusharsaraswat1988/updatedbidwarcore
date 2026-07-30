@@ -10,7 +10,8 @@ export type BadmintonOverlayScene =
   | "winner"
   | "sponsor"
   | "multi"
-  | "results";
+  | "results"
+  | "leaderboards";
 
 export type BadmintonVenueScene =
   | "auto"
@@ -21,7 +22,8 @@ export type BadmintonVenueScene =
   | "winner"
   | "sponsor"
   | "next"
-  | "results";
+  | "results"
+  | "leaderboards";
 
 export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "auto",
@@ -32,6 +34,7 @@ export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "sponsor",
   "multi",
   "results",
+  "leaderboards",
 ] as const;
 
 export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
@@ -44,6 +47,7 @@ export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
   "sponsor",
   "next",
   "results",
+  "leaderboards",
 ] as const;
 
 export type BadmintonBranding = {

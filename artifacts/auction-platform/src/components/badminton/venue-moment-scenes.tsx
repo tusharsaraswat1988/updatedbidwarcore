@@ -36,9 +36,15 @@ import {
   winnerPointDifference,
   type ResultsMatch,
 } from "@/lib/badminton-results";
+import {
+  BROADCAST_CAROUSEL_PAGE_MS,
+  BROADCAST_RESULTS_LIMIT,
+  BROADCAST_RESULTS_PAGE_SIZE,
+} from "@/lib/badminton-broadcast-director";
+import { paginateItems, type LeaderboardPage } from "@/lib/badminton-leaderboards";
 import { cn } from "@/lib/utils";
 
-const RESULTS_ROTATE_MS = 5_000;
+const RESULTS_ROTATE_MS = BROADCAST_CAROUSEL_PAGE_MS;
 
 type ChromeProps = {
   tournamentName: string;
@@ -443,7 +449,7 @@ function resultMetaLine(m: ResultsMatch): string {
     .join(" · ");
 }
 
-/** Between-match board — completed matches with winner + point difference. */
+/** Between-match board — completed matches with winner + point difference (paginated). */
 export function VenueRecentResultsScene({
   matches,
   chrome,
@@ -453,17 +459,22 @@ export function VenueRecentResultsScene({
 }) {
   const results = listRecentCompleted(
     matches.map(broadcastMatchToResults),
-    8,
+    BROADCAST_RESULTS_LIMIT,
   );
-  const [focusIndex, setFocusIndex] = useState(0);
+  const pages = paginateItems(results, BROADCAST_RESULTS_PAGE_SIZE);
+  const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
-    if (results.length <= 1) return;
+    setPageIndex(0);
+  }, [results.length]);
+
+  useEffect(() => {
+    if (pages.length <= 1) return;
     const id = setInterval(() => {
-      setFocusIndex((i) => (i + 1) % results.length);
+      setPageIndex((i) => (i + 1) % pages.length);
     }, RESULTS_ROTATE_MS);
     return () => clearInterval(id);
-  }, [results.length]);
+  }, [pages.length]);
 
   if (results.length === 0) {
     return (
@@ -476,8 +487,9 @@ export function VenueRecentResultsScene({
     );
   }
 
-  const focused = results[Math.min(focusIndex, results.length - 1)]!;
-  const listRows = results.slice(0, 6);
+  const safePage = Math.min(pageIndex, pages.length - 1);
+  const pageRows = pages[safePage] ?? [];
+  const focused = pageRows[0] ?? results[0]!;
 
   return (
     <VenueChromeShell
@@ -491,11 +503,14 @@ export function VenueRecentResultsScene({
           </p>
           <p className="bw-caption text-white/50 text-xs md:text-sm uppercase tracking-[0.18em]">
             Winner · Games · Point difference
+            {pages.length > 1
+              ? ` · Page ${safePage + 1}/${pages.length} · ${results.length} matches`
+              : ` · ${results.length} match${results.length === 1 ? "" : "es"}`}
           </p>
         </div>
 
         <div
-          key={focused.id}
+          key={`highlight-${focused.id}-${safePage}`}
           className="shrink-0 rounded-2xl border border-[#ffd700]/35 bg-gradient-to-br from-[#1a1400] to-[#0a0a0c] px-5 py-4 md:px-8 md:py-5"
         >
           <ResultHighlightCard match={focused} />
@@ -503,7 +518,7 @@ export function VenueRecentResultsScene({
 
         <div className="min-h-0 flex-1 overflow-hidden">
           <div className="grid gap-2 content-start">
-            {listRows.map((m, idx) => {
+            {pageRows.map((m, idx) => {
               const winner = winnerLabel(m) ?? "Winner";
               const loser = loserLabel(m) ?? "—";
               const diff = formatPointDifference(winnerPointDifference(m));
@@ -542,13 +557,27 @@ export function VenueRecentResultsScene({
                     {diff}
                   </p>
                   <span className="sr-only">
-                    Row {idx + 1} of {listRows.length}
+                    Row {idx + 1} of {pageRows.length}
                   </span>
                 </div>
               );
             })}
           </div>
         </div>
+
+        {pages.length > 1 ? (
+          <div className="flex justify-center gap-1.5 shrink-0 pb-1">
+            {pages.map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === safePage ? "w-6 bg-[#ffd700]" : "w-1.5 bg-white/25",
+                )}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </VenueChromeShell>
   );
@@ -596,5 +625,143 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** League / group standings carousel — P / W / L / Pts. */
+export function VenueLeaderboardsScene({
+  pages,
+  loading,
+  chrome,
+}: {
+  pages: LeaderboardPage[];
+  loading?: boolean;
+  chrome: ChromeProps;
+}) {
+  const [pageIndex, setPageIndex] = useState(0);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [pages.length]);
+
+  useEffect(() => {
+    if (pages.length <= 1) return;
+    const id = setInterval(() => {
+      setPageIndex((i) => (i + 1) % pages.length);
+    }, BROADCAST_CAROUSEL_PAGE_MS);
+    return () => clearInterval(id);
+  }, [pages.length]);
+
+  if (loading && pages.length === 0) {
+    return (
+      <VenueChromeShell chrome={{ ...chrome, roundName: "Leaderboards" }}>
+        <p className="bw-heading text-white/70 text-3xl tracking-[0.15em]">
+          Loading standings…
+        </p>
+      </VenueChromeShell>
+    );
+  }
+
+  if (pages.length === 0) {
+    return (
+      <VenueChromeShell chrome={{ ...chrome, roundName: "Leaderboards" }}>
+        <div className="text-center space-y-3 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
+          <p className="bw-label text-[#ffd700] tracking-[0.4em]">LEADERBOARDS</p>
+          <p className="bw-heading text-white/70 text-3xl">No league standings yet</p>
+          <p className="bw-caption text-white/40 text-sm max-w-lg mx-auto">
+            Add round-robin or group categories, generate league fixtures, and complete matches.
+          </p>
+        </div>
+      </VenueChromeShell>
+    );
+  }
+
+  const safePage = Math.min(pageIndex, pages.length - 1);
+  const page = pages[safePage]!;
+  const { board, rows, pageIndex: boardPage, pageCount } = page;
+
+  return (
+    <VenueChromeShell
+      chrome={{
+        ...chrome,
+        roundName: board.boardTitle,
+        matchStatus: "completed",
+      }}
+      showChyron={false}
+    >
+      <div
+        key={page.key}
+        className="w-full max-w-5xl h-full min-h-0 flex flex-col gap-4 animate-[badmintonMomentIn_0.45s_ease-out_forwards]"
+      >
+        <div className="text-center shrink-0 space-y-1">
+          <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
+            LEADERBOARD
+          </p>
+          <p className="bw-heading text-white text-3xl md:text-4xl leading-none">
+            {board.boardTitle}
+          </p>
+          <p className="bw-caption text-white/50 text-xs md:text-sm uppercase tracking-[0.14em]">
+            {board.subtitle}
+            {pageCount > 1 ? ` · ${boardPage + 1}/${pageCount}` : ""}
+            {pages.length > 1 ? ` · Board ${safePage + 1}/${pages.length}` : ""}
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+          <div className="grid grid-cols-[3rem_minmax(0,1fr)_3.5rem_3.5rem_3.5rem_4.5rem] gap-2 px-4 py-2 border-b border-white/10 text-[10px] md:text-xs font-mono uppercase tracking-[0.18em] text-white/40">
+            <span>#</span>
+            <span>Pair</span>
+            <span className="text-center">P</span>
+            <span className="text-center">W</span>
+            <span className="text-center">L</span>
+            <span className="text-right">Pts</span>
+          </div>
+          <div className="divide-y divide-white/5">
+            {rows.map((row) => (
+              <div
+                key={`${page.key}-${row.registrationId}`}
+                className={cn(
+                  "grid grid-cols-[3rem_minmax(0,1fr)_3.5rem_3.5rem_3.5rem_4.5rem] gap-2 items-center px-4 py-2.5 md:py-3",
+                  row.rank <= 4 ? "bg-[#ffd700]/6" : "",
+                )}
+              >
+                <span className="bw-heading text-white/70 text-lg md:text-xl tabular-nums">
+                  {row.rank}
+                </span>
+                <span className="bw-heading text-white text-lg md:text-2xl truncate leading-tight">
+                  {row.label}
+                </span>
+                <span className="text-center text-white/70 tabular-nums text-base md:text-lg">
+                  {row.played}
+                </span>
+                <span className="text-center text-emerald-300/90 tabular-nums text-base md:text-lg">
+                  {row.won}
+                </span>
+                <span className="text-center text-white/50 tabular-nums text-base md:text-lg">
+                  {row.lost}
+                </span>
+                <span className="text-right bw-display-l text-[#ffd700] tabular-nums text-xl md:text-2xl">
+                  {row.marginPoints}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {pages.length > 1 ? (
+          <div className="flex justify-center gap-1.5 shrink-0 pb-1">
+            {pages.map((p, i) => (
+              <span
+                key={p.key}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === safePage ? "w-6 bg-[#ffd700]" : "w-1.5 bg-white/25",
+                )}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </VenueChromeShell>
   );
 }
