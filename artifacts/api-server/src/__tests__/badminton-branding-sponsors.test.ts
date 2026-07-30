@@ -47,6 +47,41 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.primaryBroadcastMatchId).toBe(42);
     expect(branding.overlayScene).toBe("auto");
     expect(branding.venueScene).toBe("auto");
+    expect(branding.venueMusicPlaying).toBe(false);
+    expect(branding.venueMusicUrl).toBeNull();
+    expect(branding.venueMusicVolume).toBe(80);
+  });
+
+  it("resolves venue music override → auction → platform", () => {
+    const withOverride = getBadmintonBranding(
+      { name: "League", breakEndMusicUrl: "https://auction/break.mp3" },
+      { branding: {}, broadcast: { venueMusicUrl: "https://badminton/loop.mp3" } },
+      "https://platform/break.mp3",
+    );
+    expect(withOverride.resolvedVenueMusicUrl).toBe("https://badminton/loop.mp3");
+
+    const fromAuction = getBadmintonBranding(
+      { name: "League", breakEndMusicUrl: "https://auction/break.mp3" },
+      { branding: {}, broadcast: {} },
+      "https://platform/break.mp3",
+    );
+    expect(fromAuction.resolvedVenueMusicUrl).toBe("https://auction/break.mp3");
+
+    const fromPlatform = getBadmintonBranding(
+      { name: "League" },
+      { branding: {}, broadcast: {} },
+      "https://platform/break.mp3",
+    );
+    expect(fromPlatform.resolvedVenueMusicUrl).toBe("https://platform/break.mp3");
+  });
+
+  it("exposes venueMusicPlaying from broadcast block", () => {
+    const branding = getBadmintonBranding(
+      { name: "League" },
+      { branding: {}, broadcast: { venueMusicPlaying: true, venueMusicVolume: 55 } },
+    );
+    expect(branding.venueMusicPlaying).toBe(true);
+    expect(branding.venueMusicVolume).toBe(55);
   });
 
   it("exposes director overlay and venue scenes from broadcast block", () => {
@@ -65,13 +100,21 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.venueScene).toBe("multi");
   });
 
-  it("parses venue moment scenes intro/winner/sponsor/next", () => {
-    for (const venueScene of ["intro", "winner", "sponsor", "next"] as const) {
+  it("parses venue moment scenes intro/winner/sponsor/next/results", () => {
+    for (const venueScene of ["intro", "winner", "sponsor", "next", "results"] as const) {
       const branding = getBadmintonBranding(
         { name: "League" },
         { branding: {}, broadcast: { venueScene } },
       );
       expect(branding.venueScene).toBe(venueScene);
     }
+  });
+
+  it("parses overlay results scene", () => {
+    const branding = getBadmintonBranding(
+      { name: "League" },
+      { branding: {}, broadcast: { overlayScene: "results" } },
+    );
+    expect(branding.overlayScene).toBe("results");
   });
 });

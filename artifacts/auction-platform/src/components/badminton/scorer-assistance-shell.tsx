@@ -72,7 +72,7 @@ export function ScorerAssistanceShell({
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-background">
       <ScorerConsoleHeader
         tournamentName={tournamentName}
         courtNumber={courtNumber}
@@ -101,7 +101,7 @@ export function ScorerAssistanceShell({
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {children({ scoringBlocked: snapshot.scoringBlocked, onAwardPoint: guardedAward })}
       </div>
 

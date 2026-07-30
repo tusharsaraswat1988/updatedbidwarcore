@@ -33,7 +33,7 @@ export function FullscreenLayout({
             : undefined
         }
       />
-      <div className="relative z-10 w-full h-full">{children}</div>
+      <div className="relative z-10 w-full h-full min-h-0">{children}</div>
     </div>
   );
 }

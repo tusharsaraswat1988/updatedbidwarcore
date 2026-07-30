@@ -3,8 +3,8 @@ import type { ScorerConfidencePanel as PanelData } from "@workspace/badminton-co
 /** Single authoritative match-state readout for the scorer console. */
 export function ScorerStatusStrip({ panel }: { panel: PanelData }) {
   return (
-    <div className="shrink-0 mx-3 mb-2 rounded-xl border border-border bg-card/80 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="shrink-0 mx-3 mb-2 rounded-xl border border-border bg-card/80 px-3 py-2 min-w-0 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 min-w-0">
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider shrink-0">
             G{panel.currentGame}
@@ -20,15 +20,17 @@ export function ScorerStatusStrip({ panel }: { panel: PanelData }) {
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm border-t border-border/60 pt-2">
-        <span className="text-primary font-semibold break-words min-w-0">
+      <div className="mt-1.5 flex items-center gap-3 text-xs border-t border-border/60 pt-1.5 min-w-0 overflow-hidden">
+        <span className="text-primary font-semibold truncate min-w-0" title={panel.serverLabel}>
           🟡 {panel.serverLabel}
         </span>
-        <span className="text-sky-300 font-semibold break-words min-w-0">
+        <span className="text-sky-300 font-semibold truncate min-w-0" title={panel.receiverLabel}>
           👁 {panel.receiverLabel}
         </span>
         {panel.serviceCourt ? (
-          <span className="text-muted-foreground break-words">{panel.serviceCourt}</span>
+          <span className="text-muted-foreground truncate shrink-0 max-w-[40%]" title={panel.serviceCourt}>
+            {panel.serviceCourt}
+          </span>
         ) : null}
       </div>
     </div>

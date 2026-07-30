@@ -177,6 +177,8 @@ type TeamPlayerCardProps = {
   /** stack = logo → team → player (default). inline = badge + team · player on one row. */
   layout?: "stack" | "inline";
   showBadge?: boolean;
+  /** When false and a team exists, omit player names (still shows player-only for standalone). */
+  showPlayer?: boolean;
   className?: string;
   teamClassName?: string;
   playerClassName?: string;
@@ -189,6 +191,7 @@ export function TeamPlayerCard({
   tone = "default",
   layout = "stack",
   showBadge = true,
+  showPlayer = true,
   className,
   teamClassName,
   playerClassName,
@@ -214,6 +217,39 @@ export function TeamPlayerCard({
   }
 
   if (layout === "inline") {
+    // Team-only compact: single horizontal row, truncate team to protect strip height.
+    if (!showPlayer) {
+      return (
+        <div
+          className={cn(
+            "min-w-0 flex items-center gap-1.5",
+            align === "end" && "flex-row-reverse",
+            className,
+          )}
+        >
+          {showBadge ? (
+            <TeamBadge
+              teamName={team}
+              teamLogoUrl={identity.teamLogoUrl}
+              teamColor={color}
+              size={size === "xl" ? "md" : size === "lg" ? "sm" : size}
+            />
+          ) : null}
+          <p
+            title={team}
+            className={cn(
+              "min-w-0 truncate font-bold uppercase leading-tight",
+              styles.team,
+              tones.team,
+              teamClassName,
+            )}
+          >
+            {team}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className={cn("min-w-0 flex items-center gap-2", align === "end" && "flex-row-reverse", className)}>
         {showBadge ? (
@@ -255,11 +291,13 @@ export function TeamPlayerCard({
         align={align}
         className={cn("font-bold uppercase", styles.team, tones.team, teamClassName)}
       />
-      <NameText
-        text={player}
-        align={align}
-        className={cn("font-semibold", styles.player, tones.player, playerClassName)}
-      />
+      {showPlayer ? (
+        <NameText
+          text={player}
+          align={align}
+          className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -282,6 +320,7 @@ type TeamPlayerVsProps = {
   size?: TeamPlayerCardSize;
   tone?: TeamPlayerCardTone;
   layout?: "stack" | "inline";
+  showPlayer?: boolean;
   className?: string;
   vsClassName?: string;
 };
@@ -293,6 +332,7 @@ export function TeamPlayerVs({
   size = "md",
   tone = "muted",
   layout = "stack",
+  showPlayer = true,
   className,
   vsClassName,
 }: TeamPlayerVsProps) {
@@ -303,6 +343,7 @@ export function TeamPlayerVs({
         size={size}
         tone={tone}
         layout={layout}
+        showPlayer={showPlayer}
         align="end"
         className="min-w-0"
       />
@@ -319,6 +360,7 @@ export function TeamPlayerVs({
         size={size}
         tone={tone}
         layout={layout}
+        showPlayer={showPlayer}
         align="start"
         className="min-w-0"
       />

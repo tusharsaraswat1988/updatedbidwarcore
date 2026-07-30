@@ -338,6 +338,7 @@ router.patch("/primary-broadcast", async (req, res) => {
       primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
       overlayScene: branding.overlayScene,
       venueScene: branding.venueScene,
+      venueMusicPlaying: branding.venueMusicPlaying,
     });
     res.json(branding);
   } catch (e) {
@@ -357,7 +358,16 @@ router.patch("/broadcast-presentation", async (req, res) => {
   const schema = z
     .object({
       overlayScene: z
-        .enum(["auto", "compact", "full", "intro", "winner", "sponsor", "multi"])
+        .enum([
+          "auto",
+          "compact",
+          "full",
+          "intro",
+          "winner",
+          "sponsor",
+          "multi",
+          "results",
+        ])
         .optional(),
       venueScene: z
         .enum([
@@ -369,12 +379,31 @@ router.patch("/broadcast-presentation", async (req, res) => {
           "winner",
           "sponsor",
           "next",
+          "results",
         ])
         .optional(),
+      venueMusicPlaying: z.boolean().optional(),
+      venueMusicUrl: z
+        .string()
+        .nullable()
+        .optional()
+        .refine(
+          (v) => v == null || v === "" || /^https?:\/\//i.test(v),
+          "Music URL must be http(s)",
+        ),
+      venueMusicVolume: z.number().int().min(0).max(100).optional(),
+      importAuctionMusic: z.literal(true).optional(),
     })
-    .refine((v) => v.overlayScene !== undefined || v.venueScene !== undefined, {
-      message: "At least one scene field required",
-    });
+    .refine(
+      (v) =>
+        v.overlayScene !== undefined
+        || v.venueScene !== undefined
+        || v.venueMusicPlaying !== undefined
+        || v.venueMusicUrl !== undefined
+        || v.venueMusicVolume !== undefined
+        || v.importAuctionMusic === true,
+      { message: "At least one presentation field required" },
+    );
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
@@ -382,19 +411,32 @@ router.patch("/broadcast-presentation", async (req, res) => {
   }
 
   try {
+    const musicUrl =
+      parsed.data.venueMusicUrl === undefined
+        ? undefined
+        : parsed.data.venueMusicUrl === ""
+          ? null
+          : parsed.data.venueMusicUrl;
     const branding = await updateBroadcastPresentation(tournamentId, {
       overlayScene: parsed.data.overlayScene as BadmintonOverlayScene | undefined,
       venueScene: parsed.data.venueScene as BadmintonVenueScene | undefined,
+      venueMusicPlaying: parsed.data.venueMusicPlaying,
+      venueMusicUrl: musicUrl,
+      venueMusicVolume: parsed.data.venueMusicVolume,
+      importAuctionMusic: parsed.data.importAuctionMusic,
     });
     broadcastTournamentUpdate(tournamentId, {
       kind: "broadcast_presentation",
       primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
       overlayScene: branding.overlayScene,
       venueScene: branding.venueScene,
+      venueMusicPlaying: branding.venueMusicPlaying,
     });
     res.json(branding);
   } catch (e) {
-    res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
+    const message = e instanceof Error ? e.message : "Update failed";
+    const status = message.includes("No auction break music") ? 400 : 404;
+    res.status(status).json({ error: message });
   }
 });
 

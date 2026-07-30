@@ -13,6 +13,8 @@ const ROLE_PRIORITY: Record<DisplayAudioRole, number> = { main: 2, side: 1 };
 export function useDisplayAudioLeader(
   tournamentId: number,
   role: DisplayAudioRole,
+  /** Channel name segment — default keeps auction LED tabs electing one leader. */
+  channelKey = "display_audio",
 ): boolean {
   const tabIdRef = useRef(
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -29,7 +31,7 @@ export function useDisplayAudioLeader(
       return;
     }
 
-    const channel = new BroadcastChannel(`bidwar_display_audio_${tournamentId}`);
+    const channel = new BroadcastChannel(`bidwar_${channelKey}_${tournamentId}`);
     const peers = new Map<string, { role: DisplayAudioRole; ts: number }>();
 
     const recomputeLeader = () => {
@@ -83,7 +85,7 @@ export function useDisplayAudioLeader(
       channel.removeEventListener("message", onMessage);
       channel.close();
     };
-  }, [tournamentId, role]);
+  }, [tournamentId, role, channelKey]);
 
   return isLeader;
 }

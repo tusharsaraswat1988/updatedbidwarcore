@@ -534,8 +534,8 @@ export default function BadmintonScorerPage() {
   }
 
   return (
-    <FullscreenLayout className="lovable-theme">
-      <div className="h-[100dvh] overflow-hidden flex flex-col bg-background">
+    <FullscreenLayout className="lovable-theme h-[100dvh] min-h-0 overflow-hidden">
+      <div className="h-full min-h-0 overflow-hidden flex flex-col bg-background overscroll-none">
         {tournamentId > 0 ? (
           <div className="shrink-0 px-3 py-1.5 border-b border-border bg-card/80 flex items-center justify-between gap-2">
             <button

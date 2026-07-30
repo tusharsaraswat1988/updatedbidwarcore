@@ -1,9 +1,9 @@
 /**
- * Full-bleed venue LED moment scenes — intro, winner, sponsor, next match.
+ * Full-bleed venue LED moment scenes — intro, winner, sponsor, next match, results.
  * Driven by Broadcast Director `venueScene` (hall TV / projector).
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { isPairMatchKind } from "@workspace/badminton-core";
 import { SidePlayerPhotos } from "@/components/badminton/side-players";
@@ -15,7 +15,6 @@ import {
 import { badmintonLedSurfaceStyle, fixedScoreStyle } from "@/components/badminton/badminton-led-theme";
 import type { ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import {
-  formatTeamPlayerLine,
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
@@ -26,7 +25,20 @@ import {
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
 import { VenueSponsorShowcase } from "@/components/badminton/venue-sponsor-showcase";
+import {
+  formatPointDifference,
+  gameScoreLines,
+  gamesWonLine,
+  listRecentCompleted,
+  loserLabel,
+  outcomeLabel,
+  winnerLabel,
+  winnerPointDifference,
+  type ResultsMatch,
+} from "@/lib/badminton-results";
 import { cn } from "@/lib/utils";
+
+const RESULTS_ROTATE_MS = 5_000;
 
 type ChromeProps = {
   tournamentName: string;
@@ -395,5 +407,194 @@ export function VenueNextMatchScene({
         )}
       </div>
     </VenueChromeShell>
+  );
+}
+
+function broadcastMatchToResults(m: BroadcastConsoleMatch): ResultsMatch {
+  return {
+    id: m.id,
+    status: m.status,
+    scheduledAt: m.scheduledAt,
+    completedAt: m.state?.endedAt ?? null,
+    detail: m.detail,
+    state: m.state,
+    resultSummary: null,
+    fixtureId: null,
+    roundName:
+      typeof m.detail?.roundName === "string" ? m.detail.roundName : null,
+  };
+}
+
+function resultMetaLine(m: ResultsMatch): string {
+  const detail = (m.detail ?? {}) as {
+    categoryName?: string;
+    roundName?: string;
+    courtNumber?: string;
+    matchLabel?: string;
+  };
+  return [
+    detail.categoryName?.trim(),
+    detail.roundName?.trim() ||
+      (typeof m.roundName === "string" ? m.roundName.trim() : ""),
+    detail.courtNumber?.trim() ? `Court ${detail.courtNumber.trim()}` : null,
+    detail.matchLabel?.trim(),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** Between-match board — completed matches with winner + point difference. */
+export function VenueRecentResultsScene({
+  matches,
+  chrome,
+}: {
+  matches: BroadcastConsoleMatch[];
+  chrome: ChromeProps;
+}) {
+  const results = listRecentCompleted(
+    matches.map(broadcastMatchToResults),
+    8,
+  );
+  const [focusIndex, setFocusIndex] = useState(0);
+
+  useEffect(() => {
+    if (results.length <= 1) return;
+    const id = setInterval(() => {
+      setFocusIndex((i) => (i + 1) % results.length);
+    }, RESULTS_ROTATE_MS);
+    return () => clearInterval(id);
+  }, [results.length]);
+
+  if (results.length === 0) {
+    return (
+      <VenueChromeShell chrome={{ ...chrome, roundName: "Results" }}>
+        <div className="text-center space-y-3 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
+          <p className="bw-label text-[#ffd700] tracking-[0.4em]">RESULTS</p>
+          <p className="bw-heading text-white/70 text-3xl">No completed matches yet</p>
+        </div>
+      </VenueChromeShell>
+    );
+  }
+
+  const focused = results[Math.min(focusIndex, results.length - 1)]!;
+  const listRows = results.slice(0, 6);
+
+  return (
+    <VenueChromeShell
+      chrome={{ ...chrome, roundName: "Match results", matchStatus: "completed" }}
+      showChyron={false}
+    >
+      <div className="w-full max-w-6xl h-full min-h-0 flex flex-col gap-4 md:gap-5 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
+        <div className="text-center shrink-0 space-y-1">
+          <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
+            RESULTS
+          </p>
+          <p className="bw-caption text-white/50 text-xs md:text-sm uppercase tracking-[0.18em]">
+            Winner · Games · Point difference
+          </p>
+        </div>
+
+        <div
+          key={focused.id}
+          className="shrink-0 rounded-2xl border border-[#ffd700]/35 bg-gradient-to-br from-[#1a1400] to-[#0a0a0c] px-5 py-4 md:px-8 md:py-5"
+        >
+          <ResultHighlightCard match={focused} />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="grid gap-2 content-start">
+            {listRows.map((m, idx) => {
+              const winner = winnerLabel(m) ?? "Winner";
+              const loser = loserLabel(m) ?? "—";
+              const diff = formatPointDifference(winnerPointDifference(m));
+              const active = m.id === focused.id;
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    "grid grid-cols-[minmax(0,1.4fr)_auto_auto] items-center gap-3 rounded-xl border px-3 py-2.5 md:px-4",
+                    active
+                      ? "border-[#ffd700]/40 bg-[#ffd700]/10"
+                      : "border-white/10 bg-white/[0.04]",
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="bw-heading text-white text-lg md:text-xl truncate leading-tight">
+                      {winner}
+                      <span className="text-white/35 font-normal mx-1.5">def</span>
+                      <span className="text-white/70">{loser}</span>
+                    </p>
+                    {resultMetaLine(m) ? (
+                      <p className="bw-meta text-white/40 text-[11px] md:text-xs truncate mt-0.5">
+                        {resultMetaLine(m)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="bw-display-l text-xl md:text-2xl text-white tabular-nums shrink-0">
+                    {gamesWonLine(m)}
+                  </p>
+                  <p
+                    className={cn(
+                      "bw-heading text-lg md:text-xl tabular-nums shrink-0 min-w-[3.5rem] text-right",
+                      active ? "text-[#ffd700]" : "text-emerald-300/90",
+                    )}
+                  >
+                    {diff}
+                  </p>
+                  <span className="sr-only">
+                    Row {idx + 1} of {listRows.length}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </VenueChromeShell>
+  );
+}
+
+function ResultHighlightCard({ match }: { match: ResultsMatch }) {
+  const winner = winnerLabel(match) ?? "Winner";
+  const loser = loserLabel(match) ?? "—";
+  const diff = formatPointDifference(winnerPointDifference(match));
+  const sets = gameScoreLines(match);
+  const outcome = outcomeLabel(match);
+  const meta = resultMetaLine(match);
+
+  return (
+    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <p className="bw-label text-[#ffd700]/80 tracking-[0.28em] text-[10px] md:text-xs">
+          {outcome.toUpperCase()}
+          {meta ? ` · ${meta}` : ""}
+        </p>
+        <p className="bw-heading text-white text-3xl md:text-4xl leading-none truncate">
+          {winner}
+        </p>
+        <p className="bw-caption text-white/55 text-sm md:text-base">
+          defeated <span className="text-white/85">{loser}</span>
+        </p>
+        {sets.length > 0 ? (
+          <p className="bw-meta text-white/45 text-xs md:text-sm tracking-wide">
+            {sets.join("  ·  ")}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-4 md:gap-6 shrink-0">
+        <div className="text-center rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 min-w-[5.5rem]">
+          <p className="bw-label text-white/45 text-[10px] tracking-[0.2em]">GAMES</p>
+          <p className="bw-display-l text-3xl md:text-4xl text-white tabular-nums leading-none mt-1">
+            {gamesWonLine(match)}
+          </p>
+        </div>
+        <div className="text-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 min-w-[5.5rem]">
+          <p className="bw-label text-emerald-200/70 text-[10px] tracking-[0.2em]">DIFF</p>
+          <p className="bw-display-l text-3xl md:text-4xl text-emerald-300 tabular-nums leading-none mt-1">
+            {diff}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

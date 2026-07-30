@@ -9,7 +9,8 @@ export type BadmintonOverlayScene =
   | "intro"
   | "winner"
   | "sponsor"
-  | "multi";
+  | "multi"
+  | "results";
 
 export type BadmintonVenueScene =
   | "auto"
@@ -19,7 +20,8 @@ export type BadmintonVenueScene =
   | "intro"
   | "winner"
   | "sponsor"
-  | "next";
+  | "next"
+  | "results";
 
 export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "auto",
@@ -29,6 +31,7 @@ export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "winner",
   "sponsor",
   "multi",
+  "results",
 ] as const;
 
 export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
@@ -40,6 +43,7 @@ export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
   "winner",
   "sponsor",
   "next",
+  "results",
 ] as const;
 
 export type BadmintonBranding = {
@@ -57,6 +61,17 @@ export type BadmintonBranding = {
   overlayScene: BadmintonOverlayScene;
   /** Operator-forced Venue Scoreboard scene. `auto` = live board when match exists. */
   venueScene: BadmintonVenueScene;
+  /** Control Center: loop music On/Pause for venue LED. */
+  venueMusicPlaying: boolean;
+  /** Badminton-specific loop track override (null = fall through to auction/platform). */
+  venueMusicUrl: string | null;
+  /** Loop music volume 0–100. */
+  venueMusicVolume: number;
+  /**
+   * Effective loop URL for venue LED:
+   * badminton override → auction break music → platform default.
+   */
+  resolvedVenueMusicUrl: string | null;
 };
 
 export type ScoreBoardSponsor = {
@@ -127,6 +142,42 @@ export function parseVenueScene(raw: unknown): BadmintonVenueScene {
   return "auto";
 }
 
+export function parseVenueMusicPlaying(raw: unknown): boolean {
+  return raw === true;
+}
+
+export function parseVenueMusicUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function parseVenueMusicVolume(raw: unknown): number {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  }
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return Math.max(0, Math.min(100, Math.round(n)));
+  }
+  return 80;
+}
+
+/** Badminton override → auction break → platform default. */
+export function resolveVenueMusicUrl(
+  badmintonOverride: string | null | undefined,
+  auctionBreakUrl: string | null | undefined,
+  platformDefaultUrl: string | null | undefined,
+): string | null {
+  const override = badmintonOverride?.trim();
+  if (override) return override;
+  const auction = auctionBreakUrl?.trim();
+  if (auction) return auction;
+  const platform = platformDefaultUrl?.trim();
+  if (platform) return platform;
+  return null;
+}
+
 export function getBadmintonBranding(
   tournament: {
     name: string;
@@ -134,11 +185,14 @@ export function getBadmintonBranding(
     sponsorLogos?: string | null;
     venue?: string | null;
     organizerName?: string | null;
+    breakEndMusicUrl?: string | null;
   },
   scoringSettingsJson: Record<string, unknown> | null | undefined,
+  platformBreakMusicUrl?: string | null,
 ): BadmintonBranding {
   const raw = (scoringSettingsJson?.branding ?? {}) as Record<string, unknown>;
   const broadcast = broadcastBlock(scoringSettingsJson);
+  const venueMusicUrl = parseVenueMusicUrl(broadcast.venueMusicUrl);
   return {
     displayName:
       typeof raw.displayName === "string" && raw.displayName.trim()
@@ -160,5 +214,13 @@ export function getBadmintonBranding(
     primaryBroadcastMatchId: parsePrimaryBroadcastMatchId(scoringSettingsJson),
     overlayScene: parseOverlayScene(broadcast.overlayScene),
     venueScene: parseVenueScene(broadcast.venueScene),
+    venueMusicPlaying: parseVenueMusicPlaying(broadcast.venueMusicPlaying),
+    venueMusicUrl,
+    venueMusicVolume: parseVenueMusicVolume(broadcast.venueMusicVolume),
+    resolvedVenueMusicUrl: resolveVenueMusicUrl(
+      venueMusicUrl,
+      tournament.breakEndMusicUrl,
+      platformBreakMusicUrl,
+    ),
   };
 }

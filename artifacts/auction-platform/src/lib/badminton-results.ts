@@ -152,6 +152,38 @@ export function winnerLabel(m: ResultsMatch): string | null {
   return info.label?.trim() || info.shortLabel?.trim() || null;
 }
 
+export function loserLabel(m: ResultsMatch): string | null {
+  const side = m.state?.winnerSide;
+  if (!side || !m.state) return null;
+  const info = side === "left" ? m.state.rightSide : m.state.leftSide;
+  return info.label?.trim() || info.shortLabel?.trim() || null;
+}
+
+/**
+ * Net rally-point difference for the match winner across completed games
+ * (sum of winnerScore − loserScore per game). Positive = winner scored more.
+ */
+export function winnerPointDifference(m: ResultsMatch): number | null {
+  if (!m.state?.winnerSide) return null;
+  const side = m.state.winnerSide;
+  let total = 0;
+  let counted = 0;
+  for (const g of m.state.games) {
+    if (g.phase !== "completed" && !g.winner) continue;
+    const won = side === "left" ? g.leftScore : g.rightScore;
+    const lost = side === "left" ? g.rightScore : g.leftScore;
+    total += won - lost;
+    counted += 1;
+  }
+  return counted > 0 ? total : null;
+}
+
+export function formatPointDifference(diff: number | null | undefined): string {
+  if (diff == null || !Number.isFinite(diff)) return "—";
+  if (diff > 0) return `+${diff}`;
+  return String(diff);
+}
+
 export function winnerTeamFields(m: ResultsMatch): {
   teamName: string | null;
   teamLogoUrl: string | null;
@@ -223,6 +255,16 @@ export function listWonToday(matches: ResultsMatch[], limit = 12): ResultsMatch[
         (!m.completedAt && !m.state?.endedAt && isSameLocalDay(m.scheduledAt))
       );
     })
+    .sort((a, b) => completedAtMs(b) - completedAtMs(a))
+    .slice(0, limit);
+}
+
+/** Recent completed matches with a winner — prefer today, else latest overall. */
+export function listRecentCompleted(matches: ResultsMatch[], limit = 8): ResultsMatch[] {
+  const today = listWonToday(matches, limit).filter((m) => m.state?.winnerSide);
+  if (today.length > 0) return today;
+  return matches
+    .filter((m) => isCompletedMatch(m) && m.state?.winnerSide)
     .sort((a, b) => completedAtMs(b) - completedAtMs(a))
     .slice(0, limit);
 }

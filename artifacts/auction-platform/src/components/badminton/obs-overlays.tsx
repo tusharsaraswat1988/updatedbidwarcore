@@ -12,6 +12,7 @@
  * - intro      — player introduction card
  * - winner     — match winner celebration
  * - sponsor    — sponsor display loop
+ * - results    — recent completed match winners + point difference
  */
 
 import type { BadmintonMatchState, BadmintonSide } from "@workspace/badminton-core";
@@ -36,9 +37,22 @@ import {
   BIDWAR_BROADCAST_YELLOW_MUTED,
   BIDWAR_BROADCAST_YELLOW_SOFT,
 } from "@/lib/bidwar-broadcast-colors";
+import type { BroadcastConsoleMatch } from "@/lib/badminton-broadcast-console";
+import {
+  formatPointDifference,
+  gameScoreLines,
+  gamesWonLine,
+  listRecentCompleted,
+  loserLabel,
+  winnerLabel,
+  winnerPointDifference,
+  type ResultsMatch,
+} from "@/lib/badminton-results";
 
-type OverlayType = "compact" | "full" | "intro" | "winner" | "sponsor";
+type OverlayType = "compact" | "full" | "intro" | "winner" | "sponsor" | "results";
 type PointFlashSide = BadmintonSide | null;
+
+const OBS_RESULTS_ROTATE_MS = 4_500;
 
 function useServeSideFlash(servingSide: "left" | "right") {
   const prevRef = useRef(servingSide);
@@ -171,6 +185,10 @@ export function overlayPlacementClass(
     case "intro":
     case "winner":
       return "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2";
+    case "results":
+      return withBottomTicker
+        ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(920px,92vw)]`
+        : "bottom-[5vh] left-1/2 -translate-x-1/2 w-[min(920px,92vw)]";
     case "sponsor":
       return withBottomTicker
         ? `${sponsorBottom} left-1/2 -translate-x-1/2`
@@ -242,6 +260,8 @@ export function BadmintonOverlay({
           rotateMs={sponsorRotateMs}
         />
       );
+    case "results":
+      return null;
     default:
       return (
         <CompactOverlay
@@ -1003,6 +1023,114 @@ function SponsorOverlay({
         </span>
       ) : null}
       <SponsorCarousel logos={sponsorLogos} overlay rotateMs={rotateMs} />
+    </div>
+  );
+}
+
+function toResultsMatch(m: BroadcastConsoleMatch): ResultsMatch {
+  return {
+    id: m.id,
+    status: m.status,
+    scheduledAt: m.scheduledAt,
+    completedAt: m.state?.endedAt ?? null,
+    detail: m.detail,
+    state: m.state,
+    resultSummary: null,
+    fixtureId: null,
+    roundName:
+      typeof m.detail?.roundName === "string" ? m.detail.roundName : null,
+  };
+}
+
+/** OBS lower-third — cycles completed matches: winner, games, point difference. */
+export function ObsRecentResultsOverlay({
+  matches,
+  rotateMs = OBS_RESULTS_ROTATE_MS,
+}: {
+  matches: BroadcastConsoleMatch[];
+  rotateMs?: number;
+}) {
+  const results = listRecentCompleted(matches.map(toResultsMatch), 8);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (results.length <= 1) return;
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % results.length);
+    }, rotateMs);
+    return () => clearInterval(id);
+  }, [results.length, rotateMs]);
+
+  if (results.length === 0) {
+    return (
+      <div className="rounded-xl border border-white/15 bg-black/80 px-5 py-3 shadow-2xl backdrop-blur-sm">
+        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/80">
+          Results
+        </p>
+        <p className="text-white/70 text-sm font-semibold mt-1">No completed matches yet</p>
+      </div>
+    );
+  }
+
+  const match = results[Math.min(index, results.length - 1)]!;
+  const winner = winnerLabel(match) ?? "Winner";
+  const loser = loserLabel(match) ?? "—";
+  const diff = formatPointDifference(winnerPointDifference(match));
+  const sets = gameScoreLines(match);
+  const metaBits = [
+    typeof match.detail?.categoryName === "string"
+      ? match.detail.categoryName.trim()
+      : "",
+    typeof match.detail?.roundName === "string" ? match.detail.roundName.trim() : "",
+  ].filter(Boolean);
+
+  return (
+    <div
+      key={match.id}
+      className="rounded-xl border border-amber-400/35 bg-black/85 px-5 py-3.5 shadow-2xl backdrop-blur-sm animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
+      style={{ fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif" }}
+    >
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-amber-300/90">
+          Result{results.length > 1 ? ` · ${index + 1}/${results.length}` : ""}
+        </p>
+        {metaBits.length > 0 ? (
+          <p className="text-[10px] uppercase tracking-wide text-white/40 truncate max-w-[50%]">
+            {metaBits.join(" · ")}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-white text-xl md:text-2xl font-bold leading-tight truncate">
+            {winner}
+          </p>
+          <p className="text-white/55 text-xs md:text-sm mt-0.5 truncate">
+            def <span className="text-white/80">{loser}</span>
+            {sets.length > 0 ? (
+              <span className="text-white/40"> · {sets.join(", ")}</span>
+            ) : null}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-center">
+            <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40">
+              Games
+            </p>
+            <p className="text-white text-2xl font-black tabular-nums leading-none">
+              {gamesWonLine(match)}
+            </p>
+          </div>
+          <div className="text-center min-w-[3.25rem]">
+            <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald-300/70">
+              Diff
+            </p>
+            <p className="text-emerald-300 text-2xl font-black tabular-nums leading-none">
+              {diff}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

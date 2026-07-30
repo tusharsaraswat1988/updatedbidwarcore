@@ -20,6 +20,7 @@ import { getSponsorsByPriority, parseSponsorLogos, validateSponsorList, type Spo
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { cn } from "@/lib/utils";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
+import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
 
 const ImageEditorDialog = lazy(() =>
   import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog })),
@@ -572,6 +573,10 @@ export default function BadmintonBrandingPage() {
                 Clear scoreboard sponsor
               </button>
             </section>
+
+            <div className="lg:col-span-2">
+              <VenueMusicSettingsPanel tournamentId={tournamentId} branding={branding} />
+            </div>
 
             {/* Import tournament branding into badminton display */}
             <section className={cn(hubPanelClass, "space-y-5 lg:col-span-2")}>

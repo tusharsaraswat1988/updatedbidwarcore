@@ -2,10 +2,7 @@ import { useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { DoublesCourtDisplay } from "@/components/badminton/doubles-court-display";
 import { cn } from "@/lib/utils";
-import {
-  formatTeamPlayerLine,
-  identityFromSideInfo,
-} from "@/lib/team-player-identity";
+import { identityFromSideInfo } from "@/lib/team-player-identity";
 
 interface DoublesScorerPanelProps {
   state: BadmintonMatchState;
@@ -53,32 +50,39 @@ export function DoublesScorerPanel({
     }
   }
 
-  const leftPairLabel = formatTeamPlayerLine(identityFromSideInfo(state.leftSide));
-  const rightPairLabel = formatTeamPlayerLine(identityFromSideInfo(state.rightSide));
+  // Score buttons use player names only — team identity lives on scoreboards / strip.
+  const leftPairLabel = identityFromSideInfo(state.leftSide).playerName;
+  const rightPairLabel = identityFromSideInfo(state.rightSide).playerName;
 
   return (
-    <div className="h-full flex flex-col min-h-0 overflow-hidden">
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 flex flex-col items-center justify-center">
-        <DoublesCourtDisplay state={state} variant="scorer" className="max-w-[320px] w-full" />
-
+    <div className="h-full min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden px-3 py-1.5 flex flex-col items-center justify-center gap-1.5">
         {(state.isPaused || state.matchStatus === "paused") && (
           <div
-            className="mt-3 w-full rounded-lg bg-amber-600/20 border border-amber-400/40 px-3 py-2.5 text-amber-100 text-sm font-bold text-center"
+            className="shrink-0 w-full rounded-lg bg-amber-600/20 border border-amber-400/40 px-3 py-1.5 text-amber-100 text-xs font-bold text-center"
             role="status"
           >
-            Scoring locked — director must resume the match
+            Scoring locked — director must resume
           </div>
         )}
 
         {isTimeout && (
-          <div className="mt-3 w-full rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2 text-amber-300 text-sm font-bold text-center">
+          <div className="shrink-0 w-full rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-amber-300 text-xs font-bold text-center">
             Timeout in progress
           </div>
         )}
 
         {lastAction && (
-          <p className="mt-2 text-red-400 text-sm text-center">{lastAction}</p>
+          <p className="shrink-0 text-red-400 text-xs text-center truncate w-full">{lastAction}</p>
         )}
+
+        <div className="flex-1 min-h-0 w-full max-w-[320px] flex items-center justify-center overflow-hidden">
+          <DoublesCourtDisplay
+            state={state}
+            variant="scorer"
+            className="w-full max-h-full"
+          />
+        </div>
       </div>
 
       <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border space-y-2 bg-card/90">
@@ -88,7 +92,7 @@ export function DoublesScorerPanel({
             onClick={() => award("left")}
             disabled={cannotScore}
             className={cn(
-              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-sm sm:text-base active:scale-[0.98] px-2",
+              "h-[5.5rem] sm:h-[6.5rem] rounded-2xl font-black text-sm sm:text-base active:scale-[0.98] px-2",
               "bg-primary text-primary-foreground shadow-[var(--shadow-glow)] disabled:opacity-40",
             )}
           >
@@ -102,7 +106,7 @@ export function DoublesScorerPanel({
             onClick={() => award("right")}
             disabled={cannotScore}
             className={cn(
-              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-sm sm:text-base active:scale-[0.98] px-2",
+              "h-[5.5rem] sm:h-[6.5rem] rounded-2xl font-black text-sm sm:text-base active:scale-[0.98] px-2",
               "bg-sky-500 text-white disabled:opacity-40",
             )}
           >

@@ -46,7 +46,11 @@ function QuadrantCell({
     <div
       className={cn(
         "relative flex flex-col items-center justify-center border transition-all duration-300 min-w-0",
-        isMini ? "p-2.5 min-h-[58px] overflow-hidden" : isScorer ? "p-3 min-h-[76px]" : "p-5 min-h-[80px]",
+        isMini
+          ? "p-2.5 min-h-[58px] overflow-hidden"
+          : isScorer
+            ? "p-2 min-h-0 overflow-hidden"
+            : "p-5 min-h-[80px]",
         !ledTheme && isServer
           ? "bg-primary/15 border-primary/50 shadow-[inset_0_0_20px_color-mix(in_srgb,var(--primary)_20%,transparent)]"
           : !ledTheme && isReceiver
@@ -58,8 +62,12 @@ function QuadrantCell({
     >
       <span
         className={cn(
-          "font-bold text-white text-center leading-tight max-w-full bw-name-full",
-          isMini ? "text-sm" : isScorer ? "text-[11px] sm:text-xs" : "text-base",
+          "font-bold text-white text-center leading-tight max-w-full",
+          isMini
+            ? "text-sm bw-name-full"
+            : isScorer
+              ? "text-[11px] sm:text-xs line-clamp-2"
+              : "text-base bw-name-full",
         )}
         style={
           ledTheme && isServer
@@ -132,8 +140,14 @@ export function DoublesCourtDisplay({
     "Right";
 
   return (
-    <div className={cn("w-full", className)}>
-      {!isMini && (
+    <div
+      className={cn(
+        "w-full",
+        isScorer && "h-full min-h-0 max-h-full flex flex-col",
+        className,
+      )}
+    >
+      {!isMini && !isScorer && (
         <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest text-center mb-2">
           Court Positions
         </p>
@@ -142,6 +156,7 @@ export function DoublesCourtDisplay({
         className={cn(
           "grid grid-cols-2 overflow-hidden rounded-xl border border-white/15",
           isMini ? "rounded-lg" : "rounded-2xl",
+          isScorer && "flex-1 min-h-0 grid-rows-[auto_minmax(0,1fr)_auto_auto_minmax(0,1fr)]",
         )}
       >
         {isScorer ? (

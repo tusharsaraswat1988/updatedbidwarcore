@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRoute, useSearch } from "wouter";
 import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import {
@@ -14,11 +15,13 @@ import {
   BadmintonLedTopStrip,
 } from "@/components/badminton/badminton-led-chrome";
 import { badmintonLedSurfaceStyle } from "@/components/badminton/badminton-led-theme";
-import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import { useBadmintonMatch, subscribeBadmintonDashboardStream } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
+import { useBadmintonBroadcastAudio } from "@/hooks/use-badminton-broadcast-audio";
 import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { DisplayStageViewport } from "@/components/display/display-stage-viewport";
+import { AudioUnlockButton } from "@/components/display/audio-unlock-button";
 import { StageFrame } from "@/components/display/v1/StageFrame";
 import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";
 import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
@@ -40,6 +43,7 @@ import {
 import {
   VenueIntroScene,
   VenueNextMatchScene,
+  VenueRecentResultsScene,
   VenueSponsorScene,
   VenueWinnerScene,
 } from "@/components/badminton/venue-moment-scenes";
@@ -129,9 +133,18 @@ function DisplayStage({
   courtNumber?: string;
   followMode: boolean;
 }) {
+  const qc = useQueryClient();
   const fixedMatch = useBadmintonMatch(tournamentId, followMode ? 0 : matchId);
   const liveFollow = useBadmintonLiveFollow(tournamentId);
   const { data: branding } = useBadmintonBranding(tournamentId);
+
+  // Fixed-match displays still need branding SSE for venue music On/Pause.
+  useEffect(() => {
+    if (!tournamentId || followMode) return;
+    return subscribeBadmintonDashboardStream(tournamentId, () => {
+      void qc.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
+    });
+  }, [tournamentId, followMode, qc]);
 
   const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
   const isLoading = followMode
@@ -167,6 +180,21 @@ function DisplayStage({
     [liveFollow.matches, liveFollow.primaryMatchId],
   );
   const matchState = (data?.state ?? null) as BadmintonMatchState | null;
+  const followedMatchId = followMode
+    ? (liveFollow.primaryMatchId ?? null)
+    : matchId || null;
+  const matchStateReady = followMode
+    ? !liveFollow.matchesLoading && !liveFollow.matchQuery.isLoading
+    : !fixedMatch.isLoading;
+  const { isUnlocked, unlock } = useBadmintonBroadcastAudio({
+    tournamentId,
+    matchKey: followedMatchId,
+    matchState,
+    venueMusicPlaying: branding?.venueMusicPlaying === true,
+    resolvedVenueMusicUrl: branding?.resolvedVenueMusicUrl ?? null,
+    venueMusicVolume: branding?.venueMusicVolume ?? 80,
+    matchStateReady,
+  });
   const chrome = {
     tournamentName,
     tournamentLogoUrl,
@@ -198,7 +226,11 @@ function DisplayStage({
       ? "Could not load match — tap Retry"
       : venueScene === "standby" && !!matchState
       ? "Standby — director hold"
-      : isVenueMomentScene(venueScene) && !matchState && venueScene !== "sponsor" && venueScene !== "next"
+      : isVenueMomentScene(venueScene) &&
+          !matchState &&
+          venueScene !== "sponsor" &&
+          venueScene !== "next" &&
+          venueScene !== "results"
         ? "Waiting for match…"
       : multiCourtMode
         ? multiRows.length > 0
@@ -240,6 +272,10 @@ function DisplayStage({
     );
   } else if (venueScene === "sponsor") {
     stageContent = <VenueSponsorScene chrome={chrome} />;
+  } else if (venueScene === "results") {
+    stageContent = (
+      <VenueRecentResultsScene matches={liveFollow.matches} chrome={chrome} />
+    );
   } else if (venueScene === "next") {
     stageContent = <VenueNextMatchScene match={upNextMatch} chrome={chrome} />;
   } else if (venueScene === "intro" && matchState) {
@@ -315,6 +351,7 @@ function DisplayStage({
           <StageFrame>{stageContent}</StageFrame>
         </StageThemeProvider>
       </DisplayStageViewport>
+      <AudioUnlockButton visible={!isUnlocked} onUnlock={unlock} />
     </FullscreenLayout>
   );
 }

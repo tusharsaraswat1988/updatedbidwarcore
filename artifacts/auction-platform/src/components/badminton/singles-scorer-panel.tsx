@@ -1,10 +1,7 @@
 import { useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
-import {
-  formatTeamPlayerLine,
-  identityFromSideInfo,
-} from "@/lib/team-player-identity";
+import { identityFromSideInfo } from "@/lib/team-player-identity";
 
 interface SinglesScorerPanelProps {
   state: BadmintonMatchState;
@@ -43,18 +40,18 @@ export function SinglesScorerPanel({
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col">
       {(state.isPaused || state.matchStatus === "paused") && (
         <div
-          className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-600/20 border border-amber-400/40 px-3 py-2.5 text-amber-100 text-sm font-bold text-center"
+          className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-600/20 border border-amber-400/40 px-3 py-1.5 text-amber-100 text-xs font-bold text-center"
           role="status"
         >
-          Scoring locked — director must resume the match
+          Scoring locked — director must resume
         </div>
       )}
 
       {isTimeout && (
-        <div className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2 text-amber-300 text-sm font-bold text-center">
+        <div className="shrink-0 mx-3 mt-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-amber-300 text-xs font-bold text-center">
           Timeout in progress
           {state.activeTimeout?.side
             ? ` · ${state.activeTimeout.side === "left" ? "Left" : "Right"}`
@@ -62,7 +59,7 @@ export function SinglesScorerPanel({
         </div>
       )}
 
-      <div className="flex-1 min-h-2" />
+      <div className="flex-1 min-h-0" />
 
       <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border space-y-2 bg-card/90">
         <div className="grid grid-cols-2 gap-2">
@@ -71,28 +68,28 @@ export function SinglesScorerPanel({
             onClick={() => award("left")}
             disabled={cannotScore}
             className={cn(
-              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
+              "h-[5.5rem] sm:h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
               "bg-primary text-primary-foreground active:scale-[0.98] shadow-[var(--shadow-glow)] disabled:opacity-40",
             )}
           >
             <span className="block text-[10px] font-bold uppercase tracking-wider opacity-70 mb-1">
               End 1
             </span>
-            + {formatTeamPlayerLine(identityFromSideInfo(state.leftSide))}
+            + {identityFromSideInfo(state.leftSide).playerName}
           </button>
           <button
             type="button"
             onClick={() => award("right")}
             disabled={cannotScore}
             className={cn(
-              "min-h-[5.5rem] sm:min-h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
+              "h-[5.5rem] sm:h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
               "bg-sky-500 text-white active:scale-[0.98] disabled:opacity-40",
             )}
           >
             <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">
               End 2
             </span>
-            + {formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}
+            + {identityFromSideInfo(state.rightSide).playerName}
           </button>
         </div>
         <div className="flex gap-2">

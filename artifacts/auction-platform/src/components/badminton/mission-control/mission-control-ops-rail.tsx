@@ -4,7 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Copy, Monitor, QrCode, Radio, Tablet } from "lucide-react";
+import { Copy, Monitor, Pause, Play, QrCode, Radio, Tablet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { hubPanelClass } from "@/components/badminton/form-ui";
@@ -46,6 +46,7 @@ const VENUE_MOMENTS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "winner", label: "Winner" },
   { id: "sponsor", label: "Sponsor" },
   { id: "next", label: "Next" },
+  { id: "results", label: "Results" },
 ];
 
 export function MissionControlOpsRail({
@@ -118,6 +119,7 @@ export function MissionControlOpsRail({
 
   const overlayScene = branding?.overlayScene ?? "auto";
   const venueScene = branding?.venueScene ?? "auto";
+  const venueMusicPlaying = branding?.venueMusicPlaying === true;
   // Never gate Moments / Venue on primary-court PATCH — that made buttons feel dead
   // while "Screens follow" or a slow request was in flight.
   const presentationBusy = setPresentationMutation.isPending;
@@ -138,7 +140,10 @@ export function MissionControlOpsRail({
         overlayScene:
           id === "next"
             ? "auto"
-            : (id as Extract<BadmintonOverlayScene, "intro" | "winner" | "sponsor">),
+            : (id as Extract<
+                BadmintonOverlayScene,
+                "intro" | "winner" | "sponsor" | "results"
+              >),
       },
       { onSuccess: () => onAnnouncement?.(label) },
     );
@@ -230,6 +235,56 @@ export function MissionControlOpsRail({
           </div>
         </div>
       ) : null}
+
+      <div className={cn(hubPanelClass, "p-3 space-y-2")}>
+        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
+          Venue music
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Loop on the hall LED — On / Pause from here. Auto SFX still fire for game point,
+          match point, and deuce.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            disabled={presentationBusy}
+            onClick={() =>
+              setPresentationMutation.mutate(
+                { venueMusicPlaying: true },
+                { onSuccess: () => onAnnouncement?.("Venue music on") },
+              )
+            }
+            className={cn(
+              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-40",
+              venueMusicPlaying
+                ? "border-emerald-500/45 bg-emerald-500/20 text-emerald-50"
+                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+            )}
+          >
+            <Play className="w-3.5 h-3.5" />
+            On
+          </button>
+          <button
+            type="button"
+            disabled={presentationBusy}
+            onClick={() =>
+              setPresentationMutation.mutate(
+                { venueMusicPlaying: false },
+                { onSuccess: () => onAnnouncement?.("Venue music paused") },
+              )
+            }
+            className={cn(
+              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-40",
+              !venueMusicPlaying
+                ? "border-amber-500/45 bg-amber-500/20 text-amber-50"
+                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+            )}
+          >
+            <Pause className="w-3.5 h-3.5" />
+            Pause
+          </button>
+        </div>
+      </div>
 
       <div className={cn(hubPanelClass, "p-3 space-y-3")}>
         <div>

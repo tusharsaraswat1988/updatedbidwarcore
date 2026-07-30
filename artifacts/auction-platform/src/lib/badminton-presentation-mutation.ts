@@ -13,6 +13,10 @@ import type { BadmintonBranding } from "@/hooks/use-badminton-branding";
 export type PresentationPatch = {
   overlayScene?: BadmintonOverlayScene;
   venueScene?: BadmintonVenueScene;
+  venueMusicPlaying?: boolean;
+  venueMusicUrl?: string | null;
+  venueMusicVolume?: number;
+  importAuctionMusic?: true;
 };
 
 export type PresentationMutateContext = {
@@ -35,6 +39,13 @@ export async function onPresentationMutate(
       ...previous,
       ...(body.overlayScene !== undefined ? { overlayScene: body.overlayScene } : {}),
       ...(body.venueScene !== undefined ? { venueScene: body.venueScene } : {}),
+      ...(body.venueMusicPlaying !== undefined
+        ? { venueMusicPlaying: body.venueMusicPlaying }
+        : {}),
+      ...(body.venueMusicUrl !== undefined ? { venueMusicUrl: body.venueMusicUrl } : {}),
+      ...(body.venueMusicVolume !== undefined
+        ? { venueMusicVolume: body.venueMusicVolume }
+        : {}),
     });
   }
   return { previous };

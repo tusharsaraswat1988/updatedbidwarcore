@@ -11,7 +11,8 @@ export type BadmintonOverlayScene =
   | "intro"
   | "winner"
   | "sponsor"
-  | "multi";
+  | "multi"
+  | "results";
 
 export type BadmintonVenueScene =
   | "auto"
@@ -21,9 +22,16 @@ export type BadmintonVenueScene =
   | "intro"
   | "winner"
   | "sponsor"
-  | "next";
+  | "next"
+  | "results";
 
-export type OverlayGraphicType = "compact" | "full" | "intro" | "winner" | "sponsor";
+export type OverlayGraphicType =
+  | "compact"
+  | "full"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "results";
 
 const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "compact",
@@ -31,12 +39,14 @@ const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "intro",
   "winner",
   "sponsor",
+  "results",
 ] as const;
 
 /** Camera-covering moment graphics that must not stay up during a live rally. */
 const RALLY_UNSAFE_OVERLAY_TYPES: readonly OverlayGraphicType[] = [
   "intro",
   "sponsor",
+  "results",
 ] as const;
 
 /** Max live courts shown on OBS/venue multi strip (was 3 — raised for multi-hall events). */
@@ -47,6 +57,7 @@ const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
   "winner",
   "sponsor",
   "next",
+  "results",
 ] as const;
 
 export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
@@ -57,7 +68,8 @@ export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
     raw === "intro" ||
     raw === "winner" ||
     raw === "sponsor" ||
-    raw === "multi"
+    raw === "multi" ||
+    raw === "results"
   ) {
     return raw;
   }
@@ -73,7 +85,8 @@ export function parseVenueScene(raw: unknown): BadmintonVenueScene {
     raw === "intro" ||
     raw === "winner" ||
     raw === "sponsor" ||
-    raw === "next"
+    raw === "next" ||
+    raw === "results"
   ) {
     return raw;
   }

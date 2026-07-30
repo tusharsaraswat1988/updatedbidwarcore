@@ -11,6 +11,7 @@ import { useRoute, useSearch } from "wouter";
 import {
   BadmintonOverlay,
   ObsPlayMoments,
+  ObsRecentResultsOverlay,
   overlayPlacementClass,
 } from "@/components/badminton/obs-overlays";
 import {
@@ -241,11 +242,19 @@ export default function BadmintonOverlayPage() {
             }
             matchNumber={detail?.matchNumber as string | undefined}
             roundName={
-              hasLiveGraphics && !multiCourtMode
+              type === "results"
+                ? "Match results"
+                : hasLiveGraphics && !multiCourtMode
                 ? (detail?.roundName as string | undefined)
                 : waitingLabel
             }
-            matchStatus={hasLiveGraphics && !multiCourtMode ? state.matchStatus : "scheduled"}
+            matchStatus={
+              type === "results"
+                ? "completed"
+                : hasLiveGraphics && !multiCourtMode
+                  ? state.matchStatus
+                  : "scheduled"
+            }
             isTimeout={!!state?.activeTimeout && !multiCourtMode}
             timeoutSide={state?.activeTimeout?.side}
             leftLabel={state?.leftSide?.shortLabel ?? state?.leftSide?.label ?? "Side A"}
@@ -267,6 +276,15 @@ export default function BadmintonOverlayPage() {
             <MultiCourtScoreStrip rows={multiRows} variant="overlay" />
           </div>
         ) : null
+      ) : type === "results" ? (
+        <div
+          className={cn(
+            "absolute z-20 pointer-events-none",
+            overlayPlacementClass("results", true, playDensity),
+          )}
+        >
+          <ObsRecentResultsOverlay matches={liveFollow.matches} />
+        </div>
       ) : hasLiveGraphics ? (
         type === "full" ? (
           <div
@@ -306,7 +324,11 @@ export default function BadmintonOverlayPage() {
         )
       ) : null}
 
-      {hasLiveGraphics && !multiCourtMode && type !== "intro" && type !== "winner" ? (
+      {hasLiveGraphics &&
+      !multiCourtMode &&
+      type !== "intro" &&
+      type !== "winner" &&
+      type !== "results" ? (
         <ObsPlayMoments state={state} />
       ) : null}
 

@@ -53,6 +53,7 @@ const VENUE_MOMENT_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "winner", label: "Winner" },
   { id: "sponsor", label: "Sponsor" },
   { id: "next", label: "Next match" },
+  { id: "results", label: "Results" },
 ];
 
 const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
@@ -169,7 +170,7 @@ export function BadmintonBroadcastDirectorPanel({
     [],
   );
 
-  /** Timed packages — auto-clear intro/winner/sponsor so they cannot stick on air. */
+  /** Timed packages — auto-clear intro/winner/sponsor/results so they cannot stick on air. */
   function pushTimedMoment(venueScene: BadmintonVenueScene) {
     if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
     setPresentationMutation.mutate({
@@ -177,7 +178,10 @@ export function BadmintonBroadcastDirectorPanel({
       overlayScene:
         venueScene === "next"
           ? "auto"
-          : (venueScene as Extract<BadmintonOverlayScene, "intro" | "winner" | "sponsor">),
+          : (venueScene as Extract<
+              BadmintonOverlayScene,
+              "intro" | "winner" | "sponsor" | "results"
+            >),
     });
     momentClearTimerRef.current = setTimeout(() => {
       setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
@@ -275,7 +279,7 @@ export function BadmintonBroadcastDirectorPanel({
             Announcements
           </p>
           <p className="text-xs text-muted-foreground">
-            Push intro, winner, sponsor, or next-match moments to Venue + OBS together.
+            Push intro, winner, sponsor, next-match, or results moments to Venue + OBS together.
             Moments auto-clear after {BROADCAST_MOMENT_AUTO_CLEAR_MS / 1000}s.
           </p>
           <div className="flex flex-wrap gap-2">

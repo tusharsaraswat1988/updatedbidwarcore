@@ -33,6 +33,13 @@ export interface BadmintonBranding {
   overlayScene?: BadmintonOverlayScene;
   /** Operator Broadcast Director — Venue Scoreboard scene. */
   venueScene?: BadmintonVenueScene;
+  /** Control Center On/Pause for venue LED loop music. */
+  venueMusicPlaying?: boolean;
+  /** Badminton override track (null = auction/platform fallthrough). */
+  venueMusicUrl?: string | null;
+  venueMusicVolume?: number;
+  /** Resolved loop URL for venue LED playback. */
+  resolvedVenueMusicUrl?: string | null;
 }
 
 function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
@@ -40,6 +47,13 @@ function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
     ...raw,
     overlayScene: parseOverlayScene(raw.overlayScene),
     venueScene: parseVenueScene(raw.venueScene),
+    venueMusicPlaying: raw.venueMusicPlaying === true,
+    venueMusicUrl: raw.venueMusicUrl?.trim() || null,
+    venueMusicVolume:
+      typeof raw.venueMusicVolume === "number" && Number.isFinite(raw.venueMusicVolume)
+        ? Math.max(0, Math.min(100, Math.round(raw.venueMusicVolume)))
+        : 80,
+    resolvedVenueMusicUrl: raw.resolvedVenueMusicUrl?.trim() || null,
   };
 }
 

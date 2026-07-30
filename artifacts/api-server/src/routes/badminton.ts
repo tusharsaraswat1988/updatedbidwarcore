@@ -2670,6 +2670,7 @@ router.post("/matches/:matchId/point", async (req, res) => {
             primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
             overlayScene: branding.overlayScene,
             venueScene: branding.venueScene,
+            venueMusicPlaying: branding.venueMusicPlaying,
           });
         })
         .catch(() => {

@@ -452,6 +452,7 @@ export async function loadBadmintonBranding(
       sponsorLogos: tournamentsTable.sponsorLogos,
       venue: tournamentsTable.venue,
       organizerName: tournamentsTable.organizerName,
+      breakEndMusicUrl: tournamentsTable.breakEndMusicUrl,
       scoringSettingsJson: tournamentsTable.scoringSettingsJson,
     })
     .from(tournamentsTable)
@@ -459,7 +460,13 @@ export async function loadBadmintonBranding(
     .limit(1);
 
   if (!tournament) return null;
-  return getBadmintonBranding(tournament, tournament.scoringSettingsJson as Record<string, unknown>);
+  const { getPlatformDefaultAudioCached } = await import("../platform-audio-defaults");
+  const platformAudio = await getPlatformDefaultAudioCached();
+  return getBadmintonBranding(
+    tournament,
+    tournament.scoringSettingsJson as Record<string, unknown>,
+    platformAudio.breakEndMusicUrl,
+  );
 }
 
 export async function updateBadmintonBranding(
@@ -574,7 +581,9 @@ export async function updateBadmintonBranding(
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
 
-  return getBadmintonBranding(updated!, updated!.scoringSettingsJson as Record<string, unknown>);
+  const loaded = await loadBadmintonBranding(tournamentId);
+  if (!loaded) throw new Error("Tournament not found");
+  return loaded;
 }
 
 /** Set which LIVE match persistent Venue/OBS URLs follow (multi-court Primary Broadcast). */
@@ -593,21 +602,48 @@ export async function updateBroadcastPresentation(
   input: {
     overlayScene?: BadmintonOverlayScene;
     venueScene?: BadmintonVenueScene;
+    venueMusicPlaying?: boolean;
+    venueMusicUrl?: string | null;
+    venueMusicVolume?: number;
+    /** Copy tournament auction break music into badminton override. */
+    importAuctionMusic?: boolean;
   },
 ): Promise<BadmintonBranding> {
-  return updateBroadcastSettings(tournamentId, {
+  const patch: Record<string, unknown> = {
     ...(input.overlayScene !== undefined ? { overlayScene: input.overlayScene } : {}),
     ...(input.venueScene !== undefined ? { venueScene: input.venueScene } : {}),
-  });
+    ...(input.venueMusicPlaying !== undefined
+      ? { venueMusicPlaying: input.venueMusicPlaying }
+      : {}),
+    ...(input.venueMusicUrl !== undefined ? { venueMusicUrl: input.venueMusicUrl } : {}),
+    ...(input.venueMusicVolume !== undefined
+      ? { venueMusicVolume: input.venueMusicVolume }
+      : {}),
+  };
+
+  if (input.importAuctionMusic) {
+    const [tournament] = await db
+      .select({ breakEndMusicUrl: tournamentsTable.breakEndMusicUrl })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1);
+    const url = tournament?.breakEndMusicUrl?.trim() || null;
+    if (!url) throw new Error("No auction break music set for this tournament");
+    patch.venueMusicUrl = url;
+  }
+
+  return updateBroadcastSettings(tournamentId, patch);
 }
 
 const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
   "intro",
   "sponsor",
+  "results",
 ]);
 const RALLY_UNSAFE_VENUE: ReadonlySet<BadmintonVenueScene> = new Set([
   "intro",
   "sponsor",
+  "results",
 ]);
 
 /**
@@ -661,13 +697,10 @@ async function updateBroadcastSettings(
     .set({ scoringSettingsJson: nextSettings })
     .where(eq(tournamentsTable.id, tournamentId));
 
-  const [updated] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  return getBadmintonBranding(updated!, updated!.scoringSettingsJson as Record<string, unknown>);
+  return loadBadmintonBranding(tournamentId).then((b) => {
+    if (!b) throw new Error("Tournament not found");
+    return b;
+  });
 }
 
 export async function importBrandingFromTournament(
