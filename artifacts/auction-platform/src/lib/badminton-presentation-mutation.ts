@@ -15,6 +15,9 @@ import type { BadmintonBranding } from "@/hooks/use-badminton-branding";
 export type PresentationPatch = {
   overlayScene?: BadmintonOverlayScene;
   venueScene?: BadmintonVenueScene;
+  upNextMatchId?: number | null;
+  spotlightSponsorUrl?: string | null;
+  pinnedSponsorUrl?: string | null;
   venueMusicPlaying?: boolean;
   venueMusicUrl?: string | null;
   venueMusicFileName?: string | null;
@@ -44,6 +47,9 @@ export function isPresentationPayload(data: Record<string, unknown>): boolean {
     || "primaryBroadcastMatchId" in data
     || "venueScene" in data
     || "overlayScene" in data
+    || "upNextMatchId" in data
+    || "spotlightSponsorUrl" in data
+    || "pinnedSponsorUrl" in data
     || "venueMusicPlaying" in data
     || "resolvedVenueMusicUrl" in data
     || "resolvedVenueBannerUrl" in data
@@ -70,6 +76,9 @@ function pickPresentationFields(from: BadmintonBranding): Partial<BadmintonBrand
     primaryBroadcastMatchId: from.primaryBroadcastMatchId,
     overlayScene: from.overlayScene,
     venueScene: from.venueScene,
+    upNextMatchId: from.upNextMatchId,
+    spotlightSponsorUrl: from.spotlightSponsorUrl,
+    pinnedSponsorUrl: from.pinnedSponsorUrl,
     venueMusicPlaying: from.venueMusicPlaying,
     venueMusicUrl: from.venueMusicUrl,
     venueMusicFileName: from.venueMusicFileName,
@@ -127,6 +136,24 @@ export function applyPresentationPayload(
   }
   if (typeof payload.overlayScene === "string") {
     next.overlayScene = payload.overlayScene as BadmintonBranding["overlayScene"];
+    touched = true;
+  }
+  if ("upNextMatchId" in payload) {
+    const raw = payload.upNextMatchId;
+    next.upNextMatchId =
+      typeof raw === "number" && Number.isFinite(raw) && raw > 0
+        ? Math.floor(raw)
+        : null;
+    touched = true;
+  }
+  if ("spotlightSponsorUrl" in payload) {
+    const url = payload.spotlightSponsorUrl;
+    next.spotlightSponsorUrl = typeof url === "string" && url.trim() ? url.trim() : null;
+    touched = true;
+  }
+  if ("pinnedSponsorUrl" in payload) {
+    const url = payload.pinnedSponsorUrl;
+    next.pinnedSponsorUrl = typeof url === "string" && url.trim() ? url.trim() : null;
     touched = true;
   }
   if (typeof payload.venueMusicPlaying === "boolean") {

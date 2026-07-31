@@ -108,6 +108,25 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.venueScene).toBe("multi");
   });
 
+  it("exposes up-next and sponsor spotlight/pin selection from broadcast block", () => {
+    const branding = getBadmintonBranding(
+      { name: "League" },
+      {
+        branding: {},
+        broadcast: {
+          upNextMatchId: 55,
+          spotlightSponsorUrl: "https://spotlight.example/logo.png",
+          pinnedSponsorUrl: "https://pin.example/logo.png",
+          overlayScene: "next",
+        },
+      },
+    );
+    expect(branding.upNextMatchId).toBe(55);
+    expect(branding.spotlightSponsorUrl).toBe("https://spotlight.example/logo.png");
+    expect(branding.pinnedSponsorUrl).toBe("https://pin.example/logo.png");
+    expect(branding.overlayScene).toBe("next");
+  });
+
   it("parses venue moment scenes intro/winner/sponsor/banner/next/results/leaderboards", () => {
     for (const venueScene of [
       "intro",

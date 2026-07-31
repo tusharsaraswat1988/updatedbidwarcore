@@ -98,29 +98,36 @@ function matchCourtKey(match: BroadcastConsoleMatch): string {
   return num ? `n:${num.toLowerCase()}` : "";
 }
 
-/** Next non-live match — prefer same court as primary live, then schedule order. */
-export function findUpNextMatch(
+function isUpcomingMatchCandidate(
+  match: BroadcastConsoleMatch,
+  primaryLiveId: number | null,
+): boolean {
+  if (match.id === primaryLiveId) return false;
+  if (isLiveMatchStatus(match.status) || isLiveMatchStatus(match.state?.matchStatus)) {
+    return false;
+  }
+  if (
+    match.status === "completed"
+    || match.status === "walkover"
+    || match.status === "retired"
+    || match.status === "disqualified"
+    || match.status === "abandoned"
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Upcoming non-live matches — same court as primary first, then schedule order. */
+export function listUpcomingMatches(
   matches: BroadcastConsoleMatch[],
   primaryLiveId: number | null,
-): BroadcastConsoleMatch | null {
+): BroadcastConsoleMatch[] {
   const primary = findMatchById(matches, primaryLiveId);
   const primaryCourt = primary ? matchCourtKey(primary) : "";
 
-  const candidates = matches
-    .filter((m) => {
-      if (m.id === primaryLiveId) return false;
-      if (isLiveMatchStatus(m.status) || isLiveMatchStatus(m.state?.matchStatus)) return false;
-      if (
-        m.status === "completed" ||
-        m.status === "walkover" ||
-        m.status === "retired" ||
-        m.status === "disqualified" ||
-        m.status === "abandoned"
-      ) {
-        return false;
-      }
-      return true;
-    })
+  return matches
+    .filter((m) => isUpcomingMatchCandidate(m, primaryLiveId))
     .sort((a, b) => {
       if (primaryCourt) {
         const aSame = matchCourtKey(a) === primaryCourt ? 0 : 1;
@@ -132,7 +139,26 @@ export function findUpNextMatch(
       if (ta !== tb) return ta - tb;
       return a.id - b.id;
     });
-  return candidates[0] ?? null;
+}
+
+/** Next non-live match — prefer same court as primary live, then schedule order. */
+export function findUpNextMatch(
+  matches: BroadcastConsoleMatch[],
+  primaryLiveId: number | null,
+): BroadcastConsoleMatch | null {
+  return listUpcomingMatches(matches, primaryLiveId)[0] ?? null;
+}
+
+/** Resolve operator-selected Next match; null when selection is missing or no longer upcoming. */
+export function resolveSelectedUpNextMatch(
+  matches: BroadcastConsoleMatch[],
+  primaryLiveId: number | null,
+  selectedMatchId: number | null | undefined,
+): BroadcastConsoleMatch | null {
+  if (selectedMatchId == null || selectedMatchId <= 0) return null;
+  const selected = findMatchById(matches, selectedMatchId);
+  if (!selected || !isUpcomingMatchCandidate(selected, primaryLiveId)) return null;
+  return selected;
 }
 
 /** Coerce stored side JSON / snapshot side into display SideInfo. */

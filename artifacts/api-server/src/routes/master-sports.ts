@@ -338,6 +338,9 @@ router.patch("/primary-broadcast", async (req, res) => {
       primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
       overlayScene: branding.overlayScene,
       venueScene: branding.venueScene,
+      upNextMatchId: branding.upNextMatchId,
+      spotlightSponsorUrl: branding.spotlightSponsorUrl,
+      pinnedSponsorUrl: branding.pinnedSponsorUrl,
       venueMusicPlaying: branding.venueMusicPlaying,
       resolvedVenueMusicUrl: branding.resolvedVenueMusicUrl,
     });
@@ -366,6 +369,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
           "intro",
           "winner",
           "sponsor",
+          "next",
           "multi",
           "results",
           "leaderboards",
@@ -386,6 +390,23 @@ router.patch("/broadcast-presentation", async (req, res) => {
           "leaderboards",
         ])
         .optional(),
+      upNextMatchId: z.number().int().positive().nullable().optional(),
+      spotlightSponsorUrl: z
+        .string()
+        .nullable()
+        .optional()
+        .refine(
+          (v) => v == null || v === "" || /^https?:\/\//i.test(v),
+          "Sponsor URL must be http(s)",
+        ),
+      pinnedSponsorUrl: z
+        .string()
+        .nullable()
+        .optional()
+        .refine(
+          (v) => v == null || v === "" || /^https?:\/\//i.test(v),
+          "Sponsor URL must be http(s)",
+        ),
       venueMusicPlaying: z.boolean().optional(),
       venueMusicUrl: z
         .string()
@@ -414,6 +435,9 @@ router.patch("/broadcast-presentation", async (req, res) => {
       (v) =>
         v.overlayScene !== undefined
         || v.venueScene !== undefined
+        || v.upNextMatchId !== undefined
+        || v.spotlightSponsorUrl !== undefined
+        || v.pinnedSponsorUrl !== undefined
         || v.venueMusicPlaying !== undefined
         || v.venueMusicUrl !== undefined
         || v.venueMusicFileName !== undefined
@@ -444,9 +468,24 @@ router.patch("/broadcast-presentation", async (req, res) => {
         : parsed.data.venueBannerUrl === ""
           ? null
           : parsed.data.venueBannerUrl;
+    const spotlightUrl =
+      parsed.data.spotlightSponsorUrl === undefined
+        ? undefined
+        : parsed.data.spotlightSponsorUrl === ""
+          ? null
+          : parsed.data.spotlightSponsorUrl;
+    const pinnedUrl =
+      parsed.data.pinnedSponsorUrl === undefined
+        ? undefined
+        : parsed.data.pinnedSponsorUrl === ""
+          ? null
+          : parsed.data.pinnedSponsorUrl;
     const branding = await updateBroadcastPresentation(tournamentId, {
       overlayScene: parsed.data.overlayScene as BadmintonOverlayScene | undefined,
       venueScene: parsed.data.venueScene as BadmintonVenueScene | undefined,
+      upNextMatchId: parsed.data.upNextMatchId,
+      spotlightSponsorUrl: spotlightUrl,
+      pinnedSponsorUrl: pinnedUrl,
       venueMusicPlaying: parsed.data.venueMusicPlaying,
       venueMusicUrl: musicUrl,
       venueMusicFileName: parsed.data.venueMusicFileName,
@@ -462,6 +501,9 @@ router.patch("/broadcast-presentation", async (req, res) => {
       primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
       overlayScene: branding.overlayScene,
       venueScene: branding.venueScene,
+      upNextMatchId: branding.upNextMatchId,
+      spotlightSponsorUrl: branding.spotlightSponsorUrl,
+      pinnedSponsorUrl: branding.pinnedSponsorUrl,
       venueMusicPlaying: branding.venueMusicPlaying,
       resolvedVenueMusicUrl: branding.resolvedVenueMusicUrl,
       resolvedVenueBannerUrl: branding.resolvedVenueBannerUrl,
