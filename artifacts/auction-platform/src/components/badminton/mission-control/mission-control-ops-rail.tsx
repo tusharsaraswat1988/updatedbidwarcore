@@ -1,5 +1,5 @@
 /**
- * Mission Control right rail — screens, scorer access, announcements.
+ * Mission Control right rail — live screen controls first; links/QR collapsed.
  * Hot-path controls: never disable on in-flight network; optimistic UI only.
  */
 
@@ -181,81 +181,25 @@ export function MissionControlOpsRail({
     );
   }
 
+  const primaryChip = courtChips.find((c) => c.isPrimary);
+  const showScreensFollow = liveMatches.length >= 1 && courtChips.length > 0;
+
   return (
     <aside
-      className="space-y-3 relative z-20"
+      className="space-y-3"
       aria-label="Screen and scorer controls"
       data-mission-control-ops="true"
     >
-      <div className={cn(hubPanelClass, "p-3 space-y-2 border-amber-500/20")}>
-        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-200/80">
-          Operator priority
-        </p>
-        <p className="text-[11px] text-muted-foreground leading-snug">
-          Screens, music, and moments stay clickable even while scores sync in the background.
-        </p>
-      </div>
-
-      <div className={cn(hubPanelClass, "p-3 space-y-2")}>
-        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
-          Scorer access
-        </p>
-        <p className="text-xs text-muted-foreground">
-          One link for all courts — scorers sign in with mobile + personal PIN.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(scorerHomeUrl).then(() => {
-                toast({ title: "Scorer link copied" });
-              });
-            }}
-            className="min-h-10 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            Copy link
-          </button>
-          <button
-            type="button"
-            onClick={() => setQrOpen(true)}
-            className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
-          >
-            <QrCode className="w-3.5 h-3.5" />
-            QR code
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2">
-        <BroadcastLinkCard
-          kind="venue-display"
-          tournamentId={tournamentId}
-          title="Venue display"
-          help="Hall TV / LED"
-          icon={Monitor}
-        />
-        <BroadcastLinkCard
-          kind="obs-overlay"
-          tournamentId={tournamentId}
-          title="OBS overlay"
-          help="Browser source URL"
-          icon={Radio}
-        />
-        <BroadcastLinkCard
-          kind="scorer-home"
-          tournamentId={tournamentId}
-          title="Open scorer home"
-          help="Opens in new tab"
-          icon={Tablet}
-        />
-      </div>
-
-      {courtChips.length > 0 && liveMatches.length > 1 ? (
+      {showScreensFollow ? (
         <div className={cn(hubPanelClass, "p-3 space-y-2")}>
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
             Screens follow
           </p>
+          {liveMatches.length === 1 && primaryChip ? (
+            <p className="text-xs text-amber-100/90 font-semibold">
+              Following {primaryChip.label}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             {courtChips.map((chip) => (
               <button
@@ -278,54 +222,6 @@ export function MissionControlOpsRail({
           </div>
         </div>
       ) : null}
-
-      <div className={cn(hubPanelClass, "p-3 space-y-2")}>
-        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
-          Venue music
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Loop on the hall LED — On / Pause from here. Auto SFX still fire for game point,
-          match point, and deuce.
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() =>
-              patchPresentation(
-                { venueMusicPlaying: true },
-                { announce: "Venue music on" },
-              )
-            }
-            className={cn(
-              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors",
-              venueMusicPlaying
-                ? "border-emerald-500/45 bg-emerald-500/20 text-emerald-50"
-                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
-            )}
-          >
-            <Play className="w-3.5 h-3.5" />
-            On
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              patchPresentation(
-                { venueMusicPlaying: false },
-                { announce: "Venue music paused" },
-              )
-            }
-            className={cn(
-              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors",
-              !venueMusicPlaying
-                ? "border-amber-500/45 bg-amber-500/20 text-amber-50"
-                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
-            )}
-          >
-            <Pause className="w-3.5 h-3.5" />
-            Pause
-          </button>
-        </div>
-      </div>
 
       <div className={cn(hubPanelClass, "p-3 space-y-3")}>
         <div>
@@ -400,6 +296,111 @@ export function MissionControlOpsRail({
           </div>
         </div>
       </div>
+
+      <div className={cn(hubPanelClass, "p-3 space-y-2")}>
+        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
+          Venue music
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() =>
+              patchPresentation(
+                { venueMusicPlaying: true },
+                { announce: "Venue music on" },
+              )
+            }
+            className={cn(
+              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors",
+              venueMusicPlaying
+                ? "border-emerald-500/45 bg-emerald-500/20 text-emerald-50"
+                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+            )}
+          >
+            <Play className="w-3.5 h-3.5" />
+            On
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              patchPresentation(
+                { venueMusicPlaying: false },
+                { announce: "Venue music paused" },
+              )
+            }
+            className={cn(
+              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors",
+              !venueMusicPlaying
+                ? "border-amber-500/45 bg-amber-500/20 text-amber-50"
+                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+            )}
+          >
+            <Pause className="w-3.5 h-3.5" />
+            Pause
+          </button>
+        </div>
+      </div>
+
+      <details className={cn(hubPanelClass, "p-3 group")}>
+        <summary className="cursor-pointer list-none text-[10px] font-mono uppercase tracking-[0.2em] text-white/45 flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <span>Links &amp; access</span>
+          <span className="text-white/35 normal-case tracking-normal text-[10px] font-semibold group-open:hidden">
+            Scorer · Venue · OBS
+          </span>
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Scorers sign in with mobile + personal PIN.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(scorerHomeUrl).then(() => {
+                    toast({ title: "Scorer link copied" });
+                  });
+                }}
+                className="min-h-10 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copy link
+              </button>
+              <button
+                type="button"
+                onClick={() => setQrOpen(true)}
+                className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                QR code
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            <BroadcastLinkCard
+              kind="venue-display"
+              tournamentId={tournamentId}
+              title="Venue display"
+              help="Hall TV / LED"
+              icon={Monitor}
+            />
+            <BroadcastLinkCard
+              kind="obs-overlay"
+              tournamentId={tournamentId}
+              title="OBS overlay"
+              help="Browser source URL"
+              icon={Radio}
+            />
+            <BroadcastLinkCard
+              kind="scorer-home"
+              tournamentId={tournamentId}
+              title="Open scorer home"
+              help="Opens in new tab"
+              icon={Tablet}
+            />
+          </div>
+        </div>
+      </details>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="sm:max-w-sm">

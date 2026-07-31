@@ -57,6 +57,42 @@ export function clearScorerLoginFailures(
   scorerLoginFailures.delete(mobile);
 }
 
+/**
+ * Organizer-facing lockout status for a scorer mobile (any IP key).
+ * Matches {@link isScorerLoginRateLimited} when no IP is supplied.
+ */
+export function getScorerLoginLockoutStatus(mobile: string): {
+  loginLocked: boolean;
+  loginLockoutRemainingSec: number;
+} {
+  const now = Date.now();
+  let remainingMs = 0;
+  for (const [key, entry] of scorerLoginFailures) {
+    if (key !== mobile && !key.startsWith(`${mobile}|`)) continue;
+    if (entry.resetAt > now && entry.count >= SCORER_LOGIN_MAX_FAILURES) {
+      remainingMs = Math.max(remainingMs, entry.resetAt - now);
+    }
+  }
+  const loginLockoutRemainingSec =
+    remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
+  return {
+    loginLocked: loginLockoutRemainingSec > 0,
+    loginLockoutRemainingSec,
+  };
+}
+
+/** Clear all failed-attempt counters for a mobile (all IPs). Returns entries removed. */
+export function clearAllScorerLoginLockouts(mobile: string): number {
+  let cleared = 0;
+  for (const key of [...scorerLoginFailures.keys()]) {
+    if (key === mobile || key.startsWith(`${mobile}|`)) {
+      scorerLoginFailures.delete(key);
+      cleared += 1;
+    }
+  }
+  return cleared;
+}
+
 /** @internal Test helper — reset in-memory login failure map. */
 export function resetScorerLoginRateLimitForTests(): void {
   scorerLoginFailures.clear();

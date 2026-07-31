@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLeaderboardBoards,
   buildLeaderboardPages,
+  buildStandingsBoardsFromRows,
   filterStandingsForGroup,
   isLeagueDrawType,
   paginateItems,
@@ -29,6 +30,51 @@ describe("badminton leaderboards helpers", () => {
   it("paginates items into fixed page sizes", () => {
     expect(paginateItems([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(paginateItems([], 6)).toEqual([]);
+  });
+
+  it("builds Results boards from groupId on standings rows", () => {
+    const standings: LeagueStandingRow[] = [
+      {
+        rank: 1,
+        registrationId: 1,
+        label: "A",
+        groupId: 2,
+        groupName: "Group 2",
+        played: 1,
+        won: 1,
+        lost: 0,
+        marginPoints: 5,
+      },
+      {
+        rank: 2,
+        registrationId: 2,
+        label: "B",
+        groupId: 1,
+        groupName: "Group 1",
+        played: 1,
+        won: 1,
+        lost: 0,
+        marginPoints: 3,
+      },
+      {
+        rank: 3,
+        registrationId: 3,
+        label: "C",
+        groupId: 1,
+        groupName: "Group 1",
+        played: 1,
+        won: 0,
+        lost: 1,
+        marginPoints: 0,
+      },
+    ];
+    const boards = buildStandingsBoardsFromRows({
+      categories: [{ id: 9, name: "Males", code: "G1M", drawType: "group_knockout" }],
+      standingsByCategory: new Map([[9, standings]]),
+    });
+    expect(boards.map((b) => b.boardTitle)).toEqual(["Group 1", "Group 2"]);
+    expect(boards[0]?.rows.map((r) => r.label)).toEqual(["B", "C"]);
+    expect(boards[0]?.rows.map((r) => r.rank)).toEqual([1, 2]);
   });
 
   it("filters and re-ranks standings for a group", () => {

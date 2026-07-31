@@ -17,7 +17,9 @@ import { hashScorerPin, verifyScorerPin } from "./scorer-pin-crypto";
 import { writeScorerAudit } from "./scorer-audit";
 import { logger } from "./logger";
 import {
+  clearAllScorerLoginLockouts,
   clearScorerLoginFailures,
+  getScorerLoginLockoutStatus,
   isScorerLoginRateLimited,
   recordScorerLoginFailure,
 } from "./scorer-login-rate-limit";
@@ -27,6 +29,8 @@ export const SCORER_SESSION_TTL_SEC = 12 * 60 * 60; // 12 hours
 export {
   SCORER_LOGIN_MAX_FAILURES,
   SCORER_LOGIN_WINDOW_MS,
+  clearAllScorerLoginLockouts,
+  getScorerLoginLockoutStatus,
   resetScorerLoginRateLimitForTests,
   recordScorerLoginFailure as recordScorerLoginFailureForTests,
   isScorerLoginRateLimited as isScorerLoginRateLimitedForTests,
@@ -300,12 +304,16 @@ export type ScorerAccountAdminRow = {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  /** Present on tournament organizer list — true when login is rate-limited. */
+  loginLocked?: boolean;
+  loginLockoutRemainingSec?: number;
 };
 
 function serializeScorerAccountAdmin(
   row: typeof scorerAccountsTable.$inferSelect,
+  opts?: { includeLoginLockout?: boolean },
 ): ScorerAccountAdminRow {
-  return {
+  const base: ScorerAccountAdminRow = {
     id: row.id,
     name: row.name,
     mobile: row.mobile,
@@ -313,6 +321,8 @@ function serializeScorerAccountAdmin(
     lastLoginAt: row.lastLoginAt ? row.lastLoginAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
+  if (!opts?.includeLoginLockout) return base;
+  return { ...base, ...getScorerLoginLockoutStatus(row.mobile) };
 }
 
 /** Organizer admin: list scorer accounts (global). */
@@ -520,7 +530,43 @@ export async function listScorerAccountsForTournament(
     )
     .where(eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId))
     .orderBy(asc(scorerAccountsTable.name), asc(scorerAccountsTable.id));
-  return rows.map((r) => serializeScorerAccountAdmin(r.account));
+  return rows.map((r) =>
+    serializeScorerAccountAdmin(r.account, { includeLoginLockout: true }),
+  );
+}
+
+/**
+ * Organizer clears scorer login brute-force lockout for an assigned scorer.
+ * Returns cleared in-memory entry count (0 if not locked).
+ */
+export async function clearScorerLoginLockoutForTournament(
+  tournamentId: number,
+  scorerId: number,
+): Promise<{ cleared: number; scorer: ScorerAccountAdminRow }> {
+  const assigned = await isScorerAssignedToTournament(scorerId, tournamentId);
+  if (!assigned) {
+    throw new ScorerAuthError("Scorer is not assigned to this tournament", "NOT_FOUND", 404);
+  }
+  const [account] = await db
+    .select()
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.id, scorerId))
+    .limit(1);
+  if (!account) {
+    throw new ScorerAuthError("Scorer not found", "NOT_FOUND", 404);
+  }
+  const cleared = clearAllScorerLoginLockouts(account.mobile);
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_login_lockout_reset",
+    scorerId: account.id,
+    tournamentId,
+    payload: { mobile: account.mobile, clearedEntries: cleared, tournamentId },
+  });
+  return {
+    cleared,
+    scorer: serializeScorerAccountAdmin(account, { includeLoginLockout: true }),
+  };
 }
 
 /**

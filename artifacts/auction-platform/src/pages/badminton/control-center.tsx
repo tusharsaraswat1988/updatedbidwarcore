@@ -2,11 +2,10 @@
  * Mission Control — tournament-day command center (Live Control nav host)
  * Route: /tournament/:id/badminton/control
  *
- * Phase 3.1: attention, primary action, health, suggestions, activity.
- * IA / APIs unchanged.
+ * Command-board layout (Phase A): slim header, single page scroll, live ops rail first.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, LayoutDashboard } from "lucide-react";
@@ -38,17 +37,15 @@ import {
   HubPageShell,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
-import { BadmintonIaPageChrome } from "@/components/badminton/ia-workflow-chrome";
 import { MissionControlTopBar } from "@/components/badminton/mission-control/mission-control-top-bar";
 import { MissionControlOpsRail } from "@/components/badminton/mission-control/mission-control-ops-rail";
 import { MissionControlCourtCard } from "@/components/badminton/mission-control/mission-control-court-card";
-import { MissionControlQueues } from "@/components/badminton/mission-control/mission-control-queues";
+import {
+  MissionControlQueues,
+  MissionControlReadyStrip,
+} from "@/components/badminton/mission-control/mission-control-queues";
 import { MissionControlAlerts } from "@/components/badminton/mission-control/mission-control-alerts";
 import { MissionControlHealthStrip } from "@/components/badminton/mission-control/mission-control-health";
-import {
-  MissionControlActivityFeed,
-  type ActivityEvent,
-} from "@/components/badminton/mission-control/mission-control-activity";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
 import {
   BADMINTON_MATCHES_RECONNECT_POLL_MS,
@@ -98,12 +95,10 @@ export default function BadmintonControlCenterPage() {
 
   const [dismissedAttention, setDismissedAttention] = useState(() => new Set<string>());
   const [dismissedSuggestions, setDismissedSuggestions] = useState(() => new Set<string>());
-  const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [online, setOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
   const [lastRealtimeAt, setLastRealtimeAt] = useState<number | null>(null);
-  const prevBoardKey = useRef<string>("");
 
   // Operator page: avoid 8s branding poll fighting Moments / Auto focus clicks.
   const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId, {
@@ -331,50 +326,6 @@ export default function BadmintonControlCenterPage() {
 
   const emergencyActive = branding?.venueScene === "standby";
 
-  // Activity feed from board transitions
-  useEffect(() => {
-    const key = board
-      .map(
-        (r) =>
-          `${r.court.id}:${r.status}:${r.currentMatch?.id ?? "-"}:${r.currentMatch?.status ?? ""}`,
-      )
-      .join("|");
-    if (!prevBoardKey.current) {
-      prevBoardKey.current = key;
-      return;
-    }
-    if (prevBoardKey.current === key) return;
-    const prev = prevBoardKey.current;
-    prevBoardKey.current = key;
-
-    const events: ActivityEvent[] = [];
-    const now = Date.now();
-    for (const r of board) {
-      const label = r.court.shortName?.trim() || r.court.name;
-      const token = `${r.court.id}:`;
-      const prevPart = prev.split("|").find((p) => p.startsWith(token)) ?? "";
-      const [, prevStatus, prevMatchId, prevMatchStatus] = prevPart.split(":");
-      if (prevStatus !== r.status) {
-        if (r.status === "LIVE") events.push({ id: `${now}-live-${r.court.id}`, at: now, text: `${label} started` });
-        if (r.status === "FINISHED") events.push({ id: `${now}-fin-${r.court.id}`, at: now, text: `${label} finished` });
-        if (r.status === "DELAYED") events.push({ id: `${now}-del-${r.court.id}`, at: now, text: `${label} delayed` });
-      }
-      if (prevMatchId && r.currentMatch && String(r.currentMatch.id) !== prevMatchId) {
-        events.push({
-          id: `${now}-re-${r.court.id}`,
-          at: now,
-          text: `${label} reassigned`,
-        });
-      }
-      if (prevMatchStatus === "paused" && r.currentMatch?.status === "live") {
-        events.push({ id: `${now}-res-${r.court.id}`, at: now, text: `${label} resumed` });
-      }
-    }
-    if (events.length) {
-      setActivity((prevEvents) => [...events, ...prevEvents].slice(0, 20));
-    }
-  }, [board]);
-
   const setPresentationMutation = useMutation({
     mutationFn: (body: {
       overlayScene?: BadmintonOverlayScene;
@@ -457,10 +408,6 @@ export default function BadmintonControlCenterPage() {
       ?.id ?? 0;
   const director = useBadmintonDirector(tournamentId, resumeMatchId);
 
-  function pushActivity(text: string) {
-    setActivity((prev) => [{ id: `${Date.now()}-${text}`, at: Date.now(), text }, ...prev].slice(0, 20));
-  }
-
   const onEmergency = useCallback(() => {
     setPresentationMutation.mutate(
       { venueScene: "standby", overlayScene: "sponsor" },
@@ -470,7 +417,6 @@ export default function BadmintonControlCenterPage() {
             title: "Emergency pause",
             description: "Venue on standby. OBS on sponsor scene.",
           });
-          pushActivity("Emergency pause — Venue standby / Sponsor scene");
         },
       },
     );
@@ -482,11 +428,9 @@ export default function BadmintonControlCenterPage() {
       {
         onSuccess: () => {
           toast({ title: "Tournament screens resumed" });
-          pushActivity("Tournament screens resumed");
           if (resumeMatchId > 0) {
             void director.resume().then(() => {
               void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
-              pushActivity("Paused match resumed");
             });
           }
         },
@@ -510,7 +454,6 @@ export default function BadmintonControlCenterPage() {
           body: JSON.stringify({}),
         });
         toast({ title: "Match resumed" });
-        pushActivity("Match resumed");
         void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
       } catch (e) {
         toast({
@@ -525,7 +468,6 @@ export default function BadmintonControlCenterPage() {
       try {
         await forceUnlockBadmintonMatch(tournamentId, item.matchId);
         toast({ title: "Scorer lock cleared" });
-        pushActivity("Scorer reconnected");
         void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
       } catch (e) {
         toast({
@@ -544,7 +486,6 @@ export default function BadmintonControlCenterPage() {
     }
     if (s.kind === "move" && s.matchId != null && s.targetCourtId != null) {
       moveMutation.mutate({ matchId: s.matchId, courtId: s.targetCourtId });
-      pushActivity("Match moved from suggestion");
     }
   }
 
@@ -560,140 +501,137 @@ export default function BadmintonControlCenterPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <BadmintonIaPageChrome
-        tournamentId={tournamentId}
-        stepId="live"
-        titleOverride="Live Control"
-        purposeOverride="Run tournament day from one screen."
-        taskOverride="Courts on the left · screens & scorers on the right · queues below."
-      >
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 space-y-4">
-          <MissionControlTopBar
-            tournamentName={branding?.displayName ?? ""}
-            liveCount={liveCount}
-            readyCount={readyCount}
-            delayedCount={delayedCount}
-            completedCount={completedCount}
-            primaryAction={primaryAction}
-            emergencyActive={emergencyActive}
-            onEmergency={onEmergency}
-            onResumePresentation={onResumePresentation}
-          />
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 space-y-3">
+        <MissionControlTopBar
+          tournamentName={branding?.displayName ?? ""}
+          liveCount={liveCount}
+          readyCount={readyCount}
+          delayedCount={delayedCount}
+          completedCount={completedCount}
+          primaryAction={primaryAction}
+          emergencyActive={emergencyActive}
+          onEmergency={onEmergency}
+          onResumePresentation={onResumePresentation}
+        />
 
-          {!isLoading && !loadError && courts.length > 0 ? (
-            <>
-              <MissionControlHealthStrip health={health} />
-              <MissionControlAlerts
-                attention={attention}
-                suggestions={suggestions}
-                dismissedAttention={dismissedAttention}
-                dismissedSuggestions={dismissedSuggestions}
-                onDismissAttention={(id) =>
-                  setDismissedAttention((prev) => new Set(prev).add(id))
-                }
-                onDismissSuggestion={(id) =>
-                  setDismissedSuggestions((prev) => new Set(prev).add(id))
-                }
-                onAttentionAction={(item) => {
-                  void handleAttentionAction(item);
-                }}
-                onSuggestionAction={handleSuggestion}
-              />
-            </>
-          ) : null}
-
-          {isLoading ? (
-            <div
-              className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4"
-              aria-busy="true"
-              aria-label="Loading Mission Control"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
-                ))}
-              </div>
-              <div className="h-96 rounded-xl bg-muted animate-pulse" />
-            </div>
-          ) : loadError ? (
-            <EmptyState
-              icon={AlertCircle}
-              title="Could not load Mission Control"
-              desc={friendlyBadmintonError(loadErrorObj, "Check your connection, then retry.")}
-              action={{ label: "Retry", onClick: () => retryAll() }}
-            />
-          ) : courts.length === 0 ? (
-            <EmptyState
-              icon={LayoutDashboard}
-              title="No courts yet"
-              desc="Add courts in Tournament Setup first. Mission Control runs the day from here."
-              action={{
-                label: "Add courts",
-                href: `/tournament/${tournamentId}/badminton/branding?section=courts`,
+        {!isLoading && !loadError && courts.length > 0 ? (
+          <>
+            <MissionControlHealthStrip health={health} />
+            <MissionControlAlerts
+              attention={attention}
+              suggestions={suggestions}
+              dismissedAttention={dismissedAttention}
+              dismissedSuggestions={dismissedSuggestions}
+              onDismissAttention={(id) =>
+                setDismissedAttention((prev) => new Set(prev).add(id))
+              }
+              onDismissSuggestion={(id) =>
+                setDismissedSuggestions((prev) => new Set(prev).add(id))
+              }
+              onAttentionAction={(item) => {
+                void handleAttentionAction(item);
               }}
+              onSuggestionAction={handleSuggestion}
             />
-          ) : (
-            <>
-              <div
-                className={cn(
-                  "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start",
-                  focusBroadcast && "ring-1 ring-amber-500/30 rounded-xl p-1",
-                )}
-              >
-                <section className="space-y-3 min-w-0" aria-label="Courts">
-                  <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
-                    Courts
-                  </h2>
-                  {liveCount === 0 && readyCount === 0 ? (
-                    <div className={cn(hubCardClass, "p-4 border-amber-500/20 bg-amber-500/5")}>
-                      <p className="text-sm text-foreground/90 font-medium">No live matches yet</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Use the primary action above, or finish{" "}
-                        <Link
-                          href={`/tournament/${tournamentId}/badminton/schedule`}
-                          className="text-primary hover:underline"
-                        >
-                          Schedule
-                        </Link>
-                        .
-                      </p>
-                    </div>
-                  ) : null}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                    {sortedBoard.map((row) => (
-                      <MissionControlCourtCard
-                        key={row.court.id}
-                        tournamentId={tournamentId}
-                        row={row}
-                        categoryName={categoryName}
-                        primaryMatchId={primaryMatchId}
-                      />
-                    ))}
-                  </div>
-                </section>
+          </>
+        ) : null}
 
-                <div className="lg:sticky lg:top-24 space-y-3 z-30 isolate">
-                  <MissionControlOpsRail
-                    tournamentId={tournamentId}
-                    onAnnouncement={(label) => pushActivity(`Announcement · ${label}`)}
-                  />
-                  <MissionControlActivityFeed events={activity} />
+        {isLoading ? (
+          <div
+            className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4"
+            aria-busy="true"
+            aria-label="Loading Mission Control"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
+              ))}
+            </div>
+            <div className="h-96 rounded-xl bg-muted animate-pulse" />
+          </div>
+        ) : loadError ? (
+          <EmptyState
+            icon={AlertCircle}
+            title="Could not load Mission Control"
+            desc={friendlyBadmintonError(loadErrorObj, "Check your connection, then retry.")}
+            action={{ label: "Retry", onClick: () => retryAll() }}
+          />
+        ) : courts.length === 0 ? (
+          <EmptyState
+            icon={LayoutDashboard}
+            title="No courts yet"
+            desc="Add courts in Tournament Setup first. Mission Control runs the day from here."
+            action={{
+              label: "Add courts",
+              href: `/tournament/${tournamentId}/badminton/branding?section=courts`,
+            }}
+          />
+        ) : (
+          <div
+            className={cn(
+              "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start",
+              focusBroadcast && "ring-1 ring-amber-500/30 rounded-xl p-1",
+            )}
+          >
+            <div className="space-y-4 min-w-0">
+              <MissionControlReadyStrip
+                tournamentId={tournamentId}
+                courts={courts}
+                ready={ready}
+                moveTargetCourtIds={moveTargetCourtIds}
+              />
+
+              <section className="space-y-3" aria-label="Courts">
+                <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
+                  Courts
+                </h2>
+                {liveCount === 0 && readyCount === 0 ? (
+                  <div className={cn(hubCardClass, "p-4 border-amber-500/20 bg-amber-500/5")}>
+                    <p className="text-sm text-foreground/90 font-medium">No live matches yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use the primary action above, or finish{" "}
+                      <Link
+                        href={`/tournament/${tournamentId}/badminton/schedule`}
+                        className="text-primary hover:underline"
+                      >
+                        Schedule
+                      </Link>
+                      .
+                    </p>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  {sortedBoard.map((row) => (
+                    <MissionControlCourtCard
+                      key={row.court.id}
+                      tournamentId={tournamentId}
+                      row={row}
+                      categoryName={categoryName}
+                      primaryMatchId={primaryMatchId}
+                    />
+                  ))}
                 </div>
-              </div>
+              </section>
 
               <MissionControlQueues
                 tournamentId={tournamentId}
                 courts={courts}
                 upcoming={upcoming}
-                ready={ready}
                 recent={recent}
                 categoryName={categoryName}
-                moveTargetCourtIds={moveTargetCourtIds}
               />
-            </>
-          )}
-        </div>
-      </BadmintonIaPageChrome>
+            </div>
+
+            {/* Document-flow rail — page scroll only; no nested sticky scroller. */}
+            <div className="space-y-3 min-w-0">
+              <MissionControlOpsRail
+                tournamentId={tournamentId}
+                onAnnouncement={(label) => toast({ title: label })}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </HubPageShell>
   );
 }

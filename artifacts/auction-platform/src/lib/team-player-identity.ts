@@ -153,6 +153,65 @@ export function identityFromLooseSide(
   };
 }
 
+/** Default reducer placeholders before toss / start fills real roster labels. */
+export function isPlaceholderPlayerName(name: string | null | undefined): boolean {
+  const t = name?.trim() ?? "";
+  if (!t || t === "—" || t === "-" || t === "TBD") return true;
+  return /^(Player|Side)\s*[AB1-2]$/i.test(t);
+}
+
+/**
+ * Pre-start / view-schedule: prefer live state when it has real names; otherwise
+ * fall back to match-detail side JSON (roster) so view-only scorers don't see
+ * "Player A vs Player B".
+ */
+export function identityForPreStartMatchSide(
+  stateSide: BadmintonSideInfo | null | undefined,
+  detailSideJson: Record<string, unknown> | null | undefined,
+): TeamPlayerIdentity {
+  const fromState = identityFromSideInfo(stateSide);
+  if (!isPlaceholderPlayerName(fromState.playerName)) return fromState;
+  if (!detailSideJson) return fromState;
+
+  const label =
+    (typeof detailSideJson.label === "string" && detailSideJson.label.trim()) ||
+    (typeof detailSideJson.displayName === "string" &&
+      detailSideJson.displayName.trim()) ||
+    (typeof detailSideJson.shortLabel === "string" &&
+      detailSideJson.shortLabel.trim()) ||
+    "";
+  if (!label || isPlaceholderPlayerName(label)) return fromState;
+
+  const shortLabel =
+    (typeof detailSideJson.shortLabel === "string" &&
+      detailSideJson.shortLabel.trim()) ||
+    label;
+
+  return identityFromSideInfo({
+    label,
+    shortLabel,
+    playerIds: Array.isArray(detailSideJson.playerIds)
+      ? detailSideJson.playerIds.filter((id): id is number => typeof id === "number")
+      : [],
+    franchiseName:
+      typeof detailSideJson.franchiseName === "string"
+        ? detailSideJson.franchiseName
+        : undefined,
+    franchiseLogoUrl:
+      typeof detailSideJson.franchiseLogoUrl === "string"
+        ? detailSideJson.franchiseLogoUrl
+        : undefined,
+    teamName:
+      typeof detailSideJson.teamName === "string" ? detailSideJson.teamName : undefined,
+    teamLogoUrl:
+      typeof detailSideJson.teamLogoUrl === "string"
+        ? detailSideJson.teamLogoUrl
+        : undefined,
+    teamColor:
+      typeof detailSideJson.teamColor === "string" ? detailSideJson.teamColor : undefined,
+  });
+}
+
 export function identityFromOrganizerPlayer(player: {
   displayName?: string | null;
   firstName?: string;

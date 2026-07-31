@@ -146,6 +146,14 @@ export function MissionControlCourtCard({
           ) : isLive ? (
             <p className="text-white/35 text-[11px] mt-0.5">Live · not on main screens</p>
           ) : null}
+          {court.scorerName?.trim() ? (
+            <p className="text-white/40 text-[11px] mt-0.5 truncate">
+              Scorer · {court.scorerName.trim()}
+              {court.hasScorerPin || court.scorerPin ? " · PIN set" : ""}
+            </p>
+          ) : court.hasScorerPin || court.scorerPin ? (
+            <p className="text-white/35 text-[11px] mt-0.5">Court PIN set</p>
+          ) : null}
         </div>
         <span
           className={cn(
@@ -166,9 +174,21 @@ export function MissionControlCourtCard({
           fallback={currentMatch ? matchDisplayLabel(currentMatch) : "—"}
           score={
             currentMatch?.state && (status === "LIVE" || isPaused)
-              ? `${currentMatch.state.leftScore ?? 0}–${currentMatch.state.rightScore ?? 0}${
-                  currentMatch.state.currentGame != null ? ` · G${currentMatch.state.currentGame}` : ""
-                }`
+              ? `${currentMatch.state.leftScore ?? 0}–${currentMatch.state.rightScore ?? 0}`
+              : null
+          }
+          scoreMeta={
+            currentMatch?.state && (status === "LIVE" || isPaused)
+              ? [
+                  currentMatch.state.currentGame != null
+                    ? `Game ${currentMatch.state.currentGame}`
+                    : null,
+                  currentMatch.state.gamesLeft != null && currentMatch.state.gamesRight != null
+                    ? `Sets ${currentMatch.state.gamesLeft}–${currentMatch.state.gamesRight}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || null
               : null
           }
           sub={
@@ -196,93 +216,99 @@ export function MissionControlCourtCard({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 pt-0.5">
-        {primaryAction}
+      <div className="space-y-2 pt-0.5">
+        <div className="flex flex-wrap gap-2">
+          {primaryAction}
 
-        {isLive && currentMatch && !isFollowing ? (
-          <button
-            type="button"
-            disabled={setPrimaryMutation.isPending}
-            onClick={() => setPrimaryMutation.mutate(currentMatch.id)}
-            className="min-h-10 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-50 text-xs font-semibold"
-          >
-            Show on screens
-          </button>
-        ) : null}
-
-        {isLive && currentMatch ? (
-          isPaused ? (
+          {isLive && currentMatch && !isFollowing ? (
             <button
               type="button"
-              disabled={busy}
-              onClick={() => run(() => director.resume(), "Match resumed")}
-              className="min-h-10 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-xs font-bold"
+              disabled={setPrimaryMutation.isPending}
+              onClick={() => setPrimaryMutation.mutate(currentMatch.id)}
+              className="min-h-10 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-50 text-xs font-semibold"
             >
-              Resume
+              Show on screens
             </button>
-          ) : (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => run(() => director.pause("technical_issue"), "Match paused")}
-              className="min-h-10 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white/85 text-xs font-semibold"
-            >
-              Pause
-            </button>
-          )
-        ) : null}
+          ) : null}
 
-        {isLive && currentMatch && isPaused ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              run(
-                () => forceUnlockBadmintonMatch(tournamentId, currentMatch.id),
-                "Scorer lock cleared",
-              )
-            }
-            className="min-h-10 px-3 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-semibold"
-          >
-            Unlock scorer
-          </button>
-        ) : null}
+          {isLive && currentMatch ? (
+            isPaused ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => run(() => director.resume(), "Match resumed")}
+                className="min-h-10 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-xs font-bold"
+              >
+                Resume
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => run(() => director.pause("technical_issue"), "Match paused")}
+                className="min-h-10 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white/85 text-xs font-semibold"
+              >
+                Pause
+              </button>
+            )
+          ) : null}
+        </div>
 
         {currentMatch ? (
-          <a
-            href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-            className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/60 text-xs font-semibold inline-flex items-center"
-          >
-            Director
-          </a>
-        ) : null}
+          <div className="flex flex-wrap gap-2">
+            {isLive && isPaused ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    () => forceUnlockBadmintonMatch(tournamentId, currentMatch.id),
+                    "Scorer lock cleared",
+                  )
+                }
+                className="min-h-9 px-2.5 rounded-lg border border-orange-500/25 bg-orange-500/10 hover:bg-orange-500/20 text-orange-100/90 text-[11px] font-semibold"
+              >
+                Unlock scorer
+              </button>
+            ) : null}
 
-        {isLive && currentMatch ? (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setFinishConfirmOpen(true)}
-              className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/55 text-xs font-semibold"
-            >
-              Force finish
-            </button>
-            <ConfirmActionDialog
-              open={finishConfirmOpen}
-              onOpenChange={setFinishConfirmOpen}
-              title="Force finish this match?"
-              description="Use only when scoring cannot complete normally. Prefer Director panel for walkover or retirement."
-              confirmLabel="Force finish"
-              busy={busy}
-              onConfirm={() => {
-                setFinishConfirmOpen(false);
-                void run(
-                  () => director.forceEnd("Finished from Live Control"),
-                  "Match finished",
-                );
-              }}
-            />
-          </>
+            {currentMatch ? (
+              <a
+                href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
+                className="min-h-9 px-2.5 rounded-lg text-white/45 hover:text-white/70 text-[11px] font-semibold inline-flex items-center"
+              >
+                Director
+              </a>
+            ) : null}
+
+            {isLive && currentMatch ? (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setFinishConfirmOpen(true)}
+                  className="min-h-9 px-2.5 rounded-lg text-white/35 hover:text-white/55 text-[11px] font-semibold"
+                >
+                  Force finish
+                </button>
+                <ConfirmActionDialog
+                  open={finishConfirmOpen}
+                  onOpenChange={setFinishConfirmOpen}
+                  title="Force finish this match?"
+                  description="Use only when scoring cannot complete normally. Prefer Director panel for walkover or retirement."
+                  confirmLabel="Force finish"
+                  busy={busy}
+                  onConfirm={() => {
+                    setFinishConfirmOpen(false);
+                    void run(
+                      () => director.forceEnd("Finished from Live Control"),
+                      "Match finished",
+                    );
+                  }}
+                />
+              </>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </article>
@@ -295,6 +321,7 @@ function MatchSlot({
   right,
   fallback,
   score,
+  scoreMeta,
   sub,
 }: {
   title: string;
@@ -302,6 +329,7 @@ function MatchSlot({
   right: Parameters<typeof identityFromLooseSide>[0];
   fallback: string;
   score?: string | null;
+  scoreMeta?: string | null;
   sub?: string | null;
 }) {
   const hasSides = left || right;
@@ -319,7 +347,10 @@ function MatchSlot({
       ) : (
         <p className="text-white font-medium truncate">{fallback}</p>
       )}
-      {score ? <p className="text-white/70 text-xs tabular-nums mt-1 font-semibold">{score}</p> : null}
+      {score ? (
+        <p className="text-white text-xl tabular-nums mt-1 font-display font-bold leading-none">{score}</p>
+      ) : null}
+      {scoreMeta ? <p className="text-white/50 text-[11px] tabular-nums mt-1 font-semibold">{scoreMeta}</p> : null}
       {sub ? <p className="text-white/40 text-xs mt-0.5">{sub}</p> : null}
     </div>
   );
@@ -376,17 +407,20 @@ function resolveCourtPrimaryAction(input: {
       );
     }
     return (
-      <a
-        href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-        className={cn(
-          "min-h-10 px-4 rounded-lg text-sm font-bold inline-flex items-center",
-          status === "DELAYED"
-            ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-50"
-            : "bg-amber-500/30 hover:bg-amber-500/40 text-amber-50",
-        )}
-      >
-        Start match
-      </a>
+      <div className="space-y-1">
+        <a
+          href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
+          className={cn(
+            "min-h-10 px-4 rounded-lg text-sm font-bold inline-flex items-center",
+            status === "DELAYED"
+              ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-50"
+              : "bg-amber-500/30 hover:bg-amber-500/40 text-amber-50",
+          )}
+        >
+          Start match
+        </a>
+        <p className="text-[11px] text-white/40">Toss &amp; start in Match Control</p>
+      </div>
     );
   }
 

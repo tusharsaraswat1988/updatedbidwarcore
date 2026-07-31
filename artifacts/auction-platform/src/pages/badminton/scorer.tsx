@@ -37,6 +37,7 @@ import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 import {
   formatTeamPlayerLine,
+  identityForPreStartMatchSide,
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
@@ -480,8 +481,16 @@ export default function BadmintonScorerPage() {
 
   if (state.matchStatus === "scheduled") {
     if (viewOnly) {
-      const left = identityFromSideInfo(state.leftSide);
-      const right = identityFromSideInfo(state.rightSide);
+      // Scheduled matches keep reducer placeholders on state until start;
+      // roster names live on match-detail side JSON (same as Scorer Home).
+      const left = identityForPreStartMatchSide(
+        state.leftSide,
+        (matchDetail?.leftSideJson as Record<string, unknown> | undefined) ?? null,
+      );
+      const right = identityForPreStartMatchSide(
+        state.rightSide,
+        (matchDetail?.rightSideJson as Record<string, unknown> | undefined) ?? null,
+      );
       const scheduledAt =
         typeof matchDetail?.scheduledAt === "string"
           ? matchDetail.scheduledAt

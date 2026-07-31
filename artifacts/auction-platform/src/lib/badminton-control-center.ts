@@ -39,6 +39,8 @@ export type ControlMatch = {
     leftScore?: number;
     rightScore?: number;
     currentGame?: number;
+    gamesLeft?: number;
+    gamesRight?: number;
   } | null;
 };
 

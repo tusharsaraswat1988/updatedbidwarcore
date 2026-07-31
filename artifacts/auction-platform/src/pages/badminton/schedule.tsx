@@ -23,8 +23,9 @@ import { friendlyBadmintonError, formatFixtureStatusLabel, toastError, toastSucc
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import {
   buildFranchiseLookupFromPlayers,
-  formatTeamPlayerLine,
   identityFromRegistrationPlayers,
+  resolveTeamColor,
+  type TeamPlayerIdentity,
 } from "@/lib/team-player-identity";
 import {
   EmptyState,
@@ -174,6 +175,9 @@ export default function BadmintonSchedulePage() {
   >(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState("");
+  const [filterTeam, setFilterTeam] = useState("all");
+  const [filterCourt, setFilterCourt] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const {
     data: courts = [],
@@ -255,8 +259,8 @@ export default function BadmintonSchedulePage() {
     [players],
   );
 
-  const sideLabelByRegId = useMemo(() => {
-    const map = new Map<number, string>();
+  const sideIdentityByRegId = useMemo(() => {
+    const map = new Map<number, TeamPlayerIdentity>();
     for (const [catIdRaw, rows] of Object.entries(regsByCategory)) {
       const cat = categoryById.get(Number(catIdRaw));
       const doubles = cat?.matchType !== "singles";
@@ -276,11 +280,20 @@ export default function BadmintonSchedulePage() {
           doubles ? playersForReg : [playersForReg[0]],
           franchiseByPlayerId,
         );
-        map.set(row.registration.id, formatTeamPlayerLine(identity));
+        map.set(row.registration.id, identity);
       }
     }
     return map;
   }, [regsByCategory, categoryById, franchiseByPlayerId]);
+
+  const teamFilterOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const identity of sideIdentityByRegId.values()) {
+      const team = identity.teamName?.trim();
+      if (team) names.add(team);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [sideIdentityByRegId]);
 
   const courtById = useMemo(() => new Map(courts.map((c) => [c.id, c])), [courts]);
 
@@ -289,12 +302,35 @@ export default function BadmintonSchedulePage() {
     [courts],
   );
 
+  function fixtureMatchesFilters(
+    f: BadmintonFixture,
+    opts?: { includeCourt?: boolean },
+  ): boolean {
+    if (filterCategory !== "all" && f.categoryId !== Number(filterCategory)) return false;
+    if (opts?.includeCourt && filterCourt !== "all") {
+      if (f.courtId == null || f.courtId !== Number(filterCourt)) return false;
+    }
+    if (filterTeam !== "all") {
+      const a = f.registrationAId != null ? sideIdentityByRegId.get(f.registrationAId) : null;
+      const b = f.registrationBId != null ? sideIdentityByRegId.get(f.registrationBId) : null;
+      const teams = [a?.teamName?.trim(), b?.teamName?.trim()].filter(Boolean);
+      if (!teams.includes(filterTeam)) return false;
+    }
+    return true;
+  }
+
+  const filtersActive =
+    filterTeam !== "all" || filterCourt !== "all" || filterCategory !== "all";
+
   const unscheduled = useMemo(
     () =>
       fixtures
         .filter((f) => planningStatus(f) === "unscheduled")
+        .filter((f) => fixtureMatchesFilters(f))
         .sort((a, b) => (a.slotNumber ?? 0) - (b.slotNumber ?? 0)),
-    [fixtures],
+    // fixtureMatchesFilters closes over filter + identity maps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fixtures, filterTeam, filterCategory, sideIdentityByRegId],
   );
 
   const scheduledByCourt = useMemo(() => {
@@ -303,6 +339,7 @@ export default function BadmintonSchedulePage() {
       const st = planningStatus(f);
       if (st !== "scheduled" && st !== "ready") continue;
       if (f.courtId == null) continue;
+      if (!fixtureMatchesFilters(f, { includeCourt: true })) continue;
       const list = map.get(f.courtId) ?? [];
       list.push(f);
       map.set(f.courtId, list);
@@ -315,7 +352,18 @@ export default function BadmintonSchedulePage() {
       });
     }
     return map;
-  }, [fixtures]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixtures, filterTeam, filterCourt, filterCategory, sideIdentityByRegId]);
+
+  const courtsToShow = useMemo(() => {
+    if (filterCourt !== "all") {
+      return sortedCourts.filter((c) => c.id === Number(filterCourt));
+    }
+    if (filtersActive) {
+      return sortedCourts.filter((c) => (scheduledByCourt.get(c.id) ?? []).length > 0);
+    }
+    return sortedCourts;
+  }, [sortedCourts, filterCourt, filtersActive, scheduledByCourt]);
 
   const creatableFixtures = useMemo(
     () => fixtures.filter((f) => planningStatus(f) === "scheduled"),
@@ -481,20 +529,85 @@ export default function BadmintonSchedulePage() {
           />
         ) : (
           <>
+            <div className={cn(hubCardClass, "p-4 space-y-3")}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest">
+                  Filters
+                </h2>
+                {filtersActive ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterTeam("all");
+                      setFilterCourt("all");
+                      setFilterCategory("all");
+                    }}
+                    className="text-xs font-semibold text-[#4fc3f7] hover:underline min-h-9 px-1"
+                  >
+                    Clear filters
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <FormField label="Team">
+                  <DarkSelect
+                    value={filterTeam}
+                    onValueChange={setFilterTeam}
+                    options={[
+                      { value: "all", label: "All teams" },
+                      ...teamFilterOptions.map((name) => ({ value: name, label: name })),
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Court">
+                  <DarkSelect
+                    value={filterCourt}
+                    onValueChange={setFilterCourt}
+                    options={[
+                      { value: "all", label: "All courts" },
+                      ...sortedCourts.map((c) => ({
+                        value: String(c.id),
+                        label: c.shortName?.trim() || c.name,
+                      })),
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Category">
+                  <DarkSelect
+                    value={filterCategory}
+                    onValueChange={setFilterCategory}
+                    options={[
+                      { value: "all", label: "All categories" },
+                      ...categories.map((c) => ({
+                        value: String(c.id),
+                        label: c.code?.trim() || c.name,
+                      })),
+                    ]}
+                  />
+                </FormField>
+              </div>
+            </div>
+
             <section className="space-y-3">
               <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest">
                 Unscheduled ({unscheduled.length})
               </h2>
               {unscheduled.length === 0 ? (
                 <p className="text-white/35 text-sm">
-                  Every match has a court and time. Next:{" "}
-                  <Link
-                    href={`/tournament/${tournamentId}/badminton/control`}
-                    className="text-[#4fc3f7] hover:underline"
-                  >
-                    Go Live
-                  </Link>{" "}
-                  to start play from Live Control.
+                  {filterTeam !== "all" || filterCategory !== "all" ? (
+                    "No unscheduled matches match these filters."
+                  ) : (
+                    <>
+                      Every match has a court and time. Next:{" "}
+                      <Link
+                        href={`/tournament/${tournamentId}/badminton/control`}
+                        className="text-[#4fc3f7] hover:underline"
+                      >
+                        Go Live
+                      </Link>{" "}
+                      to start play from Live Control.
+                    </>
+                  )}
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -505,7 +618,7 @@ export default function BadmintonSchedulePage() {
                       category={categoryById.get(fixture.categoryId)}
                       tournamentId={tournamentId}
                       courtName={null}
-                      sideLabelByRegId={sideLabelByRegId}
+                      sideIdentityByRegId={sideIdentityByRegId}
                       highlighted={highlightFixtureId === fixture.id}
                       onAssign={() => setScheduleTarget(fixture)}
                       onUnschedule={undefined}
@@ -516,7 +629,7 @@ export default function BadmintonSchedulePage() {
             </section>
 
             <section className="space-y-4">
-              {creatableFixtures.length > 0 ? (
+              {creatableFixtures.length > 0 && !filtersActive ? (
                 <div className="rounded-xl border border-purple-500/25 bg-purple-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-white font-semibold text-sm">Create scoring matches</p>
@@ -550,8 +663,12 @@ export default function BadmintonSchedulePage() {
                     Open Courts
                   </Link>
                 </p>
+              ) : courtsToShow.length === 0 ? (
+                <p className="text-white/35 text-sm">
+                  No scheduled matches match these filters.
+                </p>
               ) : (
-                sortedCourts.map((court) => {
+                courtsToShow.map((court) => {
                   const list = scheduledByCourt.get(court.id) ?? [];
                   const creatableOnCourt = creatableCountByCourt.get(court.id) ?? 0;
                   return (
@@ -561,7 +678,7 @@ export default function BadmintonSchedulePage() {
                           {court.shortName?.trim() || court.name}
                         </h3>
                         <div className="flex flex-wrap items-center gap-2">
-                          {creatableOnCourt > 0 ? (
+                          {creatableOnCourt > 0 && !filtersActive ? (
                             <button
                               type="button"
                               onClick={() =>
@@ -597,7 +714,7 @@ export default function BadmintonSchedulePage() {
                               category={categoryById.get(fixture.categoryId)}
                               tournamentId={tournamentId}
                               courtName={court.shortName?.trim() || court.name}
-                              sideLabelByRegId={sideLabelByRegId}
+                              sideIdentityByRegId={sideIdentityByRegId}
                               compact
                               highlighted={highlightFixtureId === fixture.id}
                               onAssign={() => setScheduleTarget(fixture)}
@@ -619,34 +736,36 @@ export default function BadmintonSchedulePage() {
               )}
 
               {/* Scheduled fixtures on unknown / deleted court ids */}
-              {Array.from(scheduledByCourt.entries())
-                .filter(([courtId]) => !courtById.has(courtId))
-                .map(([courtId, list]) => (
-                  <div key={`orphan-${courtId}`} className={cn(hubCardClass, "p-5 space-y-3")}>
-                    <h3 className="text-white font-bold text-lg">Court #{courtId}</h3>
-                    {list.map((fixture) => (
-                      <FixtureScheduleCard
-                        key={fixture.id}
-                        fixture={fixture}
-                        category={categoryById.get(fixture.categoryId)}
-                        tournamentId={tournamentId}
-                        courtName={`Court #${courtId}`}
-                        sideLabelByRegId={sideLabelByRegId}
-                        compact
-                        highlighted={highlightFixtureId === fixture.id}
-                        onAssign={() => setScheduleTarget(fixture)}
-                        onUnschedule={
-                          fixture.scoringMatchId
-                            ? undefined
-                            : () => {
-                                setUnscheduleError("");
-                                setUnscheduleTarget(fixture);
-                              }
-                        }
-                      />
-                    ))}
-                  </div>
-                ))}
+              {filterCourt === "all"
+                ? Array.from(scheduledByCourt.entries())
+                    .filter(([courtId]) => !courtById.has(courtId))
+                    .map(([courtId, list]) => (
+                      <div key={`orphan-${courtId}`} className={cn(hubCardClass, "p-5 space-y-3")}>
+                        <h3 className="text-white font-bold text-lg">Court #{courtId}</h3>
+                        {list.map((fixture) => (
+                          <FixtureScheduleCard
+                            key={fixture.id}
+                            fixture={fixture}
+                            category={categoryById.get(fixture.categoryId)}
+                            tournamentId={tournamentId}
+                            courtName={`Court #${courtId}`}
+                            sideIdentityByRegId={sideIdentityByRegId}
+                            compact
+                            highlighted={highlightFixtureId === fixture.id}
+                            onAssign={() => setScheduleTarget(fixture)}
+                            onUnschedule={
+                              fixture.scoringMatchId
+                                ? undefined
+                                : () => {
+                                    setUnscheduleError("");
+                                    setUnscheduleTarget(fixture);
+                                  }
+                            }
+                          />
+                        ))}
+                      </div>
+                    ))
+                : null}
             </section>
           </>
         )}
@@ -724,12 +843,51 @@ export default function BadmintonSchedulePage() {
   );
 }
 
+function TeamNamePill({ identity }: { identity: TeamPlayerIdentity }) {
+  const team = identity.teamName?.trim();
+  if (!team) return null;
+  const color = resolveTeamColor(identity) ?? "#4fc3f7";
+  return (
+    <span
+      className="inline-flex items-center max-w-[11rem] truncate rounded-md border px-1.5 py-0.5 text-[11px] font-bold leading-none"
+      style={{
+        color,
+        backgroundColor: `${color}22`,
+        borderColor: `${color}55`,
+      }}
+      title={team}
+    >
+      {team}
+    </span>
+  );
+}
+
+function ScheduleSideLabel({
+  identity,
+  fallback,
+}: {
+  identity: TeamPlayerIdentity | null | undefined;
+  fallback: string;
+}) {
+  if (!identity) {
+    return <span className="text-white/40">{fallback}</span>;
+  }
+  const player = identity.playerName?.trim() || fallback;
+  const hasTeam = Boolean(identity.teamName?.trim());
+  return (
+    <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full">
+      {hasTeam ? <TeamNamePill identity={identity} /> : null}
+      <span className="text-white/70 truncate">{player}</span>
+    </span>
+  );
+}
+
 function FixtureScheduleCard({
   fixture,
   category,
   tournamentId,
   courtName,
-  sideLabelByRegId,
+  sideIdentityByRegId,
   compact,
   highlighted,
   onAssign,
@@ -739,7 +897,7 @@ function FixtureScheduleCard({
   category?: BadmintonCategory;
   tournamentId: number;
   courtName: string | null;
-  sideLabelByRegId: Map<number, string>;
+  sideIdentityByRegId: Map<number, TeamPlayerIdentity>;
   compact?: boolean;
   highlighted?: boolean;
   onAssign: () => void;
@@ -749,10 +907,14 @@ function FixtureScheduleCard({
   const catLabel = category?.code?.trim() || category?.name || "Category";
   const title = `${catLabel} · Match ${fixture.slotNumber ?? fixture.id}`;
 
-  const regName = (id: number | null | undefined) => {
-    if (id == null) return "BYE";
-    return sideLabelByRegId.get(id) ?? "TBD";
-  };
+  const sideA =
+    fixture.registrationAId == null
+      ? null
+      : sideIdentityByRegId.get(fixture.registrationAId);
+  const sideB =
+    fixture.registrationBId == null
+      ? null
+      : sideIdentityByRegId.get(fixture.registrationBId);
 
   return (
     <div
@@ -783,9 +945,19 @@ function FixtureScheduleCard({
             {formatFixtureStatusLabel(status)}
           </span>
         </div>
-        <p className="text-white/50 text-sm truncate">
-          {regName(fixture.registrationAId)} vs {regName(fixture.registrationBId)}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm min-w-0">
+          <ScheduleSideLabel
+            identity={sideA}
+            fallback={fixture.registrationAId == null ? "BYE" : "TBD"}
+          />
+          <span className="text-white/30 text-[10px] font-black uppercase tracking-wider flex-none">
+            vs
+          </span>
+          <ScheduleSideLabel
+            identity={sideB}
+            fallback={fixture.registrationBId == null ? "BYE" : "TBD"}
+          />
+        </div>
         {fixture.scheduledAt ? (
           <p className="text-white/30 text-xs">
             {formatDate(fixture.scheduledAt)}

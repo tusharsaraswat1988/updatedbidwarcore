@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Smartphone } from "lucide-react";
+import { LockOpen, Smartphone } from "lucide-react";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
@@ -33,6 +33,8 @@ type ScorerRow = {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  loginLocked?: boolean;
+  loginLockoutRemainingSec?: number;
 };
 
 function formatWhen(iso: string | null): string {
@@ -51,12 +53,17 @@ export function BadmintonScorersPanel({ tournamentId }: { tournamentId: number }
 
   const [showForm, setShowForm] = useState(false);
   const [editScorer, setEditScorer] = useState<ScorerRow | null>(null);
+  const [unlockTarget, setUnlockTarget] = useState<ScorerRow | null>(null);
+
+  const anyLocked = (data?: { scorers: ScorerRow[] }) =>
+    (data?.scorers ?? []).some((s) => s.loginLocked);
 
   const { data, isLoading } = useQuery({
     queryKey: ["badminton-scorers", tournamentId],
     queryFn: () =>
       badmintonFetch<{ scorers: ScorerRow[] }>(tournamentId, "/scorers"),
     enabled: tournamentId > 0,
+    refetchInterval: (q) => (anyLocked(q.state.data) ? 15_000 : false),
   });
 
   const scorers = data?.scorers ?? [];
@@ -108,6 +115,7 @@ export function BadmintonScorersPanel({ tournamentId }: { tournamentId: number }
                 setEditScorer(scorer);
                 setShowForm(true);
               }}
+              onUnlock={() => setUnlockTarget(scorer)}
               onChanged={refresh}
             />
           ))}
@@ -125,6 +133,18 @@ export function BadmintonScorersPanel({ tournamentId }: { tournamentId: number }
           onSaved={() => {
             setShowForm(false);
             setEditScorer(null);
+            refresh();
+          }}
+        />
+      ) : null}
+
+      {unlockTarget ? (
+        <ClearLoginLockoutModal
+          tournamentId={tournamentId}
+          scorer={unlockTarget}
+          onClose={() => setUnlockTarget(null)}
+          onCleared={() => {
+            setUnlockTarget(null);
             refresh();
           }}
         />
@@ -156,11 +176,13 @@ function ScorerCard({
   scorer,
   tournamentId,
   onEdit,
+  onUnlock,
   onChanged,
 }: {
   scorer: ScorerRow;
   tournamentId: number;
   onEdit: () => void;
+  onUnlock: () => void;
   onChanged: () => void;
 }) {
   const toggle = useMutation({
@@ -181,6 +203,11 @@ function ScorerCard({
     onError: (e) => toastError(e),
   });
 
+  const lockRemainingMin =
+    scorer.loginLocked && scorer.loginLockoutRemainingSec
+      ? Math.max(1, Math.ceil(scorer.loginLockoutRemainingSec / 60))
+      : 0;
+
   return (
     <div className={cn(hubCardClass, "p-4 flex flex-wrap items-center justify-between gap-3")}>
       <div className="min-w-0">
@@ -196,6 +223,11 @@ function ScorerCard({
           >
             {scorer.isActive ? "Active" : "View only"}
           </span>
+          {scorer.loginLocked ? (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">
+              Login locked{lockRemainingMin > 0 ? ` · ~${lockRemainingMin}m` : ""}
+            </span>
+          ) : null}
         </div>
         <p className="text-sm text-muted-foreground font-mono mt-0.5">{scorer.mobile}</p>
         <p className="text-xs text-muted-foreground mt-1">
@@ -204,7 +236,17 @@ function ScorerCard({
             : `View-only · Last login · ${formatWhen(scorer.lastLoginAt)}`}
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        {scorer.loginLocked ? (
+          <button
+            type="button"
+            onClick={onUnlock}
+            className="min-h-10 px-3 rounded-lg bg-amber-500/10 text-amber-200 border border-amber-500/30 text-xs font-semibold inline-flex items-center gap-1.5"
+          >
+            <LockOpen className="w-3.5 h-3.5" />
+            Clear login lockout
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onEdit}
@@ -227,6 +269,61 @@ function ScorerCard({
         </button>
       </div>
     </div>
+  );
+}
+
+function ClearLoginLockoutModal({
+  tournamentId,
+  scorer,
+  onClose,
+  onCleared,
+}: {
+  tournamentId: number;
+  scorer: ScorerRow;
+  onClose: () => void;
+  onCleared: () => void;
+}) {
+  const [error, setError] = useState("");
+  const clearLockout = useMutation({
+    mutationFn: async () => {
+      return badmintonFetch<{ success: boolean; message?: string }>(
+        tournamentId,
+        `/scorers/${scorer.id}/reset-login-lockout`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+    },
+    onSuccess: () => {
+      toastSuccess("Login lockout cleared — scorer can try again now");
+      onCleared();
+    },
+    onError: (e) => {
+      const message = e instanceof Error ? e.message : "Could not clear lockout";
+      setError(message);
+      toastError(e);
+    },
+  });
+
+  return (
+    <FormModal
+      title="Clear login lockout?"
+      subtitle={`${scorer.name} · ${scorer.mobile}`}
+      onClose={onClose}
+    >
+      <p className="text-sm text-muted-foreground">
+        Clear the failed-login lockout so this scorer can sign in with their mobile and personal PIN
+        immediately (no 15-minute wait).
+      </p>
+      {error ? <FormError message={error} /> : null}
+      <FormActions
+        onCancel={onClose}
+        onSubmit={() => {
+          setError("");
+          clearLockout.mutate();
+        }}
+        saving={clearLockout.isPending}
+        submitLabel="Clear lockout"
+      />
+    </FormModal>
   );
 }
 

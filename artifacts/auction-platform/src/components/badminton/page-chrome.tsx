@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BtnPrimary, hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
+import { useBadmintonBidWarTheme } from "@/components/badminton/bidwar-badminton-branding";
+import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { badmintonMatchControlPath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 
@@ -60,6 +62,8 @@ export {
 
 
 
+const BIDWAR_HOME_URL = "https://bidwar.in/";
+
 /** Auction-style page header for badminton hub pages */
 
 export function PageHeader({
@@ -74,6 +78,10 @@ export function PageHeader({
 
   badge,
 
+  tournamentId,
+
+  showBrandMark = true,
+
 }: {
 
   title: string;
@@ -86,47 +94,119 @@ export function PageHeader({
 
   backHref?: string;
 
+  /** Fallback label when tournament name is unavailable. Prefer `tournamentId`. */
+
   eyebrow?: string;
 
   badge?: string;
 
+  /** When set, eyebrow shows the tournament display name. */
+
+  tournamentId?: number;
+
+  /** Centered BidWar logo — on for every hub tab/menu page. */
+
+  showBrandMark?: boolean;
+
 }) {
+
+  const { brandName, logoSrc, logoAlt } = useBadmintonBidWarTheme();
+
+  const { data: branding } = useBadmintonBranding(tournamentId ?? 0);
+
+  const tournamentName = branding?.displayName?.trim();
+
+  const eyebrowLabel = tournamentName || eyebrow;
+
+
 
   return (
 
-    <div className="border-b border-border px-6 py-6">
+    <div className="border-b border-border px-6 py-5 sm:py-6">
 
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+      <div className="max-w-7xl mx-auto space-y-4">
 
-        <div>
+        {showBrandMark && logoSrc ? (
 
-          {eyebrow && (
+          <div className="flex justify-center">
 
-            <p className="text-xs text-primary font-bold uppercase tracking-widest mb-1">{eyebrow}</p>
+            <a
 
-          )}
+              href={BIDWAR_HOME_URL}
 
-          <div className="flex items-center gap-3 flex-wrap">
+              target="_blank"
 
-            <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">{title}</h1>
+              rel="noopener noreferrer"
 
-            {badge && (
+              className="inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
 
-              <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
+              aria-label={`${brandName} — opens home page in a new tab`}
 
-                {badge}
+            >
 
-              </span>
+              <img
 
-            )}
+                src={logoSrc}
+
+                alt={logoAlt}
+
+                className="block h-8 sm:h-9 md:h-10 w-auto max-w-[min(240px,55vw)] object-contain"
+
+                loading="eager"
+
+                decoding="async"
+
+              />
+
+            </a>
 
           </div>
 
-          {subtitle && <p className="text-muted-foreground text-sm mt-1 font-mono">{subtitle}</p>}
+        ) : null}
+
+
+
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+
+          <div className="min-w-0">
+
+            {eyebrowLabel ? (
+
+              <p className="text-xs text-primary font-bold uppercase tracking-widest mb-1 truncate">
+
+                {eyebrowLabel}
+
+              </p>
+
+            ) : null}
+
+            <div className="flex items-center gap-3 flex-wrap">
+
+              <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
+
+                {title}
+
+              </h1>
+
+              {badge ? (
+
+                <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
+
+                  {badge}
+
+                </span>
+
+              ) : null}
+
+            </div>
+
+            {subtitle ? <p className="text-muted-foreground text-sm mt-1 font-mono">{subtitle}</p> : null}
+
+          </div>
+
+          {actions ? <div className="shrink-0">{actions}</div> : null}
 
         </div>
-
-        {actions}
 
       </div>
 

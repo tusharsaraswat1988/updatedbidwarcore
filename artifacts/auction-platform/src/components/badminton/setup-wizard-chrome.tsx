@@ -46,16 +46,13 @@ export function BadmintonSetupWizardChrome({
     <>
       {step ? (
         <PageHeader
-          eyebrow={
-            isLoading
-              ? undefined
-              : showWizard
-                ? `Setup · Step ${step.order} of 8`
-                : "Setup"
-          }
+          tournamentId={tournamentId}
           title={step.title}
           subtitle={step.purpose}
-          badge={headerBadge}
+          badge={
+            headerBadge ??
+            (!isLoading && showWizard ? `Step ${step.order} of 8` : undefined)
+          }
           actions={headerActions}
         />
       ) : null}

@@ -82,6 +82,7 @@ import {
 } from "../lib/badminton-ops";
 import {
   assertScorerMayAccessTournament,
+  clearScorerLoginLockoutForTournament,
   createScorerAccountForTournament,
   extractBearerToken,
   listScorerAccountsForTournament,
@@ -988,6 +989,53 @@ router.patch("/scorers/:scorerId", async (req, res) => {
   try {
     const scorer = await updateScorerAccountForTournament(tournamentId, scorerId, parsed.data);
     res.json({ scorer });
+  } catch (e) {
+    if (e instanceof ScorerAuthError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+/** Organizer clears scorer login rate-limit lockout (all IPs for that mobile). */
+router.post("/scorers/:scorerId/reset-login-lockout", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const scorerId = parseId((req.params as MergedParams).scorerId);
+  if (!scorerId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const { cleared, scorer } = await clearScorerLoginLockoutForTournament(
+      tournamentId,
+      scorerId,
+    );
+    const organizerId = req.jwtUser?.organizerAccountId ?? null;
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+
+    auditLog(req, {
+      category: "auth",
+      action: "SCORER_LOGIN_LOCKOUT_RESET",
+      summary: `Scorer login lockout cleared for "${scorer.name}"`,
+      outcome: "success",
+      severity: "info",
+      tournamentId,
+      resource: { type: "scorer", id: scorer.id },
+      metadata: {
+        organizerId,
+        scorerId: scorer.id,
+        tournamentId,
+        ip,
+        clearedEntries: cleared,
+        mobile: scorer.mobile,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Scorer login lockout cleared",
+      clearedEntries: cleared,
+      scorer,
+    });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });

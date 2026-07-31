@@ -72,6 +72,7 @@ export default function BadmintonTournamentHub() {
     return (
       <HubPageShell tournamentId={tournamentId}>
         <PageHeader
+          tournamentId={tournamentId}
           eyebrow="Setup"
           title={atReady ? "Tournament Ready" : "Tournament Setup"}
           subtitle={
@@ -126,6 +127,7 @@ export default function BadmintonTournamentHub() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
+        tournamentId={tournamentId}
         eyebrow="Dashboard"
         title="Tournament Dashboard"
         subtitle={

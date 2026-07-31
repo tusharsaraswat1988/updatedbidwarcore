@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildAttentionItems,
   courtDisplayPriority,
+  deriveSystemHealth,
   explainStartBlocker,
   resolvePrimaryAction,
   sortCourtsByOpsPriority,
@@ -107,5 +108,36 @@ describe("mission-control-ops", () => {
     assert.equal(action.kind, "start");
     assert.match(action.label, /Start Next/i);
     assert.equal(action.matchId, 42);
+  });
+
+  it("marks live sync warning on cold start (no realtime tick yet)", () => {
+    const health = deriveSystemHealth({
+      online: true,
+      matchesQueryOk: true,
+      lastRealtimeAt: null,
+      brandingOk: true,
+      liveCount: 1,
+      primaryMatchId: 1,
+      courtsWithPin: 2,
+      courtCount: 2,
+    });
+    assert.equal(health.realtime, "warning");
+    assert.equal(health.scorers, "healthy");
+  });
+
+  it("marks live sync healthy only after a fresh realtime tick", () => {
+    const now = Date.now();
+    const health = deriveSystemHealth({
+      online: true,
+      matchesQueryOk: true,
+      lastRealtimeAt: now - 5_000,
+      brandingOk: true,
+      liveCount: 1,
+      primaryMatchId: 1,
+      courtsWithPin: 2,
+      courtCount: 2,
+      now,
+    });
+    assert.equal(health.realtime, "healthy");
   });
 });

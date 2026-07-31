@@ -14,29 +14,48 @@ function levelClass(level: HealthLevel): string {
   return "text-red-300";
 }
 
-/** Worst status among presentation-related signals. */
+/** Worst status among presentation-related signals (venue + broadcast focus). */
 function screensLevel(health: SystemHealth): HealthLevel {
-  const levels: HealthLevel[] = [health.broadcast, health.venue, health.obs];
+  const levels: HealthLevel[] = [health.broadcast, health.venue];
   if (levels.includes("disconnected")) return "disconnected";
   if (levels.includes("warning")) return "warning";
   return "healthy";
 }
 
-const METRICS: { key: keyof SystemHealth | "screens"; label: string; resolve?: (h: SystemHealth) => HealthLevel }[] = [
-  { key: "internet", label: "Connection" },
-  { key: "realtime", label: "Live sync" },
+function isAllHealthy(health: SystemHealth): boolean {
+  return (
+    health.internet === "healthy" &&
+    health.realtime === "healthy" &&
+    screensLevel(health) === "healthy" &&
+    health.scorers === "healthy"
+  );
+}
+
+const METRICS: {
+  key: string;
+  label: string;
+  resolve: (h: SystemHealth) => HealthLevel;
+}[] = [
+  { key: "internet", label: "Connection", resolve: (h) => h.internet },
+  { key: "realtime", label: "Live sync", resolve: (h) => h.realtime },
   { key: "screens", label: "Screens", resolve: screensLevel },
-  { key: "scorers", label: "Scorers" },
+  // PIN configuration — not live tablet presence.
+  { key: "scorers", label: "Court PINs", resolve: (h) => h.scorers },
+  // Branding/config loaded — not OBS connected heartbeat.
+  { key: "obs", label: "Broadcast config", resolve: (h) => h.obs },
 ];
 
+/** Returns null when everything is healthy so the board stays quiet. */
 export function MissionControlHealthStrip({ health }: { health: SystemHealth }) {
+  if (isAllHealthy(health)) return null;
+
   return (
     <div
       className={cn(hubCardClass, "px-3 py-2 flex flex-wrap items-center gap-x-5 gap-y-1")}
       aria-label="System status"
     >
       {METRICS.map(({ key, label, resolve }) => {
-        const level = resolve ? resolve(health) : health[key as keyof SystemHealth];
+        const level = resolve(health);
         return (
           <span key={key} className="text-[11px] font-semibold inline-flex items-center gap-1.5">
             <span className="text-white/45">{label}</span>

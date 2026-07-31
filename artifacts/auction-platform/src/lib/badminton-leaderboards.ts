@@ -85,6 +85,75 @@ export function filterStandingsForGroup(
   return rerankStandings(filtered);
 }
 
+/**
+ * Build Results-page boards from category standings rows.
+ * Prefer API `groupId` / `groupName` when present; otherwise one category-wide board.
+ */
+export function buildStandingsBoardsFromRows(input: {
+  categories: LeagueCategoryLite[];
+  standingsByCategory: Map<number, LeagueStandingRow[]>;
+}): LeaderboardBoard[] {
+  const leagueCats = input.categories
+    .filter((c) => isLeagueDrawType(c.drawType))
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id);
+
+  const boards: LeaderboardBoard[] = [];
+
+  for (const cat of leagueCats) {
+    const standings = input.standingsByCategory.get(cat.id) ?? [];
+    if (standings.length === 0) continue;
+
+    const categoryName = cat.code?.trim() || cat.name;
+    const byGroup = new Map<string, LeagueStandingRow[]>();
+    let hasGroup = false;
+
+    for (const row of standings) {
+      if (row.groupId != null || (row.groupName && row.groupName.trim())) {
+        hasGroup = true;
+        const key = String(row.groupId ?? row.groupName);
+        const list = byGroup.get(key) ?? [];
+        list.push(row);
+        byGroup.set(key, list);
+      }
+    }
+
+    if (hasGroup && byGroup.size > 0) {
+      const entries = [...byGroup.entries()].sort((a, b) => {
+        const aId = a[1][0]?.groupId ?? 0;
+        const bId = b[1][0]?.groupId ?? 0;
+        if (aId !== bId) return aId - bId;
+        return (a[1][0]?.groupName ?? "").localeCompare(b[1][0]?.groupName ?? "");
+      });
+      for (const [key, rows] of entries) {
+        const title = rows[0]?.groupName?.trim() || `Group ${key}`;
+        boards.push({
+          key: `cat-${cat.id}-group-${key}`,
+          categoryId: cat.id,
+          categoryName,
+          boardTitle: title,
+          subtitle: `${categoryName} · Wins → Diff`,
+          rows: rerankStandings(rows),
+        });
+      }
+      continue;
+    }
+
+    boards.push({
+      key: `cat-${cat.id}`,
+      categoryId: cat.id,
+      categoryName,
+      boardTitle: categoryName,
+      subtitle:
+        cat.drawType === "group_knockout"
+          ? "Group stage · Wins → Diff"
+          : "Round robin · Wins → Diff",
+      rows: standings,
+    });
+  }
+
+  return boards;
+}
+
 export function buildLeaderboardBoards(input: {
   categories: LeagueCategoryLite[];
   standingsByCategory: Map<number, LeagueStandingRow[]>;

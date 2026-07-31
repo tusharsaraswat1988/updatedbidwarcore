@@ -3,7 +3,7 @@
  * Route: /tournament/:id/badminton/results
  *
  * Page order (lifecycle):
- *   Champions → Categories → Bracket Progress → Recent Results → Standings
+ *   Champions → Categories → Bracket Progress → Recent Results → League Standings
  *
  * Read-only. Corrections via Match Control / Live Scoring.
  */
@@ -30,6 +30,7 @@ import {
   categoryDisplayName,
   completedAtMs,
   formatCompletedWhen,
+  formatPointDifference,
   gameScoreLines,
   gamesWonLine,
   isCompletedMatch,
@@ -42,6 +43,11 @@ import {
   type ResultsFixture,
   type ResultsMatch,
 } from "@/lib/badminton-results";
+import {
+  buildStandingsBoardsFromRows,
+  isLeagueDrawType,
+  type LeagueStandingRow,
+} from "@/lib/badminton-leaderboards";
 import { matchDisplayLabel } from "@/lib/badminton-control-center";
 import { formatTeamPlayerLine } from "@/lib/team-player-identity";
 import { ChampionCard } from "@/components/badminton/champion-card";
@@ -129,6 +135,7 @@ export default function BadmintonResultsPage() {
       if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
       matchesInvalidateTimer.current = setTimeout(() => {
         void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+        void qc.invalidateQueries({ queryKey: ["badminton-league-standings", tournamentId] });
       }, 750);
     });
   }, [tournamentId, qc]);
@@ -184,6 +191,50 @@ export default function BadmintonResultsPage() {
     },
     enabled: !!tournamentId && categories.length > 0,
   });
+
+  const leagueCategories = useMemo(
+    () => categories.filter((c) => isLeagueDrawType(c.drawType)),
+    [categories],
+  );
+
+  const { data: standingsByCategory = new Map<number, LeagueStandingRow[]>(), isLoading: standingsLoading } =
+    useQuery({
+      queryKey: [
+        "badminton-league-standings",
+        tournamentId,
+        leagueCategories.map((c) => c.id).join(","),
+      ],
+      queryFn: async () => {
+        const map = new Map<number, LeagueStandingRow[]>();
+        await Promise.all(
+          leagueCategories.map(async (cat) => {
+            try {
+              const rows = await badmintonFetch<LeagueStandingRow[]>(
+                tournamentId,
+                `/categories/${cat.id}/standings`,
+              );
+              map.set(cat.id, rows);
+            } catch {
+              map.set(cat.id, []);
+            }
+          }),
+        );
+        return map;
+      },
+      enabled: !!tournamentId && leagueCategories.length > 0,
+      staleTime: 15_000,
+      refetchInterval: () =>
+        sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
+    });
+
+  const standingsBoards = useMemo(
+    () =>
+      buildStandingsBoardsFromRows({
+        categories: leagueCategories,
+        standingsByCategory,
+      }),
+    [leagueCategories, standingsByCategory],
+  );
 
   const blocks = useMemo(
     () => buildCategoryResultsBlocks(categories, matches, fixtures, collections),
@@ -248,8 +299,7 @@ export default function BadmintonResultsPage() {
         stepId="results"
         titleOverride="Standings"
         purposeOverride="Review completed match results and category standings."
-        taskOverride="Check champions, brackets, and recent results."
-        continueLabel="Share Tournament"
+        taskOverride="Check champions, league tables, brackets, and recent results."
       >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-10">
@@ -457,8 +507,73 @@ export default function BadmintonResultsPage() {
               )}
             </section>
 
-            {/* 5. Standings + future placeholders */}
-            <section className="space-y-3">
+            {/* 5. League standings (live after scored matches) */}
+            <section className="space-y-4">
+              <SectionHeading
+                id="standings"
+                eyebrow="League Standings"
+                title="Points table"
+                subtitle="Updates after each finished league match · ranked by wins, then Diff"
+              />
+              {standingsLoading && standingsBoards.length === 0 ? (
+                <div className="h-32 rounded-2xl bg-white/4 animate-pulse" />
+              ) : standingsBoards.length === 0 ? (
+                <p className={cn(hubCardClass, "p-4 text-white/35 text-sm")}>
+                  {leagueCategories.length === 0
+                    ? "No league / group events yet. Knockout-only categories do not show a points table here."
+                    : "No standings yet — finish a league match from Live Control and the table appears here."}
+                </p>
+              ) : (
+                <div className="space-y-5">
+                  {standingsBoards.map((board) => (
+                    <div key={board.key} className={cn(hubCardClass, "p-4 space-y-3")}>
+                      <div>
+                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
+                          {board.categoryName}
+                        </p>
+                        <h3 className="text-white font-semibold mt-0.5">{board.boardTitle}</h3>
+                        <p className="text-white/35 text-xs mt-0.5">{board.subtitle}</p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-white/40 text-left text-xs uppercase tracking-wider">
+                              <th className="py-1.5 pr-2 font-semibold">#</th>
+                              <th className="py-1.5 pr-2 font-semibold">Pair</th>
+                              <th className="py-1.5 pr-2 font-semibold">P</th>
+                              <th className="py-1.5 pr-2 font-semibold">W</th>
+                              <th className="py-1.5 pr-2 font-semibold">L</th>
+                              <th className="py-1.5 font-semibold">Diff</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {board.rows.map((row) => (
+                              <tr
+                                key={`${board.key}-${row.registrationId ?? row.rank}-${row.label}`}
+                                className="border-t border-white/6 text-white/85"
+                              >
+                                <td className="py-2 pr-2 tabular-nums text-white/50">{row.rank}</td>
+                                <td className="py-2 pr-2 font-medium">{row.label}</td>
+                                <td className="py-2 pr-2 tabular-nums">{row.played}</td>
+                                <td className="py-2 pr-2 tabular-nums">{row.won}</td>
+                                <td className="py-2 pr-2 tabular-nums">{row.lost}</td>
+                                <td className="py-2 tabular-nums font-bold text-cyan-200">
+                                  {formatPointDifference(row.marginPoints)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-white/35">
+                    Male: top 4 per group → QF. Female: top 4 overall → SF. Diff is point
+                    difference on won matches only.
+                  </p>
+                </div>
+              )}
+
               <Link
                 href={`/tournament/${tournamentId}/badminton/summary`}
                 className={cn(
@@ -474,25 +589,6 @@ export default function BadmintonResultsPage() {
                   Official closing page — champions, court performance, timeline, and awards.
                 </p>
               </Link>
-              <details className="group rounded-xl border border-dashed border-white/12 bg-white/[0.02] open:pb-3">
-                <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
-                  <div>
-                    <p className="text-white/45 text-[10px] font-bold uppercase tracking-widest">
-                      Standings
-                    </p>
-                    <p className="text-white/70 text-sm font-semibold mt-0.5">Coming soon</p>
-                    <p className="text-white/35 text-xs mt-0.5">
-                      League tables and player rankings
-                    </p>
-                  </div>
-                  <span className="text-white/30 text-xs group-open:hidden">Show</span>
-                  <span className="text-white/30 text-xs hidden group-open:inline">Hide</span>
-                </summary>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pt-1">
-                  <FuturePlaceholder title="League Standings" note="Round-robin tables — coming later" />
-                  <FuturePlaceholder title="Player Rankings" note="Architecture reserved" />
-                </div>
-              </details>
             </section>
 
             <p className="text-white/40 text-xs text-center pb-4">
@@ -503,14 +599,5 @@ export default function BadmintonResultsPage() {
       </div>
       </BadmintonIaPageChrome>
     </HubPageShell>
-  );
-}
-
-function FuturePlaceholder({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-3">
-      <p className="text-white/45 text-sm font-semibold">{title}</p>
-      <p className="text-white/25 text-xs mt-0.5">{note}</p>
-    </div>
   );
 }
