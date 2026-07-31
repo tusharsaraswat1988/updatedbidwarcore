@@ -69,6 +69,8 @@ export type BadmintonBranding = {
   venueMusicPlaying: boolean;
   /** Badminton-specific loop track override (null = fall through to auction/platform). */
   venueMusicUrl: string | null;
+  /** Original filename for the badminton override track (display only). */
+  venueMusicFileName: string | null;
   /** Loop music volume 0–100. */
   venueMusicVolume: number;
   /**
@@ -156,6 +158,12 @@ export function parseVenueMusicUrl(raw: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+export function parseVenueMusicFileName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed.slice(0, 180) : null;
+}
+
 export function parseVenueMusicVolume(raw: unknown): number {
   if (typeof raw === "number" && Number.isFinite(raw)) {
     return Math.max(0, Math.min(100, Math.round(raw)));
@@ -220,6 +228,9 @@ export function getBadmintonBranding(
     venueScene: parseVenueScene(broadcast.venueScene),
     venueMusicPlaying: parseVenueMusicPlaying(broadcast.venueMusicPlaying),
     venueMusicUrl,
+    venueMusicFileName: venueMusicUrl
+      ? parseVenueMusicFileName(broadcast.venueMusicFileName)
+      : null,
     venueMusicVolume: parseVenueMusicVolume(broadcast.venueMusicVolume),
     resolvedVenueMusicUrl: resolveVenueMusicUrl(
       venueMusicUrl,

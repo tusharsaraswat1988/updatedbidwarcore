@@ -106,6 +106,7 @@ function VenueChromeShell({
         leftLabel="Side A"
         rightLabel="Side B"
         scoreBoardSponsor={chrome.scoreBoardSponsor}
+        sponsorLogos={chrome.sponsorLogos}
       />
       <div
         className="relative z-10 min-h-0 flex items-stretch justify-center px-[3%] py-2"

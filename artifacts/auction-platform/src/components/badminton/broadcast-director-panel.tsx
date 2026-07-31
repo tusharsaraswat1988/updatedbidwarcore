@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleDot, Monitor, Radio, Tablet } from "lucide-react";
+import { CircleDot, Monitor, Radio, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
@@ -29,7 +29,6 @@ import type {
   BadmintonOverlayScene,
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
-import { momentAutoClearMs } from "@/lib/badminton-broadcast-director";
 import {
   onPresentationError,
   onPresentationMutate,
@@ -69,25 +68,34 @@ function SceneButton({
   label,
   busy,
   onClick,
+  tone = "default",
 }: {
   active: boolean;
   label: string;
   busy?: boolean;
   onClick: () => void;
+  /** `clear` = dismiss action, visually separate from moment chips. */
+  tone?: "default" | "clear";
 }) {
+  const isClear = tone === "clear";
   return (
     <button
       type="button"
       aria-busy={busy || undefined}
       onClick={onClick}
       className={cn(
-        "min-h-9 px-3 rounded-lg text-xs font-semibold border transition-colors",
-        active
-          ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
-          : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
+        "min-h-9 px-3 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5",
+        isClear
+          ? active
+            ? "bg-rose-500/25 border-rose-400/55 text-rose-50"
+            : "bg-rose-500/10 border-rose-400/35 text-rose-100 hover:bg-rose-500/18"
+          : active
+            ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
+            : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
         busy && "opacity-80",
       )}
     >
+      {isClear ? <X className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
       {label}
     </button>
   );
@@ -104,7 +112,6 @@ export function BadmintonBroadcastDirectorPanel({
   const { toast } = useToast();
   const { data: branding } = useBadmintonBranding(tournamentId);
   const autoSyncedSoleIdRef = useRef<number | null>(null);
-  const momentClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: matches = [] } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
@@ -164,16 +171,8 @@ export function BadmintonBroadcastDirectorPanel({
     },
   });
 
-  useEffect(
-    () => () => {
-      if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
-    },
-    [],
-  );
-
-  /** Timed packages — auto-clear so they cannot stick on air. */
-  function pushTimedMoment(venueScene: BadmintonVenueScene) {
-    if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+  /** Moments stay until Clear (or another scene is chosen). */
+  function pushMoment(venueScene: BadmintonVenueScene) {
     setPresentationMutation.mutate({
       venueScene,
       overlayScene:
@@ -184,9 +183,6 @@ export function BadmintonBroadcastDirectorPanel({
               "intro" | "winner" | "sponsor" | "results" | "leaderboards"
             >),
     });
-    momentClearTimerRef.current = setTimeout(() => {
-      setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
-    }, momentAutoClearMs(venueScene));
   }
 
   useEffect(() => {
@@ -281,26 +277,27 @@ export function BadmintonBroadcastDirectorPanel({
           </p>
           <p className="text-xs text-muted-foreground">
             Push intro, winner, sponsor, next-match, results, or leaderboards to Venue + OBS.
-            Moments auto-clear after {BROADCAST_MOMENT_AUTO_CLEAR_MS / 1000}s.
+            Moments stay on screen until you press Clear.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {VENUE_MOMENT_OPTIONS.map((opt) => (
               <SceneButton
                 key={opt.id}
                 label={opt.label}
                 active={venueScene === opt.id}
                 busy={presentationBusy && venueScene === opt.id}
-                onClick={() => pushTimedMoment(opt.id)}
+                onClick={() => pushMoment(opt.id)}
               />
             ))}
+            <span className="mx-0.5 h-7 w-px bg-white/15 shrink-0" aria-hidden />
             <SceneButton
               label="Clear moments"
+              tone="clear"
               active={venueScene === "auto" && overlayScene === "auto"}
               busy={
                 presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
               onClick={() => {
-                if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
                 setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
               }}
             />

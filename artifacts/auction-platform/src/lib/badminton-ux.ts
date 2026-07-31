@@ -199,7 +199,12 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
 }
 
 export function toastSuccess(title: string, description?: string) {
-  toast({ title, description });
+  toast({
+    title,
+    description,
+    variant: "success",
+    duration: 3200,
+  });
 }
 
 export function toastError(error: unknown, title = "Action failed") {

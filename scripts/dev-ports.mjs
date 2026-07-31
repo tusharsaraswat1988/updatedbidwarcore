@@ -130,10 +130,41 @@ export async function waitForPortsFree(ports, timeoutMs = 8000) {
 }
 
 /**
+ * Health wait must outlive schema boot (default 90s) plus post-schema init
+ * (branding / Redis / subscribers) before HTTP listen. Override with
+ * DEV_API_HEALTH_TIMEOUT_MS.
+ *
  * @param {number} apiPort
  * @param {number} [timeoutMs]
  */
-export async function waitForApiHealth(apiPort, timeoutMs = 45000) {
+export function resolveApiHealthTimeoutMs(
+  env = process.env,
+  fallbackMs = 120_000,
+) {
+  const raw = env.DEV_API_HEALTH_TIMEOUT_MS?.trim();
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 5_000) return Math.floor(n);
+  }
+  const schemaRaw = env.SCHEMA_BOOT_TIMEOUT_MS?.trim();
+  if (schemaRaw) {
+    const schemaMs = Number(schemaRaw);
+    if (Number.isFinite(schemaMs) && schemaMs >= 5_000) {
+      // Schema budget + buffer for Redis/branding before listen.
+      return Math.floor(schemaMs) + 30_000;
+    }
+  }
+  return fallbackMs;
+}
+
+/**
+ * @param {number} apiPort
+ * @param {number} [timeoutMs]
+ */
+export async function waitForApiHealth(
+  apiPort,
+  timeoutMs = resolveApiHealthTimeoutMs(),
+) {
   const url = `http://127.0.0.1:${apiPort}/api/healthz`;
   const deadline = Date.now() + timeoutMs;
 

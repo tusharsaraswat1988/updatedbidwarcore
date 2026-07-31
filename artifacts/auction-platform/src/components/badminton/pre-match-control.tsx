@@ -425,6 +425,7 @@ export function PreMatchControlPanel({
           needsCourt={!snapshot.courtId && !snapshot.courtLabel?.trim()}
           onClose={() => setShowDelay(false)}
           onSaved={() => {
+            toastSuccess("Court & time saved");
             setShowDelay(false);
             onRefresh();
           }}

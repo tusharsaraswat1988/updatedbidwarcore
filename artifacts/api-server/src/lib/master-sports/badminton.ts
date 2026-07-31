@@ -604,6 +604,7 @@ export async function updateBroadcastPresentation(
     venueScene?: BadmintonVenueScene;
     venueMusicPlaying?: boolean;
     venueMusicUrl?: string | null;
+    venueMusicFileName?: string | null;
     venueMusicVolume?: number;
     /** Copy tournament auction break music into badminton override. */
     importAuctionMusic?: boolean;
@@ -616,10 +617,17 @@ export async function updateBroadcastPresentation(
       ? { venueMusicPlaying: input.venueMusicPlaying }
       : {}),
     ...(input.venueMusicUrl !== undefined ? { venueMusicUrl: input.venueMusicUrl } : {}),
+    ...(input.venueMusicFileName !== undefined
+      ? { venueMusicFileName: input.venueMusicFileName }
+      : {}),
     ...(input.venueMusicVolume !== undefined
       ? { venueMusicVolume: input.venueMusicVolume }
       : {}),
   };
+
+  if (input.venueMusicUrl === null) {
+    patch.venueMusicFileName = null;
+  }
 
   if (input.importAuctionMusic) {
     const [tournament] = await db
@@ -630,6 +638,7 @@ export async function updateBroadcastPresentation(
     const url = tournament?.breakEndMusicUrl?.trim() || null;
     if (!url) throw new Error("No auction break music set for this tournament");
     patch.venueMusicUrl = url;
+    patch.venueMusicFileName = "Auction break music";
   }
 
   return updateBroadcastSettings(tournamentId, patch);

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { useBadmintonBidWarTheme } from "@/components/badminton/bidwar-badminton-branding";
 import {
@@ -12,7 +12,7 @@ import {
   hasScoreBoardSponsor,
 } from "@/components/badminton/score-board-sponsor-panel";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
-import { resolveSponsorPriorityType } from "@/lib/sponsor-logo";
+import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
 import {
   getSponsorChyronItemStyle,
   getSponsorChyronLogoStyle,
@@ -23,6 +23,168 @@ import {
 import { ChyronTickerScroller } from "@/components/display/v1/ChyronTickerScroller";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { cn } from "@/lib/utils";
+
+const HEADER_LOGO_ROTATE_MS = 4500;
+const HEADER_LOGO_FADE_MS = 400;
+
+type HeaderLogoSlide = {
+  key: string;
+  url: string;
+  /** "Title Sponsor" / "Co Sponsor" / "Tournament" */
+  typeLabel: string;
+  /** Display name under the type */
+  name: string;
+};
+
+/** Tournament → title sponsor → co-sponsor, fade loop in the left header slot. */
+function buildHeaderLogoSlides(
+  tournamentLogoUrl: string | undefined,
+  tournamentName: string | undefined,
+  sponsors: SponsorLogo[],
+): HeaderLogoSlide[] {
+  const slides: HeaderLogoSlide[] = [];
+  const tournament = tournamentLogoUrl?.trim();
+  if (tournament) {
+    slides.push({
+      key: `tournament:${tournament}`,
+      url: tournament,
+      typeLabel: "Tournament",
+      name: tournamentName?.trim() || "Tournament",
+    });
+  }
+
+  const withUrl = sponsors.filter((s) => !!s.url?.trim());
+  const titles = withUrl.filter(
+    (s) => resolveSponsorPriorityType(s) === SponsorPriorityType.TITLE,
+  );
+  const coSponsors = withUrl.filter(
+    (s) => resolveSponsorPriorityType(s) === SponsorPriorityType.CO_SPONSOR,
+  );
+
+  for (const s of titles) {
+    slides.push({
+      key: `title:${s.url}`,
+      url: s.url,
+      typeLabel: "Title Sponsor",
+      name: s.name?.trim() || "Title Sponsor",
+    });
+  }
+  for (const s of coSponsors) {
+    slides.push({
+      key: `co:${s.url}`,
+      url: s.url,
+      typeLabel: "Co Sponsor",
+      name: s.name?.trim() || "Co Sponsor",
+    });
+  }
+
+  // Deduplicate by URL while keeping order (tournament first).
+  const seen = new Set<string>();
+  return slides.filter((slide) => {
+    if (seen.has(slide.url)) return false;
+    seen.add(slide.url);
+    return true;
+  });
+}
+
+const HeaderLogoRotator = memo(function HeaderLogoRotator({
+  tournamentLogoUrl,
+  tournamentName,
+  sponsorLogos,
+  size = "full",
+}: {
+  tournamentLogoUrl?: string;
+  tournamentName?: string;
+  sponsorLogos: SponsorLogo[];
+  size?: "full" | "slim";
+}) {
+  const slides = useMemo(
+    () => buildHeaderLogoSlides(tournamentLogoUrl, tournamentName, sponsorLogos),
+    [tournamentLogoUrl, tournamentName, sponsorLogos],
+  );
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setIdx(0);
+    setVisible(true);
+  }, [slides]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    let swapId = 0;
+    const holdId = window.setTimeout(() => {
+      setVisible(false);
+      swapId = window.setTimeout(() => {
+        setIdx((i) => (i + 1) % slides.length);
+        setVisible(true);
+      }, HEADER_LOGO_FADE_MS);
+    }, HEADER_LOGO_ROTATE_MS);
+    return () => {
+      window.clearTimeout(holdId);
+      window.clearTimeout(swapId);
+    };
+  }, [slides, idx]);
+
+  if (slides.length === 0) return null;
+  const current = slides[Math.min(idx, slides.length - 1)];
+  const slim = size === "slim";
+  const title = `${current.typeLabel}: ${current.name}`;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-white/12 bg-white/[0.05] overflow-hidden",
+        slim ? "p-1 pr-2" : "p-1.5 md:p-2 pr-2.5 md:pr-3",
+      )}
+      title={title}
+    >
+      <div
+        className={cn(
+          "flex items-center transition-opacity ease-in-out",
+          slim ? "gap-2" : "gap-2.5 md:gap-3",
+        )}
+        style={{
+          opacity: visible ? 1 : 0,
+          transitionDuration: `${HEADER_LOGO_FADE_MS}ms`,
+        }}
+      >
+        <img
+          key={current.key}
+          src={current.url}
+          alt={title}
+          className={
+            slim
+              ? "h-8 md:h-9 w-auto max-w-[72px] object-contain shrink-0"
+              : "h-14 md:h-[4.75rem] w-auto max-w-[min(120px,12vw)] object-contain shrink-0"
+          }
+          loading="eager"
+          decoding="async"
+        />
+        <div className="min-w-0 flex flex-col leading-tight gap-0.5">
+          <span
+            className={cn(
+              "bw-caption uppercase tracking-[0.16em] text-[#ffd700]/90 font-bold bw-name-full",
+              slim ? "text-[8px]" : "text-[9px] md:text-[10px]",
+            )}
+          >
+            {current.typeLabel}
+          </span>
+          <span
+            className={cn(
+              "font-bold text-white bw-name-full",
+              slim
+                ? "text-[10px] md:text-[11px] max-w-[100px] truncate"
+                : "text-xs md:text-sm max-w-[min(160px,14vw)] line-clamp-2",
+            )}
+          >
+            {current.name}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 /** Only LIVE / TIMEOUT / FINAL — skip SCHEDULED boxes that steal header height. */
 function UrgentStatusDot({
@@ -77,6 +239,7 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   leftLabel,
   rightLabel,
   scoreBoardSponsor,
+  sponsorLogos = [],
   density = "full",
 }: {
   tournamentName: string;
@@ -90,6 +253,8 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
   leftLabel: string;
   rightLabel: string;
   scoreBoardSponsor?: ScoreBoardSponsor | null;
+  /** Title / co-sponsor logos — fade-loop with tournament logo on the left. */
+  sponsorLogos?: SponsorLogo[];
   /** full = venue/break identity; slim = live OBS play bug */
   density?: "full" | "slim";
 }) {
@@ -98,6 +263,10 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
     density === "full" && hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
   const isLive = matchStatus === "live" && !isTimeout;
   const slim = density === "slim";
+  const headerSlides = useMemo(
+    () => buildHeaderLogoSlides(tournamentLogoUrl, tournamentName, sponsorLogos),
+    [tournamentLogoUrl, tournamentName, sponsorLogos],
+  );
 
   const metaParts = [
     courtNumber?.trim()
@@ -116,20 +285,21 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
         style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
       >
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-[2%] py-1.5 md:py-2 min-h-[44px]">
-          {/* Left — tournament identity only */}
+          {/* Left — tournament / title / co-sponsor fade loop */}
           <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
-            {tournamentLogoUrl ? (
-              <img
-                src={tournamentLogoUrl}
-                alt=""
-                className="h-8 md:h-9 w-auto max-w-[80px] object-contain shrink-0"
-                loading="eager"
-                decoding="async"
+            {headerSlides.length > 0 ? (
+              <HeaderLogoRotator
+                tournamentLogoUrl={tournamentLogoUrl}
+                tournamentName={tournamentName}
+                sponsorLogos={sponsorLogos}
+                size="slim"
               />
             ) : null}
-            <span className="text-[11px] md:text-xs font-bold text-white uppercase tracking-wide truncate">
-              {tournamentName}
-            </span>
+            {headerSlides.length === 0 ? (
+              <span className="text-[11px] md:text-xs font-bold text-white uppercase tracking-wide truncate">
+                {tournamentName}
+              </span>
+            ) : null}
           </div>
 
           {/* Center — BidWar wordmark (true midpoint) */}
@@ -162,16 +332,15 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
 
   return (
     <div className="relative z-20 pointer-events-none shrink-0 bg-black/45 border-b border-white/10">
-      {/* Tournament logo — vertical mid of full header */}
-      {tournamentLogoUrl ? (
+      {/* Left logo — tournament → title → co-sponsor fade loop */}
+      {headerSlides.length > 0 ? (
         <div className="absolute left-[2%] md:left-[2.5%] top-0 bottom-0 z-10 flex items-center">
-          <div className="rounded-xl border border-white/12 bg-white/[0.05] p-1.5 md:p-2">
-            <img
-              src={tournamentLogoUrl}
-              alt=""
-              className="h-14 md:h-[4.75rem] w-auto max-w-[min(160px,17vw)] object-contain"
-            />
-          </div>
+          <HeaderLogoRotator
+            tournamentLogoUrl={tournamentLogoUrl}
+            tournamentName={tournamentName}
+            sponsorLogos={sponsorLogos}
+            size="full"
+          />
         </div>
       ) : null}
 
@@ -228,7 +397,7 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   sponsors,
   tournamentName,
   className,
-  accentMode = "theme",
+  accentMode = "bidwar",
   density = "full",
   urgencyKind = null,
   tickerPxPerSec,
@@ -236,7 +405,7 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   sponsors: SponsorLogo[];
   tournamentName: string;
   className?: string;
-  /** OBS overlays use fixed BidWar yellow — display pages follow stage theme. */
+  /** Default BidWar yellow; pass `theme` only when a stage accent override is required. */
   accentMode?: "theme" | "bidwar";
   /** slim = shorter ticker during live play (~7vh vs ~10vh) */
   density?: "full" | "slim";

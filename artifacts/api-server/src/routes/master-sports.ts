@@ -393,6 +393,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
           (v) => v == null || v === "" || /^https?:\/\//i.test(v),
           "Music URL must be http(s)",
         ),
+      venueMusicFileName: z.string().trim().max(180).nullable().optional(),
       venueMusicVolume: z.number().int().min(0).max(100).optional(),
       importAuctionMusic: z.literal(true).optional(),
     })
@@ -402,6 +403,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
         || v.venueScene !== undefined
         || v.venueMusicPlaying !== undefined
         || v.venueMusicUrl !== undefined
+        || v.venueMusicFileName !== undefined
         || v.venueMusicVolume !== undefined
         || v.importAuctionMusic === true,
       { message: "At least one presentation field required" },
@@ -424,6 +426,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueScene: parsed.data.venueScene as BadmintonVenueScene | undefined,
       venueMusicPlaying: parsed.data.venueMusicPlaying,
       venueMusicUrl: musicUrl,
+      venueMusicFileName: parsed.data.venueMusicFileName,
       venueMusicVolume: parsed.data.venueMusicVolume,
       importAuctionMusic: parsed.data.importAuctionMusic,
     });
@@ -433,6 +436,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
       overlayScene: branding.overlayScene,
       venueScene: branding.venueScene,
       venueMusicPlaying: branding.venueMusicPlaying,
+      resolvedVenueMusicUrl: branding.resolvedVenueMusicUrl,
     });
     res.json(branding);
   } catch (e) {

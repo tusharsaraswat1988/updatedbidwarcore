@@ -15,6 +15,7 @@ export type PresentationPatch = {
   venueScene?: BadmintonVenueScene;
   venueMusicPlaying?: boolean;
   venueMusicUrl?: string | null;
+  venueMusicFileName?: string | null;
   venueMusicVolume?: number;
   importAuctionMusic?: true;
 };
@@ -43,6 +44,9 @@ export async function onPresentationMutate(
         ? { venueMusicPlaying: body.venueMusicPlaying }
         : {}),
       ...(body.venueMusicUrl !== undefined ? { venueMusicUrl: body.venueMusicUrl } : {}),
+      ...(body.venueMusicFileName !== undefined
+        ? { venueMusicFileName: body.venueMusicFileName }
+        : {}),
       ...(body.venueMusicVolume !== undefined
         ? { venueMusicVolume: body.venueMusicVolume }
         : {}),

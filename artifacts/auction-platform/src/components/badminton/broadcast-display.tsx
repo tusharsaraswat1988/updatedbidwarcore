@@ -212,6 +212,7 @@ export function BroadcastDisplay({
         leftLabel={formatTeamPlayerLine(identityFromSideInfo(state.leftSide))}
         rightLabel={formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}
         scoreBoardSponsor={scoreBoardSponsor}
+        sponsorLogos={sponsorLogos}
       />
 
       <div

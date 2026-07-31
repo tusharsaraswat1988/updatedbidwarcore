@@ -13,7 +13,7 @@ import {
   DoublesPreMatchSetup,
   SinglesPreMatchSetup,
 } from "@/components/badminton/doubles-pre-match-setup";
-import { friendlyBadmintonError } from "@/lib/badminton-ux";
+import { friendlyBadmintonError, toastSuccess } from "@/lib/badminton-ux";
 import { cn } from "@/lib/utils";
 
 function sideToJson(side: BadmintonMatchState["leftSide"]): Record<string, unknown> {
@@ -54,6 +54,7 @@ export function ScorerEditTossPanel({
         doublesSetup: body.doublesSetup,
         endsSwapped: swapEnds,
       });
+      toastSuccess("Toss updated");
     } catch (e) {
       setError(friendlyBadmintonError(e, "Could not update toss"));
       throw e;

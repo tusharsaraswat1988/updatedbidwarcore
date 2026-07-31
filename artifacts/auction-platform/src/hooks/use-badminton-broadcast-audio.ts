@@ -112,10 +112,21 @@ export function useBadmintonBroadcastAudio({
     }
   }, [matchKey]);
 
+  const venueMusicPlayingRef = useRef(venueMusicPlaying);
+  const isAudioLeaderRef = useRef(isAudioLeader);
+  venueMusicPlayingRef.current = venueMusicPlaying;
+  isAudioLeaderRef.current = isAudioLeader;
+
   const unlock = useCallback(() => {
     const mgr = managerRef.current;
     if (!mgr) return;
-    void mgr.unlock().then(() => setIsUnlocked(mgr.isUnlocked));
+    void mgr.unlock().then(() => {
+      setIsUnlocked(mgr.isUnlocked);
+      // Restart loop after browser gesture — On may have been pressed before unlock.
+      if (venueMusicPlayingRef.current && isAudioLeaderRef.current) {
+        mgr.startLoopMusic();
+      }
+    });
   }, []);
 
   return { isUnlocked, unlock, isAudioLeader };

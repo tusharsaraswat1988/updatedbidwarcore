@@ -152,7 +152,12 @@ export async function startBadmintonEventSubscriber(): Promise<void> {
   const subscriber = getRedisSubscriberClient();
   if (!subscriber) return;
 
-  await subscriber.psubscribe("badminton:event:*");
+  try {
+    await subscriber.psubscribe("badminton:event:*");
+  } catch (err) {
+    markRedisUnavailable(err, "badminton-event-psubscribe");
+    return;
+  }
 
   subscriber.on("pmessage", (_pattern, channel, message) => {
     if (typeof channel !== "string" || !channel.startsWith("badminton:event:")) return;

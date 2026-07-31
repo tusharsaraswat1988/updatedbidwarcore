@@ -356,6 +356,7 @@ export default function BadmintonMatchesPage() {
           onSaved={(createdId) => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
+            toastSuccess("Match created", "Opening Match Control…");
             setShowCreate(false);
             if (createdId != null) {
               window.location.href = badmintonMatchControlPath(tournamentId, createdId);
@@ -627,6 +628,7 @@ function MatchRow({
           onClose={() => setEditOpen(false)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+            toastSuccess("Match updated");
             setEditOpen(false);
             if (needsCourtOrTime) {
               window.location.href = badmintonMatchControlPath(tournamentId, match.id);

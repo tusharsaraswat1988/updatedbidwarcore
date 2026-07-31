@@ -90,6 +90,7 @@ function LedStandby({
         leftLabel="Side A"
         rightLabel="Side B"
         scoreBoardSponsor={scoreBoardSponsor}
+        sponsorLogos={sponsorLogos}
       />
 
       <div className="relative z-10 min-h-0 flex flex-col items-center justify-center gap-6 bg-[#070708] px-[4%]">
@@ -324,6 +325,7 @@ function DisplayStage({
           leftLabel="Side A"
           rightLabel="Side B"
           scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+          sponsorLogos={sponsorLogos}
         />
         <div className="relative z-10 min-h-0 flex items-center justify-center bg-[#070708] px-[3%]">
           <MultiCourtScoreStrip rows={multiRows} variant="venue" />

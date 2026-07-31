@@ -162,12 +162,15 @@ export default function BadmintonBrandingPage() {
   const [scoreBoardLogoEditorOpen, setScoreBoardLogoEditorOpen] = useState(false);
   const [sponsorUploadIdx, setSponsorUploadIdx] = useState<number | "new" | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [justSaved, setJustSaved] = useState(false);
   const [importMessage, setImportMessage] = useState("");
 
   const hydratedTournamentRef = useRef(0);
   const autoSaveReadyRef = useRef(false);
   const lastSavedPayloadRef = useRef("");
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notifySaveToastRef = useRef(false);
 
   const importBrandingMutation = useMutation({
     mutationFn: () =>
@@ -186,9 +189,17 @@ export default function BadmintonBrandingPage() {
       qc.setQueryData(["badminton-branding", tournamentId], data);
       setImportMessage("Tournament branding imported. Edit badminton sponsors below without changing tournament settings.");
       setSaveError("");
+      toastSuccess("Branding imported");
     },
     onError: (e: Error) => setImportMessage(e.message),
   });
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     hydratedTournamentRef.current = 0;
@@ -232,8 +243,19 @@ export default function BadmintonBrandingPage() {
         synced.scoreBoardSponsor,
       );
       setSaveError("");
+      setJustSaved(true);
+      if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
+      savedFlashTimerRef.current = setTimeout(() => setJustSaved(false), 2500);
+      if (notifySaveToastRef.current) {
+        notifySaveToastRef.current = false;
+        toastSuccess("Branding saved");
+      }
     },
-    onError: (e: Error) => setSaveError(e.message),
+    onError: (e: Error) => {
+      notifySaveToastRef.current = false;
+      setJustSaved(false);
+      setSaveError(e.message);
+    },
   });
 
   const persistBranding = useCallback(
@@ -251,13 +273,22 @@ export default function BadmintonBrandingPage() {
       }
       const payload = buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor);
       const signature = brandingPayloadSignature(form, sponsorLogos, scoreBoardSponsor);
-      if (signature === lastSavedPayloadRef.current) return;
+      if (signature === lastSavedPayloadRef.current) {
+        if (immediate) {
+          setJustSaved(true);
+          if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
+          savedFlashTimerRef.current = setTimeout(() => setJustSaved(false), 2500);
+          toastSuccess("Branding saved", "Already up to date.");
+        }
+        return;
+      }
 
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
         autoSaveTimerRef.current = null;
       }
 
+      notifySaveToastRef.current = immediate;
       const run = () => saveMutation.mutate(payload);
       if (immediate) {
         run();
@@ -370,14 +401,25 @@ export default function BadmintonBrandingPage() {
                 onClick={() => persistBranding(true)}
                 disabled={saveMutation.isPending || isLoading || !form.displayName.trim()}
               >
-                {saveMutation.isPending ? "Saving…" : "Save Details"}
+                {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Details"}
               </BtnPrimary>
-              <p className={cn("text-xs", saveError ? "text-destructive" : "text-muted-foreground")}>
+              <p
+                className={cn(
+                  "text-xs",
+                  saveError
+                    ? "text-destructive"
+                    : justSaved
+                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground",
+                )}
+              >
                 {saveError
                   ? saveError
                   : saveMutation.isPending
                     ? "Saving changes…"
-                    : "Changes save automatically"}
+                    : justSaved
+                      ? "All changes saved"
+                      : "Changes save automatically"}
               </p>
             </div>
           ) : undefined

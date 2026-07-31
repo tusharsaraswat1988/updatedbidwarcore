@@ -9,7 +9,7 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { formatCategoryPhaseLabel } from "@/lib/badminton-ux";
+import { formatCategoryPhaseLabel, toastSuccess } from "@/lib/badminton-ux";
 import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
@@ -153,6 +153,7 @@ export function BadmintonEventsPanel({ tournamentId }: { tournamentId: number })
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+            toastSuccess(editCategory ? "Event updated" : "Event created");
             setShowForm(false);
             setEditCategory(null);
           }}
@@ -439,6 +440,7 @@ function CategoryPanel({
           category={category}
           onClose={() => setShowAddReg(false)}
           onSaved={() => {
+            toastSuccess("Entry added");
             onRefresh();
             setShowAddReg(false);
           }}

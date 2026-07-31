@@ -221,21 +221,20 @@ export function shouldUseObsCornerBug(
   return false;
 }
 
-/** Director moment packages auto-clear so they cannot stick over live play. */
+/**
+ * @deprecated Moments no longer auto-clear on a timer — they stay until Clear.
+ * Kept for any external references / tests.
+ */
 export const BROADCAST_MOMENT_AUTO_CLEAR_MS = 12_000;
 
 /**
- * Longer hold for Results / Leaderboards carousels (up to ~30 results or
- * multiple group tables). Director can still clear manually via Clear.
+ * @deprecated See BROADCAST_MOMENT_AUTO_CLEAR_MS.
  */
 export const BROADCAST_CAROUSEL_MOMENT_MS = 90_000;
 
-/** Auto-clear duration for a venue moment scene. */
-export function momentAutoClearMs(scene: BadmintonVenueScene): number {
-  if (scene === "results" || scene === "leaderboards") {
-    return BROADCAST_CAROUSEL_MOMENT_MS;
-  }
-  return BROADCAST_MOMENT_AUTO_CLEAR_MS;
+/** @deprecated Moments stay until Clear — returns 0 so callers that still poll treat as none. */
+export function momentAutoClearMs(_scene: BadmintonVenueScene): number {
+  return 0;
 }
 
 /** OBS CEF: slower ticker / longer sponsor holds to cut rAF + image churn. */

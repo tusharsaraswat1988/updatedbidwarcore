@@ -277,6 +277,7 @@ export default function BadmintonOverlayPage() {
             leftLabel={state?.leftSide?.shortLabel ?? state?.leftSide?.label ?? "Side A"}
             rightLabel={state?.rightSide?.shortLabel ?? state?.rightSide?.label ?? "Side B"}
             scoreBoardSponsor={branding?.scoreBoardSponsor}
+            sponsorLogos={sponsorLogos}
             density={chromeDensity}
           />
         )}

@@ -3,8 +3,8 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
-import { Copy, Monitor, Pause, Play, QrCode, Radio, Tablet } from "lucide-react";
+import { useState } from "react";
+import { Copy, Monitor, Pause, Play, QrCode, Radio, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { hubPanelClass } from "@/components/badminton/form-ui";
@@ -20,7 +20,6 @@ import type {
   BadmintonOverlayScene,
   BadmintonVenueScene,
 } from "@/lib/badminton-broadcast-director";
-import { momentAutoClearMs } from "@/lib/badminton-broadcast-director";
 import {
   onPresentationError,
   onPresentationMutate,
@@ -61,7 +60,6 @@ export function MissionControlOpsRail({
   const { toast } = useToast();
   const { data: branding } = useBadmintonBranding(tournamentId);
   const [qrOpen, setQrOpen] = useState(false);
-  const momentClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
 
@@ -126,15 +124,8 @@ export function MissionControlOpsRail({
   const presentationBusy = setPresentationMutation.isPending;
   const primaryBusy = setPrimaryMutation.isPending;
 
-  useEffect(
-    () => () => {
-      if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
-    },
-    [],
-  );
-
-  function pushTimedMoment(id: BadmintonVenueScene, label: string) {
-    if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
+  /** Moments stay on screen until Clear (or a venue scene change). */
+  function pushMoment(id: BadmintonVenueScene, label: string) {
     setPresentationMutation.mutate(
       {
         venueScene: id,
@@ -148,9 +139,6 @@ export function MissionControlOpsRail({
       },
       { onSuccess: () => onAnnouncement?.(label) },
     );
-    momentClearTimerRef.current = setTimeout(() => {
-      setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
-    }, momentAutoClearMs(id));
   }
 
   return (
@@ -289,27 +277,31 @@ export function MissionControlOpsRail({
 
       <div className={cn(hubPanelClass, "p-3 space-y-3")}>
         <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45 mb-2">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45 mb-1">
             Moments (Venue + OBS)
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Stays on screen until you press Clear.
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
             {VENUE_MOMENTS.map((opt) => (
               <RailButton
                 key={opt.id}
                 label={opt.label}
                 active={venueScene === opt.id}
                 busy={presentationBusy && venueScene === opt.id}
-                onClick={() => pushTimedMoment(opt.id, opt.label)}
+                onClick={() => pushMoment(opt.id, opt.label)}
               />
             ))}
+            <span className="mx-0.5 h-6 w-px bg-white/15 shrink-0" aria-hidden />
             <RailButton
               label="Clear"
+              tone="clear"
               active={venueScene === "auto" && overlayScene === "auto"}
               busy={
                 presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
               onClick={() => {
-                if (momentClearTimerRef.current) clearTimeout(momentClearTimerRef.current);
                 setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
               }}
             />
@@ -368,25 +360,34 @@ function RailButton({
   active,
   busy,
   onClick,
+  tone = "default",
 }: {
   label: string;
   active: boolean;
   busy?: boolean;
   onClick: () => void;
+  /** `clear` = dismiss action, visually separate from moment chips. */
+  tone?: "default" | "clear";
 }) {
+  const isClear = tone === "clear";
   return (
     <button
       type="button"
       aria-busy={busy || undefined}
       onClick={onClick}
       className={cn(
-        "min-h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors",
-        active
-          ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
-          : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
+        "min-h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors inline-flex items-center gap-1",
+        isClear
+          ? active
+            ? "bg-rose-500/25 border-rose-400/55 text-rose-50"
+            : "bg-rose-500/10 border-rose-400/35 text-rose-100 hover:bg-rose-500/18"
+          : active
+            ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
+            : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
         busy && "opacity-80",
       )}
     >
+      {isClear ? <X className="h-3 w-3 shrink-0" aria-hidden /> : null}
       {label}
     </button>
   );

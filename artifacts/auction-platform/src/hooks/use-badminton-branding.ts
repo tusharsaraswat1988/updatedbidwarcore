@@ -37,6 +37,8 @@ export interface BadmintonBranding {
   venueMusicPlaying?: boolean;
   /** Badminton override track (null = auction/platform fallthrough). */
   venueMusicUrl?: string | null;
+  /** Display name for the override track. */
+  venueMusicFileName?: string | null;
   venueMusicVolume?: number;
   /** Resolved loop URL for venue LED playback. */
   resolvedVenueMusicUrl?: string | null;
@@ -49,6 +51,7 @@ function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
     venueScene: parseVenueScene(raw.venueScene),
     venueMusicPlaying: raw.venueMusicPlaying === true,
     venueMusicUrl: raw.venueMusicUrl?.trim() || null,
+    venueMusicFileName: raw.venueMusicFileName?.trim() || null,
     venueMusicVolume:
       typeof raw.venueMusicVolume === "number" && Number.isFinite(raw.venueMusicVolume)
         ? Math.max(0, Math.min(100, Math.round(raw.venueMusicVolume)))

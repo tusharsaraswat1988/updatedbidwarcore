@@ -189,7 +189,12 @@ export async function startAuctionEventSubscriber(): Promise<void> {
   const subscriber = getRedisSubscriberClient();
   if (!subscriber) return;
 
-  await subscriber.psubscribe("auction:event:*");
+  try {
+    await subscriber.psubscribe("auction:event:*");
+  } catch (err) {
+    markRedisUnavailable(err, "auction-event-psubscribe");
+    return;
+  }
 
   subscriber.on("pmessage", (_pattern, channel, message) => {
     if (typeof channel !== "string" || !channel.startsWith("auction:event:")) return;

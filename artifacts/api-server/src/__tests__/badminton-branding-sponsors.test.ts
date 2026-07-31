@@ -49,16 +49,24 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.venueScene).toBe("auto");
     expect(branding.venueMusicPlaying).toBe(false);
     expect(branding.venueMusicUrl).toBeNull();
+    expect(branding.venueMusicFileName).toBeNull();
     expect(branding.venueMusicVolume).toBe(80);
   });
 
   it("resolves venue music override → auction → platform", () => {
     const withOverride = getBadmintonBranding(
       { name: "League", breakEndMusicUrl: "https://auction/break.mp3" },
-      { branding: {}, broadcast: { venueMusicUrl: "https://badminton/loop.mp3" } },
+      {
+        branding: {},
+        broadcast: {
+          venueMusicUrl: "https://badminton/loop.mp3",
+          venueMusicFileName: "opening.mp3",
+        },
+      },
       "https://platform/break.mp3",
     );
     expect(withOverride.resolvedVenueMusicUrl).toBe("https://badminton/loop.mp3");
+    expect(withOverride.venueMusicFileName).toBe("opening.mp3");
 
     const fromAuction = getBadmintonBranding(
       { name: "League", breakEndMusicUrl: "https://auction/break.mp3" },

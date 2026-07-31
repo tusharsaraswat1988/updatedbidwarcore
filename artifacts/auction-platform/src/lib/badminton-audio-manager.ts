@@ -82,15 +82,16 @@ export class BadmintonAudioManager {
     const url = this.settings.musicUrl?.trim() || null;
 
     if (url) {
+      // Do not set crossOrigin — loop music is HTMLAudio-only (not Web Audio).
+      // Cloudinary raw/video URLs often fail silently with anonymous CORS.
       const el = new Audio(url);
-      el.crossOrigin = "anonymous";
       el.loop = true;
       el.preload = "auto";
       el.volume = this.scaledVolume(this.settings.musicVolume);
       this.loopEl = el;
       void this.unlock().then(() => {
         if (startId !== this.loopStartId || !this.loopShouldBePlaying) return;
-        el.play().catch(() => {});
+        void el.play().catch(() => {});
       });
       return;
     }

@@ -12,6 +12,7 @@ import {
   freePorts,
   waitForPortsFree,
   waitForApiHealth,
+  resolveApiHealthTimeoutMs,
   getDevStackStatus,
   killChildTree,
 } from "./dev-ports.mjs";
@@ -305,12 +306,22 @@ if (startServers) {
     devEnv({ PORT: API_PORT_STR }),
   );
 
-  console.log("Waiting for API health check…");
+  // Must exceed SCHEMA_BOOT_TIMEOUT_MS (90s default) — API binds PORT only after schema.
+  const healthTimeoutMs = resolveApiHealthTimeoutMs();
+  console.log(
+    `Waiting for API health check (up to ${Math.round(healthTimeoutMs / 1000)}s)…`,
+  );
   try {
-    await waitForApiHealth(API_PORT);
+    await waitForApiHealth(API_PORT, healthTimeoutMs);
     console.log("  API is ready.\n");
   } catch (err) {
     console.error(`\n  ${err instanceof Error ? err.message : err}\n`);
+    console.error(
+      "  Tip: schema boot alone may take up to 90s (Neon wake / heal).",
+    );
+    console.error(
+      "  If Redis is slow, API should still listen after a short Redis fallback.\n",
+    );
     shutdown(1);
   }
 
