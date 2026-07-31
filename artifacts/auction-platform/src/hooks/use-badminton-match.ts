@@ -558,7 +558,7 @@ function subscribeBadmintonMatchStream(
 type DashboardStreamEntry = {
   es: EventSource;
   refs: number;
-  listeners: Set<() => void>;
+  listeners: Set<(payload?: unknown) => void>;
 };
 
 /** One EventSource per tournament — setup pages share it instead of reconnecting on every nav. */
@@ -566,15 +566,22 @@ const dashboardStreams = new Map<number, DashboardStreamEntry>();
 
 export function subscribeBadmintonDashboardStream(
   tournamentId: number,
-  onMessage: () => void,
+  onMessage: (payload?: unknown) => void,
 ): () => void {
   let entry = dashboardStreams.get(tournamentId);
   if (!entry) {
     const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
     const es = new EventSource(url, { withCredentials: true });
     entry = { es, refs: 0, listeners: new Set() };
-    es.onmessage = () => {
-      entry?.listeners.forEach((listener) => listener());
+    es.onmessage = (event) => {
+      let payload: unknown;
+      try {
+        const parsed = JSON.parse(event.data) as { type?: string; data?: unknown };
+        payload = parsed?.type === "tournament_update" ? parsed.data : parsed;
+      } catch {
+        payload = undefined;
+      }
+      entry?.listeners.forEach((listener) => listener(payload));
     };
     dashboardStreams.set(tournamentId, entry);
   }

@@ -57,9 +57,9 @@ const VENUE_MOMENT_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
 ];
 
 const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
-  { id: "auto", label: "Auto" },
+  { id: "auto", label: "Auto (focus court)" },
   { id: "live_score", label: "Live score" },
-  { id: "multi", label: "Multi courts" },
+  { id: "multi", label: "Split both courts" },
   { id: "standby", label: "Standby / break" },
 ];
 

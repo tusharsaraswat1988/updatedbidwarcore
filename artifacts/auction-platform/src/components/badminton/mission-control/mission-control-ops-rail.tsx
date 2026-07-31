@@ -314,9 +314,9 @@ export function MissionControlOpsRail({
           <div className="flex flex-wrap gap-1.5">
             {(
               [
-                ["auto", "Auto"],
+                ["auto", "Auto (focus court)"],
                 ["live_score", "Live score"],
-                ["multi", "Multi-court"],
+                ["multi", "Split both courts"],
                 ["standby", "Standby"],
               ] as const
             ).map(([id, label]) => (
@@ -325,7 +325,18 @@ export function MissionControlOpsRail({
                 label={label}
                 active={venueScene === id}
                 busy={presentationBusy && venueScene === id}
-                onClick={() => setPresentationMutation.mutate({ venueScene: id })}
+                onClick={() =>
+                  setPresentationMutation.mutate(
+                    { venueScene: id },
+                    {
+                      onSuccess: () => {
+                        if (id === "multi") {
+                          onAnnouncement?.("Split view — both courts on Venue LED");
+                        }
+                      },
+                    },
+                  )
+                }
               />
             ))}
           </div>

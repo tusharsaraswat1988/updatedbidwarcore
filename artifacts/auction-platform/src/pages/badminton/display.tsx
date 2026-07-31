@@ -151,10 +151,13 @@ function DisplayStage({
 
   const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
   const isLoading = followMode
-    ? liveFollow.matchesLoading || (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
+    ? liveFollow.matchesLoading
+      && !liveFollow.followState
+      && (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
     : fixedMatch.isLoading;
   const loadError = followMode
-    ? liveFollow.matchesError || liveFollow.matchQuery.isError
+    ? liveFollow.matchesError
+      || (liveFollow.matchQuery.isError && !liveFollow.followState)
     : fixedMatch.isError;
   const retryLoad = () => {
     if (followMode) {
@@ -164,7 +167,9 @@ function DisplayStage({
     }
     void fixedMatch.refetch();
   };
-  const matchDetail = data?.detail as BadmintonMatchDetailMeta | null | undefined;
+  const matchDetail = (
+    followMode ? liveFollow.followDetail : data?.detail
+  ) as BadmintonMatchDetailMeta | null | undefined;
 
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
@@ -184,12 +189,14 @@ function DisplayStage({
     () => findUpNextMatch(liveFollow.matches, liveFollow.primaryMatchId),
     [liveFollow.matches, liveFollow.primaryMatchId],
   );
-  const matchState = (data?.state ?? null) as BadmintonMatchState | null;
+  const matchState = (
+    followMode ? liveFollow.followState : data?.state ?? null
+  ) as BadmintonMatchState | null;
   const followedMatchId = followMode
     ? (liveFollow.primaryMatchId ?? null)
     : matchId || null;
   const matchStateReady = followMode
-    ? !liveFollow.matchesLoading && !liveFollow.matchQuery.isLoading
+    ? !liveFollow.matchesLoading || !!liveFollow.followState
     : !fixedMatch.isLoading;
   const { isUnlocked, unlock } = useBadmintonBroadcastAudio({
     tournamentId,
@@ -327,8 +334,8 @@ function DisplayStage({
           scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
           sponsorLogos={sponsorLogos}
         />
-        <div className="relative z-10 min-h-0 flex items-center justify-center bg-[#070708] px-[3%]">
-          <MultiCourtScoreStrip rows={multiRows} variant="venue" />
+        <div className="relative z-10 min-h-0 flex items-stretch justify-center bg-[#070708] px-[2%] py-2">
+          <MultiCourtScoreStrip rows={multiRows} variant="venue" layout="split" />
         </div>
         <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
       </div>
@@ -336,6 +343,7 @@ function DisplayStage({
   } else if (showLiveBoard && matchState) {
     stageContent = (
       <BroadcastDisplay
+        key={followedMatchId ?? "live"}
         state={matchState}
         tournamentName={tournamentName}
         tournamentLogoUrl={tournamentLogoUrl}

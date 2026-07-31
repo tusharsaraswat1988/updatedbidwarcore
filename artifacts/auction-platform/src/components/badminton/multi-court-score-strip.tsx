@@ -1,6 +1,6 @@
 /**
- * Equal multi-court score strip — Approach A.
- * Shows up to 3 LIVE matches as equal rows for one OBS / Venue feed.
+ * Multi-court live scores for Venue LED / OBS.
+ * Venue `layout="split"` = horizontal half-half for two courts.
  */
 
 import type { BadmintonMatchState } from "@workspace/badminton-core";
@@ -36,13 +36,14 @@ export function multiCourtRowsFromMatches(
     }));
 }
 
-function gameDots(won: number, total: number) {
+function gameDots(won: number, total: number, sizeClass = "size-2") {
   const n = Math.max(total, 1);
   return Array.from({ length: n }, (_, i) => (
     <span
       key={i}
       className={cn(
-        "inline-block size-2 rounded-full border",
+        "inline-block rounded-full border",
+        sizeClass,
         i < won ? "bg-white border-white" : "border-white/30 bg-transparent",
       )}
     />
@@ -137,16 +138,115 @@ function CourtRow({
   );
 }
 
+/** One half of the LED — large score panel for split view. */
+function VenueCourtHalf({ row }: { row: MultiCourtRow }) {
+  const { state, courtLabel } = row;
+  const left = formatTeamPlayerLine(identityFromSideInfo(state.leftSide));
+  const right = formatTeamPlayerLine(identityFromSideInfo(state.rightSide));
+  const totalGames = state.format?.totalGames ?? 3;
+  const isTimeout = !!state.activeTimeout;
+
+  return (
+    <div
+      className="relative flex h-full min-h-0 flex-col justify-between rounded-xl px-3 py-3 md:px-4 md:py-4"
+      style={{
+        background: "rgba(10,10,12,0.94)",
+        border: `1px solid ${BIDWAR_BROADCAST_YELLOW_BORDER}`,
+        boxShadow: "0 6px 28px rgba(0,0,0,0.5)",
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="font-['Bebas_Neue'] text-lg md:text-2xl uppercase tracking-[0.16em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW }}
+        >
+          {courtLabel}
+        </span>
+        <span
+          className={cn(
+            "bw-label text-[10px] md:text-xs tracking-[0.18em]",
+            isTimeout ? "text-amber-200" : "text-red-200",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block size-1.5 rounded-full mr-1.5 align-middle",
+              isTimeout ? "bg-amber-400 animate-pulse" : "bg-red-500 animate-pulse",
+            )}
+          />
+          {isTimeout ? "TIMEOUT" : "LIVE"}
+        </span>
+      </div>
+
+      <div className="flex-1 min-h-0 flex flex-col justify-center gap-3 md:gap-4 py-2">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+          <div className="min-w-0 text-left">
+            <p className="font-['Bebas_Neue'] text-xl md:text-3xl uppercase tracking-wide text-white bw-name-full leading-none">
+              {left}
+            </p>
+            <div className="flex gap-1.5 mt-2">
+              {gameDots(state.gamesLeft, totalGames, "size-2.5 md:size-3")}
+            </div>
+          </div>
+          <p className="font-['Bebas_Neue'] text-5xl md:text-7xl tabular-nums text-white leading-none">
+            {state.leftScore}
+          </p>
+        </div>
+
+        <div className="h-px w-full bg-white/10" />
+
+        <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+          <div className="min-w-0 text-left">
+            <p className="font-['Bebas_Neue'] text-xl md:text-3xl uppercase tracking-wide text-white bw-name-full leading-none">
+              {right}
+            </p>
+            <div className="flex gap-1.5 mt-2">
+              {gameDots(state.gamesRight, totalGames, "size-2.5 md:size-3")}
+            </div>
+          </div>
+          <p className="font-['Bebas_Neue'] text-5xl md:text-7xl tabular-nums text-white leading-none">
+            {state.rightScore}
+          </p>
+        </div>
+      </div>
+
+      <p className="text-center text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">
+        Game {state.currentGame || 1}
+      </p>
+    </div>
+  );
+}
+
 export function MultiCourtScoreStrip({
   rows,
   variant = "overlay",
+  layout = "stack",
   className,
 }: {
   rows: MultiCourtRow[];
   variant?: "overlay" | "venue";
+  /** `split` = horizontal halves (venue LED). `stack` = vertical strip. */
+  layout?: "stack" | "split";
   className?: string;
 }) {
   if (rows.length === 0) return null;
+
+  if (variant === "venue" && layout === "split") {
+    return (
+      <div
+        className={cn(
+          "grid w-full h-full min-h-0 gap-3",
+          rows.length === 1 ? "grid-cols-1" : "grid-cols-2",
+          className,
+        )}
+        aria-label="Split-court live scores"
+      >
+        {rows.slice(0, 2).map((row) => (
+          <VenueCourtHalf key={row.matchId} row={row} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div

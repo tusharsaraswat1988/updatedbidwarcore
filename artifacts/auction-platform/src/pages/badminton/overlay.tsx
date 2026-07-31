@@ -144,11 +144,13 @@ export default function BadmintonOverlayPage() {
 
   const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
   const isLoading = followMode
-    ? liveFollow.matchesLoading ||
-      (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
+    ? liveFollow.matchesLoading
+      && !liveFollow.followState
+      && (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
     : fixedMatch.isLoading;
   const loadError = followMode
-    ? liveFollow.matchesError || liveFollow.matchQuery.isError
+    ? liveFollow.matchesError
+      || (liveFollow.matchQuery.isError && !liveFollow.followState)
     : fixedMatch.isError;
   const retryLoad = () => {
     if (followMode) {
@@ -169,8 +171,12 @@ export default function BadmintonOverlayPage() {
 
   const stageStyle = OBS_STAGE_STYLE;
 
-  const state = (data?.state ?? null) as BadmintonMatchState | null;
-  const detail = (data?.detail ?? null) as Record<string, unknown> | null;
+  const state = (
+    followMode ? liveFollow.followState : data?.state ?? null
+  ) as BadmintonMatchState | null;
+  const detail = (
+    followMode ? liveFollow.followDetail : data?.detail ?? null
+  ) as Record<string, unknown> | null;
   const matchLabel = detail?.matchLabel as string | undefined;
   const hasLiveGraphics = !!state && !loadError;
 

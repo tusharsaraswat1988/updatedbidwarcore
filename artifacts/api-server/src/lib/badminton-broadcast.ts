@@ -105,9 +105,13 @@ async function publishOrWriteLocal(envelope: BadmintonEventEnvelope): Promise<vo
   const redis = getRedisCommandClient();
   if (redis) {
     try {
-      await redis.publish(BADMINTON_PUBSUB_CHANNEL(envelope.tournamentId), JSON.stringify(envelope));
-      // Subscriber (including this instance) fans out to local clients — avoid double-delivery.
-      return;
+      // PUBLISH returns subscriber count. If 0, this process has no active
+      // psubscribe handler — fall through to local fan-out so Venue/OBS still update.
+      const delivered = await redis.publish(
+        BADMINTON_PUBSUB_CHANNEL(envelope.tournamentId),
+        JSON.stringify(envelope),
+      );
+      if (typeof delivered === "number" && delivered > 0) return;
     } catch (err) {
       markRedisUnavailable(err, "publishBadmintonEvent");
     }
