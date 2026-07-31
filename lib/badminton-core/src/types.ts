@@ -206,6 +206,12 @@ export type BadmintonMatchState = {
   /** How match ended. */
   resultReason?: BadmintonResultReason;
 
+  /**
+   * Director-assigned margin points for the winner when no games were completed
+   * (walkover / early retirement / DQ / abandoned). Ignored when completed games exist.
+   */
+  assignedMarginPoints?: number;
+
   /** Last processed event sequence number — authoritative version for realtime sync. */
   lastSequence: number;
 

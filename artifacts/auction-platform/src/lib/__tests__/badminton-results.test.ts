@@ -96,6 +96,17 @@ describe("winner point difference helpers", () => {
     expect(formatPointDifference(9)).toBe("+9");
   });
 
+  it("uses assignedMarginPoints when no games completed", () => {
+    const m = completedMatch({
+      matchStatus: "walkover",
+      gamesLeft: 0,
+      gamesRight: 0,
+      games: [],
+      assignedMarginPoints: 21,
+    });
+    expect(winnerPointDifference(m)).toBe(21);
+  });
+
   it("includes lost games in net difference for 2-1", () => {
     const m = completedMatch({
       gamesLeft: 2,

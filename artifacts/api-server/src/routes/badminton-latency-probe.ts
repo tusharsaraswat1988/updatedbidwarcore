@@ -509,7 +509,13 @@ router.post("/cleanup", async (req, res) => {
 
   const errors: string[] = [];
   try {
-    await handleForceEndMatch(parsed.data.matchId, tournamentId, "latency probe cleanup", ACTOR);
+    await handleForceEndMatch(
+      parsed.data.matchId,
+      tournamentId,
+      "latency probe cleanup",
+      ACTOR,
+      1,
+    );
   } catch (e) {
     errors.push(e instanceof Error ? e.message : String(e));
   }

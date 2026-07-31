@@ -39,3 +39,7 @@ export { buildOrganiserTeamsCredentialsData } from "./render-organiser-teams-bun
 export { seedCommunicationDefaults } from "./seed-templates.js";
 export { enqueuePlayerSoldEmail, enqueuePlayerSoldEmailAsync } from "./player-sold-email-service.js";
 export { buildPlayerSoldMergeData } from "./player-sold-merge-data.js";
+export {
+  enqueueBadmintonMatchWinEmails,
+  enqueueBadmintonMatchWinEmailsAsync,
+} from "./badminton-match-win-email-service.js";

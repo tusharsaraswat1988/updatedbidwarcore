@@ -386,9 +386,10 @@ export function PreMatchControlPanel({
           leftLabel={snapshot.leftLabel}
           rightLabel={snapshot.rightLabel}
           confirmLabel="Confirm walkover"
+          requireMarginPoints
           onClose={() => setShowWalkover(false)}
-          onConfirm={async (winningSide) => {
-            await director.walkover(winningSide, "opponent_absent");
+          onConfirm={async (winningSide, assignedMarginPoints) => {
+            await director.walkover(winningSide, "opponent_absent", assignedMarginPoints);
             setShowWalkover(false);
             onRefresh();
           }}
@@ -403,11 +404,12 @@ export function PreMatchControlPanel({
           rightLabel={snapshot.rightLabel}
           confirmLabel="Confirm retirement"
           pickRetiring
+          requireMarginPoints
           onClose={() => setShowRetire(false)}
-          onConfirm={async (retiringSide) => {
+          onConfirm={async (retiringSide, assignedMarginPoints) => {
             const winningSide = retiringSide === "left" ? "right" : "left";
             // Pre-start retirement uses walkover (scoring engine retirement requires live).
-            await director.walkover(winningSide, "forfeit");
+            await director.walkover(winningSide, "forfeit", assignedMarginPoints);
             setShowRetire(false);
             onRefresh();
           }}
@@ -451,6 +453,7 @@ function SideOutcomeModal({
   rightLabel,
   confirmLabel,
   pickRetiring,
+  requireMarginPoints,
   onClose,
   onConfirm,
 }: {
@@ -460,12 +463,20 @@ function SideOutcomeModal({
   rightLabel: string;
   confirmLabel: string;
   pickRetiring?: boolean;
+  requireMarginPoints?: boolean;
   onClose: () => void;
-  onConfirm: (side: "left" | "right") => Promise<void>;
+  onConfirm: (side: "left" | "right", assignedMarginPoints?: number) => Promise<void>;
 }) {
   const [side, setSide] = useState<"left" | "right">("left");
+  const [marginPoints, setMarginPoints] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const parsedMargin = (() => {
+    const n = Number(marginPoints.trim());
+    return Number.isInteger(n) && n >= 1 ? n : null;
+  })();
+  const canSubmit = !requireMarginPoints || parsedMargin != null;
 
   return (
     <FormModal title={title} subtitle={subtitle} onClose={onClose} size="md">
@@ -479,15 +490,36 @@ function SideOutcomeModal({
           ]}
         />
       </FormField>
+      {requireMarginPoints ? (
+        <FormField label="Winner margin points" required>
+          <input
+            className={inputClass}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            required
+            aria-required="true"
+            value={marginPoints}
+            onChange={(e) => setMarginPoints(e.target.value)}
+            placeholder="e.g. 21"
+          />
+        </FormField>
+      ) : null}
       <FormError message={error} />
       <FormActions
         onCancel={onClose}
         saving={saving}
+        disabled={!canSubmit}
         submitLabel={confirmLabel}
         onSubmit={() => {
+          if (!canSubmit) {
+            setError("Enter winner margin points (positive integer)");
+            return;
+          }
           setSaving(true);
           setError("");
-          void onConfirm(side)
+          void onConfirm(side, parsedMargin ?? undefined)
             .catch((e) => setError(e instanceof Error ? e.message : "Failed"))
             .finally(() => setSaving(false));
         }}

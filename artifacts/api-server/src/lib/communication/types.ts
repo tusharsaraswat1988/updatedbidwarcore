@@ -132,4 +132,12 @@ export const KNOWN_MERGE_VARIABLES = [
   "tournament_url",
   "celebration_gif",
   "player_initials",
+  "recipient_name",
+  "winner_label",
+  "opponent_label",
+  "category_name",
+  "score_line",
+  "games_score",
+  "result_label",
+  "franchise_name",
 ] as const;

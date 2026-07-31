@@ -34,6 +34,7 @@ const EVENT_TEMPLATE_MAP: Record<string, string> = {
   PAYMENT_REMINDER: "payment_reminder",
   TOURNAMENT_SCHEDULE: "tournament_schedule",
   WINNER_CONGRATULATIONS: "winner_congratulations",
+  BADMINTON_MATCH_WIN: "badminton_match_win",
   THANK_YOU: "thank_you",
   REMINDER: "reminder",
 };

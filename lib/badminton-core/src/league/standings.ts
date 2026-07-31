@@ -1,3 +1,4 @@
+import { hasCompletedGames } from "../assigned-margin";
 import type { BadmintonGameState, BadmintonSide } from "../types";
 
 export type PairStandingsMatchInput = {
@@ -9,6 +10,8 @@ export type PairStandingsMatchInput = {
   winnerSide?: BadmintonSide | null;
   games: BadmintonGameState[];
   status: string;
+  /** Used when no completed games (walkover / early terminal). */
+  assignedMarginPoints?: number | null;
 };
 
 export type PairStandingComputed = {
@@ -46,6 +49,28 @@ export function marginPointsFromWonGames(
     total += won - lost;
   }
   return total;
+}
+
+/**
+ * Effective standings margin for a match winner.
+ * Completed won games take precedence; otherwise director-assigned margin.
+ */
+export function effectiveWinnerMarginPoints(
+  games: BadmintonGameState[],
+  winnerSide: BadmintonSide,
+  assignedMarginPoints?: number | null,
+): number {
+  if (hasCompletedGames(games)) {
+    return marginPointsFromWonGames(games, winnerSide);
+  }
+  if (
+    assignedMarginPoints != null &&
+    Number.isInteger(assignedMarginPoints) &&
+    assignedMarginPoints > 0
+  ) {
+    return assignedMarginPoints;
+  }
+  return 0;
 }
 
 const TERMINAL_STATUSES = new Set([
@@ -91,7 +116,11 @@ export function buildPairStandingsFromMatches(
     const winner = ensurePair(map, winnerId);
     winner.played += 1;
     winner.won += 1;
-    winner.marginPoints += marginPointsFromWonGames(match.games, winnerSide);
+    winner.marginPoints += effectiveWinnerMarginPoints(
+      match.games,
+      winnerSide,
+      match.assignedMarginPoints,
+    );
 
     if (loserId) {
       const loser = ensurePair(map, loserId);

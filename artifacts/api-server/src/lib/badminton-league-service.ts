@@ -420,6 +420,7 @@ export async function rebuildCategoryPairStandings(
     let games: BadmintonGameState[] = [];
     let winnerSide: "left" | "right" | null = null;
     let status = fixture.status;
+    let assignedMarginPoints: number | null = null;
 
     if (fixture.scoringMatchId) {
       const [match] = await db
@@ -434,6 +435,7 @@ export async function rebuildCategoryPairStandings(
       if (detail?.state) {
         games = detail.state.games;
         winnerSide = detail.state.winnerSide ?? null;
+        assignedMarginPoints = detail.state.assignedMarginPoints ?? null;
       }
     }
 
@@ -445,6 +447,7 @@ export async function rebuildCategoryPairStandings(
       winnerSide,
       games,
       status,
+      assignedMarginPoints,
     });
   }
 

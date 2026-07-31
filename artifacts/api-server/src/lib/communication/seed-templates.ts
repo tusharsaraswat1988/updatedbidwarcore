@@ -14,6 +14,10 @@ import {
   PLAYER_SOLD_HTML,
   PLAYER_SOLD_SUBJECT,
 } from "./player-sold-email-template.js";
+import {
+  BADMINTON_MATCH_WIN_HTML,
+  BADMINTON_MATCH_WIN_SUBJECT,
+} from "./badminton-match-win-email-template.js";
 
 const DEFAULT_TEMPLATES = [
   {
@@ -115,6 +119,13 @@ const DEFAULT_TEMPLATES = [
     subject: "Congratulations — {{tournament_name}} Champions!",
     htmlBody: `<h1>🏆 Champions!</h1>
 <p>Congratulations {{team_name}} on winning {{tournament_name}}!</p>`,
+  },
+  {
+    name: "Badminton Match Win",
+    internalKey: "badminton_match_win",
+    eventType: "BADMINTON_MATCH_WIN",
+    subject: BADMINTON_MATCH_WIN_SUBJECT,
+    htmlBody: BADMINTON_MATCH_WIN_HTML,
   },
   {
     name: "Thank You",
@@ -222,6 +233,9 @@ export async function seedCommunicationDefaults(): Promise<void> {
       }
       if (tpl.internalKey === "player_sold") {
         await upgradePlayerSoldTemplateIfNeeded(existing);
+      }
+      if (tpl.internalKey === "badminton_match_win") {
+        await upgradeBadmintonMatchWinTemplateIfNeeded(existing);
       }
       continue;
     }
@@ -395,5 +409,51 @@ async function upgradePlayerRegistrationTemplateIfNeeded(existing: {
   logger.info(
     { templateId: existing.id, version: nextVersion },
     "Player registration template upgraded",
+  );
+}
+
+async function upgradeBadmintonMatchWinTemplateIfNeeded(existing: {
+  id: string;
+  htmlBody: string;
+  subject: string;
+}): Promise<void> {
+  const alreadyCurrent =
+    existing.htmlBody.includes("Support BidWar") &&
+    existing.htmlBody.includes("MATCH RESULT") &&
+    existing.subject.includes("You won your badminton match");
+  if (alreadyCurrent) return;
+
+  const [latest] = await db
+    .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
+    .from(communicationTemplateVersionsTable)
+    .where(eq(communicationTemplateVersionsTable.templateId, existing.id))
+    .orderBy(desc(communicationTemplateVersionsTable.versionNumber))
+    .limit(1);
+
+  const nextVersion = (latest?.versionNumber ?? 0) + 1;
+
+  await db
+    .update(communicationTemplatesTable)
+    .set({
+      name: "Badminton Match Win",
+      eventType: "BADMINTON_MATCH_WIN",
+      subject: BADMINTON_MATCH_WIN_SUBJECT,
+      htmlBody: BADMINTON_MATCH_WIN_HTML,
+      updatedAt: new Date(),
+    })
+    .where(eq(communicationTemplatesTable.id, existing.id));
+
+  await db.insert(communicationTemplateVersionsTable).values({
+    templateId: existing.id,
+    versionNumber: nextVersion,
+    subject: BADMINTON_MATCH_WIN_SUBJECT,
+    htmlBody: BADMINTON_MATCH_WIN_HTML,
+    createdBy: "system",
+    changeNote: "Badminton match-win congratulations email v1",
+  });
+
+  logger.info(
+    { templateId: existing.id, version: nextVersion },
+    "Badminton match win template upgraded",
   );
 }

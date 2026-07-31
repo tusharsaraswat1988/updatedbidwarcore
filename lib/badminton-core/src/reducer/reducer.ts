@@ -18,6 +18,7 @@ import {
   type BadmintonMatchPausedPayload,
   type BadmintonMatchResumedPayload,
   type BadmintonMatchNoteAddedPayload,
+  type BadmintonMarginPointsAssignedPayload,
 } from "../events/badminton";
 import type {
   BadmintonEventEnvelope,
@@ -276,6 +277,9 @@ function applyMatchEnded(
     gamesLeft: payload.gamesLeft,
     gamesRight: payload.gamesRight,
     resultReason: payload.reason,
+    ...(payload.assignedMarginPoints != null
+      ? { assignedMarginPoints: payload.assignedMarginPoints }
+      : {}),
     inInterval: false,
     activeTimeout: null,
     isPaused: false,
@@ -336,6 +340,9 @@ function applyRetirement(
     matchStatus: "retired",
     winnerSide: payload.winningSide,
     resultReason: "retirement",
+    ...(payload.assignedMarginPoints != null
+      ? { assignedMarginPoints: payload.assignedMarginPoints }
+      : {}),
   };
 }
 
@@ -348,6 +355,9 @@ function applyWalkover(
     matchStatus: "walkover",
     winnerSide: payload.winningSide,
     resultReason: "walkover",
+    ...(payload.assignedMarginPoints != null
+      ? { assignedMarginPoints: payload.assignedMarginPoints }
+      : {}),
   };
 }
 
@@ -361,6 +371,19 @@ function applyDisqualification(
     winnerSide: payload.winningSide,
     resultReason: "disqualification",
     isPaused: false,
+    ...(payload.assignedMarginPoints != null
+      ? { assignedMarginPoints: payload.assignedMarginPoints }
+      : {}),
+  };
+}
+
+function applyMarginPointsAssigned(
+  state: BadmintonMatchState,
+  payload: BadmintonMarginPointsAssignedPayload,
+): BadmintonMatchState {
+  return {
+    ...state,
+    assignedMarginPoints: payload.assignedMarginPoints,
   };
 }
 
@@ -478,6 +501,12 @@ export function reduceBadminton(
         parsed.payload as BadmintonMatchNoteAddedPayload,
         event.sequence,
         event.occurredAt,
+      );
+      break;
+    case BadmintonEventType.MARGIN_POINTS_ASSIGNED:
+      next = applyMarginPointsAssigned(
+        state,
+        parsed.payload as BadmintonMarginPointsAssignedPayload,
       );
       break;
     default:
