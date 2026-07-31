@@ -31,7 +31,19 @@ import {
   type BadmintonMatchState,
 } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
-import { isLiveFollowMatchId } from "@/lib/badminton-broadcast-console";
+import {
+  isLiveFollowMatchId,
+  resolveSelectedUpNextMatch,
+} from "@/lib/badminton-broadcast-console";
+import {
+  resolvePinnedScoreBoardSponsor,
+  resolvePinnedSponsorLogos,
+  resolveSpotlightSponsors,
+} from "@/lib/badminton-broadcast-sponsors";
+import {
+  VenueNextMatchScene,
+  VenueSponsorScene,
+} from "@/components/badminton/venue-moment-scenes";
 import { BROADCAST_OVERLAY_HEIGHT } from "@/lib/broadcast-overlay";
 import {
   BIDWAR_BROADCAST_YELLOW,
@@ -164,6 +176,10 @@ export default function BadmintonOverlayPage() {
 
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
+  const brandingSponsors = useMemo(
+    () => sponsorLogosFromBranding(branding),
+    [branding?.sponsorLogos],
+  );
   const sponsorLogos = useMemo(() => {
     if (sponsorParam) {
       return sponsorParam
@@ -171,8 +187,30 @@ export default function BadmintonOverlayPage() {
         .filter(Boolean)
         .map((url) => ({ url, name: "", type: "" }) satisfies SponsorLogo);
     }
-    return sponsorLogosFromBranding(branding);
-  }, [sponsorParam, branding?.sponsorLogos]);
+    return resolvePinnedSponsorLogos(brandingSponsors, branding?.pinnedSponsorUrl);
+  }, [sponsorParam, brandingSponsors, branding?.pinnedSponsorUrl]);
+  const scoreBoardSponsor = useMemo(
+    () =>
+      resolvePinnedScoreBoardSponsor(
+        branding?.scoreBoardSponsor,
+        brandingSponsors,
+        branding?.pinnedSponsorUrl,
+      ),
+    [branding?.scoreBoardSponsor, brandingSponsors, branding?.pinnedSponsorUrl],
+  );
+  const spotlightSponsors = useMemo(
+    () => resolveSpotlightSponsors(brandingSponsors, branding?.spotlightSponsorUrl),
+    [brandingSponsors, branding?.spotlightSponsorUrl],
+  );
+  const upNextMatch = useMemo(
+    () =>
+      resolveSelectedUpNextMatch(
+        liveFollow.matches,
+        liveFollow.primaryMatchId,
+        branding?.upNextMatchId,
+      ),
+    [liveFollow.matches, liveFollow.primaryMatchId, branding?.upNextMatchId],
+  );
 
   const stageStyle = OBS_STAGE_STYLE;
 
@@ -230,6 +268,7 @@ export default function BadmintonOverlayPage() {
         </div>
       ) : null}
 
+      {type !== "next" && !(type === "sponsor" && !hasLiveGraphics) ? (
       <div className="absolute top-0 left-0 right-0 z-30">
         {hasLiveGraphics && type === "full" && !multiCourtMode && !playDensity ? (
           <div className="flex items-center justify-between gap-6 px-[4vw] pt-[2vh] pointer-events-none">
@@ -287,12 +326,13 @@ export default function BadmintonOverlayPage() {
             timeoutSide={state?.activeTimeout?.side}
             leftLabel={state?.leftSide?.shortLabel ?? state?.leftSide?.label ?? "Side A"}
             rightLabel={state?.rightSide?.shortLabel ?? state?.rightSide?.label ?? "Side B"}
-            scoreBoardSponsor={branding?.scoreBoardSponsor}
+            scoreBoardSponsor={scoreBoardSponsor}
             sponsorLogos={sponsorLogos}
             density={chromeDensity}
           />
         )}
       </div>
+      ) : null}
 
       {multiCourtMode ? (
         multiRows.length > 0 ? (
@@ -302,6 +342,25 @@ export default function BadmintonOverlayPage() {
             className={playDensity ? "pb-[7vh]" : "pb-[10vh]"}
           />
         ) : null
+      ) : type === "next" ? (
+        <VenueNextMatchScene
+          match={upNextMatch}
+          chrome={{
+            tournamentName,
+            tournamentLogoUrl: branding?.logoUrl ?? undefined,
+            sponsorLogos,
+            scoreBoardSponsor,
+          }}
+        />
+      ) : type === "sponsor" && !hasLiveGraphics ? (
+        <VenueSponsorScene
+          chrome={{
+            tournamentName,
+            tournamentLogoUrl: branding?.logoUrl ?? undefined,
+            sponsorLogos: spotlightSponsors,
+            scoreBoardSponsor,
+          }}
+        />
       ) : type === "results" ? (
         <div
           className={cn(
@@ -354,7 +413,7 @@ export default function BadmintonOverlayPage() {
               courtNumber={courtNumber ?? (detail?.courtNumber as string | undefined)}
               matchLabel={matchLabel}
               roundName={detail?.roundName as string | undefined}
-              sponsorLogos={sponsorLogos}
+              sponsorLogos={type === "sponsor" ? spotlightSponsors : sponsorLogos}
               showPlatformCredit={false}
               sponsorRotateMs={isObsCef ? OBS_SPONSOR_CAROUSEL_ROTATE_MS : undefined}
             />
@@ -366,21 +425,24 @@ export default function BadmintonOverlayPage() {
       !multiCourtMode &&
       type !== "intro" &&
       type !== "winner" &&
+      type !== "next" &&
       type !== "results" &&
       type !== "leaderboards" ? (
         <ObsPlayMoments state={state} />
       ) : null}
 
-      <div className="absolute bottom-0 left-0 right-0 z-30">
-        <BadmintonLedChyron
-          sponsors={sponsorLogos}
-          tournamentName={tournamentName}
-          accentMode="bidwar"
-          density={chromeDensity}
-          urgencyKind={chyronUrgency}
-          tickerPxPerSec={isObsCef ? OBS_CHYRON_PX_PER_SEC : undefined}
-        />
-      </div>
+      {type !== "next" && !(type === "sponsor" && !hasLiveGraphics) ? (
+        <div className="absolute bottom-0 left-0 right-0 z-30">
+          <BadmintonLedChyron
+            sponsors={type === "sponsor" ? spotlightSponsors : sponsorLogos}
+            tournamentName={tournamentName}
+            accentMode="bidwar"
+            density={chromeDensity}
+            urgencyKind={chyronUrgency}
+            tickerPxPerSec={isObsCef ? OBS_CHYRON_PX_PER_SEC : undefined}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

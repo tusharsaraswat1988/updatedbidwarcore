@@ -20,6 +20,11 @@ import { badmintonLedSurfaceStyle } from "@/components/badminton/badminton-led-t
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
+import {
+  resolvePinnedScoreBoardSponsor,
+  resolvePinnedSponsorLogos,
+  resolveSpotlightSponsors,
+} from "@/lib/badminton-broadcast-sponsors";
 import { useBadmintonBroadcastAudio } from "@/hooks/use-badminton-broadcast-audio";
 import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { DisplayStageViewport } from "@/components/display/display-stage-viewport";
@@ -30,7 +35,7 @@ import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { loadDisplayFonts } from "@/lib/load-display-fonts";
 import {
-  findUpNextMatch,
+  resolveSelectedUpNextMatch,
   isLiveFollowMatchId,
 } from "@/lib/badminton-broadcast-console";
 import {
@@ -170,9 +175,26 @@ function DisplayStage({
   const searchParams = new URLSearchParams(search);
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
-  const sponsorLogos = useMemo(
+  const allSponsorLogos = useMemo(
     () => sponsorLogosFromBranding(branding),
     [branding?.sponsorLogos],
+  );
+  const sponsorLogos = useMemo(
+    () => resolvePinnedSponsorLogos(allSponsorLogos, branding?.pinnedSponsorUrl),
+    [allSponsorLogos, branding?.pinnedSponsorUrl],
+  );
+  const scoreBoardSponsor = useMemo(
+    () =>
+      resolvePinnedScoreBoardSponsor(
+        branding?.scoreBoardSponsor,
+        allSponsorLogos,
+        branding?.pinnedSponsorUrl,
+      ),
+    [branding?.scoreBoardSponsor, allSponsorLogos, branding?.pinnedSponsorUrl],
+  );
+  const spotlightSponsors = useMemo(
+    () => resolveSpotlightSponsors(allSponsorLogos, branding?.spotlightSponsorUrl),
+    [allSponsorLogos, branding?.spotlightSponsorUrl],
   );
   const tournamentLogoUrl = branding?.logoUrl ?? undefined;
   const venueScene = branding?.venueScene ?? "auto";
@@ -184,8 +206,13 @@ function DisplayStage({
     [multiCourtMode, liveFollow.liveMatches],
   );
   const upNextMatch = useMemo(
-    () => findUpNextMatch(liveFollow.matches, liveFollow.primaryMatchId),
-    [liveFollow.matches, liveFollow.primaryMatchId],
+    () =>
+      resolveSelectedUpNextMatch(
+        liveFollow.matches,
+        liveFollow.primaryMatchId,
+        branding?.upNextMatchId,
+      ),
+    [liveFollow.matches, liveFollow.primaryMatchId, branding?.upNextMatchId],
   );
   const matchState = (
     followMode ? liveFollow.followState : data?.state ?? null
@@ -212,14 +239,16 @@ function DisplayStage({
       tournamentName,
       tournamentLogoUrl,
       sponsorLogos,
-      scoreBoardSponsor: branding?.scoreBoardSponsor ?? null,
+      scoreBoardSponsor,
     }),
-    [
-      tournamentName,
-      tournamentLogoUrl,
-      sponsorLogos,
-      branding?.scoreBoardSponsor,
-    ],
+    [tournamentName, tournamentLogoUrl, sponsorLogos, scoreBoardSponsor],
+  );
+  const sponsorChrome = useMemo(
+    () => ({
+      ...chrome,
+      sponsorLogos: spotlightSponsors,
+    }),
+    [chrome, spotlightSponsors],
   );
 
   const initialTheme = useMemo((): DisplayTheme => {
@@ -296,7 +325,7 @@ function DisplayStage({
       </div>
     );
   } else if (venueScene === "sponsor") {
-    overlayContent = <VenueSponsorScene chrome={chrome} />;
+    overlayContent = <VenueSponsorScene chrome={sponsorChrome} />;
   } else if (venueScene === "banner") {
     overlayContent = (
       <VenueBannerScene
@@ -351,7 +380,7 @@ function DisplayStage({
           isTimeout={false}
           leftLabel="Side A"
           rightLabel="Side B"
-          scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+          scoreBoardSponsor={scoreBoardSponsor}
           sponsorLogos={sponsorLogos}
         />
         <div className="relative z-10 min-h-0 flex items-stretch justify-center bg-[#070708] px-[1%] py-1">
@@ -367,7 +396,7 @@ function DisplayStage({
         tournamentName={tournamentName}
         tournamentLogoUrl={tournamentLogoUrl}
         sponsorLogos={sponsorLogos}
-        scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+        scoreBoardSponsor={scoreBoardSponsor}
       />
     );
   }
@@ -392,7 +421,7 @@ function DisplayStage({
                   roundName={matchDetail?.roundName}
                   matchLabel={matchDetail?.matchLabel}
                   sponsorLogos={sponsorLogos}
-                  scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+                  scoreBoardSponsor={scoreBoardSponsor}
                 />
               </div>
             ) : null}

@@ -2797,6 +2797,9 @@ router.post("/matches/:matchId/point", async (req, res) => {
             primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
             overlayScene: branding.overlayScene,
             venueScene: branding.venueScene,
+            upNextMatchId: branding.upNextMatchId,
+            spotlightSponsorUrl: branding.spotlightSponsorUrl,
+            pinnedSponsorUrl: branding.pinnedSponsorUrl,
             venueMusicPlaying: branding.venueMusicPlaying,
             resolvedVenueMusicUrl: branding.resolvedVenueMusicUrl,
           });

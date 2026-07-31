@@ -36,6 +36,12 @@ export interface BadmintonBranding {
   overlayScene?: BadmintonOverlayScene;
   /** Operator Broadcast Director — Venue Scoreboard scene. */
   venueScene?: BadmintonVenueScene;
+  /** Operator-selected upcoming match for the Next moment. */
+  upNextMatchId?: number | null;
+  /** Operator-selected sponsor URL for the full-screen Sponsor moment. */
+  spotlightSponsorUrl?: string | null;
+  /** Operator-pinned sponsor URL on live venue/OBS chrome until unpin. */
+  pinnedSponsorUrl?: string | null;
   /** Control Center On/Pause for venue LED loop music. */
   venueMusicPlaying?: boolean;
   /** Badminton override track (null = auction/platform fallthrough). */
@@ -63,11 +69,23 @@ function normalizeBannerFit(raw: unknown): BadmintonBannerFit {
   return raw === "contain" ? "contain" : "cover";
 }
 
+function normalizePositiveId(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  return null;
+}
+
+function normalizeUrlKey(raw: unknown): string | null {
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
 function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
   return {
     ...raw,
     overlayScene: parseOverlayScene(raw.overlayScene),
     venueScene: parseVenueScene(raw.venueScene),
+    upNextMatchId: normalizePositiveId(raw.upNextMatchId),
+    spotlightSponsorUrl: normalizeUrlKey(raw.spotlightSponsorUrl),
+    pinnedSponsorUrl: normalizeUrlKey(raw.pinnedSponsorUrl),
     venueMusicPlaying: raw.venueMusicPlaying === true,
     venueMusicUrl: raw.venueMusicUrl?.trim() || null,
     venueMusicFileName: raw.venueMusicFileName?.trim() || null,

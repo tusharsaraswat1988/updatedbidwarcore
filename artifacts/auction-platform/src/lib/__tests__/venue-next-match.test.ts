@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   coerceBroadcastSideInfo,
   findUpNextMatch,
+  listUpcomingMatches,
   matchIdentityLine,
   resolveBroadcastMatchSides,
+  resolveSelectedUpNextMatch,
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
 
@@ -84,6 +86,26 @@ describe("findUpNextMatch", () => {
     });
 
     expect(findUpNextMatch([live, otherCourt, sameCourt], 1)?.id).toBe(3);
+    expect(listUpcomingMatches([live, otherCourt, sameCourt], 1).map((m) => m.id)).toEqual([
+      3, 2,
+    ]);
+  });
+});
+
+describe("resolveSelectedUpNextMatch", () => {
+  it("returns the operator selection when still upcoming", () => {
+    const live = match({ id: 1, status: "live", detail: { courtId: 10 } });
+    const a = match({ id: 2, status: "scheduled", detail: { courtId: 11 } });
+    const b = match({ id: 3, status: "scheduled", detail: { courtId: 10 } });
+    expect(resolveSelectedUpNextMatch([live, a, b], 1, 2)?.id).toBe(2);
+  });
+
+  it("returns null when selection is live or missing", () => {
+    const live = match({ id: 1, status: "live" });
+    const a = match({ id: 2, status: "scheduled" });
+    expect(resolveSelectedUpNextMatch([live, a], 1, 1)).toBeNull();
+    expect(resolveSelectedUpNextMatch([live, a], 1, 99)).toBeNull();
+    expect(resolveSelectedUpNextMatch([live, a], 1, null)).toBeNull();
   });
 });
 

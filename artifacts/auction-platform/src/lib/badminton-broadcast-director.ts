@@ -11,6 +11,7 @@ export type BadmintonOverlayScene =
   | "intro"
   | "winner"
   | "sponsor"
+  | "next"
   | "multi"
   | "results"
   | "leaderboards";
@@ -34,6 +35,7 @@ export type OverlayGraphicType =
   | "intro"
   | "winner"
   | "sponsor"
+  | "next"
   | "results"
   | "leaderboards";
 
@@ -43,6 +45,7 @@ const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "intro",
   "winner",
   "sponsor",
+  "next",
   "results",
   "leaderboards",
 ] as const;
@@ -51,6 +54,7 @@ const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
 const RALLY_UNSAFE_OVERLAY_TYPES: readonly OverlayGraphicType[] = [
   "intro",
   "sponsor",
+  "next",
   "results",
   "leaderboards",
 ] as const;
@@ -85,6 +89,7 @@ export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
     raw === "intro" ||
     raw === "winner" ||
     raw === "sponsor" ||
+    raw === "next" ||
     raw === "multi" ||
     raw === "results" ||
     raw === "leaderboards"

@@ -10,7 +10,11 @@ import { cn } from "@/lib/utils";
 import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
-import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
+import {
+  sponsorLogosFromBranding,
+  useBadmintonBranding,
+  type BadmintonBranding,
+} from "@/hooks/use-badminton-branding";
 import {
   BADMINTON_MATCHES_RECONNECT_POLL_MS,
   useBadmintonTournamentStreamStatus,
@@ -19,6 +23,8 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import {
   buildCourtBroadcastChips,
   listLiveMatches,
+  listUpcomingMatches,
+  matchCourtLabel,
   resolvePrimaryBroadcastMatchId,
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
@@ -45,6 +51,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
+import {
+  MomentPickerSheet,
+  type MomentPickerMode,
+} from "@/components/badminton/mission-control/moment-picker-sheet";
 
 const VENUE_MOMENTS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "intro", label: "Intro" },
@@ -61,9 +72,12 @@ const OBS_MOMENT_SCENES = new Set<BadmintonVenueScene>([
   "intro",
   "winner",
   "sponsor",
+  "next",
   "results",
   "leaderboards",
 ]);
+
+type PickerMode = MomentPickerMode | null;
 
 function trackLabelFromUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -91,6 +105,7 @@ export function MissionControlOpsRail({
   });
   const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
   const [qrOpen, setQrOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const presentationSeq = useRef(0);
 
   const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
@@ -111,6 +126,9 @@ export function MissionControlOpsRail({
     branding?.primaryBroadcastMatchId ?? null,
   );
   const courtChips = buildCourtBroadcastChips(matches, primaryMatchId);
+  const upcomingMatches = listUpcomingMatches(matches, primaryMatchId);
+  const sponsors = sponsorLogosFromBranding(branding);
+  const pinnedSponsorUrl = branding?.pinnedSponsorUrl ?? null;
 
   const setPrimaryMutation = useMutation({
     mutationFn: (matchId: number) =>
@@ -192,15 +210,16 @@ export function MissionControlOpsRail({
 
   /** Moments stay on screen until Clear (or a venue scene change). */
   function pushMoment(id: BadmintonVenueScene, label: string) {
-    // Banner is venue/scoreboard only — clear OBS moments so stream stays live.
-    if (id === "banner") {
-      patchPresentation(
-        { venueScene: id, overlayScene: "auto" },
-        { announce: label },
-      );
+    if (id === "next") {
+      setPickerMode("next");
       return;
     }
-    if (id === "next" || !OBS_MOMENT_SCENES.has(id)) {
+    if (id === "sponsor") {
+      setPickerMode("sponsor");
+      return;
+    }
+    // Banner is venue/scoreboard only — clear OBS moments so stream stays live.
+    if (id === "banner" || !OBS_MOMENT_SCENES.has(id)) {
       patchPresentation(
         { venueScene: id, overlayScene: "auto" },
         { announce: label },
@@ -212,11 +231,50 @@ export function MissionControlOpsRail({
         venueScene: id,
         overlayScene: id as Extract<
           BadmintonOverlayScene,
-          "intro" | "winner" | "sponsor" | "results" | "leaderboards"
+          "intro" | "winner" | "sponsor" | "next" | "results" | "leaderboards"
         >,
       },
       { announce: label },
     );
+  }
+
+  function pushNextMatch(match: BroadcastConsoleMatch) {
+    setPickerMode(null);
+    const court = matchCourtLabel(match);
+    patchPresentation(
+      {
+        venueScene: "next",
+        overlayScene: "next",
+        upNextMatchId: match.id,
+      },
+      { announce: `Next · ${court}` },
+    );
+  }
+
+  function pushSpotlightSponsor(sponsor: SponsorLogo) {
+    setPickerMode(null);
+    const name = sponsor.name?.trim() || "Sponsor";
+    patchPresentation(
+      {
+        venueScene: "sponsor",
+        overlayScene: "sponsor",
+        spotlightSponsorUrl: sponsor.url,
+      },
+      { announce: `Sponsor · ${name}` },
+    );
+  }
+
+  function pinSponsor(sponsor: SponsorLogo) {
+    setPickerMode(null);
+    const name = sponsor.name?.trim() || "Sponsor";
+    patchPresentation(
+      { pinnedSponsorUrl: sponsor.url },
+      { announce: `Pinned · ${name}` },
+    );
+  }
+
+  function unpinSponsor() {
+    patchPresentation({ pinnedSponsorUrl: null }, { announce: "Sponsor unpinned" });
   }
 
   const primaryChip = courtChips.find((c) => c.isPrimary);
@@ -267,7 +325,7 @@ export function MissionControlOpsRail({
             Moments (Venue + OBS)
           </p>
           <p className="text-[11px] text-muted-foreground mb-2">
-            Stays on screen until you press Clear. Banner is scoreboard only.
+            Next and Sponsor open a picker. Stays until Clear. Banner is scoreboard only.
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             {VENUE_MOMENTS.map((opt) => (
@@ -288,10 +346,50 @@ export function MissionControlOpsRail({
                 presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
               onClick={() => {
-                patchPresentation({ venueScene: "auto", overlayScene: "auto" });
+                patchPresentation({
+                  venueScene: "auto",
+                  overlayScene: "auto",
+                  upNextMatchId: null,
+                  spotlightSponsorUrl: null,
+                });
               }}
             />
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {pinnedSponsorUrl ? (
+              <RailButton
+                label="Unpin sponsor"
+                tone="clear"
+                active
+                busy={presentationBusy}
+                onClick={unpinSponsor}
+              />
+            ) : (
+              <RailButton
+                label="Pin sponsor"
+                active={false}
+                busy={presentationBusy}
+                onClick={() => setPickerMode("pin")}
+              />
+            )}
+            {pinnedSponsorUrl ? (
+              <p className="text-[11px] text-amber-100/80 truncate max-w-full">
+                Pinned on live boards
+              </p>
+            ) : null}
+          </div>
+          {pickerMode ? (
+            <MomentPickerSheet
+              mode={pickerMode}
+              upcoming={upcomingMatches}
+              sponsors={sponsors}
+              onClose={() => setPickerMode(null)}
+              onPickMatch={pushNextMatch}
+              onPickSponsor={(s) =>
+                pickerMode === "pin" ? pinSponsor(s) : pushSpotlightSponsor(s)
+              }
+            />
+          ) : null}
         </div>
         <div>
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45 mb-2">

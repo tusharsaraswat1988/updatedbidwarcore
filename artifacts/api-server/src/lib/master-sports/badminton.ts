@@ -633,6 +633,9 @@ export async function updateBroadcastPresentation(
   input: {
     overlayScene?: BadmintonOverlayScene;
     venueScene?: BadmintonVenueScene;
+    upNextMatchId?: number | null;
+    spotlightSponsorUrl?: string | null;
+    pinnedSponsorUrl?: string | null;
     venueMusicPlaying?: boolean;
     venueMusicUrl?: string | null;
     venueMusicFileName?: string | null;
@@ -649,6 +652,24 @@ export async function updateBroadcastPresentation(
   const patch: Record<string, unknown> = {
     ...(input.overlayScene !== undefined ? { overlayScene: input.overlayScene } : {}),
     ...(input.venueScene !== undefined ? { venueScene: input.venueScene } : {}),
+    ...(input.upNextMatchId !== undefined
+      ? {
+          upNextMatchId:
+            input.upNextMatchId && input.upNextMatchId > 0
+              ? Math.floor(input.upNextMatchId)
+              : null,
+        }
+      : {}),
+    ...(input.spotlightSponsorUrl !== undefined
+      ? {
+          spotlightSponsorUrl: input.spotlightSponsorUrl?.trim() || null,
+        }
+      : {}),
+    ...(input.pinnedSponsorUrl !== undefined
+      ? {
+          pinnedSponsorUrl: input.pinnedSponsorUrl?.trim() || null,
+        }
+      : {}),
     ...(input.venueMusicPlaying !== undefined
       ? { venueMusicPlaying: input.venueMusicPlaying }
       : {}),
@@ -719,6 +740,7 @@ export async function updateBroadcastPresentation(
 const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
   "intro",
   "sponsor",
+  "next",
   "results",
   "leaderboards",
 ]);

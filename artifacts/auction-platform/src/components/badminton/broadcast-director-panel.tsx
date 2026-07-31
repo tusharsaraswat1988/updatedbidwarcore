@@ -3,7 +3,7 @@
  * Persistent screen links + primary match + remote scene switches for Venue / OBS.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleDot, Monitor, Radio, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,15 @@ import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
 import { ObsSafeAreaPreview } from "@/components/badminton/obs-safe-area-preview";
-import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
+import {
+  MomentPickerSheet,
+  type MomentPickerMode,
+} from "@/components/badminton/mission-control/moment-picker-sheet";
+import {
+  sponsorLogosFromBranding,
+  useBadmintonBranding,
+  type BadmintonBranding,
+} from "@/hooks/use-badminton-branding";
 import {
   BADMINTON_MATCHES_RECONNECT_POLL_MS,
   useBadmintonTournamentStreamStatus,
@@ -24,6 +32,7 @@ import {
   currentGameLabel,
   currentScoreLabel,
   listLiveMatches,
+  listUpcomingMatches,
   matchCategoryLabel,
   matchCourtLabel,
   resolvePrimaryBroadcastMatchId,
@@ -43,6 +52,7 @@ import {
 } from "@/lib/badminton-presentation-mutation";
 import { friendlyBadmintonError } from "@/lib/badminton-ux";
 import { useToast } from "@/hooks/use-toast";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 const OVERLAY_LAYOUT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
   { id: "auto", label: "Auto" },
@@ -182,10 +192,23 @@ export function BadmintonBroadcastDirectorPanel({
     },
   });
 
+  const [pickerMode, setPickerMode] = useState<MomentPickerMode | null>(null);
+  const upcomingMatches = listUpcomingMatches(matches, primaryMatchId);
+  const sponsors = sponsorLogosFromBranding(branding);
+  const pinnedSponsorUrl = branding?.pinnedSponsorUrl ?? null;
+
   /** Moments stay until Clear (or another scene is chosen). */
   function pushMoment(venueScene: BadmintonVenueScene) {
-    // Banner / Next are venue-led; keep OBS on auto (banner never covers stream).
-    if (venueScene === "banner" || venueScene === "next") {
+    if (venueScene === "next") {
+      setPickerMode("next");
+      return;
+    }
+    if (venueScene === "sponsor") {
+      setPickerMode("sponsor");
+      return;
+    }
+    // Banner is venue-led; keep OBS on auto (banner never covers stream).
+    if (venueScene === "banner") {
       setPresentationMutation.mutate({
         venueScene,
         overlayScene: "auto",
@@ -196,9 +219,36 @@ export function BadmintonBroadcastDirectorPanel({
       venueScene,
       overlayScene: venueScene as Extract<
         BadmintonOverlayScene,
-        "intro" | "winner" | "sponsor" | "results" | "leaderboards"
+        "intro" | "winner" | "sponsor" | "next" | "results" | "leaderboards"
       >,
     });
+  }
+
+  function pushNextMatch(match: BroadcastConsoleMatch) {
+    setPickerMode(null);
+    setPresentationMutation.mutate({
+      venueScene: "next",
+      overlayScene: "next",
+      upNextMatchId: match.id,
+    });
+  }
+
+  function pushSpotlightSponsor(sponsor: SponsorLogo) {
+    setPickerMode(null);
+    setPresentationMutation.mutate({
+      venueScene: "sponsor",
+      overlayScene: "sponsor",
+      spotlightSponsorUrl: sponsor.url,
+    });
+  }
+
+  function pinSponsor(sponsor: SponsorLogo) {
+    setPickerMode(null);
+    setPresentationMutation.mutate({ pinnedSponsorUrl: sponsor.url });
+  }
+
+  function unpinSponsor() {
+    setPresentationMutation.mutate({ pinnedSponsorUrl: null });
   }
 
   useEffect(() => {
@@ -313,7 +363,12 @@ export function BadmintonBroadcastDirectorPanel({
                 presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
               onClick={() => {
-                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
+                setPresentationMutation.mutate({
+                  venueScene: "auto",
+                  overlayScene: "auto",
+                  upNextMatchId: null,
+                  spotlightSponsorUrl: null,
+                });
               }}
             />
             <SceneButton
@@ -323,6 +378,36 @@ export function BadmintonBroadcastDirectorPanel({
               onClick={() => setPresentationMutation.mutate({ venueScene: "standby" })}
             />
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {pinnedSponsorUrl ? (
+              <SceneButton
+                label="Unpin sponsor"
+                tone="clear"
+                active
+                busy={presentationBusy}
+                onClick={unpinSponsor}
+              />
+            ) : (
+              <SceneButton
+                label="Pin sponsor"
+                active={false}
+                busy={presentationBusy}
+                onClick={() => setPickerMode("pin")}
+              />
+            )}
+          </div>
+          {pickerMode ? (
+            <MomentPickerSheet
+              mode={pickerMode}
+              upcoming={upcomingMatches}
+              sponsors={sponsors}
+              onClose={() => setPickerMode(null)}
+              onPickMatch={pushNextMatch}
+              onPickSponsor={(s) =>
+                pickerMode === "pin" ? pinSponsor(s) : pushSpotlightSponsor(s)
+              }
+            />
+          ) : null}
         </div>
         <div className="space-y-2">
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">

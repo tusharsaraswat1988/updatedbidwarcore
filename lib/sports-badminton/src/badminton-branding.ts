@@ -9,6 +9,7 @@ export type BadmintonOverlayScene =
   | "intro"
   | "winner"
   | "sponsor"
+  | "next"
   | "multi"
   | "results"
   | "leaderboards";
@@ -35,6 +36,7 @@ export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "intro",
   "winner",
   "sponsor",
+  "next",
   "multi",
   "results",
   "leaderboards",
@@ -69,6 +71,12 @@ export type BadmintonBranding = {
   overlayScene: BadmintonOverlayScene;
   /** Operator-forced Venue Scoreboard scene. `auto` = live board when match exists. */
   venueScene: BadmintonVenueScene;
+  /** Operator-selected upcoming match for the Next moment (venue + OBS). */
+  upNextMatchId: number | null;
+  /** Operator-selected sponsor URL for the full-screen Sponsor moment. */
+  spotlightSponsorUrl: string | null;
+  /** Operator-pinned sponsor URL on live venue/OBS chrome until unpin. */
+  pinnedSponsorUrl: string | null;
   /** Control Center: loop music On/Pause for venue LED. */
   venueMusicPlaying: boolean;
   /** Badminton-specific loop track override (null = fall through to auction/platform). */
@@ -148,6 +156,25 @@ function parsePrimaryBroadcastMatchId(
     return n > 0 ? n : null;
   }
   return null;
+}
+
+function parsePositiveId(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
+    const n = parseInt(raw.trim(), 10);
+    return n > 0 ? n : null;
+  }
+  return null;
+}
+
+export function parseUpNextMatchId(raw: unknown): number | null {
+  return parsePositiveId(raw);
+}
+
+export function parseSponsorUrlKey(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
 }
 
 export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
@@ -283,6 +310,9 @@ export function getBadmintonBranding(
     primaryBroadcastMatchId: parsePrimaryBroadcastMatchId(scoringSettingsJson),
     overlayScene: parseOverlayScene(broadcast.overlayScene),
     venueScene: parseVenueScene(broadcast.venueScene),
+    upNextMatchId: parseUpNextMatchId(broadcast.upNextMatchId),
+    spotlightSponsorUrl: parseSponsorUrlKey(broadcast.spotlightSponsorUrl),
+    pinnedSponsorUrl: parseSponsorUrlKey(broadcast.pinnedSponsorUrl),
     venueMusicPlaying: parseVenueMusicPlaying(broadcast.venueMusicPlaying),
     venueMusicUrl,
     venueMusicFileName: venueMusicUrl
