@@ -123,12 +123,13 @@ describe("Tournament Director — retirement", () => {
     let events = startLiveMatch();
     const live = replayBadmintonEvents(META, events);
 
-    events = appendCommand(events, cmdDeclareRetirement(live, "left", "injury"));
+    events = appendCommand(events, cmdDeclareRetirement(live, "left", "injury", 21));
     const state = replayBadmintonEvents(META, events);
 
     expect(state.matchStatus).toBe("retired");
     expect(state.winnerSide).toBe("right");
     expect(state.resultReason).toBe("retirement");
+    expect(state.assignedMarginPoints).toBe(21);
 
     const log = deriveIncidentLog(events);
     expect(log.some((e) => e.label.includes("Retirement"))).toBe(true);
@@ -143,12 +144,13 @@ describe("Tournament Director — walkover", () => {
 
     const events = appendCommand(
       [],
-      cmdDeclareWalkover(initial, "right", "opponent_absent"),
+      cmdDeclareWalkover(initial, "right", "opponent_absent", 21),
     );
     const state = replayBadmintonEvents(META, events);
 
     expect(state.matchStatus).toBe("walkover");
     expect(state.winnerSide).toBe("right");
+    expect(state.assignedMarginPoints).toBe(21);
 
     const banner = deriveDirectorStatusBanner(state);
     expect(banner?.kind).toBe("walkover");
@@ -164,7 +166,7 @@ describe("Tournament Director — disqualification", () => {
 
     events = appendCommand(
       events,
-      cmdDeclareDisqualification(live, "right", "Unsportsmanlike conduct"),
+      cmdDeclareDisqualification(live, "right", "Unsportsmanlike conduct", 21),
     );
     const state = replayBadmintonEvents(META, events);
 
@@ -202,11 +204,12 @@ describe("Tournament Director — force end", () => {
     let events = startLiveMatch();
     const live = replayBadmintonEvents(META, events);
 
-    events = appendCommand(events, cmdForceEndMatch(live, "Venue evacuation"));
+    events = appendCommand(events, cmdForceEndMatch(live, "Venue evacuation", 21));
     const state = replayBadmintonEvents(META, events);
 
     expect(state.matchStatus).toBe("abandoned");
     expect(state.resultReason).toBe("abandoned");
+    expect(state.assignedMarginPoints).toBe(21);
   });
 });
 
@@ -226,10 +229,11 @@ describe("Tournament Director — replay integrity", () => {
     events = appendCommand(events, cmdAddMatchNote(state, "Lighting interruption."));
     state = replayBadmintonEvents(META, events);
 
-    events = appendCommand(events, cmdDeclareRetirement(state, "right", "illness"));
+    events = appendCommand(events, cmdDeclareRetirement(state, "right", "illness", 15));
     state = replayBadmintonEvents(META, events);
 
     expect(state.matchStatus).toBe("retired");
+    expect(state.assignedMarginPoints).toBe(15);
     expect(state.matchNotes).toHaveLength(1);
 
     const report = buildMatchReport(state, events);

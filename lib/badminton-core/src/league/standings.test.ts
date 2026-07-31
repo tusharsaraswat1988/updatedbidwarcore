@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { marginPointsFromWonGames, buildPairStandingsFromMatches } from "./standings";
+import {
+  marginPointsFromWonGames,
+  buildPairStandingsFromMatches,
+  effectiveWinnerMarginPoints,
+} from "./standings";
 import type { BadmintonGameState } from "../types";
 
 describe("marginPointsFromWonGames", () => {
@@ -74,5 +78,25 @@ describe("buildPairStandingsFromMatches", () => {
     expect(standings[0]?.marginPoints).toBe(11);
     expect(standings[0]?.won).toBe(1);
     expect(standings.find((s) => s.registrationId === 2)?.lost).toBe(2);
+  });
+
+  it("uses assignedMarginPoints when no completed games", () => {
+    expect(effectiveWinnerMarginPoints([], "left", 21)).toBe(21);
+
+    const standings = buildPairStandingsFromMatches([1, 2], [
+      {
+        matchId: 10,
+        registrationAId: 1,
+        registrationBId: 2,
+        winnerRegistrationId: 1,
+        games: [],
+        status: "walkover",
+        assignedMarginPoints: 21,
+      },
+    ]);
+
+    expect(standings[0]?.registrationId).toBe(1);
+    expect(standings[0]?.marginPoints).toBe(21);
+    expect(standings[0]?.won).toBe(1);
   });
 });

@@ -494,13 +494,25 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
     pause: (reason: string, detail?: string) => postDirector("pause", { reason, detail }),
     resume: () => postDirector("resume", {}),
     addNote: (text: string) => postDirector("note", { text }),
-    retirement: (retiringSide: "left" | "right", reason?: string) =>
-      postDirector("retirement", { retiringSide, reason }),
-    walkover: (winningSide: "left" | "right", reason?: string) =>
-      postDirector("walkover", { winningSide, reason }),
-    disqualification: (disqualifiedSide: "left" | "right", reason: string) =>
-      postDirector("disqualification", { disqualifiedSide, reason }),
-    forceEnd: (reason: string) => postDirector("force-end", { reason }),
+    retirement: (
+      retiringSide: "left" | "right",
+      reason?: string,
+      assignedMarginPoints?: number,
+    ) => postDirector("retirement", { retiringSide, reason, assignedMarginPoints }),
+    walkover: (
+      winningSide: "left" | "right",
+      reason?: string,
+      assignedMarginPoints?: number,
+    ) => postDirector("walkover", { winningSide, reason, assignedMarginPoints }),
+    disqualification: (
+      disqualifiedSide: "left" | "right",
+      reason: string,
+      assignedMarginPoints?: number,
+    ) => postDirector("disqualification", { disqualifiedSide, reason, assignedMarginPoints }),
+    forceEnd: (reason: string, assignedMarginPoints?: number) =>
+      postDirector("force-end", { reason, assignedMarginPoints }),
+    assignMarginPoints: (assignedMarginPoints: number) =>
+      postDirector("assigned-margin-points", { assignedMarginPoints }),
   };
 }
 

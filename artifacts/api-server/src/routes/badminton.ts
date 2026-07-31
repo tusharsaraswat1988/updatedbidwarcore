@@ -68,6 +68,7 @@ import {
   handleResumeMatch,
   handleAddMatchNote,
   handleForceEndMatch,
+  handleAssignMarginPoints,
   getMatchIncidentLog,
   getMatchReportData,
   replayMatch,
@@ -2930,6 +2931,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
   const schema = z.object({
     retiringSide: z.enum(["left", "right"]),
     reason: z.enum(["injury", "illness", "other"]).optional(),
+    assignedMarginPoints: z.number().int().positive().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -2942,6 +2944,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
       parsed.data.retiringSide,
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.reason,
+      parsed.data.assignedMarginPoints,
     );
     auditLog(req, {
       category: "tournament",
@@ -2976,6 +2979,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
   const schema = z.object({
     winningSide: z.enum(["left", "right"]),
     reason: z.enum(["opponent_absent", "forfeit", "administrative_decision"]).optional(),
+    assignedMarginPoints: z.number().int().positive().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -2988,6 +2992,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
       parsed.data.winningSide,
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.reason,
+      parsed.data.assignedMarginPoints,
     );
     auditLog(req, {
       category: "tournament",
@@ -3022,6 +3027,7 @@ router.post("/matches/:matchId/disqualification", async (req, res) => {
   const schema = z.object({
     disqualifiedSide: z.enum(["left", "right"]),
     reason: z.string().min(1),
+    assignedMarginPoints: z.number().int().positive().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -3034,6 +3040,7 @@ router.post("/matches/:matchId/disqualification", async (req, res) => {
       parsed.data.disqualifiedSide,
       parsed.data.reason,
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.assignedMarginPoints,
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
@@ -3137,7 +3144,10 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
   if (!auth) return;
   const { tournamentId } = auth;
 
-  const schema = z.object({ reason: z.string().min(1) });
+  const schema = z.object({
+    reason: z.string().min(1),
+    assignedMarginPoints: z.number().int().positive().optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
@@ -3147,6 +3157,7 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
       tournamentId,
       parsed.data.reason,
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.assignedMarginPoints,
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
@@ -3154,6 +3165,48 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/assigned-margin-points", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    assignedMarginPoints: z.number().int().positive(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleAssignMarginPoints(
+      matchId,
+      tournamentId,
+      parsed.data.assignedMarginPoints,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+    );
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.margin_points_assigned",
+      summary: `Match #${matchId} assigned margin +${parsed.data.assignedMarginPoints}`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+      metadata: { assignedMarginPoints: parsed.data.assignedMarginPoints },
+    });
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({
+        error: friendlyBadmintonCommandMessage(e.message),
+        code: e.code,
+      });
     }
     throw e;
   }

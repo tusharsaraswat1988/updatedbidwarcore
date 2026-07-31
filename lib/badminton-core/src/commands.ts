@@ -29,8 +29,11 @@ import {
   type BadmintonMatchPausedPayload,
   type BadmintonMatchResumedPayload,
   type BadmintonMatchNoteAddedPayload,
+  type BadmintonMarginPointsAssignedPayload,
 } from "./events/badminton";
 import type { BadmintonMatchState, BadmintonSide, MatchPauseReason } from "./types";
+import { resolveAssignedMarginForCommand, hasCompletedGames } from "./assigned-margin";
+import { isBadmintonTerminalMatchStatus } from "./match-terminal-status";
 import {
   gamesNeededToWin,
   getCurrentGame,
@@ -361,11 +364,20 @@ export function cmdDeclareRetirement(
   state: BadmintonMatchState,
   retiringSide: BadmintonSide,
   reason?: string,
+  assignedMarginPoints?: number,
 ): CommandResult {
   if (state.matchStatus !== "live") return err("Match not live");
 
+  const margin = resolveAssignedMarginForCommand(state, assignedMarginPoints);
+  if (!margin.ok) return err(margin.error);
+
   const winningSide: BadmintonSide = retiringSide === "left" ? "right" : "left";
-  const payload: BadmintonRetirementPayload = { retiringSide, winningSide, reason };
+  const payload: BadmintonRetirementPayload = {
+    retiringSide,
+    winningSide,
+    reason,
+    ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
+  };
 
   return ok([
     { eventType: BadmintonEventType.RETIREMENT_DECLARED, payload: payload as unknown as Record<string, unknown> },
@@ -376,6 +388,7 @@ export function cmdDeclareRetirement(
         gamesLeft: state.gamesLeft,
         gamesRight: state.gamesRight,
         reason: "retirement",
+        ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
       } as unknown as Record<string, unknown>,
     },
   ]);
@@ -385,12 +398,20 @@ export function cmdDeclareWalkover(
   state: BadmintonMatchState,
   winningSide: BadmintonSide,
   reason?: string,
+  assignedMarginPoints?: number,
 ): CommandResult {
   if (state.matchStatus !== "scheduled" && state.matchStatus !== "live") {
     return err("Match cannot be given walkover in current state");
   }
 
-  const payload: BadmintonWalkoverPayload = { winningSide, reason };
+  const margin = resolveAssignedMarginForCommand(state, assignedMarginPoints);
+  if (!margin.ok) return err(margin.error);
+
+  const payload: BadmintonWalkoverPayload = {
+    winningSide,
+    reason,
+    ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
+  };
 
   return ok([
     { eventType: BadmintonEventType.WALKOVER_DECLARED, payload: payload as unknown as Record<string, unknown> },
@@ -401,6 +422,7 @@ export function cmdDeclareWalkover(
         gamesLeft: state.gamesLeft,
         gamesRight: state.gamesRight,
         reason: "walkover",
+        ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
       } as unknown as Record<string, unknown>,
     },
   ]);
@@ -410,6 +432,7 @@ export function cmdDeclareDisqualification(
   state: BadmintonMatchState,
   disqualifiedSide: BadmintonSide,
   reason: string,
+  assignedMarginPoints?: number,
 ): CommandResult {
   if (!reason.trim()) return err("Disqualification reason is required");
   if (
@@ -420,8 +443,16 @@ export function cmdDeclareDisqualification(
     return err("Match cannot be disqualified in current state");
   }
 
+  const margin = resolveAssignedMarginForCommand(state, assignedMarginPoints);
+  if (!margin.ok) return err(margin.error);
+
   const winningSide: BadmintonSide = disqualifiedSide === "left" ? "right" : "left";
-  const payload: BadmintonDisqualificationPayload = { disqualifiedSide, winningSide, reason };
+  const payload: BadmintonDisqualificationPayload = {
+    disqualifiedSide,
+    winningSide,
+    reason,
+    ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
+  };
 
   return ok([
     {
@@ -436,6 +467,7 @@ export function cmdDeclareDisqualification(
         gamesRight: state.gamesRight,
         reason: "disqualification",
         resultSummary: `Disqualified — ${reason}`,
+        ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
       } as unknown as Record<string, unknown>,
     },
   ]);
@@ -491,11 +523,15 @@ export function cmdAddMatchNote(state: BadmintonMatchState, text: string): Comma
 export function cmdForceEndMatch(
   state: BadmintonMatchState,
   reason: string,
+  assignedMarginPoints?: number,
 ): CommandResult {
   if (state.matchStatus !== "live" && state.matchStatus !== "paused") {
     return err("Match cannot be force-ended in current state");
   }
   if (!reason.trim()) return err("Force end reason is required");
+
+  const margin = resolveAssignedMarginForCommand(state, assignedMarginPoints);
+  if (!margin.ok) return err(margin.error);
 
   const winningSide: BadmintonSide =
     state.gamesLeft >= state.gamesRight
@@ -515,7 +551,32 @@ export function cmdForceEndMatch(
         gamesRight: state.gamesRight,
         reason: "abandoned",
         resultSummary: `Force ended — ${reason}`,
+        ...(margin.value != null ? { assignedMarginPoints: margin.value } : {}),
       } as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+/** Set/update assigned margin after a terminal finish with no completed games. */
+export function cmdAssignMarginPoints(
+  state: BadmintonMatchState,
+  assignedMarginPoints: number,
+): CommandResult {
+  if (!isBadmintonTerminalMatchStatus(state.matchStatus)) {
+    return err("Margin points can only be assigned after the match has finished");
+  }
+  if (hasCompletedGames(state.games)) {
+    return err("Margin points cannot be assigned when completed games already exist");
+  }
+  if (!Number.isInteger(assignedMarginPoints) || assignedMarginPoints < 1) {
+    return err("Margin points must be a positive integer");
+  }
+
+  const payload: BadmintonMarginPointsAssignedPayload = { assignedMarginPoints };
+  return ok([
+    {
+      eventType: BadmintonEventType.MARGIN_POINTS_ASSIGNED,
+      payload: payload as unknown as Record<string, unknown>,
     },
   ]);
 }

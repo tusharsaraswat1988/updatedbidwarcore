@@ -48,6 +48,7 @@ import {
   cmdDeclareRetirement,
   cmdDeclareWalkover,
   cmdDeclareDisqualification,
+  cmdAssignMarginPoints,
   cmdPauseMatch,
   cmdResumeMatch,
   cmdAddMatchNote,
@@ -678,6 +679,17 @@ async function updateSnapshot(
         console.error("[master-sports] badminton statistics pipeline failed:", err);
       });
     }
+
+    // Congratulate winning players + linked team owners (email, fire-and-forget).
+    if (state.winnerSide === "left" || state.winnerSide === "right") {
+      void import("./communication/badminton-match-win-email-service")
+        .then(({ enqueueBadmintonMatchWinEmails }) =>
+          enqueueBadmintonMatchWinEmails({ matchId, tournamentId, state }),
+        )
+        .catch((err) => {
+          console.error("[badminton] match win email enqueue failed:", err);
+        });
+    }
   } else if (state.matchStatus === "live") {
     await db
       .update(scoringMatchesTable)
@@ -1082,6 +1094,7 @@ export async function handleRetirement(
   retiringSide: BadmintonSide,
   actor: Actor,
   reason?: string,
+  assignedMarginPoints?: number,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
@@ -1101,7 +1114,7 @@ export async function handleRetirement(
     return state;
   }
 
-  const result = cmdDeclareRetirement(state, retiringSide, reason);
+  const result = cmdDeclareRetirement(state, retiringSide, reason, assignedMarginPoints);
 
   if (!result.ok) {
     throw new BadmintonServiceError(
@@ -1127,6 +1140,7 @@ export async function handleWalkover(
   winningSide: BadmintonSide,
   actor: Actor,
   reason?: string,
+  assignedMarginPoints?: number,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
@@ -1145,7 +1159,7 @@ export async function handleWalkover(
     return state;
   }
 
-  const result = cmdDeclareWalkover(state, winningSide, reason);
+  const result = cmdDeclareWalkover(state, winningSide, reason, assignedMarginPoints);
 
   if (!result.ok) {
     throw new BadmintonServiceError(
@@ -1197,13 +1211,19 @@ export async function handleDisqualification(
   disqualifiedSide: BadmintonSide,
   reason: string,
   actor: Actor,
+  assignedMarginPoints?: number,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
-  const result = cmdDeclareDisqualification(state, disqualifiedSide, reason);
+  const result = cmdDeclareDisqualification(
+    state,
+    disqualifiedSide,
+    reason,
+    assignedMarginPoints,
+  );
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
 
@@ -1257,13 +1277,29 @@ export async function handleForceEndMatch(
   tournamentId: number,
   reason: string,
   actor: Actor,
+  assignedMarginPoints?: number,
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
-  const result = cmdForceEndMatch(state, reason);
+  const result = cmdForceEndMatch(state, reason, assignedMarginPoints);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+}
+
+export async function handleAssignMarginPoints(
+  matchId: number,
+  tournamentId: number,
+  assignedMarginPoints: number,
+  actor: Actor,
+): Promise<BadmintonMatchState> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  const result = cmdAssignMarginPoints(state, assignedMarginPoints);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
 

@@ -162,6 +162,7 @@ export function loserLabel(m: ResultsMatch): string | null {
 /**
  * Net rally-point difference for the match winner across completed games
  * (sum of winnerScore − loserScore per game). Positive = winner scored more.
+ * Falls back to director-assigned margin when no games were completed.
  */
 export function winnerPointDifference(m: ResultsMatch): number | null {
   if (!m.state?.winnerSide) return null;
@@ -175,7 +176,10 @@ export function winnerPointDifference(m: ResultsMatch): number | null {
     total += won - lost;
     counted += 1;
   }
-  return counted > 0 ? total : null;
+  if (counted > 0) return total;
+  const assigned = m.state.assignedMarginPoints;
+  if (assigned != null && Number.isInteger(assigned) && assigned > 0) return assigned;
+  return null;
 }
 
 export function formatPointDifference(diff: number | null | undefined): string {

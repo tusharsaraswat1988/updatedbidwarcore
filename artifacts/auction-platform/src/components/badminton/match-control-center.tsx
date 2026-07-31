@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { BadmintonMatchState, IncidentLogEntry } from "@workspace/badminton-core";
-import { formatPauseReason } from "@workspace/badminton-core";
+import { formatPauseReason, hasCompletedGames } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
 import { BtnPrimary, DarkSelect, FormError, FormField, inputClass } from "@/components/badminton/page-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
@@ -33,6 +33,12 @@ type PendingOutcome =
   | { kind: "disqualification" }
   | { kind: "force_end" }
   | null;
+
+function parseMarginPoints(raw: string): number | null {
+  const n = Number(raw.trim());
+  if (!Number.isInteger(n) || n < 1) return null;
+  return n;
+}
 
 function formatIncidentTime(iso: string): string {
   try {
@@ -73,6 +79,9 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const [dqSide, setDqSide] = useState<"left" | "right">("right");
   const [dqReason, setDqReason] = useState("");
   const [forceEndReason, setForceEndReason] = useState("");
+  const [marginPointsInput, setMarginPointsInput] = useState(
+    state.assignedMarginPoints != null ? String(state.assignedMarginPoints) : "",
+  );
   const [pendingOutcome, setPendingOutcome] = useState<PendingOutcome>(null);
 
   const leftName = sideLabel(state, "left");
@@ -83,6 +92,9 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const isTerminal = ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(
     state.matchStatus,
   );
+  const needsAssignedMargin = !hasCompletedGames(state.games);
+  const parsedMargin = parseMarginPoints(marginPointsInput);
+  const marginReady = !needsAssignedMargin || parsedMargin != null;
 
   const { data: incidentData } = useQuery<{ incidents: IncidentLogEntry[] }>({
     queryKey: ["badminton-incidents", tournamentId, matchId],
@@ -111,34 +123,58 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
     }
   }
 
+  const marginSuffix =
+    needsAssignedMargin && parsedMargin != null
+      ? ` Winner margin: +${parsedMargin}.`
+      : "";
+
   const confirmCopy =
     pendingOutcome?.kind === "retirement"
       ? {
           title: "Declare retirement?",
-          description: `This ends the match. ${sideLabel(state, retireSide)} retires (${retireReason}). This cannot be undone from scoring.`,
+          description: `This ends the match. ${sideLabel(state, retireSide)} retires (${retireReason}).${marginSuffix} This cannot be undone from scoring.`,
           confirmLabel: "Declare Retirement",
-          action: () => director.retirement(retireSide, retireReason),
+          action: () =>
+            director.retirement(
+              retireSide,
+              retireReason,
+              needsAssignedMargin ? parsedMargin ?? undefined : undefined,
+            ),
         }
       : pendingOutcome?.kind === "walkover"
         ? {
             title: "Declare walkover?",
-            description: `Award the match to ${sideLabel(state, walkoverSide)} (${walkoverReason.replace(/_/g, " ")}). This cannot be undone from scoring.`,
+            description: `Award the match to ${sideLabel(state, walkoverSide)} (${walkoverReason.replace(/_/g, " ")}).${marginSuffix} This cannot be undone from scoring.`,
             confirmLabel: "Declare Walkover",
-            action: () => director.walkover(walkoverSide, walkoverReason),
+            action: () =>
+              director.walkover(
+                walkoverSide,
+                walkoverReason,
+                needsAssignedMargin ? parsedMargin ?? undefined : undefined,
+              ),
           }
         : pendingOutcome?.kind === "disqualification"
           ? {
               title: "Declare disqualification?",
-              description: `Disqualify ${sideLabel(state, dqSide)}. Reason: ${dqReason.trim()}. This cannot be undone from scoring.`,
+              description: `Disqualify ${sideLabel(state, dqSide)}. Reason: ${dqReason.trim()}.${marginSuffix} This cannot be undone from scoring.`,
               confirmLabel: "Declare Disqualification",
-              action: () => director.disqualification(dqSide, dqReason),
+              action: () =>
+                director.disqualification(
+                  dqSide,
+                  dqReason,
+                  needsAssignedMargin ? parsedMargin ?? undefined : undefined,
+                ),
             }
           : pendingOutcome?.kind === "force_end"
             ? {
                 title: "Force end match?",
-                description: `End the match immediately. Reason: ${forceEndReason.trim()}. Prefer Walkover or Retirement when those apply.`,
+                description: `End the match immediately. Reason: ${forceEndReason.trim()}.${marginSuffix} Prefer Walkover or Retirement when those apply.`,
                 confirmLabel: "Force End Match",
-                action: () => director.forceEnd(forceEndReason),
+                action: () =>
+                  director.forceEnd(
+                    forceEndReason,
+                    needsAssignedMargin ? parsedMargin ?? undefined : undefined,
+                  ),
               }
             : null;
 
@@ -325,6 +361,26 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
               Choose the player or pair by name — not court side.
             </p>
 
+            {needsAssignedMargin ? (
+              <FormField label="Winner margin points" required>
+                <input
+                  className={inputClass}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  required
+                  aria-required="true"
+                  value={marginPointsInput}
+                  onChange={(e) => setMarginPointsInput(e.target.value)}
+                  placeholder="e.g. 21"
+                />
+                <p className="text-white/35 text-[11px] mt-1">
+                  Required when no games were completed. Positive integer only.
+                </p>
+              </FormField>
+            ) : null}
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
                 <p className="text-white/50 text-xs font-semibold">Retirement</p>
@@ -347,7 +403,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 />
                 <button
                   type="button"
-                  disabled={busy || !isLive}
+                  disabled={busy || !isLive || !marginReady}
                   onClick={() => setPendingOutcome({ kind: "retirement" })}
                   className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
@@ -376,7 +432,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 />
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !marginReady}
                   onClick={() => setPendingOutcome({ kind: "walkover" })}
                   className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
@@ -406,7 +462,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 </FormField>
                 <button
                   type="button"
-                  disabled={busy || !dqReason.trim()}
+                  disabled={busy || !dqReason.trim() || !marginReady}
                   onClick={() => setPendingOutcome({ kind: "disqualification" })}
                   className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
@@ -428,7 +484,9 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 </FormField>
                 <button
                   type="button"
-                  disabled={busy || !forceEndReason.trim() || (!isLive && !isPaused)}
+                  disabled={
+                    busy || !forceEndReason.trim() || (!isLive && !isPaused) || !marginReady
+                  }
                   onClick={() => setPendingOutcome({ kind: "force_end" })}
                   className="w-full min-h-11 rounded-lg bg-destructive/80 hover:bg-destructive text-destructive-foreground text-xs font-bold disabled:opacity-40"
                 >
@@ -436,6 +494,49 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 </button>
               </div>
             </div>
+          </section>
+        ) : null}
+
+        {isTerminal && needsAssignedMargin ? (
+          <section className="space-y-3 pt-2 border-t border-white/8">
+            <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest">
+              Winner Margin Points
+            </h3>
+            <p className="text-white/40 text-[11px]">
+              No completed games — set or update the standings margin for the winner.
+              {state.assignedMarginPoints != null
+                ? ` Current: +${state.assignedMarginPoints}.`
+                : ""}
+            </p>
+            <FormField label="Margin points" required>
+              <input
+                className={inputClass}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                required
+                aria-required="true"
+                value={marginPointsInput}
+                onChange={(e) => setMarginPointsInput(e.target.value)}
+                placeholder="e.g. 21"
+              />
+            </FormField>
+            <BtnPrimary
+              disabled={busy || parsedMargin == null}
+              onClick={() =>
+                runAction(async () => {
+                  if (parsedMargin == null) return;
+                  await director.assignMarginPoints(parsedMargin);
+                  toast({
+                    title: "Margin points saved",
+                    description: `Winner margin set to +${parsedMargin}.`,
+                  });
+                })
+              }
+            >
+              Save margin points
+            </BtnPrimary>
           </section>
         ) : null}
 

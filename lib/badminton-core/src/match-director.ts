@@ -9,6 +9,7 @@ import type {
   BadmintonMatchEndedPayload,
   BadmintonMatchPausedPayload,
   BadmintonMatchNoteAddedPayload,
+  BadmintonMarginPointsAssignedPayload,
   BadmintonRetirementPayload,
   BadmintonWalkoverPayload,
   BadmintonTimeoutStartedPayload,
@@ -143,6 +144,10 @@ function incidentLabel(event: BadmintonEventEnvelope): string | null {
     case BadmintonEventType.MATCH_NOTE_ADDED: {
       const payload = p as BadmintonMatchNoteAddedPayload;
       return `Note: ${payload.text}`;
+    }
+    case BadmintonEventType.MARGIN_POINTS_ASSIGNED: {
+      const payload = p as BadmintonMarginPointsAssignedPayload;
+      return `Margin points assigned (+${payload.assignedMarginPoints})`;
     }
     case BadmintonEventType.GAME_ENDED:
       return "Game Completed";

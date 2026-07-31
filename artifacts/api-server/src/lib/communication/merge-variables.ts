@@ -109,5 +109,13 @@ export function buildSampleMergeData(): Record<string, string> {
     team_logo: tournamentLogo,
     amount_display: "₹12,50,000",
     amount_money: "1",
+    recipient_name: "PV Sindhu",
+    winner_label: "PV Sindhu",
+    opponent_label: "Saina Nehwal",
+    category_name: "Women's Singles",
+    score_line: "21-15, 19-21, 21-18",
+    games_score: "2-1",
+    result_label: "Match Win",
+    franchise_name: "Delhi Smashers",
   };
 }

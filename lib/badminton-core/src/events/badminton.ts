@@ -20,6 +20,8 @@ export const BadmintonEventType = {
   MATCH_PAUSED: "badminton.match.paused",
   MATCH_RESUMED: "badminton.match.resumed",
   MATCH_NOTE_ADDED: "badminton.match.note.added",
+  /** Update/set winner margin when no completed games exist. */
+  MARGIN_POINTS_ASSIGNED: "badminton.margin_points.assigned",
 } as const;
 
 export type BadmintonEventTypeValue = (typeof BadmintonEventType)[keyof typeof BadmintonEventType];
@@ -189,6 +191,8 @@ export type BadmintonMatchEndedPayload = {
   gamesRight: number;
   reason: "normal" | "walkover" | "retirement" | "disqualification" | "abandoned";
   resultSummary?: string;
+  /** Required by commands when no completed games; optional for historical events. */
+  assignedMarginPoints?: number;
 };
 
 export type BadmintonIntervalStartedPayload = {
@@ -224,17 +228,24 @@ export type BadmintonRetirementPayload = {
   retiringSide: BadmintonSide;
   winningSide: BadmintonSide;
   reason?: string;
+  assignedMarginPoints?: number;
 };
 
 export type BadmintonWalkoverPayload = {
   winningSide: BadmintonSide;
   reason?: string;
+  assignedMarginPoints?: number;
 };
 
 export type BadmintonDisqualificationPayload = {
   disqualifiedSide: BadmintonSide;
   winningSide: BadmintonSide;
   reason: string;
+  assignedMarginPoints?: number;
+};
+
+export type BadmintonMarginPointsAssignedPayload = {
+  assignedMarginPoints: number;
 };
 
 export type BadmintonMatchPausedPayload = {
@@ -307,12 +318,15 @@ const gameEndedSchema = z.object({
   doublesServe: gameEndedDoublesServeSchema.optional(),
 });
 
+const assignedMarginPointsSchema = z.number().int().positive().optional();
+
 const matchEndedSchema = z.object({
   winningSide: z.enum(["left", "right"]),
   gamesLeft: z.number(),
   gamesRight: z.number(),
   reason: z.enum(["normal", "walkover", "retirement", "disqualification", "abandoned"]),
   resultSummary: z.string().optional(),
+  assignedMarginPoints: assignedMarginPointsSchema,
 });
 
 const intervalStartedSchema = z.object({
@@ -338,17 +352,24 @@ const retirementSchema = z.object({
   retiringSide: z.enum(["left", "right"]),
   winningSide: z.enum(["left", "right"]),
   reason: z.string().optional(),
+  assignedMarginPoints: assignedMarginPointsSchema,
 });
 
 const walkoverSchema = z.object({
   winningSide: z.enum(["left", "right"]),
   reason: z.string().optional(),
+  assignedMarginPoints: assignedMarginPointsSchema,
 });
 
 const disqualificationSchema = z.object({
   disqualifiedSide: z.enum(["left", "right"]),
   winningSide: z.enum(["left", "right"]),
   reason: z.string().min(1),
+  assignedMarginPoints: assignedMarginPointsSchema,
+});
+
+const marginPointsAssignedSchema = z.object({
+  assignedMarginPoints: z.number().int().positive(),
 });
 
 const matchPausedSchema = z.object({
@@ -425,6 +446,8 @@ export function parseBadmintonEventPayload(
       return parseWith(matchResumedSchema, eventType, data);
     case BadmintonEventType.MATCH_NOTE_ADDED:
       return parseWith(matchNoteAddedSchema, eventType, data);
+    case BadmintonEventType.MARGIN_POINTS_ASSIGNED:
+      return parseWith(marginPointsAssignedSchema, eventType, data);
     default:
       return { ok: false, error: `Unknown event type: ${eventType}` };
   }
