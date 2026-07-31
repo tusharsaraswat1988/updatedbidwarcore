@@ -48,7 +48,8 @@ function createClient(label: string): Redis {
   return client;
 }
 
-async function withTimeout<T>(
+/** Fail fast on hung Redis ops so scoring / SSE never wait forever. */
+export async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   message: string,

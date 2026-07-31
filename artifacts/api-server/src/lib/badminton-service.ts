@@ -318,8 +318,23 @@ export async function resolveFormatForMatchStart(
 export async function loadBadmintonEvents(
   matchId: number,
 ): Promise<BadmintonEventEnvelope[]> {
+  // Select only columns needed for replay — skip metadataJson / recordedAt / fixtureId
+  // to cut transfer + deserialize cost on the hot scoring path.
   const rows = await db
-    .select()
+    .select({
+      id: scoringEventsTable.id,
+      matchId: scoringEventsTable.matchId,
+      tournamentId: scoringEventsTable.tournamentId,
+      eventType: scoringEventsTable.eventType,
+      eventVersion: scoringEventsTable.eventVersion,
+      sequence: scoringEventsTable.sequence,
+      occurredAt: scoringEventsTable.occurredAt,
+      actorType: scoringEventsTable.actorType,
+      actorId: scoringEventsTable.actorId,
+      correlationId: scoringEventsTable.correlationId,
+      causationId: scoringEventsTable.causationId,
+      payloadJson: scoringEventsTable.payloadJson,
+    })
     .from(scoringEventsTable)
     .where(
       and(
@@ -329,7 +344,7 @@ export async function loadBadmintonEvents(
     )
     .orderBy(asc(scoringEventsTable.sequence));
 
-  return rows.map((r: typeof rows[0]) => ({
+  return rows.map((r) => ({
     id: r.id,
     matchId: r.matchId,
     tournamentId: r.tournamentId,
@@ -846,8 +861,10 @@ export async function awardPoint(
     state,
     events,
     actor,
-    // Full replay after persist so a drifted snapshot cannot poison the next score.
-    "replay",
+    // Prior state was just rebuilt from the full event log above. Incremental
+    // project of the new events avoids a second full load+replay on every point
+    // (event-loop stall that freezes all SSE displays). Undo/recovery keep "replay".
+    "incremental",
   );
   markLatency("awardPoint_persist_done");
   return projected;

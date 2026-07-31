@@ -65,7 +65,10 @@ export default function BadmintonMatchControlPage() {
   const qc = useQueryClient();
 
   const { data, isLoading, error, refetch } = useBadmintonMatch(tournamentId, matchId);
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  const { data: branding } = useBadmintonBranding(tournamentId, {
+    staleTime: 60_000,
+    refetchInterval: false,
+  });
 
   const state = data?.state;
   const detail = (data?.detail ?? null) as Record<string, unknown> | null;

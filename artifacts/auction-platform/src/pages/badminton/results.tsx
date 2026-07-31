@@ -8,12 +8,23 @@
  * Read-only. Corrections via Match Control / Live Scoring.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRoute, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
 import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
+import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  subscribeBadmintonDashboardStream,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
 import {
   buildCategoryResultsBlocks,
   categoryDisplayName,
@@ -90,17 +101,43 @@ function SectionHeading({
 export default function BadmintonResultsPage() {
   const [, params] = useRoute("/tournament/:id/badminton/results");
   const tournamentId = parseInt(params?.id ?? "0");
+  const qc = useQueryClient();
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
+  const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<ResultsMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 30_000,
-    refetchInterval: (q) => {
-      const rows = q.state.data ?? [];
-      return rows.some((m) => m.status === "live" || m.status === "paused") ? 8_000 : false;
-    },
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
   });
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    return subscribeBadmintonDashboardStream(tournamentId, (payload) => {
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(qc, tournamentId, data);
+        return;
+      }
+      if (!shouldRefetchBadmintonMatches(data)) return;
+      if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
+      matchesInvalidateTimer.current = setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      }, 750);
+    });
+  }, [tournamentId, qc]);
+
+  useEffect(() => {
+    return () => {
+      if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
+    };
+  }, []);
 
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery<ResultsFixture[]>({
     queryKey: ["badminton-fixtures-all", tournamentId],

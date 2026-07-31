@@ -567,9 +567,13 @@ router.get("/stream", async (req, res) => {
     res.off("close", cleanup);
   };
 
+  // Named `ping` events (not comment heartbeats) so browser EventSource
+  // clients can detect a live connection and force-reconnect when silent.
   const heartbeat = setInterval(() => {
     try {
-      res.write(": heartbeat\n\n");
+      if (!res.write("event: ping\ndata: {}\n\n")) {
+        cleanup();
+      }
     } catch {
       cleanup();
     }

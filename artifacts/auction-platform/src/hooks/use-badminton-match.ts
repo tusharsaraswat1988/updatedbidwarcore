@@ -13,6 +13,7 @@ import {
   type CommandEvent,
 } from "@workspace/badminton-core";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import { nextSseReconnectDelayMs } from "@/lib/sse-reconnect";
 import { getGetTournamentQueryKey } from "@workspace/api-client-react";
 import type { ScoringConnectionStatus } from "@/hooks/use-scoring-socket";
 import {
@@ -21,8 +22,21 @@ import {
   raiseOptimisticRallyFloor,
   shouldRejectRallyRegression,
 } from "@/lib/badminton-optimistic-floor";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromMatchState,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
+import { isPresentationPayload } from "@/lib/badminton-presentation-mutation";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+/** No message/ping within this window → force close + reconnect. */
+const SSE_STALE_MS = 45_000;
+/** How often to check lastEventAt. */
+const SSE_WATCHDOG_MS = 10_000;
+/** React Query poll while SSE is reconnecting (fallback for live scores). */
+const SSE_RECONNECT_POLL_MS = 8_000;
 
 type MatchCache = { state: BadmintonMatchState; detail: unknown };
 
@@ -116,7 +130,7 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
       const status = query.state.data?.state?.matchStatus;
       const live = status === "live" || status === "paused";
       if (!live) return false;
-      return sseAwareRefetchInterval(connectionStatus, 15000);
+      return sseAwareRefetchInterval(connectionStatus, SSE_RECONNECT_POLL_MS);
     },
   });
 
@@ -159,13 +173,21 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
             ) {
               return;
             }
+            const incoming = msg.data as BadmintonMatchState;
             queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
               mergeIncomingMatchState(
                 tournamentId,
                 matchId,
                 prev,
-                msg.data as BadmintonMatchState,
+                incoming,
               ),
+            );
+            // Keep multi-court / Mission Control list rows in sync without GET /matches.
+            patchBadmintonMatchesFromMatchState(
+              queryClient,
+              tournamentId,
+              matchId,
+              incoming,
             );
           }
         } catch {
@@ -482,7 +504,7 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
   };
 }
 
-// ── Shared EventSource pools (refcount) ───────────────────────────────────────
+// ── Shared EventSource pools (refcount + liveness) ────────────────────────────
 
 type MatchStreamMessage = {
   type?: string;
@@ -492,10 +514,15 @@ type MatchStreamMessage = {
 };
 
 type MatchStreamEntry = {
-  es: EventSource;
+  es: EventSource | null;
   refs: number;
   listeners: Set<(msg: MatchStreamMessage) => void>;
   statusListeners: Set<(status: ScoringConnectionStatus) => void>;
+  url: string;
+  lastEventAt: number;
+  watchdog: ReturnType<typeof setInterval> | null;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
+  reconnectAttempt: number;
 };
 
 /** One EventSource per tournament+match — N components share one connection. */
@@ -503,6 +530,92 @@ const matchStreams = new Map<string, MatchStreamEntry>();
 
 function matchStreamKey(tournamentId: number, matchId: number): string {
   return `${tournamentId}:${matchId}`;
+}
+
+function closeEventSource(es: EventSource | null): void {
+  if (!es) return;
+  es.onopen = null;
+  es.onmessage = null;
+  es.onerror = null;
+  es.close();
+}
+
+function notifyMatchStatus(
+  entry: MatchStreamEntry,
+  status: ScoringConnectionStatus,
+): void {
+  entry.statusListeners.forEach((listener) => listener(status));
+}
+
+function touchMatchAlive(entry: MatchStreamEntry): void {
+  entry.lastEventAt = Date.now();
+  entry.reconnectAttempt = 0;
+  notifyMatchStatus(entry, "connected");
+}
+
+function destroyMatchEs(entry: MatchStreamEntry): void {
+  closeEventSource(entry.es);
+  entry.es = null;
+}
+
+function scheduleMatchReconnect(key: string, entry: MatchStreamEntry): void {
+  if (entry.reconnectTimer) clearTimeout(entry.reconnectTimer);
+  notifyMatchStatus(entry, "reconnecting");
+  const delay = nextSseReconnectDelayMs(entry.reconnectAttempt);
+  entry.reconnectAttempt += 1;
+  entry.reconnectTimer = setTimeout(() => {
+    entry.reconnectTimer = null;
+    if (!matchStreams.has(key) || entry.refs <= 0) return;
+    connectMatchStream(key, entry);
+  }, delay);
+}
+
+function connectMatchStream(key: string, entry: MatchStreamEntry): void {
+  destroyMatchEs(entry);
+  if (entry.reconnectTimer) {
+    clearTimeout(entry.reconnectTimer);
+    entry.reconnectTimer = null;
+  }
+
+  const es = new EventSource(entry.url, { withCredentials: true });
+  entry.es = es;
+
+  const onPing = () => {
+    if (entry.es !== es) return;
+    touchMatchAlive(entry);
+  };
+
+  es.addEventListener("ping", onPing);
+  es.onopen = () => {
+    if (entry.es !== es) return;
+    touchMatchAlive(entry);
+  };
+  es.onmessage = (event) => {
+    if (entry.es !== es) return;
+    touchMatchAlive(entry);
+    try {
+      const msg = JSON.parse(event.data) as MatchStreamMessage;
+      entry.listeners.forEach((listener) => listener(msg));
+    } catch {
+      // ignore malformed events
+    }
+  };
+  es.onerror = () => {
+    if (entry.es !== es) return;
+    destroyMatchEs(entry);
+    scheduleMatchReconnect(key, entry);
+  };
+}
+
+function ensureMatchWatchdog(key: string, entry: MatchStreamEntry): void {
+  if (entry.watchdog) return;
+  entry.watchdog = setInterval(() => {
+    if (!matchStreams.has(key) || entry.refs <= 0) return;
+    if (Date.now() - entry.lastEventAt <= SSE_STALE_MS) return;
+    // OPEN-but-silent: browser will not reconnect; force close + new ES.
+    destroyMatchEs(entry);
+    scheduleMatchReconnect(key, entry);
+  }, SSE_WATCHDOG_MS);
 }
 
 function subscribeBadmintonMatchStream(
@@ -514,32 +627,29 @@ function subscribeBadmintonMatchStream(
   const key = matchStreamKey(tournamentId, matchId);
   let entry = matchStreams.get(key);
   if (!entry) {
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream?matchId=${matchId}`;
-    const es = new EventSource(url, { withCredentials: true });
-    entry = { es, refs: 0, listeners: new Set(), statusListeners: new Set() };
-    es.onopen = () => {
-      entry?.statusListeners.forEach((listener) => listener("connected"));
-    };
-    es.onmessage = (event) => {
-      entry?.statusListeners.forEach((listener) => listener("connected"));
-      try {
-        const msg = JSON.parse(event.data) as MatchStreamMessage;
-        entry?.listeners.forEach((listener) => listener(msg));
-      } catch {
-        // ignore malformed events
-      }
-    };
-    es.onerror = () => {
-      entry?.statusListeners.forEach((listener) => listener("reconnecting"));
+    entry = {
+      es: null,
+      refs: 0,
+      listeners: new Set(),
+      statusListeners: new Set(),
+      url: `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream?matchId=${matchId}`,
+      lastEventAt: Date.now(),
+      watchdog: null,
+      reconnectTimer: null,
+      reconnectAttempt: 0,
     };
     matchStreams.set(key, entry);
+    connectMatchStream(key, entry);
+    ensureMatchWatchdog(key, entry);
   }
 
   entry.refs += 1;
   entry.listeners.add(onMessage);
   if (onStatus) entry.statusListeners.add(onStatus);
-  if (entry.es.readyState === EventSource.OPEN) {
+  if (entry.es?.readyState === EventSource.OPEN) {
     onStatus?.("connected");
+  } else {
+    onStatus?.("reconnecting");
   }
 
   return () => {
@@ -549,57 +659,182 @@ function subscribeBadmintonMatchStream(
     if (onStatus) current.statusListeners.delete(onStatus);
     current.refs -= 1;
     if (current.refs <= 0) {
-      current.es.close();
+      if (current.watchdog) clearInterval(current.watchdog);
+      if (current.reconnectTimer) clearTimeout(current.reconnectTimer);
+      destroyMatchEs(current);
       matchStreams.delete(key);
     }
   };
 }
 
 type DashboardStreamEntry = {
-  es: EventSource;
+  es: EventSource | null;
   refs: number;
   listeners: Set<(payload?: unknown) => void>;
+  statusListeners: Set<(status: ScoringConnectionStatus) => void>;
+  url: string;
+  lastEventAt: number;
+  watchdog: ReturnType<typeof setInterval> | null;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
+  reconnectAttempt: number;
 };
 
 /** One EventSource per tournament — setup pages share it instead of reconnecting on every nav. */
 const dashboardStreams = new Map<number, DashboardStreamEntry>();
 
+function notifyDashboardStatus(
+  entry: DashboardStreamEntry,
+  status: ScoringConnectionStatus,
+): void {
+  entry.statusListeners.forEach((listener) => listener(status));
+}
+
+function destroyDashboardEs(entry: DashboardStreamEntry): void {
+  closeEventSource(entry.es);
+  entry.es = null;
+}
+
+function scheduleDashboardReconnect(
+  tournamentId: number,
+  entry: DashboardStreamEntry,
+): void {
+  if (entry.reconnectTimer) clearTimeout(entry.reconnectTimer);
+  notifyDashboardStatus(entry, "reconnecting");
+  const delay = nextSseReconnectDelayMs(entry.reconnectAttempt);
+  entry.reconnectAttempt += 1;
+  entry.reconnectTimer = setTimeout(() => {
+    entry.reconnectTimer = null;
+    if (!dashboardStreams.has(tournamentId) || entry.refs <= 0) return;
+    connectDashboardStream(tournamentId, entry);
+  }, delay);
+}
+
+function connectDashboardStream(
+  tournamentId: number,
+  entry: DashboardStreamEntry,
+): void {
+  destroyDashboardEs(entry);
+  if (entry.reconnectTimer) {
+    clearTimeout(entry.reconnectTimer);
+    entry.reconnectTimer = null;
+  }
+
+  const es = new EventSource(entry.url, { withCredentials: true });
+  entry.es = es;
+
+  const touchAlive = () => {
+    if (entry.es !== es) return;
+    entry.lastEventAt = Date.now();
+    entry.reconnectAttempt = 0;
+    notifyDashboardStatus(entry, "connected");
+  };
+
+  es.addEventListener("ping", touchAlive);
+  es.onopen = touchAlive;
+  es.onmessage = (event) => {
+    if (entry.es !== es) return;
+    touchAlive();
+    let payload: unknown;
+    try {
+      const parsed = JSON.parse(event.data) as { type?: string; data?: unknown };
+      payload = parsed?.type === "tournament_update" ? parsed.data : parsed;
+    } catch {
+      payload = undefined;
+    }
+    entry.listeners.forEach((listener) => listener(payload));
+  };
+  es.onerror = () => {
+    if (entry.es !== es) return;
+    destroyDashboardEs(entry);
+    scheduleDashboardReconnect(tournamentId, entry);
+  };
+}
+
+function ensureDashboardWatchdog(
+  tournamentId: number,
+  entry: DashboardStreamEntry,
+): void {
+  if (entry.watchdog) return;
+  entry.watchdog = setInterval(() => {
+    if (!dashboardStreams.has(tournamentId) || entry.refs <= 0) return;
+    if (Date.now() - entry.lastEventAt <= SSE_STALE_MS) return;
+    destroyDashboardEs(entry);
+    scheduleDashboardReconnect(tournamentId, entry);
+  }, SSE_WATCHDOG_MS);
+}
+
 export function subscribeBadmintonDashboardStream(
   tournamentId: number,
   onMessage: (payload?: unknown) => void,
+  onStatus?: (status: ScoringConnectionStatus) => void,
 ): () => void {
   let entry = dashboardStreams.get(tournamentId);
   if (!entry) {
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
-    const es = new EventSource(url, { withCredentials: true });
-    entry = { es, refs: 0, listeners: new Set() };
-    es.onmessage = (event) => {
-      let payload: unknown;
-      try {
-        const parsed = JSON.parse(event.data) as { type?: string; data?: unknown };
-        payload = parsed?.type === "tournament_update" ? parsed.data : parsed;
-      } catch {
-        payload = undefined;
-      }
-      entry?.listeners.forEach((listener) => listener(payload));
+    entry = {
+      es: null,
+      refs: 0,
+      listeners: new Set(),
+      statusListeners: new Set(),
+      url: `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`,
+      lastEventAt: Date.now(),
+      watchdog: null,
+      reconnectTimer: null,
+      reconnectAttempt: 0,
     };
     dashboardStreams.set(tournamentId, entry);
+    connectDashboardStream(tournamentId, entry);
+    ensureDashboardWatchdog(tournamentId, entry);
   }
 
   entry.refs += 1;
   entry.listeners.add(onMessage);
+  if (onStatus) entry.statusListeners.add(onStatus);
+  if (entry.es?.readyState === EventSource.OPEN) {
+    onStatus?.("connected");
+  } else {
+    onStatus?.("reconnecting");
+  }
 
   return () => {
     const current = dashboardStreams.get(tournamentId);
     if (!current) return;
     current.listeners.delete(onMessage);
+    if (onStatus) current.statusListeners.delete(onStatus);
     current.refs -= 1;
     if (current.refs <= 0) {
-      current.es.close();
+      if (current.watchdog) clearInterval(current.watchdog);
+      if (current.reconnectTimer) clearTimeout(current.reconnectTimer);
+      destroyDashboardEs(current);
       dashboardStreams.delete(tournamentId);
     }
   };
 }
+
+/**
+ * Tournament-scoped SSE liveness for Mission Control / Venue / OBS / match lists.
+ * Healthy → poll OFF. Reconnecting/disconnected → temporary poll OK.
+ */
+export function useBadmintonTournamentStreamStatus(
+  tournamentId: number,
+): ScoringConnectionStatus {
+  const [status, setStatus] = useState<ScoringConnectionStatus>("reconnecting");
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    return subscribeBadmintonDashboardStream(
+      tournamentId,
+      () => {
+        /* status-only subscriber */
+      },
+      setStatus,
+    );
+  }, [tournamentId]);
+
+  return status;
+}
+
+/** Shared fallback poll while tournament SSE is not connected. */
+export const BADMINTON_MATCHES_RECONNECT_POLL_MS = SSE_RECONNECT_POLL_MS;
 
 export function useBadmintonDashboard(tournamentId: number) {
   const queryClient = useQueryClient();
@@ -622,7 +857,15 @@ export function useBadmintonDashboard(tournamentId: number) {
 
   useEffect(() => {
     if (!tournamentId) return;
-    return subscribeBadmintonDashboardStream(tournamentId, () => {
+    return subscribeBadmintonDashboardStream(tournamentId, (payload) => {
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+      // Scores / presentation must not refetch dashboard + categories + tournament.
+      if (data && isMatchStateChangedPayload(data)) return;
+      if (data && isPresentationPayload(data)) return;
+      if (data && !shouldRefetchBadmintonMatches(data)) return;
       void queryClient.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
       void queryClient.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
       void queryClient.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });

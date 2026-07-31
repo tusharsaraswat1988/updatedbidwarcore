@@ -11,9 +11,12 @@ import {
   useBadmintonBranding,
   type BadmintonBranding,
 } from "@/hooks/use-badminton-branding";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
   subscribeBadmintonDashboardStream,
   useBadmintonMatch,
+  useBadmintonTournamentStreamStatus,
 } from "@/hooks/use-badminton-match";
 import {
   findMatchById,
@@ -26,6 +29,11 @@ import {
   applyPresentationPayload,
   isPresentationPayload,
 } from "@/lib/badminton-presentation-mutation";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
 
 /** Venue/OBS follow — longer stale windows; SSE applies presentation in-place. */
 export function useBadmintonLiveFollow(tournamentId: number) {
@@ -34,14 +42,16 @@ export function useBadmintonLiveFollow(tournamentId: number) {
     staleTime: 60_000,
     refetchInterval: false,
   });
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
 
   const matchesQuery = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 15_000,
-    // Safety net only — live scores for the focused court come from match SSE.
-    refetchInterval: 20_000,
+    // Poll ONLY while tournament SSE is reconnecting — never alongside healthy SSE.
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
     placeholderData: (prev) => prev,
   });
 
@@ -76,7 +86,14 @@ export function useBadmintonLiveFollow(tournamentId: number) {
         return;
       }
 
-      // Other tournament events (scores, schedule): debounce match-list refresh.
+      // Live score path: patch the one match row — never GET /matches.
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(queryClient, tournamentId, data);
+        return;
+      }
+
+      // Structure / schedule / create-delete only.
+      if (!shouldRefetchBadmintonMatches(data)) return;
       if (matchesInvalidateTimer.current) {
         clearTimeout(matchesInvalidateTimer.current);
       }

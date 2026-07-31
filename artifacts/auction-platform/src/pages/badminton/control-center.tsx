@@ -50,7 +50,12 @@ import {
   type ActivityEvent,
 } from "@/components/badminton/mission-control/mission-control-activity";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
-import { useBadmintonDirector } from "@/hooks/use-badminton-match";
+import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  subscribeBadmintonDashboardStream,
+  useBadmintonDirector,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
 import type { BadmintonOverlayScene, BadmintonVenueScene } from "@/lib/badminton-broadcast-director";
 import {
   applyPresentationPayload,
@@ -60,6 +65,12 @@ import {
   onPresentationSuccess,
   type PresentationMutateContext,
 } from "@/lib/badminton-presentation-mutation";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 
 type CourtRow = {
   id: number;
@@ -76,8 +87,6 @@ type CategoryRow = {
   name: string;
   code?: string | null;
 };
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function BadmintonControlCenterPage() {
   const [, params] = useRoute("/tournament/:id/badminton/control");
@@ -101,6 +110,7 @@ export default function BadmintonControlCenterPage() {
     staleTime: 120_000,
     refetchInterval: false,
   });
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
 
   const {
     data: courts = [],
@@ -127,13 +137,9 @@ export default function BadmintonControlCenterPage() {
     queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 15_000,
-    refetchInterval: (q) => {
-      const rows = q.state.data ?? [];
-      const needsPoll = rows.some(
-        (m) => m.status === "live" || m.status === "paused" || m.status === "scheduled",
-      );
-      return needsPoll ? 8_000 : false;
-    },
+    // Healthy tournament SSE → no poll. Reconnect only → temporary poll.
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
   });
 
   const {
@@ -146,8 +152,9 @@ export default function BadmintonControlCenterPage() {
     queryKey: ["badminton-fixtures-all", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/fixtures`),
     enabled: !!tournamentId,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    // Fixtures change infrequently; keep light background refresh without competing with live SSE.
+    refetchInterval: 60_000,
   });
 
   const { data: categories = [] } = useQuery<CategoryRow[]>({
@@ -173,19 +180,11 @@ export default function BadmintonControlCenterPage() {
 
   useEffect(() => {
     if (!tournamentId) return;
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
-    const es = new EventSource(url, { withCredentials: true });
     let matchesTimer: ReturnType<typeof setTimeout> | null = null;
 
-    es.onmessage = (event) => {
+    // Shared pool — no second private EventSource alongside IA chrome / live-follow.
+    const unsubscribe = subscribeBadmintonDashboardStream(tournamentId, (payload) => {
       setLastRealtimeAt(Date.now());
-      let payload: unknown;
-      try {
-        const parsed = JSON.parse(event.data) as { type?: string; data?: unknown };
-        payload = parsed?.type === "tournament_update" ? parsed.data : parsed;
-      } catch {
-        payload = undefined;
-      }
       const data =
         payload && typeof payload === "object"
           ? (payload as Record<string, unknown>)
@@ -207,17 +206,23 @@ export default function BadmintonControlCenterPage() {
         return;
       }
 
+      // Live score path: patch one row — never GET /matches for every point.
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(qc, tournamentId, data);
+        return;
+      }
+
+      // Structure / schedule / create-delete only.
+      if (!shouldRefetchBadmintonMatches(data)) return;
       if (matchesTimer) clearTimeout(matchesTimer);
       matchesTimer = setTimeout(() => {
         void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
       }, 750);
-    };
-    es.onerror = () => {
-      /* polling remains fallback */
-    };
+    });
+
     return () => {
       if (matchesTimer) clearTimeout(matchesTimer);
-      es.close();
+      unsubscribe();
     };
   }, [tournamentId, qc]);
 

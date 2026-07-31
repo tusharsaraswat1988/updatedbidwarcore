@@ -223,7 +223,10 @@ export default function BadmintonScorerPage() {
 
   const scorer = useBadmintonScorer(tournamentId, matchId);
   const director = useBadmintonDirector(tournamentId, matchId);
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  const { data: branding } = useBadmintonBranding(tournamentId, {
+    staleTime: 60_000,
+    refetchInterval: false,
+  });
 
   const tournamentName =
     branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");

@@ -12,6 +12,11 @@ import { hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
 import { ObsSafeAreaPreview } from "@/components/badminton/obs-safe-area-preview";
 import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
+import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import { identityFromSideInfo } from "@/lib/team-player-identity";
 import {
@@ -114,13 +119,15 @@ export function BadmintonBroadcastDirectorPanel({
     staleTime: 120_000,
     refetchInterval: false,
   });
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
   const autoSyncedSoleIdRef = useRef<number | null>(null);
 
   const { data: matches = [] } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
-    refetchInterval: 6_000,
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
   });
 
   const liveMatches = useMemo(() => listLiveMatches(matches), [matches]);

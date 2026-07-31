@@ -26,6 +26,13 @@ export type { DriftReport, SchemaContract, DatabaseRole } from "./schema-governa
 export { getBootMetricsSnapshot } from "./boot-metrics";
 export type { BootMetricsSnapshot, SystemCMetrics, SystemDMetrics } from "./boot-metrics";
 
+/** Cap concurrent DB clients — multi-court scoring + lifecycle needs headroom. */
+function resolvePoolMax(): number {
+  const raw = Number.parseInt(process.env.PG_POOL_MAX ?? "20", 10);
+  if (!Number.isFinite(raw)) return 20;
+  return Math.min(50, Math.max(5, raw));
+}
+
 export const pool = new Pool({
   connectionString: resolveDatabaseUrl(),
   // Fail fast if a new connection can't be established in 20s (Neon cold start
@@ -33,7 +40,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 20_000,
   // Release idle connections after 30s to avoid stale TCP issues on Neon.
   idleTimeoutMillis: 30_000,
-  max: 10,
+  max: resolvePoolMax(),
 });
 export const db = drizzle(pool, { schema });
 

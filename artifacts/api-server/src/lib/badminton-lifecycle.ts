@@ -230,8 +230,20 @@ export async function refreshBadmintonLifecycle(
   return result;
 }
 
+/** Coalesce rapid status flips so lifecycle work does not stampede the pool mid-scoring. */
+const lifecycleRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const LIFECYCLE_REFRESH_DEBOUNCE_MS = 750;
+
 export function scheduleBadmintonLifecycleRefresh(tournamentId: number): void {
-  void refreshBadmintonLifecycle(tournamentId).catch((err) => {
-    console.error("[badminton-lifecycle] refresh failed:", err);
-  });
+  const existing = lifecycleRefreshTimers.get(tournamentId);
+  if (existing !== undefined) clearTimeout(existing);
+  lifecycleRefreshTimers.set(
+    tournamentId,
+    setTimeout(() => {
+      lifecycleRefreshTimers.delete(tournamentId);
+      void refreshBadmintonLifecycle(tournamentId).catch((err) => {
+        console.error("[badminton-lifecycle] refresh failed:", err);
+      });
+    }, LIFECYCLE_REFRESH_DEBOUNCE_MS),
+  );
 }

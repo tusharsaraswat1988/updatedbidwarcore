@@ -12,6 +12,11 @@ import { hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
 import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import {
   buildCourtBroadcastChips,
   listLiveMatches,
   resolvePrimaryBroadcastMatchId,
@@ -64,6 +69,7 @@ export function MissionControlOpsRail({
     staleTime: 120_000,
     refetchInterval: false,
   });
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
   const [qrOpen, setQrOpen] = useState(false);
   const presentationSeq = useRef(0);
 
@@ -74,7 +80,8 @@ export function MissionControlOpsRail({
     queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 10_000,
-    refetchInterval: 12_000,
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
     placeholderData: (prev) => prev,
   });
 

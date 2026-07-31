@@ -154,11 +154,23 @@ export async function recomputeBadmintonAnalytics(tournamentId: number): Promise
   }
 }
 
+/** Coalesce terminal-match analytics so they do not compete with live scoring for pool slots. */
+const analyticsRecomputeTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const ANALYTICS_RECOMPUTE_DEBOUNCE_MS = 1_500;
+
 /** Fire-and-forget analytics refresh after terminal transitions. */
 export function scheduleBadmintonAnalyticsRecompute(tournamentId: number): void {
-  void recomputeBadmintonAnalytics(tournamentId).catch((err) => {
-    console.error("[badminton-analytics] recompute failed:", err);
-  });
+  const existing = analyticsRecomputeTimers.get(tournamentId);
+  if (existing !== undefined) clearTimeout(existing);
+  analyticsRecomputeTimers.set(
+    tournamentId,
+    setTimeout(() => {
+      analyticsRecomputeTimers.delete(tournamentId);
+      void recomputeBadmintonAnalytics(tournamentId).catch((err) => {
+        console.error("[badminton-analytics] recompute failed:", err);
+      });
+    }, ANALYTICS_RECOMPUTE_DEBOUNCE_MS),
+  );
 }
 
 /** Used by match delete to ensure aggregates drop removed matches. */
