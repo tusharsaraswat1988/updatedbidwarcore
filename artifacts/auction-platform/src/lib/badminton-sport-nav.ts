@@ -222,7 +222,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "live",
-    label: "Live Control",
+    label: "Operator Controls",
     href: (tid) => `${badmintonHubPath(tid)}/control`,
     isActive: (path) =>
       isControlPath(path) ||
@@ -234,7 +234,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
     children: [
       {
         id: "live-control",
-        label: "Mission Control",
+        label: "Operator Controls",
         href: (tid) => `${badmintonHubPath(tid)}/control`,
         isActive: (path) => isControlPath(path) || sectionPath(path, "broadcast"),
         preload: () => preloadNav("live"),

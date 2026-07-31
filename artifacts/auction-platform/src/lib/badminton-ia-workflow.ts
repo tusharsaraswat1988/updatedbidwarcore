@@ -80,8 +80,8 @@ export const BADMINTON_IA_STEPS: BadmintonIaStep[] = [
   {
     id: "live",
     label: "Live",
-    fullLabel: "Live Control",
-    title: "Live Control",
+    fullLabel: "Operator Controls",
+    title: "Operator Controls",
     purpose: "Run the tournament day from one place.",
     task: "Start matches, watch courts, share scorer and display links.",
     continueLabel: "View Results",

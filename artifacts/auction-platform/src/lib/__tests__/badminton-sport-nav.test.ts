@@ -27,7 +27,7 @@ describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
         "Participants",
         "Tournament Structure",
         "Schedule",
-        "Live Control",
+        "Operator Controls",
         "Results",
       ],
     );
@@ -68,7 +68,7 @@ describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
     assert.deepEqual(activeIds(`${BASE}/categories`), ["structure"]);
   });
 
-  it("maps ops routes onto Live Control (including Matches)", () => {
+  it("maps ops routes onto Operator Controls (including Matches)", () => {
     assert.deepEqual(activeIds(`${BASE}/control`), ["live"]);
     assert.deepEqual(activeIds(`${BASE}/control?focus=broadcast`), ["live"]);
     assert.deepEqual(activeIds(`${BASE}/broadcast`), ["live"]);

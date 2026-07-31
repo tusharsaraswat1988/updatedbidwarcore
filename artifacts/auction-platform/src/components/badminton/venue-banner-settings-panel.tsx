@@ -62,7 +62,7 @@ export function VenueBannerSettingsPanel({
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm font-semibold text-white/90">Venue LED banner</p>
           <p className="text-xs text-muted-foreground">
-            Full-screen image for the scoreboard Banner moment (Mission Control).
+            Full-screen image for the scoreboard Banner moment (Operator Controls).
             Does not appear on OBS. Import the auction banner or upload a new one.
           </p>
         </div>
@@ -193,7 +193,7 @@ export function VenueBannerSettingsPanel({
                   onSuccess: () =>
                     toastSuccess(
                       "Banner saved",
-                      "Push Banner from Mission Control Moments to show it on the scoreboard.",
+                      "Push Banner from Operator Controls Moments to show it on the scoreboard.",
                     ),
                 },
               );

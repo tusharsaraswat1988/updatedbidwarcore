@@ -540,7 +540,7 @@ export default function BadmintonControlCenterPage() {
           <div
             className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4"
             aria-busy="true"
-            aria-label="Loading Mission Control"
+            aria-label="Loading Operator Controls"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -552,7 +552,7 @@ export default function BadmintonControlCenterPage() {
         ) : loadError ? (
           <EmptyState
             icon={AlertCircle}
-            title="Could not load Mission Control"
+            title="Could not load Operator Controls"
             desc={friendlyBadmintonError(loadErrorObj, "Check your connection, then retry.")}
             action={{ label: "Retry", onClick: () => retryAll() }}
           />
@@ -560,7 +560,7 @@ export default function BadmintonControlCenterPage() {
           <EmptyState
             icon={LayoutDashboard}
             title="No courts yet"
-            desc="Add courts in Tournament Setup first. Mission Control runs the day from here."
+            desc="Add courts in Tournament Setup first. Operator Controls runs the day from here."
             action={{
               label: "Add courts",
               href: `/tournament/${tournamentId}/badminton/branding?section=courts`,
