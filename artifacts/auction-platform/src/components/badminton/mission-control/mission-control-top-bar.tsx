@@ -1,11 +1,12 @@
 /**
- * Mission Control top bar — status strip + global primary action.
+ * Mission Control top bar — status strip + primary action + emergency.
  */
 
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { hubCardClass } from "@/components/badminton/page-chrome";
+import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import type { PrimaryAction } from "@/lib/mission-control-ops";
 
 export function MissionControlTopBar({
@@ -29,9 +30,13 @@ export function MissionControlTopBar({
   onEmergency?: () => void;
   onResumePresentation?: () => void;
 }) {
+  const [, navigate] = useLocation();
   const [now, setNow] = useState(() =>
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   );
+  const [emergencyConfirmOpen, setEmergencyConfirmOpen] = useState(false);
+  const [resumeConfirmOpen, setResumeConfirmOpen] = useState(false);
+
   useEffect(() => {
     const id = window.setInterval(() => {
       setNow(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
@@ -41,74 +46,93 @@ export function MissionControlTopBar({
 
   return (
     <header
-      className={cn(hubCardClass, "p-3 sm:p-4 sticky top-0 z-20 backdrop-blur-md bg-card/95 space-y-3")}
-      aria-label="Mission Control status"
+      className={cn(hubCardClass, "p-3 sm:p-4 sticky top-0 z-20 backdrop-blur-md bg-card/95")}
+      aria-label="Live control status"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/45">Tournament</p>
-          <p className="text-sm sm:text-base font-semibold text-foreground truncate">
-            {tournamentName || "Badminton"}
-          </p>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 flex-1 min-w-0">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/45">Live control</p>
+            <p className="text-sm sm:text-base font-semibold text-foreground truncate">
+              {tournamentName || "Badminton tournament"}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold tabular-nums">
+            <span className="text-white/40">{now}</span>
+            <StatusChip label="Live" value={liveCount} tone="live" />
+            <StatusChip label="Ready" value={readyCount} tone="ready" />
+            {delayedCount > 0 ? <StatusChip label="Delayed" value={delayedCount} tone="delayed" /> : null}
+            <StatusChip label="Done" value={completedCount} tone="done" />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold tabular-nums">
-          <span className="text-white/40">{now}</span>
-          <StatusChip label="Live" value={liveCount} tone="live" />
-          <StatusChip label="Ready" value={readyCount} tone="ready" />
-          <StatusChip label="Delayed" value={delayedCount} tone="delayed" />
-          <StatusChip label="Completed" value={completedCount} tone="done" />
-        </div>
-      </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        {primaryAction.disabled ? (
-          <div className="flex-1 min-w-0">
+        <div className="relative z-30 flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+          {primaryAction.disabled ? (
+            <div className="min-w-[12rem]">
+              <button
+                type="button"
+                disabled
+                className="w-full sm:w-auto min-h-11 px-5 rounded-xl bg-white/10 text-white/45 text-sm font-bold cursor-not-allowed"
+                title={primaryAction.disabledReason}
+              >
+                {primaryAction.label}
+              </button>
+              {primaryAction.disabledReason ? (
+                <p className="text-[11px] text-amber-200/90 mt-1 max-w-xs">{primaryAction.disabledReason}</p>
+              ) : null}
+            </div>
+          ) : primaryAction.href ? (
             <button
               type="button"
-              disabled
-              className="w-full sm:w-auto min-h-12 px-5 rounded-xl bg-white/10 text-white/45 text-sm font-bold cursor-not-allowed"
-              title={primaryAction.disabledReason}
+              onClick={() => navigate(primaryAction.href!)}
+              className="w-full sm:w-auto min-h-11 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
             >
               {primaryAction.label}
             </button>
-            {primaryAction.disabledReason ? (
-              <p className="text-[11px] text-amber-200/90 mt-1">{primaryAction.disabledReason}</p>
-            ) : null}
-          </div>
-        ) : primaryAction.href ? (
-          <Link
-            href={primaryAction.href}
-            className="w-full sm:w-auto min-h-12 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
-          >
-            {primaryAction.label}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            className="w-full sm:w-auto min-h-12 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold"
-          >
-            {primaryAction.label}
-          </button>
-        )}
+          ) : null}
 
-        {emergencyActive ? (
-          <button
-            type="button"
-            onClick={onResumePresentation}
-            className="min-h-12 px-4 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
-          >
-            Resume tournament screens
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onEmergency}
-            className="min-h-12 px-4 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
-          >
-            Emergency pause
-          </button>
-        )}
+          {emergencyActive ? (
+            <button
+              type="button"
+              onClick={() => setResumeConfirmOpen(true)}
+              className="min-h-11 px-4 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
+            >
+              Resume screens
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEmergencyConfirmOpen(true)}
+              className="min-h-11 px-4 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
+            >
+              Emergency pause
+            </button>
+          )}
+        </div>
       </div>
+
+      <ConfirmActionDialog
+        open={emergencyConfirmOpen}
+        onOpenChange={setEmergencyConfirmOpen}
+        title="Pause all screens?"
+        description="Venue displays go to standby and OBS switches to sponsor scene."
+        confirmLabel="Pause screens"
+        onConfirm={() => {
+          setEmergencyConfirmOpen(false);
+          onEmergency?.();
+        }}
+      />
+      <ConfirmActionDialog
+        open={resumeConfirmOpen}
+        onOpenChange={setResumeConfirmOpen}
+        title="Resume tournament screens?"
+        description="Venue and OBS return to the live presentation scene."
+        confirmLabel="Resume screens"
+        onConfirm={() => {
+          setResumeConfirmOpen(false);
+          onResumePresentation?.();
+        }}
+      />
     </header>
   );
 }

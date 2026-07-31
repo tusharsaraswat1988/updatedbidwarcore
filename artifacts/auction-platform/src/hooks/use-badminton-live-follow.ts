@@ -3,11 +3,21 @@
  * Polls tournament matches + branding; reuses existing per-match SSE via useBadmintonMatch.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { badmintonFetch } from "@/lib/badminton-api";
-import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
-import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { fetchBadmintonMatches } from "@/lib/badminton-api";
+import {
+  useBadmintonBranding,
+  type BadmintonBranding,
+} from "@/hooks/use-badminton-branding";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  subscribeBadmintonDashboardStream,
+  useBadmintonMatch,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
 import {
   findMatchById,
   listLiveMatches,
@@ -15,30 +25,93 @@ import {
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
 import { MAX_MULTI_COURT_ROWS } from "@/lib/badminton-broadcast-director";
+import {
+  applyPresentationPayload,
+  isPresentationPayload,
+} from "@/lib/badminton-presentation-mutation";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
+/** Venue/OBS follow — longer stale windows; SSE applies presentation in-place. */
 export function useBadmintonLiveFollow(tournamentId: number) {
   const queryClient = useQueryClient();
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  const { data: branding } = useBadmintonBranding(tournamentId, {
+    staleTime: 60_000,
+    refetchInterval: false,
+  });
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
 
   const matchesQuery = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
-    refetchInterval: 8_000,
+    staleTime: 15_000,
+    // Poll ONLY while tournament SSE is reconnecting — never alongside healthy SSE.
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
+    placeholderData: (prev) => prev,
   });
+
+  const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!tournamentId) return;
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
-    const es = new EventSource(url, { withCredentials: true });
-    es.onmessage = () => {
-      void queryClient.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
-      void queryClient.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
-    };
-    return () => es.close();
+    return subscribeBadmintonDashboardStream(tournamentId, (payload) => {
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+
+      // Moments / focus / music: patch cache only — never refetch branding
+      // (refetch was remounting LED chrome and flashing "Connecting…").
+      if (data && isPresentationPayload(data)) {
+        queryClient.setQueryData<BadmintonBranding | undefined>(
+          ["badminton-branding", tournamentId],
+          (prev) => applyPresentationPayload(prev, data),
+        );
+        // Primary court change may need a fresher match list, but debounce.
+        if ("primaryBroadcastMatchId" in data) {
+          if (matchesInvalidateTimer.current) {
+            clearTimeout(matchesInvalidateTimer.current);
+          }
+          matchesInvalidateTimer.current = setTimeout(() => {
+            void queryClient.invalidateQueries({
+              queryKey: ["badminton-matches", tournamentId],
+            });
+          }, 400);
+        }
+        return;
+      }
+
+      // Live score path: patch the one match row — never GET /matches.
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(queryClient, tournamentId, data);
+        return;
+      }
+
+      // Structure / schedule / create-delete only.
+      if (!shouldRefetchBadmintonMatches(data)) return;
+      if (matchesInvalidateTimer.current) {
+        clearTimeout(matchesInvalidateTimer.current);
+      }
+      matchesInvalidateTimer.current = setTimeout(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ["badminton-matches", tournamentId],
+        });
+      }, 750);
+    });
   }, [tournamentId, queryClient]);
+
+  useEffect(() => {
+    return () => {
+      if (matchesInvalidateTimer.current) {
+        clearTimeout(matchesInvalidateTimer.current);
+      }
+    };
+  }, []);
 
   const primaryMatchId = useMemo(
     () =>
@@ -56,13 +129,40 @@ export function useBadmintonLiveFollow(tournamentId: number) {
     [matchesQuery.data],
   );
 
+  // Seed per-match cache from list snapshot so Focus court paints immediately
+  // while GET /matches/:id / SSE catch up.
+  useEffect(() => {
+    if (!tournamentId || !primaryMatchId || !primaryMatch?.state) return;
+    const key = ["badminton-match", tournamentId, primaryMatchId] as const;
+    const existing = queryClient.getQueryData<{
+      state: BadmintonMatchState;
+      detail: unknown;
+    }>(key);
+    if (existing?.state) return;
+    queryClient.setQueryData(key, {
+      state: primaryMatch.state,
+      detail: primaryMatch.detail,
+    });
+  }, [tournamentId, primaryMatchId, primaryMatch?.state, primaryMatch?.detail, queryClient]);
+
+  const followState =
+    (matchQuery.data?.state as BadmintonMatchState | undefined)
+    ?? primaryMatch?.state
+    ?? null;
+  const followDetail = matchQuery.data?.detail ?? primaryMatch?.detail ?? null;
+
   return {
     primaryMatchId,
     primaryMatch,
     liveMatches,
     matches: matchesQuery.data ?? [],
     matchesLoading: matchesQuery.isLoading,
+    matchesError: matchesQuery.isError,
+    refetchMatches: () => matchesQuery.refetch(),
     matchQuery,
+    /** Best-available state for the followed court (detail GET or list snapshot). */
+    followState,
+    followDetail,
     branding,
   };
 }

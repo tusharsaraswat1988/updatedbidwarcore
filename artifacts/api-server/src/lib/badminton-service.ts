@@ -15,6 +15,7 @@ import { markLatency } from "./badminton-latency-trace";
 import {
   scoringMatchesTable,
   scoringEventsTable,
+  scoringSessionsTable,
   badmintonMatchDetailsTable,
   badmintonFixturesTable,
   badmintonAnalyticsTable,
@@ -23,10 +24,16 @@ import {
   tournamentsTable,
   type ScoringSideJson,
 } from "@workspace/db";
+import {
+  isBadmintonTerminalMatchStatus,
+  mapBadmintonStatusToFixtureStatus,
+  mapBadmintonStatusToScoringMatchStatus,
+} from "./badminton-match-status";
 import type {
   BadmintonMatchState,
   BadmintonSide,
   BadmintonMatchStartedPayload,
+  BadmintonTossCorrectedPayload,
 } from "@workspace/badminton-core";
 import {
   cmdAwardPoint,
@@ -37,6 +44,7 @@ import {
   cmdStartInterval,
   cmdEndInterval,
   cmdAcknowledgeCourtChange,
+  cmdCorrectToss,
   cmdDeclareRetirement,
   cmdDeclareWalkover,
   cmdDeclareDisqualification,
@@ -49,6 +57,7 @@ import {
   STANDARD_FORMAT,
   getUndoTargetSequences,
   parseBadmintonMatchFormat,
+  BadmintonEventType,
   type BadmintonMatchFormat,
   type MatchPauseReason,
 } from "@workspace/badminton-core";
@@ -85,6 +94,8 @@ export {
 import { appendMatchEventBatch, type ScoringActor as PlatformActor } from "./scoring-platform/orchestrator";
 import { runBadmintonMasterStatisticsPipeline } from "./scoring-platform/projections";
 import { ScoringPlatformError } from "./scoring-platform/errors";
+import { scheduleBadmintonAnalyticsRecompute, refreshBadmintonAnalyticsAfterDelete } from "./badminton-analytics";
+import { scheduleBadmintonLifecycleRefresh, refreshBadmintonLifecycle } from "./badminton-lifecycle";
 import {
   findOtherLiveMatchOnCourt,
   friendlyBadmintonCommandMessage,
@@ -307,8 +318,23 @@ export async function resolveFormatForMatchStart(
 export async function loadBadmintonEvents(
   matchId: number,
 ): Promise<BadmintonEventEnvelope[]> {
+  // Select only columns needed for replay — skip metadataJson / recordedAt / fixtureId
+  // to cut transfer + deserialize cost on the hot scoring path.
   const rows = await db
-    .select()
+    .select({
+      id: scoringEventsTable.id,
+      matchId: scoringEventsTable.matchId,
+      tournamentId: scoringEventsTable.tournamentId,
+      eventType: scoringEventsTable.eventType,
+      eventVersion: scoringEventsTable.eventVersion,
+      sequence: scoringEventsTable.sequence,
+      occurredAt: scoringEventsTable.occurredAt,
+      actorType: scoringEventsTable.actorType,
+      actorId: scoringEventsTable.actorId,
+      correlationId: scoringEventsTable.correlationId,
+      causationId: scoringEventsTable.causationId,
+      payloadJson: scoringEventsTable.payloadJson,
+    })
     .from(scoringEventsTable)
     .where(
       and(
@@ -318,7 +344,7 @@ export async function loadBadmintonEvents(
     )
     .orderBy(asc(scoringEventsTable.sequence));
 
-  return rows.map((r: typeof rows[0]) => ({
+  return rows.map((r) => ({
     id: r.id,
     matchId: r.matchId,
     tournamentId: r.tournamentId,
@@ -529,20 +555,17 @@ async function updateSnapshot(
       ),
     );
 
-  const isTerminal =
-    state.matchStatus === "completed" ||
-    state.matchStatus === "walkover" ||
-    state.matchStatus === "retired" ||
-    state.matchStatus === "disqualified" ||
-    state.matchStatus === "abandoned";
+  // S3-08 — preserve terminal kinds (walkover/retired/DQ/abandoned), do not collapse to completed.
+  const isTerminal = isBadmintonTerminalMatchStatus(state.matchStatus);
 
   if (isTerminal) {
+    const scoringStatus = mapBadmintonStatusToScoringMatchStatus(state.matchStatus);
     await db
       .update(scoringMatchesTable)
       .set({
-        status: "completed",
+        status: scoringStatus,
         winnerTeamId: null,
-        resultSummary: state.resultReason ?? "completed",
+        resultSummary: state.resultReason ?? state.matchStatus,
         completedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -554,9 +577,9 @@ async function updateSnapshot(
       );
 
     const fixtureId = await getMatchFixtureId(matchId, tournamentId);
+    let leagueCategoryId: number | null = null;
     if (fixtureId) {
-      const fixtureStatus =
-        state.matchStatus === "walkover" ? "walkover" : "completed";
+      const fixtureStatus = mapBadmintonStatusToFixtureStatus(state.matchStatus);
       await db
         .update(badmintonFixturesTable)
         .set({
@@ -571,6 +594,69 @@ async function updateSnapshot(
             eq(badmintonFixturesTable.tournamentId, tournamentId),
           ),
         );
+
+      const [fixtureRow] = await db
+        .select({ categoryId: badmintonFixturesTable.categoryId })
+        .from(badmintonFixturesTable)
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, fixtureId),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+      leagueCategoryId = fixtureRow?.categoryId ?? null;
+
+      // Sprint 1 / C5 — advance winner into next-round fixture when linked.
+      if (state.winnerSide === "left" || state.winnerSide === "right") {
+        try {
+          const { advanceKnockoutWinner } = await import("./badminton-knockout-progression");
+          await advanceKnockoutWinner({
+            tournamentId,
+            fixtureId,
+            winnerSide: state.winnerSide,
+          });
+        } catch (err) {
+          const { KnockoutProgressionError } = await import("./badminton-knockout-progression");
+          const message =
+            err instanceof Error ? err.message : "Knockout advancement failed";
+          console.error("[badminton] knockout advancement failed:", {
+            tournamentId,
+            matchId,
+            fixtureId,
+            winnerSide: state.winnerSide,
+            message,
+          });
+          if (err instanceof KnockoutProgressionError) {
+            state.matchNotes = [...(state.matchNotes ?? []), `[Bracket] ${message}`];
+            await db
+              .update(badmintonMatchDetailsTable)
+              .set({
+                stateSnapshotJson: state as unknown as Record<string, unknown>,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+                  eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+                ),
+              );
+          }
+        }
+      }
+    }
+
+    scheduleBadmintonAnalyticsRecompute(tournamentId);
+    scheduleBadmintonLifecycleRefresh(tournamentId);
+
+    if (leagueCategoryId) {
+      void import("./badminton-league-service")
+        .then(({ rebuildCategoryPairStandings }) =>
+          rebuildCategoryPairStandings(tournamentId, leagueCategoryId!),
+        )
+        .catch((err) => {
+          console.error("[badminton] league standings rebuild failed:", err);
+        });
     }
 
     const [detail] = await db
@@ -606,11 +692,23 @@ async function updateSnapshot(
 
     const fixtureId = await getMatchFixtureId(matchId, tournamentId);
     if (fixtureId) {
+      // Sprint 2 / S2-08 — set fixture startedAt only on first live transition.
+      const [fixture] = await db
+        .select({ startedAt: badmintonFixturesTable.startedAt })
+        .from(badmintonFixturesTable)
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, fixtureId),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+
       await db
         .update(badmintonFixturesTable)
         .set({
           status: "live",
-          startedAt: new Date(),
+          ...(fixture?.startedAt ? {} : { startedAt: new Date() }),
           updatedAt: new Date(),
         })
         .where(
@@ -620,6 +718,8 @@ async function updateSnapshot(
           ),
         );
     }
+
+    scheduleBadmintonLifecycleRefresh(tournamentId);
   }
 }
 
@@ -713,13 +813,23 @@ export async function awardPoint(
   tournamentId: number,
   winningSide: BadmintonSide,
   actor: Actor,
-  opts?: { rallyLength?: number },
+  opts?: { rallyLength?: number; idempotencyKey?: string },
 ): Promise<BadmintonMatchState> {
   markLatency("awardPoint_enter");
 
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
   markLatency("awardPoint_meta_loaded");
+
+  const idempotencyKey = opts?.idempotencyKey?.trim() || undefined;
+  if (idempotencyKey) {
+    const { findMatchEventByIdempotencyKey } = await import("./scoring-platform/event-store");
+    const existing = await findMatchEventByIdempotencyKey(matchId, idempotencyKey);
+    if (existing) {
+      // Idempotent replay — return current authoritative state without appending.
+      return loadCurrentMatchState(matchId, tournamentId, meta);
+    }
+  }
 
   const state = await loadCurrentMatchState(matchId, tournamentId, meta);
   markLatency("awardPoint_state_loaded");
@@ -734,15 +844,27 @@ export async function awardPoint(
   }
   markLatency("awardPoint_command_ok");
 
+  const events = result.events.map((event) => {
+    if (idempotencyKey && event.eventType === BadmintonEventType.POINT_WON) {
+      return {
+        ...event,
+        payload: { ...event.payload, idempotencyKey },
+      };
+    }
+    return event;
+  });
+
   const projected = await persistBadmintonCommandEvents(
     matchId,
     tournamentId,
     meta,
     state,
-    result.events,
+    events,
     actor,
-    // Full replay after persist so a drifted snapshot cannot poison the next score.
-    "replay",
+    // Prior state was just rebuilt from the full event log above. Incremental
+    // project of the new events avoids a second full load+replay on every point
+    // (event-loop stall that freezes all SSE displays). Undo/recovery keep "replay".
+    "incremental",
   );
   markLatency("awardPoint_persist_done");
   return projected;
@@ -793,6 +915,15 @@ export async function handleTimeout(
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  // Sprint 2 / S2-08 — starting a timeout without a side must not silently end one.
+  if (action === "start" && !side) {
+    throw new BadmintonServiceError(
+      "SIDE_REQUIRED",
+      "Timeout start requires side (left or right).",
+      400,
+    );
+  }
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
@@ -868,6 +999,9 @@ export async function handleCourtChangeAck(
       friendlyBadmintonCommandMessage(result.error),
     );
   }
+  if (result.events.length === 0) {
+    return state;
+  }
 
   return persistBadmintonCommandEvents(
     matchId,
@@ -878,6 +1012,68 @@ export async function handleCourtChangeAck(
     actor,
     "replay",
   );
+}
+
+export async function handleCorrectToss(
+  matchId: number,
+  tournamentId: number,
+  input: BadmintonTossCorrectedPayload,
+  actor: Actor,
+): Promise<BadmintonMatchState> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  const result = cmdCorrectToss(state, input);
+  if (!result.ok) {
+    throw new BadmintonServiceError(
+      "COMMAND_FAILED",
+      friendlyBadmintonCommandMessage(result.error),
+    );
+  }
+
+  const next = await persistBadmintonCommandEvents(
+    matchId,
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
+  );
+
+  // Keep roster JSON on detail/scoring match aligned when ends are swapped.
+  const leftSideJson = input.leftSide as unknown as Record<string, unknown>;
+  const rightSideJson = input.rightSide as unknown as Record<string, unknown>;
+  await db
+    .update(badmintonMatchDetailsTable)
+    .set({
+      leftSideJson,
+      rightSideJson,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    );
+  await db
+    .update(scoringMatchesTable)
+    .set({
+      homeSideJson: buildScoringSideFromBadmintonSide(leftSideJson),
+      awaySideJson: buildScoringSideFromBadmintonSide(rightSideJson),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    );
+
+  return next;
 }
 
 export async function handleRetirement(
@@ -1090,8 +1286,23 @@ export async function getMatchReportData(matchId: number, tournamentId: number) 
 
 // ── Query helpers ─────────────────────────────────────────────────────────────
 
+/** @deprecated Plaintext match/court PINs are no longer generated or written (S3-10). */
 export function generateMatchScorerPin(): string {
   return String(randomInt(1000, 10_000));
+}
+
+const SCORER_PIN_DEPRECATED_MSG =
+  "Match/court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.";
+
+/** Reject non-empty plaintext PIN writes; allow omit / null / blank to clear. */
+function resolveDeprecatedScorerPinWrite(
+  scorerPin: string | null | undefined,
+): string | null | undefined {
+  if (scorerPin === undefined) return undefined;
+  if (scorerPin == null) return null;
+  const trimmed = scorerPin.trim();
+  if (trimmed.length === 0) return null;
+  throw new BadmintonServiceError("SCORER_PIN_DEPRECATED", SCORER_PIN_DEPRECATED_MSG, 400);
 }
 
 type BadmintonDetailRow = typeof badmintonMatchDetailsTable.$inferSelect;
@@ -1162,9 +1373,15 @@ function toScorerHomeMatchCard(input: {
       ? (snapshot.rightSide as Record<string, unknown>)
       : null;
 
+  const snapshotStatus =
+    typeof snapshot?.matchStatus === "string" ? snapshot.matchStatus.trim() : "";
+  const tableStatus = typeof match.status === "string" ? match.status.trim() : "";
+  // Prefer any terminal status so Scorer Home never shows Resume after a finish.
   const matchStatus =
-    (typeof snapshot?.matchStatus === "string" && snapshot.matchStatus) ||
-    match.status ||
+    (isBadmintonTerminalMatchStatus(snapshotStatus) ? snapshotStatus : null) ||
+    (isBadmintonTerminalMatchStatus(tableStatus) ? tableStatus : null) ||
+    snapshotStatus ||
+    tableStatus ||
     "scheduled";
   const ui = mapMatchStatusToScorerHomeUi(matchStatus);
 
@@ -1343,7 +1560,7 @@ export async function createBadmintonMatch(input: {
   matchFormatJson?: Record<string, unknown>;
   leftSideJson: Record<string, unknown>;
   rightSideJson: Record<string, unknown>;
-  scorerPin?: string;
+  scorerPin?: string | null;
   scorerName?: string;
   /** Optional toss recorded at create — null clears. */
   preMatchTossJson?: Record<string, unknown> | null;
@@ -1364,40 +1581,8 @@ export async function createBadmintonMatch(input: {
     }
   }
 
-  // Scorer PIN resolution for new matches:
-  // - Explicit non-empty PIN → match override
-  // - Explicit empty → inherit court PIN when present, else auto-generate
-  // - Omitted + court has PIN → inherit (null)
-  // - Otherwise auto-generate (backward compatible)
-  let scorerPin: string | null;
-  async function courtHasPin(courtId: number): Promise<boolean> {
-    const [court] = await db
-      .select({ scorerPin: badmintonCourtsTable.scorerPin })
-      .from(badmintonCourtsTable)
-      .where(
-        and(
-          eq(badmintonCourtsTable.id, courtId),
-          eq(badmintonCourtsTable.tournamentId, input.tournamentId),
-        ),
-      )
-      .limit(1);
-    return !!(court?.scorerPin && court.scorerPin.trim().length >= 4);
-  }
-
-  if (input.scorerPin !== undefined) {
-    const trimmed = input.scorerPin.trim();
-    if (trimmed.length >= 4) {
-      scorerPin = trimmed;
-    } else if (input.courtId && (await courtHasPin(input.courtId))) {
-      scorerPin = null;
-    } else {
-      scorerPin = generateMatchScorerPin();
-    }
-  } else if (input.courtId && (await courtHasPin(input.courtId))) {
-    scorerPin = null;
-  } else {
-    scorerPin = generateMatchScorerPin();
-  }
+  // S3-10 — never auto-generate or persist new plaintext match PINs.
+  const scorerPin = resolveDeprecatedScorerPinWrite(input.scorerPin) ?? null;
 
   const homeSideJson = buildScoringSideFromBadmintonSide(input.leftSideJson);
   const awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
@@ -1493,7 +1678,7 @@ export async function updateBadmintonMatch(
     roundName?: string | null;
     leftSideJson?: Record<string, unknown>;
     rightSideJson?: Record<string, unknown>;
-    scorerPin?: string;
+    scorerPin?: string | null;
     scorerName?: string | null;
     /** Stamp override; null clears stamp only when rebuilding — prefer resolve on create. */
     matchFormatJson?: Record<string, unknown> | null;
@@ -1544,10 +1729,35 @@ export async function updateBadmintonMatch(
   }
 
   if (input.scorerPin !== undefined) {
-    const trimmed = input.scorerPin.trim();
-    // Empty PIN clears match override so the court PIN is inherited.
-    if (trimmed.length > 0 && trimmed.length < 4) {
-      throw new BadmintonServiceError("INVALID_PIN", "Scorer PIN must be at least 4 digits", 400);
+    // S3-10 — reject new plaintext PINs; blank/null clears legacy codes.
+    resolveDeprecatedScorerPinWrite(input.scorerPin);
+  }
+
+  // Sprint 2 / S2-09 — live court reassignment must respect COURT_BUSY.
+  if (input.courtId !== undefined && match?.status === "live" && input.courtId != null) {
+    const [currentCourt] = await db
+      .select({ courtId: badmintonMatchDetailsTable.courtId })
+      .from(badmintonMatchDetailsTable)
+      .where(
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+    if (currentCourt?.courtId !== input.courtId) {
+      const other = await findOtherLiveMatchOnCourt({
+        tournamentId,
+        courtId: input.courtId,
+        excludeMatchId: matchId,
+      });
+      if (other) {
+        throw new BadmintonServiceError(
+          "COURT_BUSY",
+          `Court already has a live match (#${other.id}). Finish or force-end that match before reassigning.`,
+          409,
+        );
+      }
     }
   }
 
@@ -1597,8 +1807,7 @@ export async function updateBadmintonMatch(
     }
   }
   if (input.scorerPin !== undefined) {
-    const trimmed = input.scorerPin.trim();
-    detailPatch.scorerPin = trimmed.length >= 4 ? trimmed : null;
+    detailPatch.scorerPin = resolveDeprecatedScorerPinWrite(input.scorerPin) ?? null;
   }
   if (input.scheduledAt !== undefined) matchPatch.scheduledAt = input.scheduledAt;
 
@@ -1775,7 +1984,7 @@ export async function deleteBadmintonMatch(
     )
     .limit(1);
 
-  if (match?.status === "live") {
+  if (match?.status === "live" || match?.status === "paused") {
     throw new BadmintonServiceError(
       "MATCH_LIVE",
       "Cannot delete a live match. Complete, retire, or walk over the match first.",
@@ -1783,58 +1992,81 @@ export async function deleteBadmintonMatch(
     );
   }
 
-  // Restore fixture to scheduled (court/time kept) so operators can recreate the match.
-  await db
-    .update(badmintonFixturesTable)
-    .set({
-      scoringMatchId: null,
-      status: "scheduled",
-      startedAt: null,
-      completedAt: null,
-      resultSummary: null,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(badmintonFixturesTable.scoringMatchId, matchId),
-        eq(badmintonFixturesTable.tournamentId, tournamentId),
-      ),
-    );
+  /**
+   * S3-04 — organizer-initiated delete is a hard delete inside one transaction.
+   *
+   * Append-only contract note: `scoring_events` are INSERT-only in normal scoring.
+   * Organizer match delete intentionally forfeits forensic event history so the
+   * fixture can be recreated. Soft-delete/tombstone (abandoned+hidden) is deferred
+   * until a product-visible "hidden match" surface exists.
+   *
+   * FK follow-up (deferred): `badminton_match_details.scoring_match_id` →
+   * `scoring_matches(id)` ON DELETE CASCADE — skipped here to avoid breaking
+   * existing dirty/orphan rows; integrity is enforced by this transaction instead
+   * (details deleted before/with the match; no orphan match_details).
+   */
+  await db.transaction(async (tx) => {
+    // Restore fixture to scheduled (court/time kept) so operators can recreate the match.
+    await tx
+      .update(badmintonFixturesTable)
+      .set({
+        scoringMatchId: null,
+        status: "scheduled",
+        startedAt: null,
+        completedAt: null,
+        resultSummary: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(badmintonFixturesTable.scoringMatchId, matchId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .update(badmintonAnalyticsTable)
-    .set({ longestRallyMatchId: null, updatedAt: new Date() })
-    .where(
-      and(
-        eq(badmintonAnalyticsTable.tournamentId, tournamentId),
-        eq(badmintonAnalyticsTable.longestRallyMatchId, matchId),
-      ),
-    );
+    await tx
+      .update(badmintonAnalyticsTable)
+      .set({ longestRallyMatchId: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(badmintonAnalyticsTable.tournamentId, tournamentId),
+          eq(badmintonAnalyticsTable.longestRallyMatchId, matchId),
+        ),
+      );
 
-  await db
-    .delete(scoringEventsTable)
-    .where(
-      and(
-        eq(scoringEventsTable.matchId, matchId),
-        eq(scoringEventsTable.tournamentId, tournamentId),
-      ),
-    );
+    // Child rows first — prevents orphan match_details / dangling sessions/events.
+    await tx
+      .delete(scoringSessionsTable)
+      .where(eq(scoringSessionsTable.matchId, matchId));
 
-  await db
-    .delete(badmintonMatchDetailsTable)
-    .where(
-      and(
-        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
-        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(scoringEventsTable)
+      .where(
+        and(
+          eq(scoringEventsTable.matchId, matchId),
+          eq(scoringEventsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(scoringMatchesTable)
-    .where(
-      and(
-        eq(scoringMatchesTable.id, matchId),
-        eq(scoringMatchesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonMatchDetailsTable)
+      .where(
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      );
+
+    await tx
+      .delete(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+  });
+
+  await refreshBadmintonAnalyticsAfterDelete(tournamentId);
+  await refreshBadmintonLifecycle(tournamentId);
 }

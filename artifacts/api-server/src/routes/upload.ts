@@ -218,6 +218,8 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
 /**
  * POST /api/upload/audio
  * Accepts audio files up to 8 MB for platform/tournament broadcast sounds.
+ * Uses Cloudinary `video` resource type so browsers get playable audio URLs
+ * (raw uploads often lack a usable Content-Type / CORS for HTMLAudioElement).
  */
 router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
@@ -237,9 +239,13 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   try {
     const uploaded = await uploadPathToCloudinary(uploadInput(req.file), {
       folder: "bidwar/audio",
-      resource_type: "raw",
+      resource_type: "video",
     });
-    res.json({ url: uploaded.url, publicId: uploaded.publicId });
+    res.json({
+      url: uploaded.url,
+      publicId: uploaded.publicId,
+      originalName: req.file.originalname,
+    });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary audio upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });

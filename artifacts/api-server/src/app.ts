@@ -113,15 +113,36 @@ if (isProd && ENABLE_APP_HOST_REDIRECT) {
 
 // Gzip compression for all API JSON responses (level 6, skip payloads < 1 KB).
 // SSE streams are excluded: gzip buffers internally and holds events instead of
-// flushing them immediately, breaking live auction updates.
+// flushing them immediately, freezing live badminton / auction displays.
+function isSseUrlPath(pathname: string): boolean {
+  // Explicit URL exclusions — do not rely on Content-Type alone.
+  return (
+    pathname.includes("/badminton/stream")
+    || pathname.includes("/auction/events")
+    || pathname.includes("/scoring/events")
+    || pathname.includes("/admin-notifications/events")
+    // Mounted badminton router may see path as "/stream" only.
+    || pathname === "/stream"
+    || pathname.endsWith("/stream")
+  );
+}
+
 app.use(
   compression({
     level: 6,
     threshold: 1024,
     filter(req, res) {
-      // Never compress SSE streams — gzip buffering delays event delivery
-      if (req.path.includes("/auction/events") || req.path.endsWith("/events")) return false;
-      if (res.getHeader("Content-Type") === "text/event-stream") return false;
+      const rawUrl = req.originalUrl ?? req.url ?? "";
+      const pathname = rawUrl.split("?")[0] ?? "";
+      if (isSseUrlPath(pathname) || isSseUrlPath(req.path ?? "")) {
+        return false;
+      }
+      // Belt-and-suspenders if a future SSE route misses the URL list.
+      const ct = res.getHeader("Content-Type");
+      const ctStr = Array.isArray(ct) ? ct.join(";") : String(ct ?? "");
+      if (ctStr.includes("text/event-stream")) {
+        return false;
+      }
       return compression.filter(req, res);
     },
   }),
@@ -354,6 +375,22 @@ if (serveStatic) {
       });
       logger.info({ path: ownerDist }, "Static: owner-app at /owner-app");
     }
+
+    // Typo redirect: /scoring/app → /scoring-app (auction SPA would otherwise 404)
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        next();
+        return;
+      }
+      const pathname = req.path || "/";
+      if (pathname === "/scoring/app" || pathname.startsWith("/scoring/app/")) {
+        const rest = pathname === "/scoring/app" ? "/" : pathname.slice("/scoring/app".length);
+        const qs = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+        res.redirect(302, `/scoring-app${rest === "/" ? "/" : rest}${qs}`);
+        return;
+      }
+      next();
+    });
 
     // Scoring app at /scoring-app/ — before auction catch-all
     if (existsSync(scoringDist)) {

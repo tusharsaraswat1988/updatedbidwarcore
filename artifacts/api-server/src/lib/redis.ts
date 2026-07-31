@@ -8,6 +8,10 @@ let initAttempted = false;
 let redisUnavailable = false;
 let warnedFallback = false;
 
+/** Fail fast on boot — never block HTTP listen waiting on Redis forever. */
+const REDIS_CONNECT_TIMEOUT_MS = 5_000;
+const REDIS_STARTUP_PING_TIMEOUT_MS = 8_000;
+
 function createClient(label: string): Redis {
   const { redisUrl } = getRuntimeConfig();
   if (!redisUrl) {
@@ -18,6 +22,12 @@ function createClient(label: string): Redis {
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
     lazyConnect: false,
+    connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
+    // Startup must not hang; runtime ops still get error events + fallback.
+    retryStrategy(times) {
+      if (times > 3) return null;
+      return Math.min(times * 200, 1_000);
+    },
   });
 
   client.on("error", (err) => {
@@ -36,6 +46,25 @@ function createClient(label: string): Redis {
   });
 
   return client;
+}
+
+/** Fail fast on hung Redis ops so scoring / SSE never wait forever. */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /** True when REDIS_URL is configured and clients are available. */
@@ -72,7 +101,11 @@ export async function initRedisClients(): Promise<void> {
   const command = getRedisCommandClient();
   const subscriber = getRedisSubscriberClient();
   try {
-    await Promise.all([command?.ping(), subscriber?.ping()]);
+    await withTimeout(
+      Promise.all([command?.ping(), subscriber?.ping()]),
+      REDIS_STARTUP_PING_TIMEOUT_MS,
+      `Redis startup ping timed out after ${REDIS_STARTUP_PING_TIMEOUT_MS}ms`,
+    );
     logger.info("Redis configured for distributed locks and SSE pub/sub");
   } catch (err) {
     redisUnavailable = true;

@@ -105,10 +105,12 @@ export async function releaseScorerMatchLock(
 export async function forceUnlockBadmintonMatch(
   tournamentId: number,
   matchId: number,
-): Promise<void> {
-  const res = await fetch(
-    `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/force-unlock`,
-    { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } },
+): Promise<{ ok: true; cleared: boolean }> {
+  // Use the same authenticated fetch path as other director/organizer writes.
+  const { badmintonFetch } = await import("./badminton-api");
+  return badmintonFetch<{ ok: true; cleared: boolean }>(
+    tournamentId,
+    `/matches/${matchId}/force-unlock`,
+    { method: "POST", body: JSON.stringify({}) },
   );
-  if (!res.ok) throw await parseError(res);
 }

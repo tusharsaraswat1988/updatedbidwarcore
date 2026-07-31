@@ -1,5 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 
+/** Leaf destination under a parent module (sidebar sub-nav). */
+export type SportNavChild = {
+  id: string;
+  label: string;
+  href: (tournamentId: number) => string;
+  isActive: (pathname: string, tournamentId: number) => boolean;
+  /** Prefetch route chunk on hover/focus. */
+  preload?: () => void;
+};
+
 /** Single sidebar destination for a sport module. */
 export type SportNavItem = {
   id: string;
@@ -13,6 +23,11 @@ export type SportNavItem = {
   hint?: string;
   /** Prefetch route chunk on hover/focus (sidebar perceived speed). */
   preload?: () => void;
+  /**
+   * Optional child pages shown when the parent is expanded.
+   * Parent click toggles the submenu; child click navigates.
+   */
+  children?: SportNavChild[];
 };
 
 /** Labeled group of nav items (Setup, Operations, …). */

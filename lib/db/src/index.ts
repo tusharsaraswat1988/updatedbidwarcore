@@ -26,6 +26,13 @@ export type { DriftReport, SchemaContract, DatabaseRole } from "./schema-governa
 export { getBootMetricsSnapshot } from "./boot-metrics";
 export type { BootMetricsSnapshot, SystemCMetrics, SystemDMetrics } from "./boot-metrics";
 
+/** Cap concurrent DB clients — multi-court scoring + lifecycle needs headroom. */
+function resolvePoolMax(): number {
+  const raw = Number.parseInt(process.env.PG_POOL_MAX ?? "20", 10);
+  if (!Number.isFinite(raw)) return 20;
+  return Math.min(50, Math.max(5, raw));
+}
+
 export const pool = new Pool({
   connectionString: resolveDatabaseUrl(),
   // Fail fast if a new connection can't be established in 20s (Neon cold start
@@ -33,7 +40,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 20_000,
   // Release idle connections after 30s to avoid stale TCP issues on Neon.
   idleTimeoutMillis: 30_000,
-  max: 10,
+  max: resolvePoolMax(),
 });
 export const db = drizzle(pool, { schema });
 
@@ -519,6 +526,44 @@ void systemCQuery(`
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_banalytics_tournament_id ON badminton_analytics (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS badminton_groups (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      category_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      sort_order SMALLINT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_bgrp_tournament_id ON badminton_groups (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_bgrp_category_id ON badminton_groups (category_id);
+
+    CREATE TABLE IF NOT EXISTS badminton_group_members (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      seed SMALLINT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_bgm_group_id ON badminton_group_members (group_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_bgm_group_team ON badminton_group_members (group_id, team_id);
+
+    CREATE TABLE IF NOT EXISTS badminton_pair_standings (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      category_id INTEGER NOT NULL,
+      registration_id INTEGER NOT NULL,
+      group_id INTEGER,
+      played SMALLINT NOT NULL DEFAULT 0,
+      won SMALLINT NOT NULL DEFAULT 0,
+      lost SMALLINT NOT NULL DEFAULT 0,
+      margin_points INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_bps_tournament_id ON badminton_pair_standings (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_bps_category_id ON badminton_pair_standings (category_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_bps_category_registration ON badminton_pair_standings (category_id, registration_id);
   `)
   .catch((err) => {
     console.error("[db] failed to ensure badminton tables:", err);
@@ -581,6 +626,31 @@ void systemCQuery(`
   `)
   .catch((err) => {
     console.error("[db] failed to backfill badminton_match_details scorer_pin:", err);
+  });
+
+/** Sprint 1 — toss JSON column + scorer tournament assignments. */
+void systemCQuery(`
+    ALTER TABLE badminton_match_details
+      ADD COLUMN IF NOT EXISTS pre_match_toss_json JSONB;
+
+    ALTER TABLE badminton_match_details
+      ADD COLUMN IF NOT EXISTS master_stats_applied_at TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS scorer_tournament_assignments (
+      id SERIAL PRIMARY KEY,
+      scorer_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scorer_tournament_assignment
+      ON scorer_tournament_assignments (scorer_id, tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_tournament_assignments_tournament
+      ON scorer_tournament_assignments (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scorer_tournament_assignments_scorer
+      ON scorer_tournament_assignments (scorer_id);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure scorer assignments / pre_match_toss_json:", err);
   });
 
 /** Master Sports Core — shared player/team/sponsor identity */

@@ -18,8 +18,8 @@ import {
 
 } from "lucide-react";
 
-import { badmintonFetch } from "@/lib/badminton-api";
-
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
+import { isTerminalScoringMatchStatus } from "@workspace/badminton-core";
 import { useBadmintonDashboard } from "@/hooks/use-badminton-match";
 
 import {
@@ -41,9 +41,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
-import { useLocation } from "wouter";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -85,12 +83,20 @@ interface RegistrationRow {
 
 }
 
+interface TournamentAnalytics {
+  longestRally: number | null;
+  longestRallyMatchId: number | null;
+  fastestMatchMinutes: number | null;
+  totalRallies: number | null;
+  matchesCompleted: number | null;
+  analyticsJson: Record<string, unknown> | null;
+}
+
 
 
 export default function BadmintonAnalyticsPage() {
 
   const [, params] = useRoute("/tournament/:id/badminton/analytics");
-  const [, setLocation] = useLocation();
 
   const tournamentId = parseInt(params?.id ?? "0");
 
@@ -116,7 +122,17 @@ export default function BadmintonAnalyticsPage() {
 
     queryKey: ["badminton-matches", tournamentId],
 
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
+
+    enabled: !!tournamentId,
+
+  });
+
+  const { data: tournamentAnalytics } = useQuery<TournamentAnalytics | null>({
+
+    queryKey: ["badminton-analytics", tournamentId],
+
+    queryFn: () => badmintonFetch(tournamentId, `/analytics`),
 
     enabled: !!tournamentId,
 
@@ -162,13 +178,28 @@ export default function BadmintonAnalyticsPage() {
 
   const totalMatches = matches.length;
 
-  const completed = matches.filter((m) => m.status === "completed").length;
+  const finished = matches.filter((m) => isTerminalScoringMatchStatus(m.status)).length;
 
-  const live = matches.filter((m) => m.status === "live").length;
+  const completed = dashboard?.matchesCompleted ?? finished;
+
+  const live = matches.filter((m) => m.status === "live" || m.status === "paused").length;
 
   const scheduled = matches.filter((m) => m.status === "scheduled").length;
 
-  const completionRate = totalMatches > 0 ? Math.round((completed / totalMatches) * 100) : 0;
+  const completionRate = totalMatches > 0 ? Math.round((finished / totalMatches) * 100) : 0;
+
+  const breakdown = dashboard?.matchesCompletedBreakdown ?? null;
+
+  const otherFinished =
+    breakdown != null
+      ? (breakdown.walkover ?? 0) +
+        (breakdown.retired ?? 0) +
+        (breakdown.disqualified ?? 0) +
+        (breakdown.abandoned ?? 0)
+      : matches.filter(
+          (m) =>
+            m.status !== "completed" && isTerminalScoringMatchStatus(m.status),
+        ).length;
 
 
 
@@ -196,24 +227,9 @@ export default function BadmintonAnalyticsPage() {
         tournamentId={tournamentId}
         stepId="results"
         hideContinue
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={["standings", "summary", "insights"] as const}
-            labels={{
-              standings: "Standings",
-              summary: "Summary",
-              insights: "Insights",
-            }}
-            value="insights"
-            onChange={(next) => {
-              if (next === "standings") {
-                setLocation(`/tournament/${tournamentId}/badminton/results`);
-              } else if (next === "summary") {
-                setLocation(`/tournament/${tournamentId}/badminton/summary`);
-              }
-            }}
-          />
-        }
+        titleOverride="Insights"
+        purposeOverride="Understand participation, court load, and match progress."
+        taskOverride="Review analytics for planning and post-event reports."
       >
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
@@ -286,9 +302,21 @@ export default function BadmintonAnalyticsPage() {
 
                 <HubKpiCard label="Live Now" value={live} icon={Radio} tint="red" pulse={live > 0} />
 
-                <HubKpiCard label="Completed" value={completed} icon={CheckCircle2} tint="green" />
+                <HubKpiCard label="Finished" value={completed} icon={CheckCircle2} tint="green" />
 
               </div>
+
+
+
+              {otherFinished > 0 ? (
+
+                <p className="text-muted-foreground text-xs mt-3 font-mono">
+
+                  Includes {otherFinished} walkover / retired / DQ / abandoned
+
+                </p>
+
+              ) : null}
 
 
 
@@ -302,7 +330,7 @@ export default function BadmintonAnalyticsPage() {
 
                   <p className="text-muted-foreground text-xs mt-2 font-mono">
 
-                    {completed} of {totalMatches} matches completed
+                    {finished} of {totalMatches} matches finished
 
                   </p>
 
@@ -311,6 +339,73 @@ export default function BadmintonAnalyticsPage() {
               )}
 
             </section>
+
+
+
+            {tournamentAnalytics &&
+            (tournamentAnalytics.totalRallies != null ||
+              tournamentAnalytics.longestRally != null ||
+              tournamentAnalytics.fastestMatchMinutes != null) ? (
+
+              <section>
+
+                <HubSectionHeader title="Tournament Stats" />
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+
+                  {tournamentAnalytics.totalRallies != null ? (
+
+                    <HubKpiCard
+
+                      label="Total Rallies"
+
+                      value={tournamentAnalytics.totalRallies}
+
+                      icon={TrendingUp}
+
+                      tint="blue"
+
+                    />
+
+                  ) : null}
+
+                  {tournamentAnalytics.longestRally != null ? (
+
+                    <HubKpiCard
+
+                      label="Longest Rally"
+
+                      value={tournamentAnalytics.longestRally}
+
+                      icon={Radio}
+
+                      tint="purple"
+
+                    />
+
+                  ) : null}
+
+                  {tournamentAnalytics.fastestMatchMinutes != null ? (
+
+                    <HubKpiCard
+
+                      label="Fastest Match"
+
+                      value={`${Math.round(tournamentAnalytics.fastestMatchMinutes)} min`}
+
+                      icon={Calendar}
+
+                      tint="green"
+
+                    />
+
+                  ) : null}
+
+                </div>
+
+              </section>
+
+            ) : null}
 
 
 

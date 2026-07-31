@@ -2,7 +2,7 @@
  * Badminton ↔ Master Sports integration — import, resolve, statistics.
  */
 
-import { eq, and, inArray, asc, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, asc, desc, sql, or, isNotNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   globalPlayersTable,
@@ -12,6 +12,8 @@ import {
   playerTeamAssignmentsTable,
   playerStatisticsTable,
   masterPlayerIdMappingsTable,
+  playersTable,
+  teamsTable,
   tournamentsTable,
   type BadmintonPlayer,
   type GlobalPlayer,
@@ -57,6 +59,13 @@ import {
   queueImageFieldChange,
   type ImageFieldChange,
 } from "../cloudinary-image-fields";
+import {
+  assignPlayerToFranchiseRoster,
+  endActiveRosterAssignment,
+} from "@workspace/player-registry/roster-assignments";
+import {
+  syncAuctionTeamToMaster,
+} from "./sync";
 
 export type {
   BadmintonBranding,
@@ -139,6 +148,204 @@ function parseLinkedRegistryTournamentId(raw: unknown): number | undefined {
     if (Number.isFinite(parsed) && parsed > 0) return Math.trunc(parsed);
   }
   return undefined;
+}
+
+export function resolveRegistrySourceTournamentId(
+  tournamentId: number,
+  settings: BadmintonTournamentSettings,
+): number {
+  return (
+    settings.linkedPlayerRegistryTournamentId ??
+    settings.linkedAuctionTournamentId ??
+    tournamentId
+  );
+}
+
+export type BadmintonFranchiseTeamItem = {
+  auctionTeamId: number;
+  masterTeamId: string | null;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+};
+
+/** Auction franchise teams for the linked Player Registry tournament. */
+export async function listBadmintonFranchiseTeams(
+  tournamentId: number,
+): Promise<BadmintonFranchiseTeamItem[]> {
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const settings = getBadmintonSettings(
+    tournament?.scoringSettingsJson as Record<string, unknown> | null,
+  );
+  const registryTournamentId = resolveRegistrySourceTournamentId(tournamentId, settings);
+
+  const rows = await db
+    .select({
+      id: teamsTable.id,
+      name: teamsTable.name,
+      shortCode: teamsTable.shortCode,
+      logoUrl: teamsTable.logoUrl,
+      color: teamsTable.color,
+      masterTeamId: teamsTable.masterTeamId,
+    })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, registryTournamentId))
+    .orderBy(asc(teamsTable.name));
+
+  return rows.map((team) => ({
+    auctionTeamId: team.id,
+    masterTeamId: team.masterTeamId,
+    name: team.name,
+    shortName: team.shortCode,
+    logoUrl: team.logoUrl,
+    primaryColor: team.color,
+  }));
+}
+
+async function resolveFranchiseAuctionTeamId(
+  masterPlayer: GlobalPlayer,
+  lookupTournamentId: number,
+): Promise<number | null> {
+  const [assignment] = await db
+    .select({ auctionTeamId: playerTeamAssignmentsTable.auctionTeamId })
+    .from(playerTeamAssignmentsTable)
+    .where(
+      and(
+        eq(playerTeamAssignmentsTable.playerId, masterPlayer.id),
+        eq(playerTeamAssignmentsTable.tournamentId, lookupTournamentId),
+        eq(playerTeamAssignmentsTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(playerTeamAssignmentsTable.assignedAt))
+    .limit(1);
+
+  if (assignment?.auctionTeamId) return assignment.auctionTeamId;
+
+  if (masterPlayer.auctionPlayerId) {
+    const [auctionPlayer] = await db
+      .select({ teamId: playersTable.teamId })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.id, masterPlayer.auctionPlayerId),
+          eq(playersTable.tournamentId, lookupTournamentId),
+        ),
+      )
+      .limit(1);
+    return auctionPlayer?.teamId ?? null;
+  }
+
+  return null;
+}
+
+/** Assign or clear a badminton player's franchise team in Player Registry. */
+export async function assignBadmintonPlayerFranchiseTeam(
+  tournamentId: number,
+  badmintonPlayerId: number,
+  auctionTeamId: number | null,
+): Promise<BadmintonPlayerListItem> {
+  const [bp] = await db
+    .select()
+    .from(badmintonPlayersTable)
+    .where(
+      and(
+        eq(badmintonPlayersTable.id, badmintonPlayerId),
+        eq(badmintonPlayersTable.tournamentId, tournamentId),
+        eq(badmintonPlayersTable.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (!bp) throw new Error("Player not found");
+
+  const masterPlayerId = await resolveMasterPlayerId(bp);
+  if (!masterPlayerId) {
+    throw new Error(
+      "This player is not linked to the Player Registry yet. Import from Player Registry first, then assign a team.",
+    );
+  }
+
+  const [tournament] = await db
+    .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const settings = getBadmintonSettings(
+    tournament?.scoringSettingsJson as Record<string, unknown> | null,
+  );
+  const registryTournamentId = resolveRegistrySourceTournamentId(tournamentId, settings);
+
+  if (auctionTeamId === null) {
+    await endActiveRosterAssignment(masterPlayerId, registryTournamentId, "badminton");
+    const items = await listBadmintonPlayersForOrganizer(tournamentId);
+    const updated = items.find((p) => p.id === badmintonPlayerId);
+    if (!updated) throw new Error("Player not found");
+    return updated;
+  }
+
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(
+      and(
+        eq(teamsTable.id, auctionTeamId),
+        eq(teamsTable.tournamentId, registryTournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!team) throw new Error("Team not found for this tournament");
+
+  const masterTeamId = await syncAuctionTeamToMaster(team.id, registryTournamentId);
+  if (!masterTeamId) throw new Error("Could not sync team to Player Registry");
+
+  const [mp] = await db
+    .select({ auctionPlayerId: globalPlayersTable.auctionPlayerId })
+    .from(globalPlayersTable)
+    .where(eq(globalPlayersTable.id, masterPlayerId))
+    .limit(1);
+
+  let auctionPlayerId = mp?.auctionPlayerId ?? null;
+
+  if (!auctionPlayerId) {
+    const [auctionPlayer] = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.globalPlayerId, masterPlayerId),
+          eq(playersTable.tournamentId, registryTournamentId),
+        ),
+      )
+      .limit(1);
+    auctionPlayerId = auctionPlayer?.id ?? null;
+  }
+
+  if (!auctionPlayerId) {
+    auctionPlayerId = badmintonPlayerId;
+  }
+
+  await assignPlayerToFranchiseRoster({
+    masterPlayerId,
+    masterTeamId,
+    tournamentId: registryTournamentId,
+    auctionPlayerId,
+    auctionTeamId: team.id,
+    assignmentType: "transfer",
+    sport: "badminton",
+  });
+
+  const items = await listBadmintonPlayersForOrganizer(tournamentId);
+  const updated = items.find((p) => p.id === badmintonPlayerId);
+  if (!updated) throw new Error("Player not found");
+  return updated;
 }
 
 export function getBadmintonSettings(
@@ -245,6 +452,7 @@ export async function loadBadmintonBranding(
       sponsorLogos: tournamentsTable.sponsorLogos,
       venue: tournamentsTable.venue,
       organizerName: tournamentsTable.organizerName,
+      breakEndMusicUrl: tournamentsTable.breakEndMusicUrl,
       scoringSettingsJson: tournamentsTable.scoringSettingsJson,
     })
     .from(tournamentsTable)
@@ -252,7 +460,13 @@ export async function loadBadmintonBranding(
     .limit(1);
 
   if (!tournament) return null;
-  return getBadmintonBranding(tournament, tournament.scoringSettingsJson as Record<string, unknown>);
+  const { getPlatformDefaultAudioCached } = await import("../platform-audio-defaults");
+  const platformAudio = await getPlatformDefaultAudioCached();
+  return getBadmintonBranding(
+    tournament,
+    tournament.scoringSettingsJson as Record<string, unknown>,
+    platformAudio.breakEndMusicUrl,
+  );
 }
 
 export async function updateBadmintonBranding(
@@ -367,7 +581,9 @@ export async function updateBadmintonBranding(
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
 
-  return getBadmintonBranding(updated!, updated!.scoringSettingsJson as Record<string, unknown>);
+  const loaded = await loadBadmintonBranding(tournamentId);
+  if (!loaded) throw new Error("Tournament not found");
+  return loaded;
 }
 
 /** Set which LIVE match persistent Venue/OBS URLs follow (multi-court Primary Broadcast). */
@@ -386,11 +602,87 @@ export async function updateBroadcastPresentation(
   input: {
     overlayScene?: BadmintonOverlayScene;
     venueScene?: BadmintonVenueScene;
+    venueMusicPlaying?: boolean;
+    venueMusicUrl?: string | null;
+    venueMusicFileName?: string | null;
+    venueMusicVolume?: number;
+    /** Copy tournament auction break music into badminton override. */
+    importAuctionMusic?: boolean;
   },
 ): Promise<BadmintonBranding> {
-  return updateBroadcastSettings(tournamentId, {
+  const patch: Record<string, unknown> = {
     ...(input.overlayScene !== undefined ? { overlayScene: input.overlayScene } : {}),
     ...(input.venueScene !== undefined ? { venueScene: input.venueScene } : {}),
+    ...(input.venueMusicPlaying !== undefined
+      ? { venueMusicPlaying: input.venueMusicPlaying }
+      : {}),
+    ...(input.venueMusicUrl !== undefined ? { venueMusicUrl: input.venueMusicUrl } : {}),
+    ...(input.venueMusicFileName !== undefined
+      ? { venueMusicFileName: input.venueMusicFileName }
+      : {}),
+    ...(input.venueMusicVolume !== undefined
+      ? { venueMusicVolume: input.venueMusicVolume }
+      : {}),
+  };
+
+  if (input.venueMusicUrl === null) {
+    patch.venueMusicFileName = null;
+  }
+
+  if (input.importAuctionMusic) {
+    const [tournament] = await db
+      .select({ breakEndMusicUrl: tournamentsTable.breakEndMusicUrl })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1);
+    const url = tournament?.breakEndMusicUrl?.trim() || null;
+    if (!url) throw new Error("No auction break music set for this tournament");
+    patch.venueMusicUrl = url;
+    patch.venueMusicFileName = "Auction break music";
+  }
+
+  return updateBroadcastSettings(tournamentId, patch);
+}
+
+const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
+  "intro",
+  "sponsor",
+  "results",
+  "leaderboards",
+]);
+const RALLY_UNSAFE_VENUE: ReadonlySet<BadmintonVenueScene> = new Set([
+  "intro",
+  "sponsor",
+  "results",
+  "leaderboards",
+]);
+
+/**
+ * After the first rally of a live match, clear intro/sponsor packages so OBS +
+ * Venue (and Mission Control chips) return to live score. Winner/next untouched.
+ * Returns updated branding when a change was applied; null when already safe.
+ */
+export async function clearRallyUnsafeBroadcastScenes(
+  tournamentId: number,
+): Promise<BadmintonBranding | null> {
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+  if (!tournament) return null;
+
+  const branding = getBadmintonBranding(
+    tournament,
+    tournament.scoringSettingsJson as Record<string, unknown>,
+  );
+  const overlayNeedsClear = RALLY_UNSAFE_OVERLAY.has(branding.overlayScene);
+  const venueNeedsClear = RALLY_UNSAFE_VENUE.has(branding.venueScene);
+  if (!overlayNeedsClear && !venueNeedsClear) return null;
+
+  return updateBroadcastPresentation(tournamentId, {
+    ...(overlayNeedsClear ? { overlayScene: "auto" as const } : {}),
+    ...(venueNeedsClear ? { venueScene: "auto" as const } : {}),
   });
 }
 
@@ -416,13 +708,10 @@ async function updateBroadcastSettings(
     .set({ scoringSettingsJson: nextSettings })
     .where(eq(tournamentsTable.id, tournamentId));
 
-  const [updated] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  return getBadmintonBranding(updated!, updated!.scoringSettingsJson as Record<string, unknown>);
+  return loadBadmintonBranding(tournamentId).then((b) => {
+    if (!b) throw new Error("Tournament not found");
+    return b;
+  });
 }
 
 export async function importBrandingFromTournament(
@@ -702,6 +991,42 @@ export async function enrichMasterPlayerForTournament(
         }
       }
     }
+  } else if (masterPlayer.auctionPlayerId) {
+    const [auctionPlayer] = await db
+      .select({ teamId: playersTable.teamId })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.id, masterPlayer.auctionPlayerId),
+          eq(playersTable.tournamentId, lookupTournamentId),
+          or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
+        ),
+      )
+      .limit(1);
+
+    if (auctionPlayer?.teamId) {
+      const [auctionTeam] = await db
+        .select({ name: teamsTable.name, logoUrl: teamsTable.logoUrl, masterTeamId: teamsTable.masterTeamId })
+        .from(teamsTable)
+        .where(eq(teamsTable.id, auctionPlayer.teamId))
+        .limit(1);
+
+      if (auctionTeam) {
+        franchiseName = auctionTeam.name;
+        franchiseLogoUrl = auctionTeam.logoUrl;
+        if (auctionTeam.masterTeamId) {
+          const [masterTeam] = await db
+            .select()
+            .from(masterTeamsTable)
+            .where(eq(masterTeamsTable.id, auctionTeam.masterTeamId))
+            .limit(1);
+          if (masterTeam) {
+            franchiseName = masterTeam.name;
+            franchiseLogoUrl = masterTeam.logoUrl ?? franchiseLogoUrl;
+          }
+        }
+      }
+    }
   }
 
   if (masterPlayer.sponsorId) {
@@ -800,17 +1125,105 @@ export async function getBadmintonRosterMasterPlayerIds(
   return masterIds;
 }
 
+/** Preserve first-seen order while deduplicating master player IDs. */
+export function mergeUniqueMasterPlayerIds(...lists: string[][]): string[] {
+  const masterIds: string[] = [];
+  const seen = new Set<string>();
+  for (const list of lists) {
+    for (const id of list) {
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        masterIds.push(id);
+      }
+    }
+  }
+  return masterIds;
+}
+
+/**
+ * Master player IDs from sold/retained auction roster players.
+ * Covers bulk import and manual status edits that synced global_players but skipped PTA.
+ */
+export async function getAuctionRegistryMasterPlayerIds(
+  sourceTournamentId: number,
+): Promise<string[]> {
+  const auctionRows = await db
+    .select({
+      globalPlayerId: playersTable.globalPlayerId,
+      auctionPlayerId: playersTable.id,
+    })
+    .from(playersTable)
+    .where(
+      and(
+        eq(playersTable.tournamentId, sourceTournamentId),
+        or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
+      ),
+    )
+    .orderBy(asc(playersTable.serialNo));
+
+  const masterIds: string[] = [];
+  const missingAuctionIds: number[] = [];
+
+  for (const row of auctionRows) {
+    if (row.globalPlayerId) {
+      masterIds.push(row.globalPlayerId);
+    } else {
+      missingAuctionIds.push(row.auctionPlayerId);
+    }
+  }
+
+  if (missingAuctionIds.length === 0) return masterIds;
+
+  const linked = await db
+    .select({
+      id: globalPlayersTable.id,
+      auctionPlayerId: globalPlayersTable.auctionPlayerId,
+    })
+    .from(globalPlayersTable)
+    .where(
+      and(
+        inArray(globalPlayersTable.auctionPlayerId, missingAuctionIds),
+        isNotNull(globalPlayersTable.auctionPlayerId),
+      ),
+    );
+
+  const linkedByAuctionId = new Map(
+    linked
+      .filter((row) => row.auctionPlayerId != null)
+      .map((row) => [row.auctionPlayerId as number, row.id]),
+  );
+
+  const resolved: string[] = [];
+  for (const row of auctionRows) {
+    if (row.globalPlayerId) {
+      resolved.push(row.globalPlayerId);
+      continue;
+    }
+    const masterId = linkedByAuctionId.get(row.auctionPlayerId);
+    if (masterId) resolved.push(masterId);
+  }
+
+  return resolved;
+}
+
 /**
  * Resolve importable master IDs for a source tournament.
- * Prefer the badminton roster; fall back to Player Registry team assignments.
- * Never touches the auction players table.
+ * Prefer the live auction roster (sold/retained) so stale PTA rows and withdrawn
+ * badminton test imports do not inflate the import list. Fall back to registry merge
+ * only when the tournament has no sold/retained auction players yet.
  */
 export async function resolveImportSourceMasterPlayerIds(
   sourceTournamentId: number,
 ): Promise<string[]> {
-  const fromBadminton = await getBadmintonRosterMasterPlayerIds(sourceTournamentId);
-  if (fromBadminton.length > 0) return fromBadminton;
-  return getPlayerRegistryMasterPlayerIds(sourceTournamentId);
+  const fromAuction = await getAuctionRegistryMasterPlayerIds(sourceTournamentId);
+  if (fromAuction.length > 0) return fromAuction;
+
+  const [fromRegistry, fromBadminton] = await Promise.all([
+    getPlayerRegistryMasterPlayerIds(sourceTournamentId),
+    getBadmintonRosterMasterPlayerIds(sourceTournamentId),
+  ]);
+
+  return mergeUniqueMasterPlayerIds(fromRegistry, fromBadminton);
 }
 
 /** List master players available for import into a badminton tournament. */
@@ -865,23 +1278,20 @@ export async function listMasterPlayersForBadminton(
 
   const masterPlayerIds = await resolveImportSourceMasterPlayerIds(registrySourceTournamentId);
 
-  let masterPlayers: GlobalPlayer[];
-  if (masterPlayerIds.length === 0) {
-    masterPlayers = [];
-  } else {
-    masterPlayers = await db
+  let masterPlayersById = new Map<string, GlobalPlayer>();
+  if (masterPlayerIds.length > 0) {
+    const masterPlayers = await db
       .select()
       .from(globalPlayersTable)
-      .where(inArray(globalPlayersTable.id, masterPlayerIds));
+      .where(inArray(globalPlayersTable.id, [...new Set(masterPlayerIds)]));
 
-    const order = new Map(masterPlayerIds.map((id, index) => [id, index]));
-    masterPlayers.sort(
-      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
-    );
+    masterPlayersById = new Map(masterPlayers.map((mp) => [mp.id, mp]));
   }
 
   const items: MasterPlayerListItem[] = [];
-  for (const mp of masterPlayers) {
+  for (const masterId of masterPlayerIds) {
+    const mp = masterPlayersById.get(masterId);
+    if (!mp) continue;
     const enriched = await enrichMasterPlayerForTournament(
       mp,
       tournamentId,
@@ -896,6 +1306,212 @@ export async function listMasterPlayersForBadminton(
   }
 
   return items;
+}
+
+type BadmintonFranchiseEnrichment = {
+  franchiseName: string | null;
+  franchiseLogoUrl: string | null;
+  franchiseAuctionTeamId: number | null;
+};
+
+/** Batch-load franchise metadata for a tournament roster (avoids per-player N+1 queries). */
+async function batchFranchiseEnrichmentForBadmintonPlayers(
+  tournamentId: number,
+  rows: BadmintonPlayer[],
+  settings: BadmintonTournamentSettings,
+): Promise<Map<number, BadmintonFranchiseEnrichment>> {
+  const empty: BadmintonFranchiseEnrichment = {
+    franchiseName: null,
+    franchiseLogoUrl: null,
+    franchiseAuctionTeamId: null,
+  };
+
+  if (rows.length === 0) return new Map();
+
+  const lookupTournamentId =
+    settings.linkedPlayerRegistryTournamentId ??
+    settings.linkedAuctionTournamentId ??
+    tournamentId;
+
+  const badmintonIdToMasterId = new Map<number, string>();
+  const needsMapping: number[] = [];
+
+  for (const bp of rows) {
+    if (bp.masterPlayerId) {
+      badmintonIdToMasterId.set(bp.id, bp.masterPlayerId);
+    } else {
+      needsMapping.push(bp.id);
+    }
+  }
+
+  if (needsMapping.length > 0) {
+    const mappings = await db
+      .select({
+        sourcePlayerId: masterPlayerIdMappingsTable.sourcePlayerId,
+        masterPlayerId: masterPlayerIdMappingsTable.masterPlayerId,
+      })
+      .from(masterPlayerIdMappingsTable)
+      .where(
+        and(
+          eq(masterPlayerIdMappingsTable.sourceModule, "badminton"),
+          eq(masterPlayerIdMappingsTable.tournamentId, tournamentId),
+          inArray(masterPlayerIdMappingsTable.sourcePlayerId, needsMapping),
+        ),
+      );
+
+    for (const mapping of mappings) {
+      if (mapping.masterPlayerId) {
+        badmintonIdToMasterId.set(mapping.sourcePlayerId, mapping.masterPlayerId);
+      }
+    }
+  }
+
+  const masterIds = [...new Set(badmintonIdToMasterId.values())];
+  const enrichmentByMasterId = new Map<string, BadmintonFranchiseEnrichment>();
+
+  if (masterIds.length === 0) {
+    return new Map(rows.map((bp) => [bp.id, empty]));
+  }
+
+  const masterPlayers = await db
+    .select()
+    .from(globalPlayersTable)
+    .where(inArray(globalPlayersTable.id, masterIds));
+  const masterById = new Map(masterPlayers.map((mp) => [mp.id, mp]));
+
+  const assignments = await db
+    .select()
+    .from(playerTeamAssignmentsTable)
+    .where(
+      and(
+        inArray(playerTeamAssignmentsTable.playerId, masterIds),
+        eq(playerTeamAssignmentsTable.tournamentId, lookupTournamentId),
+        eq(playerTeamAssignmentsTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
+
+  const assignmentByMasterId = new Map<string, (typeof assignments)[number]>();
+  for (const assignment of assignments) {
+    if (!assignmentByMasterId.has(assignment.playerId)) {
+      assignmentByMasterId.set(assignment.playerId, assignment);
+    }
+  }
+
+  const masterTeamIds = new Set<string>();
+  for (const assignment of assignmentByMasterId.values()) {
+    if (assignment.teamId) masterTeamIds.add(assignment.teamId);
+  }
+
+  const auctionPlayerIds = masterPlayers
+    .filter((mp) => mp.auctionPlayerId != null)
+    .map((mp) => mp.auctionPlayerId as number);
+
+  const auctionPlayers =
+    auctionPlayerIds.length > 0
+      ? await db
+          .select({
+            id: playersTable.id,
+            teamId: playersTable.teamId,
+          })
+          .from(playersTable)
+          .where(
+            and(
+              inArray(playersTable.id, auctionPlayerIds),
+              eq(playersTable.tournamentId, lookupTournamentId),
+              or(eq(playersTable.status, "sold"), eq(playersTable.status, "retained")),
+            ),
+          )
+      : [];
+
+  const auctionPlayerById = new Map(auctionPlayers.map((row) => [row.id, row]));
+  const auctionTeamIds = new Set<number>();
+  for (const row of auctionPlayers) {
+    if (row.teamId != null) auctionTeamIds.add(row.teamId);
+  }
+
+  const auctionTeams =
+    auctionTeamIds.size > 0
+      ? await db
+          .select({
+            id: teamsTable.id,
+            name: teamsTable.name,
+            logoUrl: teamsTable.logoUrl,
+            masterTeamId: teamsTable.masterTeamId,
+          })
+          .from(teamsTable)
+          .where(inArray(teamsTable.id, [...auctionTeamIds]))
+      : [];
+
+  const auctionTeamById = new Map(auctionTeams.map((team) => [team.id, team]));
+  for (const team of auctionTeams) {
+    if (team.masterTeamId) masterTeamIds.add(team.masterTeamId);
+  }
+
+  const masterTeams =
+    masterTeamIds.size > 0
+      ? await db
+          .select()
+          .from(masterTeamsTable)
+          .where(inArray(masterTeamsTable.id, [...masterTeamIds]))
+      : [];
+  const masterTeamById = new Map(masterTeams.map((team) => [team.id, team]));
+
+  for (const masterId of masterIds) {
+    const mp = masterById.get(masterId);
+    if (!mp) {
+      enrichmentByMasterId.set(masterId, empty);
+      continue;
+    }
+
+    let franchiseName: string | null = null;
+    let franchiseLogoUrl: string | null = null;
+    let franchiseAuctionTeamId: number | null = null;
+
+    const assignment = assignmentByMasterId.get(masterId);
+    if (assignment) {
+      franchiseAuctionTeamId = assignment.auctionTeamId ?? null;
+      const team = masterTeamById.get(assignment.teamId);
+      if (team) {
+        franchiseName = team.name;
+        franchiseLogoUrl = team.logoUrl;
+      }
+    } else if (mp.auctionPlayerId) {
+      const auctionPlayer = auctionPlayerById.get(mp.auctionPlayerId);
+      if (auctionPlayer?.teamId) {
+        franchiseAuctionTeamId = auctionPlayer.teamId;
+        const auctionTeam = auctionTeamById.get(auctionPlayer.teamId);
+        if (auctionTeam) {
+          franchiseName = auctionTeam.name;
+          franchiseLogoUrl = auctionTeam.logoUrl;
+          if (auctionTeam.masterTeamId) {
+            const masterTeam = masterTeamById.get(auctionTeam.masterTeamId);
+            if (masterTeam) {
+              franchiseName = masterTeam.name;
+              franchiseLogoUrl = masterTeam.logoUrl ?? franchiseLogoUrl;
+            }
+          }
+        }
+      }
+    }
+
+    enrichmentByMasterId.set(masterId, {
+      franchiseName,
+      franchiseLogoUrl,
+      franchiseAuctionTeamId,
+    });
+  }
+
+  const result = new Map<number, BadmintonFranchiseEnrichment>();
+  for (const bp of rows) {
+    const masterId = badmintonIdToMasterId.get(bp.id);
+    result.set(
+      bp.id,
+      masterId ? (enrichmentByMasterId.get(masterId) ?? empty) : empty,
+    );
+  }
+
+  return result;
 }
 
 export type MatchRosterPlayerItem = {
@@ -932,46 +1548,29 @@ export async function listBadmintonPlayersForMatchRoster(
     )
     .orderBy(asc(badmintonPlayersTable.lastName), asc(badmintonPlayersTable.firstName));
 
-  const items: MatchRosterPlayerItem[] = [];
+  const franchiseByBadmintonId = await batchFranchiseEnrichmentForBadmintonPlayers(
+    tournamentId,
+    rows,
+    settings,
+  );
 
-  for (const bp of rows) {
-    let franchiseName: string | null = null;
-    let franchiseLogoUrl: string | null = null;
-
-    const masterPlayerId = await resolveMasterPlayerId(bp);
-    if (masterPlayerId) {
-      const [mp] = await db
-        .select()
-        .from(globalPlayersTable)
-        .where(eq(globalPlayersTable.id, masterPlayerId))
-        .limit(1);
-      if (mp) {
-        const enriched = await enrichMasterPlayerForTournament(
-          mp,
-          tournamentId,
-          settings.linkedPlayerRegistryTournamentId ?? settings.linkedAuctionTournamentId,
-        );
-        franchiseName = enriched.franchiseName;
-        franchiseLogoUrl = enriched.franchiseLogoUrl;
-      }
-    }
-
-    items.push({
+  return rows.map((bp) => {
+    const franchise = franchiseByBadmintonId.get(bp.id);
+    return {
       badmintonPlayerId: bp.id,
-      masterPlayerId,
+      masterPlayerId: bp.masterPlayerId ?? null,
       displayName: bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim(),
       photoUrl: bp.photoUrl ?? null,
-      franchiseName,
-      franchiseLogoUrl,
-    });
-  }
-
-  return items;
+      franchiseName: franchise?.franchiseName ?? null,
+      franchiseLogoUrl: franchise?.franchiseLogoUrl ?? null,
+    };
+  });
 }
 
 export type BadmintonPlayerListItem = BadmintonPlayer & {
   franchiseName: string | null;
   franchiseLogoUrl: string | null;
+  franchiseAuctionTeamId: number | null;
 };
 
 /** Organizer players page — full rows plus Player Registry franchise when assigned. */
@@ -999,38 +1598,21 @@ export async function listBadmintonPlayersForOrganizer(
     )
     .orderBy(asc(badmintonPlayersTable.lastName), asc(badmintonPlayersTable.firstName));
 
-  const items: BadmintonPlayerListItem[] = [];
+  const franchiseByBadmintonId = await batchFranchiseEnrichmentForBadmintonPlayers(
+    tournamentId,
+    rows,
+    settings,
+  );
 
-  for (const bp of rows) {
-    let franchiseName: string | null = null;
-    let franchiseLogoUrl: string | null = null;
-
-    const masterPlayerId = await resolveMasterPlayerId(bp);
-    if (masterPlayerId) {
-      const [mp] = await db
-        .select()
-        .from(globalPlayersTable)
-        .where(eq(globalPlayersTable.id, masterPlayerId))
-        .limit(1);
-      if (mp) {
-        const enriched = await enrichMasterPlayerForTournament(
-          mp,
-          tournamentId,
-          settings.linkedPlayerRegistryTournamentId ?? settings.linkedAuctionTournamentId,
-        );
-        franchiseName = enriched.franchiseName;
-        franchiseLogoUrl = enriched.franchiseLogoUrl;
-      }
-    }
-
-    items.push({
+  return rows.map((bp) => {
+    const franchise = franchiseByBadmintonId.get(bp.id);
+    return {
       ...bp,
-      franchiseName,
-      franchiseLogoUrl,
-    });
-  }
-
-  return items;
+      franchiseName: franchise?.franchiseName ?? null,
+      franchiseLogoUrl: franchise?.franchiseLogoUrl ?? null,
+      franchiseAuctionTeamId: franchise?.franchiseAuctionTeamId ?? null,
+    };
+  });
 }
 
 /** Build side JSON from a registered badminton player row. */
@@ -1511,7 +2093,14 @@ export async function updateBadmintonStatisticsFromMatch(
   leftSideJson: Record<string, unknown>,
   rightSideJson: Record<string, unknown>,
 ): Promise<void> {
-  if (state.matchStatus !== "completed" && state.matchStatus !== "walkover" && state.matchStatus !== "retired") {
+  // Include all terminal outcomes — walkover/retired/DQ/abandoned still credit a match.
+  if (
+    state.matchStatus !== "completed" &&
+    state.matchStatus !== "walkover" &&
+    state.matchStatus !== "retired" &&
+    state.matchStatus !== "disqualified" &&
+    state.matchStatus !== "abandoned"
+  ) {
     return;
   }
 

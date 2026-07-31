@@ -11,7 +11,7 @@ interface ScorerConsoleHeaderProps {
   className?: string;
 }
 
-/** Compact top bar — tournament context + BidWar identity. Stays under ~40px. */
+/** Top bar — tournament context + BidWar identity. */
 export function ScorerConsoleHeader({
   tournamentName,
   courtNumber,
@@ -24,20 +24,17 @@ export function ScorerConsoleHeader({
   return (
     <header
       className={cn(
-        "shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-border bg-card/95 backdrop-blur-sm",
-        "min-h-[2.25rem] max-h-10",
+        "shrink-0 flex items-center gap-2 px-3 py-2 border-b border-border bg-card/95 backdrop-blur-sm",
+        "min-h-12",
         className,
       )}
     >
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 text-[11px] sm:text-xs leading-tight">
-        <span className="font-semibold text-foreground truncate">{tournamentName}</span>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-foreground text-sm leading-tight truncate" title={tournamentName}>
+          {tournamentName}
+        </p>
         {courtNumber ? (
-          <>
-            <span className="text-muted-foreground/50 shrink-0" aria-hidden>
-              |
-            </span>
-            <span className="text-muted-foreground shrink-0 whitespace-nowrap">Court {courtNumber}</span>
-          </>
+          <p className="text-muted-foreground text-[11px] leading-tight mt-0.5">Court {courtNumber}</p>
         ) : null}
       </div>
 
@@ -47,7 +44,7 @@ export function ScorerConsoleHeader({
         <button
           type="button"
           onClick={onToggleVoice}
-          className="shrink-0 text-[9px] uppercase tracking-wide px-2 py-1 rounded border border-white/10 text-white/45 hover:text-white/75"
+          className="shrink-0 text-[9px] uppercase tracking-wide px-2 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground"
           aria-pressed={voiceEnabled}
         >
           Voice {voiceEnabled ? "On" : "Off"}

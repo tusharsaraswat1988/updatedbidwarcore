@@ -10,7 +10,8 @@
  * matches, dashboard, SSE stream) are intentionally public so that
  * audience displays, scoreboards and OBS overlays can be embedded without
  * auth.  All reads are scoped to the URL tournament; no cross-tournament
- * leakage is possible.
+ * leakage is possible. Player contact PII (mobile/email) is stripped on
+ * public reads; organizers with a valid session still receive full fields.
  *
  * WRITE endpoints (POST/PATCH/DELETE on entities and all scoring actions)
  * require EITHER:
@@ -41,6 +42,7 @@ import {
   badmintonDrawsTable,
   badmintonFixturesTable,
   badmintonMatchDetailsTable,
+  badmintonAnalyticsTable,
   scoringMatchesTable,
   tournamentsTable,
 } from "@workspace/db";
@@ -59,6 +61,7 @@ import {
   handleTimeout,
   handleInterval,
   handleCourtChangeAck,
+  handleCorrectToss,
   handleWalkover,
   handleDisqualification,
   handlePauseMatch,
@@ -77,17 +80,19 @@ import {
   friendlyBadmintonCommandMessage,
 } from "../lib/badminton-ops";
 import {
-  createScorerAccountForAdmin,
+  assertScorerMayAccessTournament,
+  createScorerAccountForTournament,
   extractBearerToken,
-  listScorerAccountsForAdmin,
+  listScorerAccountsForTournament,
   resolveScorerAuthFromToken,
   ScorerAuthError,
-  updateScorerAccountForAdmin,
+  updateScorerAccountForTournament,
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
 import {
   assertSessionOwnsMatchLock,
   forceUnlockMatch,
+  getFreshMatchLock,
   releaseLockOnMatchFinish,
   ScorerLockError,
 } from "../lib/scorer-match-locks";
@@ -96,6 +101,11 @@ import {
   createFixtureCollection,
   importFixtureCollectionStub,
 } from "../lib/fixture-collection-writer";
+import {
+  planKnockoutBracket,
+  wireKnockoutProgressionLinks,
+  advanceKnockoutWinner,
+} from "../lib/badminton-knockout-progression";
 import {
   canCreateMatchFromFixture,
   FixtureSchedulingError,
@@ -107,6 +117,8 @@ import {
   buildSideJsonFromBadmintonPlayer,
   listBadmintonPlayersForMatchRoster,
   listBadmintonPlayersForOrganizer,
+  assignBadmintonPlayerFranchiseTeam,
+  clearRallyUnsafeBroadcastScenes,
 } from "../lib/master-sports/badminton";
 import {
   validateBadmintonCategoryEntry,
@@ -124,18 +136,32 @@ import {
   markLatency,
   toPhaseBreakdown,
 } from "../lib/badminton-latency-trace";
+import { TERMINAL_SCORING_MATCH_STATUSES } from "../lib/scoring-match-terminal";
+import { scheduleBadmintonLifecycleRefresh } from "../lib/badminton-lifecycle";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
+import {
+  generateLeagueFixtures,
+  getCategoryPairStandings,
+  listLeagueGroups,
+  replaceLeagueGroups,
+} from "../lib/badminton-league-service";
+import { bulkCreateBadmintonMatchesFromFixtures } from "../lib/badminton-bulk-match-create";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
 import {
   queueImageFieldChange,
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
 import {
+  canAccessPrivateTournamentData,
   isTournamentOrganizer,
   requireTournamentOrganizer,
 } from "../middleware/require-organizer";
+import {
+  publicBadmintonPlayerSerializer,
+  serializeBadmintonPlayerForAudience,
+} from "../lib/serializers/badminton-player";
 
 const router = Router({ mergeParams: true });
 
@@ -387,11 +413,11 @@ async function guardBadmintonScoring(
 
   const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) {
-    if (auth.code === "MATCH_LOCKED") {
+    if (auth.code === "MATCH_LOCKED" || auth.code === "LOCK_HELD") {
       res.status(409).json({
-        code: "MATCH_LOCKED",
-        message: "This match is currently being scored by another active session.",
-        error: "This match is currently being scored by another active session.",
+        code: auth.code,
+        message: auth.error,
+        error: auth.error,
       });
       return null;
     }
@@ -408,8 +434,11 @@ async function guardBadmintonScoring(
  * Check write permission for a scoring action.
  *
  * Priority:
- *  1. Tournament owner / admin → allowed (bypasses lock; still audited by caller)
- *  2. Scorer JWT + active session + account + lock ownership
+ *  1. Scorer JWT + active session + account + lock ownership
+ *  2. Tournament owner / admin — allowed when match is not live, or no foreign
+ *     scorer lock is held. During live, a foreign lock returns 409 LOCK_HELD
+ *     (force-unlock is the explicit takeover path). Director terminal routes
+ *     use guardBadmintonDirector and are unaffected.
  */
 async function canWriteScoring(
   req: Request,
@@ -419,11 +448,61 @@ async function canWriteScoring(
   | { ok: true; ctx: ScoringActorContext }
   | { ok: false; status: number; code: string; error: string }
 > {
+  const token = extractBearerToken(req.headers.authorization);
+
+  // Prefer scorer JWT when present so lock holders keep working even if they
+  // are also an organizer on the same request.
+  if (token) {
+    try {
+      const scorer = await resolveScorerAuthFromToken(token);
+      await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
+      await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
+      return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
+    } catch (e) {
+      // Fall through to owner path when token is not a scorer JWT (e.g. organizer
+      // Bearer) — only hard-fail lock/auth errors from a resolved scorer identity.
+      if (e instanceof ScorerLockError) {
+        return {
+          ok: false,
+          status: e.status,
+          code: e.code,
+          error: e.message,
+        };
+      }
+      if (e instanceof ScorerAuthError && e.code !== "INVALID_TOKEN" && e.code !== "AUTH_REQUIRED") {
+        return { ok: false, status: e.status, code: e.code, error: e.message };
+      }
+    }
+  }
+
   if (await resolveIsTournamentOwner(req, tournamentId)) {
+    const [match] = await db
+      .select({ status: scoringMatchesTable.status })
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (match?.status === "live") {
+      const lock = await getFreshMatchLock(matchId);
+      if (lock) {
+        return {
+          ok: false,
+          status: 409,
+          code: "LOCK_HELD",
+          error:
+            "A scorer holds the live match lock. Force-unlock (take over) before scoring from Match Control.",
+        };
+      }
+    }
+
     return { ok: true, ctx: { kind: "organizer_or_admin", usedScorer: false } };
   }
 
-  const token = extractBearerToken(req.headers.authorization);
   if (!token) {
     return {
       ok: false,
@@ -433,29 +512,12 @@ async function canWriteScoring(
     };
   }
 
-  try {
-    const scorer = await resolveScorerAuthFromToken(token);
-    await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
-    return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
-  } catch (e) {
-    if (e instanceof ScorerAuthError) {
-      return { ok: false, status: e.status, code: e.code, error: e.message };
-    }
-    if (e instanceof ScorerLockError) {
-      return {
-        ok: false,
-        status: e.status,
-        code: e.code,
-        error: e.message,
-      };
-    }
-    return {
-      ok: false,
-      status: 403,
-      code: "SCORING_FORBIDDEN",
-      error: "Scoring not allowed",
-    };
-  }
+  return {
+    ok: false,
+    status: 403,
+    code: "SCORING_FORBIDDEN",
+    error: "Scoring not allowed",
+  };
 }
 
 // ─── SSE stream ───────────────────────────────────────────────────────────────
@@ -463,8 +525,9 @@ async function canWriteScoring(
 /**
  * Public — scoreboards and OBS overlays embed this without auth.
  * Client is registered with tournamentId so broadcasts are tenant-scoped.
+ * Match-scoped clients (matchId > 0) receive one initial match_state snapshot.
  */
-router.get("/stream", (req, res) => {
+router.get("/stream", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -479,6 +542,24 @@ router.get("/stream", (req, res) => {
   const client = createBadmintonSseClient({ res, matchId: matchId ?? 0, tournamentId });
   addBadmintonSseClient(client);
 
+  if (matchId && matchId > 0) {
+    try {
+      const state = await replayMatch(matchId, tournamentId);
+      if (state) {
+        client.write(
+          `data: ${JSON.stringify({
+            type: "match_state",
+            matchId,
+            tournamentId,
+            data: state,
+          })}\n\n`,
+        );
+      }
+    } catch {
+      // Snapshot failure must not tear down the live stream.
+    }
+  }
+
   const cleanup = () => {
     clearInterval(heartbeat);
     removeBadmintonSseClient(client);
@@ -486,9 +567,13 @@ router.get("/stream", (req, res) => {
     res.off("close", cleanup);
   };
 
+  // Named `ping` events (not comment heartbeats) so browser EventSource
+  // clients can detect a live connection and force-reconnect when silent.
   const heartbeat = setInterval(() => {
     try {
-      res.write(": heartbeat\n\n");
+      if (!res.write("event: ping\ndata: {}\n\n")) {
+        cleanup();
+      }
     } catch {
       cleanup();
     }
@@ -500,14 +585,18 @@ router.get("/stream", (req, res) => {
 
 // ─── Players ─────────────────────────────────────────────────────────────────
 
-/** Public read — scoped by tournamentId. */
+/**
+ * Public read — scoped by tournamentId.
+ * Contact PII (mobile/email) only for authenticated tournament organizers.
+ */
 router.get("/players", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
   const players = await listBadmintonPlayersForOrganizer(tournamentId);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
 
-  res.json(players);
+  res.json(players.map((p) => serializeBadmintonPlayerForAudience(p, isOrganizer)));
 });
 
 /** Registered roster for match creation — tournament players only, not global catalog. */
@@ -630,7 +719,11 @@ router.post("/players", async (req, res) => {
     .values({ tournamentId, ...values, status: "active" })
     .returning();
 
-  broadcastTournamentUpdate(tournamentId, { type: "player_created", player });
+  // SSE is public — never broadcast contact PII.
+  broadcastTournamentUpdate(tournamentId, {
+    type: "player_created",
+    player: publicBadmintonPlayerSerializer(player),
+  });
   res.status(201).json(player);
 });
 
@@ -651,7 +744,8 @@ router.get("/players/:playerId", async (req, res) => {
     .limit(1);
 
   if (!player) return void res.status(404).json({ error: "player not found" });
-  res.json(player);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  res.json(serializeBadmintonPlayerForAudience(player, isOrganizer));
 });
 
 router.patch("/players/:playerId", async (req, res) => {
@@ -727,6 +821,30 @@ router.patch("/players/:playerId", async (req, res) => {
   res.json(player);
 });
 
+router.patch("/players/:playerId/franchise-team", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const playerId = parseId((req.params as MergedParams).playerId);
+  if (!playerId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    auctionTeamId: z.number().int().positive().nullable(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const updated = await assignBadmintonPlayerFranchiseTeam(
+      tournamentId,
+      playerId,
+      parsed.data.auctionTeamId,
+    );
+    res.json(updated);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Team assignment failed" });
+  }
+});
+
 router.delete("/players/:playerId", async (req, res) => {
   const tournamentId = await guardBadmintonWrite(req, res);
   if (!tournamentId) return;
@@ -757,7 +875,7 @@ router.get("/scorers", async (req, res) => {
   if (!tournamentId) return;
 
   try {
-    const scorers = await listScorerAccountsForAdmin();
+    const scorers = await listScorerAccountsForTournament(tournamentId);
     res.json({ scorers });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
@@ -782,7 +900,7 @@ router.post("/scorers", async (req, res) => {
   }
 
   try {
-    const scorer = await createScorerAccountForAdmin(parsed.data);
+    const scorer = await createScorerAccountForTournament(tournamentId, parsed.data);
     res.status(201).json({ scorer });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
@@ -809,7 +927,7 @@ router.patch("/scorers/:scorerId", async (req, res) => {
   }
 
   try {
-    const scorer = await updateScorerAccountForAdmin(scorerId, parsed.data);
+    const scorer = await updateScorerAccountForTournament(tournamentId, scorerId, parsed.data);
     res.json({ scorer });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
@@ -850,7 +968,7 @@ router.post("/courts", async (req, res) => {
     sortOrder: z.number().int().optional(),
     streamUrl: z.string().max(500).optional(),
     hasDisplay: z.boolean().optional(),
-    // UI sends null when optional fields are left blank
+    // S3-10 — plaintext court PIN writes deprecated; null/blank clears legacy only
     scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).nullable().optional(),
   });
@@ -858,11 +976,14 @@ router.post("/courts", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const rawPin = parsed.data.scorerPin?.trim() ?? "";
-  const scorerPin = rawPin.length >= 4 ? rawPin : null;
-  if (rawPin.length > 0 && !scorerPin) {
-    return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+  if (parsed.data.scorerPin != null && parsed.data.scorerPin.trim().length > 0) {
+    return void res.status(400).json({
+      error:
+        "Court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.",
+      code: "SCORER_PIN_DEPRECATED",
+    });
   }
+  const scorerPin = null;
 
   const [court] = await db
     .insert(badmintonCourtsTable)
@@ -918,10 +1039,14 @@ router.patch("/courts/:courtId", async (req, res) => {
   }
   if (parsed.data.scorerPin !== undefined) {
     const raw = parsed.data.scorerPin?.trim() ?? "";
-    if (raw.length > 0 && raw.length < 4) {
-      return void res.status(400).json({ error: "Scorer PIN must be at least 4 digits" });
+    if (raw.length > 0) {
+      return void res.status(400).json({
+        error:
+          "Court scorer PIN writes are deprecated. Scorers sign in with mobile and personal PIN. Omit scorerPin or send null to clear a legacy code.",
+        code: "SCORER_PIN_DEPRECATED",
+      });
     }
-    patch.scorerPin = raw.length >= 4 ? raw : null;
+    patch.scorerPin = null;
   }
 
   const [court] = await db
@@ -985,6 +1110,7 @@ router.post("/categories", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
     ageGroup: z.string().max(20).optional(),
     gender: z.string().max(10).optional(),
+    // Sprint 4 — knockout | round_robin | group_knockout
     drawType: z.enum(["knockout", "round_robin", "group_knockout"]).default("knockout"),
     numSeeds: z.number().int().min(0).max(32).default(0),
     maxPlayers: z.number().int().optional(),
@@ -1024,6 +1150,7 @@ router.patch("/categories/:catId", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
     ageGroup: z.string().max(20).nullable().optional(),
     gender: z.string().max(10).nullable().optional(),
+    // Sprint 2 leftover / S2-05 — only knockout is supported until Sprint 4 generators ship.
     drawType: z.enum(["knockout", "round_robin", "group_knockout"]).optional(),
     numSeeds: z.number().int().min(0).max(32).optional(),
     maxPlayers: z.number().int().nullable().optional(),
@@ -1095,41 +1222,44 @@ router.delete("/categories/:catId", async (req, res) => {
     });
   }
 
-  await db
-    .delete(badmintonRegistrationsTable)
-    .where(
-      and(
-        eq(badmintonRegistrationsTable.categoryId, catId),
-        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
-      ),
-    );
+  // S3-04 — delete registrations / fixtures / draws / category atomically (no orphans).
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(badmintonRegistrationsTable)
+      .where(
+        and(
+          eq(badmintonRegistrationsTable.categoryId, catId),
+          eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonFixturesTable)
-    .where(
-      and(
-        eq(badmintonFixturesTable.categoryId, catId),
-        eq(badmintonFixturesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.categoryId, catId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonDrawsTable)
-    .where(
-      and(
-        eq(badmintonDrawsTable.categoryId, catId),
-        eq(badmintonDrawsTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonDrawsTable)
+      .where(
+        and(
+          eq(badmintonDrawsTable.categoryId, catId),
+          eq(badmintonDrawsTable.tournamentId, tournamentId),
+        ),
+      );
 
-  await db
-    .delete(badmintonCategoriesTable)
-    .where(
-      and(
-        eq(badmintonCategoriesTable.id, catId),
-        eq(badmintonCategoriesTable.tournamentId, tournamentId),
-      ),
-    );
+    await tx
+      .delete(badmintonCategoriesTable)
+      .where(
+        and(
+          eq(badmintonCategoriesTable.id, catId),
+          eq(badmintonCategoriesTable.tournamentId, tournamentId),
+        ),
+      );
+  });
 
   broadcastTournamentUpdate(tournamentId, { type: "category_deleted", categoryId: catId });
   res.json({ deleted: true });
@@ -1176,7 +1306,10 @@ router.get("/categories/:catId/registrations", async (req, res) => {
           )
       : [];
 
-  const playerById = new Map(players.map((p) => [p.id, p]));
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  const playerById = new Map(
+    players.map((p) => [p.id, serializeBadmintonPlayerForAudience(p, isOrganizer)]),
+  );
 
   res.json(
     regs.map((registration) => ({
@@ -1585,6 +1718,12 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
 
   if (!category) return void res.status(404).json({ error: "category not found" });
 
+  if (category.drawType === "round_robin" || category.drawType === "group_knockout") {
+    return void res.status(400).json({
+      error: "This category uses league format. Use POST /generate-league instead.",
+    });
+  }
+
   const registrations = await db
     .select()
     .from(badmintonRegistrationsTable)
@@ -1600,37 +1739,199 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
     return void res.status(400).json({ error: "Need at least 2 players to generate draw" });
   }
 
-  const planned = generateKnockoutDraw(tournamentId, catId, registrations);
+  // Sprint 1 / C5 — full bracket with progression links (not R1-only).
+  const plannedRounds = planKnockoutBracket(registrations);
+  const totalRounds = plannedRounds.length;
+  const insertedByRound = new Map<number, Array<{ id: number; slotNumber: number | null }>>();
+  let firstCollection: Awaited<ReturnType<typeof createFixtureCollection>>["collection"] | null =
+    null;
+  const allFixtures: Awaited<ReturnType<typeof createFixtureCollection>>["fixtures"] = [];
 
-  const { collection, fixtures: insertedFixtures } = await createFixtureCollection({
-    tournamentId,
-    categoryId: catId,
-    roundName: "Main Draw",
-    drawKind: "generated",
-    roundNumber: 1,
-    totalRounds: Math.ceil(Math.log2(registrations.length)),
-    status: "active",
-    metaJson: {
-      adapter: "auto_generate",
-      algorithm: "knockout",
-      // Legacy drawKind synonym for older clients / display
-      legacyDrawKind: "knockout_round",
-    },
-    fixtures: planned.map((f) => ({
-      slotNumber: f.slotNumber,
-      registrationAId: f.registrationAId,
-      registrationBId: f.registrationBId,
-      status: f.status,
-    })),
-    markCategoryLive: true,
-  });
+  for (const round of plannedRounds) {
+    const { collection, fixtures: insertedFixtures } = await createFixtureCollection({
+      tournamentId,
+      categoryId: catId,
+      roundName: round.roundName,
+      drawKind: "generated",
+      roundNumber: round.roundNumber,
+      totalRounds,
+      status: "active",
+      metaJson: {
+        adapter: "auto_generate",
+        algorithm: "knockout",
+        legacyDrawKind: "knockout_round",
+      },
+      fixtures: round.fixtures.map((f) => ({
+        slotNumber: f.slotNumber,
+        registrationAId: f.registrationAId,
+        registrationBId: f.registrationBId,
+        status: f.status,
+      })),
+      markCategoryLive: round.roundNumber === 1,
+    });
+    if (!firstCollection) firstCollection = collection;
+    insertedByRound.set(
+      round.roundNumber,
+      insertedFixtures.map((f) => ({ id: f.id, slotNumber: f.slotNumber })),
+    );
+    allFixtures.push(...insertedFixtures);
+  }
 
-  // Compatibility: existing clients expect `{ draw, fixtures }`
+  await wireKnockoutProgressionLinks(tournamentId, insertedByRound, plannedRounds);
+
+  // Auto-advance R1 byes (one side empty → walkover) into the next round.
+  const r1Inserted = insertedByRound.get(1) ?? [];
+  for (const f of r1Inserted) {
+    const [row] = await db
+      .select()
+      .from(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, f.id),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+    if (!row || row.status !== "walkover") continue;
+    const winnerSide =
+      row.registrationAId && !row.registrationBId
+        ? "left"
+        : row.registrationBId && !row.registrationAId
+          ? "right"
+          : null;
+    if (!winnerSide) continue;
+    await advanceKnockoutWinner({
+      tournamentId,
+      fixtureId: row.id,
+      winnerSide,
+    });
+    await db
+      .update(badmintonFixturesTable)
+      .set({
+        completedAt: new Date(),
+        resultSummary: "bye",
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, row.id),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
+  }
+
+  // Compatibility: existing clients expect `{ draw, fixtures }` — draw = R1 collection.
   res.status(201).json({
-    draw: collection,
-    collection,
-    fixtures: insertedFixtures,
+    draw: firstCollection,
+    collection: firstCollection,
+    fixtures: allFixtures,
+    rounds: plannedRounds.map((r) => ({
+      roundNumber: r.roundNumber,
+      roundName: r.roundName,
+      fixtureCount: r.fixtures.length,
+    })),
   });
+});
+
+// ─── League Groups ───────────────────────────────────────────────────────────
+
+router.get("/categories/:catId/groups", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const groups = await listLeagueGroups(tournamentId, catId);
+  res.json(groups);
+});
+
+router.put("/categories/:catId/groups", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    groups: z
+      .array(
+        z.object({
+          name: z.string().min(1).max(100),
+          sortOrder: z.number().int().min(0).optional(),
+          teamIds: z.array(z.number().int().positive()).min(1),
+        }),
+      )
+      .min(1),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const groups = await replaceLeagueGroups(tournamentId, catId, parsed.data.groups);
+    res.json(groups);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to save groups";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/categories/:catId/generate-league", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const result = await generateLeagueFixtures(tournamentId, catId);
+    res.status(201).json(result);
+  } catch (err) {
+    const status =
+      err && typeof err === "object" && "status" in err && typeof err.status === "number"
+        ? err.status
+        : 500;
+    const message = err instanceof Error ? err.message : "League generation failed";
+    res.status(status).json({ error: message });
+  }
+});
+
+router.get("/categories/:catId/standings", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const limitRaw = req.query.limit;
+  const limit =
+    typeof limitRaw === "string" && limitRaw.trim()
+      ? Number.parseInt(limitRaw, 10)
+      : undefined;
+
+  const standings = await getCategoryPairStandings(
+    tournamentId,
+    catId,
+    limit && !Number.isNaN(limit) ? limit : undefined,
+  );
+  res.json(standings);
+});
+
+router.get("/categories/:catId/qualifiers", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const limitRaw = req.query.limit;
+  const limit =
+    typeof limitRaw === "string" && limitRaw.trim()
+      ? Number.parseInt(limitRaw, 10)
+      : 4;
+
+  const qualifiers = await getCategoryPairStandings(
+    tournamentId,
+    catId,
+    Number.isNaN(limit) ? 4 : limit,
+  );
+  res.json(qualifiers);
 });
 
 /**
@@ -1795,7 +2096,7 @@ router.post("/matches", async (req, res) => {
       .optional(),
     leftSideJson: z.record(z.unknown()),
     rightSideJson: z.record(z.unknown()),
-    scorerPin: z.string().max(20).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).optional(),
     preMatchTossJson: z.record(z.unknown()).nullable().optional(),
     scheduledAt: z.string().optional(),
@@ -1872,6 +2173,7 @@ router.post("/matches", async (req, res) => {
     });
 
     broadcastTournamentUpdate(tournamentId, { type: "match_created", matchId: created.match.id });
+    scheduleBadmintonLifecycleRefresh(tournamentId);
     res.status(201).json({
       ...created.match,
       detail: serializeBadmintonMatchDetail(created.detail, { includeScorerPin: true }),
@@ -1881,6 +2183,54 @@ router.post("/matches", async (req, res) => {
       return void res.status(e.status).json({ error: e.message, code: e.code });
     }
     throw e;
+  }
+});
+
+router.post("/matches/bulk-from-fixtures", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const schema = z.object({
+    courtId: z.number().int().optional(),
+    fixtureIds: z.array(z.number().int().positive()).optional(),
+  });
+
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const result = await bulkCreateBadmintonMatchesFromFixtures(tournamentId, parsed.data);
+
+    if (result.created.length > 0) {
+      auditLog(req, {
+        category: "tournament",
+        action: "badminton.matches_bulk_created",
+        summary: `${result.created.length} match(es) created from fixtures`,
+        tournamentId,
+        metadata: {
+          courtId: parsed.data.courtId ?? null,
+          created: result.created.length,
+          skipped: result.skipped.length,
+          failed: result.failed.length,
+        },
+      });
+
+      for (const item of result.created) {
+        broadcastTournamentUpdate(tournamentId, {
+          type: "match_created",
+          matchId: item.matchId,
+        });
+      }
+      scheduleBadmintonLifecycleRefresh(tournamentId);
+    }
+
+    res.status(result.created.length > 0 ? 201 : 200).json(result);
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    const message = e instanceof Error ? e.message : "Bulk create failed";
+    res.status(500).json({ error: message });
   }
 });
 
@@ -1939,7 +2289,8 @@ router.get("/scorer/session", async (req, res) => {
     if (!token) {
       return void res.status(401).json({ error: "Scorer login required", code: "AUTH_REQUIRED" });
     }
-    await resolveScorerAuthFromToken(token);
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
     res.json(session);
@@ -1968,7 +2319,8 @@ router.post("/scorer/session", async (req, res) => {
         ok: false,
       });
     }
-    await resolveScorerAuthFromToken(token);
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
     res.json(session);
@@ -1993,7 +2345,8 @@ router.get("/scorer/matches", async (req, res) => {
     if (!token) {
       return void res.status(401).json({ error: "Scorer login required", code: "AUTH_REQUIRED" });
     }
-    await resolveScorerAuthFromToken(token);
+    const scorer = await resolveScorerAuthFromToken(token);
+    await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
     if (!session.ok) {
@@ -2024,15 +2377,22 @@ router.post("/matches/:matchId/force-unlock", async (req, res) => {
     ? "admin"
     : (req.jwtUser?.organizerAccountId?.toString() ?? "organizer");
 
-  const cleared = await forceUnlockMatch({
-    matchId,
-    actorType,
-    actorId,
-    tournamentId,
-    sport: "badminton",
-  });
-
-  res.json({ ok: true, cleared });
+  try {
+    const cleared = await forceUnlockMatch({
+      matchId,
+      actorType,
+      actorId,
+      tournamentId,
+      sport: "badminton",
+    });
+    res.json({ ok: true, cleared });
+  } catch (e) {
+    console.error("[badminton] force-unlock failed", e);
+    res.status(500).json({
+      error: e instanceof Error ? e.message : "Force unlock failed",
+      code: "FORCE_UNLOCK_FAILED",
+    });
+  }
 });
 
 router.patch("/matches/:matchId", async (req, res) => {
@@ -2050,7 +2410,7 @@ router.patch("/matches/:matchId", async (req, res) => {
     roundName: z.string().max(100).nullable().optional(),
     leftSideJson: z.record(z.unknown()).optional(),
     rightSideJson: z.record(z.unknown()).optional(),
-    scorerPin: z.string().max(20).optional(),
+    scorerPin: z.string().max(20).nullable().optional(),
     scorerName: z.string().max(100).nullable().optional(),
     matchFormatJson: z
       .object({
@@ -2274,6 +2634,8 @@ router.post("/matches/:matchId/point", async (req, res) => {
   const schema = z.object({
     side: z.enum(["left", "right"]),
     rallyLength: z.number().int().optional(),
+    /** Client-generated key so retries do not double-award (Sprint 1 / C6). */
+    idempotencyKey: z.string().min(8).max(128).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -2291,7 +2653,10 @@ router.post("/matches/:matchId/point", async (req, res) => {
         tournamentId,
         parsed.data.side,
         actorFrom(req, scoringAuth),
-        { rallyLength: parsed.data.rallyLength },
+        {
+          rallyLength: parsed.data.rallyLength,
+          idempotencyKey: parsed.data.idempotencyKey,
+        },
       );
       markLatency("awardPoint_returned");
 
@@ -2299,6 +2664,23 @@ router.post("/matches/:matchId/point", async (req, res) => {
       // blocked by audit I/O. Audit is still awaited before the HTTP response.
       markLatency("pre_broadcast");
       broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+
+      // Keep Mission Control / Venue / OBS scene chips in sync with play-safe
+      // remaps (intro/sponsor must not stick after the first rally).
+      void clearRallyUnsafeBroadcastScenes(tournamentId)
+        .then((branding) => {
+          if (!branding) return;
+          broadcastTournamentUpdate(tournamentId, {
+            kind: "broadcast_presentation",
+            primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
+            overlayScene: branding.overlayScene,
+            venueScene: branding.venueScene,
+            venueMusicPlaying: branding.venueMusicPlaying,
+          });
+        })
+        .catch(() => {
+          /* non-blocking — score already on air */
+        });
 
       const auditActor = auditActorFrom(req, scoringAuth);
       await writeScorerAudit({
@@ -2375,6 +2757,14 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  // Sprint 2 / S2-08 — require side when starting a timeout (do not fall through to end).
+  if (parsed.data.action === "start" && !parsed.data.side) {
+    return void res.status(400).json({
+      error: "Timeout start requires side (left or right)",
+      code: "SIDE_REQUIRED",
+    });
+  }
+
   try {
     const state = await handleTimeout(
       matchId,
@@ -2446,6 +2836,89 @@ router.post("/matches/:matchId/court-change", async (req, res) => {
   }
 });
 
+router.post("/matches/:matchId/edit-toss", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonScoring(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId, auth: scoringAuth } = auth;
+
+  const sideSchema = z.object({
+    label: z.string(),
+    shortLabel: z.string(),
+    countryCode: z.string().optional(),
+    countryName: z.string().optional(),
+    photoUrl: z.string().optional(),
+    flagUrl: z.string().optional(),
+    teamColor: z.string().optional(),
+    franchiseName: z.string().optional(),
+    franchiseLogoUrl: z.string().optional(),
+    teamName: z.string().optional(),
+    teamLogoUrl: z.string().optional(),
+    sponsorName: z.string().optional(),
+    sponsorLogoUrl: z.string().optional(),
+    masterPlayerId: z.string().optional(),
+    playerIds: z.array(z.number()),
+    players: z
+      .array(
+        z.object({
+          label: z.string(),
+          shortLabel: z.string(),
+          countryCode: z.string().optional(),
+          countryName: z.string().optional(),
+          photoUrl: z.string().optional(),
+          flagUrl: z.string().optional(),
+          teamColor: z.string().optional(),
+          teamName: z.string().optional(),
+          teamLogoUrl: z.string().optional(),
+          sponsorName: z.string().optional(),
+          sponsorLogoUrl: z.string().optional(),
+          masterPlayerId: z.string().optional(),
+        }),
+      )
+      .optional(),
+  });
+
+  const schema = z.object({
+    leftSide: sideSchema,
+    rightSide: sideSchema,
+    firstServer: z.enum(["left", "right"]),
+    doublesSetup: z
+      .object({
+        tossWinnerSide: z.enum(["left", "right"]),
+        tossDecision: z.enum(["serve", "receive"]),
+        firstServingSide: z.enum(["left", "right"]),
+        firstServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+        firstReceivingSide: z.enum(["left", "right"]),
+        firstReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+      })
+      .optional(),
+    endsSwapped: z.boolean(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleCorrectToss(
+      matchId,
+      tournamentId,
+      parsed.data,
+      actorFrom(req, scoringAuth),
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    const message = e instanceof Error ? e.message : "Could not update toss";
+    console.error("[badminton] edit-toss failed:", e);
+    return void res.status(500).json({ error: message, code: "EDIT_TOSS_FAILED" });
+  }
+});
+
 router.post("/matches/:matchId/retirement", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!matchId) return void res.status(400).json({ error: "bad id" });
@@ -2479,6 +2952,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
       metadata: { retiringSide: parsed.data.retiringSide, reason: parsed.data.reason ?? null },
     });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2524,6 +2998,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
       metadata: { winningSide: parsed.data.winningSide, reason: parsed.data.reason ?? null },
     });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2561,6 +3036,7 @@ router.post("/matches/:matchId/disqualification", async (req, res) => {
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2673,6 +3149,7 @@ router.post("/matches/:matchId/force-end", async (req, res) => {
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    await maybeReleaseLockAfterTerminal(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
@@ -2735,11 +3212,25 @@ router.get("/matches/:matchId/report", async (req, res) => {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
+router.get("/analytics", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  const [row] = await db
+    .select()
+    .from(badmintonAnalyticsTable)
+    .where(eq(badmintonAnalyticsTable.tournamentId, tournamentId))
+    .limit(1);
+
+  res.json(row ?? null);
+});
+
 router.get("/dashboard", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const [totalPlayers, totalCourts, totalCategories, matchStats] = await Promise.all([
+  const [totalPlayers, totalCourts, totalCategories, matchStats, tournamentRow] =
+    await Promise.all([
     db
       .select({ count: count() })
       .from(badmintonPlayersTable)
@@ -2762,10 +3253,24 @@ router.get("/dashboard", async (req, res) => {
         ),
       )
       .groupBy(scoringMatchesTable.status),
+    db
+      .select({ scoringPhase: tournamentsTable.scoringPhase })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1),
   ]);
 
   const matchStatMap: Record<string, number> = {};
   for (const row of matchStats) matchStatMap[row.status] = Number(row.count);
+
+  const matchesCompletedBreakdown = Object.fromEntries(
+    TERMINAL_SCORING_MATCH_STATUSES.map((status) => [status, matchStatMap[status] ?? 0]),
+  ) as Record<(typeof TERMINAL_SCORING_MATCH_STATUSES)[number], number>;
+
+  const matchesCompleted = TERMINAL_SCORING_MATCH_STATUSES.reduce(
+    (sum, status) => sum + (matchStatMap[status] ?? 0),
+    0,
+  );
 
   const liveMatches = await db
     .select({ match: scoringMatchesTable, detail: badmintonMatchDetailsTable })
@@ -2789,54 +3294,20 @@ router.get("/dashboard", async (req, res) => {
     totalPlayers: Number(totalPlayers[0]?.count ?? 0),
     totalCourts: Number(totalCourts[0]?.count ?? 0),
     totalCategories: Number(totalCategories[0]?.count ?? 0),
+    scoringPhase: tournamentRow[0]?.scoringPhase ?? "disabled",
     matchesScheduled: matchStatMap["scheduled"] ?? 0,
     matchesLive: matchStatMap["live"] ?? 0,
-    matchesCompleted: matchStatMap["completed"] ?? 0,
+    matchesCompleted,
+    matchesCompletedBreakdown,
     liveMatches: liveMatches.map(
       ({ match, detail }: { match: typeof scoringMatchesTable.$inferSelect; detail: typeof badmintonMatchDetailsTable.$inferSelect | null }) => ({
         ...match,
-        detail: detail ?? null,
+        // Public dashboard must never expose scorerPin (Sprint 1 / C2).
+        detail: serializeBadmintonMatchDetail(detail, { includeScorerPin: false }),
         state: detail?.stateSnapshotJson ?? null,
       }),
     ),
   });
 });
-
-// ─── Auto Generate algorithm (planning only — fixtures via writer) ───────────
-
-function generateKnockoutDraw(
-  _tournamentId: number,
-  _categoryId: number,
-  registrations: Array<{ id: number; seedNumber: number | null }>,
-): Array<{
-  slotNumber: number;
-  registrationAId: number | null;
-  registrationBId: number | null;
-  status: string;
-}> {
-  const seeds = registrations
-    .filter((r) => r.seedNumber !== null)
-    .sort((a, b) => (a.seedNumber ?? 99) - (b.seedNumber ?? 99));
-  const unseeded = registrations
-    .filter((r) => r.seedNumber === null)
-    .sort(() => Math.random() - 0.5);
-
-  const ordered = [...seeds, ...unseeded];
-  const bracketSize = Math.pow(2, Math.ceil(Math.log2(ordered.length)));
-  const slots: Array<number | null> = ordered
-    .map((r) => r.id)
-    .concat(Array(bracketSize - ordered.length).fill(null));
-
-  const fixtures = [];
-  for (let i = 0; i < bracketSize; i += 2) {
-    fixtures.push({
-      slotNumber: Math.floor(i / 2) + 1,
-      registrationAId: slots[i] ?? null,
-      registrationBId: slots[i + 1] ?? null,
-      status: slots[i] && slots[i + 1] ? "unscheduled" : "walkover",
-    });
-  }
-  return fixtures;
-}
 
 export default router;

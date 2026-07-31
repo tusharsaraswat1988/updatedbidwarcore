@@ -12,7 +12,12 @@ import { BtnPrimary, DarkSelect, FormError, FormField, inputClass } from "@/comp
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { useBadmintonDirector } from "@/hooks/use-badminton-match";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
+import { badmintonFetch } from "@/lib/badminton-api";
 import { useToast } from "@/hooks/use-toast";
+import {
+  formatTeamPlayerLine,
+  identityFromSideInfo,
+} from "@/lib/team-player-identity";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -41,6 +46,12 @@ function formatIncidentTime(iso: string): string {
   }
 }
 
+function sideLabel(state: BadmintonMatchState, side: "left" | "right"): string {
+  return formatTeamPlayerLine(
+    identityFromSideInfo(side === "left" ? state.leftSide : state.rightSide),
+  );
+}
+
 export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const director = useBadmintonDirector(tournamentId, matchId);
   const { toast } = useToast();
@@ -64,6 +75,9 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   const [forceEndReason, setForceEndReason] = useState("");
   const [pendingOutcome, setPendingOutcome] = useState<PendingOutcome>(null);
 
+  const leftName = sideLabel(state, "left");
+  const rightName = sideLabel(state, "right");
+
   const isLive = state.matchStatus === "live";
   const isPaused = state.matchStatus === "paused" || state.isPaused;
   const isTerminal = ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(
@@ -72,14 +86,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
   const { data: incidentData } = useQuery<{ incidents: IncidentLogEntry[] }>({
     queryKey: ["badminton-incidents", tournamentId, matchId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/incidents`,
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error("Failed to load incidents");
-      return res.json();
-    },
+    queryFn: () =>
+      badmintonFetch<{ incidents: IncidentLogEntry[] }>(
+        tournamentId,
+        `/matches/${matchId}/incidents`,
+      ),
     enabled: !!tournamentId && !!matchId,
     staleTime: 10_000,
     refetchInterval: isLive || isPaused ? 5_000 : false,
@@ -104,21 +115,21 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
     pendingOutcome?.kind === "retirement"
       ? {
           title: "Declare retirement?",
-          description: `This ends the match. ${retireSide === "left" ? "Left" : "Right"} side retires (${retireReason}). This cannot be undone from scoring.`,
+          description: `This ends the match. ${sideLabel(state, retireSide)} retires (${retireReason}). This cannot be undone from scoring.`,
           confirmLabel: "Declare Retirement",
           action: () => director.retirement(retireSide, retireReason),
         }
       : pendingOutcome?.kind === "walkover"
         ? {
             title: "Declare walkover?",
-            description: `Award the match to the ${walkoverSide === "left" ? "left" : "right"} side (${walkoverReason.replace(/_/g, " ")}). This cannot be undone from scoring.`,
+            description: `Award the match to ${sideLabel(state, walkoverSide)} (${walkoverReason.replace(/_/g, " ")}). This cannot be undone from scoring.`,
             confirmLabel: "Declare Walkover",
             action: () => director.walkover(walkoverSide, walkoverReason),
           }
         : pendingOutcome?.kind === "disqualification"
           ? {
               title: "Declare disqualification?",
-              description: `Disqualify the ${dqSide === "left" ? "left" : "right"} side. Reason: ${dqReason.trim()}. This cannot be undone from scoring.`,
+              description: `Disqualify ${sideLabel(state, dqSide)}. Reason: ${dqReason.trim()}. This cannot be undone from scoring.`,
               confirmLabel: "Declare Disqualification",
               action: () => director.disqualification(dqSide, dqReason),
             }
@@ -140,6 +151,9 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
         <p className="text-white/40 text-xs mt-0.5">
           Tournament Director — match administration only
         </p>
+        <p className="text-white/75 text-sm font-semibold mt-2">
+          {leftName} <span className="text-white/35 font-normal">vs</span> {rightName}
+        </p>
       </div>
 
       <div className="p-5 space-y-6">
@@ -160,7 +174,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             </BtnPrimary>
           ) : (
             <div className="space-y-3">
-              <FormField label="Pause reason">
+              <FormField label="Pause reason" required>
                 <DarkSelect
                   value={pauseReason}
                   onValueChange={(v) => setPauseReason(v as typeof pauseReason)}
@@ -174,9 +188,11 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                 />
               </FormField>
               {pauseReason === "other" ? (
-                <FormField label="Detail">
+                <FormField label="Detail" required>
                   <input
                     className={inputClass}
+                    required
+                    aria-required="true"
                     value={pauseDetail}
                     onChange={(e) => setPauseDetail(e.target.value)}
                     placeholder="Describe the issue…"
@@ -263,12 +279,51 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
           </div>
         </section>
 
+        {/* Force unlock — always available while match can be scored */}
+        {!isTerminal ? (
+          <section className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 space-y-2">
+            <h3 className="text-amber-100/80 text-xs font-semibold uppercase tracking-widest">
+              Force Unlock Scorer
+            </h3>
+            <p className="text-white/40 text-[11px] leading-relaxed">
+              Clears a stuck scorer session lock so another device can open this match.
+            </p>
+            <button
+              type="button"
+              disabled={unlocking}
+              onClick={() => {
+                setActionError("");
+                setUnlocking(true);
+                void forceUnlockBadmintonMatch(tournamentId, matchId)
+                  .then((result) => {
+                    toast({
+                      title: result.cleared ? "Match unlocked" : "No lock to clear",
+                      description: result.cleared
+                        ? "Scorer lock cleared. Another session can open this match."
+                        : "This match did not have an active scorer lock.",
+                    });
+                  })
+                  .catch((err) => {
+                    setActionError(err instanceof Error ? err.message : "Force unlock failed");
+                  })
+                  .finally(() => setUnlocking(false));
+              }}
+              className="w-full min-h-11 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/30 text-amber-50 text-xs font-bold disabled:opacity-40"
+            >
+              {unlocking ? "Unlocking…" : "Force Unlock"}
+            </button>
+          </section>
+        ) : null}
+
         {/* Terminal actions */}
         {!isTerminal ? (
           <section className="space-y-4 pt-2 border-t border-white/8">
             <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest">
               Match Outcomes
             </h3>
+            <p className="text-white/40 text-[11px] -mt-2">
+              Choose the player or pair by name — not court side.
+            </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
@@ -277,8 +332,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   value={retireSide}
                   onValueChange={(v) => setRetireSide(v as "left" | "right")}
                   options={[
-                    { value: "left", label: "Left retires" },
-                    { value: "right", label: "Right retires" },
+                    { value: "left", label: `${leftName} retires` },
+                    { value: "right", label: `${rightName} retires` },
                   ]}
                 />
                 <DarkSelect
@@ -306,8 +361,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   value={walkoverSide}
                   onValueChange={(v) => setWalkoverSide(v as "left" | "right")}
                   options={[
-                    { value: "left", label: "Left wins" },
-                    { value: "right", label: "Right wins" },
+                    { value: "left", label: `${leftName} wins` },
+                    { value: "right", label: `${rightName} wins` },
                   ]}
                 />
                 <DarkSelect
@@ -335,16 +390,20 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   value={dqSide}
                   onValueChange={(v) => setDqSide(v as "left" | "right")}
                   options={[
-                    { value: "left", label: "Left disqualified" },
-                    { value: "right", label: "Right disqualified" },
+                    { value: "left", label: `Disqualify ${leftName}` },
+                    { value: "right", label: `Disqualify ${rightName}` },
                   ]}
                 />
-                <input
-                  className={inputClass}
-                  value={dqReason}
-                  onChange={(e) => setDqReason(e.target.value)}
-                  placeholder="Reason (required)"
-                />
+                <FormField label="Reason" required>
+                  <input
+                    className={inputClass}
+                    required
+                    aria-required="true"
+                    value={dqReason}
+                    onChange={(e) => setDqReason(e.target.value)}
+                    placeholder="Reason for disqualification"
+                  />
+                </FormField>
                 <button
                   type="button"
                   disabled={busy || !dqReason.trim()}
@@ -357,12 +416,16 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
                 <p className="text-white/50 text-xs font-semibold">Force End Match</p>
-                <input
-                  className={inputClass}
-                  value={forceEndReason}
-                  onChange={(e) => setForceEndReason(e.target.value)}
-                  placeholder="Reason (required)"
-                />
+                <FormField label="Reason" required>
+                  <input
+                    className={inputClass}
+                    required
+                    aria-required="true"
+                    value={forceEndReason}
+                    onChange={(e) => setForceEndReason(e.target.value)}
+                    placeholder="Reason for force end"
+                  />
+                </FormField>
                 <button
                   type="button"
                   disabled={busy || !forceEndReason.trim() || (!isLive && !isPaused)}
@@ -372,59 +435,22 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
                   Force End Match
                 </button>
               </div>
-
-              <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 space-y-2">
-                <p className="text-amber-100/80 text-xs font-semibold">Force Unlock Scorer</p>
-                <p className="text-white/40 text-[11px] leading-relaxed">
-                  Clears a stuck scorer session lock so another device can open this match.
-                </p>
-                <button
-                  type="button"
-                  disabled={unlocking || isTerminal}
-                  onClick={() => {
-                    setUnlocking(true);
-                    void forceUnlockBadmintonMatch(tournamentId, matchId)
-                      .then(() => {
-                        toast({
-                          title: "Match unlocked",
-                          description: "Scorer lock cleared. Another session can open this match.",
-                        });
-                      })
-                      .catch((err) => {
-                        setActionError(err instanceof Error ? err.message : "Force unlock failed");
-                      })
-                      .finally(() => setUnlocking(false));
-                  }}
-                  className="w-full min-h-11 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/30 text-amber-50 text-xs font-bold disabled:opacity-40"
-                >
-                  {unlocking ? "Unlocking…" : "Force Unlock"}
-                </button>
-              </div>
             </div>
           </section>
         ) : null}
 
-        {/* Export */}
+        {/* Export — PDF only */}
         <section className="pt-2 border-t border-white/8">
           <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
             Export Match Report
           </h3>
-          <div className="flex gap-2">
-            <a
-              href={`${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/report?format=json`}
-              className="flex-1 min-h-11 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
-              download
-            >
-              Download JSON
-            </a>
-            <a
-              href={`${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/report?format=pdf`}
-              className="flex-1 min-h-11 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
-              download
-            >
-              Download PDF
-            </a>
-          </div>
+          <a
+            href={`${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/report?format=pdf`}
+            className="w-full min-h-11 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/70 text-xs font-semibold flex items-center justify-center"
+            download
+          >
+            Download PDF
+          </a>
         </section>
       </div>
 

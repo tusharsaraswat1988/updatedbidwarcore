@@ -5,7 +5,7 @@
  * Mobile + personal PIN login → JWT → all scoreable matches for the tournament.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearch, useLocation } from "wouter";
 import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
@@ -66,20 +66,41 @@ function primaryActionLabel(match: ScorerHomeMatchCard | null): string {
   return "Start Scoring";
 }
 
+/** Short vs line so the primary button names the match it opens. */
+function matchActionSubtitle(match: ScorerHomeMatchCard): string {
+  const left = identityFromCombinedLabel(match.playerA);
+  const right = identityFromCombinedLabel(match.playerB);
+  const leftName = left.playerName || left.teamName || "TBD";
+  const rightName = right.playerName || right.teamName || "TBD";
+  return `${leftName} vs ${rightName}`;
+}
+
 function MatchSummary({
   label,
   match,
+  emptyHint,
+  emphasized,
 }: {
   label: string;
   match: ScorerHomeMatchCard | null;
+  emptyHint?: string;
+  /** Stronger border when this is the match the primary button opens. */
+  emphasized?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+    <div
+      className={cn(
+        "rounded-xl border p-4 min-w-0 overflow-hidden",
+        emphasized
+          ? "border-red-500/45 bg-red-500/[0.07] ring-1 ring-red-500/20"
+          : "border-white/10 bg-white/[0.03]",
+      )}
+    >
       <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-2">{label}</p>
       {match ? (
         <>
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <p className="text-white/55 text-xs font-semibold truncate">
+          <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
+            <p className="text-white/55 text-xs font-semibold truncate min-w-0">
               {match.category ?? "Match"}
             </p>
             <span
@@ -91,23 +112,157 @@ function MatchSummary({
               {match.status === "LIVE" ? "LIVE" : match.status}
             </span>
           </div>
-          <TeamPlayerVs
-            left={identityFromCombinedLabel(match.playerA)}
-            right={identityFromCombinedLabel(match.playerB)}
-            size="sm"
-            layout="stack"
-            tone="led"
-          />
+          <div className="min-w-0 overflow-hidden">
+            <TeamPlayerVs
+              left={identityFromCombinedLabel(match.playerA)}
+              right={identityFromCombinedLabel(match.playerB)}
+              size="sm"
+              layout="stack"
+              tone="led"
+            />
+          </div>
           <p className="text-white/40 text-xs mt-2">{formatScheduledTime(match.scheduledAt)}</p>
         </>
       ) : (
         <div className="space-y-1">
-          <p className="text-white/35 text-sm">None queued</p>
-          <p className="text-white/25 text-xs">
-            Matches need a court + time assigned in Operations → Matches before they appear here.
-          </p>
+          <p className="text-white/35 text-sm">{emptyHint ?? "None queued"}</p>
+          {!emptyHint ? (
+            <p className="text-white/25 text-xs">
+              Matches need a court + time assigned in Operations → Matches before they appear here.
+            </p>
+          ) : null}
         </div>
       )}
+    </div>
+  );
+}
+
+function PrimaryMatchAction({
+  match,
+  canOpen,
+  onOpen,
+}: {
+  match: ScorerHomeMatchCard | null;
+  canOpen: boolean;
+  onOpen: () => void;
+}) {
+  const label = primaryActionLabel(match);
+  const isLive = match?.status === "LIVE" || match?.status === "PAUSED";
+
+  return (
+    <button
+      type="button"
+      disabled={!canOpen}
+      onClick={onOpen}
+      className={cn(
+        "w-full min-h-16 rounded-xl font-display font-bold px-4 py-3 text-left",
+        canOpen
+          ? isLive
+            ? "bg-red-500 text-white"
+            : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
+          : "bg-white/10 text-white/40",
+      )}
+    >
+      <span className="block text-lg leading-tight">{label}</span>
+      {match && canOpen ? (
+        <span
+          className={cn(
+            "block mt-1 text-xs font-semibold truncate",
+            isLive ? "text-white/85" : "text-primary-foreground/80",
+          )}
+        >
+          {matchActionSubtitle(match)}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+type CourtMatchListFilter = "all" | "live" | "ready" | "completed";
+
+function matchPassesListFilter(
+  match: ScorerHomeMatchCard,
+  filter: CourtMatchListFilter,
+): boolean {
+  switch (filter) {
+    case "live":
+      return match.status === "LIVE" || match.status === "PAUSED";
+    case "ready":
+      return match.status === "READY";
+    case "completed":
+      return match.status === "COMPLETED";
+    case "all":
+    default:
+      return true;
+  }
+}
+
+function CourtMatchListFilterChips({
+  matches,
+  value,
+  onChange,
+}: {
+  matches: ScorerHomeMatchCard[];
+  value: CourtMatchListFilter;
+  onChange: (next: CourtMatchListFilter) => void;
+}) {
+  let live = 0;
+  let ready = 0;
+  let completed = 0;
+  for (const m of matches) {
+    if (m.status === "LIVE" || m.status === "PAUSED") live += 1;
+    else if (m.status === "READY") ready += 1;
+    else if (m.status === "COMPLETED") completed += 1;
+  }
+
+  const chips: { id: CourtMatchListFilter; label: string; count: number }[] = [
+    { id: "all", label: "All", count: matches.length },
+    { id: "live", label: "Live", count: live },
+    { id: "ready", label: "Ready", count: ready },
+    { id: "completed", label: "Completed", count: completed },
+  ];
+
+  return (
+    <div
+      className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-none"
+      role="tablist"
+      aria-label="Filter court matches by status"
+    >
+      {chips.map((chip) => {
+        if (chip.id !== "all" && chip.count === 0) return null;
+        const selected = value === chip.id;
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(chip.id)}
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1.5 min-h-9 px-3 rounded-full border text-xs font-bold uppercase tracking-wide transition-colors",
+              selected
+                ? chip.id === "live"
+                  ? "bg-red-500/25 text-red-100 border-red-500/50"
+                  : chip.id === "ready"
+                    ? "bg-sky-500/20 text-sky-100 border-sky-500/45"
+                    : chip.id === "completed"
+                      ? "bg-emerald-500/20 text-emerald-100 border-emerald-500/40"
+                      : "bg-white/15 text-white border-white/25"
+                : "bg-white/[0.04] text-white/55 border-white/10",
+            )}
+          >
+            {chip.label}
+            <span
+              className={cn(
+                "min-w-5 px-1 rounded-md text-[10px] font-black tabular-nums",
+                selected ? "bg-black/25 text-inherit" : "bg-white/10 text-white/45",
+              )}
+            >
+              {chip.count}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -139,7 +294,7 @@ function MatchListCard({
           {match.status === "LIVE" ? "LIVE (Resume)" : match.status}
         </span>
       </div>
-      <div className="text-center py-3">
+      <div className="text-center py-3 min-w-0 overflow-hidden px-1">
         <TeamPlayerVs
           left={identityFromCombinedLabel(match.playerA)}
           right={identityFromCombinedLabel(match.playerB)}
@@ -156,14 +311,19 @@ function MatchListCard({
           "w-full min-h-14 rounded-xl font-display font-bold text-base",
           match.readOnly
             ? "bg-white/10 text-white/85 border border-white/15"
-            : match.status === "LIVE"
+            : match.status === "LIVE" || match.status === "PAUSED"
               ? "bg-red-500 text-white"
               : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]",
         )}
       >
-        {match.status === "LIVE" || match.status === "PAUSED"
-          ? "Resume Live Match"
-          : match.actionLabel}
+        <span className="block">
+          {match.status === "LIVE" || match.status === "PAUSED"
+            ? "Resume Live Match"
+            : match.actionLabel}
+        </span>
+        <span className="block mt-0.5 text-xs font-semibold opacity-85 truncate px-1">
+          {matchActionSubtitle(match)}
+        </span>
       </button>
     </article>
   );
@@ -176,45 +336,64 @@ function CourtFocusView({
   court: ScorerHomeCourtCard;
   onOpenMatch: (match: ScorerHomeMatchCard) => void;
 }) {
-  const focus = court.currentMatch;
-  const canOpen = focus && !focus.readOnly;
-  const primaryLabel = primaryActionLabel(focus);
+  const [listFilter, setListFilter] = useState<CourtMatchListFilter>("all");
+  const hasLiveMatch = Boolean(
+    court.currentMatch?.status === "LIVE" || court.currentMatch?.status === "PAUSED",
+  );
+  const focus = hasLiveMatch ? court.currentMatch : court.nextMatch;
+  const canOpen = Boolean(focus && !focus.readOnly);
+  const filteredMatches =
+    listFilter === "all"
+      ? court.matches
+      : court.matches.filter((m) => matchPassesListFilter(m, listFilter));
+
+  // If the selected filter no longer has matches (e.g. after refresh), fall back to All.
+  useEffect(() => {
+    if (listFilter === "all") return;
+    const stillHasMatches = court.matches.some((m) => matchPassesListFilter(m, listFilter));
+    if (!stillHasMatches) setListFilter("all");
+  }, [court.matches, listFilter]);
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-sky-500/25 bg-sky-500/10 p-5">
-        <p className="text-sky-200/80 text-[10px] font-bold uppercase tracking-wider">Your court</p>
-        <h2 className="text-white text-2xl font-black mt-1">{court.name}</h2>
-        {court.scorerName ? (
-          <p className="text-white/50 text-sm mt-1">Scorer · {court.scorerName}</p>
-        ) : null}
-      </div>
-
-      <MatchSummary label="Current Match" match={court.currentMatch} />
-      <MatchSummary label="Next Match" match={court.nextMatch} />
-
-      <button
-        type="button"
-        disabled={!canOpen}
-        onClick={() => focus && onOpenMatch(focus)}
-        className={cn(
-          "w-full min-h-16 rounded-xl font-display font-bold text-lg sticky bottom-4",
-          canOpen
-            ? focus?.status === "LIVE" || focus?.status === "PAUSED"
-              ? "bg-red-500 text-white"
-              : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
-            : "bg-white/10 text-white/40",
-        )}
-      >
-        {primaryLabel}
-      </button>
+      {hasLiveMatch ? (
+        <>
+          <MatchSummary label="Current Match" match={court.currentMatch} emphasized />
+          {/* Action sits under the live match — not under Next — so resume target is obvious. */}
+          <PrimaryMatchAction
+            match={focus}
+            canOpen={canOpen}
+            onOpen={() => focus && onOpenMatch(focus)}
+          />
+          <MatchSummary label="Next Match" match={court.nextMatch} />
+        </>
+      ) : (
+        <>
+          <MatchSummary label="In Progress" match={null} emptyHint="No match in progress" />
+          <MatchSummary label="Up Next" match={court.nextMatch} emphasized={Boolean(focus)} />
+          <PrimaryMatchAction
+            match={focus}
+            canOpen={canOpen}
+            onOpen={() => focus && onOpenMatch(focus)}
+          />
+        </>
+      )}
 
       {court.matches.length > 1 ? (
         <div className="pt-2 space-y-3">
           <p className="text-white/40 text-xs font-bold uppercase tracking-wider">All court matches</p>
-          {court.matches.map((m) => (
-            <MatchListCard key={m.id} match={m} onOpen={() => onOpenMatch(m)} />
-          ))}
+          <CourtMatchListFilterChips
+            matches={court.matches}
+            value={listFilter}
+            onChange={setListFilter}
+          />
+          {filteredMatches.length === 0 ? (
+            <p className="text-white/35 text-sm py-2">No matches in this status</p>
+          ) : (
+            filteredMatches.map((m) => (
+              <MatchListCard key={m.id} match={m} onOpen={() => onOpenMatch(m)} />
+            ))
+          )}
         </div>
       ) : null}
     </div>
@@ -236,11 +415,14 @@ export default function BadmintonScorerHomePage() {
   const [pinInput, setPinInput] = useState("");
   const [authAccepted, setAuthAccepted] = useState(false);
   const [authError, setAuthError] = useState("");
+  // Never seed verifying=true from session — that skipped the restore effect forever
+  // ("Restoring your session…" stuck, no login / no home).
   const [verifying, setVerifying] = useState(false);
   const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [scorerName, setScorerName] = useState("");
+  const [scorerName, setScorerName] = useState(() => getScorerAuthSession()?.scorer.name ?? "");
+  const sessionRestoreAttemptedRef = useRef(false);
 
   const { data: branding } = useBadmintonBranding(authAccepted ? tournamentId : 0);
   const tournamentName =
@@ -305,9 +487,11 @@ export default function BadmintonScorerHomePage() {
   }
 
   useEffect(() => {
-    if (!tournamentId || authAccepted || verifying) return;
+    if (!tournamentId || authAccepted) return;
     const existing = getScorerAuthSession();
     if (!existing) return;
+    if (sessionRestoreAttemptedRef.current) return;
+    sessionRestoreAttemptedRef.current = true;
     setScorerName(existing.scorer.name);
     setVerifying(true);
     void loadHomeSession(tournamentId)
@@ -317,7 +501,7 @@ export default function BadmintonScorerHomePage() {
       })
       .finally(() => setVerifying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId]);
+  }, [tournamentId, authAccepted]);
 
   async function refreshSession() {
     if (!tournamentId || !getScorerAuthSession()) return;
@@ -355,8 +539,31 @@ export default function BadmintonScorerHomePage() {
     (session?.view === "court" ? session.courts[0] : null);
 
   if (!authAccepted) {
+    if (verifying) {
+      return (
+        <FullscreenLayout className="lovable-theme">
+          <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-6 gap-4">
+            <BadmintonPublicBrandMark variant="scorer-bar" />
+            <p className="text-white/50 text-sm mt-2">Restoring your session…</p>
+            <button
+              type="button"
+              onClick={() => {
+                sessionRestoreAttemptedRef.current = false;
+                setVerifying(false);
+                clearScorerAuthSession();
+                setAuthError("Sign in again to continue.");
+              }}
+              className="text-white/45 text-sm hover:text-white/70 underline-offset-2 hover:underline"
+            >
+              Cancel · Sign in again
+            </button>
+          </div>
+        </FullscreenLayout>
+      );
+    }
+
     return (
-      <FullscreenLayout>
+      <FullscreenLayout className="lovable-theme">
         <div className="min-h-[100dvh] bg-background flex flex-col">
           <div className="flex-1 flex items-center justify-center p-5 sm:p-6">
             <div className="w-full max-w-sm">
@@ -445,7 +652,7 @@ export default function BadmintonScorerHomePage() {
   }
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="lovable-theme">
       <div className="min-h-[100dvh] bg-background flex flex-col">
         <header className="sticky top-0 z-20 border-b border-white/10 bg-background/95 backdrop-blur-md px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
           <div className="max-w-lg mx-auto flex items-start gap-3">
@@ -454,9 +661,18 @@ export default function BadmintonScorerHomePage() {
                 <BadmintonPublicBrandMark variant="scorer-bar" />
               </div>
               <h1 className="text-white text-lg font-black truncate">{tournamentName}</h1>
-              <p className="text-white/40 text-xs mt-0.5">
-                {scorerName ? `${scorerName} · ` : ""}
-                {session?.view === "matches" ? "All matches" : "Court scoring"}
+              <p className="text-white/40 text-xs mt-0.5 truncate">
+                {selectedCourt ? (
+                  <>
+                    <span className="text-sky-200/90 font-semibold">{selectedCourt.name}</span>
+                    {scorerName ? ` · ${scorerName}` : ""}
+                  </>
+                ) : (
+                  <>
+                    {scorerName ? `${scorerName} · ` : ""}
+                    {session?.view === "matches" ? "All matches" : "Court scoring"}
+                  </>
+                )}
               </p>
             </div>
             <button
@@ -492,13 +708,12 @@ export default function BadmintonScorerHomePage() {
                     className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-5 min-h-20"
                   >
                     <p className="text-white text-xl font-black">{court.name}</p>
-                    {court.scorerName ? (
-                      <p className="text-white/45 text-sm mt-1">{court.scorerName}</p>
-                    ) : null}
                     <p className="text-white/35 text-xs mt-2">
                       {court.currentMatch
-                        ? `Current: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
-                        : "No current match"}
+                        ? `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
+                        : court.nextMatch
+                          ? `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`
+                          : "No matches queued"}
                     </p>
                   </button>
                 ))}
@@ -523,9 +738,9 @@ export default function BadmintonScorerHomePage() {
             {session?.view === "matches" ? (
               session.matches.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
-                  <p className="text-white/70 font-semibold">No matches for this PIN</p>
+                  <p className="text-white/70 font-semibold">No matches assigned</p>
                   <p className="text-white/40 text-sm mt-2">
-                    Ask the organizer to assign a court PIN or match PIN.
+                    Ask the organizer to assign you to this tournament under Officials.
                   </p>
                 </div>
               ) : (

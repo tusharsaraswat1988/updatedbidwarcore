@@ -38,6 +38,7 @@
 }
 
 @import "tailwindcss";
+@import "./styles/lovable-homepage.css";
 
 @utility animate-accordion-down {
   animation: accordion-down 0.2s ease-out;
@@ -100,6 +101,16 @@
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  /* Lovable homepage broadcast tokens (resolved under .lovable-home) */
+  --color-stage: var(--stage);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-rail: var(--rail);
+  --color-ember: var(--ember);
+  --color-live: var(--live);
+  --color-sold: var(--sold);
+  --color-unsold: var(--unsold);
 
   --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
   --font-display: 'Space Grotesk', 'Space Grotesk Fallback', system-ui, sans-serif;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildScorerHomeView,
   mapMatchStatusToScorerHomeUi,
+  pickCourtCurrentAndNext,
   pinUnlocksMatch,
   resolveEffectiveScorerPin,
   type ScorerHomeMatchCard,
@@ -77,6 +78,42 @@ describe("resolveEffectiveScorerPin", () => {
   });
 });
 
+describe("pickCourtCurrentAndNext", () => {
+  const match = (partial: Partial<ScorerHomeMatchCard>): ScorerHomeMatchCard => ({
+    id: 1,
+    category: "MS",
+    playerA: "A",
+    playerB: "B",
+    court: "C1",
+    courtId: 10,
+    scheduledAt: null,
+    status: "READY",
+    matchStatus: "scheduled",
+    actionLabel: "Start Scoring",
+    readOnly: false,
+    accessVia: "court_pin",
+    ...partial,
+  });
+
+  it("queues ready matches as up next when nothing is live", () => {
+    const result = pickCourtCurrentAndNext([
+      match({ id: 1, scheduledAt: "2026-07-30T09:00:00.000Z" }),
+      match({ id: 2, scheduledAt: "2026-07-30T10:00:00.000Z" }),
+    ]);
+    expect(result.currentMatch).toBeNull();
+    expect(result.nextMatch?.id).toBe(1);
+  });
+
+  it("treats live match as current", () => {
+    const result = pickCourtCurrentAndNext([
+      match({ id: 1, matchStatus: "live", status: "LIVE", actionLabel: "Resume" }),
+      match({ id: 2, scheduledAt: "2026-07-30T10:00:00.000Z" }),
+    ]);
+    expect(result.currentMatch?.id).toBe(1);
+    expect(result.nextMatch?.id).toBe(2);
+  });
+});
+
 describe("buildScorerHomeView", () => {
   const match = (partial: Partial<ScorerHomeMatchCard>): ScorerHomeMatchCard => ({
     id: 1,
@@ -101,7 +138,20 @@ describe("buildScorerHomeView", () => {
     });
     expect(view.view).toBe("court");
     expect(view.courts).toHaveLength(1);
+    expect(view.courts[0]?.currentMatch).toBeNull();
+    expect(view.courts[0]?.nextMatch?.id).toBe(1);
+  });
+
+  it("sets live match as current and ready match as next", () => {
+    const view = buildScorerHomeView({
+      matches: [
+        match({ id: 1, courtId: 10, matchStatus: "live", status: "LIVE", actionLabel: "Resume" }),
+        match({ id: 2, courtId: 10, scheduledAt: "2026-07-30T10:00:00.000Z" }),
+      ],
+      courts: [{ id: 10, name: "Court 1", shortName: "C1", scorerName: null }],
+    });
     expect(view.courts[0]?.currentMatch?.id).toBe(1);
+    expect(view.courts[0]?.nextMatch?.id).toBe(2);
   });
 
   it("uses courts view for multiple courts", () => {

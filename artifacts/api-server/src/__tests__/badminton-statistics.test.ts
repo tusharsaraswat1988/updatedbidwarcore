@@ -129,8 +129,8 @@ function pairSide(
   players: Array<{ masterPlayerId: string; label: string; teamName?: string }>,
 ) {
   return {
-    label: players.map((p) => p.label).join(" / "),
-    shortLabel: players.map((p) => p.label.slice(0, 1)).join(" / "),
+    label: players.map((p) => p.label).join(" & "),
+    shortLabel: players.map((p) => p.label.slice(0, 1)).join(" & "),
     playerIds: players.map((_, i) => i + 1),
     players: players.map((p) => ({
       label: p.label,
@@ -164,8 +164,8 @@ describe("extractMasterPlayerIdsFromSideJson", () => {
     expect(
       extractMasterPlayerIdsFromSideJson(
         {
-          label: "A / B",
-          shortLabel: "A / B",
+          label: "A & B",
+          shortlabel: "A & B",
           playerIds: [1, 2],
           players: [
             { label: "A", shortLabel: "A", masterPlayerId: "gp_a" },
@@ -412,5 +412,35 @@ describe("updateBadmintonStatisticsFromMatch", () => {
 
     expect(mockDbInsertValues).not.toHaveBeenCalled();
     expect(mockDbUpdateSet).not.toHaveBeenCalled();
+  });
+
+  it("applies statistics for disqualified and abandoned terminals", async () => {
+    for (const matchStatus of ["disqualified", "abandoned"] as const) {
+      statsStore.clear();
+      selectPlayerIdQueue.length = 0;
+      vi.clearAllMocks();
+      mockDbLimit.mockImplementation(async () => {
+        const playerId = selectPlayerIdQueue.shift();
+        lastSelectedPlayerId = playerId ?? null;
+        if (!playerId) return [];
+        const row = statsStore.get(playerId);
+        return row ? [row] : [];
+      });
+      mockDbInsertValues.mockImplementation(async (values: Omit<StatsRow, "id">) => {
+        const row: StatsRow = { id: nextId++, ...values };
+        statsStore.set(values.playerId, row);
+        return [row];
+      });
+
+      queueSelects("gp_left", "gp_right");
+      await updateBadmintonStatisticsFromMatch(
+        baseState({ matchStatus, matchKind: "singles" }),
+        42,
+        singlesSide("gp_left", "Left"),
+        singlesSide("gp_right", "Right"),
+      );
+      expect(mockDbInsertValues).toHaveBeenCalledTimes(2);
+      expect(getStats("gp_left")!.matchesPlayed).toBe(1);
+    }
   });
 });

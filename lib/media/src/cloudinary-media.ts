@@ -90,3 +90,19 @@ export function cloudinaryImagesEqual(
   const bId = resolveCloudinaryPublicId(b);
   return !!aId && aId === bId;
 }
+
+/**
+ * Platform wordmark delivery — enough pixels for retina headers (~168 CSS px),
+ * auto format (WebP/AVIF), best quality. Used when redirecting stable logo paths.
+ */
+export const CLOUDINARY_BRAND_WORDMARK_TRANSFORM = "w_1120,c_limit,f_auto,q_auto:best";
+
+/** Inject a Cloudinary transformation segment after `/upload/` (no-op for non-CDN URLs). */
+export function withCloudinaryTransform(
+  url: string,
+  transform: string = CLOUDINARY_BRAND_WORDMARK_TRANSFORM,
+): string {
+  if (!url.includes("res.cloudinary.com/") || !url.includes("/upload/")) return url;
+  if (url.includes(transform)) return url;
+  return url.replace("/upload/", `/upload/${transform}/`);
+}

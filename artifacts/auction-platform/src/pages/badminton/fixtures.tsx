@@ -6,10 +6,10 @@
  * Planning only: Schedule / Create Match. No Start Match / Scoring / Live.
  *
  * Fixture Source Adapters (all write via shared backend writer):
- *   Auto Generate | Manual Entry | Import (Phase 1 stub)
+ *   Auto Generate | Manual Entry | Import (gated — not available yet)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link, useSearch, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -35,7 +35,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonEventsPanel } from "@/pages/badminton/categories";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
@@ -118,15 +117,11 @@ function playerLabel(
 function registrationLabel(row: RegistrationRow, doubles: boolean): string {
   const a = playerLabel(row.player1);
   if (!doubles) return a;
-  return `${a} / ${playerLabel(row.player2 ?? null)}`;
+  return `${a} & ${playerLabel(row.player2 ?? null)}`;
 }
 
 const STRUCTURE_SECTIONS = ["events", "draw"] as const;
 type StructureSection = (typeof STRUCTURE_SECTIONS)[number];
-const STRUCTURE_SECTION_LABELS: Record<StructureSection, string> = {
-  events: "Events",
-  draw: "Draw",
-};
 
 export default function BadmintonFixturesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/fixtures");
@@ -174,16 +169,16 @@ export default function BadmintonFixturesPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="structure"
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={STRUCTURE_SECTIONS}
-            labels={STRUCTURE_SECTION_LABELS}
-            value={activeSection}
-            onChange={(next) => {
-              const base = `/tournament/${tournamentId}/badminton/fixtures`;
-              setLocation(next === "events" ? `${base}?section=events` : `${base}?section=draw`);
-            }}
-          />
+        titleOverride={activeSection === "events" ? "Events" : "Draw"}
+        purposeOverride={
+          activeSection === "events"
+            ? "Define the competitions that make up this tournament."
+            : "Decide who plays whom in each event."
+        }
+        taskOverride={
+          activeSection === "events"
+            ? "Create events and add entries before building the draw."
+            : "Generate or build the draw, then move on to Schedule."
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -199,15 +194,11 @@ export default function BadmintonFixturesPage() {
                 Who plays whom in each event. Schedule assigns courts and times next.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 {
                   title: "Generate Automatically",
-                  desc: "Software builds the draw from event entries.",
-                },
-                {
-                  title: "Import Existing Draw",
-                  desc: "Bring in a draw you already planned elsewhere.",
+                  desc: "Software builds the knockout draw from event entries.",
                 },
                 {
                   title: "Create Manually",
@@ -223,6 +214,9 @@ export default function BadmintonFixturesPage() {
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Import Existing Draw is not available in this release.
+            </p>
             {isLoading ? (
               <div className="space-y-3" aria-busy="true" aria-label="Loading draw">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -284,7 +278,6 @@ function CategoryFixturesPanel({
   const [generating, setGenerating] = useState(false);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [showManual, setShowManual] = useState(false);
-  const [showImportInfo, setShowImportInfo] = useState(false);
   const [error, setError] = useState("");
 
   const { data: registrations = [] } = useQuery<RegistrationRow[]>({
@@ -310,6 +303,8 @@ function CategoryFixturesPanel({
   const accepted = registrations.filter((r) => r.registration.status === "accepted");
   const acceptedCount = accepted.length;
   const isDoubles = category.matchType !== "singles";
+  const isLeague =
+    category.drawType === "round_robin" || category.drawType === "group_knockout";
   const regIdentityMap = new Map<number, TeamPlayerIdentity>();
   for (const row of registrations) {
     const playersForReg = [
@@ -341,11 +336,17 @@ function CategoryFixturesPanel({
     setGenerating(true);
     setError("");
     try {
-      await badmintonFetch(tournamentId, `/categories/${category.id}/generate-draw`, {
+      const endpoint = isLeague
+        ? `/categories/${category.id}/generate-league`
+        : `/categories/${category.id}/generate-draw`;
+      await badmintonFetch(tournamentId, endpoint, {
         method: "POST",
         body: JSON.stringify({}),
       });
-      toastSuccess("Fixtures generated", `${category.name} draw is ready to schedule.`);
+      toastSuccess(
+        isLeague ? "League fixtures generated" : "Fixtures generated",
+        `${category.name} draw is ready to schedule.`,
+      );
       setConfirmGenerate(false);
       invalidatePlanning();
     } catch (e) {
@@ -388,22 +389,40 @@ function CategoryFixturesPanel({
 
       {expanded ? (
         <div className="border-t border-white/8 p-5 space-y-6">
+          {isLeague ? (
+            <LeagueGroupsPanel tournamentId={tournamentId} categoryId={category.id} />
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 setError("");
+                if (isLeague) {
+                  setConfirmGenerate(true);
+                  return;
+                }
                 if (acceptedCount < 2) {
                   setError("Add at least 2 accepted entries in Categories before generating a draw.");
                   return;
                 }
                 setConfirmGenerate(true);
               }}
-              disabled={generating || acceptedCount < 2}
+              disabled={generating || (!isLeague && acceptedCount < 2)}
               className="min-h-11 px-4 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 disabled:opacity-40 text-purple-200 text-sm font-bold transition-colors"
-              title={acceptedCount < 2 ? "Need 2+ accepted entries" : "Generate knockout fixtures"}
+              title={
+                isLeague
+                  ? "Generate pair-vs-pair league fixtures from groups"
+                  : acceptedCount < 2
+                    ? "Need 2+ accepted entries"
+                    : "Generate knockout fixtures"
+              }
             >
-              {generating ? "Generating…" : "Auto Generate Draw"}
+              {generating
+                ? "Generating…"
+                : isLeague
+                  ? "Generate League Fixtures"
+                  : "Auto Generate Draw"}
             </button>
             <button
               type="button"
@@ -418,10 +437,11 @@ function CategoryFixturesPanel({
             </button>
             <button
               type="button"
-              onClick={() => setShowImportInfo(true)}
-              className="min-h-11 px-4 rounded-lg bg-white/5 hover:bg-white/8 text-white/50 text-xs font-semibold transition-colors"
+              disabled
+              title="Import is not available in this release"
+              className="min-h-11 px-4 rounded-lg bg-white/5 text-white/35 text-xs font-semibold cursor-not-allowed"
             >
-              Import Existing Draw
+              Import Existing Draw (coming soon)
             </button>
           </div>
 
@@ -487,25 +507,31 @@ function CategoryFixturesPanel({
         />
       ) : null}
 
-      {showImportInfo ? (
-        <ImportPlaceholderModal onClose={() => setShowImportInfo(false)} />
-      ) : null}
-
       <ConfirmActionDialog
         open={confirmGenerate}
         onOpenChange={setConfirmGenerate}
-        title="Generate knockout draw?"
+        title={isLeague ? "Generate league fixtures?" : "Generate knockout draw?"}
         description={
           <div className="space-y-2">
             <p>
-              Create a knockout fixture collection for{" "}
-              <span className="text-foreground font-medium">{category.name}</span> using{" "}
-              {acceptedCount} accepted entries.
+              {isLeague ? (
+                <>
+                  Create team-tie league fixtures for{" "}
+                  <span className="text-foreground font-medium">{category.name}</span> from
+                  configured groups (pair slot vs pair slot).
+                </>
+              ) : (
+                <>
+                  Create a knockout fixture collection for{" "}
+                  <span className="text-foreground font-medium">{category.name}</span> using{" "}
+                  {acceptedCount} accepted entries.
+                </>
+              )}
             </p>
             <p>You can schedule courts and times afterward in Scheduling.</p>
           </div>
         }
-        confirmLabel="Generate draw"
+        confirmLabel={isLeague ? "Generate league" : "Generate draw"}
         destructive={false}
         busy={generating}
         error={error}
@@ -604,8 +630,10 @@ function ManualFixturesModal({
       onClose={onClose}
       size="lg"
     >
-      <FormField label="Collection name">
+      <FormField label="Collection name" required>
         <input
+          required
+          aria-required="true"
           value={roundName}
           onChange={(e) => setRoundName(e.target.value)}
           placeholder="Manual Fixtures"
@@ -679,21 +707,228 @@ function ManualFixturesModal({
   );
 }
 
-function ImportPlaceholderModal({ onClose }: { onClose: () => void }) {
+function LeagueGroupsPanel({
+  tournamentId,
+  categoryId,
+}: {
+  tournamentId: number;
+  categoryId: number;
+}) {
+  const qc = useQueryClient();
+  type LeagueGroup = {
+    id: number;
+    name: string;
+    sortOrder: number;
+    teams: Array<{ teamId: number; teamName: string; seed: number | null }>;
+  };
+  type FranchiseTeam = {
+    auctionTeamId: number;
+    name: string;
+    shortName?: string;
+  };
+  type StandingRow = {
+    rank: number;
+    label: string;
+    played: number;
+    won: number;
+    lost: number;
+    marginPoints: number;
+  };
+
+  const { data: groups = [], isLoading } = useQuery<LeagueGroup[]>({
+    queryKey: ["badminton-league-groups", tournamentId, categoryId],
+    queryFn: () => badmintonFetch(tournamentId, `/categories/${categoryId}/groups`),
+  });
+
+  const { data: franchiseTeams = [] } = useQuery<FranchiseTeam[]>({
+    queryKey: ["badminton-franchise-teams", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/franchise-teams`),
+  });
+
+  const { data: standings = [] } = useQuery<StandingRow[]>({
+    queryKey: ["badminton-league-standings", tournamentId, categoryId],
+    queryFn: () => badmintonFetch(tournamentId, `/categories/${categoryId}/standings`),
+  });
+
+  const [draftGroups, setDraftGroups] = useState<
+    Array<{ name: string; teamIds: number[] }>
+  >([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (initialized) return;
+    if (isLoading) return;
+    if (groups.length > 0) {
+      setDraftGroups(
+        groups.map((g) => ({
+          name: g.name,
+          teamIds: g.teams.map((t) => t.teamId),
+        })),
+      );
+      setInitialized(true);
+      return;
+    }
+    setDraftGroups([
+      { name: "Group 1", teamIds: [] },
+      { name: "Group 2", teamIds: [] },
+    ]);
+    setInitialized(true);
+  }, [groups, isLoading, initialized]);
+
+  function toggleTeam(groupIndex: number, teamId: number) {
+    setDraftGroups((prev) =>
+      prev.map((g, i) => {
+        if (i !== groupIndex) {
+          return { ...g, teamIds: g.teamIds.filter((id) => id !== teamId) };
+        }
+        const has = g.teamIds.includes(teamId);
+        return {
+          ...g,
+          teamIds: has ? g.teamIds.filter((id) => id !== teamId) : [...g.teamIds, teamId],
+        };
+      }),
+    );
+  }
+
+  async function saveGroups() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      await badmintonFetch(tournamentId, `/categories/${categoryId}/groups`, {
+        method: "PUT",
+        body: JSON.stringify({
+          groups: draftGroups.map((g, idx) => ({
+            name: g.name,
+            sortOrder: idx,
+            teamIds: g.teamIds,
+          })),
+        }),
+      });
+      void qc.invalidateQueries({
+        queryKey: ["badminton-league-groups", tournamentId, categoryId],
+      });
+      toastSuccess("Groups saved", "Assign pairs to franchise teams, then generate league.");
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save groups");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <FormModal
-      title="Import Existing Draw"
-      subtitle="Coming in a later phase"
-      onClose={onClose}
-      size="md"
-    >
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        Import will accept association draws, Excel sheets, CSV lists, and PDF brackets. This is a
-        placeholder for now — nothing is uploaded yet. When ready, Import will add the same kind of
-        draw you get from Generate Automatically or Create Manually.
-      </p>
-      <FormActions onCancel={onClose} onSubmit={onClose} submitLabel="Got it" saving={false} />
-    </FormModal>
+    <section className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-4">
+      <div>
+        <h4 className="text-white font-semibold">League Groups</h4>
+        <p className="text-white/40 text-xs mt-1">
+          Assign franchise teams to each group. Pairs are matched by slot (Rubber 1 vs Rubber 1, etc.).
+        </p>
+      </div>
+
+      {isLoading ? (
+        <p className="text-white/40 text-sm">Loading groups…</p>
+      ) : (
+        <div className="space-y-4">
+          {draftGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+              <input
+                value={group.name}
+                onChange={(e) =>
+                  setDraftGroups((prev) =>
+                    prev.map((g, i) =>
+                      i === groupIndex ? { ...g, name: e.target.value } : g,
+                    ),
+                  )
+                }
+                className={inputClass}
+                placeholder="Group name"
+              />
+              <div className="flex flex-wrap gap-2">
+                {franchiseTeams.map((team) => {
+                  const selected = group.teamIds.includes(team.auctionTeamId);
+                  const usedElsewhere = draftGroups.some(
+                    (g, i) => i !== groupIndex && g.teamIds.includes(team.auctionTeamId),
+                  );
+                  return (
+                    <button
+                      key={team.auctionTeamId}
+                      type="button"
+                      disabled={usedElsewhere && !selected}
+                      onClick={() => toggleTeam(groupIndex, team.auctionTeamId)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                        selected
+                          ? "bg-cyan-500/30 text-cyan-100 border border-cyan-400/40"
+                          : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10",
+                        usedElsewhere && !selected && "opacity-40 cursor-not-allowed",
+                      )}
+                    >
+                      {team.shortName ?? team.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              setDraftGroups((prev) => [
+                ...prev,
+                { name: `Group ${prev.length + 1}`, teamIds: [] },
+              ])
+            }
+            className="text-xs font-semibold text-cyan-300 hover:underline"
+          >
+            + Add group
+          </button>
+        </div>
+      )}
+
+      {saveError ? <FormError message={saveError} /> : null}
+
+      <div className="flex flex-wrap gap-2">
+        <BtnPrimary type="button" onClick={() => void saveGroups()} disabled={saving}>
+          {saving ? "Saving…" : "Save Groups"}
+        </BtnPrimary>
+      </div>
+
+      {standings.length > 0 ? (
+        <div className="overflow-x-auto">
+          <h5 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">
+            Pair Standings (margin points)
+          </h5>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-white/40 text-left">
+                <th className="py-1 pr-2">#</th>
+                <th className="py-1 pr-2">Pair</th>
+                <th className="py-1 pr-2">P</th>
+                <th className="py-1 pr-2">W</th>
+                <th className="py-1 pr-2">L</th>
+                <th className="py-1">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((row) => (
+                <tr key={row.rank} className="border-t border-white/5 text-white/80">
+                  <td className="py-1.5 pr-2">{row.rank}</td>
+                  <td className="py-1.5 pr-2">{row.label}</td>
+                  <td className="py-1.5 pr-2">{row.played}</td>
+                  <td className="py-1.5 pr-2">{row.won}</td>
+                  <td className="py-1.5 pr-2">{row.lost}</td>
+                  <td className="py-1.5 font-bold text-cyan-200">{row.marginPoints}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-white/35 mt-2">
+            Top 4 pairs qualify (by margin points from won games).
+          </p>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

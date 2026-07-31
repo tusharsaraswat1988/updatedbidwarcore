@@ -519,7 +519,7 @@ function CompleteProfileForm({
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b]">
+    <div className="lovable-home min-h-screen flex flex-col items-center justify-center px-6 text-foreground">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
       </div>
@@ -530,16 +530,16 @@ function CompleteProfileForm({
         className="relative w-full max-w-sm space-y-6"
       >
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
+          <div className="scoreboard-tile w-14 h-14 mx-auto flex items-center justify-center">
             <Phone className="w-7 h-7 text-primary" />
           </div>
           <AuthStepIndicator step={step === "mobile" ? 1 : 2} total={2} />
-          <h1 className="font-display font-black text-2xl text-white">Complete your profile</h1>
+          <h1 className="text-display-md">Complete your profile</h1>
           <p className="text-muted-foreground text-sm">
             Verify your mobile number with OTP to continue using BidWar.
           </p>
         </div>
-        <Card className="border-border/50 bg-card/50">
+        <Card className="panel border-none">
           <CardContent className="p-6">
             {step === "mobile" ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
@@ -1057,7 +1057,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 py-10 bg-[#09090b]">
+    <div className="lovable-home min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 py-10 text-foreground">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
       </div>
@@ -1080,16 +1080,16 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
         </div>
 
         {view !== "forgot" && (
-          <div className="flex rounded-xl bg-muted/20 p-1 border border-border/50">
+          <div className="flex rounded-md bg-white/5 p-1 border border-white/10">
             <button
               onClick={() => { setView("login"); setError(""); setSignupStep("details"); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${view === "login" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
             >
               Sign In
             </button>
             <button
               onClick={() => { setView("signup"); setError(""); setSignupStep("details"); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${view === "signup" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
             >
               Create Account
             </button>
@@ -1097,13 +1097,13 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
         )}
 
         {next && view !== "forgot" && (
-          <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-muted-foreground">
             <Lock className="w-4 h-4 shrink-0" />
             Please log in to continue.
           </div>
         )}
 
-        <Card className="border-border/50 bg-card/50">
+        <Card className="panel border-none">
           <CardContent className={view === "signup" ? "p-6 sm:p-7" : "p-6"}>
             <AnimatePresence mode="wait">
               {view === "forgot" ? (
@@ -2064,7 +2064,7 @@ export default function OrganizerPortal() {
   if (checking) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+        <div className="lovable-home min-h-screen flex items-center justify-center">
           <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         </div>
       </FullscreenLayout>

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { useLocation, useRoute, useSearch } from "wouter";
+import { useRoute, useSearch } from "wouter";
 import { Users, Pencil, Trash2, Upload, User, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -45,11 +45,8 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonScorersPanel } from "@/pages/badminton/scorers";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 interface BadmintonPlayerMeta {
   city?: string | null;
@@ -77,6 +74,14 @@ interface BadmintonPlayer {
   metaJson?: BadmintonPlayerMeta | null;
   franchiseName?: string | null;
   franchiseLogoUrl?: string | null;
+  franchiseAuctionTeamId?: number | null;
+}
+
+interface FranchiseTeam {
+  auctionTeamId: number;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
 }
 
 interface SportRole {
@@ -94,15 +99,10 @@ function playerMeta(player: BadmintonPlayer): BadmintonPlayerMeta {
 
 const PARTICIPANT_SECTIONS = ["players", "officials"] as const;
 type ParticipantSection = (typeof PARTICIPANT_SECTIONS)[number];
-const PARTICIPANT_SECTION_LABELS: Record<ParticipantSection, string> = {
-  players: "Players",
-  officials: "Officials",
-};
 
 export default function BadmintonPlayersPage() {
   const [, params] = useRoute("/tournament/:id/badminton/players");
   const urlSearch = useSearch();
-  const [, setLocation] = useLocation();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
   const section: ParticipantSection =
@@ -119,26 +119,19 @@ export default function BadmintonPlayersPage() {
 
   const { data: players = [], isLoading } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players`,
-        { credentials: "include" },
-      );
-      return res.json();
-    },
+    queryFn: () => badmintonFetch<BadmintonPlayer[]>(tournamentId, `/players`),
     enabled: !!tournamentId,
+  });
+
+  const { data: franchiseTeams = [] } = useQuery<FranchiseTeam[]>({
+    queryKey: ["badminton-franchise-teams", tournamentId],
+    queryFn: () => badmintonFetch<FranchiseTeam[]>(tournamentId, `/franchise-teams`),
+    enabled: !!tournamentId && section === "players",
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (playerId: number) => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${playerId}`,
-        { method: "DELETE", credentials: "include" },
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Could not delete player");
-      }
+      await badmintonFetch(tournamentId, `/players/${playerId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
@@ -235,6 +228,17 @@ export default function BadmintonPlayersPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="participants"
+        titleOverride={section === "officials" ? "Officials" : "Players"}
+        purposeOverride={
+          section === "officials"
+            ? "Manage scorers and officials who run matches on the day."
+            : "Manage everyone who will compete in the tournament."
+        }
+        taskOverride={
+          section === "officials"
+            ? "Add scorers with mobile + personal PIN for Scorer Login."
+            : "Import or add players, then prepare officials and scorers."
+        }
         headerActions={
           section === "players" ? (
             <div className="flex items-center gap-2 flex-wrap">
@@ -244,17 +248,6 @@ export default function BadmintonPlayersPage() {
               </BtnPrimary>
             </div>
           ) : undefined
-        }
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={PARTICIPANT_SECTIONS}
-            labels={PARTICIPANT_SECTION_LABELS}
-            value={section}
-            onChange={(next) => {
-              const base = `/tournament/${tournamentId}/badminton/players`;
-              setLocation(next === "players" ? base : `${base}?section=officials`);
-            }}
-          />
         }
       >
       <div className="max-w-7xl mx-auto px-6 py-6">
@@ -381,7 +374,7 @@ export default function BadmintonPlayersPage() {
                           {group.players.length} player{group.players.length === 1 ? "" : "s"}
                           {group.teamName !== "Players without Team"
                             ? " · team identity from Player Registry"
-                            : " · add a team later if needed"}
+                            : " · edit player to assign a team"}
                         </p>
                       </div>
                     </div>
@@ -410,6 +403,7 @@ export default function BadmintonPlayersPage() {
         <PlayerFormModal
           tournamentId={tournamentId}
           player={editPlayer}
+          franchiseTeams={franchiseTeams}
           onClose={() => { setShowForm(false); setEditPlayer(null); }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
@@ -527,13 +521,7 @@ function ImportMasterPlayersModal({
 
   const { data: rosterPlayers = [] } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players`,
-        { credentials: "include" },
-      );
-      return res.json();
-    },
+    queryFn: () => badmintonFetch<BadmintonPlayer[]>(tournamentId, `/players`),
     enabled: !!tournamentId,
   });
 
@@ -605,22 +593,10 @@ function ImportMasterPlayersModal({
     queryKey: ["master-players", tournamentId, sourceId],
     queryFn: async () => {
       const qs = new URLSearchParams({ sourceTournamentId: sourceId });
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players?${qs}`,
-        { credentials: "include" },
+      return badmintonFetch<MasterPlayerImport[]>(
+        tournamentId,
+        `/master-players?${qs.toString()}`,
       );
-      const body = (await res.json().catch(() => null)) as
-        | MasterPlayerImport[]
-        | { error?: string }
-        | null;
-      if (!res.ok) {
-        const message =
-          body && !Array.isArray(body) && body.error
-            ? body.error
-            : "Failed to load players";
-        throw new Error(message);
-      }
-      return Array.isArray(body) ? body : [];
     },
     enabled: !!tournamentId && !!sourceId && !savingSource,
     // Always re-check against current badminton roster when the modal opens.
@@ -654,22 +630,13 @@ function ImportMasterPlayersModal({
     setImporting(true);
     setError("");
     try {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/import-master-players`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            masterPlayerIds: [...selected],
-            sourceTournamentId: parseInt(sourceId, 10),
-          }),
-        },
-      );
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || "Import failed");
-      }
+      await badmintonFetch(tournamentId, `/import-master-players`, {
+        method: "POST",
+        body: JSON.stringify({
+          masterPlayerIds: [...selected],
+          sourceTournamentId: parseInt(sourceId, 10),
+        }),
+      });
       onImported();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
@@ -734,7 +701,7 @@ function ImportMasterPlayersModal({
             options={sourceOptions}
           />
           <p className="text-white/35 text-xs mt-2">
-            Only your badminton tournaments appear here. Players come from that tournament’s badminton roster, or its Player Registry team assignments if no badminton roster exists. Licensed events have no import cap.
+            Only your badminton tournaments appear here. Players come from that tournament’s sold/retained auction roster when available, otherwise Player Registry team assignments and existing badminton roster entries. Licensed events have no import cap.
           </p>
         </FormField>
 
@@ -763,7 +730,7 @@ function ImportMasterPlayersModal({
           <div className="text-center py-8 space-y-2">
             <p className="text-white/50">No players to import from this source.</p>
             <p className="text-white/30 text-sm">
-              This tournament needs a badminton roster or Player Registry team assignments with linked master players. Add players first, or choose a different source above.
+              This tournament needs a badminton roster, Player Registry team assignments, or sold/retained auction players linked to the registry. Add players first, or choose a different source above.
             </p>
           </div>
         ) : available.length === 0 ? (
@@ -788,9 +755,9 @@ function ImportMasterPlayersModal({
               </button>
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-              {available.map((p) => (
+              {available.map((p, index) => (
             <label
-              key={p.id}
+              key={`${p.id}-${index}`}
               className="flex items-center gap-4 p-3 rounded-xl border border-white/10 bg-[#121c34]/50 hover:border-[#4fc3f7]/25 cursor-pointer transition-colors"
             >
               <input
@@ -958,15 +925,19 @@ function PlayerCard({
 function PlayerFormModal({
   tournamentId,
   player,
+  franchiseTeams,
   onClose,
   onSaved,
 }: {
   tournamentId: number;
   player: BadmintonPlayer | null;
+  franchiseTeams: FranchiseTeam[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const existingMeta = player ? playerMeta(player) : null;
+  const initialTeamId =
+    player?.franchiseAuctionTeamId != null ? String(player.franchiseAuctionTeamId) : "none";
   const [form, setForm] = useState({
     name: player ? playerFullName(player) : "",
     mobile: player?.mobile ? sanitizeMobileInput(player.mobile) : "",
@@ -981,6 +952,7 @@ function PlayerFormModal({
     jerseyNumber: existingMeta?.jerseyNumber ?? "",
     jerseySize: (existingMeta?.jerseySize as JerseySize | "") ?? "",
     achievements: existingMeta?.achievements ?? "",
+    franchiseTeamId: initialTeamId,
   });
   const [sportRoles, setSportRoles] = useState<SportRole[]>([]);
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
@@ -1047,22 +1019,31 @@ function PlayerFormModal({
         jerseySize: form.jerseySize || undefined,
         achievements: form.achievements.trim() || undefined,
       };
-      const url = player
-        ? `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${player.id}`
-        : `${API_BASE}/api/tournaments/${tournamentId}/badminton/players`;
-      const res = await fetch(url, {
+      const path = player ? `/players/${player.id}` : `/players`;
+      const saved = await badmintonFetch<BadmintonPlayer>(tournamentId, path, {
         method: player ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || "Failed to save player");
+
+      const savedPlayerId = player?.id ?? saved.id;
+      const teamChanged = form.franchiseTeamId !== initialTeamId;
+      if (savedPlayerId && teamChanged && franchiseTeams.length > 0) {
+        await badmintonFetch(tournamentId, `/players/${savedPlayerId}/franchise-team`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            auctionTeamId:
+              form.franchiseTeamId === "none"
+                ? null
+                : parseInt(form.franchiseTeamId, 10),
+          }),
+        });
       }
+
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error saving player");
+      const message = e instanceof Error ? e.message : "Error saving player";
+      setError(message);
+      toastError(e, message);
     } finally {
       setSaving(false);
     }
@@ -1125,9 +1106,10 @@ function PlayerFormModal({
         }}
       />
 
-      <FormField label="Mobile Number *">
+      <FormField label="Mobile Number" required>
         <input
           required
+          aria-required="true"
           value={form.mobile}
           onChange={(e) => {
             setField("mobile", sanitizeMobileInput(e.target.value));
@@ -1154,9 +1136,10 @@ function PlayerFormModal({
         inputClassName={inputClass}
       />
 
-      <FormField label="Full Name *">
+      <FormField label="Full Name" required>
         <input
           required
+          aria-required="true"
           value={form.name}
           onChange={(e) => setField("name", e.target.value)}
           placeholder="Your full name"
@@ -1190,7 +1173,7 @@ function PlayerFormModal({
       </div>
 
       <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
-        <FormField label="Role *">
+        <FormField label="Role" required>
           <DarkSelect
             value={form.role || "none"}
             onValueChange={(role) => setField("role", role === "none" ? "" : role)}
@@ -1207,6 +1190,26 @@ function PlayerFormModal({
             ]}
           />
         </FormField>
+
+        {franchiseTeams.length > 0 ? (
+          <FormField label="Team">
+            <DarkSelect
+              value={form.franchiseTeamId}
+              onValueChange={(teamId) => setField("franchiseTeamId", teamId)}
+              placeholder="Select team…"
+              options={[
+                { value: "none", label: "No team assigned" },
+                ...franchiseTeams.map((team) => ({
+                  value: String(team.auctionTeamId),
+                  label: team.name,
+                })),
+              ]}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Assign or change the player&apos;s auction franchise team for scoring and match setup.
+            </p>
+          </FormField>
+        ) : null}
 
         <FormField label="Playing Hand">
           <DarkSelect

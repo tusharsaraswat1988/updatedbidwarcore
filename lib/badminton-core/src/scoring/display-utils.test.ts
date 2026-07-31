@@ -7,7 +7,7 @@ import type { DoublesServeState } from "./types";
 function side(label: string, shortA: string, shortB: string) {
   return {
     label,
-    shortLabel: `${shortA} / ${shortB}`,
+    shortLabel: `${shortA} & ${shortB}`,
     playerIds: [1, 2],
     players: [
       { label: `${label} P0`, shortLabel: shortA },
@@ -63,12 +63,16 @@ describe("getCourtQuadrantPlayers", () => {
     expect(court).not.toBeNull();
     // Left side facing down: their right court → top-right
     expect(court!.topRight.isServer).toBe(true);
-    expect(court!.topRight.label).toBe("L0");
+    expect(court!.topRight.label).toBe("Left P0");
     // Right side facing up: their right court → bottom-left (flipped onto screen)
     expect(court!.bottomLeft.isReceiver).toBe(true);
-    expect(court!.bottomLeft.label).toBe("R0");
+    expect(court!.bottomLeft.label).toBe("Right P0");
     // Same column would be wrong — must be diagonal
     expect(court!.topRight.isServer && court!.bottomRight.isReceiver).toBe(false);
+
+    const short = getCourtQuadrantPlayers(baseState(ds), { preferShort: true });
+    expect(short!.topRight.label).toBe("L0");
+    expect(short!.bottomLeft.label).toBe("R0");
   });
 
   it("places serve and receive diagonally on odd score (both in left court from own perspective)", () => {
@@ -90,8 +94,8 @@ describe("getCourtQuadrantPlayers", () => {
     const court = getCourtQuadrantPlayers(baseState(ds));
     expect(court).not.toBeNull();
     expect(court!.topLeft.isServer).toBe(true);
-    expect(court!.topLeft.label).toBe("L1");
+    expect(court!.topLeft.label).toBe("Left P1");
     expect(court!.bottomRight.isReceiver).toBe(true);
-    expect(court!.bottomRight.label).toBe("R1");
+    expect(court!.bottomRight.label).toBe("Right P1");
   });
 });

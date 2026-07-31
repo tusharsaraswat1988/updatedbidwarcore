@@ -67,7 +67,11 @@ function useDeferredFixturesEnabled(tournamentId: number) {
 
 export function useBadmintonSetup(tournamentId: number) {
   const { data, isLoading: dashboardLoading } = useBadmintonDashboard(tournamentId);
-  const { data: branding, isLoading: brandingLoading } = useBadmintonBranding(tournamentId);
+  // No permanent branding poll — fights live SSE / Mission Control presentation patches.
+  const { data: branding, isLoading: brandingLoading } = useBadmintonBranding(tournamentId, {
+    staleTime: 60_000,
+    refetchInterval: false,
+  });
   const { data: scoringFormat, isLoading: formatLoading } =
     useBadmintonScoringFormat(tournamentId);
 

@@ -9,10 +9,18 @@
  */
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
-import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { resolveFranchiseLogoUrl, resolveFranchiseName, isPairMatchKind, currentReceiverLabel, currentServerLabel } from "@workspace/badminton-core";
+import type { BadmintonMatchState, BadmintonSide } from "@workspace/badminton-core";
+import {
+  resolveFranchiseLogoUrl,
+  resolveFranchiseName,
+  isPairMatchKind,
+  currentReceiverLabel,
+  currentServerLabel,
+  gamesNeededToWin,
+  detectGamePointSide,
+  detectMatchPointSide,
+} from "@workspace/badminton-core";
 import { SidePlayerPhotos } from "@/components/badminton/side-players";
-import { DoublesCourtDisplay } from "@/components/badminton/doubles-court-display";
 import { type ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { cn } from "@/lib/utils";
@@ -28,6 +36,14 @@ import {
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_BROADCAST_YELLOW_BORDER,
+  BIDWAR_BROADCAST_YELLOW_MUTED,
+  BIDWAR_SCOREBOARD_INSET,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
 
 interface BroadcastDisplayProps {
   state: BadmintonMatchState;
@@ -41,6 +57,268 @@ interface BroadcastDisplayProps {
   scoreBoardSponsor?: ScoreBoardSponsor | null;
 }
 
+export interface BroadcastMatchBoardProps {
+  state: BadmintonMatchState;
+  /** Compact density for stacked multi-court venue boards. */
+  density?: "full" | "compact";
+  /** When set, shows a court identity bar above the score stage. */
+  courtLabel?: string;
+  className?: string;
+  /** Hide director status banner (used in multi-court stacks). */
+  showDirectorBanner?: boolean;
+}
+
+type FlashSide = BadmintonSide | null;
+type GameWinPayload = {
+  side: BadmintonSide;
+  winner: number;
+  loser: number;
+  gameNumber: number;
+};
+
+function lastCompletedGame(games: BadmintonMatchState["games"]) {
+  for (let i = games.length - 1; i >= 0; i--) {
+    if (games[i]?.phase === "completed") return games[i];
+  }
+  return null;
+}
+
+/**
+ * Live match scoreboard stage — photos, names, serve, games, centre score.
+ * Used by the full single-court LED display and by multi-court venue stacks.
+ */
+export function BroadcastMatchBoard({
+  state,
+  density = "full",
+  courtLabel,
+  className,
+  showDirectorBanner = true,
+}: BroadcastMatchBoardProps) {
+  const [gameWin, setGameWin] = useState<GameWinPayload | null>(null);
+  const [pointFlash, setPointFlash] = useState<FlashSide>(null);
+  const prevStateRef = useRef<BadmintonMatchState | null>(null);
+  const prevScoreRef = useRef({ left: 0, right: 0 });
+  const pointTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gameWinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const compact = density === "compact";
+
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    if (!prev) {
+      prevStateRef.current = state;
+      prevScoreRef.current = { left: state.leftScore, right: state.rightScore };
+      return;
+    }
+
+    if (state.leftScore > prevScoreRef.current.left) {
+      setPointFlash("left");
+      if (pointTimerRef.current) clearTimeout(pointTimerRef.current);
+      pointTimerRef.current = setTimeout(() => setPointFlash(null), 800);
+    } else if (state.rightScore > prevScoreRef.current.right) {
+      setPointFlash("right");
+      if (pointTimerRef.current) clearTimeout(pointTimerRef.current);
+      pointTimerRef.current = setTimeout(() => setPointFlash(null), 800);
+    }
+
+    if (state.gamesLeft > prev.gamesLeft || state.gamesRight > prev.gamesRight) {
+      const completed = lastCompletedGame(state.games);
+      const side: BadmintonSide =
+        state.gamesLeft > prev.gamesLeft ? "left" : "right";
+      if (completed) {
+        setGameWin({
+          side,
+          winner: side === "left" ? completed.leftScore : completed.rightScore,
+          loser: side === "left" ? completed.rightScore : completed.leftScore,
+          gameNumber: completed.gameNumber,
+        });
+        if (gameWinTimerRef.current) clearTimeout(gameWinTimerRef.current);
+        gameWinTimerRef.current = setTimeout(() => setGameWin(null), 3500);
+      }
+    }
+
+    prevStateRef.current = state;
+    prevScoreRef.current = { left: state.leftScore, right: state.rightScore };
+  }, [state]);
+
+  useEffect(() => {
+    return () => {
+      if (pointTimerRef.current) clearTimeout(pointTimerRef.current);
+      if (gameWinTimerRef.current) clearTimeout(gameWinTimerRef.current);
+    };
+  }, []);
+
+  const isTimeout = !!state.activeTimeout;
+  const isDoubles = isPairMatchKind(state.matchKind);
+  const serverLabel = isDoubles ? currentServerLabel(state) : null;
+  const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
+  const leftServing =
+    (!isDoubles && state.servingSide === "left") ||
+    (isDoubles && state.doublesServe?.servingSide === "left");
+  const rightServing =
+    (!isDoubles && state.servingSide === "right") ||
+    (isDoubles && state.doublesServe?.servingSide === "right");
+
+  const showMatchWinner =
+    (state.matchStatus === "completed" ||
+      state.matchStatus === "walkover" ||
+      state.matchStatus === "retired" ||
+      state.matchStatus === "disqualified") &&
+    !!state.winnerSide;
+
+  const suppressDirectorBanner =
+    !showDirectorBanner ||
+    showMatchWinner ||
+    isTimeout ||
+    state.inInterval ||
+    !!gameWin;
+
+  const gamePointSide =
+    state.matchStatus === "live" && !isTimeout && !state.inInterval
+      ? detectGamePointSide(state)
+      : null;
+  const matchPointSide =
+    state.matchStatus === "live" && !isTimeout && !state.inInterval
+      ? detectMatchPointSide(state)
+      : null;
+  const urgencySide = matchPointSide ?? gamePointSide;
+  const urgencyKind = matchPointSide ? "match" : gamePointSide ? "game" : null;
+
+  const isDeuce =
+    state.matchStatus === "live" &&
+    state.leftScore >= state.format.deuceAt &&
+    state.rightScore >= state.format.deuceAt;
+
+  return (
+    <div
+      className={cn(
+        "relative flex h-full min-h-0 flex-col overflow-hidden",
+        compact && "badminton-score-board--compact",
+        className,
+      )}
+      aria-label={courtLabel ? `${courtLabel} live score` : "Live score"}
+    >
+      {courtLabel ? (
+        <div className="badminton-multi-court-bar flex items-center justify-between gap-3 shrink-0">
+          <span className="badminton-multi-court-bar__court font-['Bebas_Neue'] uppercase tracking-[0.18em]">
+            {courtLabel}
+          </span>
+          <span
+            className={cn(
+              "bw-label tracking-[0.18em]",
+              isTimeout ? "text-amber-200" : "text-red-200",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block size-1.5 rounded-full mr-1.5 align-middle",
+                isTimeout ? "bg-amber-400 animate-pulse" : "bg-red-500 animate-pulse",
+              )}
+            />
+            {isTimeout ? "TIMEOUT" : "LIVE"}
+          </span>
+          <span className="font-mono uppercase tracking-[0.16em] text-white/45">
+            Game {state.currentGame || 1}
+          </span>
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          "badminton-score-stage relative z-10 min-h-0 flex-1",
+          compact && "badminton-score-stage--compact",
+        )}
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        {!suppressDirectorBanner ? (
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
+            <DirectorStatusBanner state={state} />
+          </div>
+        ) : null}
+
+        <PlayerBlock
+          side="left"
+          info={state.leftSide}
+          matchKind={state.matchKind}
+          gamesWon={state.gamesLeft}
+          isServing={!!leftServing}
+          servingPlayerLabel={leftServing && isDoubles ? serverLabel : null}
+          isWinner={state.winnerSide === "left"}
+          flash={pointFlash === "left"}
+          gameWinFlash={gameWin?.side === "left"}
+          gamesToWin={gamesNeededToWin(state.format.totalGames)}
+          heat={urgencySide === "left" || pointFlash === "left"}
+          compact={compact}
+        />
+
+        <CentrePanel
+          state={state}
+          isDoubles={isDoubles}
+          serverLabel={serverLabel}
+          receiverLabel={receiverLabel}
+          isDeuce={isDeuce}
+          urgencyKind={urgencyKind}
+          urgencySide={urgencySide}
+          pointFlash={pointFlash}
+          compact={compact}
+        />
+
+        <PlayerBlock
+          side="right"
+          info={state.rightSide}
+          matchKind={state.matchKind}
+          gamesWon={state.gamesRight}
+          isServing={!!rightServing}
+          servingPlayerLabel={rightServing && isDoubles ? serverLabel : null}
+          isWinner={state.winnerSide === "right"}
+          flash={pointFlash === "right"}
+          gameWinFlash={gameWin?.side === "right"}
+          gamesToWin={gamesNeededToWin(state.format.totalGames)}
+          heat={urgencySide === "right" || pointFlash === "right"}
+          compact={compact}
+        />
+      </div>
+
+      {isTimeout && state.activeTimeout ? (
+        <TimeoutOverlay
+          side={state.activeTimeout.side}
+          player={
+            state.activeTimeout.side === "left" ? state.leftSide : state.rightSide
+          }
+        />
+      ) : null}
+
+      {state.inInterval && !isTimeout ? (
+        <IntervalOverlay
+          currentGame={state.currentGame}
+          leftScore={state.leftScore}
+          rightScore={state.rightScore}
+        />
+      ) : null}
+
+      {gameWin && !showMatchWinner && !isTimeout ? (
+        <GameWinOverlay
+          side={gameWin.side}
+          player={gameWin.side === "left" ? state.leftSide : state.rightSide}
+          score={{ winner: gameWin.winner, loser: gameWin.loser }}
+          gameNumber={gameWin.gameNumber}
+        />
+      ) : null}
+
+      {showMatchWinner && state.winnerSide ? (
+        <MatchWinOverlay
+          side={state.winnerSide}
+          player={state.winnerSide === "left" ? state.leftSide : state.rightSide}
+          gamesLeft={state.gamesLeft}
+          gamesRight={state.gamesRight}
+          games={state.games}
+          resultReason={state.resultReason}
+          compact={compact}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function BroadcastDisplay({
   state,
   tournamentName = "Badminton Tournament",
@@ -52,72 +330,38 @@ export function BroadcastDisplay({
   sponsorLogos = [],
   scoreBoardSponsor = null,
 }: BroadcastDisplayProps) {
-  const [gameWinFlash, setGameWinFlash] = useState<"left" | "right" | null>(null);
-  const [matchWinFlash, setMatchWinFlash] = useState<"left" | "right" | null>(null);
-  const [pointFlash, setPointFlash] = useState<"left" | "right" | null>(null);
-  const prevStateRef = useRef<BadmintonMatchState | null>(null);
-  const prevScoreRef = useRef({ left: 0, right: 0 });
-
-  // Detect state changes for animations
-  useEffect(() => {
-    const prev = prevStateRef.current;
-    if (!prev) {
-      prevStateRef.current = state;
-      prevScoreRef.current = { left: state.leftScore, right: state.rightScore };
-      return;
-    }
-
-    // Point scored
-    if (state.leftScore > prevScoreRef.current.left) {
-      setPointFlash("left");
-      setTimeout(() => setPointFlash(null), 800);
-    } else if (state.rightScore > prevScoreRef.current.right) {
-      setPointFlash("right");
-      setTimeout(() => setPointFlash(null), 800);
-    }
-
-    // Game won
-    const prevGamesLeft = prev.gamesLeft;
-    const prevGamesRight = prev.gamesRight;
-    if (state.gamesLeft > prevGamesLeft) {
-      setGameWinFlash("left");
-      setTimeout(() => setGameWinFlash(null), 3000);
-    } else if (state.gamesRight > prevGamesRight) {
-      setGameWinFlash("right");
-      setTimeout(() => setGameWinFlash(null), 3000);
-    }
-
-    // Match won
-    if (state.matchStatus === "completed" && prev.matchStatus !== "completed") {
-      setMatchWinFlash(state.winnerSide ?? null);
-    }
-
-    prevStateRef.current = state;
-    prevScoreRef.current = { left: state.leftScore, right: state.rightScore };
-  }, [state]);
-
   const isTimeout = !!state.activeTimeout;
-  const isDoubles = isPairMatchKind(state.matchKind);
-  const serverLabel = isDoubles ? currentServerLabel(state) : null;
-  const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
+
   const displayMatchName =
     matchLabel?.trim() ||
-    `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}`;
+    (roundName?.trim()
+      ? null
+      : `${formatTeamPlayerLine(identityFromSideInfo(state.leftSide))} vs ${formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}`);
+
+  const matchPointSide =
+    state.matchStatus === "live" && !isTimeout && !state.inInterval
+      ? detectMatchPointSide(state)
+      : null;
+  /** Match point — hide sponsor bar and enlarge score for hall readability ("crowd mode"). */
+  const crowdMode = !!matchPointSide;
 
   return (
     <div
-      className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
+      className={cn(
+        "badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]",
+        crowdMode && "badminton-led-surface--crowd",
+      )}
       style={badmintonLedSurfaceStyle}
     >
-      {/* Animated background grid */}
       <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
+            radial-gradient(ellipse 70% 50% at 50% 42%, rgba(255,255,255,0.07), transparent 70%),
+            linear-gradient(rgba(255,255,255,0.22) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.22) 1px, transparent 1px)
           `,
-          backgroundSize: "60px 60px",
+          backgroundSize: "auto, 72px 72px, 72px 72px",
         }}
       />
 
@@ -130,126 +374,98 @@ export function BroadcastDisplay({
         matchStatus={state.matchStatus}
         isTimeout={isTimeout}
         timeoutSide={state.activeTimeout?.side}
-        leftLabel={formatTeamPlayerLine(identityFromSideInfo(state.leftSide, { preferShort: true }))}
-        rightLabel={formatTeamPlayerLine(identityFromSideInfo(state.rightSide, { preferShort: true }))}
+        leftLabel={formatTeamPlayerLine(identityFromSideInfo(state.leftSide))}
+        rightLabel={formatTeamPlayerLine(identityFromSideInfo(state.rightSide))}
         scoreBoardSponsor={scoreBoardSponsor}
+        sponsorLogos={sponsorLogos}
       />
 
-      {/* MAIN SCORE AREA — unified horizontal composition: player ↔ score ↔ player */}
-      <div className="badminton-score-stage relative z-10 min-h-0 flex bg-[#070708]">
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
-          <DirectorStatusBanner state={state} />
-        </div>
-        {/* Left player block */}
-        <PlayerBlock
-          side="left"
-          info={state.leftSide}
-          matchKind={state.matchKind}
-          score={state.leftScore}
-          gamesWon={state.gamesLeft}
-          isServing={!isDoubles && state.servingSide === "left"}
-          servingPlayerLabel={
-            isDoubles && state.doublesServe?.servingSide === "left" ? serverLabel : null
-          }
-          isWinner={state.winnerSide === "left"}
-          flash={pointFlash === "left"}
-          gameWinFlash={gameWinFlash === "left"}
-          format={state.format}
-        />
-
-        {/* Centre panel */}
-        <CentrePanel
-          state={state}
-          matchName={displayMatchName}
-          isTimeout={isTimeout}
-          timeoutSide={state.activeTimeout?.side}
-          isDoubles={isDoubles}
-          serverLabel={serverLabel}
-          receiverLabel={receiverLabel}
-        />
-
-        {/* Right player block */}
-        <PlayerBlock
-          side="right"
-          info={state.rightSide}
-          matchKind={state.matchKind}
-          score={state.rightScore}
-          gamesWon={state.gamesRight}
-          isServing={!isDoubles && state.servingSide === "right"}
-          servingPlayerLabel={
-            isDoubles && state.doublesServe?.servingSide === "right" ? serverLabel : null
-          }
-          isWinner={state.winnerSide === "right"}
-          flash={pointFlash === "right"}
-          gameWinFlash={gameWinFlash === "right"}
-          format={state.format}
-        />
-      </div>
+      <BroadcastMatchBoard state={state} className="relative z-10 min-h-0" />
 
       <footer className="relative z-20 flex flex-col shrink-0">
-        <GameHistoryRow games={state.games} />
-        <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
-      </footer>
-
-      {/* Game win overlay */}
-      {gameWinFlash && (
-        <GameWinOverlay
-          side={gameWinFlash}
-          player={gameWinFlash === "left" ? state.leftSide : state.rightSide}
-          score={gameWinFlash === "left"
-            ? { winner: state.leftScore, loser: state.rightScore }
-            : { winner: state.rightScore, loser: state.leftScore }
-          }
-        />
-      )}
-
-      {/* Match win overlay */}
-      {matchWinFlash && (
-        <MatchWinOverlay
-          side={matchWinFlash}
-          player={matchWinFlash === "left" ? state.leftSide : state.rightSide}
-          gamesLeft={state.gamesLeft}
-          gamesRight={state.gamesRight}
+        <ScoreboardMetaRow
+          matchName={displayMatchName}
           games={state.games}
         />
-      )}
+        {crowdMode ? (
+          <div className="badminton-crowd-strip border-t border-red-500/40 bg-red-600/20 h-[10vh] min-h-[72px] max-h-[104px] flex items-center justify-center">
+            <span className="bw-heading text-red-100 tracking-[0.35em] text-2xl md:text-3xl animate-pulse">
+              MATCH POINT
+            </span>
+          </div>
+        ) : (
+          <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
+        )}
+      </footer>
     </div>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function GameHistoryRow({ games }: { games: BadmintonMatchState["games"] }) {
+function ScoreboardMetaRow({
+  matchName,
+  games,
+}: {
+  matchName: string | null;
+  games: BadmintonMatchState["games"];
+}) {
   const completed = games.filter((g) => g.phase === "completed");
-  if (completed.length === 0) return null;
+  if (!matchName && completed.length === 0) return null;
 
   return (
-    <div className="badminton-score-history px-[3%] flex items-center justify-center gap-2 border-t border-white/5 bg-black/30">
-      <span
-        className="bw-caption shrink-0 text-white/45"
-        style={{ fontSize: "var(--score-player-meta)" }}
-      >
-        Completed Games
-      </span>
+    <div className="badminton-score-history px-[3%] grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-white/10 bg-black/45">
+      <div className="min-w-0 justify-self-start">
+        {matchName ? (
+          <p
+            className="bw-caption text-white/75 bw-name-full"
+            style={{ fontSize: "var(--score-player-meta)" }}
+          >
+            {matchName}
+          </p>
+        ) : null}
+      </div>
+
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {completed.map((g) => (
           <div
             key={g.gameNumber}
-            className="flex items-center gap-1.5 bg-white/8 border border-white/10 rounded px-2.5 py-1"
+            className="flex items-center gap-1.5 bg-white/10 border border-white/15 rounded px-2.5 py-1"
           >
             <span
-              className="bw-caption text-white/40"
+              className="bw-caption text-white/55"
               style={{ fontSize: "var(--score-player-meta)" }}
             >
               G{g.gameNumber}
             </span>
-            <span className="bw-display-l text-[length:var(--score-game-count)]" style={fixedScoreStyle()}>{g.leftScore}</span>
-            <span className="text-white/30 text-[length:var(--score-player-meta)]">–</span>
-            <span className="bw-display-l text-[length:var(--score-game-count)]" style={fixedScoreStyle()}>{g.rightScore}</span>
+            <span
+              className="bw-display-l text-[length:var(--score-game-count)]"
+              style={fixedScoreStyle()}
+            >
+              {g.leftScore}
+            </span>
+            <span className="text-white/35 text-[length:var(--score-player-meta)]">–</span>
+            <span
+              className="bw-display-l text-[length:var(--score-game-count)]"
+              style={fixedScoreStyle()}
+            >
+              {g.rightScore}
+            </span>
           </div>
         ))}
       </div>
+
+      <div aria-hidden className="justify-self-end" />
     </div>
+  );
+}
+
+function ServePip({ active, className }: { active: boolean; className?: string }) {
+  return (
+    <span
+      className={cn("badminton-serve-pip", active && "badminton-serve-pip--active", className)}
+      aria-hidden
+    />
   );
 }
 
@@ -257,52 +473,61 @@ interface PlayerBlockProps {
   side: "left" | "right";
   info: BadmintonMatchState["leftSide"];
   matchKind: BadmintonMatchState["matchKind"];
-  score: number;
   gamesWon: number;
   isServing: boolean;
-  /** Doubles — highlight specific serving player name instead of whole side. */
   servingPlayerLabel?: string | null;
   isWinner: boolean;
   flash: boolean;
   gameWinFlash: boolean;
-  format: { totalGames: number };
+  gamesToWin: number;
+  heat: boolean;
+  compact?: boolean;
 }
 
 function PlayerBlock({
   side,
   info,
   matchKind,
-  score,
   gamesWon,
   isServing,
   servingPlayerLabel,
   isWinner,
   flash,
   gameWinFlash,
-  format,
+  gamesToWin,
+  heat,
+  compact = false,
 }: PlayerBlockProps) {
   const isLeft = side === "left";
   const franchiseName = resolveFranchiseName(info);
   const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
   const identity = identityFromSideInfo(info);
   const isPair = isPairMatchKind(matchKind);
-
-  /* Face inward toward score so L/R identity reads as one match unit */
-  const towardScore = isLeft ? "end" : "start";
+  /* Outer-edge alignment uses the available side space so names stay clear of the score */
+  const towardEdge = isLeft ? "start" : "end";
 
   return (
     <div
       className={cn(
-        "badminton-score-side-panel flex flex-col shrink-0 min-w-0",
-        towardScore === "end" ? "items-end" : "items-start",
+        "badminton-score-side-panel flex flex-col shrink-0 min-w-0 relative",
+        towardEdge === "end" ? "items-end" : "items-start",
+        heat && "badminton-score-side-panel--heat",
+        isWinner && "badminton-score-side-panel--winner",
       )}
+      style={
+        {
+          ...(isLeft
+            ? { "--side-heat": "rgba(255, 215, 0, 0.14)" }
+            : { "--side-heat": "rgba(224, 176, 255, 0.14)" }),
+        } as CSSProperties
+      }
     >
-      {/* Single identity card — photo + name as one visual unit */}
       <div
         className={cn(
           "badminton-score-identity-card",
           isPair && "badminton-score-identity-card--pair",
-          towardScore === "end" ? "items-end text-right" : "items-start text-left",
+          towardEdge === "end" ? "items-end text-right" : "items-start text-left",
+          isWinner && "badminton-score-identity-card--winner",
         )}
       >
         <div className="badminton-score-identity-photo relative shrink-0">
@@ -314,22 +539,22 @@ function PlayerBlock({
             flash={flash}
             gameWinFlash={gameWinFlash}
           />
-          {(isServing || servingPlayerLabel) && (
+          {isServing ? (
             <div
-              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(255,215,0,0.65)]"
-              style={{ width: "1.6rem", height: "1.6rem", fontSize: "0.9rem" }}
+              className="badminton-serve-badge absolute -bottom-1.5 left-1/2 -translate-x-1/2"
               aria-label="Serving"
               title="Serving"
             >
-              🏸
+              <ServePip active />
+              <span className="bw-label">SERVE</span>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div
           className={cn(
             "badminton-score-identity-copy flex flex-col w-full min-w-0",
-            towardScore === "end" ? "items-end" : "items-start",
+            towardEdge === "end" ? "items-end" : "items-start",
           )}
         >
           <TeamPlayerCard
@@ -337,7 +562,7 @@ function PlayerBlock({
             size="md"
             tone="led"
             layout="stack"
-            align={towardScore}
+            align={towardEdge}
             showBadge={Boolean(franchiseName)}
             className="w-full max-w-full"
             playerClassName={cn(
@@ -346,58 +571,74 @@ function PlayerBlock({
             )}
             teamClassName="bw-label opacity-80 w-full max-w-full"
           />
-          <div className={cn("flex items-center gap-1.5 mt-0.5", towardScore === "end" && "flex-row-reverse")}>
-            {!franchiseLogoUrl && info.flagUrl && (
-              <img
-                src={info.flagUrl}
-                alt={info.countryCode}
-                loading="lazy"
-                decoding="async"
-                className="w-auto rounded-sm"
-                style={{ height: "var(--score-player-meta)" }}
-              />
-            )}
-            {info.sponsorLogoUrl && (
-              <img
-                src={info.sponsorLogoUrl}
-                alt={info.sponsorName ?? "Sponsor"}
-                loading="lazy"
-                decoding="async"
-                className="w-auto object-contain opacity-80"
-                style={{ height: "var(--score-player-meta)" }}
-              />
-            )}
-          </div>
-          {info.countryName && (
+          {servingPlayerLabel ? (
             <p
+              className="bw-meta text-[#ffd700] mt-0.5"
+              style={{ fontSize: "var(--score-player-meta)" }}
+            >
+              {servingPlayerLabel}
+            </p>
+          ) : null}
+          {!compact ? (
+            <div
               className={cn(
-                "bw-meta opacity-80 truncate w-full",
-                isLeft ? "text-[#ffc400]" : "text-[#ce93d8]",
+                "flex items-center gap-1.5 mt-0.5",
+                towardEdge === "end" && "flex-row-reverse",
               )}
+            >
+              {!franchiseLogoUrl && info.flagUrl ? (
+                <img
+                  src={info.flagUrl}
+                  alt={info.countryCode}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-auto rounded-sm"
+                  style={{ height: "var(--score-player-meta)" }}
+                />
+              ) : null}
+              {info.sponsorLogoUrl ? (
+                <img
+                  src={info.sponsorLogoUrl}
+                  alt={info.sponsorName ?? "Sponsor"}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-auto object-contain opacity-80"
+                  style={{ height: "var(--score-player-meta)" }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {info.countryName && !compact ? (
+            <p
+              className="bw-meta opacity-80 bw-name-full w-full text-[#ffd700]/75"
               style={{ fontSize: "var(--score-player-meta)" }}
             >
               {info.countryName}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
 
       <div
         className={cn(
           "badminton-score-games-won badminton-score-games-won--glam flex items-center",
-          towardScore === "end" && "flex-row-reverse",
+          towardEdge === "end" && "flex-row-reverse",
         )}
-        style={{
-          ...(isLeft
-            ? { "--gw-tint": "rgba(255, 215, 0, 0.16)", "--gw-border": "rgba(255, 215, 0, 0.35)" }
-            : { "--gw-tint": "rgba(224, 176, 255, 0.16)", "--gw-border": "rgba(224, 176, 255, 0.35)" }) as CSSProperties,
-        }}
+        style={
+          {
+            "--gw-tint": "rgba(255, 215, 0, 0.14)",
+            "--gw-border": "rgba(255, 215, 0, 0.32)",
+          } as CSSProperties
+        }
       >
         <span className="badminton-score-games-won-label bw-caption whitespace-nowrap">
           Games
         </span>
-        <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 0.5)" }}>
-          {Array.from({ length: format.totalGames }).map((_, i) => (
+        <div
+          className="flex items-center"
+          style={{ gap: "calc(var(--score-panel-gap) * 0.5)" }}
+        >
+          {Array.from({ length: gamesToWin }).map((_, i) => (
             <div
               key={i}
               className={cn(
@@ -416,10 +657,8 @@ function PlayerBlock({
           className="bw-meta"
           style={{
             fontSize: "var(--score-game-count)",
-            color: isLeft ? "#ffd700" : "#e0b0ff",
-            textShadow: isLeft
-              ? "0 0 10px rgba(255,215,0,0.55)"
-              : "0 0 10px rgba(224,176,255,0.5)",
+            color: "#ffd700",
+            textShadow: "0 0 10px rgba(255,215,0,0.5)",
           }}
         >
           {gamesWon}
@@ -431,34 +670,43 @@ function PlayerBlock({
 
 function CentrePanel({
   state,
-  matchName,
-  isTimeout,
-  timeoutSide,
   isDoubles,
   serverLabel,
   receiverLabel,
+  isDeuce,
+  urgencyKind,
+  urgencySide,
+  pointFlash,
+  compact = false,
 }: {
   state: BadmintonMatchState;
-  matchName: string;
-  isTimeout: boolean;
-  timeoutSide?: string;
   isDoubles?: boolean;
   serverLabel?: string | null;
   receiverLabel?: string | null;
+  isDeuce: boolean;
+  urgencyKind: "game" | "match" | null;
+  urgencySide: BadmintonSide | null;
+  pointFlash: FlashSide;
+  compact?: boolean;
 }) {
   return (
-    <div className="badminton-score-centre flex flex-col items-center min-w-0">
-      {/* P1 — Current score (breathing room preserved below digits) */}
+    <div
+      className={cn(
+        "badminton-score-centre flex flex-col items-center min-w-0",
+        compact && "badminton-score-centre--compact",
+      )}
+    >
       <div
-        className="badminton-score-centre-score flex items-center justify-center"
+        className="badminton-score-centre-score flex items-center justify-center relative"
         style={{ gap: "calc(var(--score-panel-gap) * 0.75)" }}
       >
         <ScoreDigit
           score={state.leftScore}
           active={state.matchStatus === "live"}
+          celebrate={pointFlash === "left"}
         />
         <div
-          className="text-white/20 font-thin leading-none"
+          className="text-white/25 font-thin leading-none"
           style={{ fontSize: "var(--score-colon-size)" }}
         >
           :
@@ -466,114 +714,131 @@ function CentrePanel({
         <ScoreDigit
           score={state.rightScore}
           active={state.matchStatus === "live"}
+          celebrate={pointFlash === "right"}
         />
+        {pointFlash ? (
+          <span
+            className="badminton-point-burst bw-heading"
+            key={`${pointFlash}-${state.leftScore}-${state.rightScore}`}
+          >
+            +1
+          </span>
+        ) : null}
       </div>
 
-      {/* P3 — Game number (anchored to score) */}
       <div
-        className="bg-white/5 border border-white/10 rounded-full"
-        style={{ padding: "calc(var(--score-game-pill) * 0.35) calc(var(--score-game-pill) * 1.4)" }}
+        className="bg-white/8 border border-white/15 rounded-full"
+        style={{
+          padding: "calc(var(--score-game-pill) * 0.35) calc(var(--score-game-pill) * 1.4)",
+        }}
       >
         <span
-          className="bw-heading text-white/70"
+          className="bw-heading text-white/85"
           style={{ fontSize: "var(--score-game-pill)" }}
         >
           Game {state.currentGame}
         </span>
       </div>
 
-      {/* P4 — Serving indicator (shuttlecock) */}
-      {!isDoubles && (
-        <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 0.7)" }}>
+      <div
+        className="badminton-score-series flex items-center"
+        style={{ gap: "calc(var(--score-panel-gap) * 0.55)" }}
+        aria-label={`Games ${state.gamesLeft} to ${state.gamesRight}`}
+      >
+        <span className="bw-caption text-white/45" style={{ fontSize: "0.7em" }}>
+          Series
+        </span>
+        <span
+          className="bw-display-l tabular-nums text-[#ffd700]"
+          style={{ fontSize: "var(--score-game-count)" }}
+        >
+          {state.gamesLeft}
+        </span>
+        <span className="text-white/35">–</span>
+        <span
+          className="bw-display-l tabular-nums text-white"
+          style={{ fontSize: "var(--score-game-count)" }}
+        >
+          {state.gamesRight}
+        </span>
+      </div>
+
+      {/* Compact multi-court: SERVE badge on photo already covers this — hide to avoid clip. */}
+      {!compact && isDoubles && serverLabel ? (
+        <div
+          className="badminton-score-serve-line flex flex-col items-center gap-0.5"
+          style={{ fontSize: "var(--score-player-meta)" }}
+        >
+          <div className="flex items-center gap-2">
+            <ServePip active />
+            <span className="bw-label text-white/55">Serving</span>
+            <span className="bw-meta text-[#ffd700]">{serverLabel}</span>
+          </div>
+          {receiverLabel ? (
+            <div className="flex items-center gap-2">
+              <span className="badminton-receive-pip" aria-hidden />
+              <span className="bw-label text-white/55">Receiving</span>
+              <span className="bw-meta text-[#ffd700]/80">{receiverLabel}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!compact && !isDoubles ? (
+        <div
+          className="flex items-center"
+          style={{ gap: "calc(var(--score-panel-gap) * 0.7)" }}
+        >
+          <ServePip active={state.servingSide === "left"} />
           <span
-            className="transition-all duration-300 leading-none"
-            style={{
-              fontSize: "var(--score-serve-diamond)",
-              opacity: state.servingSide === "left" ? 1 : 0.22,
-              transform: state.servingSide === "left" ? "scale(1.2)" : "scale(0.85)",
-              filter:
-                state.servingSide === "left"
-                  ? "drop-shadow(0 0 8px rgba(255,215,0,0.65))"
-                  : "none",
-            }}
-            aria-hidden
-          >
-            🏸
-          </span>
-          <span
-            className="bw-label text-white/30"
+            className="bw-label text-white/45"
             style={{ fontSize: "var(--score-player-meta)" }}
           >
             Serving
           </span>
-          <span
-            className="transition-all duration-300 leading-none"
-            style={{
-              fontSize: "var(--score-serve-diamond)",
-              opacity: state.servingSide === "right" ? 1 : 0.22,
-              transform: state.servingSide === "right" ? "scale(1.2)" : "scale(0.85)",
-              filter:
-                state.servingSide === "right"
-                  ? "drop-shadow(0 0 8px rgba(255,215,0,0.65))"
-                  : "none",
-            }}
-            aria-hidden
-          >
-            🏸
+          <ServePip active={state.servingSide === "right"} />
+        </div>
+      ) : null}
+
+      {urgencyKind && urgencySide ? (
+        <div
+          className={cn(
+            "badminton-urgency-banner",
+            urgencyKind === "match"
+              ? "badminton-urgency-banner--match"
+              : "badminton-urgency-banner--game",
+          )}
+        >
+          <span className="bw-heading">
+            {urgencyKind === "match" ? "MATCH POINT" : "GAME POINT"}
           </span>
         </div>
-      )}
+      ) : null}
 
-      {isDoubles && serverLabel && (
-        <div
-          className="flex flex-col items-center gap-0.5"
-          style={{ fontSize: "var(--score-player-meta)" }}
-        >
-          <div className="flex items-center gap-2">
-            <span aria-hidden>🏸</span>
-            <span className="bw-label text-white/50">Serving:</span>
-            <span className="bw-meta text-[#ffd700]">{serverLabel}</span>
-          </div>
-          {receiverLabel && (
-            <div className="flex items-center gap-2">
-              <span className="text-[#ffc400]">👁</span>
-              <span className="bw-label text-white/50">Receiving:</span>
-              <span className="bw-meta text-[#ffc400]">{receiverLabel}</span>
-            </div>
-          )}
+      {isDeuce && !urgencyKind ? (
+        <div className="badminton-urgency-banner badminton-urgency-banner--deuce">
+          <span className="bw-heading">DEUCE</span>
         </div>
-      )}
-
-      {isDoubles && state.doublesServe && (
-        <DoublesCourtDisplay state={state} variant="mini" className="max-w-[min(215px,21vw)]" />
-      )}
-
-      <p
-        className="bw-caption text-white/55 text-center max-w-[min(36vw,480px)]"
-        style={{ fontSize: "var(--score-player-meta)" }}
-      >
-        {matchName}
-      </p>
-
-      {state.leftScore >= state.format.deuceAt && state.rightScore >= state.format.deuceAt && (
-        <div className="bg-amber-500/20 border border-amber-500/30 rounded-full px-3.5 py-1">
-          <span className="bw-label text-amber-300 text-sm">DEUCE</span>
-        </div>
-      )}
-
-      {state.inInterval && (
-        <div className="bg-blue-500/20 border border-blue-500/30 rounded-full px-3.5 py-1">
-          <span className="bw-label text-blue-300 text-sm">INTERVAL</span>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function ScoreDigit({ score, active }: { score: number; active: boolean }) {
+function ScoreDigit({
+  score,
+  active,
+  celebrate,
+}: {
+  score: number;
+  active: boolean;
+  celebrate?: boolean;
+}) {
   return (
     <div
-      className="badminton-score-digit bw-display-xl font-black leading-none tabular-nums tracking-tighter transition-all duration-200"
+      className={cn(
+        "badminton-score-digit bw-display-xl font-black leading-none tabular-nums tracking-tighter transition-all duration-200",
+        celebrate && "badminton-score-digit--celebrate",
+      )}
       style={fixedScoreStyle(active)}
     >
       {score}
@@ -581,28 +846,106 @@ function ScoreDigit({ score, active }: { score: number; active: boolean }) {
   );
 }
 
-function GameWinOverlay({
-  side,
+function TimeoutOverlay({
+  side: _side,
   player,
-  score,
 }: {
-  side: "left" | "right";
+  side: BadmintonSide;
   player: BadmintonMatchState["leftSide"];
-  score: { winner: number; loser: number };
+}) {
+  const identity = identityFromSideInfo(player);
+  return (
+    <div className="badminton-moment-overlay z-[26]">
+      <div
+        className="badminton-moment-card border"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+        }}
+      >
+        <p
+          className="bw-label mb-3 tracking-[0.35em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Timeout
+        </p>
+        <p className="bw-heading text-white text-5xl md:text-6xl mb-4">TIMEOUT</p>
+        <TeamPlayerCard
+          identity={identity}
+          size="lg"
+          tone="led"
+          align="center"
+          playerClassName="bw-heading text-3xl text-white"
+          teamClassName="bw-label text-white/55"
+        />
+      </div>
+    </div>
+  );
+}
+
+function IntervalOverlay({
+  currentGame,
+  leftScore,
+  rightScore,
+}: {
+  currentGame: number;
+  leftScore: number;
+  rightScore: number;
 }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+    <div className="badminton-moment-overlay z-[25]">
       <div
-        className={cn(
-          "relative overflow-hidden rounded-3xl px-16 py-8 text-center",
-          "animate-[fadeInScale_0.4s_ease-out_forwards]",
-          side === "left"
-            ? "bg-gradient-to-br from-[#ffc400]/80 to-[#ffc400]/40 border border-[#ffc400]/40"
-            : "bg-gradient-to-br from-[#7c3aed]/80 to-[#ff6b6b]/40 border border-[#ff6b6b]/40",
-          "shadow-2xl backdrop-blur-xl",
-        )}
+        className="badminton-moment-card border"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: "rgba(255,255,255,0.15)",
+        }}
       >
-        <p className="bw-label text-white/60 text-sm mb-2">Game Won</p>
+        <p
+          className="bw-label mb-3 tracking-[0.35em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Interval
+        </p>
+        <p className="bw-heading text-white text-5xl md:text-6xl mb-4">INTERVAL</p>
+        <p className="bw-meta text-white/60 text-xl mb-2">Game {currentGame}</p>
+        <div
+          className="bw-display-l text-5xl"
+          style={{ ...fixedScoreStyle(), color: BIDWAR_BROADCAST_YELLOW }}
+        >
+          {leftScore} – {rightScore}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GameWinOverlay({
+  side: _side,
+  player,
+  score,
+  gameNumber,
+}: {
+  side: BadmintonSide;
+  player: BadmintonMatchState["leftSide"];
+  score: { winner: number; loser: number };
+  gameNumber: number;
+}) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[28] bg-black/50">
+      <div
+        className="relative overflow-hidden rounded-3xl px-16 py-8 text-center border shadow-[0_12px_48px_rgba(0,0,0,0.65)] animate-[badmintonMomentIn_0.4s_ease-out_forwards]"
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+        }}
+      >
+        <p
+          className="bw-label text-sm mb-2 tracking-[0.2em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Game {gameNumber} Won
+        </p>
         <div className="mb-3 flex justify-center">
           <TeamPlayerCard
             identity={identityFromSideInfo(player)}
@@ -610,15 +953,15 @@ function GameWinOverlay({
             tone="led"
             align="center"
             playerClassName="bw-heading text-4xl text-white"
-            teamClassName="bw-label text-white/70"
+            teamClassName="bw-label text-white/55"
           />
         </div>
-        <div className="bw-display-l text-5xl" style={fixedScoreStyle()}>
+        <div
+          className="bw-display-l text-5xl"
+          style={{ ...fixedScoreStyle(), color: BIDWAR_BROADCAST_YELLOW }}
+        >
           {score.winner} – {score.loser}
         </div>
-        {player.countryName && (
-          <p className="bw-caption text-white/50 text-sm mt-2">{player.countryName}</p>
-        )}
       </div>
     </div>
   );
@@ -630,84 +973,129 @@ function MatchWinOverlay({
   gamesLeft,
   gamesRight,
   games,
+  resultReason,
+  compact = false,
 }: {
-  side: "left" | "right";
+  side: BadmintonSide;
   player: BadmintonMatchState["leftSide"];
   gamesLeft: number;
   gamesRight: number;
   games: BadmintonMatchState["games"];
+  resultReason?: BadmintonMatchState["resultReason"];
+  compact?: boolean;
 }) {
   const completedGames = games.filter((g) => g.phase === "completed");
   const identity = identityFromSideInfo(player);
+  const subtitle =
+    resultReason && resultReason !== "normal"
+      ? resultReason.replace(/_/g, " ")
+      : "Match Winner";
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/70 backdrop-blur-sm">
+    <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/75 backdrop-blur-sm">
       <div
         className={cn(
-          "relative overflow-hidden rounded-3xl px-20 py-12 text-center max-w-2xl w-full border shadow-2xl",
-          side === "left"
-            ? "bg-gradient-to-br from-[#051533] to-[#0a2060] border-[#ffc400]/30"
-            : "bg-gradient-to-br from-[#180523] to-[#330a4a] border-[#ff6b6b]/30",
+          "relative overflow-hidden text-center w-full border shadow-[0_12px_48px_rgba(0,0,0,0.65)] animate-[badmintonMomentIn_0.45s_ease-out_forwards]",
+          compact
+            ? "rounded-2xl px-6 py-4 max-w-xl"
+            : "rounded-3xl px-16 py-10 max-w-3xl",
         )}
+        style={{
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+          borderColor: BIDWAR_BROADCAST_YELLOW_BORDER,
+        }}
       >
-        {/* Trophy animation */}
-        <div className="text-7xl mb-4 animate-bounce">🏆</div>
+        <div className={cn("badminton-winner-seal mx-auto", compact ? "mb-2" : "mb-5")}>
+          <span className="bw-heading">WINNER</span>
+        </div>
 
-        <p className="bw-label text-white/50 text-xs mb-4">Match Winner</p>
+        <p
+          className={cn(
+            "bw-label text-white/50 uppercase tracking-[0.3em]",
+            compact ? "text-[10px] mb-2" : "text-xs mb-4",
+          )}
+        >
+          {subtitle}
+        </p>
 
-        {player.photoUrl && (
+        {player.photoUrl && !compact ? (
           <img
             src={player.photoUrl}
             alt={identity.playerName}
-            className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-[#ffd700]"
+            className="w-28 h-28 rounded-2xl mx-auto mb-4 object-cover border-4 shadow-[0_0_28px_rgba(255,215,0,0.35)]"
+            style={{ borderColor: BIDWAR_BROADCAST_YELLOW }}
           />
-        )}
+        ) : null}
 
-        <div className="mb-2 flex justify-center">
+        <div className={cn("flex justify-center", compact ? "mb-1" : "mb-2")}>
           <TeamPlayerCard
             identity={identity}
-            size="xl"
+            size={compact ? "md" : "xl"}
             tone="led"
             align="center"
-            playerClassName="bw-heading text-5xl text-white leading-tight"
-            teamClassName="bw-label text-white/70"
+            playerClassName={cn(
+              "bw-heading text-white leading-tight",
+              compact ? "text-2xl" : "text-5xl",
+            )}
+            teamClassName="bw-label text-white/55"
           />
         </div>
 
-        {player.countryName && (
-          <p className={cn(
-            "bw-meta text-lg mb-6",
-            side === "left" ? "text-[#ffc400]" : "text-[#ce93d8]",
-          )}>
+        {player.countryName && !compact ? (
+          <p
+            className="bw-meta text-lg mb-6"
+            style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+          >
             {player.countryName}
           </p>
-        )}
+        ) : null}
 
-        {/* Games score */}
-        <div className="bg-white/5 rounded-2xl px-8 py-4 mb-6 inline-block">
-          <span className="bw-display-l text-5xl" style={fixedScoreStyle(side === "left")}>
+        <div
+          className={cn(
+            "inline-block border border-white/10",
+            compact ? "rounded-xl px-4 py-2 mb-2" : "rounded-2xl px-8 py-4 mb-6",
+          )}
+          style={{ backgroundColor: BIDWAR_SCOREBOARD_PANEL }}
+        >
+          <span
+            className={cn("bw-display-l", compact ? "text-3xl" : "text-5xl")}
+            style={{
+              ...fixedScoreStyle(side === "left"),
+              color: side === "left" ? BIDWAR_BROADCAST_YELLOW : undefined,
+            }}
+          >
             {gamesLeft}
           </span>
-          <span className="text-white/30 text-3xl mx-3">–</span>
+          <span className={cn("text-white/30 mx-3", compact ? "text-xl" : "text-3xl")}>–</span>
           <span
-            className="bw-display-l text-5xl"
-            style={fixedScoreStyle(side === "right")}
+            className={cn("bw-display-l", compact ? "text-3xl" : "text-5xl")}
+            style={{
+              ...fixedScoreStyle(side === "right"),
+              color: side === "right" ? BIDWAR_BROADCAST_YELLOW : undefined,
+            }}
           >
             {gamesRight}
           </span>
         </div>
 
-        {/* Individual game scores */}
-        <div className="flex items-center justify-center gap-3">
-          {completedGames.map((g) => (
-            <div key={g.gameNumber} className="bg-white/8 rounded-lg px-3 py-2">
-              <span className="text-white/40 text-xs block text-center mb-1">G{g.gameNumber}</span>
-              <span className="font-bold text-white text-sm">
-                {g.leftScore}–{g.rightScore}
-              </span>
-            </div>
-          ))}
-        </div>
+        {!compact ? (
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            {completedGames.map((g) => (
+              <div
+                key={g.gameNumber}
+                className="rounded-lg px-3 py-2 border border-white/10"
+                style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+              >
+                <span className="text-white/45 text-xs block text-center mb-1">
+                  G{g.gameNumber}
+                </span>
+                <span className="font-bold text-white text-sm">
+                  {g.leftScore}–{g.rightScore}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

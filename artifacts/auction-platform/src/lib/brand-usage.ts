@@ -10,9 +10,8 @@ export const LOGO_USAGE_RULES = {
     assetKey: "PRIMARY_LOGO" as const,
     mapsTo: "main" as const,
     useOnlyFor: [
-      "Landing Page Header",
       "Login Pages (light backgrounds)",
-      "Marketing Hero Sections",
+      "Marketing Hero Sections (light)",
       "Footer (light backgrounds)",
       "Certificates",
       "Reports",
@@ -22,6 +21,7 @@ export const LOGO_USAGE_RULES = {
     assetKey: "REVERSE_LOGO" as const,
     mapsTo: "mainReverse" as const,
     useOnlyFor: [
+      "Landing Page Header",
       "Dark Background Pages",
       "Dark Hero Sections",
       "Dark Navigation",
@@ -81,12 +81,12 @@ export interface BrandSurfacePreset {
 /** Per-surface branding presets — sizes tuned for visual hierarchy */
 export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> = {
   "landing-header": {
-    logoAsset: "PRIMARY_LOGO",
-    logoOrder: ["main", "mainReverse", "mini", "appIcon"],
-    sizeClass: "h-7 sm:h-8 md:h-10 w-auto max-w-[120px] sm:max-w-[148px] md:max-w-[168px] object-contain object-left",
+    logoAsset: "REVERSE_LOGO",
+    logoOrder: ["mainReverse", "main", "mini", "appIcon"],
+    sizeClass: "h-8 sm:h-9 md:h-10 w-auto max-w-[140px] sm:max-w-[168px] md:max-w-[188px] object-contain object-left",
     showBrandName: false,
     showPoweredBy: false,
-    darkBackground: false,
+    darkBackground: true,
   },
   "landing-footer": {
     logoAsset: "REVERSE_LOGO",

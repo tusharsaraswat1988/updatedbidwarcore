@@ -4,6 +4,8 @@
  */
 
 import {
+  formatBadmintonPairNames,
+  normalizeBadmintonPairSeparator,
   resolveFranchiseLogoUrl,
   resolveFranchiseName,
   type BadmintonSideInfo,
@@ -73,8 +75,10 @@ export function resolveTeamColor(identity: TeamPlayerIdentity): string | undefin
 
 /** Single-line label: "Warriors · Rohit Sharma" or player-only fallback. */
 export function formatTeamPlayerLine(identity: TeamPlayerIdentity): string {
-  const player = identity.playerName?.trim() || "—";
-  const team = identity.teamName?.trim();
+  const player = normalizeBadmintonPairSeparator(identity.playerName?.trim() || "—");
+  const team = identity.teamName?.trim()
+    ? normalizeBadmintonPairSeparator(identity.teamName.trim())
+    : "";
   return team ? `${team} · ${player}` : player;
 }
 
@@ -107,12 +111,14 @@ export function identityFromSideInfo(
   if (!side) {
     return { playerName: "—" };
   }
-  const playerName = opts?.preferShort
+  const rawName = opts?.preferShort
     ? side.shortLabel?.trim() || side.label?.trim() || "—"
     : side.label?.trim() || side.shortLabel?.trim() || "—";
+  const playerName = normalizeBadmintonPairSeparator(rawName);
+  const franchise = resolveFranchiseName(side);
   return {
     playerName,
-    teamName: resolveFranchiseName(side) ?? null,
+    teamName: franchise ? normalizeBadmintonPairSeparator(franchise) : null,
     teamLogoUrl: resolveFranchiseLogoUrl(side) ?? null,
     teamColor: side.teamColor ?? null,
   };
@@ -135,10 +141,13 @@ export function identityFromLooseSide(
     | undefined,
 ): TeamPlayerIdentity {
   if (!side) return { playerName: "—" };
-  const playerName = side.shortLabel?.trim() || side.label?.trim() || "—";
+  const playerName = normalizeBadmintonPairSeparator(
+    side.shortLabel?.trim() || side.label?.trim() || "—",
+  );
+  const franchise = resolveFranchiseName(side);
   return {
     playerName,
-    teamName: resolveFranchiseName(side) ?? null,
+    teamName: franchise ? normalizeBadmintonPairSeparator(franchise) : null,
     teamLogoUrl: resolveFranchiseLogoUrl(side) ?? null,
     teamColor: side.teamColor ?? null,
   };
@@ -183,10 +192,11 @@ export function identityFromRegistrationPlayers(
 ): TeamPlayerIdentity {
   const named = players.filter(Boolean) as NonNullable<(typeof players)[number]>[];
   const playerName =
-    named
-      .map((p) => p.displayName?.trim() || `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim())
-      .filter(Boolean)
-      .join(" / ") || "TBD";
+    formatBadmintonPairNames(
+      ...named.map(
+        (p) => p.displayName?.trim() || `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(),
+      ),
+    ) || "TBD";
 
   let teamName: string | null = null;
   let teamLogoUrl: string | null = null;

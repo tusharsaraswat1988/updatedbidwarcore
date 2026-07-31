@@ -2,6 +2,8 @@
  * Resolve Operator Broadcast Director scenes for Venue Scoreboard + OBS Overlay.
  */
 
+import type { BadmintonMatchState } from "@workspace/badminton-core";
+
 export type BadmintonOverlayScene =
   | "auto"
   | "compact"
@@ -9,11 +11,30 @@ export type BadmintonOverlayScene =
   | "intro"
   | "winner"
   | "sponsor"
-  | "multi";
+  | "multi"
+  | "results"
+  | "leaderboards";
 
-export type BadmintonVenueScene = "auto" | "live_score" | "standby" | "multi";
+export type BadmintonVenueScene =
+  | "auto"
+  | "live_score"
+  | "standby"
+  | "multi"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "next"
+  | "results"
+  | "leaderboards";
 
-export type OverlayGraphicType = "compact" | "full" | "intro" | "winner" | "sponsor";
+export type OverlayGraphicType =
+  | "compact"
+  | "full"
+  | "intro"
+  | "winner"
+  | "sponsor"
+  | "results"
+  | "leaderboards";
 
 const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "compact",
@@ -21,9 +42,38 @@ const OVERLAY_GRAPHIC_TYPES: readonly OverlayGraphicType[] = [
   "intro",
   "winner",
   "sponsor",
+  "results",
+  "leaderboards",
 ] as const;
 
-export const MAX_MULTI_COURT_ROWS = 3;
+/** Camera-covering moment graphics that must not stay up during a live rally. */
+const RALLY_UNSAFE_OVERLAY_TYPES: readonly OverlayGraphicType[] = [
+  "intro",
+  "sponsor",
+  "results",
+  "leaderboards",
+] as const;
+
+/** Max live courts shown on OBS/venue multi strip (was 3 — raised for multi-hall events). */
+export const MAX_MULTI_COURT_ROWS = 6;
+
+/** Completed match results shown on Results moment (paginated). */
+export const BROADCAST_RESULTS_LIMIT = 30;
+/** Rows per venue results page. */
+export const BROADCAST_RESULTS_PAGE_SIZE = 6;
+/** Rows per venue/OBS leaderboard page. */
+export const BROADCAST_LEADERBOARD_PAGE_SIZE = 8;
+/** Seconds between carousel pages on Results / Leaderboards. */
+export const BROADCAST_CAROUSEL_PAGE_MS = 6_000;
+
+const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
+  "intro",
+  "winner",
+  "sponsor",
+  "next",
+  "results",
+  "leaderboards",
+] as const;
 
 export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
   if (
@@ -33,7 +83,9 @@ export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
     raw === "intro" ||
     raw === "winner" ||
     raw === "sponsor" ||
-    raw === "multi"
+    raw === "multi" ||
+    raw === "results" ||
+    raw === "leaderboards"
   ) {
     return raw;
   }
@@ -41,7 +93,18 @@ export function parseOverlayScene(raw: unknown): BadmintonOverlayScene {
 }
 
 export function parseVenueScene(raw: unknown): BadmintonVenueScene {
-  if (raw === "auto" || raw === "live_score" || raw === "standby" || raw === "multi") {
+  if (
+    raw === "auto" ||
+    raw === "live_score" ||
+    raw === "standby" ||
+    raw === "multi" ||
+    raw === "intro" ||
+    raw === "winner" ||
+    raw === "sponsor" ||
+    raw === "next" ||
+    raw === "results" ||
+    raw === "leaderboards"
+  ) {
     return raw;
   }
   return "auto";
@@ -59,6 +122,12 @@ export function isMultiCourtVenueScene(
   return venueScene === "multi";
 }
 
+export function isVenueMomentScene(
+  venueScene: BadmintonVenueScene | undefined | null,
+): boolean {
+  return !!venueScene && (VENUE_MOMENT_SCENES as readonly string[]).includes(venueScene);
+}
+
 /** Effective OBS graphic type — server scene wins over URL `?type=` when not `auto`/`multi`. */
 export function resolveOverlayGraphicType(
   overlayScene: BadmintonOverlayScene | undefined | null,
@@ -74,13 +143,114 @@ export function resolveOverlayGraphicType(
 }
 
 /**
+ * True while a rally can be in progress — camera must stay clear of center moments.
+ * Timeouts / intervals allow sponsor & intro packages.
+ */
+export function isObsActiveRally(
+  state: Pick<BadmintonMatchState, "matchStatus" | "activeTimeout" | "inInterval"> | null | undefined,
+): boolean {
+  if (!state) return false;
+  if (state.matchStatus !== "live") return false;
+  if (state.activeTimeout) return false;
+  if (state.inInterval) return false;
+  return true;
+}
+
+/** True once any scoring progress exists — intro/sponsor must yield the camera. */
+export function hasObsRallyProgress(
+  state: Pick<
+    BadmintonMatchState,
+    "totalRallies" | "leftScore" | "rightScore" | "gamesLeft" | "gamesRight"
+  > | null | undefined,
+): boolean {
+  if (!state) return false;
+  return (
+    (state.totalRallies ?? 0) > 0 ||
+    state.leftScore > 0 ||
+    state.rightScore > 0 ||
+    state.gamesLeft > 0 ||
+    state.gamesRight > 0
+  );
+}
+
+/**
+ * During live play after the first rally, force camera-safe score graphics when
+ * the director left intro/sponsor up. Pre-rally walk-on packages still allowed.
+ * Winner / full / compact pass through.
+ */
+export function resolvePlaySafeOverlayType(
+  type: OverlayGraphicType,
+  state: Pick<
+    BadmintonMatchState,
+    | "matchStatus"
+    | "activeTimeout"
+    | "inInterval"
+    | "totalRallies"
+    | "leftScore"
+    | "rightScore"
+    | "gamesLeft"
+    | "gamesRight"
+  > | null | undefined,
+): OverlayGraphicType {
+  if (!isObsActiveRally(state)) return type;
+  if (!(RALLY_UNSAFE_OVERLAY_TYPES as readonly string[]).includes(type)) return type;
+  if (!hasObsRallyProgress(state)) return type;
+  return "compact";
+}
+
+/** Slim top strip + chyron during live play score bugs (compact/full). */
+export function shouldUseObsPlayDensity(
+  type: OverlayGraphicType,
+  state: Pick<BadmintonMatchState, "matchStatus" | "activeTimeout" | "inInterval"> | null | undefined,
+  multiCourtMode = false,
+): boolean {
+  if (multiCourtMode) return true;
+  if (type !== "compact" && type !== "full") return false;
+  return isObsActiveRally(state) || state?.matchStatus === "live";
+}
+
+/**
+ * @deprecated Tiny corner bug removed — compact always uses a full lower-third.
+ * Kept returning false so callers compile until cleaned up.
+ */
+export function shouldUseObsCornerBug(
+  _type: OverlayGraphicType,
+  _state: Pick<BadmintonMatchState, "matchStatus" | "activeTimeout" | "inInterval"> | null | undefined,
+  _multiCourtMode = false,
+): boolean {
+  return false;
+}
+
+/**
+ * @deprecated Moments no longer auto-clear on a timer — they stay until Clear.
+ * Kept for any external references / tests.
+ */
+export const BROADCAST_MOMENT_AUTO_CLEAR_MS = 12_000;
+
+/**
+ * @deprecated See BROADCAST_MOMENT_AUTO_CLEAR_MS.
+ */
+export const BROADCAST_CAROUSEL_MOMENT_MS = 90_000;
+
+/** @deprecated Moments stay until Clear — returns 0 so callers that still poll treat as none. */
+export function momentAutoClearMs(_scene: BadmintonVenueScene): number {
+  return 0;
+}
+
+/** OBS CEF: slower ticker / longer sponsor holds to cut rAF + image churn. */
+export const OBS_CHYRON_PX_PER_SEC = 36;
+export const OBS_SPONSOR_CAROUSEL_ROTATE_MS = 6_500;
+
+/**
  * Whether Venue Scoreboard should show the single-match live board.
- * `standby` / `multi` do not use the single-match board.
+ * Standby, multi-court, and director moment scenes use dedicated layouts.
  */
 export function shouldShowVenueLiveBoard(
   venueScene: BadmintonVenueScene | undefined | null,
   hasMatchState: boolean,
 ): boolean {
-  if (venueScene === "standby" || venueScene === "multi") return false;
+  if (venueScene === "standby" || venueScene === "multi" || isVenueMomentScene(venueScene)) {
+    return false;
+  }
   return hasMatchState;
 }

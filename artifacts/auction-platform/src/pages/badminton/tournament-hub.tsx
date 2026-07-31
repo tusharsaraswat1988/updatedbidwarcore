@@ -54,6 +54,7 @@ export default function BadmintonTournamentHub() {
 
   const d = data ?? {};
   const liveCount = d.matchesLive ?? 0;
+  const isScoringComplete = d.scoringPhase === "completed";
   const { complete: setupComplete, percent, remaining } = progress;
   const isLive = liveCount > 0;
   const formatLabel =
@@ -128,40 +129,74 @@ export default function BadmintonTournamentHub() {
         eyebrow="Dashboard"
         title="Tournament Dashboard"
         subtitle={
-          isLive
-            ? "Matches in progress — run courts and broadcast from the Operator Panel"
-            : "Setup complete — manage matches and operations from the sidebar"
+          isScoringComplete
+            ? "All events finished — review Results and Tournament Summary"
+            : isLive
+              ? "Matches in progress — run courts and broadcast from the Operator Panel"
+              : "Setup complete — manage matches and operations from the sidebar"
         }
-        badge={isLive ? `${liveCount} Live` : "Ready"}
+        badge={isScoringComplete ? "Completed" : isLive ? `${liveCount} Live` : "Ready"}
         actions={formatLabel ? <ScoringFormatBadge label={formatLabel} /> : undefined}
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
-        <div className={cn(hubPanelClass, "flex flex-col sm:flex-row sm:items-center gap-4")}>
+        <div className={cn(
+          hubPanelClass,
+          "flex flex-col sm:flex-row sm:items-center gap-4",
+          isScoringComplete && "border-emerald-500/30 bg-emerald-500/5",
+        )}>
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className="p-2.5 rounded-lg bg-green-500/15 shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-green-400" />
+            <div className={cn(
+              "p-2.5 rounded-lg shrink-0",
+              isScoringComplete ? "bg-emerald-500/15" : "bg-green-500/15",
+            )}>
+              <CheckCircle2 className={cn(
+                "w-5 h-5",
+                isScoringComplete ? "text-emerald-300" : "text-green-400",
+              )} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-widest text-green-400">
-                {isLive ? "Tournament live" : "Tournament ready"}
+              <p className={cn(
+                "text-xs font-bold uppercase tracking-widest",
+                isScoringComplete ? "text-emerald-300" : "text-green-400",
+              )}>
+                {isScoringComplete
+                  ? "Tournament completed"
+                  : isLive
+                    ? "Tournament live"
+                    : "Tournament ready"}
               </p>
               <h2 className="text-base font-display font-bold text-foreground mt-0.5">
-                {isLive ? "Matches are in progress" : "You're ready to score"}
+                {isScoringComplete
+                  ? "Scoring is closed for this tournament"
+                  : isLive
+                    ? "Matches are in progress"
+                    : "You're ready to score"}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                {isLive
-                  ? "Use the Operator Panel to run courts without jumping between pages."
-                  : "Open the Operator Panel for court control, or Matches to create the next match."}
+                {isScoringComplete
+                  ? "Champions and match history remain on Results and Summary. Setup is read-only in the nav."
+                  : isLive
+                    ? "Use the Operator Panel to run courts without jumping between pages."
+                    : "Open the Operator Panel for court control, or Matches to create the next match."}
               </p>
             </div>
           </div>
-          <Link href={`/tournament/${tournamentId}/badminton/control`}>
-            <BtnPrimary className="w-full sm:w-auto shrink-0">
-              <Target className="w-4 h-4" />
-              Open Operator Panel
-            </BtnPrimary>
-          </Link>
+          {isScoringComplete ? (
+            <Link href={`/tournament/${tournamentId}/badminton/summary`}>
+              <BtnPrimary className="w-full sm:w-auto shrink-0">
+                <Trophy className="w-4 h-4" />
+                View Summary
+              </BtnPrimary>
+            </Link>
+          ) : (
+            <Link href={`/tournament/${tournamentId}/badminton/control`}>
+              <BtnPrimary className="w-full sm:w-auto shrink-0">
+                <Target className="w-4 h-4" />
+                Open Operator Panel
+              </BtnPrimary>
+            </Link>
+          )}
         </div>
 
         {d.liveMatches?.length > 0 && (
@@ -184,8 +219,8 @@ export default function BadmintonTournamentHub() {
                     status="live"
                     leftLabel={state?.leftSide.shortLabel}
                     rightLabel={state?.rightSide.shortLabel}
-                    leftIdentity={state ? identityFromSideInfo(state.leftSide, { preferShort: true }) : undefined}
-                    rightIdentity={state ? identityFromSideInfo(state.rightSide, { preferShort: true }) : undefined}
+                    leftIdentity={state ? identityFromSideInfo(state.leftSide) : undefined}
+                    rightIdentity={state ? identityFromSideInfo(state.rightSide) : undefined}
                     leftScore={state?.leftScore}
                     rightScore={state?.rightScore}
                     currentGame={state?.currentGame}
@@ -207,7 +242,7 @@ export default function BadmintonTournamentHub() {
           <HubKpiCard label="Events" value={d.totalCategories ?? 0} icon={Trophy} tint="purple" />
           <HubKpiCard label="Scheduled" value={d.matchesScheduled ?? 0} icon={Calendar} tint="muted" />
           <HubKpiCard label="Live Now" value={liveCount} icon={Radio} tint="red" pulse={liveCount > 0} />
-          <HubKpiCard label="Completed" value={d.matchesCompleted ?? 0} icon={CheckCircle2} tint="green" />
+          <HubKpiCard label="Finished" value={d.matchesCompleted ?? 0} icon={CheckCircle2} tint="green" />
         </div>
       </div>
     </HubPageShell>

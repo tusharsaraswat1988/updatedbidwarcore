@@ -143,7 +143,7 @@ describe("Grade A Phase B — undo targets", () => {
     expect(targets.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("does not include timeout after rally when undoing point", () => {
+  it("clears timeout started after rally when undoing that point", () => {
     let events = [envelope(1, BadmintonEventType.MATCH_STARTED, DOUBLES_START as unknown as Record<string, unknown>)];
     let state = replayBadmintonEvents(META, events);
     const beforePoint = state;
@@ -158,13 +158,13 @@ describe("Grade A Phase B — undo targets", () => {
     if (!timeout.ok) return;
     ({ state, events } = appendCommandEvents(state, events, timeout.events, events.length + 1));
 
-    expect(getUndoTargetSequences(events)).toEqual([2]);
+    expect(getUndoTargetSequences(events)).toEqual([2, 3]);
 
     const afterUndo = undoLastRally(events);
     expect(afterUndo.leftScore).toBe(beforePoint.leftScore);
     expect(afterUndo.rightScore).toBe(beforePoint.rightScore);
     expect(afterUndo.doublesServe).toEqual(beforePoint.doublesServe);
-    expect(afterUndo.activeTimeout).not.toBeNull();
+    expect(afterUndo.activeTimeout).toBeNull();
   });
 
   it("restores score, server, receiver, court after normal rally undo", () => {
@@ -257,7 +257,7 @@ describe("Grade A Phase B — undo targets", () => {
 });
 
 describe("Grade A Phase B — interval after rally", () => {
-  it("undo point preserves interval when interval follows rally in deciding game", () => {
+  it("clears interval started after rally when undoing that point", () => {
     let events = [envelope(1, BadmintonEventType.MATCH_STARTED, DOUBLES_START as unknown as Record<string, unknown>)];
     let state = replayBadmintonEvents(META, events);
 
@@ -294,10 +294,10 @@ describe("Grade A Phase B — interval after rally", () => {
     if (!interval.ok) return;
     ({ state, events } = appendCommandEvents(state, events, interval.events, events.length + 1));
 
-    expect(getUndoTargetSequences(events)).toEqual([lastPointSeq]);
+    expect(getUndoTargetSequences(events)).toEqual([lastPointSeq, lastPointSeq + 1]);
 
     const afterUndo = undoLastRally(events);
-    expect(afterUndo.inInterval).toBe(true);
+    expect(afterUndo.inInterval).toBe(false);
     expect(afterUndo.leftScore).toBe(beforeLastPoint.leftScore);
     expect(afterUndo.rightScore).toBe(beforeLastPoint.rightScore);
     expect(afterUndo.doublesServe).toEqual(beforeLastPoint.doublesServe);

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Mail, Phone, MessageCircle, Clock, Send } from "lucide-react";
-import { PublicNavbar } from "@/components/public-navbar";
+import { PublicWebsiteLayout } from "@/components/public-website-layout";
 
 type InquiryType = "demo" | "pricing" | "support" | "partnership" | "other";
 
@@ -47,30 +47,6 @@ export default function ContactPage() {
     );
   }, [form]);
 
-  useEffect(() => {
-    const prev = document.title;
-    document.title = "Contact Us | BidWar - India's Live Sports Auction Platform";
-
-    let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-    const created = !meta;
-    if (created) {
-      meta = document.createElement("meta");
-      meta.setAttribute("name", "description");
-      document.head.appendChild(meta);
-    }
-    const prevContent = meta?.getAttribute("content") ?? "";
-    meta?.setAttribute(
-      "content",
-      "Contact BidWar support team. Submit your query for demo, pricing, support, or partnership and get a response within 24 hours.",
-    );
-
-    return () => {
-      document.title = prev;
-      if (meta) meta.setAttribute("content", prevContent);
-      if (created && meta?.parentNode) meta.parentNode.removeChild(meta);
-    };
-  }, []);
-
   function updateField<K extends keyof ContactFormState>(key: K, value: ContactFormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -113,16 +89,21 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pt-16">
-      <PublicNavbar />
-
+    <PublicWebsiteLayout
+      seo={{
+        title: "Contact Us | BidWar - India's Live Sports Auction Platform",
+        description:
+          "Contact BidWar support team. Submit your query for demo, pricing, support, or partnership and get a response within 24 hours.",
+        canonical: "https://bidwar.in/contact",
+      }}
+    >
       <div className="border-b border-white/8 py-14 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-primary text-xs font-bold uppercase tracking-widest mb-3">Get in touch</div>
-          <h1 className="font-display font-black text-4xl md:text-5xl text-white leading-tight mb-3">
+          <h1 className="text-display-lg mb-3">
             Contact Us
           </h1>
-          <p className="text-white/50 text-sm max-w-xl">
+          <p className="text-muted-foreground text-sm max-w-xl">
             Submit your requirement and our support team will connect with you quickly.
           </p>
         </div>
@@ -131,8 +112,8 @@ export default function ContactPage() {
       <div className="max-w-5xl mx-auto px-6 py-14">
         <div className="grid md:grid-cols-2 gap-10 items-start">
           <div className="space-y-6">
-            <h2 className="font-display font-bold text-lg text-white">How we can help</h2>
-            <p className="text-sm text-white/60 leading-relaxed">
+            <h2 className="text-display-md">How we can help</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Use the form to request demo, pricing, setup help, or partnership discussion.
               We usually respond within 24 hours.
             </p>
@@ -140,14 +121,14 @@ export default function ContactPage() {
             <div className="space-y-4">
               <a
                 href="mailto:bidwarsupport@gmail.com"
-                className="flex items-start gap-4 p-4 rounded-xl border border-border/50 bg-white/[0.02] hover:border-border transition-colors group"
+                className="panel flex items-start gap-4 p-4 transition-colors hover:border-primary/30"
               >
-                <div className="w-9 h-9 rounded-lg bg-white/5 border border-border/50 flex items-center justify-center flex-shrink-0 group-hover:border-primary/40 transition-colors">
+                <div className="scoreboard-tile flex h-9 w-9 shrink-0 items-center justify-center">
                   <Mail className="w-4 h-4 text-primary" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">Support Email</p>
-                  <p className="text-sm text-white font-medium">bidwarsupport@gmail.com</p>
+                  <p className="text-sm text-foreground font-medium">bidwarsupport@gmail.com</p>
                 </div>
               </a>
 
@@ -155,28 +136,28 @@ export default function ContactPage() {
                 href="https://wa.me/918707488250"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-4 p-4 rounded-xl border border-border/50 bg-white/[0.02] hover:border-green-500/40 transition-colors group"
+                className="panel flex items-start gap-4 p-4 transition-colors hover:border-[color:var(--sold)]/40"
               >
-                <div className="w-9 h-9 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center flex-shrink-0 group-hover:border-green-500/40 transition-colors">
-                  <MessageCircle className="w-4 h-4 text-green-400" />
+                <div className="scoreboard-tile flex h-9 w-9 shrink-0 items-center justify-center">
+                  <MessageCircle className="w-4 h-4 text-[color:var(--sold)]" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">WhatsApp / Phone</p>
-                  <p className="text-sm text-white font-medium">+91 8707488250</p>
+                  <p className="text-sm text-foreground font-medium">+91 8707488250</p>
                 </div>
               </a>
             </div>
 
-            <div className="flex items-center gap-2.5 text-xs text-white/50">
-              <Clock className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+            <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+              <Clock className="w-3.5 h-3.5 text-[color:var(--sold)] flex-shrink-0" />
               Typical response time: within 24 hours.
             </div>
           </div>
 
           <div className="space-y-6">
-            <h2 className="font-display font-bold text-lg text-white">Send us your query</h2>
+            <h2 className="text-display-md">Send us your query</h2>
 
-            <form onSubmit={handleSubmit} className="rounded-xl border border-border/50 bg-white/[0.02] p-5 space-y-4">
+            <form onSubmit={handleSubmit} className="panel p-5 space-y-4">
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="space-y-1.5">
                   <span className="text-xs text-muted-foreground">Full Name *</span>
@@ -274,7 +255,7 @@ export default function ContactPage() {
               <button
                 type="submit"
                 disabled={isSubmitting || !canSubmit}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-black text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                className="gold-button gold-button-hover w-full inline-flex items-center justify-center gap-2 rounded-md py-2.5 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
                 {isSubmitting ? "Submitting..." : "Submit Request"}
@@ -283,6 +264,6 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PublicWebsiteLayout>
   );
 }

@@ -8,12 +8,23 @@
  * Read-only. Corrections via Match Control / Live Scoring.
  */
 
-import { useMemo } from "react";
-import { useRoute, Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef } from "react";
+import { useRoute, Link } from "wouter";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
+import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  subscribeBadmintonDashboardStream,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
 import {
   buildCategoryResultsBlocks,
   categoryDisplayName,
@@ -43,7 +54,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +74,7 @@ function playerName(
 function registrationLabel(row: RegistrationRow): string {
   const a = playerName(row.player1);
   const b = playerName(row.player2);
-  if (a && b) return `${a} / ${b}`;
+  if (a && b) return `${a} & ${b}`;
   return a || `Entry #${row.registration.id}`;
 }
 
@@ -91,17 +101,43 @@ function SectionHeading({
 export default function BadmintonResultsPage() {
   const [, params] = useRoute("/tournament/:id/badminton/results");
   const tournamentId = parseInt(params?.id ?? "0");
+  const qc = useQueryClient();
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
+  const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<ResultsMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 30_000,
-    refetchInterval: (q) => {
-      const rows = q.state.data ?? [];
-      return rows.some((m) => m.status === "live" || m.status === "paused") ? 8_000 : false;
-    },
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
   });
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    return subscribeBadmintonDashboardStream(tournamentId, (payload) => {
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(qc, tournamentId, data);
+        return;
+      }
+      if (!shouldRefetchBadmintonMatches(data)) return;
+      if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
+      matchesInvalidateTimer.current = setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      }, 750);
+    });
+  }, [tournamentId, qc]);
+
+  useEffect(() => {
+    return () => {
+      if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
+    };
+  }, []);
 
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery<ResultsFixture[]>({
     queryKey: ["badminton-fixtures-all", tournamentId],
@@ -205,32 +241,15 @@ export default function BadmintonResultsPage() {
 
   const loading = matchesLoading || fixturesLoading || catsLoading;
 
-  const [, setLocation] = useLocation();
-
   return (
     <HubPageShell tournamentId={tournamentId}>
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="results"
+        titleOverride="Standings"
+        purposeOverride="Review completed match results and category standings."
+        taskOverride="Check champions, brackets, and recent results."
         continueLabel="Share Tournament"
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={["standings", "summary", "insights"] as const}
-            labels={{
-              standings: "Standings",
-              summary: "Summary",
-              insights: "Insights",
-            }}
-            value="standings"
-            onChange={(next) => {
-              if (next === "summary") {
-                setLocation(`/tournament/${tournamentId}/badminton/summary`);
-              } else if (next === "insights") {
-                setLocation(`/tournament/${tournamentId}/badminton/analytics`);
-              }
-            }}
-          />
-        }
       >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-10">

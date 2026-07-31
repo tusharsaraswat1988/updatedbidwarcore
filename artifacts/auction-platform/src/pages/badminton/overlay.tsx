@@ -3,12 +3,18 @@
  * Route: /badminton/:matchId/overlay?tid=YYY&type=compact&...
  *
  * When matchId is `live`, follows Primary Broadcast / sole LIVE match automatically.
- * Always shows auction-style top header + sponsor chyron; center stays transparent for OBS.
+ * Play-safe remaps, slim chrome, corner bug, match-point chyron, CEF throttle.
  */
 
 import { useEffect, useMemo, type CSSProperties } from "react";
 import { useRoute, useSearch } from "wouter";
-import { BadmintonOverlay, overlayPlacementClass } from "@/components/badminton/obs-overlays";
+import {
+  BadmintonOverlay,
+  ObsLeaderboardsOverlay,
+  ObsPlayMoments,
+  ObsRecentResultsOverlay,
+  overlayPlacementClass,
+} from "@/components/badminton/obs-overlays";
 import {
   BadmintonLedChyron,
   BadmintonLedTopStrip,
@@ -16,22 +22,46 @@ import {
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
-import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
-import { DISPLAY_THEMES } from "@/lib/display-theme";
-import { displayThemeToPickerState, resolveStageTheme } from "@/lib/led-stage-theme";
+import { sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
+import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
-import type { BadmintonMatchState } from "@workspace/badminton-core";
+import {
+  detectGamePointSide,
+  detectMatchPointSide,
+  type BadmintonMatchState,
+} from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
 import { isLiveFollowMatchId } from "@/lib/badminton-broadcast-console";
 import { BROADCAST_OVERLAY_HEIGHT } from "@/lib/broadcast-overlay";
 import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_BROADCAST_YELLOW_ON,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
+import {
   isMultiCourtOverlayScene,
+  OBS_CHYRON_PX_PER_SEC,
+  OBS_SPONSOR_CAROUSEL_ROTATE_MS,
   resolveOverlayGraphicType,
+  resolvePlaySafeOverlayType,
+  shouldUseObsPlayDensity,
 } from "@/lib/badminton-broadcast-director";
 import {
   MultiCourtScoreStrip,
   multiCourtRowsFromMatches,
 } from "@/components/badminton/multi-court-score-strip";
+import { useObsBrowserSource } from "@/components/broadcast/use-obs-browser-source";
+
+const OBS_STAGE_STYLE = {
+  "--accent": BIDWAR_BROADCAST_YELLOW,
+  "--accent-strong": BIDWAR_BROADCAST_YELLOW,
+  "--accent-glow": "rgba(255, 215, 0, 0.35)",
+  "--accent-on": BIDWAR_BROADCAST_YELLOW_ON,
+  "--stage-bg": BIDWAR_SCOREBOARD_SHELL,
+  "--stage-surface": BIDWAR_SCOREBOARD_PANEL,
+  "--stage-text": "#ffffff",
+} as CSSProperties;
 
 /** Force transparent document chrome so OBS / browser don't paint app dark bg. */
 function useObsTransparentDocument() {
@@ -76,8 +106,19 @@ function useObsTransparentDocument() {
   }, []);
 }
 
+function resolveChyronUrgency(
+  state: BadmintonMatchState | null,
+): "game" | "match" | null {
+  if (!state || state.matchStatus !== "live") return null;
+  if (state.activeTimeout || state.inInterval) return null;
+  if (detectMatchPointSide(state)) return "match";
+  if (detectGamePointSide(state)) return "game";
+  return null;
+}
+
 export default function BadmintonOverlayPage() {
   useObsTransparentDocument();
+  const isObsCef = useObsBrowserSource();
 
   const [, params] = useRoute("/badminton/:matchId/overlay");
   const search = useSearch();
@@ -91,34 +132,66 @@ export default function BadmintonOverlayPage() {
 
   const fixedMatch = useBadmintonMatch(tournamentId, followMode ? 0 : matchId);
   const liveFollow = useBadmintonLiveFollow(tournamentId);
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  // Prefer follow-hook branding (SSE cache patches, no 8s poll storm).
+  const branding = liveFollow.branding;
 
-  const type = resolveOverlayGraphicType(branding?.overlayScene, searchParams.get("type"));
+  const requestedType = resolveOverlayGraphicType(
+    branding?.overlayScene,
+    searchParams.get("type"),
+  );
   const multiCourtMode = isMultiCourtOverlayScene(branding?.overlayScene);
+  const leaderboardsEnabled = requestedType === "leaderboards" || branding?.overlayScene === "leaderboards";
+  const leaderboards = useBadmintonLeaderboardBoards(tournamentId, leaderboardsEnabled);
 
   const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
   const isLoading = followMode
-    ? liveFollow.matchesLoading ||
-      (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
+    ? liveFollow.matchesLoading
+      && !liveFollow.followState
+      && (!!liveFollow.primaryMatchId && liveFollow.matchQuery.isLoading)
     : fixedMatch.isLoading;
+  const loadError = followMode
+    ? liveFollow.matchesError
+      || (liveFollow.matchQuery.isError && !liveFollow.followState)
+    : fixedMatch.isError;
+  const retryLoad = () => {
+    if (followMode) {
+      void liveFollow.refetchMatches();
+      void liveFollow.matchQuery.refetch();
+      return;
+    }
+    void fixedMatch.refetch();
+  };
 
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
-  const urlSponsorLogos: SponsorLogo[] = sponsorParam
-    ? sponsorParam.split(",").filter(Boolean).map((url) => ({ url, name: "", type: "" }))
-    : [];
-  const sponsorLogos =
-    urlSponsorLogos.length > 0 ? urlSponsorLogos : sponsorLogosFromBranding(branding);
+  const sponsorLogos = useMemo(() => {
+    if (sponsorParam) {
+      return sponsorParam
+        .split(",")
+        .filter(Boolean)
+        .map((url) => ({ url, name: "", type: "" }) satisfies SponsorLogo);
+    }
+    return sponsorLogosFromBranding(branding);
+  }, [sponsorParam, branding?.sponsorLogos]);
 
-  const stageStyle = useMemo((): CSSProperties => {
-    const { themeId, customAccent } = displayThemeToPickerState(DISPLAY_THEMES["stadium-gold"]);
-    return resolveStageTheme(themeId, customAccent).vars as CSSProperties;
-  }, []);
+  const stageStyle = OBS_STAGE_STYLE;
 
-  const state = (data?.state ?? null) as BadmintonMatchState | null;
-  const detail = (data?.detail ?? null) as Record<string, unknown> | null;
+  const state = (
+    followMode ? liveFollow.followState : data?.state ?? null
+  ) as BadmintonMatchState | null;
+  const detail = (
+    followMode ? liveFollow.followDetail : data?.detail ?? null
+  ) as Record<string, unknown> | null;
   const matchLabel = detail?.matchLabel as string | undefined;
-  const hasLiveGraphics = !!state;
+  const hasLiveGraphics = !!state && !loadError;
+
+  const type = multiCourtMode
+    ? requestedType
+    : resolvePlaySafeOverlayType(requestedType, state);
+
+  const playDensity = shouldUseObsPlayDensity(type, state, multiCourtMode);
+  const chromeDensity = playDensity ? "slim" : "full";
+  const chyronUrgency = resolveChyronUrgency(state);
 
   const multiRows = useMemo(() => {
     if (!multiCourtMode) return [];
@@ -127,7 +200,9 @@ export default function BadmintonOverlayPage() {
 
   const waitingLabel = !tournamentId
     ? "Missing tournament"
-    : isLoading
+    : loadError
+      ? "Connection lost"
+      : isLoading
       ? "Loading…"
       : multiCourtMode
         ? multiRows.length > 0
@@ -140,9 +215,23 @@ export default function BadmintonOverlayPage() {
       className="relative h-screen w-screen overflow-hidden"
       style={{ ...stageStyle, background: "transparent" }}
     >
-      {/* Top chrome — always visible (auction OBS style) */}
+      {loadError ? (
+        <div className="absolute top-[max(3.5rem,8vh)] right-3 z-40 pointer-events-auto max-w-[220px]">
+          <div className="rounded-lg border border-red-400/40 bg-black/75 px-3 py-2 shadow-lg backdrop-blur-sm">
+            <p className="text-red-100 text-[11px] font-semibold leading-snug">{waitingLabel}</p>
+            <button
+              type="button"
+              onClick={retryLoad}
+              className="mt-1.5 min-h-8 px-3 rounded-md bg-white/10 border border-white/20 text-white text-[11px] font-bold hover:bg-white/15"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="absolute top-0 left-0 right-0 z-30">
-        {hasLiveGraphics && type === "full" && !multiCourtMode ? (
+        {hasLiveGraphics && type === "full" && !multiCourtMode && !playDensity ? (
           <div className="flex items-center justify-between gap-6 px-[4vw] pt-[2vh] pointer-events-none">
             <div className="flex items-center gap-3 min-w-0 max-w-[min(420px,42vw)]">
               {branding?.logoUrl ? (
@@ -175,33 +264,73 @@ export default function BadmintonOverlayPage() {
             courtNumber={
               courtNumber ??
               (detail?.courtNumber as string | undefined) ??
-              (hasLiveGraphics ? undefined : undefined)
+              undefined
             }
             matchNumber={detail?.matchNumber as string | undefined}
             roundName={
-              hasLiveGraphics && !multiCourtMode
+              type === "results"
+                ? "Match results"
+                : type === "leaderboards"
+                  ? "Leaderboards"
+                : hasLiveGraphics && !multiCourtMode
                 ? (detail?.roundName as string | undefined)
                 : waitingLabel
             }
-            matchStatus={hasLiveGraphics && !multiCourtMode ? state.matchStatus : "scheduled"}
+            matchStatus={
+              type === "results" || type === "leaderboards"
+                ? "completed"
+                : hasLiveGraphics && !multiCourtMode
+                  ? state.matchStatus
+                  : "scheduled"
+            }
             isTimeout={!!state?.activeTimeout && !multiCourtMode}
             timeoutSide={state?.activeTimeout?.side}
             leftLabel={state?.leftSide?.shortLabel ?? state?.leftSide?.label ?? "Side A"}
             rightLabel={state?.rightSide?.shortLabel ?? state?.rightSide?.label ?? "Side B"}
+            scoreBoardSponsor={branding?.scoreBoardSponsor}
+            sponsorLogos={sponsorLogos}
+            density={chromeDensity}
           />
         )}
       </div>
 
-      {/* Center — transparent; multi-court strip or primary match graphics */}
       {multiCourtMode ? (
         multiRows.length > 0 ? (
-          <div className="absolute z-20 bottom-[11vh] left-1/2 -translate-x-1/2 pointer-events-none">
-            <MultiCourtScoreStrip rows={multiRows} variant="overlay" />
-          </div>
+          <MultiCourtScoreStrip
+            rows={multiRows}
+            variant="overlay"
+            className={playDensity ? "pb-[7vh]" : "pb-[10vh]"}
+          />
         ) : null
+      ) : type === "results" ? (
+        <div
+          className={cn(
+            "absolute z-20 pointer-events-none",
+            overlayPlacementClass("results", true, playDensity),
+          )}
+        >
+          <ObsRecentResultsOverlay matches={liveFollow.matches} />
+        </div>
+      ) : type === "leaderboards" ? (
+        <div
+          className={cn(
+            "absolute z-20 pointer-events-none",
+            overlayPlacementClass("leaderboards", true, playDensity),
+          )}
+        >
+          <ObsLeaderboardsOverlay
+            pages={leaderboards.pages}
+            loading={leaderboards.loading}
+          />
+        </div>
       ) : hasLiveGraphics ? (
         type === "full" ? (
-          <div className="absolute bottom-[8vh] left-0 right-0 z-20 px-[3vw] pointer-events-none">
+          <div
+            className={cn(
+              "absolute left-0 right-0 z-20 px-[3vw] pointer-events-none",
+              playDensity ? "bottom-[7vh]" : "bottom-[8vh]",
+            )}
+          >
             <BadmintonOverlay
               type="full"
               state={state}
@@ -211,7 +340,12 @@ export default function BadmintonOverlayPage() {
             />
           </div>
         ) : (
-          <div className={cn("absolute z-20", overlayPlacementClass(type, true))}>
+          <div
+            className={cn(
+              "absolute z-20",
+              overlayPlacementClass(type, true, playDensity),
+            )}
+          >
             <BadmintonOverlay
               type={type}
               state={state}
@@ -222,17 +356,29 @@ export default function BadmintonOverlayPage() {
               roundName={detail?.roundName as string | undefined}
               sponsorLogos={sponsorLogos}
               showPlatformCredit={false}
+              sponsorRotateMs={isObsCef ? OBS_SPONSOR_CAROUSEL_ROTATE_MS : undefined}
             />
           </div>
         )
       ) : null}
 
-      {/* Bottom sponsor ticker — always on */}
+      {hasLiveGraphics &&
+      !multiCourtMode &&
+      type !== "intro" &&
+      type !== "winner" &&
+      type !== "results" &&
+      type !== "leaderboards" ? (
+        <ObsPlayMoments state={state} />
+      ) : null}
+
       <div className="absolute bottom-0 left-0 right-0 z-30">
         <BadmintonLedChyron
           sponsors={sponsorLogos}
           tournamentName={tournamentName}
           accentMode="bidwar"
+          density={chromeDensity}
+          urgencyKind={chyronUrgency}
+          tickerPxPerSec={isObsCef ? OBS_CHYRON_PX_PER_SEC : undefined}
         />
       </div>
     </div>

@@ -147,9 +147,8 @@ export function pickCourtCurrentAndNext(matches: ScorerHomeMatchCard[]): {
     return { currentMatch: live, nextMatch: next && next.id !== live.id ? next : ready[0] ?? null };
   }
 
-  const current = ready[0] ?? null;
-  const next = ready[1] ?? null;
-  return { currentMatch: current, nextMatch: next };
+  // Nothing in progress — only queue upcoming ready matches.
+  return { currentMatch: null, nextMatch: ready[0] ?? null };
 }
 
 export function buildScorerHomeView(opts: {

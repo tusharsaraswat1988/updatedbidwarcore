@@ -63,7 +63,12 @@ export function ScorerAssistanceShell({
   async function handleCourtChangeAck() {
     await onAcknowledgeCourtChange();
     markCourtChangeAcknowledged();
-    await onStartInterval();
+    // Interval is assistive — don't keep the court-change modal stuck if start fails.
+    try {
+      await onStartInterval();
+    } catch {
+      // Scorer can use the "Start interval" banner.
+    }
   }
 
   function guardedAward(side: "left" | "right") {
@@ -72,7 +77,7 @@ export function ScorerAssistanceShell({
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0f1e]">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-background">
       <ScorerConsoleHeader
         tournamentName={tournamentName}
         courtNumber={courtNumber}
@@ -101,7 +106,7 @@ export function ScorerAssistanceShell({
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {children({ scoringBlocked: snapshot.scoringBlocked, onAwardPoint: guardedAward })}
       </div>
 

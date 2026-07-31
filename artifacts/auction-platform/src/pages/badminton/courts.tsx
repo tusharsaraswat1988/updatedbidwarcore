@@ -418,8 +418,10 @@ function CourtFormModal({
         )}
       </div>
 
-      <FormField label="Court Name *">
+      <FormField label="Court Name" required>
         <input
+          required
+          aria-required="true"
           value={form.name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Court 1"

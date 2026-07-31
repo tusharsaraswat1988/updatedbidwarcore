@@ -1,11 +1,14 @@
 /**
  * Shared confirmation dialog for destructive / irreversible actions.
+ *
+ * Uses a plain confirm button (not AlertDialogAction) so we never fight Radix's
+ * default close-on-action + preventDefault race — that made Emergency / Resume
+ * feel intermittent when the click was swallowed or the overlay stuck.
  */
 
 import type { ReactNode } from "react";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -13,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 export function ConfirmActionDialog({
   open,
@@ -38,7 +42,10 @@ export function ConfirmActionDialog({
   onConfirm: () => void | Promise<void>;
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(next) => {
+      if (busy && !next) return;
+      onOpenChange(next);
+    }}>
       <AlertDialogContent className="sm:max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle className="font-display">{title}</AlertDialogTitle>
@@ -53,20 +60,17 @@ export function ConfirmActionDialog({
           <AlertDialogCancel disabled={busy} className="min-h-11">
             {cancelLabel}
           </AlertDialogCancel>
-          <AlertDialogAction
+          <Button
+            type="button"
             disabled={busy}
-            onClick={(e) => {
-              e.preventDefault();
-              void onConfirm();
+            variant={destructive ? "destructive" : "default"}
+            className="min-h-11"
+            onClick={() => {
+              void Promise.resolve(onConfirm());
             }}
-            className={
-              destructive
-                ? "min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "min-h-11"
-            }
           >
             {busy ? "Working…" : confirmLabel}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -13,6 +13,22 @@ function isPhoneIncompleteOrganizer(req: Request): boolean {
   return !!req.organizerPhoneIncomplete;
 }
 
+/** Parse tournament id from `/api/tournaments/:id/...` paths (middleware runs before router mount). */
+export function tournamentIdFromApiPath(path: string): number | null {
+  const match = path.match(/^\/api\/tournaments\/(\d+)(?:\/|$)/);
+  if (!match) return null;
+  const id = parseInt(match[1], 10);
+  return Number.isFinite(id) ? id : null;
+}
+
+/** Admin or per-tournament organizer JWT (password login / /me bootstrap). */
+export function hasTournamentOrganizerJwt(req: Request, tournamentId: number): boolean {
+  const u = req.jwtUser;
+  if (!u) return false;
+  if (u.isAdmin) return true;
+  return !!u.organizer?.[String(tournamentId)];
+}
+
 /**
  * Strict tournament-scoped organizer check.
  * Grants access when caller is admin, holds organizer[tournamentId] JWT flag,
@@ -26,9 +42,10 @@ export function isTournamentOrganizer(
   const u = req.jwtUser;
   if (!u) return false;
   if (u.isAdmin) return true;
+  // Tournament password / /me bootstrap — independent of account phone OTP.
+  if (u.organizer?.[String(tournamentId)]) return true;
   if (isLockedOrganizerAccount(req)) return false;
   if (isPhoneIncompleteOrganizer(req)) return false;
-  if (u.organizer?.[String(tournamentId)]) return true;
   if (u.organizerAccountId != null && tournamentOrganizerId != null) {
     return u.organizerAccountId === tournamentOrganizerId;
   }
@@ -51,9 +68,10 @@ export function isOrganizerOrAdmin(
   const u = req.jwtUser;
   if (!u) return false;
   if (u.isAdmin) return true;
+  if (u.organizer?.[String(tournamentId)]) return true;
   if (isLockedOrganizerAccount(req)) return false;
   if (isPhoneIncompleteOrganizer(req)) return false;
-  return !!u.organizer?.[String(tournamentId)];
+  return false;
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { ScoringSportSlug, StatisticsCapableAdapter } from "@workspace/scoring-core";
 import { scoringAdapterRegistry } from "@workspace/scoring-core";
+import { isTerminalScoringMatchStatus } from "../scoring-match-terminal";
 
 const statisticsAdapters = new Map<ScoringSportSlug, StatisticsCapableAdapter>();
 
@@ -23,26 +24,25 @@ export async function runPostMatchProjectionPipeline(
   const statsAdapter = getStatisticsAdapter(sportSlug);
   if (!statsAdapter) return;
 
-  const terminal = matchStatus === "completed" || matchStatus === "abandoned";
-  if (!terminal) return;
+  if (!isTerminalScoringMatchStatus(matchStatus)) return;
 
   if (statsAdapter.calculateTournamentStandings) {
     await statsAdapter.calculateTournamentStandings(tournamentId);
   }
 
-  if (matchStatus === "completed") {
-    if (statsAdapter.calculateMatchStatistics) {
-      await statsAdapter.calculateMatchStatistics(matchId);
-    }
-    if (statsAdapter.calculateMatchAwards) {
-      await statsAdapter.calculateMatchAwards(matchId);
-    }
-    if (statsAdapter.calculateTournamentLeaderboards) {
-      await statsAdapter.calculateTournamentLeaderboards(tournamentId);
-    }
-    if (statsAdapter.calculateGlobalStatistics) {
-      await statsAdapter.calculateGlobalStatistics(matchId);
-    }
+  // Match-level awards/stats historically ran for completed only; include all terminals
+  // so walkover/retired/DQ still materialize after S3-08 status preservation.
+  if (statsAdapter.calculateMatchStatistics) {
+    await statsAdapter.calculateMatchStatistics(matchId);
+  }
+  if (statsAdapter.calculateMatchAwards) {
+    await statsAdapter.calculateMatchAwards(matchId);
+  }
+  if (statsAdapter.calculateTournamentLeaderboards) {
+    await statsAdapter.calculateTournamentLeaderboards(tournamentId);
+  }
+  if (statsAdapter.calculateGlobalStatistics) {
+    await statsAdapter.calculateGlobalStatistics(matchId);
   }
 }
 

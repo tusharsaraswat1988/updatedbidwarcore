@@ -108,7 +108,12 @@ export const SponsorCarousel = memo(function SponsorCarousel({
   useEffect(() => {
     if (displayLogos.length <= 1) return;
     const current = displayLogos[idx];
-    const duration = overlay ? getSponsorCarouselRotateMs(current) : rotateMs;
+    const duration =
+      rotateMs !== SPONSOR_CAROUSEL_ROTATE_MS
+        ? rotateMs
+        : overlay
+          ? getSponsorCarouselRotateMs(current)
+          : rotateMs;
     const id = window.setTimeout(() => {
       setVisible(false);
       window.setTimeout(() => {

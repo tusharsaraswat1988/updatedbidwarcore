@@ -11,14 +11,23 @@ const TRACK_CLASS = "flex items-center whitespace-nowrap will-change-transform";
 export function ChyronTickerScroller<T>({
   items,
   renderItem,
+  pxPerSec,
+  enabled = true,
 }: {
   items: readonly T[];
   renderItem: (item: T, index: number) => ReactNode;
+  /** Override scroll speed (OBS CEF uses a lower value). */
+  pxPerSec?: number;
+  /** Pause measurement + animation (e.g. match-point strip). */
+  enabled?: boolean;
 }) {
   const contentKey = chyronTickerContentKey(
     items as ReadonlyArray<{ name?: string | null; logoUrl?: string | null; url?: string | null; tier?: string | null; type?: string | null }>,
   );
-  const { measureRef, trackRef, ready } = useSeamlessTicker(contentKey);
+  const { measureRef, trackRef, ready } = useSeamlessTicker(contentKey, {
+    pxPerSec,
+    enabled,
+  });
 
   return (
     <div

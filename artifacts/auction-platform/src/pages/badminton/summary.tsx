@@ -22,7 +22,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonDashboard } from "@/hooks/use-badminton-match";
 import { badmintonHubPath } from "@/lib/badminton-routes";
@@ -53,7 +53,6 @@ import {
 } from "@/components/badminton/page-chrome";
 import {
   BadmintonIaPageChrome,
-  BadmintonIaSectionTabs,
 } from "@/components/badminton/ia-workflow-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -103,7 +102,7 @@ export default function BadmintonSummaryPage() {
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<ResultsMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
   });
 
@@ -151,7 +150,7 @@ export default function BadmintonSummaryPage() {
   const organizer =
     branding?.organizerName?.trim() || tournament?.organizerName?.trim() || "—";
   const dates = formatMatchDates(tournament?.matchDates);
-  const statusLabel = summary.isTournamentComplete
+  const statusLabel = summary.isTournamentComplete || tournament?.scoringPhase === "completed"
     ? "Completed"
     : matches.some((m) => m.status === "live")
       ? "Live"
@@ -208,24 +207,9 @@ export default function BadmintonSummaryPage() {
         tournamentId={tournamentId}
         stepId="results"
         hideContinue
-        sectionTabs={
-          <BadmintonIaSectionTabs
-            tabs={["standings", "summary", "insights"] as const}
-            labels={{
-              standings: "Standings",
-              summary: "Summary",
-              insights: "Insights",
-            }}
-            value="summary"
-            onChange={(next) => {
-              if (next === "standings") {
-                navigate(`/tournament/${tournamentId}/badminton/results`);
-              } else if (next === "insights") {
-                navigate(`/tournament/${tournamentId}/badminton/analytics`);
-              }
-            }}
-          />
-        }
+        titleOverride="Summary"
+        purposeOverride="Close the tournament with an official summary and awards page."
+        taskOverride="Review champions, share links, and export or print the summary."
       >
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-8">
@@ -477,12 +461,12 @@ export default function BadmintonSummaryPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground">
-                    {summary.isTournamentComplete
+                    {summary.isTournamentComplete || tournament?.scoringPhase === "completed"
                       ? "Tournament Completed Successfully"
                       : "Tournament Archive"}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {summary.isTournamentComplete
+                    {summary.isTournamentComplete || tournament?.scoringPhase === "completed"
                       ? "This tournament is now archived. Scoring history and champions remain available on Results and this Summary."
                       : "When every event is finished, this page becomes the official archived closing record."}
                   </p>

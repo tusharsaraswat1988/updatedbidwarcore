@@ -43,9 +43,10 @@ const PRESETS = {
   headerLogo: "w_112,h_112,c_pad,b_transparent,f_auto,q_auto",
 
   /**
-   * Full wordmark — trim empty margins, preserve aspect ratio (no square letterbox).
+   * Full wordmark — retina-ready for OBS / LED headers (true midpoint mark).
+   * dpr_2.0 keeps edges sharp when CSS height is ~32–48px on HiDPI canvases.
    */
-  brandWordmark: "w_960,c_limit,f_auto,q_auto",
+  brandWordmark: "w_1120,c_limit,f_auto,q_auto:best,dpr_2.0",
 
   /**
    * Admin-uploaded OBS broadcast badge — trim transparent margins, preserve aspect ratio.

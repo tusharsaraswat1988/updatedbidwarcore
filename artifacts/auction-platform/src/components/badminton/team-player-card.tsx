@@ -2,6 +2,8 @@
  * Reusable Team → Player identity display.
  * Auction tournaments: team logo/badge → team name → player name.
  * Standalone (no team): player name only.
+ *
+ * Full names are mandatory on scoring/broadcast surfaces — never ellipsis-truncate.
  */
 
 import { cn } from "@/lib/utils";
@@ -64,6 +66,32 @@ const sizeStyles: Record<
     gap: "gap-2",
   },
 };
+
+/** Full name text — wraps instead of cutting with ellipsis. */
+function NameText({
+  text,
+  className,
+  align,
+}: {
+  text: string;
+  className?: string;
+  align: TeamPlayerCardAlign;
+}) {
+  return (
+    <p
+      className={cn(
+        // Full names mandatory — wrap, never ellipsis-cut.
+        "bw-name-full leading-tight max-w-full whitespace-normal break-words [overflow-wrap:anywhere] overflow-visible text-clip",
+        align === "end" && "text-right",
+        align === "center" && "text-center",
+        align === "start" && "text-left",
+        className,
+      )}
+    >
+      {text}
+    </p>
+  );
+}
 
 function toneClasses(tone: TeamPlayerCardTone) {
   switch (tone) {
@@ -149,6 +177,8 @@ type TeamPlayerCardProps = {
   /** stack = logo → team → player (default). inline = badge + team · player on one row. */
   layout?: "stack" | "inline";
   showBadge?: boolean;
+  /** When false and a team exists, omit player names (still shows player-only for standalone). */
+  showPlayer?: boolean;
   className?: string;
   teamClassName?: string;
   playerClassName?: string;
@@ -161,6 +191,7 @@ export function TeamPlayerCard({
   tone = "default",
   layout = "stack",
   showBadge = true,
+  showPlayer = true,
   className,
   teamClassName,
   playerClassName,
@@ -175,15 +206,50 @@ export function TeamPlayerCard({
 
   if (!hasTeamIdentity(identity)) {
     return (
-      <div className={cn("min-w-0", alignClass, className)}>
-        <p className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}>
-          {player}
-        </p>
+      <div className={cn("min-w-0 max-w-full", alignClass, className)}>
+        <NameText
+          text={player}
+          align={align}
+          className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+        />
       </div>
     );
   }
 
   if (layout === "inline") {
+    // Team-only compact: single horizontal row, truncate team to protect strip height.
+    if (!showPlayer) {
+      return (
+        <div
+          className={cn(
+            "min-w-0 flex items-center gap-1.5",
+            align === "end" && "flex-row-reverse",
+            className,
+          )}
+        >
+          {showBadge ? (
+            <TeamBadge
+              teamName={team}
+              teamLogoUrl={identity.teamLogoUrl}
+              teamColor={color}
+              size={size === "xl" ? "md" : size === "lg" ? "sm" : size}
+            />
+          ) : null}
+          <p
+            title={team}
+            className={cn(
+              "min-w-0 truncate font-bold uppercase leading-tight",
+              styles.team,
+              tones.team,
+              teamClassName,
+            )}
+          >
+            {team}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className={cn("min-w-0 flex items-center gap-2", align === "end" && "flex-row-reverse", className)}>
         {showBadge ? (
@@ -195,19 +261,23 @@ export function TeamPlayerCard({
           />
         ) : null}
         <div className={cn("min-w-0 flex flex-col", styles.gap, alignClass)}>
-          <p className={cn("font-bold uppercase truncate leading-tight", styles.team, tones.team, teamClassName)}>
-            {team}
-          </p>
-          <p className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}>
-            {player}
-          </p>
+          <NameText
+            text={team}
+            align={align}
+            className={cn("font-bold uppercase", styles.team, tones.team, teamClassName)}
+          />
+          <NameText
+            text={player}
+            align={align}
+            className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("min-w-0 flex flex-col", styles.gap, alignClass, className)}>
+    <div className={cn("min-w-0 max-w-full flex flex-col", styles.gap, alignClass, className)}>
       {showBadge ? (
         <TeamBadge
           teamName={team}
@@ -216,12 +286,18 @@ export function TeamPlayerCard({
           size={size}
         />
       ) : null}
-      <p className={cn("font-bold uppercase truncate leading-tight", styles.team, tones.team, teamClassName)}>
-        {team}
-      </p>
-      <p className={cn("font-semibold truncate leading-tight", styles.player, tones.player, playerClassName)}>
-        {player}
-      </p>
+      <NameText
+        text={team}
+        align={align}
+        className={cn("font-bold uppercase", styles.team, tones.team, teamClassName)}
+      />
+      {showPlayer ? (
+        <NameText
+          text={player}
+          align={align}
+          className={cn("font-semibold", styles.player, tones.player, playerClassName)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -244,6 +320,7 @@ type TeamPlayerVsProps = {
   size?: TeamPlayerCardSize;
   tone?: TeamPlayerCardTone;
   layout?: "stack" | "inline";
+  showPlayer?: boolean;
   className?: string;
   vsClassName?: string;
 };
@@ -255,22 +332,24 @@ export function TeamPlayerVs({
   size = "md",
   tone = "muted",
   layout = "stack",
+  showPlayer = true,
   className,
   vsClassName,
 }: TeamPlayerVsProps) {
   return (
-    <div className={cn("flex items-center gap-3 min-w-0", className)}>
+    <div className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 min-w-0 w-full", className)}>
       <TeamPlayerCard
         identity={left}
         size={size}
         tone={tone}
         layout={layout}
+        showPlayer={showPlayer}
         align="end"
-        className="flex-1 min-w-0"
+        className="min-w-0"
       />
       <span
         className={cn(
-          "flex-none text-[10px] font-black uppercase tracking-[0.2em] text-white/35",
+          "flex-none text-[10px] font-black uppercase tracking-[0.2em] text-white/35 px-0.5",
           vsClassName,
         )}
       >
@@ -281,8 +360,9 @@ export function TeamPlayerVs({
         size={size}
         tone={tone}
         layout={layout}
+        showPlayer={showPlayer}
         align="start"
-        className="flex-1 min-w-0"
+        className="min-w-0"
       />
     </div>
   );

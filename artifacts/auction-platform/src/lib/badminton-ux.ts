@@ -20,6 +20,8 @@ export type BadmintonStatusLabel =
   | "Completed"
   | "Walkover"
   | "Retired"
+  | "Disqualified"
+  | "Abandoned"
   | "Cancelled"
   | "Scheduled"
   | "Unscheduled";
@@ -39,6 +41,11 @@ export function formatMatchStatusLabel(status: string | null | undefined): Badmi
     case "retired":
     case "retirement":
       return "Retired";
+    case "disqualified":
+    case "disqualification":
+      return "Disqualified";
+    case "abandoned":
+      return "Abandoned";
     case "cancelled":
     case "canceled":
       return "Cancelled";
@@ -61,6 +68,14 @@ export function formatFixtureStatusLabel(status: string | null | undefined): Bad
       return "Completed";
     case "walkover":
       return "Walkover";
+    case "retired":
+    case "retirement":
+      return "Retired";
+    case "disqualified":
+    case "disqualification":
+      return "Disqualified";
+    case "abandoned":
+      return "Abandoned";
     case "cancelled":
     case "canceled":
       return "Cancelled";
@@ -140,6 +155,13 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
   const msg = raw.trim() || fallback;
   const lower = msg.toLowerCase();
 
+  if (
+    lower.includes("lock_held") ||
+    lower.includes("holds the live match lock") ||
+    (lower.includes("force-unlock") && lower.includes("lock"))
+  ) {
+    return "A scorer holds this live match. Force-unlock / take over first, then score.";
+  }
   if (lower.includes("network") || lower.includes("failed to fetch")) {
     return "Could not reach the server. Check your connection and try again.";
   }
@@ -158,8 +180,11 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
   if (lower.includes("scheduled") && (lower.includes("required") || lower.includes("time"))) {
     return "Set a date and time in Scheduling before continuing.";
   }
+  if (lower.includes("scorer pin") && lower.includes("deprecated")) {
+    return "Match/court codes can no longer be set. Scorers sign in with mobile and personal PIN.";
+  }
   if (lower.includes("pin")) {
-    return "Scorer PIN must be at least 4 digits.";
+    return "Personal PIN must be at least 4 digits.";
   }
   if (lower.includes("fixture") && lower.includes("match")) {
     return "Clear linked matches before changing this fixture collection.";
@@ -174,13 +199,29 @@ export function friendlyBadmintonError(error: unknown, fallback = "Something wen
 }
 
 export function toastSuccess(title: string, description?: string) {
-  toast({ title, description });
+  toast({
+    title,
+    description,
+    variant: "success",
+    duration: 3200,
+  });
 }
 
 export function toastError(error: unknown, title = "Action failed") {
+  const description = friendlyBadmintonError(error);
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  const looksLikeLockHeld =
+    /LOCK_HELD|force-unlock|holds the live match lock/i.test(
+      `${title} ${description} ${raw}`,
+    );
   toast({
-    title,
-    description: friendlyBadmintonError(error),
+    title: looksLikeLockHeld ? "Match locked by scorer" : title,
+    description,
     variant: "destructive",
   });
 }

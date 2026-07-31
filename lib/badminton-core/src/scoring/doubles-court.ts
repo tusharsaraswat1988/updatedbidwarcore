@@ -93,14 +93,12 @@ export function advanceDoublesServeAfterPoint(
   let court = { ...courtPositions };
 
   if (winningSide === servingSide) {
-    // Serving side won — swap partners on serving side only.
-    const swapped = swapSidePartners(positionsForSide(court, servingSide));
-    court = updateSidePositions(court, servingSide, swapped);
-  } else {
-    // Receiving side won — swap partners on the side that was serving.
+    // Serving side won — same server continues; partners swap service courts (BWF 10.3.3).
     const swapped = swapSidePartners(positionsForSide(court, servingSide));
     court = updateSidePositions(court, servingSide, swapped);
   }
+  // Receiving side won — no partner swap. Players stay in place; serve transfers
+  // to the rally winner who already stands in the court matching their new score (BWF 10.3.4).
 
   const newServingSide = winningSide;
   const newReceivingSide = opposingSide(newServingSide);

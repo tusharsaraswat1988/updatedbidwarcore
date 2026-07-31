@@ -69,6 +69,7 @@ export function PairSidePicker({
       <MasterPlayerPicker
         tournamentId={tournamentId}
         label={player1Label}
+        required
         value={player1.masterId}
         selectedDisplayName={player1.name || undefined}
         selectedPhotoUrl={player1.photoUrl}
@@ -80,6 +81,7 @@ export function PairSidePicker({
         <MasterPlayerPicker
           tournamentId={tournamentId}
           label={player2Label}
+          required
           value={player2.masterId}
           selectedDisplayName={player2.name || undefined}
           selectedPhotoUrl={player2.photoUrl}

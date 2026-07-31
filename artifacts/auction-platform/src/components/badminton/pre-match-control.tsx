@@ -191,21 +191,25 @@ export function PreMatchControlPanel({
           />
           <InfoRow label="Team / Player (left)" value={snapshot.leftLabel} />
           <InfoRow label="Team / Player (right)" value={snapshot.rightLabel} />
-          {pinHint ? <InfoRow label="Scorer PIN" value={pinHint} /> : null}
+          {pinHint ? <InfoRow label="Legacy court code" value={pinHint} /> : null}
         </dl>
-        {pinHint ? (
-          <p className="text-white/45 text-xs">
-            Share PIN <span className="text-white font-semibold tracking-wider">{pinHint}</span> with
-            the court scorer — or open{" "}
-            <Link
-              href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
-              className="text-[#4fc3f7] font-semibold hover:underline"
-            >
-              Live Scoring
-            </Link>{" "}
-            after start (scorer enters this PIN).
-          </p>
-        ) : null}
+        <p className="text-white/45 text-xs">
+          Scorers open{" "}
+          <Link
+            href={badmintonScorerMatchPath(snapshot.matchId, snapshot.tournamentId)}
+            className="text-[#4fc3f7] font-semibold hover:underline"
+          >
+            Live Scoring
+          </Link>{" "}
+          and sign in with mobile and personal PIN
+          {pinHint ? (
+            <>
+              . Legacy code <span className="text-white font-semibold tracking-wider">{pinHint}</span> is
+              not used for login
+            </>
+          ) : null}
+          .
+        </p>
       </div>
 
       {hardWarnings.length > 0 ? (
@@ -421,6 +425,7 @@ export function PreMatchControlPanel({
           needsCourt={!snapshot.courtId && !snapshot.courtLabel?.trim()}
           onClose={() => setShowDelay(false)}
           onSaved={() => {
+            toastSuccess("Court & time saved");
             setShowDelay(false);
             onRefresh();
           }}
@@ -464,7 +469,7 @@ function SideOutcomeModal({
 
   return (
     <FormModal title={title} subtitle={subtitle} onClose={onClose} size="md">
-      <FormField label={pickRetiring ? "Retiring side" : "Winning side"}>
+      <FormField label={pickRetiring ? "Retiring side" : "Winning side"} required>
         <DarkSelect
           value={side}
           onValueChange={(v) => setSide(v as "left" | "right")}
@@ -561,7 +566,7 @@ function AssignCourtTimeModal({
       onClose={onClose}
       size="md"
     >
-      <FormField label="Court (required)">
+      <FormField label="Court" required>
         <CourtAutocomplete
           tournamentId={tournamentId}
           value={courtNumber}
@@ -574,11 +579,11 @@ function AssignCourtTimeModal({
         />
       </FormField>
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Date">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
+        <FormField label="Date" required>
+          <input type="date" required aria-required="true" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
         </FormField>
-        <FormField label="Time">
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
+        <FormField label="Time" required>
+          <input type="time" required aria-required="true" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
         </FormField>
       </div>
       <FormError message={error} />

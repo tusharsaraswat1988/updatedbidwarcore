@@ -39,15 +39,18 @@ export function currentReceiverLabel(state: BadmintonMatchState): string | null 
 
 /**
  * Court quadrant labels for UI.
- * Top row = left side (facing toward bottom of screen).
- * Bottom row = right side (facing toward top of screen).
+ * Top row = left side / End 1 (facing toward bottom of screen).
+ * Bottom row = right side / End 2 (facing toward top of screen).
  *
  * `rightCourtPlayerIndex` is from each side's perspective facing the net.
  * Because the bottom side faces the opposite way, their left/right maps are
  * flipped onto the screen so serve/receive appear diagonally (BWF), not stacked
  * in the same column.
  */
-export function getCourtQuadrantPlayers(state: BadmintonMatchState): {
+export function getCourtQuadrantPlayers(
+  state: BadmintonMatchState,
+  opts?: { preferShort?: boolean },
+): {
   topLeft: { side: BadmintonSide; playerIndex: 0 | 1; label: string; isServer: boolean; isReceiver: boolean };
   topRight: { side: BadmintonSide; playerIndex: 0 | 1; label: string; isServer: boolean; isReceiver: boolean };
   bottomLeft: { side: BadmintonSide; playerIndex: 0 | 1; label: string; isServer: boolean; isReceiver: boolean };
@@ -55,6 +58,8 @@ export function getCourtQuadrantPlayers(state: BadmintonMatchState): {
 } | null {
   const ds = state.doublesServe;
   if (!ds) return null;
+  // Full names by default — short labels only when explicitly requested.
+  const preferShort = opts?.preferShort === true;
 
   function quadrant(
     serveState: DoublesServeState,
@@ -69,10 +74,13 @@ export function getCourtQuadrantPlayers(state: BadmintonMatchState): {
         : positions.rightCourtPlayerIndex === 0
           ? 1
           : 0;
+    const info = sideInfoFor(state, side);
     return {
       side,
       playerIndex: playerIndex as 0 | 1,
-      label: getPlayerShortLabel(sideInfoFor(state, side), playerIndex as 0 | 1),
+      label: preferShort
+        ? getPlayerShortLabel(info, playerIndex as 0 | 1)
+        : getPlayerLabel(info, playerIndex as 0 | 1),
       isServer: serveState.servingSide === side && serveState.servingPlayerIndex === playerIndex,
       isReceiver: serveState.receivingSide === side && serveState.receivingPlayerIndex === playerIndex,
     };

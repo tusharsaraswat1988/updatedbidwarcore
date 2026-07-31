@@ -6,9 +6,15 @@ import { BadmintonEventType } from "../events/badminton";
 import type { BadmintonEventEnvelope } from "../types";
 import { resolveUndoEvents } from "../reducer/reducer";
 
+/** Events that ride with the last POINT_WON and must rewind together. */
 const BOUNDARY_AFTER_POINT = new Set<string>([
   BadmintonEventType.GAME_ENDED,
   BadmintonEventType.MATCH_ENDED,
+  // S3-07 — interval/timeout after a rally must clear when that rally is undone
+  BadmintonEventType.INTERVAL_STARTED,
+  BadmintonEventType.INTERVAL_ENDED,
+  BadmintonEventType.TIMEOUT_STARTED,
+  BadmintonEventType.TIMEOUT_ENDED,
 ]);
 
 /** Sequence of the most recent POINT_WON in the effective (post-undo) event log. */
@@ -26,8 +32,9 @@ export function getLastPointWonSequence(events: BadmintonEventEnvelope[]): numbe
 
 /**
  * All sequences removed when undoing the last rally:
- * the POINT_WON plus any immediately following GAME_ENDED / MATCH_ENDED
- * from the same award-point command (stops at timeouts, intervals, etc.).
+ * the POINT_WON plus any immediately following GAME_ENDED / MATCH_ENDED /
+ * INTERVAL_* / TIMEOUT_* from the same post-rally window (stops at the next
+ * unrelated event such as another point).
  */
 export function getUndoTargetSequences(events: BadmintonEventEnvelope[]): number[] {
   const effective = resolveUndoEvents(events);

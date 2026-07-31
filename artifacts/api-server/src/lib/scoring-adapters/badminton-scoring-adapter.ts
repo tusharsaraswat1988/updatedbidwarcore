@@ -2,6 +2,7 @@ import {
   parseBadmintonEventPayload,
   replayBadmintonEvents,
   reduceBadminton,
+  isBadmintonTerminalMatchStatus,
   type BadmintonEventEnvelope,
   type BadmintonMatchMeta,
   type BadmintonMatchState,
@@ -27,13 +28,7 @@ const BADMINTON_MANIFEST: SportManifest = {
 };
 
 function isTerminalBadmintonStatus(status: string): boolean {
-  return (
-    status === "completed" ||
-    status === "walkover" ||
-    status === "retired" ||
-    status === "disqualified" ||
-    status === "abandoned"
-  );
+  return isBadmintonTerminalMatchStatus(status);
 }
 
 export const badmintonScoringAdapter: SportScoringAdapter<
@@ -61,9 +56,14 @@ export const badmintonScoringAdapter: SportScoringAdapter<
   },
   projectMatchFromState(state) {
     const terminal = isTerminalBadmintonStatus(state.matchStatus);
+    // S3-08 — preserve walkover/retired/disqualified/abandoned (do not collapse to completed).
     return {
-      matchStatus: terminal ? "completed" : state.matchStatus === "live" ? "live" : state.matchStatus,
-      resultSummary: state.resultReason ?? (terminal ? "completed" : null),
+      matchStatus: terminal
+        ? state.matchStatus
+        : state.matchStatus === "live"
+          ? "live"
+          : state.matchStatus,
+      resultSummary: state.resultReason ?? (terminal ? state.matchStatus : null),
       winnerTeamId: null,
       setStartedAt: state.matchStatus === "live",
       setCompletedAt: terminal,

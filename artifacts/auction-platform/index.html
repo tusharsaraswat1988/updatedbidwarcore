@@ -32,17 +32,22 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <!-- BRANDING_ICONS_END -->
     <link rel="manifest" href="/site.webmanifest" />
-    <meta name="theme-color" content="#09090b" />
+    <meta name="theme-color" content="#1b2044" />
 
-    <!-- Critical CSS: dark shell + boot splash (inline so first paint is styled before Tailwind loads) -->
+    <!-- Critical CSS: dark shell + boot splash (inline so first paint is styled before Tailwind loads).
+         Colors match the Lovable design tokens (.lovable-home in src/styles/lovable-homepage.css)
+         so the loader doesn't flash a different theme before the app mounts. -->
     <style>
       *,*::before,*::after{box-sizing:border-box}
-      html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter','Inter Fallback',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-      #root{min-height:100vh;background:#09090b}
+      html,body{margin:0;padding:0;background:oklch(0.22 0.13 265);color:oklch(0.98 0.005 90);font-family:'Inter','Inter Fallback',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      #root{min-height:100vh;background:
+        radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.7), transparent 55%),
+        radial-gradient(ellipse at 90% 0%, oklch(0.45 0.14 260 / 0.5), transparent 60%),
+        linear-gradient(180deg, oklch(0.24 0.12 265), oklch(0.18 0.11 265))}
       @keyframes bidwar-boot-spin{to{transform:rotate(360deg)}}
-      #bidwar-boot-splash{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;background:#09090b}
+      #bidwar-boot-splash{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;background:transparent}
       #bidwar-boot-splash img{width:64px;height:64px}
-      #bidwar-boot-splash .bidwar-boot-spinner{width:32px;height:32px;border:2px solid rgba(251,191,36,.35);border-top-color:#fbbf24;border-radius:50%;animation:bidwar-boot-spin .7s linear infinite}
+      #bidwar-boot-splash .bidwar-boot-spinner{width:32px;height:32px;border:2px solid oklch(0.85 0.17 88 / 0.3);border-top-color:oklch(0.85 0.17 88);border-radius:50%;animation:bidwar-boot-spin .7s linear infinite}
     </style>
 
     <!-- BOOT_SPLASH_PRELOAD_START -->
@@ -51,7 +56,9 @@
     <!-- Critical fonts: self-hosted WOFF2 + metric-matched fallbacks (no Google Fonts round-trip). -->
     <link rel="preload" href="/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/anton-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/fonts/fonts-critical.css" />
+    <link rel="stylesheet" href="/fonts/fonts-lovable.css" />
 
     <!-- PAGE_SCHEMA_START -->
     <!-- Structured Data: SoftwareApplication -->

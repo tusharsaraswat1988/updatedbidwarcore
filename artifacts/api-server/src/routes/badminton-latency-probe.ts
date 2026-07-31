@@ -57,6 +57,36 @@ function denyProd(res: { status: (c: number) => { json: (b: unknown) => void } }
   return false;
 }
 
+/**
+ * Sprint 1 / C8 — staging and shared non-prod must not expose unauthenticated
+ * create/score. Require BIDWAR_LATENCY_PROBE_SECRET via header or query.
+ * Local/dev without the env var remains open for convenience.
+ */
+function denyUnauthProbe(
+  req: { header: (n: string) => string | undefined; query: Record<string, unknown> },
+  res: { status: (c: number) => { json: (b: unknown) => void } },
+): boolean {
+  if (denyProd(res)) return true;
+
+  const required = process.env.BIDWAR_LATENCY_PROBE_SECRET?.trim();
+  if (!required) {
+    // No secret configured — allow only when explicitly non-production AND
+    // BIDWAR_ALLOW_OPEN_LATENCY_PROBE=1 (local DX). Otherwise 404.
+    if (process.env.BIDWAR_ALLOW_OPEN_LATENCY_PROBE === "1") return false;
+    res.status(404).json({ error: "not found" });
+    return true;
+  }
+
+  const provided =
+    req.header("x-bidwar-latency-probe-secret")?.trim() ||
+    (typeof req.query.secret === "string" ? req.query.secret.trim() : "");
+  if (provided !== required) {
+    res.status(401).json({ error: "unauthorized", code: "PROBE_AUTH_REQUIRED" });
+    return true;
+  }
+  return false;
+}
+
 function checksumState(state: Record<string, unknown> | null | undefined): string {
   if (!state) return "null";
   const snap = extractSyncSnapshot(state as never);
@@ -101,7 +131,7 @@ async function findFreeCourt(tournamentId: number) {
 }
 
 router.post("/setup", async (req, res) => {
-  if (denyProd(res)) return;
+  if (denyUnauthProbe(req, res)) return;
   const tournamentId = tid(req as never);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -147,7 +177,7 @@ router.post("/setup", async (req, res) => {
     const isDoubles = parsed.data.matchKind === "doubles";
     const leftSideJson = isDoubles
       ? {
-          label: "Probe L1 / L2",
+          label: "Probe L1 & L2",
           shortLabel: "L",
           playerIds: [1, 2],
           players: [
@@ -158,7 +188,7 @@ router.post("/setup", async (req, res) => {
       : { label: "Probe Left", shortLabel: "L", playerIds: [] };
     const rightSideJson = isDoubles
       ? {
-          label: "Probe R1 / R2",
+          label: "Probe R1 & R2",
           shortLabel: "R",
           playerIds: [3, 4],
           players: [
@@ -228,7 +258,7 @@ router.post("/setup", async (req, res) => {
 });
 
 router.post("/point", async (req, res) => {
-  if (denyProd(res)) return;
+  if (denyUnauthProbe(req, res)) return;
   const tournamentId = tid(req as never);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -291,7 +321,7 @@ router.post("/point", async (req, res) => {
 });
 
 router.post("/undo", async (req, res) => {
-  if (denyProd(res)) return;
+  if (denyUnauthProbe(req, res)) return;
   const tournamentId = tid(req as never);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -330,7 +360,7 @@ router.post("/undo", async (req, res) => {
 });
 
 router.get("/verify", async (req, res) => {
-  if (denyProd(res)) return;
+  if (denyUnauthProbe(req, res)) return;
   const tournamentId = tid(req as never);
   const matchId = Number(req.query.matchId);
   if (!tournamentId || !Number.isFinite(matchId) || matchId <= 0) {
@@ -425,7 +455,7 @@ router.get("/verify", async (req, res) => {
 });
 
 router.post("/lock-test", async (req, res) => {
-  if (denyProd(res)) return;
+  if (denyUnauthProbe(req, res)) return;
   const tournamentId = tid(req as never);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 
@@ -469,7 +499,7 @@ router.post("/lock-test", async (req, res) => {
 });
 
 router.post("/cleanup", async (req, res) => {
-  if (denyProd(res)) return;
+  if (denyUnauthProbe(req, res)) return;
   const tournamentId = tid(req as never);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
 

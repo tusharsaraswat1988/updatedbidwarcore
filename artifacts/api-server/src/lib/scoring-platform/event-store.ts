@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { scoringEventsTable } from "@workspace/db";
 import type { ScoringEventEnvelope, ScoringSportSlug } from "@workspace/scoring-core";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 export function rowToEnvelope(
   row: typeof scoringEventsTable.$inferSelect,
@@ -66,8 +66,13 @@ export type PersistEventInput = {
   payload: Record<string, unknown>;
 };
 
-export async function persistScoringEvent(input: PersistEventInput) {
-  const [row] = await db
+type EventStoreTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function persistScoringEvent(
+  input: PersistEventInput,
+  tx: EventStoreTx | typeof db = db,
+) {
+  const [row] = await tx
     .insert(scoringEventsTable)
     .values({
       matchId: input.matchId,
@@ -87,19 +92,43 @@ export async function persistScoringEvent(input: PersistEventInput) {
   return rowToEnvelope(row);
 }
 
+/**
+ * Persist a batch of events atomically (Sprint 1 / C6).
+ * Sequence allocation + inserts happen inside one transaction so a
+ * multi-event game/match end cannot tear mid-batch.
+ */
 export async function persistScoringEventBatch(
   matchId: number,
   inputs: PersistEventInput[],
 ): Promise<{ startSequence: number; envelopes: ScoringEventEnvelope[] }> {
-  let seq = await getNextEventSequence(matchId);
-  const startSequence = seq;
-  const envelopes: ScoringEventEnvelope[] = [];
-
-  for (const input of inputs) {
-    const envelope = await persistScoringEvent({ ...input, matchId, sequence: seq });
-    envelopes.push(envelope);
-    seq += 1;
+  if (inputs.length === 0) {
+    const next = await getNextEventSequence(matchId);
+    return { startSequence: next, envelopes: [] };
   }
+
+  const result = await db.transaction(async (tx) => {
+    const [last] = await tx
+      .select({ sequence: scoringEventsTable.sequence })
+      .from(scoringEventsTable)
+      .where(eq(scoringEventsTable.matchId, matchId))
+      .orderBy(desc(scoringEventsTable.sequence))
+      .limit(1);
+
+    let seq = (last?.sequence ?? 0) + 1;
+    const startSequence = seq;
+    const envelopes: ScoringEventEnvelope[] = [];
+
+    for (const input of inputs) {
+      const envelope = await persistScoringEvent(
+        { ...input, matchId, sequence: seq },
+        tx,
+      );
+      envelopes.push(envelope);
+      seq += 1;
+    }
+
+    return { startSequence, envelopes };
+  });
 
   try {
     const { markLatency } = await import("../badminton-latency-trace");
@@ -108,5 +137,31 @@ export async function persistScoringEventBatch(
     // measurement module optional
   }
 
-  return { startSequence, envelopes };
+  return result;
+}
+
+/**
+ * Return true when a POINT_WON (or any) event for this match already carries
+ * the given client idempotency key (Sprint 1 / C6).
+ */
+export async function findMatchEventByIdempotencyKey(
+  matchId: number,
+  idempotencyKey: string,
+): Promise<ScoringEventEnvelope | null> {
+  const key = idempotencyKey.trim();
+  if (!key) return null;
+
+  const [row] = await db
+    .select()
+    .from(scoringEventsTable)
+    .where(
+      and(
+        eq(scoringEventsTable.matchId, matchId),
+        sql`${scoringEventsTable.payloadJson}->>'idempotencyKey' = ${key}`,
+      ),
+    )
+    .orderBy(asc(scoringEventsTable.sequence))
+    .limit(1);
+
+  return row ? rowToEnvelope(row) : null;
 }

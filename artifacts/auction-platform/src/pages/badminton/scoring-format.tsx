@@ -253,7 +253,7 @@ export function BadmintonScoringFormatPanel({ tournamentId }: { tournamentId: nu
                 Custom settings
               </h3>
 
-              <FormField label="Number of games">
+              <FormField label="Number of games" required>
                 <div className="flex flex-wrap gap-2">
                   {([1, 3, 5] as const).map((n) => (
                     <ChoiceChip
@@ -266,7 +266,7 @@ export function BadmintonScoringFormatPanel({ tournamentId }: { tournamentId: nu
                 </div>
               </FormField>
 
-              <FormField label="Points per game">
+              <FormField label="Points per game" required>
                 <div className="flex flex-wrap gap-2">
                   {POINTS_CHOICES.map((n) => (
                     <ChoiceChip
@@ -290,6 +290,8 @@ export function BadmintonScoringFormatPanel({ tournamentId }: { tournamentId: nu
                     type="number"
                     min={1}
                     max={99}
+                    required
+                    aria-required="true"
                     className={cn(inputClass, "mt-2 max-w-[8rem]")}
                     value={format.pointsPerGame}
                     onChange={(e) =>
@@ -299,7 +301,7 @@ export function BadmintonScoringFormatPanel({ tournamentId }: { tournamentId: nu
                 ) : null}
               </FormField>
 
-              <FormField label="Win by">
+              <FormField label="Win by" required>
                 <div className="flex flex-wrap gap-2">
                   <ChoiceChip
                     label="Win by 1 Point"
@@ -314,11 +316,13 @@ export function BadmintonScoringFormatPanel({ tournamentId }: { tournamentId: nu
                 </div>
               </FormField>
 
-              <FormField label="Maximum score">
+              <FormField label="Maximum score" required>
                 <input
                   type="number"
                   min={format.pointsPerGame}
                   max={99}
+                  required
+                  aria-required="true"
                   className={cn(inputClass, "max-w-[8rem]")}
                   value={format.maxPoints}
                   onChange={(e) =>

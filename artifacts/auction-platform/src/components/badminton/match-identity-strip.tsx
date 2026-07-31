@@ -1,5 +1,7 @@
 /**
- * Live scorer match identity strip — Court · Category · Team/Player VS Team/Player.
+ * Live scorer match identity strip — compact team VS team context.
+ * Player names live on the score buttons / court diagram; this strip stays team-first.
+ * Standalone (no franchise) falls back to player names via TeamPlayerCard.
  */
 
 import type { BadmintonMatchState } from "@workspace/badminton-core";
@@ -9,31 +11,35 @@ import { cn } from "@/lib/utils";
 
 export function MatchIdentityStrip({
   state,
-  courtNumber,
   categoryName,
   className,
 }: {
   state: BadmintonMatchState;
+  /** Kept for call-site compatibility; court is shown in ScorerConsoleHeader. */
   courtNumber?: string;
   categoryName?: string;
   className?: string;
 }) {
+  const category = categoryName?.trim();
+
   return (
     <div
       className={cn(
-        "shrink-0 mx-3 mb-2 rounded-xl border border-white/10 bg-[#070b16] px-3 py-2.5",
+        "shrink-0 mx-3 mb-2 rounded-xl border border-border bg-card/80 px-3 py-1.5 min-w-0 overflow-hidden",
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2">
-        {courtNumber ? <span>Court {courtNumber}</span> : null}
-        {categoryName ? <span className="truncate max-w-[60%]">{categoryName}</span> : null}
-      </div>
+      {category ? (
+        <div className="mb-1 min-w-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+          {category}
+        </div>
+      ) : null}
       <TeamPlayerVs
-        left={identityFromSideInfo(state.leftSide, { preferShort: true })}
-        right={identityFromSideInfo(state.rightSide, { preferShort: true })}
-        size="sm"
-        layout="stack"
+        left={identityFromSideInfo(state.leftSide)}
+        right={identityFromSideInfo(state.rightSide)}
+        size="xs"
+        layout="inline"
+        showPlayer={false}
         tone="led"
       />
     </div>

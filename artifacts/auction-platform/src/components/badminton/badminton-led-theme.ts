@@ -24,24 +24,21 @@ export function fixedScoreStyle(active = true): CSSProperties {
 
 export function fixedServeStyle(active: boolean): CSSProperties {
   return active
-    ? { backgroundColor: "#ffd700", boxShadow: "0 0 12px rgba(255, 215, 0, 0.5)" }
+    ? { backgroundColor: "#FFD700", boxShadow: "0 0 12px rgba(255, 215, 0, 0.5)" }
     : { backgroundColor: "rgba(255,255,255,0.1)" };
 }
 
-export function fixedGameDotStyle(filled: boolean, side?: "left" | "right"): CSSProperties {
+export function fixedGameDotStyle(filled: boolean, _side?: "left" | "right"): CSSProperties {
   if (!filled) {
     return {
       backgroundColor: "rgba(255,255,255,0.04)",
-      borderColor: side === "left" ? "rgba(255,196,0,0.3)" : "rgba(206,147,216,0.3)",
+      borderColor: "rgba(255,215,0,0.3)",
     };
   }
-  const gold = { fill: "#ffd700", glow: "rgba(255, 215, 0, 0.65)" };
-  const lilac = { fill: "#e0b0ff", glow: "rgba(206, 147, 216, 0.6)" };
-  const { fill, glow } = side === "right" ? lilac : gold;
   return {
-    backgroundColor: fill,
-    borderColor: fill,
-    boxShadow: `0 0 16px ${glow}, 0 0 4px ${glow}`,
+    backgroundColor: "#FFD700",
+    borderColor: "#FFD700",
+    boxShadow: "0 0 16px rgba(255, 215, 0, 0.65), 0 0 4px rgba(255, 215, 0, 0.65)",
   };
 }
 

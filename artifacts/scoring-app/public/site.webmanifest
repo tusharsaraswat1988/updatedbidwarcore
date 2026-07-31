@@ -1,0 +1,24 @@
+{
+  "name": "BidWar Scoring",
+  "short_name": "BidWar Score",
+  "description": "Live match scoring for cricket, badminton, and more — BidWar",
+  "start_url": "/scoring-app/",
+  "scope": "/scoring-app/",
+  "display": "standalone",
+  "background_color": "#1b2044",
+  "theme_color": "#1b2044",
+  "icons": [
+    {
+      "src": "/scoring-app/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/scoring-app/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

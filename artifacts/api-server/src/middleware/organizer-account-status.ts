@@ -2,6 +2,10 @@ import type { Request, Response, NextFunction } from "express";
 import { db, organizersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { organizerNeedsPhoneVerification } from "@workspace/api-base/mobile";
+import {
+  hasTournamentOrganizerJwt,
+  tournamentIdFromApiPath,
+} from "./require-organizer";
 
 declare global {
   namespace Express {
@@ -18,6 +22,11 @@ const PHONE_INCOMPLETE_MUTATION_ALLOWLIST = [
   /^\/api\/auth\/organizer-account\/logout$/,
   /^\/api\/auth\/organizer-account\/phone\//,
   /^\/api\/auth\/google\/complete-profile/,
+  // Per-tournament organizer password login (separate from account phone OTP).
+  /^\/api\/auth\/organizer\/\d+\/login$/,
+  /^\/api\/auth\/organizer\/\d+\/logout$/,
+  /^\/api\/auth\/organizer\/\d+\/password$/,
+  /^\/api\/auth\/organizer\/\d+\/bootstrap$/,
 ];
 
 function isPhoneIncompleteMutationAllowed(path: string): boolean {
@@ -62,11 +71,15 @@ export async function organizerAccountStatusMiddleware(
 
   const method = req.method.toUpperCase();
   const isMutation = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+  const scopedTournamentId = tournamentIdFromApiPath(req.path);
+  const hasTournamentSession =
+    scopedTournamentId != null && hasTournamentOrganizerJwt(req, scopedTournamentId);
   if (
     req.organizerPhoneIncomplete &&
     isMutation &&
     req.path.startsWith("/api/") &&
-    !isPhoneIncompleteMutationAllowed(req.path)
+    !isPhoneIncompleteMutationAllowed(req.path) &&
+    !hasTournamentSession
   ) {
     res.status(403).json({
       error: "Complete your mobile verification to continue.",

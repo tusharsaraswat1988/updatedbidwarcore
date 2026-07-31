@@ -396,6 +396,11 @@ export const badmintonMatchDetailsTable = pgTable(
     preMatchTossJson: jsonb("pre_match_toss_json").$type<Record<string, unknown>>(),
     /** Replay of current match state (computed after each event). */
     stateSnapshotJson: jsonb("state_snapshot_json").$type<Record<string, unknown>>(),
+    /**
+     * S3-08 — set when master player_statistics have been applied for this match.
+     * Re-running the stats pipeline is a no-op while this is non-null (idempotent).
+     */
+    masterStatsAppliedAt: timestamp("master_stats_applied_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -414,6 +419,73 @@ export const insertBadmintonMatchDetailSchema = createInsertSchema(
 ).omit({ id: true, createdAt: true, updatedAt: true });
 export type BadmintonMatchDetail = typeof badmintonMatchDetailsTable.$inferSelect;
 export type InsertBadmintonMatchDetail = z.infer<typeof insertBadmintonMatchDetailSchema>;
+
+// ─── League Groups ───────────────────────────────────────────────────────────
+
+export const badmintonGroupsTable = pgTable(
+  "badminton_groups",
+  {
+    id: serial("id").primaryKey(),
+    tournamentId: integer("tournament_id").notNull(),
+    categoryId: integer("category_id").notNull(),
+    name: text("name").notNull(),
+    sortOrder: smallint("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("ix_bgrp_tournament_id").on(t.tournamentId),
+    index("ix_bgrp_category_id").on(t.categoryId),
+  ],
+);
+
+export type BadmintonGroup = typeof badmintonGroupsTable.$inferSelect;
+
+export const badmintonGroupMembersTable = pgTable(
+  "badminton_group_members",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id").notNull(),
+    teamId: integer("team_id").notNull(),
+    seed: smallint("seed"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("ix_bgm_group_id").on(t.groupId),
+    uniqueIndex("uq_bgm_group_team").on(t.groupId, t.teamId),
+  ],
+);
+
+export type BadmintonGroupMember = typeof badmintonGroupMembersTable.$inferSelect;
+
+// ─── Pair Standings (league) ─────────────────────────────────────────────────
+
+export const badmintonPairStandingsTable = pgTable(
+  "badminton_pair_standings",
+  {
+    id: serial("id").primaryKey(),
+    tournamentId: integer("tournament_id").notNull(),
+    categoryId: integer("category_id").notNull(),
+    registrationId: integer("registration_id").notNull(),
+    groupId: integer("group_id"),
+    played: smallint("played").notNull().default(0),
+    won: smallint("won").notNull().default(0),
+    lost: smallint("lost").notNull().default(0),
+    /** Sum of rally-point margins from won games only. */
+    marginPoints: integer("margin_points").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("ix_bps_tournament_id").on(t.tournamentId),
+    index("ix_bps_category_id").on(t.categoryId),
+    uniqueIndex("uq_bps_category_registration").on(t.categoryId, t.registrationId),
+  ],
+);
+
+export type BadmintonPairStanding = typeof badmintonPairStandingsTable.$inferSelect;
 
 // ─── Tournament Analytics Snapshots ─────────────────────────────────────────
 

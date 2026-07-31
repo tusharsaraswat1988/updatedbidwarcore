@@ -297,8 +297,10 @@ function ScorerFormModal({
       onClose={onClose}
       size="md"
     >
-      <FormField label="Name *">
+      <FormField label="Name" required>
         <input
+          required
+          aria-required="true"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Scorer name"
@@ -308,8 +310,10 @@ function ScorerFormModal({
       </FormField>
 
       {!isEdit ? (
-        <FormField label="Mobile number *">
+        <FormField label="Mobile number" required>
           <input
+            required
+            aria-required="true"
             value={mobile}
             onChange={(e) => setMobile(sanitizeMobileInput(e.target.value))}
             placeholder="10-digit mobile"
@@ -327,8 +331,10 @@ function ScorerFormModal({
         </FormField>
       )}
 
-      <FormField label={isEdit ? "New personal PIN (optional)" : "Personal PIN *"}>
+      <FormField label={isEdit ? "New personal PIN (optional)" : "Personal PIN"} required={!isEdit}>
         <input
+          required={!isEdit}
+          aria-required={!isEdit}
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           placeholder={isEdit ? "Leave blank to keep current PIN" : "Min 4 characters"}

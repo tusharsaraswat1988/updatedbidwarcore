@@ -99,6 +99,8 @@ function incidentLabel(event: BadmintonEventEnvelope): string | null {
   switch (event.eventType) {
     case BadmintonEventType.MATCH_STARTED:
       return "Match Started";
+    case BadmintonEventType.TOSS_CORRECTED:
+      return "Toss Corrected";
     case BadmintonEventType.MATCH_PAUSED: {
       const payload = p as BadmintonMatchPausedPayload;
       return formatPauseReason(payload.reason, payload.detail);

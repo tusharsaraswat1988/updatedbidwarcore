@@ -3,14 +3,26 @@
  * Route: /tournament/:id/badminton/matches
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
 import { Target, X, Pencil } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  subscribeBadmintonDashboardStream,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
+import {
   isPairMatchKind,
+  isTerminalScoringMatchStatus,
   mergeDoublesSideJson,
   parseBadmintonMatchFormat,
 } from "@workspace/badminton-core";
@@ -44,11 +56,10 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
-import { friendlyBadmintonError, toastError, toastSuccess } from "@/lib/badminton-ux";
+import { friendlyBadmintonError, formatMatchStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
-import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { useToast } from "@/hooks/use-toast";
@@ -65,8 +76,6 @@ import {
   matchFormatPickerFromStored,
   type MatchFormatPickerValue,
 } from "@/components/badminton/match-format-picker";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 function toDateInputValue(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -198,48 +207,61 @@ export default function BadmintonMatchesPage() {
     return Number.isFinite(id) ? id : undefined;
   }, [search]);
   const [showCreate, setShowCreate] = useState(!!initialFixtureId);
-  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "finished">("all");
   const { data: scoringFormat } = useBadmintonScoringFormat(tournamentId);
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
+  const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches`,
-        { credentials: "include" },
-      );
-      return res.json();
-    },
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 8_000,
-    refetchInterval: (q) => {
-      const rows = q.state.data ?? [];
-      return rows.some((m) => m.status === "live" || m.status === "paused") ? 8_000 : false;
-    },
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
   });
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    return subscribeBadmintonDashboardStream(tournamentId, (payload) => {
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(qc, tournamentId, data);
+        return;
+      }
+      if (!shouldRefetchBadmintonMatches(data)) return;
+      if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
+      matchesInvalidateTimer.current = setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      }, 750);
+    });
+  }, [tournamentId, qc]);
+
+  useEffect(() => {
+    return () => {
+      if (matchesInvalidateTimer.current) clearTimeout(matchesInvalidateTimer.current);
+    };
+  }, []);
 
   const filtered = matches.filter((m) => {
     if (filter === "all") return true;
+    if (filter === "finished") return isTerminalScoringMatchStatus(m.status);
     return m.status === filter;
   });
 
   const counts = {
     all: matches.length,
-    live: matches.filter((m) => m.status === "live").length,
+    live: matches.filter((m) => m.status === "live" || m.status === "paused").length,
     scheduled: matches.filter((m) => m.status === "scheduled").length,
-    completed: matches.filter((m) => m.status === "completed").length,
+    finished: matches.filter((m) => isTerminalScoringMatchStatus(m.status)).length,
   };
 
   const deleteMutation = useMutation({
     mutationFn: async (matchId: number) => {
-      const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}`,
-        { method: "DELETE", credentials: "include" },
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Delete failed" }));
-        throw new Error(typeof err.error === "string" ? err.error : "Delete failed");
-      }
+      await badmintonFetch(tournamentId, `/matches/${matchId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
@@ -271,7 +293,7 @@ export default function BadmintonMatchesPage() {
                 void navigator.clipboard.writeText(url).then(() => {
                   toast({
                     title: "Scorer Home copied",
-                    description: "Share this link + a PIN with court scorers.",
+                    description: "Share this link. Scorers sign in with mobile and personal PIN.",
                   });
                 });
               }}
@@ -293,7 +315,7 @@ export default function BadmintonMatchesPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <HubFilterTabs
-          tabs={["all", "live", "scheduled", "completed"] as const}
+          tabs={["all", "live", "scheduled", "finished"] as const}
           active={filter}
           onChange={(tab) => setFilter(tab as typeof filter)}
           counts={counts}
@@ -316,7 +338,7 @@ export default function BadmintonMatchesPage() {
                   ? "No live matches"
                   : filter === "scheduled"
                     ? "No scheduled matches"
-                    : "No completed matches"
+                    : "No finished matches"
             }
             desc={
               filter === "all"
@@ -325,7 +347,7 @@ export default function BadmintonMatchesPage() {
                   ? "Start a match from Match Control after court and time are set."
                   : filter === "scheduled"
                     ? "Create a match with court + time (from a scheduled fixture or manually), then open Match Control."
-                    : "Completed matches appear here after scoring finishes."
+                    : "Finished matches (including walkovers and retirements) appear here after scoring ends."
             }
             action={
               filter === "all" || filter === "scheduled"
@@ -370,6 +392,7 @@ export default function BadmintonMatchesPage() {
           onSaved={(createdId) => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
+            toastSuccess("Match created", "Opening Match Control…");
             setShowCreate(false);
             if (createdId != null) {
               window.location.href = badmintonMatchControlPath(tournamentId, createdId);
@@ -399,8 +422,9 @@ function MatchRow({
   const qc = useQueryClient();
   const state = match.state;
   const detail = match.detail ?? {};
-  const isLive = match.status === "live";
-  const isCompleted = match.status === "completed";
+  const isLive = match.status === "live" || match.status === "paused";
+  const isCompleted = isTerminalScoringMatchStatus(match.status);
+  const statusLabel = formatMatchStatusLabel(match.status);
   const hasCourt =
     typeof detail.courtId === "number" ||
     (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);
@@ -408,8 +432,8 @@ function MatchRow({
   const needsCourtOrTime = !isLive && !isCompleted && (!hasCourt || !hasSchedule);
   const matchLabel = state
     ? formatTeamPlayerVsLine(
-        identityFromSideInfo(state.leftSide, { preferShort: true }),
-        identityFromSideInfo(state.rightSide, { preferShort: true }),
+        identityFromSideInfo(state.leftSide),
+        identityFromSideInfo(state.rightSide),
       )
     : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
 
@@ -450,7 +474,7 @@ function MatchRow({
           {state ? (
             <div className="flex items-center gap-3 flex-wrap">
               <TeamPlayerCard
-                identity={identityFromSideInfo(state.leftSide, { preferShort: true })}
+                identity={identityFromSideInfo(state.leftSide)}
                 size="xs"
                 layout="inline"
                 className="min-w-0"
@@ -472,7 +496,7 @@ function MatchRow({
                 </span>
               </div>
               <TeamPlayerCard
-                identity={identityFromSideInfo(state.rightSide, { preferShort: true })}
+                identity={identityFromSideInfo(state.rightSide)}
                 size="xs"
                 layout="inline"
                 className="min-w-0"
@@ -517,6 +541,11 @@ function MatchRow({
                 {(detail.matchType as string).replace("_", " ")}
               </Badge>
             ) : null}
+            {isCompleted && statusLabel !== "Completed" ? (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-200">
+                {statusLabel}
+              </Badge>
+            ) : null}
             {(() => {
               const fmt =
                 state?.format ?? parseBadmintonMatchFormat(detail.matchFormatJson);
@@ -529,8 +558,11 @@ function MatchRow({
               );
             })()}
             {detail.scorerPin ? (
-              <span className="text-muted-foreground text-xs font-mono" title="Share with court scorer">
-                PIN {String(detail.scorerPin)}
+              <span
+                className="text-muted-foreground text-xs font-mono"
+                title="Legacy court/match code — scorers sign in with mobile + personal PIN"
+              >
+                Legacy code {String(detail.scorerPin)}
               </span>
             ) : null}
           </div>
@@ -544,7 +576,7 @@ function MatchRow({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-h-11 px-4 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/35 text-red-200 text-sm font-bold flex items-center transition-colors"
-                title="Court scorer — scoring with PIN"
+                title="Court scorer — sign in with mobile and personal PIN"
               >
                 Open Scoring
               </a>
@@ -632,6 +664,7 @@ function MatchRow({
           onClose={() => setEditOpen(false)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+            toastSuccess("Match updated");
             setEditOpen(false);
             if (needsCourtOrTime) {
               window.location.href = badmintonMatchControlPath(tournamentId, match.id);
@@ -895,10 +928,10 @@ function MatchFormModal({
     | "matchType"
     | "courtNumber"
     | "matchLabel"
-    | "scorerPin"
     | "scorerName"
     | "scheduleDate"
     | "scheduleTime";
+  const legacyScorerPin = form.scorerPin.trim();
 
   const f = (field: StringFormField) => ({
     value: form[field] ?? "",
@@ -946,10 +979,6 @@ function MatchFormModal({
       setError("Scheduled date/time is invalid");
       return;
     }
-    if (form.scorerPin.trim().length > 0 && form.scorerPin.trim().length < 4) {
-      setError("Scorer PIN must be at least 4 digits (or leave blank to inherit court PIN)");
-      return;
-    }
     setSaving(true);
     setError("");
     try {
@@ -961,7 +990,6 @@ function MatchFormModal({
         courtNumber: form.courtNumber || undefined,
         ...(scheduledAt != null ? { scheduledAt } : {}),
         matchLabel: form.matchLabel.trim() || undefined,
-        scorerPin: form.scorerPin.trim(),
         scorerName: form.scorerName || undefined,
         ...(rosterLocked
           ? {}
@@ -981,30 +1009,19 @@ function MatchFormModal({
             }),
       };
 
-      const res = await fetch(
-        isEdit
-          ? `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${match.id}`
-          : `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches`,
+      const saved = await badmintonFetch<{ id?: number; detail?: { scorerPin?: string | null } }>(
+        tournamentId,
+        isEdit ? `/matches/${match.id}` : `/matches`,
         {
           method: isEdit ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify(payload),
         },
       );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: isEdit ? "Update failed" : "Create failed" }));
-        throw new Error(typeof err.error === "string" ? err.error : isEdit ? "Update failed" : "Create failed");
-      }
-      const saved = (await res.json()) as { id?: number; detail?: { scorerPin?: string | null } };
-      const pin = saved.detail?.scorerPin ?? form.scorerPin.trim();
       toast({
         title: isEdit ? "Match updated" : "Match created",
         description: isEdit
           ? "Court and time saved. Open Match Control to start."
-          : pin
-            ? `Scorer PIN: ${pin}. Opening Match Control — start the match there.`
-            : "Inherits court scorer PIN. Opening Match Control — start the match there.",
+          : "Opening Match Control — scorers sign in with mobile and personal PIN.",
       });
       onSaved(isEdit ? undefined : saved.id);
     } catch (e) {
@@ -1020,9 +1037,9 @@ function MatchFormModal({
       subtitle={
         isEdit
           ? rosterLocked
-            ? "Update match name, court, scorer name, or scorer PIN"
+            ? "Update match name, court, organizer note, or legacy court code"
             : "Court and time are required before Match Control can start the match"
-          : "Court and time are required. Prefer linking a scheduled fixture; manual matches work if court + time are set."
+          : "Court and time are required. Link a scheduled fixture when possible — scorers are added separately under Participants → Officials."
       }
       onClose={onClose}
       size="lg"
@@ -1093,7 +1110,7 @@ function MatchFormModal({
         <FormField label="Match Name">
           <input {...f("matchLabel")} placeholder="League Match 1" className={inputClass} />
         </FormField>
-        <FormField label="Court (required)">
+        <FormField label="Court" required>
           <CourtAutocomplete
             tournamentId={tournamentId}
             value={form.courtNumber}
@@ -1108,11 +1125,11 @@ function MatchFormModal({
 
       {!rosterLocked ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="Scheduled date (required)">
-            <input type="date" {...f("scheduleDate")} className={inputClass} />
+          <FormField label="Scheduled date" required>
+            <input type="date" required aria-required="true" {...f("scheduleDate")} className={inputClass} />
           </FormField>
-          <FormField label="Scheduled time (required)">
-            <input type="time" {...f("scheduleTime")} className={inputClass} />
+          <FormField label="Scheduled time" required>
+            <input type="time" required aria-required="true" {...f("scheduleTime")} className={inputClass} />
           </FormField>
         </div>
       ) : null}
@@ -1140,7 +1157,7 @@ function MatchFormModal({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
-          Player lineup is locked while the match is live or completed. You can still update match name, court, scorer name, and scorer PIN.
+          Player lineup is locked while the match is live or completed. You can still update match name, court, scorer name, and legacy court code.
         </p>
       )}
 
@@ -1166,33 +1183,54 @@ function MatchFormModal({
         />
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField label="Scorer's Name">
-          <input {...f("scorerName")} placeholder="Optional" className={inputClass} />
-        </FormField>
-        <FormField label="Scorer PIN">
-          <div className="flex gap-2">
+      {!isEdit ? (
+        <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
+          <p className="text-sm font-semibold text-foreground">Who will score this match?</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Scorers are not picked here. Add officials under{" "}
+            <Link
+              href={`/tournament/${tournamentId}/badminton/players?section=officials`}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Participants → Officials
+            </Link>
+            . They sign in on{" "}
+            <Link
+              href={badmintonScorerHomePath(tournamentId)}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Scorer Home
+            </Link>{" "}
+            with mobile and personal PIN, then choose this court.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Organizer note (optional)">
             <input
-              {...f("scorerPin")}
-              placeholder="4-digit PIN"
-              type="tel"
-              inputMode="numeric"
-              maxLength={8}
+              {...f("scorerName")}
+              placeholder="Internal label only"
               className={inputClass}
             />
-            <button
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, scorerPin: suggestScorerPin() }))}
-              className="h-11 px-3 rounded-lg border border-border bg-secondary text-secondary-foreground text-xs font-semibold shrink-0 hover-elevate"
-            >
-              New PIN
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Leave blank to inherit the court PIN. A match PIN overrides the court PIN.
-          </p>
-        </FormField>
-      </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Not used for scorer login. Officials sign in via Scorer Home with mobile + PIN.
+            </p>
+          </FormField>
+          {legacyScorerPin ? (
+            <FormField label="Legacy court code">
+              <input
+                value={legacyScorerPin}
+                readOnly
+                className={cn(inputClass, "font-mono bg-muted/40")}
+                aria-readonly="true"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Read-only legacy code. Scorers sign in with mobile and personal PIN — new codes are no longer created.
+              </p>
+            </FormField>
+          ) : null}
+        </div>
+      )}
 
       <MatchFormatPicker
         value={formatPicker}

@@ -9,10 +9,14 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { formatCategoryPhaseLabel } from "@/lib/badminton-ux";
+import { formatCategoryPhaseLabel, toastSuccess } from "@/lib/badminton-ux";
 import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { EmptyState, FormField, inputClass, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
+import {
+  formatPlayerEntryLabel,
+  RegistrationPlayerSelect,
+} from "@/components/badminton/registration-player-select";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
 import {
@@ -149,6 +153,7 @@ export function BadmintonEventsPanel({ tournamentId }: { tournamentId: number })
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
             qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+            toastSuccess(editCategory ? "Event updated" : "Event created");
             setShowForm(false);
             setEditCategory(null);
           }}
@@ -211,6 +216,7 @@ function CategoryPanel({
     queryKey: ["badminton-players", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/players`),
     enabled: expanded && !!tournamentId,
+    staleTime: 60_000,
   });
 
   const [showAddReg, setShowAddReg] = useState(false);
@@ -434,6 +440,7 @@ function CategoryPanel({
           category={category}
           onClose={() => setShowAddReg(false)}
           onSaved={() => {
+            toastSuccess("Entry added");
             onRefresh();
             setShowAddReg(false);
           }}
@@ -534,8 +541,8 @@ function CategoryFormModal({
       onClose={onClose}
       size="lg"
     >
-      <FormField label="Event Name *">
-        <input {...f("name")} placeholder="Men's Singles" className={inputClass} />
+      <FormField label="Event Name" required>
+        <input {...f("name")} required aria-required="true" placeholder="Men's Singles" className={inputClass} />
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
@@ -548,7 +555,7 @@ function CategoryFormModal({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Match Type">
+        <FormField label="Match Type" required>
           <DarkSelect
             value={form.matchType}
             onValueChange={(matchType) => setForm((prev) => ({ ...prev, matchType }))}
@@ -559,16 +566,19 @@ function CategoryFormModal({
             ]}
           />
         </FormField>
-        <FormField label="Draw Type">
+        <FormField label="Draw Type" required>
           <DarkSelect
             value={form.drawType}
             onValueChange={(drawType) => setForm((prev) => ({ ...prev, drawType }))}
             options={[
               { value: "knockout", label: "Knockout" },
-              { value: "round_robin", label: "Round Robin" },
-              { value: "group_knockout", label: "Group + Knockout" },
+              { value: "round_robin", label: "League (Round Robin Groups)" },
+              { value: "group_knockout", label: "League Groups → Knockout" },
             ]}
           />
+          <p className="text-xs text-muted-foreground mt-1.5">
+            League formats use franchise team groups and pair-vs-pair rubbers. Set groups in Draw &amp; Fixtures, then Generate League.
+          </p>
         </FormField>
       </div>
 
@@ -629,10 +639,17 @@ function AddRegistrationModal({
 }) {
   const isDoubles = category.matchType !== "singles";
 
-  const { data: players = [], isLoading: playersLoading } = useQuery<BadmintonPlayer[]>({
+  const {
+    data: players = [],
+    isLoading: playersLoading,
+    isError: playersLoadFailed,
+    error: playersLoadError,
+    refetch,
+  } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/players`),
     enabled: !!tournamentId,
+    staleTime: 60_000,
   });
 
   const [player1Id, setPlayer1Id] = useState("");
@@ -674,36 +691,49 @@ function AddRegistrationModal({
     <FormModal title="Add Entry" subtitle={category.name} onClose={onClose} size="md">
       {playersLoading ? (
         <AsyncLoadingPanel tone="inverse" compact message="Loading registered players…" />
+      ) : playersLoadFailed ? (
+        <>
+          <FormError
+            message={
+              playersLoadError instanceof Error
+                ? playersLoadError.message
+                : "Could not load players. Check your connection and try again."
+            }
+          />
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="w-full h-11 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-semibold hover-elevate"
+          >
+            Retry
+          </button>
+        </>
       ) : (
         <>
-      <FormField label={isDoubles ? "Player 1 *" : "Player *"}>
-        <DarkSelect
-          value={player1Id || "none"}
-          onValueChange={(v) => setPlayer1Id(v === "none" ? "" : v)}
-          placeholder="Select player…"
-          options={[
-            { value: "none", label: "Select player…" },
-            ...players.map((p) => ({ value: String(p.id), label: formatPlayerName(p) })),
-          ]}
-        />
-      </FormField>
+      <RegistrationPlayerSelect
+        label={isDoubles ? "Player 1" : "Player"}
+        required
+        value={player1Id}
+        onChange={(id) => {
+          setPlayer1Id(id);
+          if (id && id === player2Id) setPlayer2Id("");
+        }}
+        players={players}
+        excludePlayerIds={player2Id ? [parseInt(player2Id, 10)] : []}
+        placeholder="Select player…"
+      />
 
-      {isDoubles && (
-        <FormField label="Player 2 (Partner) *">
-          <DarkSelect
-            value={player2Id || "none"}
-            onValueChange={(v) => setPlayer2Id(v === "none" ? "" : v)}
-            placeholder="Select partner…"
-            options={[
-              { value: "none", label: "Select partner…" },
-              ...players.filter((p) => String(p.id) !== player1Id).map((p) => ({
-                value: String(p.id),
-                label: formatPlayerName(p),
-              })),
-            ]}
-          />
-        </FormField>
-      )}
+      {isDoubles ? (
+        <RegistrationPlayerSelect
+          label="Player 2 (Partner)"
+          required
+          value={player2Id}
+          onChange={setPlayer2Id}
+          players={players}
+          excludePlayerIds={player1Id ? [parseInt(player1Id, 10)] : []}
+          placeholder="Select partner…"
+        />
+      ) : null}
 
       <FormField label="Seed Number (optional)">
         <input
@@ -746,9 +776,7 @@ function PhaseBadge({ phase }: { phase: string }) {
 }
 
 function formatPlayerName(p: BadmintonPlayer): string {
-  const name = p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
-  const team = p.franchiseName?.trim();
-  return team ? `${team} · ${name}` : name;
+  return formatPlayerEntryLabel(p);
 }
 
 function formatRegistrationEntryName(
@@ -767,9 +795,9 @@ function formatRegistrationEntryName(
   const name2 = p2?.id ? formatPlayerName(p2) : null;
 
   if (isDoubles) {
-    if (name1 && name2) return `${name1} / ${name2}`;
-    if (name1) return `${name1} / Partner not set`;
-    if (name2) return `Player not set / ${name2}`;
+    if (name1 && name2) return `${name1} & ${name2}`;
+    if (name1) return `${name1} & Partner not set`;
+    if (name2) return `Player not set & ${name2}`;
     return "Doubles entry (players missing)";
   }
 

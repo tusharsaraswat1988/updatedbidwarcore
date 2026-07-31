@@ -29,3 +29,4 @@ export * from "./bwf-doubles-oracle";
 export * from "./doubles-replay-derive";
 export * from "./singles-replay-derive";
 export * from "./scorer-assistance";
+export * from "./venue-audio-cues";

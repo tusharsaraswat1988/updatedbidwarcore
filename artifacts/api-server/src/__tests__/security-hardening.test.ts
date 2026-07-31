@@ -24,6 +24,8 @@ import {
 import {
   isTournamentOrganizer,
   isOrganizerOrAdmin,
+  hasTournamentOrganizerJwt,
+  tournamentIdFromApiPath,
 } from "../middleware/require-organizer";
 
 vi.mock("@workspace/db", () => ({
@@ -284,6 +286,30 @@ describe("tournament-scoped organizer authorization", () => {
   it("allows admin regardless of tournament", () => {
     const req = mockReq("1.1.1.1", { isAdmin: true });
     expect(isOrganizerOrAdmin(req, 5)).toBe(true);
+  });
+
+  it("allows per-tournament JWT even when account phone OTP is incomplete", () => {
+    const req = mockReq("1.1.1.1", { organizerAccountId: 42, organizer: { "5": true } });
+    (req as Request & { organizerPhoneIncomplete?: boolean }).organizerPhoneIncomplete = true;
+    expect(isTournamentOrganizer(req, 5, 99)).toBe(true);
+    expect(isOrganizerOrAdmin(req, 5)).toBe(true);
+  });
+
+  it("still blocks unrelated account when phone OTP is incomplete", () => {
+    const req = mockReq("1.1.1.1", { organizerAccountId: 42 });
+    (req as Request & { organizerPhoneIncomplete?: boolean }).organizerPhoneIncomplete = true;
+    expect(isTournamentOrganizer(req, 5, 99)).toBe(false);
+  });
+
+  it("parses tournament id from API paths", () => {
+    expect(tournamentIdFromApiPath("/api/tournaments/12/badminton/players")).toBe(12);
+    expect(tournamentIdFromApiPath("/api/auth/organizer-account/me")).toBeNull();
+  });
+
+  it("detects tournament organizer JWT for middleware bypass", () => {
+    const req = mockReq("1.1.1.1", { organizer: { "5": true } });
+    expect(hasTournamentOrganizerJwt(req, 5)).toBe(true);
+    expect(hasTournamentOrganizerJwt(req, 6)).toBe(false);
   });
 });
 

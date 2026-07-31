@@ -33,6 +33,15 @@ export interface BadmintonBranding {
   overlayScene?: BadmintonOverlayScene;
   /** Operator Broadcast Director — Venue Scoreboard scene. */
   venueScene?: BadmintonVenueScene;
+  /** Control Center On/Pause for venue LED loop music. */
+  venueMusicPlaying?: boolean;
+  /** Badminton override track (null = auction/platform fallthrough). */
+  venueMusicUrl?: string | null;
+  /** Display name for the override track. */
+  venueMusicFileName?: string | null;
+  venueMusicVolume?: number;
+  /** Resolved loop URL for venue LED playback. */
+  resolvedVenueMusicUrl?: string | null;
 }
 
 function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
@@ -40,15 +49,36 @@ function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
     ...raw,
     overlayScene: parseOverlayScene(raw.overlayScene),
     venueScene: parseVenueScene(raw.venueScene),
+    venueMusicPlaying: raw.venueMusicPlaying === true,
+    venueMusicUrl: raw.venueMusicUrl?.trim() || null,
+    venueMusicFileName: raw.venueMusicFileName?.trim() || null,
+    venueMusicVolume:
+      typeof raw.venueMusicVolume === "number" && Number.isFinite(raw.venueMusicVolume)
+        ? Math.max(0, Math.min(100, Math.round(raw.venueMusicVolume)))
+        : 80,
+    resolvedVenueMusicUrl: raw.resolvedVenueMusicUrl?.trim() || null,
   };
 }
 
-export function useBadmintonBranding(tournamentId: number) {
+type BrandingQueryOptions = {
+  /** Override default staleTime (Mission Control keeps a short window). */
+  staleTime?: number;
+  /** Set false on Venue/OBS — presentation arrives via SSE cache patches. */
+  refetchInterval?: number | false;
+};
+
+export function useBadmintonBranding(
+  tournamentId: number,
+  options?: BrandingQueryOptions,
+) {
   return useQuery<BadmintonBranding>({
     queryKey: ["badminton-branding", tournamentId],
     queryFn: async () => normalizeBranding(await badmintonFetch<BadmintonBranding>(tournamentId, `/branding`)),
     enabled: !!tournamentId,
-    staleTime: 15_000,
+    // Scene chips must track play-safe auto-clears after the first rally.
+    staleTime: options?.staleTime ?? 4_000,
+    refetchInterval: options?.refetchInterval ?? 8_000,
+    placeholderData: (prev) => prev,
   });
 }
 

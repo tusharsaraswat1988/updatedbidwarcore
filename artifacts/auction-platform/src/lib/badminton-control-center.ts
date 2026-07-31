@@ -4,6 +4,8 @@
  * No duplicated storage.
  */
 
+import { isTerminalScoringMatchStatus } from "@workspace/badminton-core";
+
 export type CourtOpsStatus = "EMPTY" | "READY" | "LIVE" | "FINISHED" | "DELAYED";
 
 export type ControlCourt = {
@@ -132,6 +134,187 @@ export function findCourtScheduleConflicts(
   });
 }
 
+export type CourtScheduleTimeSuggestion = {
+  /** Local time for `<input type="time">` (HH:mm). */
+  time: string;
+  label: string;
+};
+
+const DEFAULT_SCHEDULE_GAP_MINUTES = 45;
+const SCHEDULE_TIME_ROUND_MINUTES = 15;
+
+function localDateKeyFromIso(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function localDateTimeMs(date: string, time: string): number {
+  const d = new Date(`${date}T${time}:00`);
+  const t = d.getTime();
+  return Number.isNaN(t) ? Number.NaN : t;
+}
+
+function localDateTimeIso(date: string, time: string): string {
+  return new Date(`${date}T${time}:00`).toISOString();
+}
+
+function msToTimeInput(ms: number): string {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return "";
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${min}`;
+}
+
+function roundUpToMinutes(ms: number, stepMinutes: number): number {
+  const stepMs = stepMinutes * 60_000;
+  return Math.ceil(ms / stepMs) * stepMs;
+}
+
+function formatSuggestionTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function isConflictFreeSlot(
+  fixtures: ControlFixture[],
+  opts: {
+    courtId: number;
+    date: string;
+    time: string;
+    excludeFixtureId?: number;
+    windowMinutes: number;
+  },
+): boolean {
+  return (
+    findCourtScheduleConflicts(fixtures, {
+      courtId: opts.courtId,
+      scheduledAtIso: localDateTimeIso(opts.date, opts.time),
+      excludeFixtureId: opts.excludeFixtureId,
+      windowMinutes: opts.windowMinutes,
+    }).length === 0
+  );
+}
+
+/**
+ * Suggest conflict-free start times on a court for a given day.
+ * Slots are spaced at least `windowMinutes` from existing fixtures (default 45).
+ */
+export function suggestCourtScheduleTimes(
+  fixtures: ControlFixture[],
+  opts: {
+    courtId: number;
+    date: string;
+    excludeFixtureId?: number;
+    windowMinutes?: number;
+    maxSuggestions?: number;
+  },
+): CourtScheduleTimeSuggestion[] {
+  const windowMinutes = opts.windowMinutes ?? DEFAULT_SCHEDULE_GAP_MINUTES;
+  const maxSuggestions = opts.maxSuggestions ?? 4;
+  const gapMs = windowMinutes * 60_000;
+
+  if (!opts.date || !opts.courtId) return [];
+
+  const onCourtDay = fixtures
+    .filter((f) => {
+      if (opts.excludeFixtureId != null && f.id === opts.excludeFixtureId) return false;
+      if (f.courtId !== opts.courtId) return false;
+      if (!f.scheduledAt) return false;
+      if (f.status === "walkover" || f.status === "cancelled") return false;
+      return localDateKeyFromIso(f.scheduledAt) === opts.date;
+    })
+    .sort((a, b) => fixtureTime(a) - fixtureTime(b));
+
+  const rawCandidates: Array<{ ms: number; label: string }> = [];
+
+  if (onCourtDay.length === 0) {
+    const dayStart = localDateTimeMs(opts.date, "09:00");
+    if (!Number.isNaN(dayStart)) {
+      for (let i = 0; i < maxSuggestions; i++) {
+        rawCandidates.push({
+          ms: roundUpToMinutes(dayStart + i * gapMs, SCHEDULE_TIME_ROUND_MINUTES),
+          label: i === 0 ? "First slot on court" : `${windowMinutes} min after previous`,
+        });
+      }
+    }
+  } else {
+    const firstMs = new Date(onCourtDay[0]!.scheduledAt!).getTime();
+    const morningMs = localDateTimeMs(opts.date, "09:00");
+    if (!Number.isNaN(firstMs) && !Number.isNaN(morningMs) && firstMs - morningMs >= gapMs * 2) {
+      rawCandidates.push({
+        ms: roundUpToMinutes(morningMs, SCHEDULE_TIME_ROUND_MINUTES),
+        label: "Before first match",
+      });
+    }
+
+    for (const f of onCourtDay) {
+      const t = new Date(f.scheduledAt!).getTime();
+      if (Number.isNaN(t)) continue;
+      const afterMs = roundUpToMinutes(t + gapMs + 60_000, SCHEDULE_TIME_ROUND_MINUTES);
+      const matchLabel = `Match ${f.slotNumber ?? f.id}`;
+      const timeLabel = formatSuggestionTime(f.scheduledAt!);
+      rawCandidates.push({
+        ms: afterMs,
+        label: `After ${matchLabel}${timeLabel ? ` · ${timeLabel}` : ""}`,
+      });
+    }
+  }
+
+  rawCandidates.sort((a, b) => a.ms - b.ms);
+
+  const results: CourtScheduleTimeSuggestion[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of rawCandidates) {
+    const time = msToTimeInput(candidate.ms);
+    if (!time || seen.has(time)) continue;
+    if (
+      !isConflictFreeSlot(fixtures, {
+        courtId: opts.courtId,
+        date: opts.date,
+        time,
+        excludeFixtureId: opts.excludeFixtureId,
+        windowMinutes,
+      })
+    ) {
+      continue;
+    }
+    seen.add(time);
+    results.push({ time, label: candidate.label });
+    if (results.length >= maxSuggestions) return results;
+  }
+
+  while (results.length < maxSuggestions && results.length > 0) {
+    const lastTime = results[results.length - 1]!.time;
+    const lastMs = localDateTimeMs(opts.date, lastTime);
+    if (Number.isNaN(lastMs)) break;
+    const nextMs = roundUpToMinutes(lastMs + gapMs, SCHEDULE_TIME_ROUND_MINUTES);
+    const time = msToTimeInput(nextMs);
+    if (!time || seen.has(time)) break;
+    if (
+      !isConflictFreeSlot(fixtures, {
+        courtId: opts.courtId,
+        date: opts.date,
+        time,
+        excludeFixtureId: opts.excludeFixtureId,
+        windowMinutes,
+      })
+    ) {
+      break;
+    }
+    seen.add(time);
+    results.push({ time, label: `${windowMinutes} min after previous slot` });
+  }
+
+  return results;
+}
+
 export function matchDisplayLabel(m: ControlMatch): string {
   if (m.state?.leftSide || m.state?.rightSide) {
     // Lazy import avoided — keep string helper self-contained for list labels.
@@ -190,7 +373,7 @@ export function buildCourtBoard(
     const ready = scheduledOnCourt[0] ?? null;
     const readyOverflow = Math.max(0, scheduledOnCourt.length - 1);
     const completed = onCourt
-      .filter((m) => m.status === "completed")
+      .filter((m) => isTerminalScoringMatchStatus(m.status))
       .sort((a, b) => matchTime(b) - matchTime(a));
     const lastFinished = completed[0] ?? null;
 
@@ -270,7 +453,7 @@ export function listRecentlyCompleted(
   limit = 8,
 ): ControlMatch[] {
   return matches
-    .filter((m) => m.status === "completed")
+    .filter((m) => isTerminalScoringMatchStatus(m.status))
     .sort((a, b) => matchTime(b) - matchTime(a))
     .slice(0, limit);
 }

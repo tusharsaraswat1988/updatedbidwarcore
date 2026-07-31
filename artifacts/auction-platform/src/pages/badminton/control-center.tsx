@@ -9,9 +9,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ChevronDown, LayoutDashboard } from "lucide-react";
+import { AlertCircle, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import {
   buildCourtBoard,
   listReadyMatches,
@@ -43,21 +43,34 @@ import { MissionControlTopBar } from "@/components/badminton/mission-control/mis
 import { MissionControlOpsRail } from "@/components/badminton/mission-control/mission-control-ops-rail";
 import { MissionControlCourtCard } from "@/components/badminton/mission-control/mission-control-court-card";
 import { MissionControlQueues } from "@/components/badminton/mission-control/mission-control-queues";
-import { MissionControlAttentionPanel } from "@/components/badminton/mission-control/mission-control-attention";
+import { MissionControlAlerts } from "@/components/badminton/mission-control/mission-control-alerts";
 import { MissionControlHealthStrip } from "@/components/badminton/mission-control/mission-control-health";
-import { MissionControlSuggestions } from "@/components/badminton/mission-control/mission-control-suggestions";
 import {
   MissionControlActivityFeed,
   type ActivityEvent,
 } from "@/components/badminton/mission-control/mission-control-activity";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
-import { useBadmintonDirector } from "@/hooks/use-badminton-match";
+import {
+  BADMINTON_MATCHES_RECONNECT_POLL_MS,
+  subscribeBadmintonDashboardStream,
+  useBadmintonDirector,
+  useBadmintonTournamentStreamStatus,
+} from "@/hooks/use-badminton-match";
 import type { BadmintonOverlayScene, BadmintonVenueScene } from "@/lib/badminton-broadcast-director";
+import {
+  applyPresentationPayload,
+  isPresentationPayload,
+  onPresentationError,
+  onPresentationMutate,
+  onPresentationSuccess,
+  type PresentationMutateContext,
+} from "@/lib/badminton-presentation-mutation";
+import {
+  isMatchStateChangedPayload,
+  patchBadmintonMatchesFromLiveUpdate,
+  shouldRefetchBadmintonMatches,
+} from "@/lib/badminton-match-list-cache";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 
 type CourtRow = {
   id: number;
@@ -74,8 +87,6 @@ type CategoryRow = {
   name: string;
   code?: string | null;
 };
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function BadmintonControlCenterPage() {
   const [, params] = useRoute("/tournament/:id/badminton/control");
@@ -94,7 +105,12 @@ export default function BadmintonControlCenterPage() {
   const [lastRealtimeAt, setLastRealtimeAt] = useState<number | null>(null);
   const prevBoardKey = useRef<string>("");
 
-  const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId);
+  // Operator page: avoid 8s branding poll fighting Moments / Auto focus clicks.
+  const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId, {
+    staleTime: 120_000,
+    refetchInterval: false,
+  });
+  const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
 
   const {
     data: courts = [],
@@ -118,16 +134,12 @@ export default function BadmintonControlCenterPage() {
     dataUpdatedAt: matchesUpdatedAt,
   } = useQuery<ControlMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 15_000,
-    refetchInterval: (q) => {
-      const rows = q.state.data ?? [];
-      const needsPoll = rows.some(
-        (m) => m.status === "live" || m.status === "paused" || m.status === "scheduled",
-      );
-      return needsPoll ? 8_000 : false;
-    },
+    // Healthy tournament SSE → no poll. Reconnect only → temporary poll.
+    refetchInterval: () =>
+      sseAwareRefetchInterval(tournamentSseStatus, BADMINTON_MATCHES_RECONNECT_POLL_MS),
   });
 
   const {
@@ -140,8 +152,9 @@ export default function BadmintonControlCenterPage() {
     queryKey: ["badminton-fixtures-all", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/fixtures`),
     enabled: !!tournamentId,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    // Fixtures change infrequently; keep light background refresh without competing with live SSE.
+    refetchInterval: 60_000,
   });
 
   const { data: categories = [] } = useQuery<CategoryRow[]>({
@@ -167,16 +180,50 @@ export default function BadmintonControlCenterPage() {
 
   useEffect(() => {
     if (!tournamentId) return;
-    const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
-    const es = new EventSource(url, { withCredentials: true });
-    es.onmessage = () => {
+    let matchesTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Shared pool — no second private EventSource alongside IA chrome / live-follow.
+    const unsubscribe = subscribeBadmintonDashboardStream(tournamentId, (payload) => {
       setLastRealtimeAt(Date.now());
-      void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+
+      // Presentation / focus / music: patch cache only — never refetch branding
+      // (refetch + await cancelQueries was freezing Auto / Moments buttons).
+      if (data && isPresentationPayload(data)) {
+        qc.setQueryData<BadmintonBranding | undefined>(
+          ["badminton-branding", tournamentId],
+          (prev) => applyPresentationPayload(prev, data),
+        );
+        if ("primaryBroadcastMatchId" in data) {
+          if (matchesTimer) clearTimeout(matchesTimer);
+          matchesTimer = setTimeout(() => {
+            void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+          }, 400);
+        }
+        return;
+      }
+
+      // Live score path: patch one row — never GET /matches for every point.
+      if (data && isMatchStateChangedPayload(data)) {
+        patchBadmintonMatchesFromLiveUpdate(qc, tournamentId, data);
+        return;
+      }
+
+      // Structure / schedule / create-delete only.
+      if (!shouldRefetchBadmintonMatches(data)) return;
+      if (matchesTimer) clearTimeout(matchesTimer);
+      matchesTimer = setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      }, 750);
+    });
+
+    return () => {
+      if (matchesTimer) clearTimeout(matchesTimer);
+      unsubscribe();
     };
-    es.onerror = () => {
-      /* polling remains fallback */
-    };
-    return () => es.close();
   }, [tournamentId, qc]);
 
   const categoryName = useMemo(() => {
@@ -337,8 +384,21 @@ export default function BadmintonControlCenterPage() {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    onMutate: (body) => onPresentationMutate(qc, tournamentId, body),
+    onError: (err, _body, context) => {
+      onPresentationError(
+        qc,
+        tournamentId,
+        context as PresentationMutateContext | undefined,
+      );
+      toast({
+        title: "Screen update failed",
+        description: friendlyBadmintonError(err, "Try Emergency / Resume again."),
+        variant: "destructive",
+      });
+    },
     onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
+      onPresentationSuccess(qc, tournamentId, data);
     },
   });
 
@@ -348,6 +408,23 @@ export default function BadmintonControlCenterPage() {
         method: "PATCH",
         body: JSON.stringify({ matchId }),
       }),
+    onMutate: (matchId) => {
+      const previous = qc.getQueryData<BadmintonBranding>([
+        "badminton-branding",
+        tournamentId,
+      ]);
+      if (previous) {
+        qc.setQueryData<BadmintonBranding>(["badminton-branding", tournamentId], {
+          ...previous,
+          primaryBroadcastMatchId: matchId,
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _matchId, context) => {
+      const prev = (context as { previous?: BadmintonBranding } | undefined)?.previous;
+      if (prev) qc.setQueryData(["badminton-branding", tournamentId], prev);
+    },
     onSuccess: (data) => {
       qc.setQueryData(["badminton-branding", tournamentId], data);
       toast({ title: "Screens follow this court" });
@@ -428,19 +505,9 @@ export default function BadmintonControlCenterPage() {
     }
     if (item.actionKind === "resume" && item.matchId != null) {
       try {
-        await fetch(
-          `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${item.matchId}/resume`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          },
-        ).then(async (res) => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: "Resume failed" }));
-            throw new Error(err.error ?? "Resume failed");
-          }
+        await badmintonFetch(tournamentId, `/matches/${item.matchId}/resume`, {
+          method: "POST",
+          body: JSON.stringify({}),
         });
         toast({ title: "Match resumed" });
         pushActivity("Match resumed");
@@ -496,9 +563,9 @@ export default function BadmintonControlCenterPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="live"
-        titleOverride="Mission Control"
-        purposeOverride="Run the entire tournament day from the courts — one workspace."
-        taskOverride="Watch every court, start matches, manage scorers and screens without leaving this page."
+        titleOverride="Live Control"
+        purposeOverride="Run tournament day from one screen."
+        taskOverride="Courts on the left · screens & scorers on the right · queues below."
       >
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 space-y-4">
           <MissionControlTopBar
@@ -516,23 +583,21 @@ export default function BadmintonControlCenterPage() {
           {!isLoading && !loadError && courts.length > 0 ? (
             <>
               <MissionControlHealthStrip health={health} />
-              <MissionControlAttentionPanel
-                items={attention}
-                dismissedIds={dismissedAttention}
-                onDismiss={(id) =>
+              <MissionControlAlerts
+                attention={attention}
+                suggestions={suggestions}
+                dismissedAttention={dismissedAttention}
+                dismissedSuggestions={dismissedSuggestions}
+                onDismissAttention={(id) =>
                   setDismissedAttention((prev) => new Set(prev).add(id))
                 }
-                onAction={(item) => {
-                  void handleAttentionAction(item);
-                }}
-              />
-              <MissionControlSuggestions
-                suggestions={suggestions}
-                dismissedIds={dismissedSuggestions}
-                onDismiss={(id) =>
+                onDismissSuggestion={(id) =>
                   setDismissedSuggestions((prev) => new Set(prev).add(id))
                 }
-                onAction={handleSuggestion}
+                onAttentionAction={(item) => {
+                  void handleAttentionAction(item);
+                }}
+                onSuggestionAction={handleSuggestion}
               />
             </>
           ) : null}
@@ -575,15 +640,10 @@ export default function BadmintonControlCenterPage() {
                   focusBroadcast && "ring-1 ring-amber-500/30 rounded-xl p-1",
                 )}
               >
-                <section className="space-y-3 min-w-0" aria-label="Live courts">
-                  <div>
-                    <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
-                      Live courts
-                    </h2>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Priority: Live → Delayed → Ready → Waiting → Empty → Finished.
-                    </p>
-                  </div>
+                <section className="space-y-3 min-w-0" aria-label="Courts">
+                  <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
+                    Courts
+                  </h2>
                   {liveCount === 0 && readyCount === 0 ? (
                     <div className={cn(hubCardClass, "p-4 border-amber-500/20 bg-amber-500/5")}>
                       <p className="text-sm text-foreground/90 font-medium">No live matches yet</p>
@@ -612,13 +672,10 @@ export default function BadmintonControlCenterPage() {
                   </div>
                 </section>
 
-                <div className="lg:sticky lg:top-28 space-y-4">
+                <div className="lg:sticky lg:top-24 space-y-3 z-30 isolate">
                   <MissionControlOpsRail
                     tournamentId={tournamentId}
                     onAnnouncement={(label) => pushActivity(`Announcement · ${label}`)}
-                    onEmergency={onEmergency}
-                    emergencyActive={emergencyActive}
-                    onResumeScreens={onResumePresentation}
                   />
                   <MissionControlActivityFeed events={activity} />
                 </div>
@@ -633,33 +690,6 @@ export default function BadmintonControlCenterPage() {
                 categoryName={categoryName}
                 moveTargetCourtIds={moveTargetCourtIds}
               />
-
-              <Collapsible className="pt-2">
-                <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3 text-left text-xs text-white/45 hover:text-white/70 hover:bg-white/[0.04]">
-                  <span className="font-semibold uppercase tracking-wider">
-                    Advanced · Developer
-                  </span>
-                  <ChevronDown className="w-4 h-4 shrink-0" aria-hidden />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className={cn(hubCardClass, "mt-2 p-4 space-y-2 text-xs text-muted-foreground")}>
-                    <p>Diagnostics stay hidden during the day.</p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Reconnect scorer on each court card clears a stuck match lock.</li>
-                      <li>
-                        Refetch:{" "}
-                        <button
-                          type="button"
-                          className="text-primary hover:underline"
-                          onClick={() => retryAll()}
-                        >
-                          Reload courts & matches
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
             </>
           )}
         </div>

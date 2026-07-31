@@ -1,3 +1,6 @@
+import { normalizeMatchStatePairSeparators } from "@workspace/badminton-core";
+import type { BroadcastConsoleMatch } from "@/lib/badminton-broadcast-console";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export async function badmintonFetch<T>(
@@ -16,12 +19,35 @@ export async function badmintonFetch<T>(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(typeof err.error === "string" ? err.error : "Request failed");
+    const message =
+      (typeof err.error === "string" && err.error) ||
+      (typeof err.message === "string" && err.message) ||
+      "Request failed";
+    throw new Error(message);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
+/** Match list with legacy " / " pair labels normalized to " & ". */
+export async function fetchBadmintonMatches(
+  tournamentId: number,
+): Promise<BroadcastConsoleMatch[]> {
+  const rows = await badmintonFetch<BroadcastConsoleMatch[]>(
+    tournamentId,
+    `/matches`,
+  );
+  return rows.map((m) =>
+    m.state
+      ? { ...m, state: normalizeMatchStatePairSeparators(m.state) }
+      : m,
+  );
+}
+
+/**
+ * @deprecated Court/match PIN login was replaced by scorer JWT (mobile + personal PIN).
+ * Kept as a no-op stub so legacy imports compile; always returns false.
+ */
 export async function verifyBadmintonScorerPin(
   _tournamentId: number,
   _matchId: number,
