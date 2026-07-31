@@ -2,8 +2,11 @@
  * Mission Control — tournament-day command center (Live Control nav host)
  * Route: /tournament/:id/badminton/control
  *
- * Command-board layout (Phase A): slim header, single page scroll, live ops rail first.
+ * Command-board layout: slim header, single page scroll, live ops rail first.
  */
+
+/** One content width for header + board so columns stay aligned (Phase C2). */
+const LIVE_CONTROL_CONTENT_CLASS = "max-w-[1600px] mx-auto px-4 sm:px-6 py-3 space-y-3";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
@@ -44,7 +47,10 @@ import {
   MissionControlQueues,
   MissionControlReadyStrip,
 } from "@/components/badminton/mission-control/mission-control-queues";
-import { MissionControlAlerts } from "@/components/badminton/mission-control/mission-control-alerts";
+import {
+  MissionControlAlerts,
+  MissionControlTips,
+} from "@/components/badminton/mission-control/mission-control-alerts";
 import { MissionControlHealthStrip } from "@/components/badminton/mission-control/mission-control-health";
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
 import {
@@ -501,7 +507,7 @@ export default function BadmintonControlCenterPage() {
 
   return (
     <HubPageShell tournamentId={tournamentId}>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 space-y-3">
+      <div className={LIVE_CONTROL_CONTENT_CLASS}>
         <MissionControlTopBar
           tournamentName={branding?.displayName ?? ""}
           liveCount={liveCount}
@@ -519,19 +525,13 @@ export default function BadmintonControlCenterPage() {
             <MissionControlHealthStrip health={health} />
             <MissionControlAlerts
               attention={attention}
-              suggestions={suggestions}
               dismissedAttention={dismissedAttention}
-              dismissedSuggestions={dismissedSuggestions}
               onDismissAttention={(id) =>
                 setDismissedAttention((prev) => new Set(prev).add(id))
-              }
-              onDismissSuggestion={(id) =>
-                setDismissedSuggestions((prev) => new Set(prev).add(id))
               }
               onAttentionAction={(item) => {
                 void handleAttentionAction(item);
               }}
-              onSuggestionAction={handleSuggestion}
             />
           </>
         ) : null}
@@ -612,6 +612,15 @@ export default function BadmintonControlCenterPage() {
                   ))}
                 </div>
               </section>
+
+              <MissionControlTips
+                suggestions={suggestions}
+                dismissedSuggestions={dismissedSuggestions}
+                onDismissSuggestion={(id) =>
+                  setDismissedSuggestions((prev) => new Set(prev).add(id))
+                }
+                onSuggestionAction={handleSuggestion}
+              />
 
               <MissionControlQueues
                 tournamentId={tournamentId}

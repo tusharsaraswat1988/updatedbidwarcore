@@ -12,22 +12,22 @@ const MAX_WARNING_VISIBLE = 2;
 
 export function MissionControlAlerts({
   attention,
-  suggestions,
   dismissedAttention,
-  dismissedSuggestions,
   onDismissAttention,
-  onDismissSuggestion,
   onAttentionAction,
-  onSuggestionAction,
 }: {
   attention: AttentionItem[];
-  suggestions: SmartSuggestion[];
   dismissedAttention: Set<string>;
-  dismissedSuggestions: Set<string>;
   onDismissAttention: (id: string) => void;
-  onDismissSuggestion: (id: string) => void;
   onAttentionAction: (item: AttentionItem) => void;
-  onSuggestionAction: (s: SmartSuggestion) => void;
+  /** @deprecated Tips moved to MissionControlTips below courts. */
+  suggestions?: SmartSuggestion[];
+  /** @deprecated Tips moved to MissionControlTips below courts. */
+  dismissedSuggestions?: Set<string>;
+  /** @deprecated Tips moved to MissionControlTips below courts. */
+  onDismissSuggestion?: (id: string) => void;
+  /** @deprecated Tips moved to MissionControlTips below courts. */
+  onSuggestionAction?: (s: SmartSuggestion) => void;
 }) {
   const critical = attention.filter(
     (i) => !dismissedAttention.has(i.id) && i.severity === "critical",
@@ -35,9 +35,7 @@ export function MissionControlAlerts({
   const warnings = attention.filter(
     (i) => !dismissedAttention.has(i.id) && i.severity === "warning",
   );
-  const tips = suggestions.filter((s) => !dismissedSuggestions.has(s.id));
-
-  if (critical.length === 0 && warnings.length === 0 && tips.length === 0) {
+  if (critical.length === 0 && warnings.length === 0) {
     return null;
   }
 
@@ -106,50 +104,66 @@ export function MissionControlAlerts({
           moreCount={Math.max(0, warnings.length - MAX_WARNING_VISIBLE)}
         />
       ) : null}
-
-      {tips.length > 0 ? (
-        <details className={cn(hubCardClass, "p-3 border-white/10 bg-white/[0.02] group")}>
-          <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-white/45 flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-            <span>Tips · {tips.length}</span>
-            <span className="normal-case tracking-normal text-[10px] font-semibold text-white/35 group-open:hidden">
-              Show
-            </span>
-          </summary>
-          <ul className="mt-2 space-y-2">
-            {tips.map((s) => (
-              <li
-                key={s.id}
-                className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-white/8 bg-black/20 px-3 py-2"
-              >
-                <p className="text-sm text-foreground/90 min-w-0 flex-1">{s.message}</p>
-                <div className="flex gap-2 shrink-0">
-                  {s.href ? (
-                    <Link href={s.href} onClick={() => onSuggestionAction(s)} className={actionClass("tip")}>
-                      {s.actionLabel}
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onSuggestionAction(s)}
-                      className={actionClass("tip")}
-                    >
-                      {s.actionLabel}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onDismissSuggestion(s.id)}
-                    className="min-h-9 px-2 rounded-lg text-[11px] text-white/45 hover:text-white/70"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
     </section>
+  );
+}
+
+/** Suggestions — render below courts so they never push the live board down. */
+export function MissionControlTips({
+  suggestions,
+  dismissedSuggestions,
+  onDismissSuggestion,
+  onSuggestionAction,
+}: {
+  suggestions: SmartSuggestion[];
+  dismissedSuggestions: Set<string>;
+  onDismissSuggestion: (id: string) => void;
+  onSuggestionAction: (s: SmartSuggestion) => void;
+}) {
+  const tips = suggestions.filter((s) => !dismissedSuggestions.has(s.id));
+  if (tips.length === 0) return null;
+
+  return (
+    <details className={cn(hubCardClass, "p-3 border-white/10 bg-white/[0.02] group")}>
+      <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-white/45 flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+        <span>Tips · {tips.length}</span>
+        <span className="normal-case tracking-normal text-[10px] font-semibold text-white/35 group-open:hidden">
+          Show
+        </span>
+      </summary>
+      <ul className="mt-2 space-y-2">
+        {tips.map((s) => (
+          <li
+            key={s.id}
+            className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-white/8 bg-black/20 px-3 py-2"
+          >
+            <p className="text-sm text-foreground/90 min-w-0 flex-1">{s.message}</p>
+            <div className="flex gap-2 shrink-0">
+              {s.href ? (
+                <Link href={s.href} onClick={() => onSuggestionAction(s)} className={actionClass("tip")}>
+                  {s.actionLabel}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onSuggestionAction(s)}
+                  className={actionClass("tip")}
+                >
+                  {s.actionLabel}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onDismissSuggestion(s.id)}
+                className="min-h-9 px-2 rounded-lg text-[11px] text-white/45 hover:text-white/70"
+              >
+                Dismiss
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

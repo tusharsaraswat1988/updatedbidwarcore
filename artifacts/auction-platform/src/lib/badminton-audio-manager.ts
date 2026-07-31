@@ -1,6 +1,6 @@
 /**
  * BadmintonAudioManager — venue LED scoreboard audio only.
- * Loop music (Control Center On/Pause) + built-in SFX (game/match/deuce).
+ * Loop music (Control Center Play/Pause) + built-in SFX (game/match/deuce).
  */
 
 export type BadmintonVenueSfxKind = "game_point" | "match_point" | "deuce";
@@ -11,6 +11,13 @@ export type BadmintonAudioSettings = {
   masterVolume: number; // 0–100
   sfxVolume: number; // 0–100
 };
+
+/** Result of trying to start/resume loop music. */
+export type VenueMusicStartResult =
+  | "playing"
+  | "blocked"
+  | "no_url"
+  | "error";
 
 const DEFAULT_SETTINGS: BadmintonAudioSettings = {
   musicUrl: null,
@@ -39,6 +46,18 @@ export class BadmintonAudioManager {
     return this.ctx?.state === "running";
   }
 
+  get hasMusicUrl(): boolean {
+    return Boolean(this.settings.musicUrl?.trim());
+  }
+
+  get wantsLoopMusic(): boolean {
+    return this.loopShouldBePlaying;
+  }
+
+  get isLoopActuallyPlaying(): boolean {
+    return Boolean(this.loopEl && !this.loopEl.paused && !this.loopEl.ended);
+  }
+
   setSettings(next: BadmintonAudioSettings): void {
     const prevUrl = this.settings.musicUrl;
     this.settings = { ...next };
@@ -47,7 +66,7 @@ export class BadmintonAudioManager {
       this.loopEl.volume = this.scaledVolume(this.settings.musicVolume);
     }
     if (prevUrl !== next.musicUrl && this.loopShouldBePlaying) {
-      this.startLoopMusic();
+      void this.startLoopMusic();
     }
   }
 
@@ -61,20 +80,23 @@ export class BadmintonAudioManager {
     }
   }
 
-  /** Operator On — start/resume looping venue music. */
-  startLoopMusic(): void {
+  /** Operator Play — start/resume looping venue music. */
+  async startLoopMusic(): Promise<VenueMusicStartResult> {
     this.loopShouldBePlaying = true;
     this.sfxPausedLoop = false;
     if (this.loopEl && !this.loopEl.paused) {
       this.loopEl.volume = this.scaledVolume(this.settings.musicVolume);
-      return;
+      return "playing";
     }
     if (this.loopEl && this.loopEl.paused && this.loopEl.src) {
-      void this.unlock().then(() => {
-        if (!this.loopShouldBePlaying || this.sfxPausedLoop) return;
-        this.loopEl?.play().catch(() => {});
-      });
-      return;
+      await this.unlock();
+      if (!this.loopShouldBePlaying || this.sfxPausedLoop) return "blocked";
+      try {
+        await this.loopEl.play();
+        return "playing";
+      } catch {
+        return this.isUnlocked ? "error" : "blocked";
+      }
     }
 
     this.stopLoopElementOnly();
@@ -89,18 +111,22 @@ export class BadmintonAudioManager {
       el.preload = "auto";
       el.volume = this.scaledVolume(this.settings.musicVolume);
       this.loopEl = el;
-      void this.unlock().then(() => {
-        if (startId !== this.loopStartId || !this.loopShouldBePlaying) return;
-        void el.play().catch(() => {});
-      });
-      return;
+      await this.unlock();
+      if (startId !== this.loopStartId || !this.loopShouldBePlaying) return "blocked";
+      try {
+        await el.play();
+        return "playing";
+      } catch {
+        return this.isUnlocked ? "error" : "blocked";
+      }
     }
 
-    // No URL — soft ambient synth pulse so On still has audible feedback.
-    void this.unlock().then(() => {
-      if (startId !== this.loopStartId || !this.loopShouldBePlaying) return;
-      this.synthAmbientLoopKick();
-    });
+    // No URL — soft ambient synth pulse so Play still has audible feedback.
+    await this.unlock();
+    if (startId !== this.loopStartId || !this.loopShouldBePlaying) return "blocked";
+    if (!this.isUnlocked) return "blocked";
+    this.synthAmbientLoopKick();
+    return "no_url";
   }
 
   /** Operator Pause — pause loop without resetting position. */

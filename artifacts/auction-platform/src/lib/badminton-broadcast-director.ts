@@ -23,6 +23,7 @@ export type BadmintonVenueScene =
   | "intro"
   | "winner"
   | "sponsor"
+  | "banner"
   | "next"
   | "results"
   | "leaderboards";
@@ -70,6 +71,7 @@ const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
   "intro",
   "winner",
   "sponsor",
+  "banner",
   "next",
   "results",
   "leaderboards",
@@ -101,6 +103,7 @@ export function parseVenueScene(raw: unknown): BadmintonVenueScene {
     raw === "intro" ||
     raw === "winner" ||
     raw === "sponsor" ||
+    raw === "banner" ||
     raw === "next" ||
     raw === "results" ||
     raw === "leaderboards"

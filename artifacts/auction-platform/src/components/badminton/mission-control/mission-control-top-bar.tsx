@@ -1,14 +1,16 @@
 /**
- * Mission Control slim command header — counts + primary action + emergency.
+ * Mission Control slim command header — BidWar mark + counts + primary + emergency.
  * Single optional sticky on Live Control (no competing sticky rail).
  */
 
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { hubCardClass } from "@/components/badminton/page-chrome";
+import { hubCardClass, useBadmintonBidWarTheme } from "@/components/badminton/page-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import type { PrimaryAction } from "@/lib/mission-control-ops";
+
+const BIDWAR_HOME_URL = "https://bidwar.in/";
 
 export function MissionControlTopBar({
   tournamentName,
@@ -32,6 +34,7 @@ export function MissionControlTopBar({
   onResumePresentation?: () => void;
 }) {
   const [, navigate] = useLocation();
+  const { brandName, logoSrc, logoAlt } = useBadmintonBidWarTheme();
   const [now, setNow] = useState(() =>
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   );
@@ -50,6 +53,26 @@ export function MissionControlTopBar({
       className={cn(hubCardClass, "px-3 py-2.5 sm:px-4 sticky top-0 z-20 backdrop-blur-md bg-card/95")}
       aria-label="Live control status"
     >
+      {logoSrc ? (
+        <div className="flex justify-center mb-2">
+          <a
+            href={BIDWAR_HOME_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label={`${brandName} — opens home page in a new tab`}
+          >
+            <img
+              src={logoSrc}
+              alt={logoAlt}
+              className="block h-7 sm:h-8 w-auto max-w-[min(200px,45vw)] object-contain"
+              loading="eager"
+              decoding="async"
+            />
+          </a>
+        </div>
+      ) : null}
+
       <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2 flex-1 min-w-0">
           <div className="min-w-0">

@@ -255,60 +255,66 @@ export function MissionControlCourtCard({
         </div>
 
         {currentMatch ? (
-          <div className="flex flex-wrap gap-2">
-            {isLive && isPaused ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  run(
-                    () => forceUnlockBadmintonMatch(tournamentId, currentMatch.id),
-                    "Scorer lock cleared",
-                  )
-                }
-                className="min-h-9 px-2.5 rounded-lg border border-orange-500/25 bg-orange-500/10 hover:bg-orange-500/20 text-orange-100/90 text-[11px] font-semibold"
-              >
-                Unlock scorer
-              </button>
-            ) : null}
-
-            {currentMatch ? (
-              <a
-                href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-                className="min-h-9 px-2.5 rounded-lg text-white/45 hover:text-white/70 text-[11px] font-semibold inline-flex items-center"
-              >
-                Director
-              </a>
-            ) : null}
-
-            {isLive && currentMatch ? (
-              <>
+          <details className="group rounded-lg border border-white/8 bg-white/[0.02] open:bg-white/[0.03]">
+            <summary className="cursor-pointer list-none min-h-9 px-2.5 flex items-center text-[11px] font-semibold text-white/45 hover:text-white/70 [&::-webkit-details-marker]:hidden">
+              More actions
+              <span className="ml-auto text-white/30 group-open:rotate-180 transition-transform" aria-hidden>
+                ▾
+              </span>
+            </summary>
+            <div className="flex flex-wrap gap-2 px-2.5 pb-2.5 pt-1">
+              {isLive && isPaused ? (
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => setFinishConfirmOpen(true)}
-                  className="min-h-9 px-2.5 rounded-lg text-white/35 hover:text-white/55 text-[11px] font-semibold"
+                  onClick={() =>
+                    run(
+                      () => forceUnlockBadmintonMatch(tournamentId, currentMatch.id),
+                      "Scorer lock cleared",
+                    )
+                  }
+                  className="min-h-9 px-2.5 rounded-lg border border-orange-500/25 bg-orange-500/10 hover:bg-orange-500/20 text-orange-100/90 text-[11px] font-semibold"
                 >
-                  Force finish
+                  Unlock scorer
                 </button>
-                <ConfirmActionDialog
-                  open={finishConfirmOpen}
-                  onOpenChange={setFinishConfirmOpen}
-                  title="Force finish this match?"
-                  description="Use only when scoring cannot complete normally. Prefer Director panel for walkover or retirement."
-                  confirmLabel="Force finish"
-                  busy={busy}
-                  onConfirm={() => {
-                    setFinishConfirmOpen(false);
-                    void run(
-                      () => director.forceEnd("Finished from Live Control"),
-                      "Match finished",
-                    );
-                  }}
-                />
-              </>
-            ) : null}
-          </div>
+              ) : null}
+
+              <a
+                href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
+                className="min-h-9 px-2.5 rounded-lg text-white/50 hover:text-white/75 text-[11px] font-semibold inline-flex items-center"
+              >
+                Director
+              </a>
+
+              {isLive ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setFinishConfirmOpen(true)}
+                    className="min-h-9 px-2.5 rounded-lg text-white/40 hover:text-red-200/80 text-[11px] font-semibold"
+                  >
+                    Force finish
+                  </button>
+                  <ConfirmActionDialog
+                    open={finishConfirmOpen}
+                    onOpenChange={setFinishConfirmOpen}
+                    title="Force finish this match?"
+                    description="Use only when scoring cannot complete normally. Prefer Director panel for walkover or retirement."
+                    confirmLabel="Force finish"
+                    busy={busy}
+                    onConfirm={() => {
+                      setFinishConfirmOpen(false);
+                      void run(
+                        () => director.forceEnd("Finished from Live Control"),
+                        "Match finished",
+                      );
+                    }}
+                  />
+                </>
+              ) : null}
+            </div>
+          </details>
         ) : null}
       </div>
     </article>

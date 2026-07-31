@@ -287,12 +287,15 @@ function QueuePanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn(hubCardClass, "p-4")}>
-      <h3 className="text-white/50 text-xs font-bold uppercase tracking-widest mb-3">{title}</h3>
+    <section className={cn(hubCardClass, "p-3 sm:p-4")}>
+      <h3 className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">{title}</h3>
       {count === 0 ? (
         <p className="text-white/30 text-sm">{empty}</p>
       ) : (
-        <ul className="space-y-0">{children}</ul>
+        // Cap secondary queue height in document flow (not a sticky nested scroller).
+        <ul className="space-y-0 max-h-64 overflow-y-auto overscroll-y-contain pr-0.5">
+          {children}
+        </ul>
       )}
     </section>
   );

@@ -158,7 +158,7 @@ export function VenueMusicSettingsPanel({
         venueMusicUrl: data.url,
         venueMusicFileName: file.name || data.originalName || null,
       });
-      toastSuccess("Song uploaded", "Turn Venue music On in Control Center to play it on the scoreboard.");
+      toastSuccess("Song uploaded", "Press Play music in Control Center to play it on the scoreboard.");
     } catch (e) {
       toastError(e, "Venue music");
     } finally {
@@ -176,7 +176,7 @@ export function VenueMusicSettingsPanel({
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm font-semibold text-white/90">Venue LED music</p>
           <p className="text-xs text-muted-foreground">
-            Background song for the scoreboard when Control Center turns Venue music On.
+            Background song for the scoreboard when Control Center presses Play music.
             If you don’t upload one, auction break music is used.
           </p>
         </div>

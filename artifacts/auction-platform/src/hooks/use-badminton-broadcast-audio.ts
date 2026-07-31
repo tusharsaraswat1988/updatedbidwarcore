@@ -10,8 +10,19 @@ import {
   snapshotVenueAudioUrgency,
   type VenueAudioUrgencySnapshot,
 } from "@workspace/badminton-core";
-import { BadmintonAudioManager } from "@/lib/badminton-audio-manager";
+import {
+  BadmintonAudioManager,
+  type VenueMusicStartResult,
+} from "@/lib/badminton-audio-manager";
 import { useDisplayAudioLeader } from "@/components/display/use-display-audio-leader";
+
+export type VenueAudioPlaybackStatus =
+  | "idle"
+  | "playing"
+  | "blocked"
+  | "no_url"
+  | "error"
+  | "follower";
 
 export function useBadmintonBroadcastAudio({
   tournamentId,
@@ -36,6 +47,8 @@ export function useBadmintonBroadcastAudio({
   const urgencyRef = useRef<VenueAudioUrgencySnapshot | null>(null);
   const hydratedForMatchRef = useRef<string | number | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [playbackStatus, setPlaybackStatus] =
+    useState<VenueAudioPlaybackStatus>("idle");
   const isAudioLeader = useDisplayAudioLeader(
     tournamentId,
     "main",
@@ -79,15 +92,30 @@ export function useBadmintonBroadcastAudio({
 
   useEffect(() => {
     const mgr = managerRef.current;
-    if (!mgr || !isAudioLeader) {
-      managerRef.current?.pauseLoopMusic();
+    if (!mgr) return;
+
+    if (!isAudioLeader) {
+      mgr.pauseLoopMusic();
+      setPlaybackStatus(venueMusicPlaying ? "follower" : "idle");
       return;
     }
-    if (venueMusicPlaying) {
-      mgr.startLoopMusic();
-    } else {
+
+    if (!venueMusicPlaying) {
       mgr.pauseLoopMusic();
+      setPlaybackStatus("idle");
+      return;
     }
+
+    let cancelled = false;
+    void mgr.startLoopMusic().then((result: VenueMusicStartResult) => {
+      if (cancelled) return;
+      setIsUnlocked(mgr.isUnlocked);
+      setPlaybackStatus(result);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [venueMusicPlaying, isAudioLeader, resolvedVenueMusicUrl]);
 
   useEffect(() => {
@@ -122,14 +150,27 @@ export function useBadmintonBroadcastAudio({
   const unlock = useCallback(() => {
     const mgr = managerRef.current;
     if (!mgr) return;
-    void mgr.unlock().then(() => {
+    void mgr.unlock().then(async () => {
       setIsUnlocked(mgr.isUnlocked);
-      // Restart loop after browser gesture — On may have been pressed before unlock.
+      // Restart loop after browser gesture — Play may have been pressed before unlock.
       if (venueMusicPlayingRef.current && isAudioLeaderRef.current) {
-        mgr.startLoopMusic();
+        const result = await mgr.startLoopMusic();
+        setPlaybackStatus(result);
+        setIsUnlocked(mgr.isUnlocked);
       }
     });
   }, []);
 
-  return { isUnlocked, unlock, isAudioLeader };
+  const needsGesture =
+    venueMusicPlaying
+    && isAudioLeader
+    && (playbackStatus === "blocked" || !isUnlocked);
+
+  return {
+    isUnlocked,
+    unlock,
+    isAudioLeader,
+    playbackStatus,
+    needsGesture,
+  };
 }
