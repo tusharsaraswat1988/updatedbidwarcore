@@ -38,6 +38,29 @@ export async function getUsedInitialsInTournamentProfiles(
   );
 }
 
+/** Also reserve initials already used on badminton_players.short_name (unique index). */
+export async function getUsedInitialsInBadmintonPlayers(
+  tournamentId: number,
+  excludePlayerId?: number,
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ id: badmintonPlayersTable.id, shortName: badmintonPlayersTable.shortName })
+    .from(badmintonPlayersTable)
+    .where(
+      and(
+        eq(badmintonPlayersTable.tournamentId, tournamentId),
+        isNotNull(badmintonPlayersTable.shortName),
+        excludePlayerId ? ne(badmintonPlayersTable.id, excludePlayerId) : undefined,
+      ),
+    );
+
+  return new Set(
+    rows
+      .map((r) => r.shortName?.trim().toUpperCase() ?? "")
+      .filter(Boolean),
+  );
+}
+
 export async function allocateProfileInitials(
   tournamentId: number,
   input: {
@@ -45,10 +68,19 @@ export async function allocateProfileInitials(
     lastName: string;
     displayName?: string | null;
     excludeProfileId?: number;
+    excludeBadmintonPlayerId?: number;
   },
 ): Promise<string> {
   const base = computeBaseInitials(input.firstName, input.lastName, input.displayName);
-  const used = await getUsedInitialsInTournamentProfiles(tournamentId, input.excludeProfileId);
+  const usedProfiles = await getUsedInitialsInTournamentProfiles(
+    tournamentId,
+    input.excludeProfileId,
+  );
+  const usedPlayers = await getUsedInitialsInBadmintonPlayers(
+    tournamentId,
+    input.excludeBadmintonPlayerId,
+  );
+  const used = new Set([...usedProfiles, ...usedPlayers]);
   return resolveUniqueInitials(base, used);
 }
 

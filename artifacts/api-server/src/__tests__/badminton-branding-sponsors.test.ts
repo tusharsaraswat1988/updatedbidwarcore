@@ -108,11 +108,12 @@ describe("badminton sponsor logo isolation", () => {
     expect(branding.venueScene).toBe("multi");
   });
 
-  it("parses venue moment scenes intro/winner/sponsor/next/results/leaderboards", () => {
+  it("parses venue moment scenes intro/winner/sponsor/banner/next/results/leaderboards", () => {
     for (const venueScene of [
       "intro",
       "winner",
       "sponsor",
+      "banner",
       "next",
       "results",
       "leaderboards",
@@ -123,6 +124,37 @@ describe("badminton sponsor logo isolation", () => {
       );
       expect(branding.venueScene).toBe(venueScene);
     }
+  });
+
+  it("resolves venue banner from badminton override then auction main banner", () => {
+    const fromAuction = getBadmintonBranding(
+      { name: "League", mainBannerUrl: "https://auction/banner.jpg", mainBannerFit: "contain" },
+      { branding: {}, broadcast: {} },
+    );
+    expect(fromAuction.resolvedVenueBannerUrl).toBe("https://auction/banner.jpg");
+    expect(fromAuction.resolvedVenueBannerFit).toBe("contain");
+    expect(fromAuction.auctionMainBannerUrl).toBe("https://auction/banner.jpg");
+
+    const fitOnly = getBadmintonBranding(
+      { name: "League", mainBannerUrl: "https://auction/banner.jpg", mainBannerFit: "contain" },
+      { branding: {}, broadcast: { venueBannerFit: "cover" } },
+    );
+    expect(fitOnly.resolvedVenueBannerUrl).toBe("https://auction/banner.jpg");
+    expect(fitOnly.resolvedVenueBannerFit).toBe("cover");
+
+    const override = getBadmintonBranding(
+      { name: "League", mainBannerUrl: "https://auction/banner.jpg", mainBannerFit: "contain" },
+      {
+        branding: {},
+        broadcast: {
+          venueBannerUrl: "https://badminton/banner.jpg",
+          venueBannerFit: "cover",
+        },
+      },
+    );
+    expect(override.venueBannerUrl).toBe("https://badminton/banner.jpg");
+    expect(override.resolvedVenueBannerUrl).toBe("https://badminton/banner.jpg");
+    expect(override.resolvedVenueBannerFit).toBe("cover");
   });
 
   it("parses overlay results and leaderboards scenes", () => {

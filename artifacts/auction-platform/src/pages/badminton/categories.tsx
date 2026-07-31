@@ -206,10 +206,12 @@ function CategoryPanel({
   onDeleted: () => void;
   onRefresh: () => void;
 }) {
+  // Always load registrations so the collapsed header can show the real entry count.
+  // Player labels are only needed once the row is expanded.
   const { data: registrations = [], isLoading: regsLoading } = useQuery<RegistrationRow[]>({
     queryKey: ["badminton-registrations", tournamentId, category.id],
     queryFn: () => badmintonFetch(tournamentId, `/categories/${category.id}/registrations`),
-    enabled: expanded && !!tournamentId,
+    enabled: !!tournamentId,
   });
 
   const { data: playersForLabels = [] } = useQuery<BadmintonPlayer[]>({

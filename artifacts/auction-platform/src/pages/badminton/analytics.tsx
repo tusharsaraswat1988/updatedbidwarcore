@@ -226,7 +226,6 @@ export default function BadmintonAnalyticsPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="results"
-        hideContinue
         titleOverride="Insights"
         purposeOverride="Understand participation, court load, and match progress."
         taskOverride="Review analytics for planning and post-event reports."

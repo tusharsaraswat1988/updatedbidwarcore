@@ -34,6 +34,7 @@ describe("badminton broadcast director venue scenes", () => {
     expect(shouldShowVenueLiveBoard("intro", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("winner", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("sponsor", true)).toBe(false);
+    expect(shouldShowVenueLiveBoard("banner", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("next", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("results", true)).toBe(false);
     expect(shouldShowVenueLiveBoard("leaderboards", true)).toBe(false);

@@ -58,6 +58,7 @@ export async function allocateTournamentInitials(
     firstName: input.firstName,
     lastName: input.lastName,
     displayName: input.displayName,
+    excludeBadmintonPlayerId: input.excludePlayerId,
   });
 }
 

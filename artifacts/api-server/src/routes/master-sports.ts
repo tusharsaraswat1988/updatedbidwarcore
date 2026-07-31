@@ -339,6 +339,7 @@ router.patch("/primary-broadcast", async (req, res) => {
       overlayScene: branding.overlayScene,
       venueScene: branding.venueScene,
       venueMusicPlaying: branding.venueMusicPlaying,
+      resolvedVenueMusicUrl: branding.resolvedVenueMusicUrl,
     });
     res.json(branding);
   } catch (e) {
@@ -379,6 +380,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
           "intro",
           "winner",
           "sponsor",
+          "banner",
           "next",
           "results",
           "leaderboards",
@@ -396,6 +398,17 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueMusicFileName: z.string().trim().max(180).nullable().optional(),
       venueMusicVolume: z.number().int().min(0).max(100).optional(),
       importAuctionMusic: z.literal(true).optional(),
+      venueBannerUrl: z
+        .string()
+        .nullable()
+        .optional()
+        .refine(
+          (v) => v == null || v === "" || /^https?:\/\//i.test(v),
+          "Banner URL must be http(s)",
+        ),
+      venueBannerPublicId: z.string().trim().max(400).nullable().optional(),
+      venueBannerFit: z.enum(["cover", "contain"]).optional(),
+      importAuctionBanner: z.literal(true).optional(),
     })
     .refine(
       (v) =>
@@ -405,7 +418,11 @@ router.patch("/broadcast-presentation", async (req, res) => {
         || v.venueMusicUrl !== undefined
         || v.venueMusicFileName !== undefined
         || v.venueMusicVolume !== undefined
-        || v.importAuctionMusic === true,
+        || v.importAuctionMusic === true
+        || v.venueBannerUrl !== undefined
+        || v.venueBannerPublicId !== undefined
+        || v.venueBannerFit !== undefined
+        || v.importAuctionBanner === true,
       { message: "At least one presentation field required" },
     );
   const parsed = schema.safeParse(req.body);
@@ -421,6 +438,12 @@ router.patch("/broadcast-presentation", async (req, res) => {
         : parsed.data.venueMusicUrl === ""
           ? null
           : parsed.data.venueMusicUrl;
+    const bannerUrl =
+      parsed.data.venueBannerUrl === undefined
+        ? undefined
+        : parsed.data.venueBannerUrl === ""
+          ? null
+          : parsed.data.venueBannerUrl;
     const branding = await updateBroadcastPresentation(tournamentId, {
       overlayScene: parsed.data.overlayScene as BadmintonOverlayScene | undefined,
       venueScene: parsed.data.venueScene as BadmintonVenueScene | undefined,
@@ -429,6 +452,10 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueMusicFileName: parsed.data.venueMusicFileName,
       venueMusicVolume: parsed.data.venueMusicVolume,
       importAuctionMusic: parsed.data.importAuctionMusic,
+      venueBannerUrl: bannerUrl,
+      venueBannerPublicId: parsed.data.venueBannerPublicId,
+      venueBannerFit: parsed.data.venueBannerFit,
+      importAuctionBanner: parsed.data.importAuctionBanner,
     });
     broadcastTournamentUpdate(tournamentId, {
       kind: "broadcast_presentation",
@@ -437,11 +464,20 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueScene: branding.venueScene,
       venueMusicPlaying: branding.venueMusicPlaying,
       resolvedVenueMusicUrl: branding.resolvedVenueMusicUrl,
+      resolvedVenueBannerUrl: branding.resolvedVenueBannerUrl,
+      resolvedVenueBannerFit: branding.resolvedVenueBannerFit,
+      venueBannerUrl: branding.venueBannerUrl,
+      venueBannerFit: branding.venueBannerFit,
+      auctionMainBannerUrl: branding.auctionMainBannerUrl,
     });
     res.json(branding);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Update failed";
-    const status = message.includes("No auction break music") ? 400 : 404;
+    const status =
+      message.includes("No auction break music")
+      || message.includes("No auction banner")
+        ? 400
+        : 404;
     res.status(status).json({ error: message });
   }
 });

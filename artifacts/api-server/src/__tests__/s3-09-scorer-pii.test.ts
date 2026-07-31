@@ -9,6 +9,8 @@ import {
   recordScorerLoginFailure,
   resetScorerLoginRateLimitForTests,
   clearScorerLoginFailures,
+  clearAllScorerLoginLockouts,
+  getScorerLoginLockoutStatus,
 } from "../lib/scorer-login-rate-limit";
 
 describe("publicBadmintonPlayerSerializer", () => {
@@ -70,5 +72,29 @@ describe("scorer login rate limit", () => {
     expect(isScorerLoginRateLimited(mobile, "10.0.0.1")).toBe(true);
     clearScorerLoginFailures(mobile, "10.0.0.1");
     expect(isScorerLoginRateLimited(mobile, "10.0.0.1")).toBe(false);
+  });
+
+  it("exposes lockout status with remaining seconds when locked", () => {
+    const mobile = "917777777777";
+    expect(getScorerLoginLockoutStatus(mobile).loginLocked).toBe(false);
+    for (let i = 0; i < SCORER_LOGIN_MAX_FAILURES; i++) {
+      recordScorerLoginFailure(mobile, "10.0.0.9");
+    }
+    const status = getScorerLoginLockoutStatus(mobile);
+    expect(status.loginLocked).toBe(true);
+    expect(status.loginLockoutRemainingSec).toBeGreaterThan(0);
+  });
+
+  it("clearAllScorerLoginLockouts clears every IP key for the mobile", () => {
+    const mobile = "916666666666";
+    for (let i = 0; i < SCORER_LOGIN_MAX_FAILURES; i++) {
+      recordScorerLoginFailure(mobile, "10.0.0.1");
+      recordScorerLoginFailure(mobile, "10.0.0.2");
+    }
+    expect(isScorerLoginRateLimited(mobile, "10.0.0.1")).toBe(true);
+    expect(clearAllScorerLoginLockouts(mobile)).toBeGreaterThanOrEqual(2);
+    expect(getScorerLoginLockoutStatus(mobile).loginLocked).toBe(false);
+    expect(isScorerLoginRateLimited(mobile, "10.0.0.1")).toBe(false);
+    expect(isScorerLoginRateLimited(mobile, "10.0.0.2")).toBe(false);
   });
 });

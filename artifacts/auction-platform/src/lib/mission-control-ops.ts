@@ -494,7 +494,9 @@ export function deriveSystemHealth(input: {
 
   let realtime: HealthLevel = "disconnected";
   if (input.online && input.matchesQueryOk) {
-    realtime = realtimeFresh || input.lastRealtimeAt == null ? "healthy" : "warning";
+    // Cold start (no SSE yet) is warning — never claim healthy sync without a tick.
+    if (input.lastRealtimeAt == null) realtime = "warning";
+    else realtime = realtimeFresh ? "healthy" : "warning";
   } else if (input.online) {
     realtime = "warning";
   }

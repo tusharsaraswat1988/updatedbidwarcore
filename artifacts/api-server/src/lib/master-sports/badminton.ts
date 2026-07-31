@@ -482,6 +482,8 @@ export async function loadBadmintonBranding(
       venue: tournamentsTable.venue,
       organizerName: tournamentsTable.organizerName,
       breakEndMusicUrl: tournamentsTable.breakEndMusicUrl,
+      mainBannerUrl: tournamentsTable.mainBannerUrl,
+      mainBannerFit: tournamentsTable.mainBannerFit,
       scoringSettingsJson: tournamentsTable.scoringSettingsJson,
     })
     .from(tournamentsTable)
@@ -637,6 +639,11 @@ export async function updateBroadcastPresentation(
     venueMusicVolume?: number;
     /** Copy tournament auction break music into badminton override. */
     importAuctionMusic?: boolean;
+    venueBannerUrl?: string | null;
+    venueBannerPublicId?: string | null;
+    venueBannerFit?: "cover" | "contain";
+    /** Copy tournament auction main banner into badminton override. */
+    importAuctionBanner?: boolean;
   },
 ): Promise<BadmintonBranding> {
   const patch: Record<string, unknown> = {
@@ -664,10 +671,46 @@ export async function updateBroadcastPresentation(
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId))
       .limit(1);
-    const url = tournament?.breakEndMusicUrl?.trim() || null;
+    let url = tournament?.breakEndMusicUrl?.trim() || null;
+    if (!url) {
+      const { getPlatformDefaultAudioCached } = await import("../platform-audio-defaults");
+      const platformAudio = await getPlatformDefaultAudioCached();
+      url = platformAudio.breakEndMusicUrl?.trim() || null;
+    }
     if (!url) throw new Error("No auction break music set for this tournament");
     patch.venueMusicUrl = url;
     patch.venueMusicFileName = "Auction break music";
+  }
+
+  if (input.importAuctionBanner) {
+    const [tournament] = await db
+      .select({
+        mainBannerUrl: tournamentsTable.mainBannerUrl,
+        mainBannerPublicId: tournamentsTable.mainBannerPublicId,
+        mainBannerFit: tournamentsTable.mainBannerFit,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1);
+    const url = tournament?.mainBannerUrl?.trim() || null;
+    if (!url) throw new Error("No auction banner set for this tournament");
+    patch.venueBannerUrl = url;
+    patch.venueBannerPublicId = tournament?.mainBannerPublicId?.trim() || null;
+    patch.venueBannerFit =
+      tournament?.mainBannerFit === "contain" ? "contain" : "cover";
+  } else if (input.venueBannerUrl !== undefined) {
+    const nextUrl = input.venueBannerUrl?.trim() || null;
+    patch.venueBannerUrl = nextUrl;
+    patch.venueBannerPublicId = nextUrl
+      ? (input.venueBannerPublicId?.trim() || null)
+      : null;
+  } else if (input.venueBannerPublicId !== undefined) {
+    patch.venueBannerPublicId = input.venueBannerPublicId;
+  }
+
+  // Apply after import so an explicit fit wins (e.g. import + change fit).
+  if (input.venueBannerFit !== undefined) {
+    patch.venueBannerFit = input.venueBannerFit;
   }
 
   return updateBroadcastSettings(tournamentId, patch);
@@ -682,6 +725,7 @@ const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
 const RALLY_UNSAFE_VENUE: ReadonlySet<BadmintonVenueScene> = new Set([
   "intro",
   "sponsor",
+  "banner",
   "results",
   "leaderboards",
 ]);

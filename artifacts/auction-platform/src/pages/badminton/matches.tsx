@@ -272,6 +272,7 @@ export default function BadmintonMatchesPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
+        tournamentId={tournamentId}
         title="All Matches"
         eyebrow="Live Control"
         subtitle="Day-of match list. Prefer Live Control for courts, displays, and starting play."

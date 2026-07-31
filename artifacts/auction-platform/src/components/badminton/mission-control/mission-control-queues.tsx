@@ -1,5 +1,5 @@
 /**
- * Mission Control bottom queues — Ready / Upcoming / Recently finished.
+ * Mission Control queues — Ready strip (above courts) + secondary Upcoming/Recent.
  */
 
 import { Link } from "wouter";
@@ -32,41 +32,70 @@ function formatTime(iso: string | null | undefined): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function MissionControlQueues({
+/** Compact ready-to-start strip — place above the court grid. */
+export function MissionControlReadyStrip({
   tournamentId,
   courts,
-  upcoming,
   ready,
-  recent,
-  categoryName,
   moveTargetCourtIds,
 }: {
   tournamentId: number;
   courts: ControlCourt[];
-  upcoming: ControlFixture[];
   ready: ControlMatch[];
-  recent: ControlMatch[];
-  categoryName: Map<number, string>;
-  /** Courts that can take a waiting match (empty / delayed / finished). */
   moveTargetCourtIds: number[];
 }) {
   const moveTargets = courts.filter((c) => moveTargetCourtIds.includes(c.id));
+  const rows = ready.slice(0, 8);
+
+  if (rows.length === 0) return null;
 
   return (
-    <section className="space-y-2" aria-label="Match queues">
-      <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">Queues</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <QueuePanel title="Ready matches" empty="No matches waiting to start." count={Math.min(ready.length, 12)}>
-          {ready.slice(0, 12).map((m) => (
-            <ReadyRow
-              key={m.id}
-              tournamentId={tournamentId}
-              match={m}
-              courts={moveTargets}
-            />
-          ))}
-        </QueuePanel>
+    <section
+      className={cn(hubCardClass, "p-3 space-y-2 border-amber-500/25 bg-amber-500/5")}
+      aria-label="Ready to start"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-amber-200/90 text-xs font-bold uppercase tracking-widest">
+          Ready to start · {ready.length}
+        </h2>
+      </div>
+      <ul className="space-y-0 divide-y divide-white/8">
+        {rows.map((m) => (
+          <ReadyRow
+            key={m.id}
+            tournamentId={tournamentId}
+            match={m}
+            courts={moveTargets}
+            compact
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
 
+/** Secondary queues — Upcoming + Recently finished (below courts). */
+export function MissionControlQueues({
+  tournamentId,
+  courts,
+  upcoming,
+  recent,
+  categoryName,
+}: {
+  tournamentId: number;
+  courts: ControlCourt[];
+  upcoming: ControlFixture[];
+  recent: ControlMatch[];
+  categoryName: Map<number, string>;
+  /** @deprecated Ready moved to MissionControlReadyStrip — accepted for call-site compat. */
+  ready?: ControlMatch[];
+  /** @deprecated Ready moved to MissionControlReadyStrip — accepted for call-site compat. */
+  moveTargetCourtIds?: number[];
+}) {
+  return (
+    <section className="space-y-2" aria-label="Schedule queues">
+      <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">Schedule</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <QueuePanel
           title="Upcoming"
           empty="No upcoming fixtures. Finish Schedule if the board is empty."
@@ -122,7 +151,11 @@ export function MissionControlQueues({
                   <p className="text-white text-sm font-medium truncate">{matchDisplayLabel(m)}</p>
                 )}
                 <p className="text-white/35 text-xs">
-                  {m.state ? `${m.state.leftScore ?? 0}–${m.state.rightScore ?? 0}` : "Completed"}
+                  {m.state
+                    ? m.state.gamesLeft != null && m.state.gamesRight != null
+                      ? `${m.state.gamesLeft}–${m.state.gamesRight} games`
+                      : `${m.state.leftScore ?? 0}–${m.state.rightScore ?? 0}`
+                    : "Completed"}
                   {m.detail?.courtNumber != null
                     ? ` · Court ${String(m.detail.courtNumber)}`
                     : ""}
@@ -148,10 +181,12 @@ function ReadyRow({
   tournamentId,
   match,
   courts,
+  compact,
 }: {
   tournamentId: number;
   match: ControlMatch;
   courts: ControlCourt[];
+  compact?: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -180,7 +215,7 @@ function ReadyRow({
   const otherCourts = courts.filter((c) => c.id !== currentCourtId);
 
   return (
-    <li className="py-2.5 border-b border-white/6 last:border-0 space-y-2">
+    <li className={cn(compact ? "py-2" : "py-2.5", "border-b border-white/6 last:border-0 space-y-1.5")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {match.state?.leftSide || match.state?.rightSide ? (
@@ -211,26 +246,27 @@ function ReadyRow({
         </div>
         <a
           href={badmintonMatchControlPath(tournamentId, match.id)}
-          className="min-h-10 px-2 text-amber-300 text-xs font-bold hover:underline flex-none inline-flex items-center"
+          className="min-h-9 px-3 rounded-lg bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-xs font-bold flex-none inline-flex items-center"
+          title="Toss & start in Match Control"
         >
           Start
         </a>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {otherCourts.slice(0, 3).map((c) => (
           <button
             key={c.id}
             type="button"
             disabled={moveMutation.isPending}
             onClick={() => moveMutation.mutate(c.id)}
-            className="min-h-9 px-2.5 rounded-md bg-white/8 hover:bg-white/12 text-white/75 text-[11px] font-semibold disabled:opacity-50"
+            className="min-h-8 px-2 rounded-md bg-white/8 hover:bg-white/12 text-white/75 text-[11px] font-semibold disabled:opacity-50"
           >
             Move → {courtLabel(c)}
           </button>
         ))}
         <Link
           href={`/tournament/${tournamentId}/badminton/schedule`}
-          className="min-h-9 px-2.5 rounded-md bg-white/8 hover:bg-white/12 text-white/60 text-[11px] font-semibold inline-flex items-center"
+          className="min-h-8 px-2 rounded-md bg-white/8 hover:bg-white/12 text-white/60 text-[11px] font-semibold inline-flex items-center"
         >
           Delay / retime
         </Link>
@@ -251,12 +287,15 @@ function QueuePanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn(hubCardClass, "p-4")}>
-      <h3 className="text-white/50 text-xs font-bold uppercase tracking-widest mb-3">{title}</h3>
+    <section className={cn(hubCardClass, "p-3 sm:p-4")}>
+      <h3 className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">{title}</h3>
       {count === 0 ? (
         <p className="text-white/30 text-sm">{empty}</p>
       ) : (
-        <ul className="space-y-0">{children}</ul>
+        // Cap secondary queue height in document flow (not a sticky nested scroller).
+        <ul className="space-y-0 max-h-64 overflow-y-auto overscroll-y-contain pr-0.5">
+          {children}
+        </ul>
       )}
     </section>
   );

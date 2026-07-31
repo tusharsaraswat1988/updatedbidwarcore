@@ -206,7 +206,6 @@ export default function BadmintonSummaryPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="results"
-        hideContinue
         titleOverride="Summary"
         purposeOverride="Close the tournament with an official summary and awards page."
         taskOverride="Review champions, share links, and export or print the summary."

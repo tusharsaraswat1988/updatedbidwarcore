@@ -43,6 +43,7 @@ import {
   multiCourtRowsFromMatches,
 } from "@/components/badminton/multi-court-score-strip";
 import {
+  VenueBannerScene,
   VenueIntroScene,
   VenueLeaderboardsScene,
   VenueNextMatchScene,
@@ -195,15 +196,17 @@ function DisplayStage({
   const matchStateReady = followMode
     ? !liveFollow.matchesLoading || !!liveFollow.followState
     : !fixedMatch.isLoading;
-  const { isUnlocked, unlock } = useBadmintonBroadcastAudio({
-    tournamentId,
-    matchKey: followedMatchId,
-    matchState,
-    venueMusicPlaying: branding?.venueMusicPlaying === true,
-    resolvedVenueMusicUrl: branding?.resolvedVenueMusicUrl ?? null,
-    venueMusicVolume: branding?.venueMusicVolume ?? 80,
-    matchStateReady,
-  });
+  const venueMusicPlaying = branding?.venueMusicPlaying === true;
+  const { isUnlocked, unlock, needsGesture, playbackStatus } =
+    useBadmintonBroadcastAudio({
+      tournamentId,
+      matchKey: followedMatchId,
+      matchState,
+      venueMusicPlaying,
+      resolvedVenueMusicUrl: branding?.resolvedVenueMusicUrl ?? null,
+      venueMusicVolume: branding?.venueMusicVolume ?? 80,
+      matchStateReady,
+    });
   const chrome = useMemo(
     () => ({
       tournamentName,
@@ -246,6 +249,7 @@ function DisplayStage({
       : isVenueMomentScene(venueScene) &&
           !matchState &&
           venueScene !== "sponsor" &&
+          venueScene !== "banner" &&
           venueScene !== "next" &&
           venueScene !== "results" &&
           venueScene !== "leaderboards"
@@ -293,6 +297,14 @@ function DisplayStage({
     );
   } else if (venueScene === "sponsor") {
     overlayContent = <VenueSponsorScene chrome={chrome} />;
+  } else if (venueScene === "banner") {
+    overlayContent = (
+      <VenueBannerScene
+        bannerUrl={branding?.resolvedVenueBannerUrl}
+        bannerFit={branding?.resolvedVenueBannerFit}
+        tournamentName={tournamentName}
+      />
+    );
   } else if (venueScene === "results") {
     overlayContent = (
       <VenueRecentResultsScene matches={liveFollow.matches} chrome={chrome} />
@@ -388,7 +400,14 @@ function DisplayStage({
           </StageFrame>
         </StageThemeProvider>
       </DisplayStageViewport>
-      <AudioUnlockButton visible={!isUnlocked} onUnlock={unlock} />
+      <AudioUnlockButton
+        visible={!isUnlocked || needsGesture || playbackStatus === "error"}
+        onUnlock={unlock}
+        urgent={needsGesture || playbackStatus === "error"}
+        label={
+          playbackStatus === "error" ? "Tap to retry venue music" : undefined
+        }
+      />
     </FullscreenLayout>
   );
 }

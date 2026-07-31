@@ -56,6 +56,7 @@ const VENUE_MOMENT_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "intro", label: "Intro" },
   { id: "winner", label: "Winner" },
   { id: "sponsor", label: "Sponsor" },
+  { id: "banner", label: "Banner" },
   { id: "next", label: "Next match" },
   { id: "results", label: "Results" },
   { id: "leaderboards", label: "Leaderboards" },
@@ -183,15 +184,20 @@ export function BadmintonBroadcastDirectorPanel({
 
   /** Moments stay until Clear (or another scene is chosen). */
   function pushMoment(venueScene: BadmintonVenueScene) {
+    // Banner / Next are venue-led; keep OBS on auto (banner never covers stream).
+    if (venueScene === "banner" || venueScene === "next") {
+      setPresentationMutation.mutate({
+        venueScene,
+        overlayScene: "auto",
+      });
+      return;
+    }
     setPresentationMutation.mutate({
       venueScene,
-      overlayScene:
-        venueScene === "next"
-          ? "auto"
-          : (venueScene as Extract<
-              BadmintonOverlayScene,
-              "intro" | "winner" | "sponsor" | "results" | "leaderboards"
-            >),
+      overlayScene: venueScene as Extract<
+        BadmintonOverlayScene,
+        "intro" | "winner" | "sponsor" | "results" | "leaderboards"
+      >,
     });
   }
 

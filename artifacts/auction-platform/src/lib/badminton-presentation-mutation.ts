@@ -20,12 +20,19 @@ export type PresentationPatch = {
   venueMusicFileName?: string | null;
   venueMusicVolume?: number;
   importAuctionMusic?: true;
+  venueBannerUrl?: string | null;
+  venueBannerPublicId?: string | null;
+  venueBannerFit?: "cover" | "contain";
+  importAuctionBanner?: true;
   primaryBroadcastMatchId?: number | null;
 };
 
 export type PresentationMutateContext = {
   previous?: BadmintonBranding;
 };
+
+/** How long a live SSE/optimistic patch wins over a racing GET /branding response. */
+const PRESENTATION_RACE_GUARD_MS = 15_000;
 
 export function brandingQueryKey(tournamentId: number) {
   return ["badminton-branding", tournamentId] as const;
@@ -39,7 +46,61 @@ export function isPresentationPayload(data: Record<string, unknown>): boolean {
     || "overlayScene" in data
     || "venueMusicPlaying" in data
     || "resolvedVenueMusicUrl" in data
+    || "resolvedVenueBannerUrl" in data
+    || "venueBannerUrl" in data
   );
+}
+
+/** Minimal shell so SSE / optimistic music patches are not dropped before first GET. */
+export function emptyBrandingShell(): BadmintonBranding {
+  return {
+    displayName: "",
+    logoUrl: null,
+    sponsorLogos: null,
+    venue: null,
+    organizerName: null,
+    primaryColor: "#0070f3",
+    accentColor: "#4fc3f7",
+    scoreBoardSponsor: null,
+  };
+}
+
+function pickPresentationFields(from: BadmintonBranding): Partial<BadmintonBranding> {
+  return {
+    primaryBroadcastMatchId: from.primaryBroadcastMatchId,
+    overlayScene: from.overlayScene,
+    venueScene: from.venueScene,
+    venueMusicPlaying: from.venueMusicPlaying,
+    venueMusicUrl: from.venueMusicUrl,
+    venueMusicFileName: from.venueMusicFileName,
+    venueMusicVolume: from.venueMusicVolume,
+    resolvedVenueMusicUrl: from.resolvedVenueMusicUrl,
+    venueBannerUrl: from.venueBannerUrl,
+    venueBannerPublicId: from.venueBannerPublicId,
+    venueBannerFit: from.venueBannerFit,
+    auctionMainBannerUrl: from.auctionMainBannerUrl,
+    resolvedVenueBannerUrl: from.resolvedVenueBannerUrl,
+    resolvedVenueBannerFit: from.resolvedVenueBannerFit,
+    _presentationPatchedAt: from._presentationPatchedAt,
+  };
+}
+
+/**
+ * When GET /branding races with an SSE presentation patch, keep the live fields
+ * briefly so a stale in-flight GET cannot turn music back off.
+ */
+export function mergeFetchedBrandingWithLivePresentation(
+  fetched: BadmintonBranding,
+  live: BadmintonBranding | undefined,
+): BadmintonBranding {
+  const patchedAt = live?._presentationPatchedAt;
+  if (!live || typeof patchedAt !== "number") return fetched;
+  if (Date.now() - patchedAt > PRESENTATION_RACE_GUARD_MS) return fetched;
+
+  return {
+    ...fetched,
+    ...pickPresentationFields(live),
+  };
 }
 
 /** Patch branding cache from SSE / optimistic UI (never requires a refetch). */
@@ -47,40 +108,79 @@ export function applyPresentationPayload(
   prev: BadmintonBranding | undefined,
   payload: Record<string, unknown>,
 ): BadmintonBranding | undefined {
-  if (!prev) return prev;
-  const next = { ...prev };
+  if (!isPresentationPayload(payload) && !prev) return prev;
+
+  const next: BadmintonBranding = { ...(prev ?? emptyBrandingShell()) };
+  let touched = false;
+
   if ("primaryBroadcastMatchId" in payload) {
     const raw = payload.primaryBroadcastMatchId;
     next.primaryBroadcastMatchId =
       typeof raw === "number" && Number.isFinite(raw) && raw > 0
         ? Math.floor(raw)
         : null;
+    touched = true;
   }
   if (typeof payload.venueScene === "string") {
     next.venueScene = payload.venueScene as BadmintonBranding["venueScene"];
+    touched = true;
   }
   if (typeof payload.overlayScene === "string") {
     next.overlayScene = payload.overlayScene as BadmintonBranding["overlayScene"];
+    touched = true;
   }
   if (typeof payload.venueMusicPlaying === "boolean") {
     next.venueMusicPlaying = payload.venueMusicPlaying;
+    touched = true;
   }
   if ("resolvedVenueMusicUrl" in payload) {
     const url = payload.resolvedVenueMusicUrl;
     next.resolvedVenueMusicUrl = typeof url === "string" && url.trim() ? url.trim() : null;
+    touched = true;
   }
   if ("venueMusicUrl" in payload) {
     const url = payload.venueMusicUrl;
     next.venueMusicUrl = typeof url === "string" && url.trim() ? url.trim() : null;
+    touched = true;
   }
   if (typeof payload.venueMusicFileName === "string" || payload.venueMusicFileName === null) {
     next.venueMusicFileName =
       typeof payload.venueMusicFileName === "string"
         ? payload.venueMusicFileName.trim() || null
         : null;
+    touched = true;
   }
   if (typeof payload.venueMusicVolume === "number" && Number.isFinite(payload.venueMusicVolume)) {
     next.venueMusicVolume = Math.max(0, Math.min(100, Math.round(payload.venueMusicVolume)));
+    touched = true;
+  }
+  if ("resolvedVenueBannerUrl" in payload) {
+    const url = payload.resolvedVenueBannerUrl;
+    next.resolvedVenueBannerUrl = typeof url === "string" && url.trim() ? url.trim() : null;
+    touched = true;
+  }
+  if ("venueBannerUrl" in payload) {
+    const url = payload.venueBannerUrl;
+    next.venueBannerUrl = typeof url === "string" && url.trim() ? url.trim() : null;
+    touched = true;
+  }
+  if (payload.resolvedVenueBannerFit === "cover" || payload.resolvedVenueBannerFit === "contain") {
+    next.resolvedVenueBannerFit = payload.resolvedVenueBannerFit;
+    touched = true;
+  }
+  if (payload.venueBannerFit === "cover" || payload.venueBannerFit === "contain") {
+    next.venueBannerFit = payload.venueBannerFit;
+    touched = true;
+  }
+  if ("auctionMainBannerUrl" in payload) {
+    const url = payload.auctionMainBannerUrl;
+    next.auctionMainBannerUrl = typeof url === "string" && url.trim() ? url.trim() : null;
+    touched = true;
+  }
+
+  if (!touched && !prev) return undefined;
+  if (touched) {
+    next._presentationPatchedAt = Date.now();
   }
   return next;
 }
@@ -96,11 +196,9 @@ export function onPresentationMutate(
 ): PresentationMutateContext {
   void qc.cancelQueries({ queryKey: brandingQueryKey(tournamentId) });
   const previous = qc.getQueryData<BadmintonBranding>(brandingQueryKey(tournamentId));
-  if (previous) {
-    qc.setQueryData<BadmintonBranding>(
-      brandingQueryKey(tournamentId),
-      applyPresentationPayload(previous, body as Record<string, unknown>) ?? previous,
-    );
+  const next = applyPresentationPayload(previous, body as Record<string, unknown>);
+  if (next) {
+    qc.setQueryData<BadmintonBranding>(brandingQueryKey(tournamentId), next);
   }
   return { previous };
 }
@@ -120,5 +218,8 @@ export function onPresentationSuccess(
   tournamentId: number,
   data: BadmintonBranding,
 ) {
-  qc.setQueryData(brandingQueryKey(tournamentId), data);
+  qc.setQueryData(brandingQueryKey(tournamentId), {
+    ...data,
+    _presentationPatchedAt: Date.now(),
+  });
 }

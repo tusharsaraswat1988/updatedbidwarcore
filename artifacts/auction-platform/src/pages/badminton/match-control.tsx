@@ -192,6 +192,7 @@ export default function BadmintonMatchControlPage() {
   return (
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
+        tournamentId={tournamentId}
         eyebrow="Operations"
         title={isPreMatch ? "Match Control" : "Match Control"}
         subtitle={

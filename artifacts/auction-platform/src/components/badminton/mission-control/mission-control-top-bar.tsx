@@ -1,13 +1,16 @@
 /**
- * Mission Control top bar — status strip + primary action + emergency.
+ * Mission Control slim command header — BidWar mark + counts + primary + emergency.
+ * Single optional sticky on Live Control (no competing sticky rail).
  */
 
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { hubCardClass } from "@/components/badminton/page-chrome";
+import { hubCardClass, useBadmintonBidWarTheme } from "@/components/badminton/page-chrome";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import type { PrimaryAction } from "@/lib/mission-control-ops";
+
+const BIDWAR_HOME_URL = "https://bidwar.in/";
 
 export function MissionControlTopBar({
   tournamentName,
@@ -31,6 +34,7 @@ export function MissionControlTopBar({
   onResumePresentation?: () => void;
 }) {
   const [, navigate] = useLocation();
+  const { brandName, logoSrc, logoAlt } = useBadmintonBidWarTheme();
   const [now, setNow] = useState(() =>
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   );
@@ -46,14 +50,33 @@ export function MissionControlTopBar({
 
   return (
     <header
-      className={cn(hubCardClass, "p-3 sm:p-4 sticky top-0 z-20 backdrop-blur-md bg-card/95")}
+      className={cn(hubCardClass, "px-3 py-2.5 sm:px-4 sticky top-0 z-20 backdrop-blur-md bg-card/95")}
       aria-label="Live control status"
     >
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 flex-1 min-w-0">
+      {logoSrc ? (
+        <div className="flex justify-center mb-2">
+          <a
+            href={BIDWAR_HOME_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label={`${brandName} — opens home page in a new tab`}
+          >
+            <img
+              src={logoSrc}
+              alt={logoAlt}
+              className="block h-7 sm:h-8 w-auto max-w-[min(200px,45vw)] object-contain"
+              loading="eager"
+              decoding="async"
+            />
+          </a>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 flex-1 min-w-0">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/45">Live control</p>
-            <p className="text-sm sm:text-base font-semibold text-foreground truncate">
+            <p className="text-sm font-semibold text-foreground truncate">
               {tournamentName || "Badminton tournament"}
             </p>
           </div>
@@ -72,7 +95,7 @@ export function MissionControlTopBar({
               <button
                 type="button"
                 disabled
-                className="w-full sm:w-auto min-h-11 px-5 rounded-xl bg-white/10 text-white/45 text-sm font-bold cursor-not-allowed"
+                className="w-full sm:w-auto min-h-10 px-4 rounded-lg bg-white/10 text-white/45 text-sm font-bold cursor-not-allowed"
                 title={primaryAction.disabledReason}
               >
                 {primaryAction.label}
@@ -85,7 +108,7 @@ export function MissionControlTopBar({
             <button
               type="button"
               onClick={() => navigate(primaryAction.href!)}
-              className="w-full sm:w-auto min-h-11 px-5 rounded-xl bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
+              className="w-full sm:w-auto min-h-10 px-4 rounded-lg bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
             >
               {primaryAction.label}
             </button>
@@ -95,7 +118,7 @@ export function MissionControlTopBar({
             <button
               type="button"
               onClick={() => setResumeConfirmOpen(true)}
-              className="min-h-11 px-4 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
+              className="min-h-10 px-3 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
             >
               Resume screens
             </button>
@@ -103,7 +126,7 @@ export function MissionControlTopBar({
             <button
               type="button"
               onClick={() => setEmergencyConfirmOpen(true)}
-              className="min-h-11 px-4 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
+              className="min-h-10 px-3 rounded-lg border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
             >
               Emergency pause
             </button>

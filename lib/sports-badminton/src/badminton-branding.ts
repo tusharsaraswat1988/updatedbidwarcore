@@ -21,9 +21,12 @@ export type BadmintonVenueScene =
   | "intro"
   | "winner"
   | "sponsor"
+  | "banner"
   | "next"
   | "results"
   | "leaderboards";
+
+export type BadmintonBannerFit = "cover" | "contain";
 
 export const BADMINTON_OVERLAY_SCENES: readonly BadmintonOverlayScene[] = [
   "auto",
@@ -45,6 +48,7 @@ export const BADMINTON_VENUE_SCENES: readonly BadmintonVenueScene[] = [
   "intro",
   "winner",
   "sponsor",
+  "banner",
   "next",
   "results",
   "leaderboards",
@@ -78,6 +82,18 @@ export type BadmintonBranding = {
    * badminton override → auction break music → platform default.
    */
   resolvedVenueMusicUrl: string | null;
+  /** Badminton-specific venue banner override (null = fall through to auction main banner). */
+  venueBannerUrl: string | null;
+  venueBannerPublicId: string | null;
+  venueBannerFit: BadmintonBannerFit;
+  /** Tournament auction main banner URL (for import UI). */
+  auctionMainBannerUrl: string | null;
+  /**
+   * Effective banner for Venue Scoreboard Banner moment:
+   * badminton override → auction main banner.
+   */
+  resolvedVenueBannerUrl: string | null;
+  resolvedVenueBannerFit: BadmintonBannerFit;
 };
 
 export type ScoreBoardSponsor = {
@@ -190,6 +206,43 @@ export function resolveVenueMusicUrl(
   return null;
 }
 
+export function parseVenueBannerUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function parseVenueBannerPublicId(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function parseVenueBannerFit(raw: unknown): BadmintonBannerFit {
+  return raw === "contain" ? "contain" : "cover";
+}
+
+/** Badminton override → auction main banner. */
+export function resolveVenueBannerUrl(
+  badmintonOverride: string | null | undefined,
+  auctionMainBannerUrl: string | null | undefined,
+): string | null {
+  const override = badmintonOverride?.trim();
+  if (override) return override;
+  const auction = auctionMainBannerUrl?.trim();
+  if (auction) return auction;
+  return null;
+}
+
+export function resolveVenueBannerFit(
+  broadcast: Record<string, unknown>,
+  auctionFit: unknown,
+): BadmintonBannerFit {
+  // Explicit badminton fit wins even when the image falls through from auction.
+  if ("venueBannerFit" in broadcast) return parseVenueBannerFit(broadcast.venueBannerFit);
+  return parseVenueBannerFit(auctionFit);
+}
+
 export function getBadmintonBranding(
   tournament: {
     name: string;
@@ -198,6 +251,8 @@ export function getBadmintonBranding(
     venue?: string | null;
     organizerName?: string | null;
     breakEndMusicUrl?: string | null;
+    mainBannerUrl?: string | null;
+    mainBannerFit?: string | null;
   },
   scoringSettingsJson: Record<string, unknown> | null | undefined,
   platformBreakMusicUrl?: string | null,
@@ -205,6 +260,8 @@ export function getBadmintonBranding(
   const raw = (scoringSettingsJson?.branding ?? {}) as Record<string, unknown>;
   const broadcast = broadcastBlock(scoringSettingsJson);
   const venueMusicUrl = parseVenueMusicUrl(broadcast.venueMusicUrl);
+  const venueBannerUrl = parseVenueBannerUrl(broadcast.venueBannerUrl);
+  const auctionMainBannerUrl = tournament.mainBannerUrl?.trim() || null;
   return {
     displayName:
       typeof raw.displayName === "string" && raw.displayName.trim()
@@ -237,5 +294,13 @@ export function getBadmintonBranding(
       tournament.breakEndMusicUrl,
       platformBreakMusicUrl,
     ),
+    venueBannerUrl,
+    venueBannerPublicId: venueBannerUrl
+      ? parseVenueBannerPublicId(broadcast.venueBannerPublicId)
+      : null,
+    venueBannerFit: parseVenueBannerFit(broadcast.venueBannerFit),
+    auctionMainBannerUrl,
+    resolvedVenueBannerUrl: resolveVenueBannerUrl(venueBannerUrl, auctionMainBannerUrl),
+    resolvedVenueBannerFit: resolveVenueBannerFit(broadcast, tournament.mainBannerFit),
   };
 }

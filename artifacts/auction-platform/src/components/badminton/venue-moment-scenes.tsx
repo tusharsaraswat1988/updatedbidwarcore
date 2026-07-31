@@ -349,6 +349,45 @@ export function VenueSponsorScene({ chrome }: { chrome: ChromeProps }) {
   );
 }
 
+/** Full-bleed LED banner — venue scoreboard only (not OBS). */
+export function VenueBannerScene({
+  bannerUrl,
+  bannerFit = "cover",
+  tournamentName,
+}: {
+  bannerUrl: string | null | undefined;
+  bannerFit?: "cover" | "contain" | null;
+  tournamentName: string;
+}) {
+  const fit = bannerFit === "contain" ? "contain" : "cover";
+  return (
+    <div
+      className="badminton-led-surface absolute inset-0 z-20 overflow-hidden bg-black flex flex-col"
+      style={badmintonLedSurfaceStyle}
+    >
+      <div className="relative min-h-0 flex-1 grid place-items-center bg-black">
+        {bannerUrl ? (
+          <img
+            src={bannerUrl}
+            alt="Banner"
+            className="w-full h-full animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
+            style={{ objectFit: fit, objectPosition: "center" }}
+            draggable={false}
+          />
+        ) : (
+          <div className="text-center space-y-3 px-6 animate-[badmintonMomentIn_0.35s_ease-out_forwards]">
+            <p className="bw-label text-[#ffd700] tracking-[0.4em]">BANNER</p>
+            <p className="bw-heading text-white/80 text-3xl md:text-5xl">{tournamentName}</p>
+            <p className="text-white/45 text-sm font-mono uppercase tracking-[0.2em]">
+              No banner uploaded
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Up-next fixture card for between-match holds. */
 export function VenueNextMatchScene({
   match,
