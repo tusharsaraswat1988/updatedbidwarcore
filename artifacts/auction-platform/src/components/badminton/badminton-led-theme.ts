@@ -11,12 +11,15 @@ export const badmintonLedSurfaceStyle = {
   "--stage-opponent-muted": BADMINTON_LED_OPPONENT_MUTED,
 } as CSSProperties;
 
-/** Fixed broadcast score — white for LED readability; not theme-linked. */
+/**
+ * Fixed broadcast score — white for LED readability; not theme-linked.
+ * Glow reduced ~50% (hotfix) so digits render sharp/crisp instead of soft-bloomed at distance.
+ */
 export function fixedScoreStyle(active = true): CSSProperties {
   return {
     color: "#ffffff",
     textShadow: active
-      ? "0 0 64px rgba(255,255,255,0.38), 0 0 28px rgba(255,255,255,0.22), 0 3px 14px rgba(0,0,0,0.6)"
+      ? "0 0 32px rgba(255,255,255,0.19), 0 0 14px rgba(255,255,255,0.11), 0 2px 10px rgba(0,0,0,0.55)"
       : "none",
     opacity: active ? 1 : 0.38,
   };

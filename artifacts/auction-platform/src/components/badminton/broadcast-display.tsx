@@ -199,7 +199,7 @@ export function BroadcastMatchBoard({
     >
       {courtLabel ? (
         <div className="badminton-multi-court-bar flex items-center justify-between gap-3 shrink-0">
-          <span className="badminton-multi-court-bar__court font-['Bebas_Neue'] uppercase tracking-[0.18em]">
+          <span className="badminton-multi-court-bar__court uppercase tracking-[0.18em]">
             {courtLabel}
           </span>
           <span
@@ -216,7 +216,7 @@ export function BroadcastMatchBoard({
             />
             {isTimeout ? "TIMEOUT" : "LIVE"}
           </span>
-          <span className="font-mono uppercase tracking-[0.16em] text-white/45">
+          <span className="font-mono font-bold uppercase tracking-[0.16em] text-white/45">
             Game {state.currentGame || 1}
           </span>
         </div>
@@ -569,9 +569,11 @@ function PlayerBlock({
               "badminton-score-player-name bw-heading",
               isPair && "badminton-score-player-name--pair",
             )}
-            teamClassName="bw-label opacity-80 w-full max-w-full"
+            teamClassName="badminton-score-team-name bw-label opacity-95 w-full max-w-full"
           />
-          {servingPlayerLabel ? (
+          {/* Compact multi-court: SERVE badge on photo already covers this — hide to avoid a
+              redundant repeat of the player's name in yellow directly under the pair name. */}
+          {servingPlayerLabel && !compact ? (
             <p
               className="bw-meta text-[#ffd700] mt-0.5"
               style={{ fontSize: "var(--score-player-meta)" }}
@@ -631,12 +633,15 @@ function PlayerBlock({
           } as CSSProperties
         }
       >
-        <span className="badminton-score-games-won-label bw-caption whitespace-nowrap">
+        <span
+          className="badminton-score-games-won-label bw-caption whitespace-nowrap"
+          style={{ fontSize: "var(--score-player-meta)" }}
+        >
           Games
         </span>
         <div
           className="flex items-center"
-          style={{ gap: "calc(var(--score-panel-gap) * 0.5)" }}
+          style={{ gap: "calc(var(--score-panel-gap) * 0.75)" }}
         >
           {Array.from({ length: gamesToWin }).map((_, i) => (
             <div
@@ -698,7 +703,7 @@ function CentrePanel({
     >
       <div
         className="badminton-score-centre-score flex items-center justify-center relative"
-        style={{ gap: "calc(var(--score-panel-gap) * 0.75)" }}
+        style={{ gap: "calc(var(--score-panel-gap) * 1.2)" }}
       >
         <ScoreDigit
           score={state.leftScore}
@@ -706,7 +711,7 @@ function CentrePanel({
           celebrate={pointFlash === "left"}
         />
         <div
-          className="text-white/25 font-thin leading-none"
+          className="text-white/25 font-black leading-none"
           style={{ fontSize: "var(--score-colon-size)" }}
         >
           :
@@ -726,26 +731,30 @@ function CentrePanel({
         ) : null}
       </div>
 
-      <div
-        className="bg-white/8 border border-white/15 rounded-full"
-        style={{
-          padding: "calc(var(--score-game-pill) * 0.35) calc(var(--score-game-pill) * 1.4)",
-        }}
-      >
-        <span
-          className="bw-heading text-white/85"
-          style={{ fontSize: "var(--score-game-pill)" }}
+      {/* Compact multi-court: the court bar above already shows "Game N" — skip the
+          duplicate pill here so it doesn't repeat (and crowd the score digits). */}
+      {!compact ? (
+        <div
+          className="bg-white/10 border border-white/20 rounded-full"
+          style={{
+            padding: "calc(var(--score-game-pill) * 0.45) calc(var(--score-game-pill) * 1.6)",
+          }}
         >
-          Game {state.currentGame}
-        </span>
-      </div>
+          <span
+            className="bw-heading text-white/85"
+            style={{ fontSize: "var(--score-game-pill)" }}
+          >
+            Game {state.currentGame}
+          </span>
+        </div>
+      ) : null}
 
       <div
         className="badminton-score-series flex items-center"
-        style={{ gap: "calc(var(--score-panel-gap) * 0.55)" }}
+        style={{ gap: "calc(var(--score-panel-gap) * 0.75)" }}
         aria-label={`Games ${state.gamesLeft} to ${state.gamesRight}`}
       >
-        <span className="bw-caption text-white/45" style={{ fontSize: "0.7em" }}>
+        <span className="bw-caption text-white/60" style={{ fontSize: "0.85em" }}>
           Series
         </span>
         <span

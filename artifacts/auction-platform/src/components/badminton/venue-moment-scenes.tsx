@@ -273,7 +273,7 @@ export function VenueWinnerScene({
     >
       <div
         className={cn(
-          "w-full max-w-3xl rounded-3xl border px-10 py-10 text-center shadow-2xl",
+          "w-full max-w-[54rem] rounded-3xl border px-10 py-8 text-center shadow-2xl",
           "animate-[badmintonMomentIn_0.45s_ease-out_forwards]",
           isLeft
             ? "border-[#ffd700]/40 bg-gradient-to-br from-[#1a1400] to-[#0a0a0c]"
@@ -299,17 +299,17 @@ export function VenueWinnerScene({
             size="xl"
             tone="led"
             align="center"
-            playerClassName="bw-heading text-5xl text-white"
+            playerClassName="bw-heading text-5xl md:text-6xl text-white"
             teamClassName="bw-label text-white/75"
           />
         </div>
 
         <div className="bg-white/8 rounded-2xl px-8 py-4 mb-6 inline-block border border-white/10">
-          <span className="bw-display-l text-5xl" style={fixedScoreStyle(isLeft)}>
+          <span className="bw-display-l text-[3.2rem]" style={fixedScoreStyle(isLeft)}>
             {state.gamesLeft}
           </span>
           <span className="text-white/30 text-3xl mx-3">–</span>
-          <span className="bw-display-l text-5xl" style={fixedScoreStyle(!isLeft)}>
+          <span className="bw-display-l text-[3.2rem]" style={fixedScoreStyle(!isLeft)}>
             {state.gamesRight}
           </span>
         </div>
@@ -434,12 +434,12 @@ export function VenueNextMatchScene({
       }}
     >
       <div className="w-full max-w-6xl h-full min-h-0 flex flex-col items-center justify-center gap-5 md:gap-7 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
-        <div className="text-center space-y-1.5 shrink-0">
+        <div className="text-center space-y-1 shrink-0">
           <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
             UP NEXT
           </p>
           {courtLabel !== "Court —" ? (
-            <p className="bw-caption text-white/70 text-base md:text-xl tracking-[0.12em] uppercase">
+            <p className="bw-caption text-white/75 text-base md:text-xl tracking-[0.12em] uppercase">
               {courtLabel}
             </p>
           ) : null}
@@ -546,7 +546,7 @@ export function VenueRecentResultsScene({
       chrome={{ ...chrome, roundName: "Match results", matchStatus: "completed" }}
       showChyron={false}
     >
-      <div className="w-full max-w-6xl h-full min-h-0 flex flex-col gap-4 md:gap-5 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
+      <div className="w-full max-w-[79rem] h-full min-h-0 flex flex-col gap-4 md:gap-5 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
         <div className="text-center shrink-0 space-y-1">
           <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
             RESULTS
@@ -652,7 +652,7 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
           {outcome.toUpperCase()}
           {meta ? ` · ${meta}` : ""}
         </p>
-        <p className="bw-heading text-white text-3xl md:text-4xl leading-none truncate">
+        <p className="bw-heading text-white text-4xl md:text-5xl leading-none truncate">
           {winner}
         </p>
         <p className="bw-caption text-white/55 text-sm md:text-base">
@@ -667,7 +667,7 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
       <div className="flex items-center gap-4 md:gap-6 shrink-0">
         <div className="text-center rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 min-w-[5.5rem]">
           <p className="bw-label text-white/45 text-[10px] tracking-[0.2em]">GAMES</p>
-          <p className="bw-display-l text-3xl md:text-4xl text-white tabular-nums leading-none mt-1">
+          <p className="bw-display-l text-[2rem] md:text-[2.4rem] text-white tabular-nums leading-none mt-1">
             {gamesWonLine(match)}
           </p>
         </div>
@@ -679,7 +679,7 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
           }}
         >
           <p className="bw-label text-[10px] tracking-[0.2em] text-[#ffd700]/80">DIFF</p>
-          <p className="bw-display-l text-3xl md:text-4xl text-[#ffd700] tabular-nums leading-none mt-1">
+          <p className="bw-display-l text-[2rem] md:text-[2.4rem] text-[#ffd700] tabular-nums leading-none mt-1">
             {diff}
           </p>
         </div>

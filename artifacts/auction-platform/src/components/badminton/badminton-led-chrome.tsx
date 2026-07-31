@@ -15,7 +15,6 @@ import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
 import {
   getSponsorChyronItemStyle,
-  getSponsorChyronLogoStyle,
   getSponsorChyronNameStyle,
   getSponsorChyronTypeStyle,
   sponsorBroadcastTier,
@@ -34,6 +33,8 @@ type HeaderLogoSlide = {
   typeLabel: string;
   /** Display name under the type */
   name: string;
+  /** Tournament slide shows logo only — no type/name text underneath. */
+  isTournament?: boolean;
 };
 
 /** Tournament → title sponsor → co-sponsor, fade loop in the left header slot. */
@@ -50,6 +51,7 @@ function buildHeaderLogoSlides(
       url: tournament,
       typeLabel: "Tournament",
       name: tournamentName?.trim() || "Tournament",
+      isTournament: true,
     });
   }
 
@@ -129,20 +131,23 @@ const HeaderLogoRotator = memo(function HeaderLogoRotator({
   if (slides.length === 0) return null;
   const current = slides[Math.min(idx, slides.length - 1)];
   const slim = size === "slim";
-  const title = `${current.typeLabel}: ${current.name}`;
+  const title = current.isTournament ? current.name : `${current.typeLabel}: ${current.name}`;
 
   return (
     <div
       className={cn(
-        "rounded-xl border border-white/12 bg-white/[0.05] overflow-hidden",
-        slim ? "p-1 pr-2" : "p-1.5 md:p-2 pr-2.5 md:pr-3",
+        "rounded-xl border border-white/12 bg-white/[0.05] overflow-hidden max-h-full",
+        slim ? "p-1" : "p-1 md:p-1.5",
       )}
       title={title}
     >
+      {/* Logo on top, type/name stacked below — kept short (not just narrow) so the
+          card fits inside the header's own height and never spills into the
+          content below it. */}
       <div
         className={cn(
-          "flex items-center transition-opacity ease-in-out",
-          slim ? "gap-2" : "gap-2.5 md:gap-3",
+          "flex flex-col items-center text-center transition-opacity ease-in-out",
+          slim ? "gap-0.5" : "gap-0.5 md:gap-1",
         )}
         style={{
           opacity: visible ? 1 : 0,
@@ -154,33 +159,41 @@ const HeaderLogoRotator = memo(function HeaderLogoRotator({
           src={current.url}
           alt={title}
           className={
-            slim
-              ? "h-8 md:h-9 w-auto max-w-[72px] object-contain shrink-0"
-              : "h-14 md:h-[4.75rem] w-auto max-w-[min(120px,12vw)] object-contain shrink-0"
+            // Tournament slide has no type/name text underneath — the freed-up
+            // space goes straight to the logo instead of sitting empty.
+            current.isTournament
+              ? slim
+                ? "h-9 md:h-10 w-auto max-w-[84px] object-contain shrink-0"
+                : "h-12 md:h-14 w-auto max-w-[min(110px,11vw)] object-contain shrink-0"
+              : slim
+                ? "h-7 md:h-8 w-auto max-w-[64px] object-contain shrink-0"
+                : "h-8 md:h-9 w-auto max-w-[min(88px,9vw)] object-contain shrink-0"
           }
           loading="eager"
           decoding="async"
         />
-        <div className="min-w-0 flex flex-col leading-tight gap-0.5">
-          <span
-            className={cn(
-              "bw-caption uppercase tracking-[0.16em] text-[#ffd700]/90 font-bold bw-name-full",
-              slim ? "text-[8px]" : "text-[9px] md:text-[10px]",
-            )}
-          >
-            {current.typeLabel}
-          </span>
-          <span
-            className={cn(
-              "font-bold text-white bw-name-full",
-              slim
-                ? "text-[10px] md:text-[11px] max-w-[100px] truncate"
-                : "text-xs md:text-sm max-w-[min(160px,14vw)] line-clamp-2",
-            )}
-          >
-            {current.name}
-          </span>
-        </div>
+        {!current.isTournament ? (
+          <div className="min-w-0 flex flex-col items-center leading-tight gap-0.5">
+            <span
+              className={cn(
+                "bw-caption uppercase tracking-[0.16em] text-[#ffd700]/90 font-bold bw-name-full",
+                slim ? "text-[8px]" : "text-[9px]",
+              )}
+            >
+              {current.typeLabel}
+            </span>
+            <span
+              className={cn(
+                "font-bold text-white bw-name-full text-center",
+                slim
+                  ? "text-[10px] md:text-[11px] max-w-[80px] truncate"
+                  : "text-[11px] md:text-xs max-w-[min(120px,11vw)] truncate",
+              )}
+            >
+              {current.name}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -198,23 +211,23 @@ function UrgentStatusDot({
 }) {
   if (isTimeout) {
     return (
-      <span className="inline-flex items-center gap-1 bw-label text-[9px] md:text-[10px] text-amber-200 tracking-[0.14em]">
-        <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+      <span className="inline-flex items-center gap-1.5 bw-label text-[11px] md:text-xs text-amber-200 tracking-[0.14em]">
+        <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
         TIMEOUT
       </span>
     );
   }
   if (isLive) {
     return (
-      <span className="inline-flex items-center gap-1 bw-label text-[9px] md:text-[10px] text-red-200 tracking-[0.18em]">
-        <span className="size-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
+      <span className="inline-flex items-center gap-1.5 bw-label text-[11px] md:text-xs text-red-200 tracking-[0.18em]">
+        <span className="size-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
         LIVE
       </span>
     );
   }
   if (matchStatus === "completed") {
     return (
-      <span className="bw-label text-[9px] md:text-[10px] text-emerald-200/90 tracking-[0.16em]">
+      <span className="bw-label text-[11px] md:text-xs text-emerald-200/90 tracking-[0.16em]">
         FINAL
       </span>
     );
@@ -334,7 +347,7 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
     <div className="relative z-20 pointer-events-none shrink-0 bg-black/45 border-b border-white/10">
       {/* Left logo — tournament → title → co-sponsor fade loop */}
       {headerSlides.length > 0 ? (
-        <div className="absolute left-[2%] md:left-[2.5%] top-0 bottom-0 z-10 flex items-center">
+        <div className="absolute left-[2%] md:left-[2.5%] top-0 bottom-0 z-10 flex items-center py-1.5 overflow-hidden">
           <HeaderLogoRotator
             tournamentLogoUrl={tournamentLogoUrl}
             tournamentName={tournamentName}
@@ -372,7 +385,7 @@ export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
         </span>
         <div className="flex items-center justify-center gap-x-2 gap-y-0.5 flex-wrap max-w-full mt-1">
           {metaParts.length > 0 ? (
-            <span className="bw-caption text-[10px] md:text-xs text-white/50 text-center bw-name-full">
+            <span className="bw-caption text-xs md:text-sm text-white/65 text-center bw-name-full">
               {metaParts.join(" · ")}
             </span>
           ) : null}
@@ -449,10 +462,11 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   return (
     <div
       className={cn(
-        "border-t border-white/10 grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
+        // Softer top border + slightly shorter rail — match info stays the visual hero
+        "border-t border-white/[0.06] grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]",
         slim
-          ? "h-[7vh] min-h-[52px] max-h-[72px]"
-          : "h-[10vh] min-h-[72px] max-h-[104px]",
+          ? "h-[6.5vh] min-h-[48px] max-h-[66px]"
+          : "h-[8.5vh] min-h-[64px] max-h-[92px]",
         className,
       )}
       style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
@@ -499,7 +513,6 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
                     ? "Co Sponsor"
                     : (s.type?.trim() || "Partner");
 
-              const logoStyle = getSponsorChyronLogoStyle(tier);
               const nameStyle = getSponsorChyronNameStyle(tier);
               const typeStyle = getSponsorChyronTypeStyle(tier);
 
@@ -509,16 +522,7 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
                   className="flex items-center gap-3.5 shrink-0 h-full py-1.5"
                   style={getSponsorChyronItemStyle(tier)}
                 >
-                  {s.url ? (
-                    <img
-                      src={s.url}
-                      alt={s.name ?? "Sponsor"}
-                      style={{
-                        ...logoStyle,
-                        maxHeight: tier === "title" ? 58 : 52,
-                      }}
-                    />
-                  ) : null}
+                  {/* Logos are unreadable on LED walls at distance — show name + title only. */}
                   <div className="flex flex-col leading-none gap-0.5">
                     <span
                       className="bw-label text-lg md:text-xl"

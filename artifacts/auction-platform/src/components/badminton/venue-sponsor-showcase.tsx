@@ -115,7 +115,7 @@ function SponsorCard({
           className={cn(
             "w-auto object-contain",
             featured
-              ? "max-h-[min(28vh,220px)] max-w-[min(70vw,520px)]"
+              ? "max-h-[min(31vh,246px)] max-w-[min(78vw,582px)]"
               : "max-h-[min(14vh,120px)] max-w-[min(36vw,280px)]",
           )}
           style={{ filter: getSponsorLogoFilter(tier) }}
@@ -124,7 +124,7 @@ function SponsorCard({
       <p
         className={cn(
           "bw-heading mt-4 uppercase leading-tight",
-          featured ? "text-3xl md:text-5xl" : "text-xl md:text-2xl",
+          featured ? "text-4xl md:text-6xl" : "text-xl md:text-2xl",
           tier === "title" && "text-[#F7DF8A]",
           tier === "co_sponsor" && "text-[#e8eef8]",
           tier === "normal" && "text-white",

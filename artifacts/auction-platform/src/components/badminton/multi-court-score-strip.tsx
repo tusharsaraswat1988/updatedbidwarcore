@@ -150,7 +150,7 @@ function ObsCourtBox({ row }: { row: MultiCourtRow }) {
         style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
       >
         <span
-          className="font-['Bebas_Neue'] text-base uppercase tracking-[0.16em] shrink-0"
+          className="font-['Bebas_Neue'] font-bold text-base uppercase tracking-[0.16em] shrink-0"
           style={{ color: BIDWAR_BROADCAST_YELLOW }}
         >
           {courtLabel}
@@ -169,7 +169,7 @@ function ObsCourtBox({ row }: { row: MultiCourtRow }) {
           />
           {isTimeout ? "TIMEOUT" : "LIVE"}
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/50 shrink-0">
+        <span className="font-mono font-bold text-[11px] uppercase tracking-[0.16em] text-white/50 shrink-0">
           Game {state.currentGame || 1}
         </span>
       </div>
@@ -197,7 +197,7 @@ function ObsCourtBox({ row }: { row: MultiCourtRow }) {
             align="start"
             showBadge={Boolean(leftIdentity.teamName?.trim())}
             className="w-full min-w-0"
-            teamClassName="text-[11px] sm:text-xs uppercase tracking-[0.14em] text-white/50 font-semibold"
+            teamClassName="!text-sm sm:!text-base uppercase tracking-[0.1em] text-white/70 font-bold"
             playerClassName="text-white font-black text-[15px] sm:text-lg leading-snug"
           />
           <ObsGameDots won={state.gamesLeft} total={totalGames} />
@@ -208,11 +208,11 @@ function ObsCourtBox({ row }: { row: MultiCourtRow }) {
           style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
         >
           <div className="flex items-center gap-2">
-            <span className="font-['Bebas_Neue'] text-4xl sm:text-5xl tabular-nums text-white leading-none min-w-[1.15ch] text-center">
+            <span className="font-['Bebas_Neue'] font-black text-4xl sm:text-5xl tabular-nums text-white leading-none min-w-[1.15ch] text-center">
               {state.leftScore}
             </span>
-            <span className="text-white/30 text-xl font-thin leading-none">:</span>
-            <span className="font-['Bebas_Neue'] text-4xl sm:text-5xl tabular-nums text-white leading-none min-w-[1.15ch] text-center">
+            <span className="text-white/30 text-xl font-black leading-none">:</span>
+            <span className="font-['Bebas_Neue'] font-black text-4xl sm:text-5xl tabular-nums text-white leading-none min-w-[1.15ch] text-center">
               {state.rightScore}
             </span>
           </div>
@@ -246,7 +246,7 @@ function ObsCourtBox({ row }: { row: MultiCourtRow }) {
             align="end"
             showBadge={Boolean(rightIdentity.teamName?.trim())}
             className="w-full min-w-0"
-            teamClassName="text-[11px] sm:text-xs uppercase tracking-[0.14em] text-white/50 font-semibold"
+            teamClassName="!text-sm sm:!text-base uppercase tracking-[0.1em] text-white/70 font-bold"
             playerClassName="text-white font-black text-[15px] sm:text-lg leading-snug"
           />
           <ObsGameDots won={state.gamesRight} total={totalGames} />
