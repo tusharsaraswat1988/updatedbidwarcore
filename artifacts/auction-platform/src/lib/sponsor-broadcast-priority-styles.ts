@@ -157,7 +157,9 @@ export function getSponsorChyronItemStyle(tier: SponsorBroadcastTier): CSSProper
         boxShadow: "0 0 14px rgba(180, 200, 220, 0.14)",
       };
     default:
-      return {};
+      // Same horizontal padding as title/co-sponsor pills (just no box) so the
+      // gap between any two sponsors in the ticker stays visually equal.
+      return { padding: "4px 10px" };
   }
 }
 

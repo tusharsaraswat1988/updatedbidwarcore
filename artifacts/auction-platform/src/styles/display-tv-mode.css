@@ -5,8 +5,8 @@
  */
 
 .led-display-tv {
-  /* Overscan-safe inset (~5% each edge) */
-  --led-safe-x: clamp(1.5rem, 5vw, 6rem);
+  /* Overscan-safe inset (~5% each edge) — widened slightly so nothing important touches the bezel */
+  --led-safe-x: clamp(1.75rem, 5.6vw, 6.5rem);
   --led-safe-y: clamp(1rem, 3vh, 3rem);
   --led-safe-bottom: clamp(1.25rem, 4vh, 3.5rem);
 }
@@ -125,7 +125,7 @@
 /* Broadcast Subheading — tournament name: present, never competes with names */
 .bw-subheading {
   font-family: var(--bw-font-primary);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   line-height: 1.15;
@@ -139,7 +139,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   line-height: 1.08;
-  font-size: clamp(1.15rem, 2.2vw, 1.85rem) !important;
+  font-size: clamp(1.3rem, 2.55vw, 2.15rem) !important;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -154,7 +154,7 @@
 /* Broadcast Label — tags/status/court-sponsor group (Live, Final, Court, Match…) */
 .bw-label {
   font-family: var(--bw-font-label);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   line-height: 1.1;
@@ -182,7 +182,7 @@
 /* Broadcast Caption — smallest ancillary text (round name, micro-tags, footnotes) */
 .bw-caption {
   font-family: var(--bw-font-label);
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.24em;
   line-height: 1.2;
@@ -193,22 +193,26 @@
   --stage-opponent-glow: rgba(255, 107, 107, 0.45);
   --stage-opponent-muted: #ce93d8;
   /* Responsive score zone — hierarchy: score ≫ identity > game > serve > games won.
-     Digits sized to fit the centre column without covering side identity. */
-  --score-digit-size: clamp(5.25rem, 11vw, 10.5rem);
+     Digits sized to fit the centre column without covering side identity.
+     Score enlarged ~22% and player identity ~10-15% for 30-50m LED readability. */
+  --score-digit-size: clamp(6.4rem, 13.4vw, 12.8rem);
   --score-colon-size: clamp(2rem, 4.5vw, 4.5rem);
-  --score-player-photo: clamp(6.5rem, 14vw, 11rem);
-  --score-player-photo-pair: clamp(5rem, 10vw, 8rem);
-  --score-player-name: clamp(1.15rem, 2.2vw, 2.1rem);
+  --score-player-photo: clamp(7.15rem, 15.4vw, 12.1rem);
+  --score-player-photo-pair: clamp(5.5rem, 11vw, 8.8rem);
+  --score-player-name: clamp(1.3rem, 2.45vw, 2.35rem);
   /* Doubles pairs pack two full names into 2 lines — smaller than singles */
-  --score-player-name-pair: clamp(0.95rem, 1.65vw, 1.55rem);
+  --score-player-name-pair: clamp(1.05rem, 1.85vw, 1.75rem);
+  /* Team name (above player name) — was a fixed ~12px label, illegible at 30-50m.
+     Sized well above --score-player-meta so it reads clearly on the LED wall. */
+  --score-team-name: clamp(1.05rem, 1.95vw, 1.75rem);
   --score-player-meta: clamp(0.9rem, 1.55vw, 1.25rem);
-  --score-game-dot: clamp(1.25rem, 2.15vw, 1.85rem);
-  --score-game-count: clamp(1.45rem, 2.5vw, 2.15rem);
+  --score-game-dot: clamp(1.5rem, 2.6vw, 2.2rem);
+  --score-game-count: clamp(1.65rem, 2.85vw, 2.45rem);
   --score-panel-gap: clamp(0.45rem, 1.1vh, 0.9rem);
   --score-serve-diamond: clamp(0.9rem, 1.65vw, 1.35rem);
-  --score-game-pill: clamp(1.05rem, 1.95vw, 1.65rem);
-  /* Thin outer inset — side columns own the edge space (not wasted padding) */
-  --score-zone-px: clamp(1.25%, 2vw, 3.5%);
+  --score-game-pill: clamp(1.25rem, 2.3vw, 1.95rem);
+  /* Outer inset — widened slightly so side identity never sits on the bezel */
+  --score-zone-px: clamp(1.75%, 2.5vw, 4%);
   --score-compose-gap: clamp(1.5rem, 3vw, 3.5rem);
   /* Vertical density — pack stage upward; keep breathing room under score digits */
   --score-stage-pt: clamp(1vh, 2.2vh, 3vh);
@@ -219,10 +223,11 @@
 
 @media (min-width: 2560px) {
   .badminton-led-surface {
-    --score-digit-size: clamp(8rem, 11vw, 14rem);
+    --score-digit-size: clamp(9.75rem, 13.4vw, 17.1rem);
     --score-colon-size: clamp(3.25rem, 5.5vw, 6rem);
-    --score-player-photo: clamp(9rem, 11vw, 13rem);
-    --score-player-name: clamp(1.5rem, 1.8vw, 2.25rem);
+    --score-player-photo: clamp(9.9rem, 12vw, 14.3rem);
+    --score-player-name: clamp(1.7rem, 2vw, 2.55rem);
+    --score-team-name: clamp(1.3rem, 1.6vw, 1.95rem);
   }
 }
 
@@ -231,16 +236,21 @@
   text-align: center;
   /* Two-digit scores (0–30) need ~1.2em of condensed tabular width */
   min-width: 1.15em;
+  /* Sharper edges at distance — less blur reliance, crisper rendering */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .badminton-score-player-photo {
   width: var(--score-player-photo);
   height: var(--score-player-photo);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
 }
 
 .badminton-score-player-photo-pair {
   width: var(--score-player-photo-pair);
   height: var(--score-player-photo-pair);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
 
 /* Side panels — fill outer grid tracks so edge space is used, not wasted */
@@ -290,9 +300,19 @@
   hyphens: none;
 }
 
+/* Team name — sits above the player name; must stay readable at LED distance,
+   not shrink to a tiny label like Live/Court tags. */
+.badminton-score-team-name {
+  font-size: var(--score-team-name) !important;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.05em;
+}
+
 .badminton-score-player-name {
   font-size: var(--score-player-name);
-  line-height: 1.05;
+  font-weight: 800;
+  line-height: 1.15;
   max-width: 100% !important;
   white-space: normal !important;
   /* Clip horizontal spill into the score; still wrap full names vertically */
@@ -305,7 +325,8 @@
 /* Doubles pairs — smaller size so both full names comfortably fit on 2–3 lines */
 .badminton-score-player-name--pair {
   font-size: var(--score-player-name-pair) !important;
-  line-height: 1.12;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .badminton-score-identity-card .truncate,
@@ -318,28 +339,28 @@
 }
 
 .badminton-score-games-won {
-  gap: calc(var(--score-panel-gap) * 0.6);
-  margin-top: calc(var(--score-panel-gap) * 0.95);
-  padding: 0.3rem 0.75rem;
+  gap: calc(var(--score-panel-gap) * 0.85);
+  margin-top: calc(var(--score-panel-gap) * 1.1);
+  padding: 0.4rem 0.95rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .badminton-score-games-won--glam {
   background: linear-gradient(
     135deg,
-    var(--gw-tint, rgba(255, 255, 255, 0.06)) 0%,
-    rgba(255, 255, 255, 0.03) 100%
+    var(--gw-tint, rgba(255, 255, 255, 0.09)) 0%,
+    rgba(255, 255, 255, 0.045) 100%
   );
-  border-color: var(--gw-border, rgba(255, 255, 255, 0.1));
+  border-color: var(--gw-border, rgba(255, 255, 255, 0.16));
   box-shadow:
-    0 0 18px var(--gw-tint, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 0 20px var(--gw-tint, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .badminton-score-games-won-label {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .badminton-score-stage {
@@ -358,19 +379,20 @@
  * Digits stay large; redundant serve line is hidden in compact JSX to prevent clip.
  */
 .badminton-score-board--compact {
-  --score-digit-size: clamp(4.75rem, 11.5vh, 8.5rem);
+  --score-digit-size: clamp(8.28rem, 20.16vh, 14.9rem);
   --score-colon-size: clamp(1.85rem, 4.5vh, 3.75rem);
-  --score-player-photo: clamp(4.5rem, 9.5vh, 7.5rem);
-  --score-player-photo-pair: clamp(3.5rem, 7.5vh, 5.75rem);
-  --score-player-name: clamp(1.2rem, 2.7vh, 2rem);
-  --score-player-name-pair: clamp(1.05rem, 2.3vh, 1.65rem);
+  --score-player-photo: clamp(4.95rem, 10.5vh, 8.25rem);
+  --score-player-photo-pair: clamp(3.85rem, 8.25vh, 6.3rem);
+  --score-player-name: clamp(1.62rem, 3.6vh, 2.7rem);
+  --score-player-name-pair: clamp(1.44rem, 3.12vh, 2.22rem);
+  --score-team-name: clamp(1.15rem, 2.6vh, 1.9rem);
   --score-player-meta: clamp(0.9rem, 1.85vh, 1.25rem);
-  --score-game-dot: clamp(1rem, 2.1vh, 1.5rem);
-  --score-game-count: clamp(1.15rem, 2.4vh, 1.75rem);
+  --score-game-dot: clamp(1.2rem, 2.5vh, 1.8rem);
+  --score-game-count: clamp(1.3rem, 2.7vh, 2rem);
   --score-panel-gap: clamp(0.25rem, 0.75vh, 0.55rem);
   --score-serve-diamond: clamp(0.8rem, 1.55vh, 1.15rem);
-  --score-game-pill: clamp(0.95rem, 1.9vh, 1.4rem);
-  --score-zone-px: clamp(0.9%, 1.4vw, 2.25%);
+  --score-game-pill: clamp(1.1rem, 2.2vh, 1.65rem);
+  --score-zone-px: clamp(1.2%, 1.7vw, 2.6%);
   --score-compose-gap: clamp(0.85rem, 1.8vw, 2.25rem);
   --score-stage-pt: clamp(0.4vh, 0.9vh, 1.3vh);
   --score-stage-pb: clamp(0.55vh, 1.2vh, 1.6vh);
@@ -397,6 +419,9 @@
   gap: 0.15rem;
   flex-shrink: 1;
   min-height: 0;
+  /* Side panels already have free width in the stacked venue view — let names use
+     it instead of wrapping onto extra lines from the (narrower) photo-based cap. */
+  max-width: 100%;
 }
 
 .badminton-multi-court-bar {
@@ -411,7 +436,9 @@
 }
 
 .badminton-multi-court-bar__court {
+  font-family: var(--bw-font-primary);
   font-size: clamp(1rem, 2.2vh, 1.55rem);
+  font-weight: 800;
   color: #ffd700;
   text-shadow: 0 0 14px rgba(255, 215, 0, 0.4);
 }
@@ -422,12 +449,12 @@
 }
 
 .badminton-score-board--compact .badminton-serve-badge {
-  padding: 0.18rem 0.55rem;
-  gap: 0.3rem;
+  padding: 0.26rem 0.75rem;
+  gap: 0.4rem;
 }
 
 .badminton-score-board--compact .badminton-serve-badge .bw-label {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.14em;
 }
 
@@ -484,7 +511,7 @@
 
 .badminton-score-board--compact .badminton-score-digit {
   text-shadow:
-    0 0 28px rgba(255, 255, 255, 0.18),
+    0 0 14px rgba(255, 255, 255, 0.09),
     0 2px 0 rgba(0, 0, 0, 0.45);
 }
 
@@ -564,25 +591,29 @@
 .badminton-serve-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem;
+  gap: 0.45rem;
+  padding: 0.32rem 0.85rem;
   border-radius: 999px;
   background: #ffd700;
   color: #0c0c10;
-  box-shadow: 0 0 14px rgba(255, 215, 0, 0.65);
+  border: 2px solid rgba(12, 12, 16, 0.45);
+  box-shadow:
+    0 0 22px rgba(255, 215, 0, 0.85),
+    0 0 6px rgba(255, 215, 0, 0.95),
+    0 2px 6px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
 }
 
 .badminton-serve-badge .bw-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
   color: #0c0c10;
 }
 
 .badminton-serve-badge .badminton-serve-pip,
 .badminton-serve-badge .badminton-serve-pip--active {
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.7rem;
+  height: 0.7rem;
   animation: none;
   box-shadow: none;
   background: #0c0c10;
@@ -675,7 +706,7 @@
 
 .badminton-led-surface--crowd {
   /* Crowd mode enlarges score but still fits the centre column */
-  --score-digit-size: clamp(6rem, 12.5vw, 12rem);
+  --score-digit-size: clamp(7.3rem, 12.5vw, 14.6rem);
 }
 
 .badminton-score-digit--celebrate {

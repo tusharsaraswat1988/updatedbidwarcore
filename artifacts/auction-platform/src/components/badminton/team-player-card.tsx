@@ -109,7 +109,7 @@ function toneClasses(tone: TeamPlayerCardTone) {
       };
     case "led":
       return {
-        team: "text-white/55 uppercase",
+        team: "text-white/70 uppercase",
         player: "text-white",
         badgeText: "text-white",
       };
