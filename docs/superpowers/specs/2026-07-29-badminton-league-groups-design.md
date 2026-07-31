@@ -6,7 +6,7 @@
 
 ## Goal
 
-Support franchise team groups where each team fields N registered pairs. Fixtures are generated as pair-vs-pair rubbers between teams in the same group. Standings rank **pairs** by margin points from won games. Top 4 pairs qualify for knockout.
+Support franchise team groups where each team fields N registered pairs. Fixtures are generated as pair-vs-pair rubbers between teams in the same group. Standings rank **pairs** by wins, then margin points from won games (see `2026-07-31-vnbl-3-league-production-setup-design.md`). Top 4 pairs qualify for knockout (per group when multiple groups exist).
 
 ## Points formula (confirmed)
 

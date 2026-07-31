@@ -33,7 +33,7 @@ export async function getUsedInitialsInTournamentProfiles(
 
   return new Set(
     rows
-      .map((r) => r.initials.trim().toUpperCase())
+      .map((r) => r.initials?.trim().toUpperCase() ?? "")
       .filter(Boolean),
   );
 }
@@ -92,7 +92,7 @@ export async function ensureTournamentProfile(
   const existing = await getTournamentProfile(tournamentId, masterPlayerId);
   if (existing) {
     const used = await getUsedInitialsInTournamentProfiles(tournamentId, existing.id);
-    const normalized = existing.initials.trim().toUpperCase();
+    const normalized = (existing.initials ?? "").trim().toUpperCase();
     let initials = normalized;
     if (used.has(normalized)) {
       const [mp] = await db

@@ -1,9 +1,8 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
-const { mockUpdateWhere, mockInsertValues, mockLogSync } = vi.hoisted(() => ({
+const { mockUpdateWhere, mockInsertValues } = vi.hoisted(() => ({
   mockUpdateWhere: vi.fn().mockResolvedValue([]),
   mockInsertValues: vi.fn().mockResolvedValue([]),
-  mockLogSync: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@workspace/db", () => ({
@@ -21,16 +20,15 @@ vi.mock("@workspace/db", () => ({
     sport: "sport",
     isActive: "isActive",
   },
-}));
-
-vi.mock("../lib/master-sports/sync-helpers", () => ({
-  logSync: mockLogSync,
+  masterSportsSyncLogTable: {
+    action: "action",
+  },
 }));
 
 import {
   assignPlayerToFranchiseRoster,
   endActiveRosterAssignment,
-} from "../lib/master-sports/roster-assignments";
+} from "@workspace/player-registry/roster-assignments";
 
 describe("cricket roster assignments", () => {
   beforeEach(() => {
@@ -72,15 +70,8 @@ describe("cricket roster assignments", () => {
         sport: "cricket",
         assignmentType: "auction_sale",
         isActive: true,
+        auctionPlayerId: 5,
       }),
-    );
-    expect(mockLogSync).toHaveBeenCalledWith(
-      "roster_assignment_created",
-      "cricket_roster",
-      "5",
-      "gp_1",
-      "mt_1",
-      expect.objectContaining({ assignmentType: "auction_sale" }),
     );
   });
 
@@ -97,6 +88,26 @@ describe("cricket roster assignments", () => {
 
     expect(mockInsertValues).toHaveBeenCalledWith(
       expect.objectContaining({ assignmentType: "transfer" }),
+    );
+  });
+
+  it("allows null auctionPlayerId for registry-only badminton assigns", async () => {
+    await assignPlayerToFranchiseRoster({
+      masterPlayerId: "gp_3",
+      masterTeamId: "mt_4",
+      tournamentId: 10,
+      auctionPlayerId: null,
+      auctionTeamId: 7,
+      assignmentType: "transfer",
+      sport: "badminton",
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        auctionPlayerId: null,
+        auctionTeamId: 7,
+        sport: "badminton",
+      }),
     );
   });
 });

@@ -81,9 +81,20 @@ const TERMINAL_STATUSES = new Set([
   "abandoned",
 ]);
 
+/** VNBL ranking: wins first, then point-difference (margin), then stable id. */
+export function comparePairStandings(
+  a: Pick<PairStandingComputed, "won" | "marginPoints" | "registrationId">,
+  b: Pick<PairStandingComputed, "won" | "marginPoints" | "registrationId">,
+): number {
+  if (b.won !== a.won) return b.won - a.won;
+  if (b.marginPoints !== a.marginPoints) return b.marginPoints - a.marginPoints;
+  return a.registrationId - b.registrationId;
+}
+
 /**
  * Build pair standings from completed league matches.
- * Points = sum of rally margins from won games only (Formula A).
+ * Margin = sum of rally margins from won games only (or assigned WO margin).
+ * Rank = wins DESC, then margin DESC.
  */
 export function buildPairStandingsFromMatches(
   registrationIds: number[],
@@ -129,9 +140,5 @@ export function buildPairStandingsFromMatches(
     }
   }
 
-  return [...map.values()].sort((a, b) => {
-    if (b.marginPoints !== a.marginPoints) return b.marginPoints - a.marginPoints;
-    if (b.won !== a.won) return b.won - a.won;
-    return a.registrationId - b.registrationId;
-  });
+  return [...map.values()].sort(comparePairStandings);
 }

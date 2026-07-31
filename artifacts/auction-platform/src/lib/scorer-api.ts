@@ -4,11 +4,13 @@ export type ScorerProfile = {
   id: number;
   name: string;
   mobile: string;
+  isActive?: boolean;
 };
 
 export type ScorerLoginResult = {
   token: string;
   scorer: ScorerProfile;
+  canScore?: boolean;
   expiresAt: string;
 };
 
@@ -73,6 +75,18 @@ export async function acquireScorerMatchLock(
       message:
         (typeof body.message === "string" && body.message) ||
         "This match is currently being scored by another active session.",
+    };
+  }
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({}));
+    const code = typeof body.code === "string" ? body.code : "SCORING_FORBIDDEN";
+    return {
+      ok: false,
+      code,
+      message:
+        (typeof body.error === "string" && body.error) ||
+        (typeof body.message === "string" && body.message) ||
+        "Scoring is disabled for this account.",
     };
   }
   if (!res.ok) throw await parseError(res);

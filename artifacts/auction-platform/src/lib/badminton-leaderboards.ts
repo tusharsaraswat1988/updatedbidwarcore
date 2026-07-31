@@ -6,9 +6,12 @@ export type LeagueStandingRow = {
   rank: number;
   registrationId: number;
   label: string;
+  groupId?: number | null;
+  groupName?: string | null;
   played: number;
   won: number;
   lost: number;
+  /** Point difference from won matches (VNBL Diff). */
   marginPoints: number;
 };
 
@@ -113,7 +116,7 @@ export function buildLeaderboardBoards(input: {
           categoryId: cat.id,
           categoryName,
           boardTitle: group.name,
-          subtitle: `${categoryName} · Group standings`,
+          subtitle: `${categoryName} · Wins → Diff`,
           rows: filtered,
         });
       }

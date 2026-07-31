@@ -1375,7 +1375,7 @@ export function ObsLeaderboardsOverlay({
           </p>
         </div>
         <p className="text-[10px] uppercase tracking-wide text-white/40 shrink-0">
-          P · W · L · Pts
+          P · W · L · Diff
         </p>
       </div>
       <div className="space-y-1">

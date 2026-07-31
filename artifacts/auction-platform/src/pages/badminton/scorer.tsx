@@ -20,6 +20,7 @@ import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
   clearScorerAuthSession,
   getScorerAuthSession,
+  patchScorerAuthCanScore,
   setScorerAuthSession,
 } from "@/lib/badminton-scorer-session";
 import {
@@ -38,6 +39,7 @@ import {
   formatTeamPlayerLine,
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
+import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 
 const HEARTBEAT_MS = 20_000;
 
@@ -105,6 +107,7 @@ export default function BadmintonScorerPage() {
   // ("Opening scorer console…" with no Back / no progress on Resume Match).
   const [busy, setBusy] = useState(false);
   const [viewingComplete, setViewingComplete] = useState(false);
+  const [viewOnly, setViewOnly] = useState(() => getScorerAuthSession()?.canScore === false);
   const [editingToss, setEditingToss] = useState(false);
   const lockHeldRef = useRef(false);
   const releasedOnCompleteRef = useRef(false);
@@ -125,9 +128,11 @@ export default function BadmintonScorerPage() {
           return;
         }
         const login = await loginScorer(mobile.trim(), pin.trim());
+        const loginCanScore = login.canScore ?? login.scorer.isActive !== false;
         setScorerAuthSession({
           token: login.token,
-          scorer: login.scorer,
+          scorer: { ...login.scorer, isActive: loginCanScore },
+          canScore: loginCanScore,
           expiresAt: login.expiresAt,
         });
         session = getScorerAuthSession();
@@ -138,11 +143,29 @@ export default function BadmintonScorerPage() {
       }
 
       setAuthAccepted(true);
+
+      // Deactivated scorers browse match detail without taking the scoring lock.
+      if (session.canScore === false) {
+        setViewOnly(true);
+        setLockAccepted(false);
+        lockHeldRef.current = false;
+        return;
+      }
+
+      setViewOnly(false);
       const lock = await acquireScorerMatchLock(matchId, session.token, {
         tournamentId,
         sport: "badminton",
       });
       if (!lock.ok) {
+        if (lock.code === "ACCOUNT_INACTIVE") {
+          patchScorerAuthCanScore(false);
+          setViewOnly(true);
+          setLockAccepted(false);
+          lockHeldRef.current = false;
+          setAuthError("");
+          return;
+        }
         setLockAccepted(false);
         lockHeldRef.current = false;
         setAuthError(lock.message);
@@ -214,7 +237,7 @@ export default function BadmintonScorerPage() {
     };
   }, [matchId, tournamentId]);
 
-  const ready = authAccepted && (lockAccepted || viewingComplete);
+  const ready = authAccepted && (lockAccepted || viewingComplete || viewOnly);
 
   const { data, isLoading, error } = useBadmintonMatch(
     ready ? tournamentId : 0,
@@ -456,6 +479,62 @@ export default function BadmintonScorerPage() {
   const state = data.state as BadmintonMatchState;
 
   if (state.matchStatus === "scheduled") {
+    if (viewOnly) {
+      const left = identityFromSideInfo(state.leftSide);
+      const right = identityFromSideInfo(state.rightSide);
+      const scheduledAt =
+        typeof matchDetail?.scheduledAt === "string"
+          ? matchDetail.scheduledAt
+          : typeof (data as { match?: { scheduledAt?: string | null } })?.match?.scheduledAt ===
+              "string"
+            ? (data as { match: { scheduledAt: string } }).match.scheduledAt
+            : null;
+      return (
+        <FullscreenLayout className="lovable-theme">
+          <div className="min-h-screen bg-background flex items-center justify-center p-6">
+            <div className="w-full max-w-md space-y-5">
+              <BadmintonPublicBrandMark variant="scorer-bar" className="mx-auto" />
+              <div className="text-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-amber-200/80">
+                  View only · Upcoming
+                </p>
+                <h1 className="text-foreground text-2xl font-black mt-2">Match schedule</h1>
+                {categoryName ? (
+                  <p className="text-muted-foreground text-sm mt-2">{categoryName}</p>
+                ) : null}
+                {courtNumber ? (
+                  <p className="text-muted-foreground text-sm mt-1">Court {courtNumber}</p>
+                ) : null}
+                {scheduledAt ? (
+                  <p className="text-foreground text-sm font-semibold mt-3">
+                    {new Date(scheduledAt).toLocaleString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-sm mt-3">Time TBD</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-border bg-card/80 px-4 py-4">
+                <TeamPlayerVs left={left} right={right} size="md" layout="stack" tone="led" />
+              </div>
+              <button
+                type="button"
+                onClick={() => void exitScorer(false)}
+                className="w-full min-h-14 rounded-xl bg-white/10 border border-white/15 text-foreground font-bold"
+              >
+                Back to Scorer Home
+              </button>
+            </div>
+          </div>
+        </FullscreenLayout>
+      );
+    }
+
     return (
       <FullscreenLayout className="lovable-theme">
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -629,7 +708,14 @@ export default function BadmintonScorerPage() {
             </button>
           </div>
         ) : null}
-        {scorer.pointSyncError ? (
+        {viewOnly ? (
+          <div className="shrink-0 px-3 py-2 border-b border-amber-500/30 bg-amber-500/10">
+            <p className="text-amber-100 text-xs font-semibold text-center">
+              View only — scoring controls are disabled
+            </p>
+          </div>
+        ) : null}
+        {scorer.pointSyncError && !viewOnly ? (
           <div
             className="shrink-0 px-3 py-2.5 bg-destructive/15 border-b border-destructive/30 flex items-center justify-between gap-3"
             role="alert"
@@ -658,7 +744,7 @@ export default function BadmintonScorerPage() {
             </button>
           </div>
         ) : null}
-        {canShowEditToss(state) && !editingToss ? (
+        {canShowEditToss(state) && !editingToss && !viewOnly ? (
           <div className="shrink-0 px-3 py-2 border-b border-border bg-cyan-500/10">
             <button
               type="button"
@@ -673,7 +759,7 @@ export default function BadmintonScorerPage() {
           </div>
         ) : null}
         <div className="flex-1 min-h-0 overflow-hidden">
-          {editingToss ? (
+          {editingToss && !viewOnly ? (
             <ScorerEditTossPanel
               state={state}
               onCancel={() => setEditingToss(false)}
@@ -688,10 +774,12 @@ export default function BadmintonScorerPage() {
               tournamentName={tournamentName}
               courtNumber={courtNumber}
               categoryName={categoryName}
-              onAwardPoint={scorer.awardPoint}
-              onStartInterval={scorer.startInterval}
-              onEndInterval={scorer.endInterval}
-              onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
+              onAwardPoint={viewOnly ? async () => {} : scorer.awardPoint}
+              onStartInterval={viewOnly ? async () => {} : scorer.startInterval}
+              onEndInterval={viewOnly ? async () => {} : scorer.endInterval}
+              onAcknowledgeCourtChange={
+                viewOnly ? async () => {} : scorer.acknowledgeCourtChange
+              }
             >
               {({ scoringBlocked, onAwardPoint }) => (
                 <ScorerPanel
@@ -699,12 +787,12 @@ export default function BadmintonScorerPage() {
                   matchId={matchId}
                   state={state}
                   onAwardPoint={onAwardPoint}
-                  onUndo={scorer.undo}
-                  onStartTimeout={scorer.startTimeout}
-                  onEndTimeout={scorer.endTimeout}
-                  onRetirement={director.retirement}
-                  onWalkover={director.walkover}
-                  scoringBlocked={scoringBlocked}
+                  onUndo={viewOnly ? async () => {} : scorer.undo}
+                  onStartTimeout={viewOnly ? async () => {} : scorer.startTimeout}
+                  onEndTimeout={viewOnly ? async () => {} : scorer.endTimeout}
+                  onRetirement={viewOnly ? async () => {} : director.retirement}
+                  onWalkover={viewOnly ? async () => {} : director.walkover}
+                  scoringBlocked={viewOnly || scoringBlocked}
                 />
               )}
             </ScorerAssistanceShell>

@@ -41,7 +41,7 @@ export async function assignPlayerToFranchiseRoster(input: {
   masterPlayerId: string;
   masterTeamId: string;
   tournamentId: number;
-  auctionPlayerId: number;
+  auctionPlayerId: number | null;
   auctionTeamId: number;
   assignmentType: RosterAssignmentType;
   sport: string;
@@ -65,7 +65,7 @@ export async function assignPlayerToFranchiseRoster(input: {
   await logSync(
     "roster_assignment_created",
     `${sportSlug}_roster`,
-    String(input.auctionPlayerId),
+    input.auctionPlayerId != null ? String(input.auctionPlayerId) : null,
     input.masterPlayerId,
     input.masterTeamId,
     {

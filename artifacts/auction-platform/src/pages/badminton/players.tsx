@@ -1004,12 +1004,12 @@ function PlayerFormModal({
     setSaving(true);
     setError("");
     try {
-      const payload = {
+      const initialPhotoUrl = player?.photoUrl ?? "";
+      const photoChanged = (form.photoUrl || "") !== initialPhotoUrl || !!form.photoPublicId;
+      const payload: Record<string, unknown> = {
         name: form.name.trim(),
         mobile: mobileResult.normalized,
         email: emailResult.email || undefined,
-        photoUrl: form.photoUrl || null,
-        photoPublicId: form.photoPublicId || null,
         city: form.city.trim() || undefined,
         age: form.age ? parseInt(form.age, 10) : undefined,
         gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
@@ -1019,15 +1019,38 @@ function PlayerFormModal({
         jerseySize: form.jerseySize || undefined,
         achievements: form.achievements.trim() || undefined,
       };
+      // Only send photo fields when the user changed/removed the photo.
+      // Re-sending photoPublicId: null on every edit can break saves.
+      if (photoChanged) {
+        payload.photoUrl = form.photoUrl || null;
+        payload.photoPublicId = form.photoPublicId || null;
+      }
+
+      const teamChanged = form.franchiseTeamId !== initialTeamId;
+      let savedPlayerId = player?.id;
+
+      // Assign team first so a profile-field failure cannot block franchise assignment.
+      if (savedPlayerId && teamChanged && franchiseTeams.length > 0) {
+        await badmintonFetch(tournamentId, `/players/${savedPlayerId}/franchise-team`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            auctionTeamId:
+              form.franchiseTeamId === "none"
+                ? null
+                : parseInt(form.franchiseTeamId, 10),
+          }),
+        });
+      }
+
       const path = player ? `/players/${player.id}` : `/players`;
       const saved = await badmintonFetch<BadmintonPlayer>(tournamentId, path, {
         method: player ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
+      savedPlayerId = player?.id ?? saved.id;
 
-      const savedPlayerId = player?.id ?? saved.id;
-      const teamChanged = form.franchiseTeamId !== initialTeamId;
-      if (savedPlayerId && teamChanged && franchiseTeams.length > 0) {
+      // New walk-in players: assign team after create.
+      if (!player && savedPlayerId && teamChanged && franchiseTeams.length > 0) {
         await badmintonFetch(tournamentId, `/players/${savedPlayerId}/franchise-team`, {
           method: "PATCH",
           body: JSON.stringify({

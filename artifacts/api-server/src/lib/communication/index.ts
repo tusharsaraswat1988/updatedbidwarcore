@@ -42,4 +42,6 @@ export { buildPlayerSoldMergeData } from "./player-sold-merge-data.js";
 export {
   enqueueBadmintonMatchWinEmails,
   enqueueBadmintonMatchWinEmailsAsync,
+  BADMINTON_MATCH_WIN_TEMPLATE,
+  BADMINTON_MATCH_WIN_OWNER_TEMPLATE,
 } from "./badminton-match-win-email-service.js";

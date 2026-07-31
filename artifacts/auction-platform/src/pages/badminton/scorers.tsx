@@ -171,7 +171,11 @@ function ScorerCard({
       });
     },
     onSuccess: () => {
-      toastSuccess(scorer.isActive ? "Scorer deactivated" : "Scorer activated");
+      toastSuccess(
+        scorer.isActive
+          ? "Scorer deactivated — can still view schedules/results, cannot score"
+          : "Scorer activated — scoring enabled",
+      );
       onChanged();
     },
     onError: (e) => toastError(e),
@@ -190,12 +194,14 @@ function ScorerCard({
                 : "bg-white/10 text-white/45",
             )}
           >
-            {scorer.isActive ? "Active" : "Inactive"}
+            {scorer.isActive ? "Active" : "View only"}
           </span>
         </div>
         <p className="text-sm text-muted-foreground font-mono mt-0.5">{scorer.mobile}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Last login · {formatWhen(scorer.lastLoginAt)}
+          {scorer.isActive
+            ? `Last login · ${formatWhen(scorer.lastLoginAt)}`
+            : `View-only · Last login · ${formatWhen(scorer.lastLoginAt)}`}
         </p>
       </div>
       <div className="flex gap-2">

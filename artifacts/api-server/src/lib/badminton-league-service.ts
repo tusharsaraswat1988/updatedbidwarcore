@@ -5,6 +5,7 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   buildPairStandingsFromMatches,
+  comparePairStandings,
   planTeamTieGroupFixtures,
   type PairStandingsMatchInput,
 } from "@workspace/badminton-core";
@@ -351,12 +352,24 @@ function parseMatchState(snapshot: unknown): BadmintonMatchState | null {
   return s;
 }
 
+export type PairStandingsQueryOptions = {
+  /** Max rows after ranking. For `per_group`, applied within each group. */
+  limit?: number;
+  /**
+   * `category` — top N across the whole category (female / single board).
+   * `per_group` — top N within each league group (male Group 1 / Group 2).
+   */
+  mode?: "category" | "per_group";
+  /** Optional filter to one group (standings list). */
+  groupId?: number;
+};
+
 export async function rebuildCategoryPairStandings(
   tournamentId: number,
   categoryId: number,
 ): Promise<void> {
   const registrations = await db
-    .select({ id: badmintonRegistrationsTable.id })
+    .select()
     .from(badmintonRegistrationsTable)
     .where(
       and(
@@ -368,6 +381,23 @@ export async function rebuildCategoryPairStandings(
 
   const registrationIds = registrations.map((r) => r.id);
   if (registrationIds.length === 0) return;
+
+  const groups = await listLeagueGroups(tournamentId, categoryId);
+  const teamToGroupId = new Map<number, number>();
+  for (const group of groups) {
+    for (const team of group.teams) {
+      teamToGroupId.set(team.teamId, group.id);
+    }
+  }
+
+  const registrationGroupId = new Map<number, number | null>();
+  for (const reg of registrations) {
+    const teamId = await resolveRegistrationTeamId(tournamentId, reg);
+    registrationGroupId.set(
+      reg.id,
+      teamId != null ? (teamToGroupId.get(teamId) ?? null) : null,
+    );
+  }
 
   const fixtures = await db
     .select()
@@ -468,6 +498,7 @@ export async function rebuildCategoryPairStandings(
         tournamentId,
         categoryId,
         registrationId: row.registrationId,
+        groupId: registrationGroupId.get(row.registrationId) ?? null,
         played: row.played,
         won: row.won,
         lost: row.lost,
@@ -480,11 +511,19 @@ export async function rebuildCategoryPairStandings(
 export async function getCategoryPairStandings(
   tournamentId: number,
   categoryId: number,
-  limit?: number,
+  options: number | PairStandingsQueryOptions = {},
 ) {
+  const opts: PairStandingsQueryOptions =
+    typeof options === "number" ? { limit: options, mode: "category" } : options;
+  const mode = opts.mode ?? "category";
+  const limit = opts.limit;
+
   await rebuildCategoryPairStandings(tournamentId, categoryId);
 
-  const rows = await db
+  const groups = await listLeagueGroups(tournamentId, categoryId);
+  const groupNameById = new Map(groups.map((g) => [g.id, g.name]));
+
+  let rows = await db
     .select()
     .from(badmintonPairStandingsTable)
     .where(
@@ -492,21 +531,49 @@ export async function getCategoryPairStandings(
         eq(badmintonPairStandingsTable.tournamentId, tournamentId),
         eq(badmintonPairStandingsTable.categoryId, categoryId),
       ),
-    )
-    .orderBy(
-      asc(badmintonPairStandingsTable.marginPoints),
-      asc(badmintonPairStandingsTable.won),
     );
 
-  rows.sort((a, b) => {
-    if (b.marginPoints !== a.marginPoints) return b.marginPoints - a.marginPoints;
-    if (b.won !== a.won) return b.won - a.won;
-    return a.registrationId - b.registrationId;
-  });
+  if (opts.groupId != null) {
+    rows = rows.filter((r) => r.groupId === opts.groupId);
+  }
 
-  const sliced = limit ? rows.slice(0, limit) : rows;
+  rows.sort(comparePairStandings);
 
-  const regIds = sliced.map((r) => r.registrationId);
+  type StandingRow = (typeof rows)[number] & { rank: number };
+  let ranked: StandingRow[];
+
+  if (mode === "per_group") {
+    const byGroup = new Map<number | null, typeof rows>();
+    for (const row of rows) {
+      const key = row.groupId;
+      const list = byGroup.get(key) ?? [];
+      list.push(row);
+      byGroup.set(key, list);
+    }
+
+    ranked = [];
+    const groupKeys = [...byGroup.keys()].sort((a, b) => {
+      if (a == null) return 1;
+      if (b == null) return -1;
+      const orderA = groups.find((g) => g.id === a)?.sortOrder ?? a;
+      const orderB = groups.find((g) => g.id === b)?.sortOrder ?? b;
+      return orderA - orderB || a - b;
+    });
+
+    for (const key of groupKeys) {
+      const groupRows = (byGroup.get(key) ?? []).sort(comparePairStandings);
+      const sliced =
+        limit != null && limit > 0 ? groupRows.slice(0, limit) : groupRows;
+      for (let i = 0; i < sliced.length; i++) {
+        ranked.push({ ...sliced[i]!, rank: i + 1 });
+      }
+    }
+  } else {
+    const sliced = limit != null && limit > 0 ? rows.slice(0, limit) : rows;
+    ranked = sliced.map((row, index) => ({ ...row, rank: index + 1 }));
+  }
+
+  const regIds = ranked.map((r) => r.registrationId);
   const regs =
     regIds.length > 0
       ? await db
@@ -536,7 +603,7 @@ export async function getCategoryPairStandings(
     return p?.displayName ?? [p?.firstName, p?.lastName].filter(Boolean).join(" ") ?? `#${id}`;
   };
 
-  return sliced.map((row, index) => {
+  return ranked.map((row) => {
     const reg = regs.find((r) => r.id === row.registrationId);
     const label = reg
       ? reg.player2Id
@@ -545,9 +612,11 @@ export async function getCategoryPairStandings(
       : `Entry #${row.registrationId}`;
 
     return {
-      rank: index + 1,
+      rank: row.rank,
       registrationId: row.registrationId,
       label,
+      groupId: row.groupId ?? null,
+      groupName: row.groupId != null ? (groupNameById.get(row.groupId) ?? null) : null,
       played: row.played,
       won: row.won,
       lost: row.lost,

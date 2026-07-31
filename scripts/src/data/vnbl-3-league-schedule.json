@@ -1,0 +1,60 @@
+{
+  "tournamentName": "Vyapari Network Badminton League 3.0",
+  "day1DateHint": "Set DAY1_DATE=YYYY-MM-DD (IST match times from sheet)",
+  "male": {
+    "categoryHint": "Men's Doubles / Male League",
+    "groups": {
+      "Group 1": ["SS", "VTS", "NR"],
+      "Group 2": ["RM", "A2", "RD"]
+    },
+    "matches": [
+      { "n": 1, "time": "09:15", "teamA": "SS", "pairA": ["Sagar B", "Rohit P"], "teamB": "VTS", "pairB": ["Vikas M", "Aditya S"] },
+      { "n": 2, "time": "09:30", "teamA": "NR", "pairA": ["Shrivallabh", "Mohit Jain"], "teamB": "SS", "pairB": ["Dr. Vishal", "Aditya S"] },
+      { "n": 3, "time": "09:45", "teamA": "RM", "pairA": ["Ankit S", "Amit D"], "teamB": "A2", "pairB": ["Dhananjay", "Himanshu"] },
+      { "n": 4, "time": "10:00", "teamA": "VTS", "pairA": ["Amit J", "Yash G"], "teamB": "SS", "pairB": ["Jaspreet", "Anand B"] },
+      { "n": 5, "time": "10:15", "teamA": "SS", "pairA": ["Sagar B", "Rohit P"], "teamB": "VTS", "pairB": ["Varun C", "Tarun C"] },
+      { "n": 6, "time": "10:30", "teamA": "RD", "pairA": ["Raunak J", "Vaibhav J"], "teamB": "A2", "pairB": ["Ashutosh", "Aditya"] },
+      { "n": 7, "time": "10:45", "teamA": "SS", "pairA": ["Pankaj R", "Vibhor C"], "teamB": "VTS", "pairB": ["Varun C", "Tarun C"] },
+      { "n": 8, "time": "11:00", "teamA": "RD", "pairA": ["Pulkit", "Vijay"], "teamB": "RM", "pairB": ["Raj C", "Pranav V"] },
+      { "n": 9, "time": "11:15", "teamA": "RM", "pairA": ["Ankit S", "Amit D"], "teamB": "A2", "pairB": ["Ashutosh", "Aditya"] },
+      { "n": 10, "time": "11:30", "teamA": "NR", "pairA": ["Ved Singh", "Pradip Y"], "teamB": "SS", "pairB": ["Tariq", "Akshay S"] },
+      { "n": 11, "time": "11:45", "teamA": "A2", "pairA": ["Tanmay", "Ayush Mittal"], "teamB": "RD", "pairB": ["Sushant", "Adhish"] },
+      { "n": 12, "time": "12:00", "teamA": "RD", "pairA": ["Pulkit", "Vijay"], "teamB": "A2", "pairB": ["Dhananjay", "Himanshu"] },
+      { "n": 13, "time": "12:15", "teamA": "RM", "pairA": ["Raj C", "Pranav V"], "teamB": "RD", "pairB": ["Sushant", "Adhish"] },
+      { "n": 14, "time": "12:30", "teamA": "NR", "pairA": ["Praveen M", "Aviral M"], "teamB": "VTS", "pairB": ["Sandeep M", "Rachit D"] },
+      { "n": 15, "time": "12:45", "teamA": "A2", "pairA": ["Jatin", "Vedansh"], "teamB": "RM", "pairB": ["Nikhil V", "Vikash A"] },
+      { "n": 16, "time": "13:00", "teamA": "SS", "pairA": ["Pankaj R", "Vibhor C"], "teamB": "NR", "pairB": ["Atul S", "Anurag J"] },
+      { "n": 17, "time": "13:15", "teamA": "NR", "pairA": ["Ved Singh", "Pradip Y"], "teamB": "VTS", "pairB": ["Vikas M", "Aditya S"] },
+      { "n": 18, "time": "13:30", "teamA": "NR", "pairA": ["Praveen M", "Aviral M"], "teamB": "SS", "pairB": ["Dr. Vishal", "Aditya S"] },
+      { "n": 19, "time": "13:45", "teamA": "VTS", "pairA": ["Amit J", "Yash G"], "teamB": "SS", "pairB": ["Tariq", "Akshay S"] },
+      { "n": 20, "time": "14:00", "teamA": "NR", "pairA": ["Shrivallabh", "Mohit Jain"], "teamB": "VTS", "pairB": ["Sandeep M", "Rachit D"] },
+      { "n": 21, "time": "14:15", "teamA": "A2", "pairA": ["Tanmay", "Ayush Mittal"], "teamB": "RM", "pairB": ["Nikhil V", "Vikash A"] },
+      { "n": 22, "time": "14:30", "teamA": "A2", "pairA": ["Jatin", "Vedansh"], "teamB": "RM", "pairB": ["Rahul G", "Rishabh S"] },
+      { "n": 23, "time": "14:45", "teamA": "NR", "pairA": ["Anoop J", "Dhananjay"], "teamB": "VTS", "pairB": ["Anubhav C", "Ayush J"] },
+      { "n": 24, "time": "15:00", "teamA": "RD", "pairA": ["Gaurav Jain", "Devansh"], "teamB": "RM", "pairB": ["Somesh G", "Devandar J"] },
+      { "n": 25, "time": "15:15", "teamA": "RD", "pairA": ["Manish S", "Rahul R"], "teamB": "A2", "pairB": ["Uttam", "Pratik"] },
+      { "n": 26, "time": "15:30", "teamA": "VTS", "pairA": ["Anubhav C", "Ayush J"], "teamB": "NR", "pairB": ["Atul S", "Anurag J"] },
+      { "n": 27, "time": "15:45", "teamA": "NR", "pairA": ["Anoop J", "Dhananjay"], "teamB": "SS", "pairB": ["Jaspreet", "Anand B"] },
+      { "n": 28, "time": "16:00", "teamA": "RD", "pairA": ["Gaurav Jain", "Devansh"], "teamB": "A2", "pairB": ["Uttam", "Pratik"] },
+      { "n": 29, "time": "16:15", "teamA": "RD", "pairA": ["Manish S", "Rahul R"], "teamB": "RM", "pairB": ["Somesh G", "Devandar J"] },
+      { "n": 30, "time": "16:30", "teamA": "RD", "pairA": ["Raunak J", "Vaibhav J"], "teamB": "RM", "pairB": ["Rahul G", "Rishabh S"] }
+    ]
+  },
+  "female": {
+    "categoryHint": "Women's Doubles / Female League",
+    "matches": [
+      { "n": 1, "time": "13:00", "teamA": "A2", "pairA": ["Chhavi", "Vaishali"], "teamB": "SS", "pairB": ["Sanno G", "Dr. Sonam"] },
+      { "n": 2, "time": "13:15", "teamA": "VTS", "pairA": ["Dr Khusboo", "Preeti S"], "teamB": "RD", "pairB": ["Swati", "Alankrita"] },
+      { "n": 3, "time": "13:30", "teamA": "NR", "pairA": ["Sakshi Bhasin", "Juhi A"], "teamB": "RM", "pairB": ["Niharika T", "Shreya D"] },
+      { "n": 4, "time": "13:45", "teamA": "RM", "pairA": ["Pallavi J", "Sima A"], "teamB": "NR", "pairB": ["Sakshi Saraf", "Shashikala"] },
+      { "n": 5, "time": "14:00", "teamA": "RD", "pairA": ["Jyoti", "Riddhi"], "teamB": "VTS", "pairB": ["Ayushi", "Monisha"] },
+      { "n": 6, "time": "14:15", "teamA": "A2", "pairA": ["Chhavi", "Vaishali"], "teamB": "RD", "pairB": ["Swati", "Alankrita"] },
+      { "n": 7, "time": "14:30", "teamA": "VTS", "pairA": ["Dr Khusboo", "Preeti S"], "teamB": "SS", "pairB": ["Sanno G", "Dr. Sonam"] },
+      { "n": 8, "time": "14:45", "teamA": "SS", "pairA": ["Shweta", "Priyam"], "teamB": "NR", "pairB": ["Sakshi Saraf", "Shashikala"] },
+      { "n": 9, "time": "15:00", "teamA": "RM", "pairA": ["Pallavi J", "Sima A"], "teamB": "A2", "pairB": ["Sonali S", "Gunjan"] },
+      { "n": 10, "time": "15:15", "teamA": "NR", "pairA": ["Sakshi Bhasin", "Juhi A"], "teamB": "VTS", "pairB": ["Ayushi", "Monisha"] },
+      { "n": 11, "time": "15:30", "teamA": "RD", "pairA": ["Jyoti", "Riddhi"], "teamB": "RM", "pairB": ["Niharika T", "Shreya D"] },
+      { "n": 12, "time": "15:45", "teamA": "SS", "pairA": ["Shweta", "Priyam"], "teamB": "A2", "pairB": ["Sonali S", "Gunjan"] }
+    ]
+  }
+}

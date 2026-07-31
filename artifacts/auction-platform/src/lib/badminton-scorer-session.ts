@@ -7,7 +7,9 @@ const STORAGE_KEY = "bidwar:scorer-auth:v1";
 
 export type ScorerAuthSession = {
   token: string;
-  scorer: { id: number; name: string; mobile: string };
+  scorer: { id: number; name: string; mobile: string; isActive?: boolean };
+  /** False when account is deactivated — view scores/schedules only. */
+  canScore: boolean;
   expiresAt: string;
   verifiedAt: number;
 };
@@ -30,9 +32,14 @@ export function getScorerAuthSession(): ScorerAuthSession | null {
       clearScorerAuthSession();
       return null;
     }
+    const canScore =
+      typeof parsed.canScore === "boolean"
+        ? parsed.canScore
+        : parsed.scorer.isActive !== false;
     return {
       token: parsed.token,
       scorer: parsed.scorer as ScorerAuthSession["scorer"],
+      canScore,
       expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : "",
       verifiedAt: typeof parsed.verifiedAt === "number" ? parsed.verifiedAt : Date.now(),
     };
@@ -46,12 +53,25 @@ export function setScorerAuthSession(session: Omit<ScorerAuthSession, "verifiedA
   try {
     const payload: ScorerAuthSession = {
       ...session,
+      canScore: session.canScore !== false,
       verifiedAt: Date.now(),
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
     // Private browsing / quota
   }
+}
+
+/** Sync canScore after Scorer Home /me refresh (e.g. organizer deactivated account). */
+export function patchScorerAuthCanScore(canScore: boolean): void {
+  const existing = getScorerAuthSession();
+  if (!existing) return;
+  setScorerAuthSession({
+    token: existing.token,
+    scorer: { ...existing.scorer, isActive: canScore },
+    canScore,
+    expiresAt: existing.expiresAt,
+  });
 }
 
 export function clearScorerAuthSession(): void {

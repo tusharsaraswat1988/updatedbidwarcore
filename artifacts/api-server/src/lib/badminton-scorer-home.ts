@@ -10,6 +10,10 @@ export type ScorerHomeMatchCard = {
   category: string | null;
   playerA: string;
   playerB: string;
+  /** Franchise / team name for side A when present (team filter). */
+  teamA: string | null;
+  /** Franchise / team name for side B when present (team filter). */
+  teamB: string | null;
   court: string | null;
   courtId: number | null;
   scheduledAt: string | null;
@@ -43,7 +47,24 @@ export type ScorerHomeSessionPayload = {
    * matches — legacy flat match list (no court PIN assignment)
    */
   view: "court" | "courts" | "matches";
+  /** False when the scorer account is deactivated (view-only). */
+  canScore?: boolean;
+  scorer?: {
+    id: number;
+    name: string;
+    mobile: string;
+    isActive: boolean;
+  };
 };
+
+export function sideTeamName(side: Record<string, unknown> | null | undefined): string | null {
+  if (!side) return null;
+  const team =
+    (typeof side.franchiseName === "string" && side.franchiseName.trim()) ||
+    (typeof side.teamName === "string" && side.teamName.trim()) ||
+    "";
+  return team || null;
+}
 
 export function sideDisplayLabel(side: Record<string, unknown> | null | undefined): string {
   if (!side) return "TBD";
@@ -53,10 +74,7 @@ export function sideDisplayLabel(side: Record<string, unknown> | null | undefine
     (typeof side.displayName === "string" && side.displayName.trim()) ||
     "";
   if (!player) return "TBD";
-  const team =
-    (typeof side.franchiseName === "string" && side.franchiseName.trim()) ||
-    (typeof side.teamName === "string" && side.teamName.trim()) ||
-    "";
+  const team = sideTeamName(side) ?? "";
   return team ? `${team} · ${player}` : player;
 }
 

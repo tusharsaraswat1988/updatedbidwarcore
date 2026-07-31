@@ -9,7 +9,7 @@ import {
   teamsTable,
   tournamentsTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import type { BadmintonMatchState, BadmintonSideInfo } from "@workspace/badminton-core";
 import { logger } from "../logger.js";
 import { getPublicOrigin } from "../runtime-env.js";
@@ -19,9 +19,15 @@ import {
   BADMINTON_MATCH_WIN_HTML,
   BADMINTON_MATCH_WIN_SUBJECT,
 } from "./badminton-match-win-email-template.js";
+import {
+  BADMINTON_MATCH_WIN_OWNER_HTML,
+  BADMINTON_MATCH_WIN_OWNER_SUBJECT,
+} from "./badminton-match-win-owner-email-template.js";
 
-const TEMPLATE_KEY = "badminton_match_win";
-const EVENT_TYPE = "BADMINTON_MATCH_WIN";
+const PLAYER_TEMPLATE_KEY = "badminton_match_win";
+const OWNER_TEMPLATE_KEY = "badminton_match_win_owner";
+const PLAYER_EVENT_TYPE = "BADMINTON_MATCH_WIN";
+const OWNER_EVENT_TYPE = "BADMINTON_MATCH_WIN_OWNER";
 
 type WinRecipient = {
   email: string;
@@ -29,6 +35,17 @@ type WinRecipient = {
   role: "player" | "team_owner";
   entityType: "badminton_player" | "team";
   entityId: number;
+  teamName?: string;
+};
+
+type BadmintonPlayerRow = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  displayName: string | null;
+  email: string | null;
+  mobile: string | null;
+  masterPlayerId: string | null;
 };
 
 function appUrl(): string {
@@ -47,8 +64,19 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function buildIdempotencyKey(matchId: number, email: string): string {
-  return `${EVENT_TYPE}:match:${matchId}:email:${normalizeEmail(email)}`;
+function pickValidEmail(email: string | null | undefined): string | null {
+  if (!email || !email.trim()) return null;
+  const normalized = normalizeEmail(email);
+  return isValidEmail(normalized) ? normalized : null;
+}
+
+function buildIdempotencyKey(
+  matchId: number,
+  role: WinRecipient["role"],
+  email: string,
+): string {
+  const eventType = role === "team_owner" ? OWNER_EVENT_TYPE : PLAYER_EVENT_TYPE;
+  return `${eventType}:match:${matchId}:email:${normalizeEmail(email)}`;
 }
 
 function formatScoreLine(state: BadmintonMatchState): string {
@@ -82,6 +110,15 @@ function sideFranchiseName(side: BadmintonSideInfo): string {
   return (side.franchiseName || side.teamName || "").trim();
 }
 
+function playerDisplayName(player: BadmintonPlayerRow, fallback?: string | null): string {
+  return (
+    player.displayName?.trim() ||
+    fallback?.trim() ||
+    `${player.firstName} ${player.lastName}`.trim() ||
+    "Player"
+  );
+}
+
 async function resolveCategoryName(
   tournamentId: number,
   matchId: number,
@@ -113,12 +150,14 @@ async function resolveTournamentContext(tournamentId: number): Promise<{
   tournamentName: string;
   organiserName: string;
   organiserEmail: string;
+  organizerId: number | null;
 }> {
   const [tournament] = await db
     .select({
       name: tournamentsTable.name,
       organizerName: tournamentsTable.organizerName,
       organizerEmail: tournamentsTable.organizerEmail,
+      organizerId: tournamentsTable.organizerId,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
@@ -128,130 +167,355 @@ async function resolveTournamentContext(tournamentId: number): Promise<{
     tournamentName: tournament?.name?.trim() || "Badminton Tournament",
     organiserName: tournament?.organizerName?.trim() ?? "",
     organiserEmail: tournament?.organizerEmail?.trim() ?? "",
+    organizerId: tournament?.organizerId ?? null,
   };
+}
+
+/**
+ * Auction / cross-tournament email fallback for a badminton player.
+ * Order: global email → linked auctionPlayerId → players.globalPlayerId → mobile match.
+ */
+async function resolvePlayerEmailFromAuction(
+  player: BadmintonPlayerRow,
+): Promise<{ email: string; nameHint?: string } | null> {
+  const masterId = player.masterPlayerId?.trim() || null;
+  const mobile = player.mobile?.trim() || null;
+
+  if (masterId) {
+    const [global] = await db
+      .select({
+        email: globalPlayersTable.email,
+        displayName: globalPlayersTable.displayName,
+        canonicalName: globalPlayersTable.canonicalName,
+        auctionPlayerId: globalPlayersTable.auctionPlayerId,
+      })
+      .from(globalPlayersTable)
+      .where(eq(globalPlayersTable.id, masterId))
+      .limit(1);
+
+    const globalEmail = pickValidEmail(global?.email);
+    if (globalEmail) {
+      return {
+        email: globalEmail,
+        nameHint: global?.displayName || global?.canonicalName || undefined,
+      };
+    }
+
+    if (global?.auctionPlayerId) {
+      const [auctionById] = await db
+        .select({
+          email: playersTable.email,
+          name: playersTable.name,
+        })
+        .from(playersTable)
+        .where(eq(playersTable.id, global.auctionPlayerId))
+        .limit(1);
+      const email = pickValidEmail(auctionById?.email);
+      if (email) {
+        return { email, nameHint: auctionById?.name || undefined };
+      }
+    }
+
+    const linkedAuctionPlayers = await db
+      .select({
+        email: playersTable.email,
+        name: playersTable.name,
+      })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.globalPlayerId, masterId),
+          isNotNull(playersTable.email),
+          ne(playersTable.email, ""),
+        ),
+      )
+      .orderBy(desc(playersTable.updatedAt))
+      .limit(10);
+
+    for (const row of linkedAuctionPlayers) {
+      const email = pickValidEmail(row.email);
+      if (email) return { email, nameHint: row.name || undefined };
+    }
+  }
+
+  if (mobile) {
+    const mobileMatches = await db
+      .select({
+        email: playersTable.email,
+        name: playersTable.name,
+      })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.mobileNumber, mobile),
+          isNotNull(playersTable.email),
+          ne(playersTable.email, ""),
+        ),
+      )
+      .orderBy(desc(playersTable.updatedAt))
+      .limit(10);
+
+    for (const row of mobileMatches) {
+      const email = pickValidEmail(row.email);
+      if (email) return { email, nameHint: row.name || undefined };
+    }
+  }
+
+  return null;
 }
 
 async function resolveAuctionTeamIdsForPlayers(
   tournamentId: number,
-  players: Array<{
-    id: number;
-    masterPlayerId: string | null;
-  }>,
-): Promise<Map<number, number>> {
-  const playerToTeam = new Map<number, number>();
+  players: BadmintonPlayerRow[],
+): Promise<Set<number>> {
+  const teamIds = new Set<number>();
   const masterIds = players
     .map((p) => p.masterPlayerId)
     .filter((id): id is string => Boolean(id?.trim()));
 
-  if (masterIds.length > 0) {
-    const assignments = await db
+  if (masterIds.length === 0) return teamIds;
+
+  // Prefer current tournament assignments, then any other auction tournament.
+  const assignments = await db
+    .select({
+      playerId: playerTeamAssignmentsTable.playerId,
+      auctionTeamId: playerTeamAssignmentsTable.auctionTeamId,
+      tournamentId: playerTeamAssignmentsTable.tournamentId,
+      assignedAt: playerTeamAssignmentsTable.assignedAt,
+    })
+    .from(playerTeamAssignmentsTable)
+    .where(
+      and(
+        inArray(playerTeamAssignmentsTable.playerId, masterIds),
+        eq(playerTeamAssignmentsTable.isActive, true),
+        isNotNull(playerTeamAssignmentsTable.auctionTeamId),
+      ),
+    )
+    .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
+
+  const seenMasters = new Set<string>();
+  for (const row of assignments) {
+    if (row.tournamentId === tournamentId && row.auctionTeamId != null) {
+      teamIds.add(row.auctionTeamId);
+      seenMasters.add(row.playerId);
+    }
+  }
+  for (const row of assignments) {
+    if (seenMasters.has(row.playerId) || row.auctionTeamId == null) continue;
+    teamIds.add(row.auctionTeamId);
+    seenMasters.add(row.playerId);
+  }
+
+  const unresolvedMasterIds = masterIds.filter((id) => !seenMasters.has(id));
+  if (unresolvedMasterIds.length === 0) return teamIds;
+
+  const globals = await db
+    .select({
+      id: globalPlayersTable.id,
+      auctionPlayerId: globalPlayersTable.auctionPlayerId,
+    })
+    .from(globalPlayersTable)
+    .where(inArray(globalPlayersTable.id, unresolvedMasterIds));
+
+  const auctionPlayerIds = globals
+    .map((g) => g.auctionPlayerId)
+    .filter((id): id is number => id != null);
+
+  if (auctionPlayerIds.length === 0) return teamIds;
+
+  const auctionPlayers = await db
+    .select({
+      id: playersTable.id,
+      teamId: playersTable.teamId,
+      tournamentId: playersTable.tournamentId,
+    })
+    .from(playersTable)
+    .where(
+      and(
+        inArray(playersTable.id, auctionPlayerIds),
+        isNotNull(playersTable.teamId),
+      ),
+    );
+
+  // Prefer same tournament team, else any linked auction team.
+  const byAuctionId = new Map(auctionPlayers.map((p) => [p.id, p]));
+  for (const global of globals) {
+    if (global.auctionPlayerId == null) continue;
+    const auction = byAuctionId.get(global.auctionPlayerId);
+    if (auction?.teamId != null) teamIds.add(auction.teamId);
+  }
+
+  return teamIds;
+}
+
+async function resolveOwnerRecipients(params: {
+  tournamentId: number;
+  organizerId: number | null;
+  winnerSide: BadmintonSideInfo;
+  players: BadmintonPlayerRow[];
+}): Promise<WinRecipient[]> {
+  const { tournamentId, organizerId, winnerSide, players } = params;
+  const recipients: WinRecipient[] = [];
+  const seenEmails = new Set<string>();
+
+  const addOwner = (input: {
+    email: string | null | undefined;
+    name: string;
+    teamId: number;
+    teamName: string;
+  }) => {
+    const email = pickValidEmail(input.email);
+    if (!email || seenEmails.has(email)) return;
+    seenEmails.add(email);
+    recipients.push({
+      email,
+      name: input.name,
+      role: "team_owner",
+      entityType: "team",
+      entityId: input.teamId,
+      teamName: input.teamName,
+    });
+  };
+
+  const teamIds = await resolveAuctionTeamIdsForPlayers(tournamentId, players);
+  const franchiseName = sideFranchiseName(winnerSide);
+
+  // Direct team lookup by IDs + franchise name in current tournament.
+  const directTeams: Array<{
+    id: number;
+    name: string;
+    ownerName: string;
+    ownerEmail: string | null;
+    masterTeamId: string | null;
+  }> = [];
+
+  if (teamIds.size > 0) {
+    const rows = await db
       .select({
-        playerId: playerTeamAssignmentsTable.playerId,
-        auctionTeamId: playerTeamAssignmentsTable.auctionTeamId,
+        id: teamsTable.id,
+        name: teamsTable.name,
+        ownerName: teamsTable.ownerName,
+        ownerEmail: teamsTable.ownerEmail,
+        masterTeamId: teamsTable.masterTeamId,
       })
-      .from(playerTeamAssignmentsTable)
+      .from(teamsTable)
+      .where(inArray(teamsTable.id, [...teamIds]));
+    directTeams.push(...rows);
+  }
+
+  if (franchiseName) {
+    const byName = await db
+      .select({
+        id: teamsTable.id,
+        name: teamsTable.name,
+        ownerName: teamsTable.ownerName,
+        ownerEmail: teamsTable.ownerEmail,
+        masterTeamId: teamsTable.masterTeamId,
+      })
+      .from(teamsTable)
       .where(
         and(
-          inArray(playerTeamAssignmentsTable.playerId, masterIds),
-          eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
-          eq(playerTeamAssignmentsTable.isActive, true),
+          eq(teamsTable.tournamentId, tournamentId),
+          eq(teamsTable.name, franchiseName),
         ),
-      )
-      .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
-
-    const masterToAuctionTeam = new Map<string, number>();
-    for (const row of assignments) {
-      if (row.auctionTeamId != null && !masterToAuctionTeam.has(row.playerId)) {
-        masterToAuctionTeam.set(row.playerId, row.auctionTeamId);
-      }
-    }
-
-    for (const player of players) {
-      if (!player.masterPlayerId) continue;
-      const teamId = masterToAuctionTeam.get(player.masterPlayerId);
-      if (teamId != null) playerToTeam.set(player.id, teamId);
-    }
-
-    const unresolvedMasterIds = players
-      .filter((p) => p.masterPlayerId && !playerToTeam.has(p.id))
-      .map((p) => p.masterPlayerId!);
-
-    if (unresolvedMasterIds.length > 0) {
-      const globals = await db
-        .select({
-          id: globalPlayersTable.id,
-          auctionPlayerId: globalPlayersTable.auctionPlayerId,
-        })
-        .from(globalPlayersTable)
-        .where(inArray(globalPlayersTable.id, unresolvedMasterIds));
-
-      const auctionPlayerIds = globals
-        .map((g) => g.auctionPlayerId)
-        .filter((id): id is number => id != null);
-
-      if (auctionPlayerIds.length > 0) {
-        const auctionPlayers = await db
-          .select({
-            id: playersTable.id,
-            teamId: playersTable.teamId,
-          })
-          .from(playersTable)
-          .where(
-            and(
-              inArray(playersTable.id, auctionPlayerIds),
-              eq(playersTable.tournamentId, tournamentId),
-            ),
-          );
-
-        const auctionToTeam = new Map(
-          auctionPlayers
-            .filter((p) => p.teamId != null)
-            .map((p) => [p.id, p.teamId!]),
-        );
-        const masterToAuction = new Map(
-          globals
-            .filter((g) => g.auctionPlayerId != null)
-            .map((g) => [g.id, g.auctionPlayerId!]),
-        );
-
-        for (const player of players) {
-          if (!player.masterPlayerId || playerToTeam.has(player.id)) continue;
-          const auctionId = masterToAuction.get(player.masterPlayerId);
-          if (auctionId == null) continue;
-          const teamId = auctionToTeam.get(auctionId);
-          if (teamId != null) playerToTeam.set(player.id, teamId);
-        }
-      }
+      );
+    for (const row of byName) {
+      if (!directTeams.some((t) => t.id === row.id)) directTeams.push(row);
     }
   }
 
-  return playerToTeam;
+  for (const team of directTeams) {
+    addOwner({
+      email: team.ownerEmail,
+      name: team.ownerName?.trim() || team.name || "Team Owner",
+      teamId: team.id,
+      teamName: team.name,
+    });
+  }
+
+  // Auction fallback: same masterTeamId elsewhere with owner email.
+  const masterTeamIds = [
+    ...new Set(
+      directTeams
+        .filter((t) => !pickValidEmail(t.ownerEmail) && t.masterTeamId)
+        .map((t) => t.masterTeamId!),
+    ),
+  ];
+  if (masterTeamIds.length > 0) {
+    const masterMatches = await db
+      .select({
+        id: teamsTable.id,
+        name: teamsTable.name,
+        ownerName: teamsTable.ownerName,
+        ownerEmail: teamsTable.ownerEmail,
+      })
+      .from(teamsTable)
+      .where(
+        and(
+          inArray(teamsTable.masterTeamId, masterTeamIds),
+          isNotNull(teamsTable.ownerEmail),
+          ne(teamsTable.ownerEmail, ""),
+        ),
+      )
+      .orderBy(desc(teamsTable.updatedAt))
+      .limit(30);
+
+    for (const team of masterMatches) {
+      addOwner({
+        email: team.ownerEmail,
+        name: team.ownerName?.trim() || team.name || "Team Owner",
+        teamId: team.id,
+        teamName: team.name || franchiseName || "Franchise",
+      });
+    }
+  }
+
+  // Auction fallback: same franchise name under same organiser across tournaments.
+  if (franchiseName && organizerId != null && recipients.length === 0) {
+    const orgTeams = await db
+      .select({
+        id: teamsTable.id,
+        name: teamsTable.name,
+        ownerName: teamsTable.ownerName,
+        ownerEmail: teamsTable.ownerEmail,
+      })
+      .from(teamsTable)
+      .innerJoin(tournamentsTable, eq(tournamentsTable.id, teamsTable.tournamentId))
+      .where(
+        and(
+          eq(tournamentsTable.organizerId, organizerId),
+          eq(teamsTable.name, franchiseName),
+          isNotNull(teamsTable.ownerEmail),
+          ne(teamsTable.ownerEmail, ""),
+        ),
+      )
+      .orderBy(desc(teamsTable.updatedAt))
+      .limit(10);
+
+    for (const team of orgTeams) {
+      addOwner({
+        email: team.ownerEmail,
+        name: team.ownerName?.trim() || team.name || "Team Owner",
+        teamId: team.id,
+        teamName: team.name || franchiseName,
+      });
+    }
+  }
+
+  return recipients;
 }
 
 async function collectWinRecipients(params: {
   tournamentId: number;
+  organizerId: number | null;
   winnerSide: BadmintonSideInfo;
 }): Promise<WinRecipient[]> {
-  const { tournamentId, winnerSide } = params;
+  const { tournamentId, organizerId, winnerSide } = params;
   const playerIds = [...new Set(winnerSide.playerIds ?? [])].filter((id) => id > 0);
   const recipients: WinRecipient[] = [];
-  const seenEmails = new Set<string>();
+  const seenPlayerEmails = new Set<string>();
 
-  const addRecipient = (recipient: WinRecipient) => {
-    const key = normalizeEmail(recipient.email);
-    if (!isValidEmail(key) || seenEmails.has(key)) return;
-    seenEmails.add(key);
-    recipients.push({ ...recipient, email: key });
-  };
-
-  let players: Array<{
-    id: number;
-    firstName: string;
-    lastName: string;
-    displayName: string | null;
-    email: string | null;
-    masterPlayerId: string | null;
-  }> = [];
+  let players: BadmintonPlayerRow[] = [];
 
   if (playerIds.length > 0) {
     players = await db
@@ -261,6 +525,7 @@ async function collectWinRecipients(params: {
         lastName: badmintonPlayersTable.lastName,
         displayName: badmintonPlayersTable.displayName,
         email: badmintonPlayersTable.email,
+        mobile: badmintonPlayersTable.mobile,
         masterPlayerId: badmintonPlayersTable.masterPlayerId,
       })
       .from(badmintonPlayersTable)
@@ -272,107 +537,43 @@ async function collectWinRecipients(params: {
       );
 
     for (const player of players) {
-      if (!player.email) continue;
-      const name =
-        player.displayName?.trim() ||
-        `${player.firstName} ${player.lastName}`.trim() ||
-        "Player";
-      addRecipient({
-        email: player.email,
-        name,
+      let email = pickValidEmail(player.email);
+      let nameHint: string | null = null;
+
+      if (!email) {
+        const auctionHit = await resolvePlayerEmailFromAuction(player);
+        if (auctionHit) {
+          email = auctionHit.email;
+          nameHint = auctionHit.nameHint ?? null;
+        }
+      }
+
+      if (!email || seenPlayerEmails.has(email)) continue;
+      seenPlayerEmails.add(email);
+
+      recipients.push({
+        email,
+        name: playerDisplayName(player, nameHint),
         role: "player",
         entityType: "badminton_player",
         entityId: player.id,
       });
     }
-
-    // Fallback: global_players.email when badminton player email is missing
-    const missingEmailPlayers = players.filter((p) => !p.email && p.masterPlayerId);
-    if (missingEmailPlayers.length > 0) {
-      const masterIds = missingEmailPlayers.map((p) => p.masterPlayerId!);
-      const globals = await db
-        .select({
-          id: globalPlayersTable.id,
-          email: globalPlayersTable.email,
-          displayName: globalPlayersTable.displayName,
-          canonicalName: globalPlayersTable.canonicalName,
-        })
-        .from(globalPlayersTable)
-        .where(inArray(globalPlayersTable.id, masterIds));
-
-      const byMaster = new Map(globals.map((g) => [g.id, g]));
-      for (const player of missingEmailPlayers) {
-        const global = byMaster.get(player.masterPlayerId!);
-        if (!global?.email) continue;
-        const name =
-          player.displayName?.trim() ||
-          global.displayName?.trim() ||
-          global.canonicalName?.trim() ||
-          `${player.firstName} ${player.lastName}`.trim() ||
-          "Player";
-        addRecipient({
-          email: global.email,
-          name,
-          role: "player",
-          entityType: "badminton_player",
-          entityId: player.id,
-        });
-      }
-    }
   }
 
-  const teamIds = new Set<number>();
-  const playerToTeam = await resolveAuctionTeamIdsForPlayers(tournamentId, players);
-  for (const teamId of playerToTeam.values()) teamIds.add(teamId);
-
-  const franchiseName = sideFranchiseName(winnerSide);
-  if (franchiseName) {
-    const [franchiseTeam] = await db
-      .select({ id: teamsTable.id })
-      .from(teamsTable)
-      .where(
-        and(
-          eq(teamsTable.tournamentId, tournamentId),
-          eq(teamsTable.name, franchiseName),
-        ),
-      )
-      .limit(1);
-    if (franchiseTeam) teamIds.add(franchiseTeam.id);
-  }
-
-  if (teamIds.size > 0) {
-    const teams = await db
-      .select({
-        id: teamsTable.id,
-        name: teamsTable.name,
-        ownerName: teamsTable.ownerName,
-        ownerEmail: teamsTable.ownerEmail,
-      })
-      .from(teamsTable)
-      .where(
-        and(
-          eq(teamsTable.tournamentId, tournamentId),
-          inArray(teamsTable.id, [...teamIds]),
-        ),
-      );
-
-    for (const team of teams) {
-      if (!team.ownerEmail) continue;
-      addRecipient({
-        email: team.ownerEmail,
-        name: team.ownerName?.trim() || team.name || "Team Owner",
-        role: "team_owner",
-        entityType: "team",
-        entityId: team.id,
-      });
-    }
-  }
+  const owners = await resolveOwnerRecipients({
+    tournamentId,
+    organizerId,
+    winnerSide,
+    players,
+  });
+  recipients.push(...owners);
 
   return recipients;
 }
 
 function buildMergeData(params: {
-  recipientName: string;
+  recipient: WinRecipient;
   state: BadmintonMatchState;
   winnerSide: BadmintonSideInfo;
   opponentSide: BadmintonSideInfo;
@@ -382,12 +583,16 @@ function buildMergeData(params: {
   organiserEmail: string;
 }): Record<string, unknown> {
   const scoreLine = formatScoreLine(params.state);
-  const franchiseName = sideFranchiseName(params.winnerSide);
+  const franchiseName =
+    params.recipient.teamName?.trim() ||
+    sideFranchiseName(params.winnerSide) ||
+    params.winnerSide.label ||
+    "Franchise";
 
   return {
-    recipient_name: params.recipientName,
-    player_name: params.recipientName,
-    owner_name: params.recipientName,
+    recipient_name: params.recipient.name,
+    player_name: params.recipient.name,
+    owner_name: params.recipient.name,
     winner_label: params.winnerSide.label || "Winners",
     opponent_label: params.opponentSide.label || "Opponents",
     tournament_name: params.tournamentName,
@@ -411,6 +616,13 @@ function buildMergeData(params: {
 /**
  * Enqueue congratulations emails for badminton match winners (players + team owners).
  * Never throws — scoring flow must continue normally.
+ *
+ * Email lookup:
+ * 1) badminton player / team profile email
+ * 2) auction / global fallbacks
+ * 3) skip if still missing
+ *
+ * Players and owners get different Communication Center templates.
  */
 export async function enqueueBadmintonMatchWinEmails(params: {
   matchId: number;
@@ -428,23 +640,28 @@ export async function enqueueBadmintonMatchWinEmails(params: {
     const winnerSide = state.winnerSide === "left" ? state.leftSide : state.rightSide;
     const opponentSide = state.winnerSide === "left" ? state.rightSide : state.leftSide;
 
-    const [recipients, tournamentCtx, categoryName] = await Promise.all([
-      collectWinRecipients({ tournamentId, winnerSide }),
-      resolveTournamentContext(tournamentId),
+    const tournamentCtx = await resolveTournamentContext(tournamentId);
+    const [recipients, categoryName] = await Promise.all([
+      collectWinRecipients({
+        tournamentId,
+        organizerId: tournamentCtx.organizerId,
+        winnerSide,
+      }),
       resolveCategoryName(tournamentId, matchId),
     ]);
 
     if (recipients.length === 0) {
       logger.info(
         { matchId, tournamentId },
-        "Badminton match win email: no registered emails for winners",
+        "Badminton match win email: no registered emails for winners (badminton + auction)",
       );
       return;
     }
 
     for (const recipient of recipients) {
+      const isOwner = recipient.role === "team_owner";
       const mergeData = buildMergeData({
-        recipientName: recipient.name,
+        recipient,
         state,
         winnerSide,
         opponentSide,
@@ -456,16 +673,16 @@ export async function enqueueBadmintonMatchWinEmails(params: {
 
       const jobId = await createCommunicationJob({
         channel: "email",
-        templateInternalKey: TEMPLATE_KEY,
+        templateInternalKey: isOwner ? OWNER_TEMPLATE_KEY : PLAYER_TEMPLATE_KEY,
         tournamentId,
-        triggeredByEvent: EVENT_TYPE,
+        triggeredByEvent: isOwner ? OWNER_EVENT_TYPE : PLAYER_EVENT_TYPE,
         entityType: recipient.entityType,
         entityId: recipient.entityId,
         recipientName: recipient.name,
         recipientEmail: recipient.email,
         recipientRole: recipient.role,
         mergeData,
-        idempotencyKey: buildIdempotencyKey(matchId, recipient.email),
+        idempotencyKey: buildIdempotencyKey(matchId, recipient.role, recipient.email),
         sentBy: "system",
       });
 
@@ -477,6 +694,7 @@ export async function enqueueBadmintonMatchWinEmails(params: {
             tournamentId,
             email: recipient.email,
             role: recipient.role,
+            template: isOwner ? OWNER_TEMPLATE_KEY : PLAYER_TEMPLATE_KEY,
           },
           "Badminton match win email: job created",
         );
@@ -503,6 +721,13 @@ export function enqueueBadmintonMatchWinEmailsAsync(params: {
 export const BADMINTON_MATCH_WIN_TEMPLATE = {
   subject: BADMINTON_MATCH_WIN_SUBJECT,
   html: BADMINTON_MATCH_WIN_HTML,
-  templateKey: TEMPLATE_KEY,
-  eventType: EVENT_TYPE,
+  templateKey: PLAYER_TEMPLATE_KEY,
+  eventType: PLAYER_EVENT_TYPE,
+};
+
+export const BADMINTON_MATCH_WIN_OWNER_TEMPLATE = {
+  subject: BADMINTON_MATCH_WIN_OWNER_SUBJECT,
+  html: BADMINTON_MATCH_WIN_OWNER_HTML,
+  templateKey: OWNER_TEMPLATE_KEY,
+  eventType: OWNER_EVENT_TYPE,
 };
