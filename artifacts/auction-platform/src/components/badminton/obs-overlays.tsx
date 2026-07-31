@@ -202,8 +202,8 @@ export function overlayPlacementClass(
       return "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2";
     case "results":
       return withBottomTicker
-        ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(920px,92vw)]`
-        : "bottom-[5vh] left-1/2 -translate-x-1/2 w-[min(920px,92vw)]";
+        ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(1010px,92vw)]`
+        : "bottom-[5vh] left-1/2 -translate-x-1/2 w-[min(1010px,92vw)]";
     case "leaderboards":
       return withBottomTicker
         ? `${tickerBottom} left-1/2 -translate-x-1/2 w-[min(980px,94vw)]`
@@ -1041,7 +1041,7 @@ function WinnerOverlay({
 
   return (
     <div
-      className="rounded-3xl overflow-hidden shadow-[0_12px_48px_rgba(0,0,0,0.65)] w-[480px] animate-[badmintonMomentIn_0.45s_ease-out_forwards] border border-white/15"
+      className="rounded-3xl overflow-hidden shadow-[0_12px_48px_rgba(0,0,0,0.65)] w-[530px] animate-[badmintonMomentIn_0.45s_ease-out_forwards] border border-white/15"
       style={{
         fontFamily: "'Inter', 'system-ui', sans-serif",
         backgroundColor: BIDWAR_SCOREBOARD_SHELL,
@@ -1070,7 +1070,7 @@ function WinnerOverlay({
             size="xl"
             tone="led"
             align="center"
-            playerClassName="text-3xl font-black text-white"
+            playerClassName="text-4xl font-black text-white"
             teamClassName="text-white/50"
           />
         </div>
@@ -1086,14 +1086,14 @@ function WinnerOverlay({
 
         <div className="flex items-center justify-center gap-2 mb-4">
           <span
-            className="text-4xl font-black"
+            className="text-[2.4rem] font-black leading-none"
             style={{ color: isLeft ? BIDWAR_BROADCAST_YELLOW : "rgba(255,255,255,0.85)" }}
           >
             {state.gamesLeft}
           </span>
           <span className="text-white/30 text-2xl">–</span>
           <span
-            className="text-4xl font-black"
+            className="text-[2.4rem] font-black leading-none"
             style={{ color: !isLeft ? BIDWAR_BROADCAST_YELLOW : "rgba(255,255,255,0.45)" }}
           >
             {state.gamesRight}
@@ -1239,7 +1239,7 @@ export function ObsRecentResultsOverlay({
       </div>
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-white text-xl md:text-2xl font-bold leading-tight truncate">
+          <p className="text-white text-2xl md:text-3xl font-bold leading-tight truncate">
             {winner}
           </p>
           <p className="text-white/50 text-xs md:text-sm mt-0.5 truncate">
@@ -1257,7 +1257,7 @@ export function ObsRecentResultsOverlay({
             <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40">
               Games
             </p>
-            <p className="text-white text-2xl font-black tabular-nums leading-none">
+            <p className="text-white text-[1.6rem] font-black tabular-nums leading-none">
               {gamesWonLine(match)}
             </p>
           </div>
@@ -1275,7 +1275,7 @@ export function ObsRecentResultsOverlay({
               Diff
             </p>
             <p
-              className="text-2xl font-black tabular-nums leading-none"
+              className="text-[1.6rem] font-black tabular-nums leading-none"
               style={{ color: BIDWAR_BROADCAST_YELLOW }}
             >
               {diff}

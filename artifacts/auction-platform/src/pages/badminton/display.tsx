@@ -115,7 +115,7 @@ function LedStandby({
             {tournamentName}
           </p>
           <div className="w-10 h-10 border-2 border-[var(--accent)]/25 border-t-[var(--accent)] rounded-full animate-spin mx-auto" />
-          <p className="text-white/45 text-sm md:text-base font-mono uppercase tracking-[0.28em]">
+          <p className="text-white/45 text-sm md:text-base font-mono uppercase tracking-[0.32em]">
             {message}
           </p>
         </div>

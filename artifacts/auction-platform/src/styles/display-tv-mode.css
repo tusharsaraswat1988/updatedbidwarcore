@@ -739,8 +739,10 @@
 }
 
 .venue-sponsor-card--featured {
-  min-height: clamp(18rem, 48vh, 28rem);
-  padding: clamp(1.75rem, 4vh, 3rem) clamp(1.5rem, 4vw, 3rem);
+  /* +12% vs base — fills excess whitespace on the Supported By moment without
+     growing the overlay/stage height (VenueChromeShell height is unchanged). */
+  min-height: clamp(20rem, 53vh, 31.25rem);
+  padding: clamp(2rem, 4.5vh, 3.35rem) clamp(1.7rem, 4.5vw, 3.35rem);
 }
 
 .venue-sponsor-card--title {
