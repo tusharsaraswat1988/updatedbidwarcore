@@ -18,6 +18,10 @@ import {
   BADMINTON_MATCH_WIN_HTML,
   BADMINTON_MATCH_WIN_SUBJECT,
 } from "./badminton-match-win-email-template.js";
+import {
+  BADMINTON_MATCH_WIN_OWNER_HTML,
+  BADMINTON_MATCH_WIN_OWNER_SUBJECT,
+} from "./badminton-match-win-owner-email-template.js";
 
 const DEFAULT_TEMPLATES = [
   {
@@ -121,11 +125,18 @@ const DEFAULT_TEMPLATES = [
 <p>Congratulations {{team_name}} on winning {{tournament_name}}!</p>`,
   },
   {
-    name: "Badminton Match Win",
+    name: "Badminton Match Win — Player",
     internalKey: "badminton_match_win",
     eventType: "BADMINTON_MATCH_WIN",
     subject: BADMINTON_MATCH_WIN_SUBJECT,
     htmlBody: BADMINTON_MATCH_WIN_HTML,
+  },
+  {
+    name: "Badminton Match Win — Team Owner",
+    internalKey: "badminton_match_win_owner",
+    eventType: "BADMINTON_MATCH_WIN_OWNER",
+    subject: BADMINTON_MATCH_WIN_OWNER_SUBJECT,
+    htmlBody: BADMINTON_MATCH_WIN_OWNER_HTML,
   },
   {
     name: "Thank You",
@@ -236,6 +247,9 @@ export async function seedCommunicationDefaults(): Promise<void> {
       }
       if (tpl.internalKey === "badminton_match_win") {
         await upgradeBadmintonMatchWinTemplateIfNeeded(existing);
+      }
+      if (tpl.internalKey === "badminton_match_win_owner") {
+        await upgradeBadmintonMatchWinOwnerTemplateIfNeeded(existing);
       }
       continue;
     }
@@ -419,8 +433,8 @@ async function upgradeBadmintonMatchWinTemplateIfNeeded(existing: {
 }): Promise<void> {
   const alreadyCurrent =
     existing.htmlBody.includes("Support BidWar") &&
-    existing.htmlBody.includes("MATCH RESULT") &&
-    existing.subject.includes("You won your badminton match");
+    existing.htmlBody.includes("Player Match Win") &&
+    existing.subject.includes("{{player_name}}");
   if (alreadyCurrent) return;
 
   const [latest] = await db
@@ -435,7 +449,7 @@ async function upgradeBadmintonMatchWinTemplateIfNeeded(existing: {
   await db
     .update(communicationTemplatesTable)
     .set({
-      name: "Badminton Match Win",
+      name: "Badminton Match Win — Player",
       eventType: "BADMINTON_MATCH_WIN",
       subject: BADMINTON_MATCH_WIN_SUBJECT,
       htmlBody: BADMINTON_MATCH_WIN_HTML,
@@ -449,11 +463,57 @@ async function upgradeBadmintonMatchWinTemplateIfNeeded(existing: {
     subject: BADMINTON_MATCH_WIN_SUBJECT,
     htmlBody: BADMINTON_MATCH_WIN_HTML,
     createdBy: "system",
-    changeNote: "Badminton match-win congratulations email v1",
+    changeNote: "Badminton player match-win email v2 — player-specific template",
   });
 
   logger.info(
     { templateId: existing.id, version: nextVersion },
-    "Badminton match win template upgraded",
+    "Badminton match win player template upgraded",
+  );
+}
+
+async function upgradeBadmintonMatchWinOwnerTemplateIfNeeded(existing: {
+  id: string;
+  htmlBody: string;
+  subject: string;
+}): Promise<void> {
+  const alreadyCurrent =
+    existing.htmlBody.includes("Support BidWar") &&
+    existing.htmlBody.includes("FRANCHISE WIN") &&
+    existing.subject.includes("{{team_name}} just won");
+  if (alreadyCurrent) return;
+
+  const [latest] = await db
+    .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
+    .from(communicationTemplateVersionsTable)
+    .where(eq(communicationTemplateVersionsTable.templateId, existing.id))
+    .orderBy(desc(communicationTemplateVersionsTable.versionNumber))
+    .limit(1);
+
+  const nextVersion = (latest?.versionNumber ?? 0) + 1;
+
+  await db
+    .update(communicationTemplatesTable)
+    .set({
+      name: "Badminton Match Win — Team Owner",
+      eventType: "BADMINTON_MATCH_WIN_OWNER",
+      subject: BADMINTON_MATCH_WIN_OWNER_SUBJECT,
+      htmlBody: BADMINTON_MATCH_WIN_OWNER_HTML,
+      updatedAt: new Date(),
+    })
+    .where(eq(communicationTemplatesTable.id, existing.id));
+
+  await db.insert(communicationTemplateVersionsTable).values({
+    templateId: existing.id,
+    versionNumber: nextVersion,
+    subject: BADMINTON_MATCH_WIN_OWNER_SUBJECT,
+    htmlBody: BADMINTON_MATCH_WIN_OWNER_HTML,
+    createdBy: "system",
+    changeNote: "Badminton team-owner match-win email v1",
+  });
+
+  logger.info(
+    { templateId: existing.id, version: nextVersion },
+    "Badminton match win owner template upgraded",
   );
 }

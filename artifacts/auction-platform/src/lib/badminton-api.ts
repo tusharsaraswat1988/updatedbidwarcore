@@ -63,6 +63,8 @@ export type ScorerHomeMatchCard = {
   category: string | null;
   playerA: string;
   playerB: string;
+  teamA?: string | null;
+  teamB?: string | null;
   court: string | null;
   courtId: number | null;
   scheduledAt: string | null;
@@ -88,6 +90,14 @@ export type ScorerHomeSessionPayload = {
   matches: ScorerHomeMatchCard[];
   courts: ScorerHomeCourtCard[];
   view: "court" | "courts" | "matches";
+  /** False when scorer account is deactivated — browse only. */
+  canScore?: boolean;
+  scorer?: {
+    id: number;
+    name: string;
+    mobile: string;
+    isActive: boolean;
+  };
 };
 
 export async function openBadmintonScorerSession(

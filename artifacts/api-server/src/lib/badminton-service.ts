@@ -73,6 +73,7 @@ import { replayScoringMatchState } from "./scoring-platform";
 import {
   mapMatchStatusToScorerHomeUi,
   sideDisplayLabel,
+  sideTeamName,
   pinUnlocksMatch,
   buildScorerHomeView,
   type ScorerHomeMatchCard,
@@ -1427,11 +1428,16 @@ function toScorerHomeMatchCard(input: {
     (detail.roundName?.trim() ? detail.roundName.trim() : null) ||
     (detail.matchLabel?.trim() ? detail.matchLabel.trim() : null);
 
+  const leftSide = leftFromState ?? (detail.leftSideJson as Record<string, unknown> | null);
+  const rightSide = rightFromState ?? (detail.rightSideJson as Record<string, unknown> | null);
+
   return {
     id: match.id,
     category,
-    playerA: sideDisplayLabel(leftFromState ?? detail.leftSideJson),
-    playerB: sideDisplayLabel(rightFromState ?? detail.rightSideJson),
+    playerA: sideDisplayLabel(leftSide),
+    playerB: sideDisplayLabel(rightSide),
+    teamA: sideTeamName(leftSide),
+    teamB: sideTeamName(rightSide),
     court: detail.courtNumber?.trim() || courtName?.trim() || null,
     courtId: detail.courtId ?? null,
     scheduledAt: match.scheduledAt ? new Date(match.scheduledAt).toISOString() : null,

@@ -11,6 +11,7 @@ import {
   logoutScorer,
   resolveScorerAuthFromToken,
   assertScorerMayAccessTournament,
+  assertScorerCanScore,
   ScorerAuthError,
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
@@ -84,6 +85,7 @@ router.post("/login", async (req, res) => {
     res.json({
       token: result.token,
       scorer: result.scorer,
+      canScore: result.canScore,
       expiresAt: result.expiresAt,
     });
   } catch (e) {
@@ -107,7 +109,11 @@ router.post("/logout", async (req, res) => {
 router.get("/me", async (req, res) => {
   try {
     const auth = await requireScorer(req);
-    res.json({ scorer: auth.profile, sessionId: auth.sessionId });
+    res.json({
+      scorer: auth.profile,
+      sessionId: auth.sessionId,
+      canScore: auth.canScore,
+    });
   } catch (e) {
     if (sendAuthError(res, e)) return;
     res.status(500).json({ error: "Failed" });
@@ -128,6 +134,7 @@ router.post("/matches/:matchId/lock", async (req, res) => {
 
   try {
     const auth = await requireScorer(req);
+    assertScorerCanScore(auth);
     const tournamentId =
       meta.success && meta.data.tournamentId ? meta.data.tournamentId : null;
 

@@ -20,6 +20,7 @@ import {
 import {
   clearScorerAuthSession,
   getScorerAuthSession,
+  patchScorerAuthCanScore,
   setScorerAuthSession,
 } from "@/lib/badminton-scorer-session";
 import { loginScorer, logoutScorer } from "@/lib/scorer-api";
@@ -45,6 +46,45 @@ function formatScheduledTime(iso: string | null): string {
   });
 }
 
+function matchTeamNames(match: ScorerHomeMatchCard): string[] {
+  const names: string[] = [];
+  const a =
+    match.teamA?.trim() || identityFromCombinedLabel(match.playerA).teamName?.trim() || "";
+  const b =
+    match.teamB?.trim() || identityFromCombinedLabel(match.playerB).teamName?.trim() || "";
+  if (a) names.push(a);
+  if (b) names.push(b);
+  return names;
+}
+
+function matchInvolvesTeam(match: ScorerHomeMatchCard, team: string): boolean {
+  const needle = team.trim().toLowerCase();
+  if (!needle) return true;
+  return matchTeamNames(match).some((name) => name.toLowerCase() === needle);
+}
+
+function collectTeamNames(matches: ScorerHomeMatchCard[]): string[] {
+  const set = new Set<string>();
+  for (const match of matches) {
+    for (const name of matchTeamNames(match)) set.add(name);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function filterCourtByTeam(court: ScorerHomeCourtCard, team: string | null): ScorerHomeCourtCard {
+  if (!team) return court;
+  const matches = court.matches.filter((m) => matchInvolvesTeam(m, team));
+  const live =
+    matches.find((m) => m.status === "LIVE" || m.status === "PAUSED") ?? null;
+  const ready = matches.filter((m) => m.status === "READY");
+  return {
+    ...court,
+    matches,
+    currentMatch: live,
+    nextMatch: live ? (ready.find((m) => m.id !== live.id) ?? ready[0] ?? null) : ready[0] ?? null,
+  };
+}
+
 function statusStyles(status: ScorerHomeUiStatus): string {
   switch (status) {
     case "LIVE":
@@ -59,8 +99,13 @@ function statusStyles(status: ScorerHomeUiStatus): string {
   }
 }
 
-function primaryActionLabel(match: ScorerHomeMatchCard | null): string {
+function primaryActionLabel(match: ScorerHomeMatchCard | null, viewOnly = false): string {
   if (!match) return "No match ready — assign court & time in Matches";
+  if (viewOnly) {
+    if (match.status === "LIVE" || match.status === "PAUSED") return "View Live Match";
+    if (match.readOnly) return "View Result";
+    return "View Schedule";
+  }
   if (match.status === "LIVE" || match.status === "PAUSED") return "Resume Live Match";
   if (match.readOnly) return "Read Only";
   return "Start Scoring";
@@ -141,12 +186,14 @@ function PrimaryMatchAction({
   match,
   canOpen,
   onOpen,
+  viewOnly = false,
 }: {
   match: ScorerHomeMatchCard | null;
   canOpen: boolean;
   onOpen: () => void;
+  viewOnly?: boolean;
 }) {
-  const label = primaryActionLabel(match);
+  const label = primaryActionLabel(match, viewOnly);
   const isLive = match?.status === "LIVE" || match?.status === "PAUSED";
 
   return (
@@ -159,7 +206,9 @@ function PrimaryMatchAction({
         canOpen
           ? isLive
             ? "bg-red-500 text-white"
-            : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
+            : viewOnly
+              ? "bg-white/12 text-white border border-white/20"
+              : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
           : "bg-white/10 text-white/40",
       )}
     >
@@ -168,13 +217,69 @@ function PrimaryMatchAction({
         <span
           className={cn(
             "block mt-1 text-xs font-semibold truncate",
-            isLive ? "text-white/85" : "text-primary-foreground/80",
+            isLive ? "text-white/85" : viewOnly ? "text-white/65" : "text-primary-foreground/80",
           )}
         >
           {matchActionSubtitle(match)}
         </span>
       ) : null}
     </button>
+  );
+}
+
+function TeamFilterChips({
+  teams,
+  value,
+  onChange,
+}: {
+  teams: string[];
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  if (teams.length === 0) return null;
+
+  return (
+    <div
+      className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-none"
+      role="tablist"
+      aria-label="Filter matches by team"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === null}
+        onClick={() => onChange(null)}
+        className={cn(
+          "shrink-0 inline-flex items-center min-h-9 px-3 rounded-full border text-xs font-bold uppercase tracking-wide",
+          value === null
+            ? "bg-white/15 text-white border-white/25"
+            : "bg-white/[0.04] text-white/55 border-white/10",
+        )}
+      >
+        All teams
+      </button>
+      {teams.map((team) => {
+        const selected = value === team;
+        return (
+          <button
+            key={team}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(team)}
+            className={cn(
+              "shrink-0 inline-flex items-center min-h-9 px-3 rounded-full border text-xs font-bold tracking-wide max-w-[12rem] truncate",
+              selected
+                ? "bg-amber-500/20 text-amber-100 border-amber-500/45"
+                : "bg-white/[0.04] text-white/55 border-white/10",
+            )}
+            title={team}
+          >
+            {team}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -270,10 +375,18 @@ function CourtMatchListFilterChips({
 function MatchListCard({
   match,
   onOpen,
+  viewOnly = false,
 }: {
   match: ScorerHomeMatchCard;
   onOpen: () => void;
+  viewOnly?: boolean;
 }) {
+  const actionLabel = viewOnly
+    ? primaryActionLabel(match, true)
+    : match.status === "LIVE" || match.status === "PAUSED"
+      ? "Resume Live Match"
+      : match.actionLabel;
+
   return (
     <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -291,7 +404,11 @@ function MatchListCard({
             statusStyles(match.status),
           )}
         >
-          {match.status === "LIVE" ? "LIVE (Resume)" : match.status}
+          {match.status === "LIVE"
+            ? viewOnly
+              ? "LIVE"
+              : "LIVE (Resume)"
+            : match.status}
         </span>
       </div>
       <div className="text-center py-3 min-w-0 overflow-hidden px-1">
@@ -309,18 +426,14 @@ function MatchListCard({
         onClick={onOpen}
         className={cn(
           "w-full min-h-14 rounded-xl font-display font-bold text-base",
-          match.readOnly
+          match.readOnly || viewOnly
             ? "bg-white/10 text-white/85 border border-white/15"
             : match.status === "LIVE" || match.status === "PAUSED"
               ? "bg-red-500 text-white"
               : "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]",
         )}
       >
-        <span className="block">
-          {match.status === "LIVE" || match.status === "PAUSED"
-            ? "Resume Live Match"
-            : match.actionLabel}
-        </span>
+        <span className="block">{actionLabel}</span>
         <span className="block mt-0.5 text-xs font-semibold opacity-85 truncate px-1">
           {matchActionSubtitle(match)}
         </span>
@@ -332,16 +445,19 @@ function MatchListCard({
 function CourtFocusView({
   court,
   onOpenMatch,
+  viewOnly = false,
 }: {
   court: ScorerHomeCourtCard;
   onOpenMatch: (match: ScorerHomeMatchCard) => void;
+  viewOnly?: boolean;
 }) {
   const [listFilter, setListFilter] = useState<CourtMatchListFilter>("all");
   const hasLiveMatch = Boolean(
     court.currentMatch?.status === "LIVE" || court.currentMatch?.status === "PAUSED",
   );
   const focus = hasLiveMatch ? court.currentMatch : court.nextMatch;
-  const canOpen = Boolean(focus && !focus.readOnly);
+  // View-only users can open any match (including completed / upcoming).
+  const canOpen = Boolean(focus && (viewOnly || !focus.readOnly));
   const filteredMatches =
     listFilter === "all"
       ? court.matches
@@ -363,6 +479,7 @@ function CourtFocusView({
           <PrimaryMatchAction
             match={focus}
             canOpen={canOpen}
+            viewOnly={viewOnly}
             onOpen={() => focus && onOpenMatch(focus)}
           />
           <MatchSummary label="Next Match" match={court.nextMatch} />
@@ -374,6 +491,7 @@ function CourtFocusView({
           <PrimaryMatchAction
             match={focus}
             canOpen={canOpen}
+            viewOnly={viewOnly}
             onOpen={() => focus && onOpenMatch(focus)}
           />
         </>
@@ -391,7 +509,12 @@ function CourtFocusView({
             <p className="text-white/35 text-sm py-2">No matches in this status</p>
           ) : (
             filteredMatches.map((m) => (
-              <MatchListCard key={m.id} match={m} onOpen={() => onOpenMatch(m)} />
+              <MatchListCard
+                key={m.id}
+                match={m}
+                viewOnly={viewOnly}
+                onOpen={() => onOpenMatch(m)}
+              />
             ))
           )}
         </div>
@@ -420,6 +543,8 @@ export default function BadmintonScorerHomePage() {
   const [verifying, setVerifying] = useState(false);
   const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [canScore, setCanScore] = useState(() => getScorerAuthSession()?.canScore !== false);
   const [refreshing, setRefreshing] = useState(false);
   const [scorerName, setScorerName] = useState(() => getScorerAuthSession()?.scorer.name ?? "");
   const sessionRestoreAttemptedRef = useRef(false);
@@ -427,9 +552,15 @@ export default function BadmintonScorerHomePage() {
   const { data: branding } = useBadmintonBranding(authAccepted ? tournamentId : 0);
   const tournamentName =
     branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
+  const viewOnly = !canScore;
 
   function applySession(next: ScorerHomeSessionPayload) {
     setSession(next);
+    if (typeof next.canScore === "boolean") {
+      setCanScore(next.canScore);
+      patchScorerAuthCanScore(next.canScore);
+    }
+    if (next.scorer?.name) setScorerName(next.scorer.name);
     if (next.view === "court" && next.courts[0]) {
       setSelectedCourtId(next.courts[0].id);
     } else if (next.view === "courts") {
@@ -469,14 +600,18 @@ export default function BadmintonScorerHomePage() {
       const existing = getScorerAuthSession();
       if (!existing) {
         const login = await loginScorer(mobile.trim(), pin.trim());
+        const loginCanScore = login.canScore ?? login.scorer.isActive !== false;
         setScorerAuthSession({
           token: login.token,
-          scorer: login.scorer,
+          scorer: { ...login.scorer, isActive: loginCanScore },
+          canScore: loginCanScore,
           expiresAt: login.expiresAt,
         });
         setScorerName(login.scorer.name);
+        setCanScore(loginCanScore);
       } else {
         setScorerName(existing.scorer.name);
+        setCanScore(existing.canScore !== false);
       }
       await loadHomeSession(tid);
     } catch (err) {
@@ -526,6 +661,8 @@ export default function BadmintonScorerHomePage() {
     setAuthAccepted(false);
     setSession(null);
     setSelectedCourtId(null);
+    setTeamFilter(null);
+    setCanScore(true);
     setPinInput("");
     setAuthError("");
   }
@@ -534,9 +671,27 @@ export default function BadmintonScorerHomePage() {
     navigate(badmintonScorerMatchPath(match.id, tournamentId));
   }
 
+  const teamNames = session ? collectTeamNames(session.matches) : [];
+  const filteredCourts = session
+    ? session.courts
+        .map((court) => filterCourtByTeam(court, teamFilter))
+        .filter((court) => !teamFilter || court.matches.length > 0)
+    : [];
+  const filteredMatches = session
+    ? teamFilter
+      ? session.matches.filter((m) => matchInvolvesTeam(m, teamFilter))
+      : session.matches
+    : [];
+
+  useEffect(() => {
+    if (!teamFilter || !session) return;
+    const names = collectTeamNames(session.matches);
+    if (!names.includes(teamFilter)) setTeamFilter(null);
+  }, [teamFilter, session]);
+
   const selectedCourt =
-    session?.courts.find((c) => c.id === selectedCourtId) ??
-    (session?.view === "court" ? session.courts[0] : null);
+    filteredCourts.find((c) => c.id === selectedCourtId) ??
+    (session?.view === "court" ? filteredCourts[0] : null);
 
   if (!authAccepted) {
     if (verifying) {
@@ -662,7 +817,12 @@ export default function BadmintonScorerHomePage() {
               </div>
               <h1 className="text-white text-lg font-black truncate">{tournamentName}</h1>
               <p className="text-white/40 text-xs mt-0.5 truncate">
-                {selectedCourt ? (
+                {viewOnly ? (
+                  <>
+                    {scorerName ? `${scorerName} · ` : ""}
+                    View only
+                  </>
+                ) : selectedCourt ? (
                   <>
                     <span className="text-sky-200/90 font-semibold">{selectedCourt.name}</span>
                     {scorerName ? ` · ${scorerName}` : ""}
@@ -697,26 +857,46 @@ export default function BadmintonScorerHomePage() {
 
         <main className="flex-1 px-4 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="max-w-lg mx-auto space-y-3">
+            {viewOnly ? (
+              <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
+                <p className="text-amber-100 text-sm font-semibold">View-only access</p>
+                <p className="text-amber-100/70 text-xs mt-1 leading-relaxed">
+                  Scoring is disabled. You can browse schedules and match results.
+                </p>
+              </div>
+            ) : null}
+
+            {teamNames.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Team filter</p>
+                <TeamFilterChips teams={teamNames} value={teamFilter} onChange={setTeamFilter} />
+              </div>
+            ) : null}
+
             {session?.view === "courts" && !selectedCourt ? (
               <>
                 <p className="text-white/50 text-sm">Select your court</p>
-                {session.courts.map((court) => (
-                  <button
-                    key={court.id}
-                    type="button"
-                    onClick={() => setSelectedCourtId(court.id)}
-                    className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-5 min-h-20"
-                  >
-                    <p className="text-white text-xl font-black">{court.name}</p>
-                    <p className="text-white/35 text-xs mt-2">
-                      {court.currentMatch
-                        ? `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
-                        : court.nextMatch
-                          ? `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`
-                          : "No matches queued"}
-                    </p>
-                  </button>
-                ))}
+                {filteredCourts.length === 0 ? (
+                  <p className="text-white/35 text-sm py-2">No matches for this team</p>
+                ) : (
+                  filteredCourts.map((court) => (
+                    <button
+                      key={court.id}
+                      type="button"
+                      onClick={() => setSelectedCourtId(court.id)}
+                      className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-5 min-h-20"
+                    >
+                      <p className="text-white text-xl font-black">{court.name}</p>
+                      <p className="text-white/35 text-xs mt-2">
+                        {court.currentMatch
+                          ? `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
+                          : court.nextMatch
+                            ? `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`
+                            : "No matches queued"}
+                      </p>
+                    </button>
+                  ))
+                )}
               </>
             ) : null}
 
@@ -731,21 +911,34 @@ export default function BadmintonScorerHomePage() {
                     ← All courts
                   </button>
                 ) : null}
-                <CourtFocusView court={selectedCourt} onOpenMatch={openMatch} />
+                <CourtFocusView
+                  court={selectedCourt}
+                  viewOnly={viewOnly}
+                  onOpenMatch={openMatch}
+                />
               </>
             ) : null}
 
             {session?.view === "matches" ? (
-              session.matches.length === 0 ? (
+              filteredMatches.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
-                  <p className="text-white/70 font-semibold">No matches assigned</p>
+                  <p className="text-white/70 font-semibold">
+                    {teamFilter ? "No matches for this team" : "No matches assigned"}
+                  </p>
                   <p className="text-white/40 text-sm mt-2">
-                    Ask the organizer to assign you to this tournament under Officials.
+                    {teamFilter
+                      ? "Try another team or clear the filter."
+                      : "Ask the organizer to assign you to this tournament under Officials."}
                   </p>
                 </div>
               ) : (
-                session.matches.map((match) => (
-                  <MatchListCard key={match.id} match={match} onOpen={() => openMatch(match)} />
+                filteredMatches.map((match) => (
+                  <MatchListCard
+                    key={match.id}
+                    match={match}
+                    viewOnly={viewOnly}
+                    onOpen={() => openMatch(match)}
+                  />
                 ))
               )
             ) : null}

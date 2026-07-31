@@ -47,13 +47,28 @@ export type ScorerProfile = {
   id: number;
   name: string;
   mobile: string;
+  /** False when organizer deactivated the account — view-only, cannot score. */
+  isActive: boolean;
 };
 
 export type ScorerAuthContext = {
   scorerId: number;
   sessionId: string;
   profile: ScorerProfile;
+  /** Same as profile.isActive — scoring / lock acquire require this. */
+  canScore: boolean;
 };
+
+/** Throw when an authenticated scorer may browse but must not score or take locks. */
+export function assertScorerCanScore(auth: ScorerAuthContext): void {
+  if (!auth.canScore) {
+    throw new ScorerAuthError(
+      "Account is view-only. Scoring is disabled for this scorer.",
+      "ACCOUNT_INACTIVE",
+      403,
+    );
+  }
+}
 
 function normalizeMobile(raw: string): string {
   const parsed = parseIndianMobile(raw.trim());
@@ -140,12 +155,13 @@ export async function loginScorer(input: {
     .where(eq(scorerAccountsTable.mobile, mobile))
     .limit(1);
 
-  if (!account || !account.isActive) {
+  // Inactive accounts may still log in for view-only Scorer Home access.
+  if (!account) {
     failAuth();
   }
 
-  const activeAccount = account!;
-  const pinOk = await verifyScorerPin(pin, activeAccount.pinHash);
+  const scorerAccount = account!;
+  const pinOk = await verifyScorerPin(pin, scorerAccount.pinHash);
   if (!pinOk) {
     failAuth();
   }
@@ -158,7 +174,7 @@ export async function loginScorer(input: {
 
   await db.insert(scorerSessionsTable).values({
     id: sessionId,
-    scorerId: activeAccount.id,
+    scorerId: scorerAccount.id,
     deviceName: input.deviceName ?? null,
     ipAddress: input.ipAddress ?? null,
     userAgent: input.userAgent ?? null,
@@ -171,26 +187,32 @@ export async function loginScorer(input: {
   await db
     .update(scorerAccountsTable)
     .set({ lastLoginAt: now })
-    .where(eq(scorerAccountsTable.id, activeAccount.id));
+    .where(eq(scorerAccountsTable.id, scorerAccount.id));
 
   const token = signScorerJwt({
     purpose: "scorer",
-    scorerId: activeAccount.id,
+    scorerId: scorerAccount.id,
     sessionId,
   });
 
   await writeScorerAudit({
     actorType: "scorer",
-    actorId: String(activeAccount.id),
-    scorerId: activeAccount.id,
+    actorId: String(scorerAccount.id),
+    scorerId: scorerAccount.id,
     sessionId,
     action: "login",
-    payload: { mobile },
+    payload: { mobile, canScore: scorerAccount.isActive },
   });
 
   return {
     token,
-    scorer: { id: activeAccount.id, name: activeAccount.name, mobile: activeAccount.mobile },
+    scorer: {
+      id: scorerAccount.id,
+      name: scorerAccount.name,
+      mobile: scorerAccount.mobile,
+      isActive: scorerAccount.isActive,
+    },
+    canScore: scorerAccount.isActive,
     expiresAt: expiresAt.toISOString(),
   };
 }
@@ -240,11 +262,11 @@ export async function resolveScorerAuthFromClaims(
   const [account] = await db
     .select()
     .from(scorerAccountsTable)
-    .where(and(eq(scorerAccountsTable.id, claims.scorerId), eq(scorerAccountsTable.isActive, true)))
+    .where(eq(scorerAccountsTable.id, claims.scorerId))
     .limit(1);
 
   if (!account) {
-    throw new ScorerAuthError("Account inactive", "ACCOUNT_INACTIVE", 401);
+    throw new ScorerAuthError("Account not found", "AUTH_FAILED", 401);
   }
 
   await db
@@ -255,10 +277,12 @@ export async function resolveScorerAuthFromClaims(
   return {
     scorerId: account.id,
     sessionId: session.id,
+    canScore: account.isActive,
     profile: {
       id: account.id,
       name: account.name,
       mobile: account.mobile,
+      isActive: account.isActive,
     },
   };
 }

@@ -1,14 +1,14 @@
-/** Premium Badminton Match Win congratulations email for players. */
+/** Premium Badminton Match Win email for franchise / team owners. */
 
-export const BADMINTON_MATCH_WIN_SUBJECT =
-  "🏸 Congratulations {{player_name}}! You won your badminton match";
+export const BADMINTON_MATCH_WIN_OWNER_SUBJECT =
+  "🏆 Great news {{owner_name}}! {{team_name}} just won a badminton match";
 
-export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
+export const BADMINTON_MATCH_WIN_OWNER_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Match Win</title>
+<title>Franchise Match Win</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0B0B0B;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0B0B0B;">
@@ -21,7 +21,7 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 <td align="center" style="padding:36px 28px 28px;background:linear-gradient(180deg,#141414 0%,#0B0B0B 100%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
 <tr>
-<td align="center" style="padding-bottom:12px;font-size:36px;line-height:1;letter-spacing:0.2em;">🏸 🏆 🔥</td>
+<td align="center" style="padding-bottom:12px;font-size:36px;line-height:1;letter-spacing:0.2em;">🏆 🏸 ✨</td>
 </tr>
 <tr>
 <td align="center" style="padding-bottom:14px;">
@@ -29,11 +29,11 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 </td>
 </tr>
 <tr>
-<td align="center" style="padding-bottom:10px;font-size:42px;line-height:1;">🎉</td>
+<td align="center" style="padding-bottom:10px;font-size:42px;line-height:1;">📣</td>
 </tr>
 <tr>
 <td align="center">
-<p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:34px;line-height:1.15;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#F4B400;text-shadow:0 0 24px rgba(244,180,0,0.35);">CONGRATULATIONS</p>
+<p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:30px;line-height:1.15;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#F4B400;text-shadow:0 0 24px rgba(244,180,0,0.35);">FRANCHISE WIN</p>
 </td>
 </tr>
 </table>
@@ -43,7 +43,7 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 <!-- Tournament -->
 <tr>
 <td align="center" style="padding:8px 32px 24px;">
-<p style="margin:0 0 6px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#71717A;">Player Match Win</p>
+<p style="margin:0 0 6px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#71717A;">Team Owner Update</p>
 <p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:1.35;font-weight:700;color:#FAFAFA;">{{tournament_name}}</p>
 {{#category_name}}
 <p style="margin:10px 0 0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#A1A1AA;">{{category_name}}</p>
@@ -54,33 +54,33 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 <!-- Personal message -->
 <tr>
 <td style="padding:0 32px 24px;">
-<p style="margin:0 0 10px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.7;color:#E4E4E7;">Hey <strong style="color:#FAFAFA;">{{player_name}}</strong>,</p>
-<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.75;color:#A1A1AA;">What a performance! You just secured a hard-earned win on court. That energy, focus, and fight — this is what champions are made of.</p>
+<p style="margin:0 0 10px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.7;color:#E4E4E7;">Hi <strong style="color:#FAFAFA;">{{owner_name}}</strong>,</p>
+<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.75;color:#A1A1AA;">Your franchise just delivered a win on court. The squad showed fight, composure, and championship energy — this is the kind of moment that builds a title run.</p>
 </td>
 </tr>
 
-<!-- Result card -->
+<!-- Franchise result card -->
 <tr>
 <td style="padding:0 32px 28px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(180deg,#1A1A1A 0%,#121212 100%);border:1px solid rgba(244,180,0,0.35);border-radius:18px;overflow:hidden;box-shadow:0 12px 40px rgba(244,180,0,0.08);">
 <tr>
 <td align="center" style="padding:28px 24px 12px;">
-<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:#F4B400;">MATCH RESULT</p>
+<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:#F4B400;">YOUR FRANCHISE WON</p>
 </td>
 </tr>
 <tr>
-<td align="center" style="padding:8px 24px 8px;">
-<p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:26px;line-height:1.25;font-weight:700;color:#FAFAFA;">{{winner_label}}</p>
+<td align="center" style="padding:8px 24px 16px;">
+<p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:28px;line-height:1.25;font-weight:700;color:#FAFAFA;">{{team_name}}</p>
 </td>
 </tr>
 <tr>
 <td align="center" style="padding:0 24px 8px;">
-<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;color:#F4B400;">DEFEATED</p>
+<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;color:#F4B400;">MATCHUP</p>
 </td>
 </tr>
 <tr>
 <td align="center" style="padding:0 24px 20px;">
-<p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:20px;line-height:1.3;font-weight:600;color:#D4D4D8;">{{opponent_label}}</p>
+<p style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:1.35;font-weight:600;color:#D4D4D8;">{{winner_label}} vs {{opponent_label}}</p>
 </td>
 </tr>
 {{#score_line}}
@@ -100,9 +100,6 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 <tr>
 <td align="center" style="padding:8px 24px 28px;">
 <p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#A1A1AA;">{{result_label}} · Games {{games_score}}</p>
-{{#franchise_name}}
-<p style="margin:10px 0 0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;color:#D4D4D8;">Representing <strong style="color:#FAFAFA;">{{franchise_name}}</strong></p>
-{{/franchise_name}}
 </td>
 </tr>
 </table>
@@ -115,9 +112,9 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#141414;border:1px solid rgba(244,180,0,0.2);border-radius:14px;">
 <tr>
 <td style="padding:24px 22px;">
-<p style="margin:0 0 12px;font-size:28px;line-height:1;">🔥</p>
-<p style="margin:0 0 10px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;font-weight:700;color:#F4B400;">Keep the momentum. Own the court.</p>
-<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.75;color:#A1A1AA;">Every rally counts. Every point builds pressure. Stay sharp, stay hungry, and go chase the next win — the podium is waiting.</p>
+<p style="margin:0 0 12px;font-size:28px;line-height:1;">🚀</p>
+<p style="margin:0 0 10px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;font-weight:700;color:#F4B400;">Keep backing your squad.</p>
+<p style="margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.75;color:#A1A1AA;">Wins like this fuel belief across the locker room. Stay loud in support — the next big clash is coming, and {{team_name}} is ready.</p>
 </td>
 </tr>
 </table>
@@ -131,7 +128,7 @@ export const BADMINTON_MATCH_WIN_HTML = `<!DOCTYPE html>
 <tr>
 <td align="center" style="padding:28px 24px;">
 <p style="margin:0 0 8px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:1.35;font-weight:700;color:#FAFAFA;">Support BidWar</p>
-<p style="margin:0 0 16px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.7;color:#A1A1AA;">Proud to power your tournament journey.<br/>Play hard. Celebrate louder. Compete with BidWar.</p>
+<p style="margin:0 0 16px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.7;color:#A1A1AA;">From auction night to match day — BidWar powers the full franchise journey.<br/>Build. Compete. Celebrate.</p>
 <p style="margin:0;">
 <a href="https://bidwar.in" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 22px;background-color:#F4B400;color:#0B0B0B;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;text-decoration:none;border-radius:999px;letter-spacing:0.04em;">VISIT BIDWAR.IN</a>
 </p>

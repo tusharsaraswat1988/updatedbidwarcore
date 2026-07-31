@@ -66,6 +66,7 @@ import {
 import {
   syncAuctionTeamToMaster,
 } from "./sync";
+import { ensureBadmintonPlayerLinkedToMaster } from "./migrate-badminton";
 
 export type {
   BadmintonBranding,
@@ -264,12 +265,15 @@ export async function assignBadmintonPlayerFranchiseTeam(
 
   if (!bp) throw new Error("Player not found");
 
-  const masterPlayerId = await resolveMasterPlayerId(bp);
-  if (!masterPlayerId) {
-    throw new Error(
-      "This player is not linked to the Player Registry yet. Import from Player Registry first, then assign a team.",
-    );
-  }
+  // Walk-ins are created without a registry link; create/match one so team
+  // assignment works after Import from Auction exposes franchise teams.
+  const masterPlayerId =
+    (await resolveMasterPlayerId(bp)) ?? (await ensureBadmintonPlayerLinkedToMaster(bp));
+
+  await ensureTournamentProfile(tournamentId, masterPlayerId, {
+    displayName: bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim(),
+    photoOverrideUrl: bp.photoUrl,
+  });
 
   const [tournament] = await db
     .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })
@@ -307,14 +311,38 @@ export async function assignBadmintonPlayerFranchiseTeam(
   if (!masterTeamId) throw new Error("Could not sync team to Player Registry");
 
   const [mp] = await db
-    .select({ auctionPlayerId: globalPlayersTable.auctionPlayerId })
+    .select({
+      id: globalPlayersTable.id,
+      auctionPlayerId: globalPlayersTable.auctionPlayerId,
+    })
     .from(globalPlayersTable)
     .where(eq(globalPlayersTable.id, masterPlayerId))
     .limit(1);
 
-  let auctionPlayerId = mp?.auctionPlayerId ?? null;
+  if (!mp) {
+    throw new Error(
+      "Player Registry link is broken for this player. Re-import from Player Registry, then assign a team.",
+    );
+  }
 
-  if (!auctionPlayerId) {
+  let auctionPlayerId = mp.auctionPlayerId ?? null;
+
+  // Stale auctionPlayerId from another tournament must not be reused.
+  if (auctionPlayerId != null) {
+    const [inRegistry] = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.id, auctionPlayerId),
+          eq(playersTable.tournamentId, registryTournamentId),
+        ),
+      )
+      .limit(1);
+    if (!inRegistry) auctionPlayerId = null;
+  }
+
+  if (auctionPlayerId == null) {
     const [auctionPlayer] = await db
       .select({ id: playersTable.id })
       .from(playersTable)
@@ -328,9 +356,10 @@ export async function assignBadmintonPlayerFranchiseTeam(
     auctionPlayerId = auctionPlayer?.id ?? null;
   }
 
-  if (!auctionPlayerId) {
-    auctionPlayerId = badmintonPlayerId;
-  }
+  // Clear any prior active roster rows for this registry tournament so a
+  // leftover cricket assignment cannot hide the new badminton franchise.
+  await endActiveRosterAssignment(masterPlayerId, registryTournamentId, "badminton");
+  await endActiveRosterAssignment(masterPlayerId, registryTournamentId, "cricket");
 
   await assignPlayerToFranchiseRoster({
     masterPlayerId,

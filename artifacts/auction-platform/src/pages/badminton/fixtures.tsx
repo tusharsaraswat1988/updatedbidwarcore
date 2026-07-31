@@ -728,7 +728,10 @@ function LeagueGroupsPanel({
   };
   type StandingRow = {
     rank: number;
+    registrationId?: number;
     label: string;
+    groupId?: number | null;
+    groupName?: string | null;
     played: number;
     won: number;
     lost: number;
@@ -895,36 +898,64 @@ function LeagueGroupsPanel({
       </div>
 
       {standings.length > 0 ? (
-        <div className="overflow-x-auto">
-          <h5 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">
-            Pair Standings (margin points)
-          </h5>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-white/40 text-left">
-                <th className="py-1 pr-2">#</th>
-                <th className="py-1 pr-2">Pair</th>
-                <th className="py-1 pr-2">P</th>
-                <th className="py-1 pr-2">W</th>
-                <th className="py-1 pr-2">L</th>
-                <th className="py-1">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((row) => (
-                <tr key={row.rank} className="border-t border-white/5 text-white/80">
-                  <td className="py-1.5 pr-2">{row.rank}</td>
-                  <td className="py-1.5 pr-2">{row.label}</td>
-                  <td className="py-1.5 pr-2">{row.played}</td>
-                  <td className="py-1.5 pr-2">{row.won}</td>
-                  <td className="py-1.5 pr-2">{row.lost}</td>
-                  <td className="py-1.5 font-bold text-cyan-200">{row.marginPoints}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="text-[10px] text-white/35 mt-2">
-            Top 4 pairs qualify (by margin points from won games).
+        <div className="space-y-4">
+          {(groups.length > 1
+            ? groups.map((g) => ({
+                key: String(g.id),
+                title: g.name,
+                rows: standings
+                  .filter((s) => s.groupId === g.id)
+                  .map((row, i) => ({ ...row, rank: i + 1 })),
+              }))
+            : [
+                {
+                  key: "all",
+                  title: "Pair Standings",
+                  rows: standings,
+                },
+              ]
+          ).map((board) =>
+            board.rows.length === 0 ? null : (
+              <div key={board.key} className="overflow-x-auto">
+                <h5 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">
+                  {board.title}
+                  <span className="normal-case font-normal text-white/35 ml-2">
+                    (wins → point difference)
+                  </span>
+                </h5>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-white/40 text-left">
+                      <th className="py-1 pr-2">#</th>
+                      <th className="py-1 pr-2">Pair</th>
+                      <th className="py-1 pr-2">P</th>
+                      <th className="py-1 pr-2">W</th>
+                      <th className="py-1 pr-2">L</th>
+                      <th className="py-1">Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {board.rows.map((row) => (
+                      <tr
+                        key={`${board.key}-${row.registrationId ?? row.rank}-${row.label}`}
+                        className="border-t border-white/5 text-white/80"
+                      >
+                        <td className="py-1.5 pr-2">{row.rank}</td>
+                        <td className="py-1.5 pr-2">{row.label}</td>
+                        <td className="py-1.5 pr-2">{row.played}</td>
+                        <td className="py-1.5 pr-2">{row.won}</td>
+                        <td className="py-1.5 pr-2">{row.lost}</td>
+                        <td className="py-1.5 font-bold text-cyan-200">{row.marginPoints}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ),
+          )}
+          <p className="text-[10px] text-white/35">
+            Ranked by wins, then point difference on won matches. Male: top 4 per
+            group → QF. Female: top 4 overall → SF.
           </p>
         </div>
       ) : null}

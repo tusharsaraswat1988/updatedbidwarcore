@@ -649,7 +649,7 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
   );
 }
 
-/** League / group standings carousel — P / W / L / Pts. */
+/** League / group standings carousel — P / W / L / Diff. */
 export function VenueLeaderboardsScene({
   pages,
   loading,
@@ -738,7 +738,7 @@ export function VenueLeaderboardsScene({
             <span className="text-center">P</span>
             <span className="text-center">W</span>
             <span className="text-center">L</span>
-            <span className="text-right">Pts</span>
+            <span className="text-right">Diff</span>
           </div>
           <div className="divide-y divide-white/5">
             {rows.map((row) => (

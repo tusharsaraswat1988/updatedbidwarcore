@@ -114,6 +114,8 @@ import {
   unscheduleFixture,
 } from "../lib/fixture-scheduling";
 import { allocateTournamentInitials } from "../lib/master-sports/tournament-initials";
+import { ensureTournamentProfile } from "../lib/master-sports/tournament-profile";
+import { ensureBadmintonPlayerLinkedToMaster } from "../lib/master-sports/migrate-badminton";
 import {
   buildSideJsonFromBadmintonPlayer,
   listBadmintonPlayersForMatchRoster,
@@ -456,6 +458,14 @@ async function canWriteScoring(
   if (token) {
     try {
       const scorer = await resolveScorerAuthFromToken(token);
+      if (!scorer.canScore) {
+        return {
+          ok: false,
+          status: 403,
+          code: "ACCOUNT_INACTIVE",
+          error: "Account is view-only. Scoring is disabled for this scorer.",
+        };
+      }
       await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
       await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
       return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
@@ -628,7 +638,7 @@ const walkInPlayerBodySchema = z
     firstName: z.string().min(1).max(100).optional(),
     lastName: z.string().min(1).max(100).optional(),
     shortName: z.string().max(50).optional(),
-    photoUrl: z.string().max(500).optional(),
+    photoUrl: z.string().max(2000).optional().nullable(),
     photoPublicId: z.string().max(500).optional().nullable(),
     mobile: z.string().max(20).optional(),
     email: z.string().max(200).optional(),
@@ -681,8 +691,11 @@ async function normalizeWalkInPlayerInput(
     ? splitWalkInName(input.name)
     : { firstName: input.firstName!.trim(), lastName: input.lastName!.trim() };
 
+  // Keep stable scoreboard initials on edit — only allocate for new players
+  // or when the caller explicitly sends shortName.
   const shortName =
     input.shortName?.trim() ||
+    existing?.shortName?.trim() ||
     (await allocateTournamentInitials(tournamentId, {
       firstName: names.firstName,
       lastName: names.lastName,
@@ -715,17 +728,37 @@ router.post("/players", async (req, res) => {
 
   const values = await normalizeWalkInPlayerInput(tournamentId, parsed.data);
 
-  const [player] = await db
-    .insert(badmintonPlayersTable)
-    .values({ tournamentId, ...values, status: "active" })
-    .returning();
+  try {
+    const [created] = await db
+      .insert(badmintonPlayersTable)
+      .values({ tournamentId, ...values, status: "active" })
+      .returning();
 
-  // SSE is public — never broadcast contact PII.
-  broadcastTournamentUpdate(tournamentId, {
-    type: "player_created",
-    player: publicBadmintonPlayerSerializer(player),
-  });
-  res.status(201).json(player);
+    // Link walk-in to Player Registry so franchise team assignment works after
+    // Import from Auction (teams require a master player id).
+    const masterPlayerId = await ensureBadmintonPlayerLinkedToMaster(created);
+    await ensureTournamentProfile(tournamentId, masterPlayerId, {
+      displayName: created.displayName ?? `${created.firstName} ${created.lastName}`.trim(),
+      photoOverrideUrl: created.photoUrl,
+    });
+
+    const [player] = await db
+      .select()
+      .from(badmintonPlayersTable)
+      .where(eq(badmintonPlayersTable.id, created.id))
+      .limit(1);
+
+    const responsePlayer = player ?? { ...created, masterPlayerId };
+
+    // SSE is public — never broadcast contact PII.
+    broadcastTournamentUpdate(tournamentId, {
+      type: "player_created",
+      player: publicBadmintonPlayerSerializer(responsePlayer),
+    });
+    res.status(201).json(responsePlayer);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Could not add player" });
+  }
 });
 
 router.get("/players/:playerId", async (req, res) => {
@@ -758,68 +791,89 @@ router.patch("/players/:playerId", async (req, res) => {
   const parsed = walkInPlayerBodySchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const [existing] = await db
-    .select()
-    .from(badmintonPlayersTable)
-    .where(
-      and(
-        eq(badmintonPlayersTable.id, playerId),
-        eq(badmintonPlayersTable.tournamentId, tournamentId),
-      ),
-    )
-    .limit(1);
-
-  if (!existing) return void res.status(404).json({ error: "player not found" });
-
-  const values = await normalizeWalkInPlayerInput(tournamentId, parsed.data, existing);
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  const imageChanges: ImageFieldChange[] = [];
-
-  for (const [key, value] of Object.entries(values)) {
-    if (value !== undefined && key !== "photoUrl" && key !== "photoPublicId") {
-      updates[key] = value;
-    }
-  }
-
-  if (parsed.data.photoUrl !== undefined || parsed.data.photoPublicId !== undefined) {
-    queueImageFieldChange(imageChanges, updates, {
-      label: "photoUrl",
-      urlKey: "photoUrl",
-      publicIdKey: "photoPublicId",
-      existing: { url: existing.photoUrl, publicId: existing.photoPublicId },
-      nextUrl: parsed.data.photoUrl !== undefined ? (parsed.data.photoUrl || null) : undefined,
-      nextPublicId: parsed.data.photoPublicId,
-    });
-  }
-
-  let player!: typeof badmintonPlayersTable.$inferSelect;
-  const persistPlayerUpdate = async () => {
-    const [updated] = await db
-      .update(badmintonPlayersTable)
-      .set(updates)
+  try {
+    const [existing] = await db
+      .select()
+      .from(badmintonPlayersTable)
       .where(
         and(
           eq(badmintonPlayersTable.id, playerId),
           eq(badmintonPlayersTable.tournamentId, tournamentId),
         ),
       )
-      .returning();
-    if (!updated) throw new Error("PLAYER_NOT_FOUND");
-    player = updated;
-  };
+      .limit(1);
 
-  if (imageChanges.length > 0) {
-    await commitBatchCloudinaryImageWrites({
-      changes: imageChanges,
-      persist: persistPlayerUpdate,
-      logger: req.log,
-      context: { route: "badminton.patchPlayer", tournamentId, playerId },
+    if (!existing) return void res.status(404).json({ error: "player not found" });
+
+    const values = await normalizeWalkInPlayerInput(tournamentId, parsed.data, existing);
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    const imageChanges: ImageFieldChange[] = [];
+
+    for (const [key, value] of Object.entries(values)) {
+      if (value !== undefined && key !== "photoUrl" && key !== "photoPublicId") {
+        updates[key] = value;
+      }
+    }
+
+    const nextPhotoUrl =
+      parsed.data.photoUrl !== undefined ? (parsed.data.photoUrl || null) : undefined;
+    const nextPhotoPublicId =
+      parsed.data.photoPublicId !== undefined ? parsed.data.photoPublicId : undefined;
+    const photoUrlChanged =
+      nextPhotoUrl !== undefined && (nextPhotoUrl || null) !== (existing.photoUrl || null);
+    const photoPublicIdChanged =
+      nextPhotoPublicId !== undefined
+      && (nextPhotoPublicId || null) !== (existing.photoPublicId || null);
+
+    // Only touch Cloudinary fields when the client actually changed them.
+    // Edit-player forms often re-send photoUrl with photoPublicId: null.
+    if (photoUrlChanged || photoPublicIdChanged) {
+      queueImageFieldChange(imageChanges, updates, {
+        label: "photoUrl",
+        urlKey: "photoUrl",
+        publicIdKey: "photoPublicId",
+        existing: { url: existing.photoUrl, publicId: existing.photoPublicId },
+        nextUrl: nextPhotoUrl,
+        nextPublicId: nextPhotoPublicId !== undefined
+          ? nextPhotoPublicId
+          : (photoUrlChanged ? null : undefined),
+      });
+    }
+
+    let player!: typeof badmintonPlayersTable.$inferSelect;
+    const persistPlayerUpdate = async () => {
+      const [updated] = await db
+        .update(badmintonPlayersTable)
+        .set(updates)
+        .where(
+          and(
+            eq(badmintonPlayersTable.id, playerId),
+            eq(badmintonPlayersTable.tournamentId, tournamentId),
+          ),
+        )
+        .returning();
+      if (!updated) throw new Error("PLAYER_NOT_FOUND");
+      player = updated;
+    };
+
+    if (imageChanges.length > 0) {
+      await commitBatchCloudinaryImageWrites({
+        changes: imageChanges,
+        persist: persistPlayerUpdate,
+        logger: req.log,
+        context: { route: "badminton.patchPlayer", tournamentId, playerId },
+      });
+    } else {
+      await persistPlayerUpdate();
+    }
+
+    res.json(player);
+  } catch (e) {
+    req.log?.error?.({ err: e, tournamentId, playerId }, "badminton.patchPlayer failed");
+    res.status(500).json({
+      error: e instanceof Error ? e.message : "Failed to update player",
     });
-  } else {
-    await persistPlayerUpdate();
   }
-
-  res.json(player);
 });
 
 router.patch("/players/:playerId/franchise-team", async (req, res) => {
@@ -842,7 +896,11 @@ router.patch("/players/:playerId/franchise-team", async (req, res) => {
     );
     res.json(updated);
   } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : "Team assignment failed" });
+    req.log?.error?.({ err: e, tournamentId, playerId }, "badminton.assignFranchiseTeam failed");
+    const message = e instanceof Error ? e.message : "Team assignment failed";
+    const status =
+      /not found|not linked|could not sync/i.test(message) ? 400 : 500;
+    res.status(status).json({ error: message });
   }
 });
 
@@ -1906,12 +1964,20 @@ router.get("/categories/:catId/standings", async (req, res) => {
     typeof limitRaw === "string" && limitRaw.trim()
       ? Number.parseInt(limitRaw, 10)
       : undefined;
+  const groupIdRaw = req.query.groupId;
+  const groupId =
+    typeof groupIdRaw === "string" && groupIdRaw.trim()
+      ? Number.parseInt(groupIdRaw, 10)
+      : undefined;
+  const modeRaw = req.query.mode;
+  const mode =
+    modeRaw === "per_group" || modeRaw === "category" ? modeRaw : "category";
 
-  const standings = await getCategoryPairStandings(
-    tournamentId,
-    catId,
-    limit && !Number.isNaN(limit) ? limit : undefined,
-  );
+  const standings = await getCategoryPairStandings(tournamentId, catId, {
+    limit: limit && !Number.isNaN(limit) ? limit : undefined,
+    mode,
+    groupId: groupId && !Number.isNaN(groupId) ? groupId : undefined,
+  });
   res.json(standings);
 });
 
@@ -1926,12 +1992,19 @@ router.get("/categories/:catId/qualifiers", async (req, res) => {
     typeof limitRaw === "string" && limitRaw.trim()
       ? Number.parseInt(limitRaw, 10)
       : 4;
+  const modeRaw = req.query.mode;
+  /** Default per_group when category has multiple groups; else category-wide. */
+  let mode: "category" | "per_group" =
+    modeRaw === "per_group" || modeRaw === "category" ? modeRaw : "category";
+  if (modeRaw !== "per_group" && modeRaw !== "category") {
+    const groups = await listLeagueGroups(tournamentId, catId);
+    if (groups.length > 1) mode = "per_group";
+  }
 
-  const qualifiers = await getCategoryPairStandings(
-    tournamentId,
-    catId,
-    Number.isNaN(limit) ? 4 : limit,
-  );
+  const qualifiers = await getCategoryPairStandings(tournamentId, catId, {
+    limit: Number.isNaN(limit) ? 4 : limit,
+    mode,
+  });
   res.json(qualifiers);
 });
 
@@ -2294,7 +2367,7 @@ router.get("/scorer/session", async (req, res) => {
     await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
-    res.json(session);
+    res.json({ ...session, canScore: scorer.canScore, scorer: scorer.profile });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
       return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
@@ -2324,7 +2397,7 @@ router.post("/scorer/session", async (req, res) => {
     await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
     await ensureBadmintonTournament(tournamentId);
     const session = await openScorerHomeForTournament(tournamentId);
-    res.json(session);
+    res.json({ ...session, canScore: scorer.canScore, scorer: scorer.profile });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
       return void res.status(e.status).json({ error: e.message, code: e.code, ok: false });
@@ -2353,7 +2426,7 @@ router.get("/scorer/matches", async (req, res) => {
     if (!session.ok) {
       return void res.status(404).json({ error: "No matches available", code: "NO_MATCHES" });
     }
-    res.json(session);
+    res.json({ ...session, canScore: scorer.canScore, scorer: scorer.profile });
   } catch (e) {
     if (e instanceof ScorerAuthError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });

@@ -13,7 +13,9 @@ import {
   globalPlayersTable,
   masterPlayerIdMappingsTable,
   playerStatisticsTable,
+  type BadmintonPlayer,
 } from "@workspace/db";
+import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { logSync } from "@workspace/player-registry/sync-helpers";
 
 function generateGpId(): string {
@@ -26,6 +28,156 @@ export type MigrationResult = {
   skipped: number;
   errors: string[];
 };
+
+async function ensureMapping(
+  bp: BadmintonPlayer,
+  masterPlayerId: string,
+): Promise<void> {
+  const [mapping] = await db
+    .select({ id: masterPlayerIdMappingsTable.id })
+    .from(masterPlayerIdMappingsTable)
+    .where(
+      and(
+        eq(masterPlayerIdMappingsTable.sourceModule, "badminton"),
+        eq(masterPlayerIdMappingsTable.sourcePlayerId, bp.id),
+        eq(masterPlayerIdMappingsTable.tournamentId, bp.tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!mapping) {
+    await db.insert(masterPlayerIdMappingsTable).values({
+      sourceModule: "badminton",
+      sourcePlayerId: bp.id,
+      masterPlayerId,
+      tournamentId: bp.tournamentId,
+    });
+  }
+}
+
+/**
+ * Ensure a badminton player row is linked to Player Registry (global_players).
+ * Walk-ins are created without masterPlayerId; team assignment and roster need the link.
+ * Matches existing registry players by mobile when possible; otherwise creates one.
+ */
+export async function ensureBadmintonPlayerLinkedToMaster(
+  bp: BadmintonPlayer,
+): Promise<string> {
+  if (bp.masterPlayerId) {
+    await ensureMapping(bp, bp.masterPlayerId);
+    return bp.masterPlayerId;
+  }
+
+  let masterPlayerId: string;
+  const displayName = bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim();
+  const mobileParsed = bp.mobile ? parseIndianMobile(bp.mobile) : null;
+  const mobileNumber = mobileParsed?.ok ? mobileParsed.normalized : bp.mobile || null;
+
+  if (mobileNumber) {
+    const [byMobile] = await db
+      .select()
+      .from(globalPlayersTable)
+      .where(eq(globalPlayersTable.mobileNumber, mobileNumber))
+      .limit(1);
+
+    if (byMobile) {
+      const [alreadyInTournament] = await db
+        .select({ id: badmintonPlayersTable.id })
+        .from(badmintonPlayersTable)
+        .where(
+          and(
+            eq(badmintonPlayersTable.tournamentId, bp.tournamentId),
+            eq(badmintonPlayersTable.masterPlayerId, byMobile.id),
+            eq(badmintonPlayersTable.status, "active"),
+          ),
+        )
+        .limit(1);
+
+      if (alreadyInTournament && alreadyInTournament.id !== bp.id) {
+        throw new Error(
+          "A player with this mobile number is already in this tournament. Use Import from Player Registry or edit the existing player.",
+        );
+      }
+
+      masterPlayerId = byMobile.id;
+      await db
+        .update(globalPlayersTable)
+        .set({
+          firstName: bp.firstName,
+          lastName: bp.lastName,
+          displayName,
+          photoUrl: bp.photoUrl ?? byMobile.photoUrl,
+          country: bp.countryName ?? byMobile.country,
+          state: bp.stateName,
+          academy: bp.academyName,
+          handedness: bp.handedness,
+          gender: bp.gender,
+          dob: bp.dateOfBirth,
+          email: bp.email ?? byMobile.email,
+          worldRanking: bp.worldRanking,
+          nationalRanking: bp.nationalRanking,
+          updatedAt: new Date(),
+        })
+        .where(eq(globalPlayersTable.id, masterPlayerId));
+    } else {
+      masterPlayerId = generateGpId();
+      await db.insert(globalPlayersTable).values({
+        id: masterPlayerId,
+        canonicalName: displayName,
+        firstName: bp.firstName,
+        lastName: bp.lastName,
+        displayName: bp.displayName,
+        mobileNumber,
+        email: bp.email,
+        dob: bp.dateOfBirth,
+        gender: bp.gender,
+        country: bp.countryName,
+        state: bp.stateName,
+        city: null,
+        academy: bp.academyName,
+        handedness: bp.handedness,
+        worldRanking: bp.worldRanking,
+        nationalRanking: bp.nationalRanking,
+        photoUrl: bp.photoUrl,
+        sport: "badminton",
+      });
+    }
+  } else {
+    masterPlayerId = generateGpId();
+    await db.insert(globalPlayersTable).values({
+      id: masterPlayerId,
+      canonicalName: displayName,
+      firstName: bp.firstName,
+      lastName: bp.lastName,
+      displayName: bp.displayName,
+      email: bp.email,
+      dob: bp.dateOfBirth,
+      gender: bp.gender,
+      country: bp.countryName,
+      state: bp.stateName,
+      academy: bp.academyName,
+      handedness: bp.handedness,
+      worldRanking: bp.worldRanking,
+      nationalRanking: bp.nationalRanking,
+      photoUrl: bp.photoUrl,
+      sport: "badminton",
+    });
+  }
+
+  await db
+    .update(badmintonPlayersTable)
+    .set({ masterPlayerId, updatedAt: new Date() })
+    .where(eq(badmintonPlayersTable.id, bp.id));
+
+  await ensureMapping(bp, masterPlayerId);
+
+  await logSync("badminton_walk_in_linked", "badminton_player", String(bp.id), masterPlayerId, null, {
+    tournamentId: bp.tournamentId,
+    name: displayName,
+  });
+
+  return masterPlayerId;
+}
 
 export async function migrateBadmintonPlayersToMaster(
   tournamentId?: number,
@@ -44,115 +196,12 @@ export async function migrateBadmintonPlayersToMaster(
   for (const bp of players) {
     try {
       if (bp.masterPlayerId) {
-        const [mapping] = await db
-          .select()
-          .from(masterPlayerIdMappingsTable)
-          .where(eq(masterPlayerIdMappingsTable.sourcePlayerId, bp.id))
-          .limit(1);
-
-        if (!mapping) {
-          await db.insert(masterPlayerIdMappingsTable).values({
-            sourceModule: "badminton",
-            sourcePlayerId: bp.id,
-            masterPlayerId: bp.masterPlayerId,
-            tournamentId: bp.tournamentId,
-          });
-        }
+        await ensureMapping(bp, bp.masterPlayerId);
         result.skipped++;
         continue;
       }
 
-      let masterPlayerId: string;
-
-      if (bp.mobile) {
-        const [byMobile] = await db
-          .select()
-          .from(globalPlayersTable)
-          .where(eq(globalPlayersTable.mobileNumber, bp.mobile))
-          .limit(1);
-        if (byMobile) {
-          masterPlayerId = byMobile.id;
-          await db
-            .update(globalPlayersTable)
-            .set({
-              firstName: bp.firstName,
-              lastName: bp.lastName,
-              displayName: bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim(),
-              photoUrl: bp.photoUrl ?? byMobile.photoUrl,
-              country: bp.countryName ?? byMobile.country,
-              state: bp.stateName,
-              academy: bp.academyName,
-              handedness: bp.handedness,
-              gender: bp.gender,
-              dob: bp.dateOfBirth,
-              email: bp.email ?? byMobile.email,
-              worldRanking: bp.worldRanking,
-              nationalRanking: bp.nationalRanking,
-              updatedAt: new Date(),
-            })
-            .where(eq(globalPlayersTable.id, masterPlayerId));
-        } else {
-          masterPlayerId = generateGpId();
-          await db.insert(globalPlayersTable).values({
-            id: masterPlayerId,
-            canonicalName: bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim(),
-            firstName: bp.firstName,
-            lastName: bp.lastName,
-            displayName: bp.displayName,
-            mobileNumber: bp.mobile,
-            email: bp.email,
-            dob: bp.dateOfBirth,
-            gender: bp.gender,
-            country: bp.countryName,
-            state: bp.stateName,
-            city: null,
-            academy: bp.academyName,
-            handedness: bp.handedness,
-            worldRanking: bp.worldRanking,
-            nationalRanking: bp.nationalRanking,
-            photoUrl: bp.photoUrl,
-            sport: "badminton",
-          });
-        }
-      } else {
-        masterPlayerId = generateGpId();
-        await db.insert(globalPlayersTable).values({
-          id: masterPlayerId,
-          canonicalName: bp.displayName ?? `${bp.firstName} ${bp.lastName}`.trim(),
-          firstName: bp.firstName,
-          lastName: bp.lastName,
-          displayName: bp.displayName,
-          email: bp.email,
-          dob: bp.dateOfBirth,
-          gender: bp.gender,
-          country: bp.countryName,
-          state: bp.stateName,
-          academy: bp.academyName,
-          handedness: bp.handedness,
-          worldRanking: bp.worldRanking,
-          nationalRanking: bp.nationalRanking,
-          photoUrl: bp.photoUrl,
-          sport: "badminton",
-        });
-      }
-
-      await db
-        .update(badmintonPlayersTable)
-        .set({ masterPlayerId })
-        .where(eq(badmintonPlayersTable.id, bp.id));
-
-      await db.insert(masterPlayerIdMappingsTable).values({
-        sourceModule: "badminton",
-        sourcePlayerId: bp.id,
-        masterPlayerId,
-        tournamentId: bp.tournamentId,
-      });
-
-      await logSync("badminton_migration", "badminton_player", String(bp.id), masterPlayerId, null, {
-        tournamentId: bp.tournamentId,
-        name: bp.displayName ?? `${bp.firstName} ${bp.lastName}`,
-      });
-
+      await ensureBadmintonPlayerLinkedToMaster(bp);
       result.migrated++;
     } catch (err) {
       result.errors.push(
