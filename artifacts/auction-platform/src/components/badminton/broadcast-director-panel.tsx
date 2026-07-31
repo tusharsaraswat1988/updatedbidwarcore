@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleDot, Monitor, Radio, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
 import { ObsSafeAreaPreview } from "@/components/badminton/obs-safe-area-preview";
@@ -43,7 +43,7 @@ const OVERLAY_LAYOUT_OPTIONS: { id: BadmintonOverlayScene; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "compact", label: "Compact" },
   { id: "full", label: "Full" },
-  { id: "multi", label: "Multi courts" },
+  { id: "multi", label: "Both courts (L/R)" },
 ];
 
 /** Hall / stream moments — same presentation API, organizer language. */
@@ -59,7 +59,7 @@ const VENUE_MOMENT_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
 const VENUE_SCENE_OPTIONS: { id: BadmintonVenueScene; label: string }[] = [
   { id: "auto", label: "Auto (focus court)" },
   { id: "live_score", label: "Live score" },
-  { id: "multi", label: "Split both courts" },
+  { id: "multi", label: "Both courts stacked" },
   { id: "standby", label: "Standby / break" },
 ];
 
@@ -110,12 +110,15 @@ export function BadmintonBroadcastDirectorPanel({
 }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  const { data: branding } = useBadmintonBranding(tournamentId, {
+    staleTime: 120_000,
+    refetchInterval: false,
+  });
   const autoSyncedSoleIdRef = useRef<number | null>(null);
 
   const { data: matches = [] } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     refetchInterval: 6_000,
   });
@@ -212,7 +215,6 @@ export function BadmintonBroadcastDirectorPanel({
   const overlayScene = branding?.overlayScene ?? "auto";
   const venueScene = branding?.venueScene ?? "auto";
   const presentationBusy = setPresentationMutation.isPending;
-  const primaryBusy = setPrimaryMutation.isPending;
 
   return (
     <section
@@ -373,7 +375,7 @@ export function BadmintonBroadcastDirectorPanel({
                   ) : (
                     <button
                       type="button"
-                      disabled={primaryBusy || chip.matchId == null}
+                      disabled={chip.matchId == null}
                       onClick={() => chip.matchId != null && setPrimaryMutation.mutate(chip.matchId)}
                       className="ml-1 rounded border border-white/15 px-1.5 py-0.5 font-semibold hover:bg-white/10 transition-colors disabled:opacity-50"
                     >

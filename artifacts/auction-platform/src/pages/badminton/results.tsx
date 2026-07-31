@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { badmintonMatchControlPath } from "@/lib/badminton-routes";
 import {
   buildCategoryResultsBlocks,
@@ -63,7 +63,7 @@ function playerName(
 function registrationLabel(row: RegistrationRow): string {
   const a = playerName(row.player1);
   const b = playerName(row.player2);
-  if (a && b) return `${a} / ${b}`;
+  if (a && b) return `${a} & ${b}`;
   return a || `Entry #${row.registration.id}`;
 }
 
@@ -93,7 +93,7 @@ export default function BadmintonResultsPage() {
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<ResultsMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 30_000,
     refetchInterval: (q) => {

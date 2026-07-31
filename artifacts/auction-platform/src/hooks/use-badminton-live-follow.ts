@@ -3,10 +3,10 @@
  * Polls tournament matches + branding; reuses existing per-match SSE via useBadmintonMatch.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { fetchBadmintonMatches } from "@/lib/badminton-api";
 import {
   useBadmintonBranding,
   type BadmintonBranding,
@@ -22,46 +22,30 @@ import {
   type BroadcastConsoleMatch,
 } from "@/lib/badminton-broadcast-console";
 import { MAX_MULTI_COURT_ROWS } from "@/lib/badminton-broadcast-director";
+import {
+  applyPresentationPayload,
+  isPresentationPayload,
+} from "@/lib/badminton-presentation-mutation";
 
-function applyPresentationPayload(
-  prev: BadmintonBranding | undefined,
-  payload: Record<string, unknown>,
-): BadmintonBranding | undefined {
-  if (!prev) return prev;
-  const next = { ...prev };
-  if ("primaryBroadcastMatchId" in payload) {
-    const raw = payload.primaryBroadcastMatchId;
-    next.primaryBroadcastMatchId =
-      typeof raw === "number" && Number.isFinite(raw) && raw > 0
-        ? Math.floor(raw)
-        : null;
-  }
-  if (typeof payload.venueScene === "string") {
-    next.venueScene = payload.venueScene as BadmintonBranding["venueScene"];
-  }
-  if (typeof payload.overlayScene === "string") {
-    next.overlayScene = payload.overlayScene as BadmintonBranding["overlayScene"];
-  }
-  if (typeof payload.venueMusicPlaying === "boolean") {
-    next.venueMusicPlaying = payload.venueMusicPlaying;
-  }
-  if ("resolvedVenueMusicUrl" in payload) {
-    const url = payload.resolvedVenueMusicUrl;
-    next.resolvedVenueMusicUrl = typeof url === "string" && url.trim() ? url.trim() : null;
-  }
-  return next;
-}
-
+/** Venue/OBS follow — longer stale windows; SSE applies presentation in-place. */
 export function useBadmintonLiveFollow(tournamentId: number) {
   const queryClient = useQueryClient();
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  const { data: branding } = useBadmintonBranding(tournamentId, {
+    staleTime: 60_000,
+    refetchInterval: false,
+  });
 
   const matchesQuery = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
-    refetchInterval: 8_000,
+    staleTime: 15_000,
+    // Safety net only — live scores for the focused court come from match SSE.
+    refetchInterval: 20_000,
+    placeholderData: (prev) => prev,
   });
+
+  const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -70,22 +54,47 @@ export function useBadmintonLiveFollow(tournamentId: number) {
         payload && typeof payload === "object"
           ? (payload as Record<string, unknown>)
           : null;
-      if (
-        data
-        && (data.kind === "broadcast_presentation"
-          || "primaryBroadcastMatchId" in data
-          || "venueScene" in data
-          || "overlayScene" in data)
-      ) {
+
+      // Moments / focus / music: patch cache only — never refetch branding
+      // (refetch was remounting LED chrome and flashing "Connecting…").
+      if (data && isPresentationPayload(data)) {
         queryClient.setQueryData<BadmintonBranding | undefined>(
           ["badminton-branding", tournamentId],
           (prev) => applyPresentationPayload(prev, data),
         );
+        // Primary court change may need a fresher match list, but debounce.
+        if ("primaryBroadcastMatchId" in data) {
+          if (matchesInvalidateTimer.current) {
+            clearTimeout(matchesInvalidateTimer.current);
+          }
+          matchesInvalidateTimer.current = setTimeout(() => {
+            void queryClient.invalidateQueries({
+              queryKey: ["badminton-matches", tournamentId],
+            });
+          }, 400);
+        }
+        return;
       }
-      void queryClient.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
-      void queryClient.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
+
+      // Other tournament events (scores, schedule): debounce match-list refresh.
+      if (matchesInvalidateTimer.current) {
+        clearTimeout(matchesInvalidateTimer.current);
+      }
+      matchesInvalidateTimer.current = setTimeout(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ["badminton-matches", tournamentId],
+        });
+      }, 750);
     });
   }, [tournamentId, queryClient]);
+
+  useEffect(() => {
+    return () => {
+      if (matchesInvalidateTimer.current) {
+        clearTimeout(matchesInvalidateTimer.current);
+      }
+    };
+  }, []);
 
   const primaryMatchId = useMemo(
     () =>

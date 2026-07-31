@@ -16,7 +16,7 @@ import {
 import { buildAllSequences, simulateSequence } from "./doubles-rally-simulation.test";
 
 const leftSide = {
-  label: "A1 / A2",
+  label: "A1 & A2",
   shortLabel: "A",
   playerIds: [1, 2],
   players: [
@@ -26,7 +26,7 @@ const leftSide = {
 };
 
 const rightSide = {
-  label: "B1 / B2",
+  label: "B1 & B2",
   shortLabel: "B",
   playerIds: [3, 4],
   players: [

@@ -48,7 +48,7 @@ import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { friendlyBadmintonError, formatMatchStatusLabel, toastError, toastSuccess } from "@/lib/badminton-ux";
 import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { useToast } from "@/hooks/use-toast";
@@ -201,7 +201,7 @@ export default function BadmintonMatchesPage() {
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch<MatchRow[]>(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 8_000,
     refetchInterval: (q) => {

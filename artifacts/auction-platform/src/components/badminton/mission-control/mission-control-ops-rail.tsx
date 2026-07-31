@@ -1,12 +1,13 @@
 /**
  * Mission Control right rail — screens, scorer access, announcements.
+ * Hot-path controls: never disable on in-flight network; optimistic UI only.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Copy, Monitor, Pause, Play, QrCode, Radio, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { hubPanelClass } from "@/components/badminton/form-ui";
 import { BroadcastLinkCard } from "@/components/badminton/broadcast-link-card";
 import { useBadmintonBranding, type BadmintonBranding } from "@/hooks/use-badminton-branding";
@@ -58,16 +59,23 @@ export function MissionControlOpsRail({
 }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  // Operator rail: no 8s branding poll — SSE + optimistic PATCH keep UI snappy.
+  const { data: branding } = useBadmintonBranding(tournamentId, {
+    staleTime: 120_000,
+    refetchInterval: false,
+  });
   const [qrOpen, setQrOpen] = useState(false);
+  const presentationSeq = useRef(0);
 
   const scorerHomeUrl = badmintonScorerHomePublicUrl(tournamentId);
 
   const { data: matches = [] } = useQuery<BroadcastConsoleMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
-    refetchInterval: 6_000,
+    staleTime: 10_000,
+    refetchInterval: 12_000,
+    placeholderData: (prev) => prev,
   });
 
   const liveMatches = listLiveMatches(matches);
@@ -83,16 +91,31 @@ export function MissionControlOpsRail({
         method: "PATCH",
         body: JSON.stringify({ matchId }),
       }),
-    onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
-      toast({ title: "Screens follow this court" });
+    onMutate: (matchId) => {
+      const previous = qc.getQueryData<BadmintonBranding>([
+        "badminton-branding",
+        tournamentId,
+      ]);
+      if (previous) {
+        qc.setQueryData<BadmintonBranding>(["badminton-branding", tournamentId], {
+          ...previous,
+          primaryBroadcastMatchId: matchId,
+        });
+      }
+      return { previous };
     },
-    onError: (err) => {
+    onError: (err, _matchId, context) => {
+      const prev = (context as { previous?: BadmintonBranding } | undefined)?.previous;
+      if (prev) qc.setQueryData(["badminton-branding", tournamentId], prev);
       toast({
         title: "Could not switch court",
         description: friendlyBadmintonError(err, "Try again."),
         variant: "destructive",
       });
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(["badminton-branding", tournamentId], data);
+      toast({ title: "Screens follow this court" });
     },
   });
 
@@ -119,14 +142,24 @@ export function MissionControlOpsRail({
   const overlayScene = branding?.overlayScene ?? "auto";
   const venueScene = branding?.venueScene ?? "auto";
   const venueMusicPlaying = branding?.venueMusicPlaying === true;
-  // Never gate Moments / Venue on primary-court PATCH — that made buttons feel dead
-  // while "Screens follow" or a slow request was in flight.
   const presentationBusy = setPresentationMutation.isPending;
-  const primaryBusy = setPrimaryMutation.isPending;
+
+  function patchPresentation(
+    body: PresentationPatch,
+    opts?: { announce?: string },
+  ) {
+    const seq = ++presentationSeq.current;
+    setPresentationMutation.mutate(body, {
+      onSuccess: () => {
+        if (seq !== presentationSeq.current) return;
+        if (opts?.announce) onAnnouncement?.(opts.announce);
+      },
+    });
+  }
 
   /** Moments stay on screen until Clear (or a venue scene change). */
   function pushMoment(id: BadmintonVenueScene, label: string) {
-    setPresentationMutation.mutate(
+    patchPresentation(
       {
         venueScene: id,
         overlayScene:
@@ -137,12 +170,25 @@ export function MissionControlOpsRail({
                 "intro" | "winner" | "sponsor" | "results" | "leaderboards"
               >),
       },
-      { onSuccess: () => onAnnouncement?.(label) },
+      { announce: label },
     );
   }
 
   return (
-    <aside className="space-y-3" aria-label="Screen and scorer controls">
+    <aside
+      className="space-y-3 relative z-20"
+      aria-label="Screen and scorer controls"
+      data-mission-control-ops="true"
+    >
+      <div className={cn(hubPanelClass, "p-3 space-y-2 border-amber-500/20")}>
+        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-200/80">
+          Operator priority
+        </p>
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Screens, music, and moments stay clickable even while scores sync in the background.
+        </p>
+      </div>
+
       <div className={cn(hubPanelClass, "p-3 space-y-2")}>
         <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
           Scorer access
@@ -208,13 +254,14 @@ export function MissionControlOpsRail({
               <button
                 key={chip.key}
                 type="button"
-                disabled={primaryBusy || chip.matchId == null || chip.status !== "LIVE"}
+                disabled={chip.matchId == null || chip.status !== "LIVE"}
                 onClick={() => chip.matchId != null && setPrimaryMutation.mutate(chip.matchId)}
                 className={cn(
                   "min-h-9 px-3 rounded-lg border text-left text-xs font-semibold transition-colors disabled:opacity-40",
                   chip.isPrimary
                     ? "border-amber-500/45 bg-amber-500/20 text-amber-50"
                     : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+                  setPrimaryMutation.isPending && chip.isPrimary && "opacity-90",
                 )}
               >
                 {chip.label}
@@ -236,15 +283,14 @@ export function MissionControlOpsRail({
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
-            disabled={presentationBusy}
             onClick={() =>
-              setPresentationMutation.mutate(
+              patchPresentation(
                 { venueMusicPlaying: true },
-                { onSuccess: () => onAnnouncement?.("Venue music on") },
+                { announce: "Venue music on" },
               )
             }
             className={cn(
-              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-40",
+              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors",
               venueMusicPlaying
                 ? "border-emerald-500/45 bg-emerald-500/20 text-emerald-50"
                 : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
@@ -255,15 +301,14 @@ export function MissionControlOpsRail({
           </button>
           <button
             type="button"
-            disabled={presentationBusy}
             onClick={() =>
-              setPresentationMutation.mutate(
+              patchPresentation(
                 { venueMusicPlaying: false },
-                { onSuccess: () => onAnnouncement?.("Venue music paused") },
+                { announce: "Venue music paused" },
               )
             }
             className={cn(
-              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-40",
+              "min-h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors",
               !venueMusicPlaying
                 ? "border-amber-500/45 bg-amber-500/20 text-amber-50"
                 : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
@@ -302,7 +347,7 @@ export function MissionControlOpsRail({
                 presentationBusy && venueScene === "auto" && overlayScene === "auto"
               }
               onClick={() => {
-                setPresentationMutation.mutate({ venueScene: "auto", overlayScene: "auto" });
+                patchPresentation({ venueScene: "auto", overlayScene: "auto" });
               }}
             />
           </div>
@@ -316,7 +361,7 @@ export function MissionControlOpsRail({
               [
                 ["auto", "Auto (focus court)"],
                 ["live_score", "Live score"],
-                ["multi", "Split both courts"],
+                ["multi", "Both courts stacked"],
                 ["standby", "Standby"],
               ] as const
             ).map(([id, label]) => (
@@ -326,15 +371,21 @@ export function MissionControlOpsRail({
                 active={venueScene === id}
                 busy={presentationBusy && venueScene === id}
                 onClick={() =>
-                  setPresentationMutation.mutate(
-                    { venueScene: id },
-                    {
-                      onSuccess: () => {
-                        if (id === "multi") {
-                          onAnnouncement?.("Split view — both courts on Venue LED");
+                  patchPresentation(
+                    id === "multi"
+                      ? { venueScene: "multi", overlayScene: "multi" }
+                      : {
+                          venueScene: id,
+                          ...(overlayScene === "multi"
+                            ? { overlayScene: "auto" as const }
+                            : {}),
+                        },
+                    id === "multi"
+                      ? {
+                          announce:
+                            "Both courts — Venue stacked, OBS left/right boxes",
                         }
-                      },
-                    },
+                      : undefined,
                   )
                 }
               />

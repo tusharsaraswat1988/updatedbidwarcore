@@ -7,7 +7,7 @@ import type { DoublesServeState } from "./types";
 function side(label: string, shortA: string, shortB: string) {
   return {
     label,
-    shortLabel: `${shortA} / ${shortB}`,
+    shortLabel: `${shortA} & ${shortB}`,
     playerIds: [1, 2],
     players: [
       { label: `${label} P0`, shortLabel: shortA },

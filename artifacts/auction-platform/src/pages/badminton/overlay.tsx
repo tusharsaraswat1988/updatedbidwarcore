@@ -22,7 +22,7 @@ import {
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
-import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
+import { sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import {
@@ -132,7 +132,8 @@ export default function BadmintonOverlayPage() {
 
   const fixedMatch = useBadmintonMatch(tournamentId, followMode ? 0 : matchId);
   const liveFollow = useBadmintonLiveFollow(tournamentId);
-  const { data: branding } = useBadmintonBranding(tournamentId);
+  // Prefer follow-hook branding (SSE cache patches, no 8s poll storm).
+  const branding = liveFollow.branding;
 
   const requestedType = resolveOverlayGraphicType(
     branding?.overlayScene,
@@ -163,11 +164,15 @@ export default function BadmintonOverlayPage() {
 
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
-  const urlSponsorLogos: SponsorLogo[] = sponsorParam
-    ? sponsorParam.split(",").filter(Boolean).map((url) => ({ url, name: "", type: "" }))
-    : [];
-  const sponsorLogos =
-    urlSponsorLogos.length > 0 ? urlSponsorLogos : sponsorLogosFromBranding(branding);
+  const sponsorLogos = useMemo(() => {
+    if (sponsorParam) {
+      return sponsorParam
+        .split(",")
+        .filter(Boolean)
+        .map((url) => ({ url, name: "", type: "" }) satisfies SponsorLogo);
+    }
+    return sponsorLogosFromBranding(branding);
+  }, [sponsorParam, branding?.sponsorLogos]);
 
   const stageStyle = OBS_STAGE_STYLE;
 
@@ -291,14 +296,11 @@ export default function BadmintonOverlayPage() {
 
       {multiCourtMode ? (
         multiRows.length > 0 ? (
-          <div
-            className={cn(
-              "absolute z-20 left-1/2 -translate-x-1/2 pointer-events-none",
-              playDensity ? "bottom-[8vh]" : "bottom-[11vh]",
-            )}
-          >
-            <MultiCourtScoreStrip rows={multiRows} variant="overlay" />
-          </div>
+          <MultiCourtScoreStrip
+            rows={multiRows}
+            variant="overlay"
+            className={playDensity ? "pb-[7vh]" : "pb-[10vh]"}
+          />
         ) : null
       ) : type === "results" ? (
         <div

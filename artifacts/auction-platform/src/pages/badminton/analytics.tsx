@@ -18,7 +18,7 @@ import {
 
 } from "lucide-react";
 
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { isTerminalScoringMatchStatus } from "@workspace/badminton-core";
 import { useBadmintonDashboard } from "@/hooks/use-badminton-match";
 
@@ -122,7 +122,7 @@ export default function BadmintonAnalyticsPage() {
 
     queryKey: ["badminton-matches", tournamentId],
 
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
 
     enabled: !!tournamentId,
 

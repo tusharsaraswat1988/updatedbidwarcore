@@ -22,7 +22,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonDashboard } from "@/hooks/use-badminton-match";
 import { badmintonHubPath } from "@/lib/badminton-routes";
@@ -102,7 +102,7 @@ export default function BadmintonSummaryPage() {
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery<ResultsMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
   });
 

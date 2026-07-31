@@ -117,7 +117,7 @@ function playerLabel(
 function registrationLabel(row: RegistrationRow, doubles: boolean): string {
   const a = playerLabel(row.player1);
   if (!doubles) return a;
-  return `${a} / ${playerLabel(row.player2 ?? null)}`;
+  return `${a} & ${playerLabel(row.player2 ?? null)}`;
 }
 
 const STRUCTURE_SECTIONS = ["events", "draw"] as const;

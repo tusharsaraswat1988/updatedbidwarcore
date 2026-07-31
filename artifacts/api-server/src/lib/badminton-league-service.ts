@@ -537,7 +537,7 @@ export async function getCategoryPairStandings(
     const reg = regs.find((r) => r.id === row.registrationId);
     const label = reg
       ? reg.player2Id
-        ? `${playerLabel(reg.player1Id)} / ${playerLabel(reg.player2Id)}`
+        ? `${playerLabel(reg.player1Id)} & ${playerLabel(reg.player2Id)}`
         : playerLabel(reg.player1Id)
       : `Entry #${row.registrationId}`;
 

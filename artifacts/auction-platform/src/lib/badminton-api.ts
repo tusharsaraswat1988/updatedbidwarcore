@@ -1,3 +1,6 @@
+import { normalizeMatchStatePairSeparators } from "@workspace/badminton-core";
+import type { BroadcastConsoleMatch } from "@/lib/badminton-broadcast-console";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export async function badmintonFetch<T>(
@@ -24,6 +27,21 @@ export async function badmintonFetch<T>(
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+/** Match list with legacy " / " pair labels normalized to " & ". */
+export async function fetchBadmintonMatches(
+  tournamentId: number,
+): Promise<BroadcastConsoleMatch[]> {
+  const rows = await badmintonFetch<BroadcastConsoleMatch[]>(
+    tournamentId,
+    `/matches`,
+  );
+  return rows.map((m) =>
+    m.state
+      ? { ...m, state: normalizeMatchStatePairSeparators(m.state) }
+      : m,
+  );
 }
 
 /**

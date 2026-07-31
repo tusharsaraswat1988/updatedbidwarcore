@@ -229,7 +229,7 @@ export function SidePlayerShortLabels({
 
   return (
     <span className={className}>
-      {players.slice(0, 2).map((p) => p.shortLabel).join(" / ")}
+      {players.slice(0, 2).map((p) => p.shortLabel).join(" & ")}
     </span>
   );
 }

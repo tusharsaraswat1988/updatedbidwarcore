@@ -129,8 +129,8 @@ function pairSide(
   players: Array<{ masterPlayerId: string; label: string; teamName?: string }>,
 ) {
   return {
-    label: players.map((p) => p.label).join(" / "),
-    shortLabel: players.map((p) => p.label.slice(0, 1)).join(" / "),
+    label: players.map((p) => p.label).join(" & "),
+    shortLabel: players.map((p) => p.label.slice(0, 1)).join(" & "),
     playerIds: players.map((_, i) => i + 1),
     players: players.map((p) => ({
       label: p.label,
@@ -164,8 +164,8 @@ describe("extractMasterPlayerIdsFromSideJson", () => {
     expect(
       extractMasterPlayerIdsFromSideJson(
         {
-          label: "A / B",
-          shortLabel: "A / B",
+          label: "A & B",
+          shortlabel: "A & B",
           playerIds: [1, 2],
           players: [
             { label: "A", shortLabel: "A", masterPlayerId: "gp_a" },

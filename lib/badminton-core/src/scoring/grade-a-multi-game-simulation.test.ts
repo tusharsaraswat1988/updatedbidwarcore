@@ -36,12 +36,12 @@ const MATCH_START: BadmintonMatchStartedPayload = {
   matchKind: "doubles",
   format: STANDARD_FORMAT,
   leftSide: {
-    label: "A1 / A2",
+    label: "A1 & A2",
     shortLabel: "A",
     playerIds: [1, 2],
   },
   rightSide: {
-    label: "B1 / B2",
+    label: "B1 & B2",
     shortLabel: "B",
     playerIds: [3, 4],
   },

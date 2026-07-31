@@ -60,14 +60,25 @@ function normalizeBranding(raw: BadmintonBranding): BadmintonBranding {
   };
 }
 
-export function useBadmintonBranding(tournamentId: number) {
+type BrandingQueryOptions = {
+  /** Override default staleTime (Mission Control keeps a short window). */
+  staleTime?: number;
+  /** Set false on Venue/OBS — presentation arrives via SSE cache patches. */
+  refetchInterval?: number | false;
+};
+
+export function useBadmintonBranding(
+  tournamentId: number,
+  options?: BrandingQueryOptions,
+) {
   return useQuery<BadmintonBranding>({
     queryKey: ["badminton-branding", tournamentId],
     queryFn: async () => normalizeBranding(await badmintonFetch<BadmintonBranding>(tournamentId, `/branding`)),
     enabled: !!tournamentId,
     // Scene chips must track play-safe auto-clears after the first rally.
-    staleTime: 4_000,
-    refetchInterval: 8_000,
+    staleTime: options?.staleTime ?? 4_000,
+    refetchInterval: options?.refetchInterval ?? 8_000,
+    placeholderData: (prev) => prev,
   });
 }
 

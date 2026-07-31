@@ -6,6 +6,7 @@
  */
 
 import type { BadmintonMatchState } from "./types";
+import { normalizeMatchStatePairSeparators } from "./side-utils";
 
 /** Monotonic event sequence — alias for lastSequence on match state. */
 export function getEventSequence(state: BadmintonMatchState | null | undefined): number {
@@ -80,9 +81,10 @@ export function mergeMatchStateCache(
   incoming: BadmintonMatchState,
   expectedMatchId?: number,
 ): MatchStateCache {
-  const result = applyMatchStateIfNewer(prev?.state, incoming, expectedMatchId);
+  const normalized = normalizeMatchStatePairSeparators(incoming);
+  const result = applyMatchStateIfNewer(prev?.state, normalized, expectedMatchId);
   if (!result.applied) {
-    return prev ?? { state: incoming, detail: null };
+    return prev ?? { state: normalized, detail: null };
   }
   return {
     state: result.state,

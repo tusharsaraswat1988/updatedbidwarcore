@@ -72,7 +72,9 @@ export function useBadmintonBroadcastAudio({
       masterVolume: 80,
       sfxVolume: 85,
     });
-    mgr.unlock().then(() => setIsUnlocked(mgr.isUnlocked)).catch(() => {});
+    // Do not call unlock() here — it races AudioContext on every volume/URL
+    // tick and was a major source of venue LED memory/lag under load.
+    if (mgr.isUnlocked) setIsUnlocked(true);
   }, [resolvedVenueMusicUrl, venueMusicVolume]);
 
   useEffect(() => {

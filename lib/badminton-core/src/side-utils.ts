@@ -5,6 +5,52 @@ import type {
 } from "./types";
 import { resolveFranchiseLogoUrl, resolveFranchiseName } from "./franchise";
 
+/** Doubles / mixed pair names — always "Player 1 & Player 2" (never "/"). */
+export const BADMINTON_PAIR_NAME_SEPARATOR = " & ";
+
+/** Join non-empty pair name parts with ` & `. */
+export function formatBadmintonPairNames(
+  ...parts: Array<string | null | undefined>
+): string {
+  return parts
+    .map((p) => (typeof p === "string" ? p.trim() : ""))
+    .filter(Boolean)
+    .join(BADMINTON_PAIR_NAME_SEPARATOR);
+}
+
+/** Normalize legacy stored labels that used " / " between partners. */
+export function normalizeBadmintonPairSeparator(text: string): string {
+  return text.replaceAll(" / ", BADMINTON_PAIR_NAME_SEPARATOR);
+}
+
+/** Rewrite pair separators on a side (labels already persisted with " / "). */
+export function normalizeSideInfoPairSeparators(
+  side: BadmintonSideInfo,
+): BadmintonSideInfo {
+  return {
+    ...side,
+    label: normalizeBadmintonPairSeparator(side.label),
+    shortLabel: normalizeBadmintonPairSeparator(side.shortLabel),
+    franchiseName: side.franchiseName
+      ? normalizeBadmintonPairSeparator(side.franchiseName)
+      : side.franchiseName,
+    teamName: side.teamName
+      ? normalizeBadmintonPairSeparator(side.teamName)
+      : side.teamName,
+  };
+}
+
+/** Normalize both sides of a match snapshot for display / cache. */
+export function normalizeMatchStatePairSeparators<
+  T extends { leftSide: BadmintonSideInfo; rightSide: BadmintonSideInfo },
+>(state: T): T {
+  return {
+    ...state,
+    leftSide: normalizeSideInfoPairSeparators(state.leftSide),
+    rightSide: normalizeSideInfoPairSeparators(state.rightSide),
+  };
+}
+
 export function isPairMatchKind(
   matchKind: BadmintonMatchKind | string,
 ): boolean {
@@ -79,18 +125,22 @@ export function mergeDoublesSideJson(
   const franchiseLogoUrl = slot1.franchiseLogoUrl ?? slot2.franchiseLogoUrl;
 
   return {
-    label: `${slot1.label} / ${slot2.label}`,
-    shortLabel: `${slot1.shortLabel} / ${slot2.shortLabel}`,
+    label: formatBadmintonPairNames(slot1.label, slot2.label),
+    shortLabel: formatBadmintonPairNames(slot1.shortLabel, slot2.shortLabel),
     countryCode: slot1.countryCode ?? slot2.countryCode,
     countryName: slot1.countryName ?? slot2.countryName,
     photoUrl: slot1.photoUrl ?? slot2.photoUrl,
     flagUrl: slot1.flagUrl ?? slot2.flagUrl,
     teamColor: slot1.teamColor ?? slot2.teamColor,
     franchiseName:
-      uniqueFranchises.length > 1 ? uniqueFranchises.join(" / ") : uniqueFranchises[0],
+      uniqueFranchises.length > 1
+        ? formatBadmintonPairNames(...uniqueFranchises)
+        : uniqueFranchises[0],
     franchiseLogoUrl,
     teamName:
-      uniqueFranchises.length > 1 ? uniqueFranchises.join(" / ") : uniqueFranchises[0],
+      uniqueFranchises.length > 1
+        ? formatBadmintonPairNames(...uniqueFranchises)
+        : uniqueFranchises[0],
     teamLogoUrl: franchiseLogoUrl,
     sponsorName: slot1.sponsorName ?? slot2.sponsorName,
     sponsorLogoUrl: slot1.sponsorLogoUrl ?? slot2.sponsorLogoUrl,

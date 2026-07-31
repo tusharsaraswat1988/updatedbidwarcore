@@ -11,7 +11,7 @@ import { useRoute, Link, useSearch } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import {
   buildCourtBoard,
   listReadyMatches,
@@ -52,6 +52,14 @@ import {
 import { forceUnlockBadmintonMatch } from "@/lib/scorer-api";
 import { useBadmintonDirector } from "@/hooks/use-badminton-match";
 import type { BadmintonOverlayScene, BadmintonVenueScene } from "@/lib/badminton-broadcast-director";
+import {
+  applyPresentationPayload,
+  isPresentationPayload,
+  onPresentationError,
+  onPresentationMutate,
+  onPresentationSuccess,
+  type PresentationMutateContext,
+} from "@/lib/badminton-presentation-mutation";
 
 type CourtRow = {
   id: number;
@@ -88,7 +96,11 @@ export default function BadmintonControlCenterPage() {
   const [lastRealtimeAt, setLastRealtimeAt] = useState<number | null>(null);
   const prevBoardKey = useRef<string>("");
 
-  const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId);
+  // Operator page: avoid 8s branding poll fighting Moments / Auto focus clicks.
+  const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId, {
+    staleTime: 120_000,
+    refetchInterval: false,
+  });
 
   const {
     data: courts = [],
@@ -112,7 +124,7 @@ export default function BadmintonControlCenterPage() {
     dataUpdatedAt: matchesUpdatedAt,
   } = useQuery<ControlMatch[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
     staleTime: 15_000,
     refetchInterval: (q) => {
@@ -163,15 +175,50 @@ export default function BadmintonControlCenterPage() {
     if (!tournamentId) return;
     const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream`;
     const es = new EventSource(url, { withCredentials: true });
-    es.onmessage = () => {
+    let matchesTimer: ReturnType<typeof setTimeout> | null = null;
+
+    es.onmessage = (event) => {
       setLastRealtimeAt(Date.now());
-      void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
-      void qc.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
+      let payload: unknown;
+      try {
+        const parsed = JSON.parse(event.data) as { type?: string; data?: unknown };
+        payload = parsed?.type === "tournament_update" ? parsed.data : parsed;
+      } catch {
+        payload = undefined;
+      }
+      const data =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+
+      // Presentation / focus / music: patch cache only — never refetch branding
+      // (refetch + await cancelQueries was freezing Auto / Moments buttons).
+      if (data && isPresentationPayload(data)) {
+        qc.setQueryData<BadmintonBranding | undefined>(
+          ["badminton-branding", tournamentId],
+          (prev) => applyPresentationPayload(prev, data),
+        );
+        if ("primaryBroadcastMatchId" in data) {
+          if (matchesTimer) clearTimeout(matchesTimer);
+          matchesTimer = setTimeout(() => {
+            void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+          }, 400);
+        }
+        return;
+      }
+
+      if (matchesTimer) clearTimeout(matchesTimer);
+      matchesTimer = setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      }, 750);
     };
     es.onerror = () => {
       /* polling remains fallback */
     };
-    return () => es.close();
+    return () => {
+      if (matchesTimer) clearTimeout(matchesTimer);
+      es.close();
+    };
   }, [tournamentId, qc]);
 
   const categoryName = useMemo(() => {
@@ -332,22 +379,13 @@ export default function BadmintonControlCenterPage() {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
-    onMutate: async (body) => {
-      await qc.cancelQueries({ queryKey: ["badminton-branding", tournamentId] });
-      const previous = qc.getQueryData<BadmintonBranding>(["badminton-branding", tournamentId]);
-      if (previous) {
-        qc.setQueryData<BadmintonBranding>(["badminton-branding", tournamentId], {
-          ...previous,
-          ...(body.overlayScene !== undefined ? { overlayScene: body.overlayScene } : {}),
-          ...(body.venueScene !== undefined ? { venueScene: body.venueScene } : {}),
-        });
-      }
-      return { previous };
-    },
+    onMutate: (body) => onPresentationMutate(qc, tournamentId, body),
     onError: (err, _body, context) => {
-      if (context?.previous) {
-        qc.setQueryData(["badminton-branding", tournamentId], context.previous);
-      }
+      onPresentationError(
+        qc,
+        tournamentId,
+        context as PresentationMutateContext | undefined,
+      );
       toast({
         title: "Screen update failed",
         description: friendlyBadmintonError(err, "Try Emergency / Resume again."),
@@ -355,7 +393,7 @@ export default function BadmintonControlCenterPage() {
       });
     },
     onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
+      onPresentationSuccess(qc, tournamentId, data);
     },
   });
 
@@ -365,6 +403,23 @@ export default function BadmintonControlCenterPage() {
         method: "PATCH",
         body: JSON.stringify({ matchId }),
       }),
+    onMutate: (matchId) => {
+      const previous = qc.getQueryData<BadmintonBranding>([
+        "badminton-branding",
+        tournamentId,
+      ]);
+      if (previous) {
+        qc.setQueryData<BadmintonBranding>(["badminton-branding", tournamentId], {
+          ...previous,
+          primaryBroadcastMatchId: matchId,
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _matchId, context) => {
+      const prev = (context as { previous?: BadmintonBranding } | undefined)?.previous;
+      if (prev) qc.setQueryData(["badminton-branding", tournamentId], prev);
+    },
     onSuccess: (data) => {
       qc.setQueryData(["badminton-branding", tournamentId], data);
       toast({ title: "Screens follow this court" });
@@ -612,7 +667,7 @@ export default function BadmintonControlCenterPage() {
                   </div>
                 </section>
 
-                <div className="lg:sticky lg:top-28 space-y-3">
+                <div className="lg:sticky lg:top-24 space-y-3 z-30 isolate">
                   <MissionControlOpsRail
                     tournamentId={tournamentId}
                     onAnnouncement={(label) => pushActivity(`Announcement · ${label}`)}

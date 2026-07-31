@@ -15,7 +15,7 @@ import { DirectorStatusBanner } from "@/components/badminton/director-status-ban
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
-import { badmintonFetch } from "@/lib/badminton-api";
+import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { friendlyBadmintonError } from "@/lib/badminton-ux";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import {
@@ -88,7 +88,7 @@ export default function BadmintonMatchControlPage() {
   // Reuse day-of list query (same key as Control Center) — no dedicated per-match list fetch.
   const { data: allMatches = [] } = useQuery<MatchListRow[]>({
     queryKey: ["badminton-matches", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/matches`),
+    queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId && !!isPreMatch,
     staleTime: 8_000,
   });

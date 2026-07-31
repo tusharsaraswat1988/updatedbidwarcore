@@ -177,7 +177,7 @@ router.post("/setup", async (req, res) => {
     const isDoubles = parsed.data.matchKind === "doubles";
     const leftSideJson = isDoubles
       ? {
-          label: "Probe L1 / L2",
+          label: "Probe L1 & L2",
           shortLabel: "L",
           playerIds: [1, 2],
           players: [
@@ -188,7 +188,7 @@ router.post("/setup", async (req, res) => {
       : { label: "Probe Left", shortLabel: "L", playerIds: [] };
     const rightSideJson = isDoubles
       ? {
-          label: "Probe R1 / R2",
+          label: "Probe R1 & R2",
           shortLabel: "R",
           playerIds: [3, 4],
           players: [

@@ -14,7 +14,7 @@ import type { BadmintonMatchStartedPayload } from "../events/badminton";
 import { BadmintonEventType } from "../events/badminton";
 
 const leftSide = {
-  label: "Abhinav / Ankit",
+  label: "Abhinav & Ankit",
   shortLabel: "A/A",
   playerIds: [1, 2],
   players: [
@@ -24,7 +24,7 @@ const leftSide = {
 };
 
 const rightSide = {
-  label: "Priyank / Saumya",
+  label: "Priyank & Saumya",
   shortLabel: "P/S",
   playerIds: [3, 4],
   players: [

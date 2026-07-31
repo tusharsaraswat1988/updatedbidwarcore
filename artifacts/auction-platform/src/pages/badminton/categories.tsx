@@ -795,9 +795,9 @@ function formatRegistrationEntryName(
   const name2 = p2?.id ? formatPlayerName(p2) : null;
 
   if (isDoubles) {
-    if (name1 && name2) return `${name1} / ${name2}`;
-    if (name1) return `${name1} / Partner not set`;
-    if (name2) return `Player not set / ${name2}`;
+    if (name1 && name2) return `${name1} & ${name2}`;
+    if (name1) return `${name1} & Partner not set`;
+    if (name2) return `Player not set & ${name2}`;
     return "Doubles entry (players missing)";
   }
 
