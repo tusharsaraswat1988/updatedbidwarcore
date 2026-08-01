@@ -19,6 +19,8 @@ import {
   type BadmintonMatchResumedPayload,
   type BadmintonMatchNoteAddedPayload,
   type BadmintonMarginPointsAssignedPayload,
+  type BadmintonScoreRevisedPayload,
+  type BadmintonMatchReopenedPayload,
 } from "../events/badminton";
 import type {
   BadmintonEventEnvelope,
@@ -26,6 +28,7 @@ import type {
   BadmintonMatchState,
   BadmintonMatchStatus,
 } from "../types";
+import { isBadmintonTerminalMatchStatus } from "../match-terminal-status";
 import {
   createInitialBadmintonState,
   gamesNeededToWin,
@@ -393,7 +396,7 @@ function applyMatchPaused(
 ): BadmintonMatchState {
   return {
     ...state,
-    matchStatus: "paused",
+    matchStatus: payload.reason === "ops_hold" ? "on_hold" : "paused",
     isPaused: true,
     pauseReason: payload.reason,
     pauseDetail: payload.detail,
@@ -428,6 +431,135 @@ function applyMatchNoteAdded(
     matchNotes: [
       ...state.matchNotes,
       { text: payload.text, addedAt: ts, sequence },
+    ],
+  };
+}
+
+function applyScoreRevised(
+  state: BadmintonMatchState,
+  payload: BadmintonScoreRevisedPayload,
+  sequence: number,
+  occurredAt?: string | Date,
+): BadmintonMatchState {
+  const ts =
+    occurredAt instanceof Date
+      ? occurredAt.toISOString()
+      : occurredAt ?? new Date().toISOString();
+  const games: BadmintonGameState[] = payload.games.map((g) => ({
+    gameNumber: g.gameNumber,
+    leftScore: g.leftScore,
+    rightScore: g.rightScore,
+    servingSide: g.winningSide,
+    intervalReached: false,
+    sideChangeAcknowledged: true,
+    phase: "completed" as const,
+    winner: g.winningSide,
+    endedAt: ts,
+  }));
+  let gamesLeft = 0;
+  let gamesRight = 0;
+  for (const g of games) {
+    if (g.winner === "left") gamesLeft += 1;
+    else if (g.winner === "right") gamesRight += 1;
+  }
+  const last = games[games.length - 1]!;
+  const noteText = payload.note?.trim() || "Final score revised by director";
+  return {
+    ...state,
+    matchStatus: "completed",
+    resultReason: "normal",
+    winnerSide: payload.winningSide,
+    gamesLeft,
+    gamesRight,
+    currentGame: last.gameNumber,
+    leftScore: last.leftScore,
+    rightScore: last.rightScore,
+    games,
+    isPaused: false,
+    pauseReason: undefined,
+    pauseDetail: undefined,
+    inInterval: false,
+    activeTimeout: null,
+    endedAt: ts,
+    matchNotes: [
+      ...state.matchNotes,
+      { text: noteText, addedAt: ts, sequence },
+    ],
+  };
+}
+
+function applyMatchReopened(
+  state: BadmintonMatchState,
+  payload: BadmintonMatchReopenedPayload,
+  sequence: number,
+  occurredAt?: string | Date,
+): BadmintonMatchState {
+  if (!isBadmintonTerminalMatchStatus(state.matchStatus)) {
+    return state;
+  }
+  const ts =
+    occurredAt instanceof Date
+      ? occurredAt.toISOString()
+      : occurredAt ?? new Date().toISOString();
+  const completedGames = state.games.filter((g) => g.phase === "completed");
+  const need = gamesNeededToWin(state.format.totalGames);
+  const leftWins = completedGames.filter((g) => g.winner === "left").length;
+  const rightWins = completedGames.filter((g) => g.winner === "right").length;
+  const matchAlreadyWon = leftWins >= need || rightWins >= need;
+
+  let games = [...state.games];
+  let currentGame = state.currentGame;
+  let leftScore = state.leftScore;
+  let rightScore = state.rightScore;
+
+  if (matchAlreadyWon || completedGames.length === state.games.length) {
+    // Start a fresh in-progress game after completed set so undo/score can continue.
+    const nextNum = completedGames.length + 1;
+    games = [
+      ...completedGames,
+      {
+        gameNumber: nextNum,
+        leftScore: 0,
+        rightScore: 0,
+        servingSide: state.servingSide,
+        intervalReached: false,
+        sideChangeAcknowledged: false,
+        phase: "in_progress",
+        startedAt: ts,
+      },
+    ];
+    currentGame = nextNum;
+    leftScore = 0;
+    rightScore = 0;
+  } else {
+    games = state.games.map((g) =>
+      g.phase === "completed"
+        ? g
+        : { ...g, phase: "in_progress" as const, winner: undefined, endedAt: undefined },
+    );
+  }
+
+  const noteText = payload.note?.trim() || "Match reopened for score correction";
+  return {
+    ...state,
+    matchStatus: "live",
+    resultReason: undefined,
+    winnerSide: undefined,
+    endedAt: undefined,
+    isPaused: false,
+    pauseReason: undefined,
+    pauseDetail: undefined,
+    inInterval: false,
+    activeTimeout: null,
+    games,
+    gamesLeft: leftWins,
+    gamesRight: rightWins,
+    currentGame,
+    leftScore,
+    rightScore,
+    matchNotes: [
+      ...state.matchNotes,
+      { text: noteText, addedAt: ts, sequence },
     ],
   };
 }
@@ -507,6 +639,22 @@ export function reduceBadminton(
       next = applyMarginPointsAssigned(
         state,
         parsed.payload as BadmintonMarginPointsAssignedPayload,
+      );
+      break;
+    case BadmintonEventType.SCORE_REVISED:
+      next = applyScoreRevised(
+        state,
+        parsed.payload as BadmintonScoreRevisedPayload,
+        event.sequence,
+        event.occurredAt,
+      );
+      break;
+    case BadmintonEventType.MATCH_REOPENED:
+      next = applyMatchReopened(
+        state,
+        parsed.payload as BadmintonMatchReopenedPayload,
+        event.sequence,
+        event.occurredAt,
       );
       break;
     default:

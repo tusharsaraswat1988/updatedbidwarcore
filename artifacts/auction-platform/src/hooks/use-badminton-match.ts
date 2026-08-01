@@ -487,12 +487,26 @@ export function useBadmintonDirector(tournamentId: number, matchId: number) {
       );
     }
     void queryClient.invalidateQueries({ queryKey: ["badminton-incidents", tournamentId, matchId] });
+    void queryClient.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
     return data.state as BadmintonMatchState;
   }
 
   return {
     pause: (reason: string, detail?: string) => postDirector("pause", { reason, detail }),
+    hold: (detail?: string) => postDirector("hold", { detail }),
+    unhold: () => postDirector("unhold", {}),
     resume: () => postDirector("resume", {}),
+    reviseScore: (body: {
+      games: Array<{
+        gameNumber: number;
+        leftScore: number;
+        rightScore: number;
+        winningSide: "left" | "right";
+      }>;
+      winningSide: "left" | "right";
+      note?: string;
+    }) => postDirector("revise-score", body),
+    reopen: (note?: string) => postDirector("reopen", { note }),
     addNote: (text: string) => postDirector("note", { text }),
     retirement: (
       retiringSide: "left" | "right",

@@ -72,7 +72,6 @@ export default function BadmintonMatchControlPage() {
 
   const state = data?.state;
   const detail = (data?.detail ?? null) as Record<string, unknown> | null;
-  const isPreMatch = state?.matchStatus === "scheduled";
   const isTerminal = state
     ? ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(
         state.matchStatus,
@@ -92,9 +91,12 @@ export default function BadmintonMatchControlPage() {
   const { data: allMatches = [] } = useQuery<MatchListRow[]>({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => fetchBadmintonMatches(tournamentId),
-    enabled: !!tournamentId && !!isPreMatch,
+    enabled: !!tournamentId,
     staleTime: 8_000,
   });
+
+  // Pre-start hold keeps engine status "scheduled"; post-start hold uses "on_hold" → director panel.
+  const isPreMatch = state?.matchStatus === "scheduled";
 
   const { data: fixtures = [] } = useQuery<FixtureRow[]>({
     queryKey: ["badminton-fixtures-all", tournamentId],

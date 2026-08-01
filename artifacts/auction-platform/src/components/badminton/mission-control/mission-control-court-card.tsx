@@ -13,6 +13,7 @@ import {
 import {
   fixtureSlotLabel,
   matchDisplayLabel,
+  matchNumberLabel,
   type CourtBoardRow,
   type CourtOpsStatus,
 } from "@/lib/badminton-control-center";
@@ -178,12 +179,16 @@ export function MissionControlCourtCard({
               : null
           }
           scoreMeta={
-            currentMatch?.state && (status === "LIVE" || isPaused)
+            currentMatch
               ? [
-                  currentMatch.state.currentGame != null
+                  matchNumberLabel(currentMatch),
+                  currentMatch.state && (status === "LIVE" || isPaused) && currentMatch.state.currentGame != null
                     ? `Game ${currentMatch.state.currentGame}`
                     : null,
-                  currentMatch.state.gamesLeft != null && currentMatch.state.gamesRight != null
+                  currentMatch.state &&
+                  (status === "LIVE" || isPaused) &&
+                  currentMatch.state.gamesLeft != null &&
+                  currentMatch.state.gamesRight != null
                     ? `Sets ${currentMatch.state.gamesLeft}–${currentMatch.state.gamesRight}`
                     : null,
                 ]
@@ -203,9 +208,14 @@ export function MissionControlCourtCard({
           right={nextMatch?.state?.rightSide}
           fallback={nextLabel}
           sub={
-            nextMatch?.scheduledAt || nextFixture?.scheduledAt
-              ? formatTime(nextMatch?.scheduledAt ?? nextFixture?.scheduledAt)
-              : null
+            [
+              nextMatch ? matchNumberLabel(nextMatch) : null,
+              nextMatch?.scheduledAt || nextFixture?.scheduledAt
+                ? formatTime(nextMatch?.scheduledAt ?? nextFixture?.scheduledAt)
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || null
           }
         />
       </div>
@@ -232,7 +242,16 @@ export function MissionControlCourtCard({
           ) : null}
 
           {isLive && currentMatch ? (
-            isPaused ? (
+            matchStatus === "on_hold" || (isPaused && currentMatch.state?.pauseReason === "ops_hold") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => run(() => director.unhold(), "Hold cleared")}
+                className="min-h-10 px-3 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 text-sky-100 text-xs font-bold"
+              >
+                Resume Hold
+              </button>
+            ) : isPaused ? (
               <button
                 type="button"
                 disabled={busy}
@@ -242,14 +261,26 @@ export function MissionControlCourtCard({
                 Resume
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => run(() => director.pause("technical_issue"), "Match paused")}
-                className="min-h-10 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white/85 text-xs font-semibold"
-              >
-                Pause
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    run(() => director.hold("Court freed for another match"), "Match on hold")
+                  }
+                  className="min-h-10 px-3 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-100 text-xs font-bold"
+                >
+                  Hold
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => run(() => director.pause("technical_issue"), "Match paused")}
+                  className="min-h-10 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white/85 text-xs font-semibold"
+                >
+                  Pause
+                </button>
+              </>
             )
           ) : null}
         </div>

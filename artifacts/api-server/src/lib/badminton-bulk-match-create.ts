@@ -197,6 +197,8 @@ export async function bulkCreateBadmintonMatchesFromFixtures(
         courtId: fixture.courtId,
         courtNumber: court?.shortName?.trim() || court?.name || undefined,
         matchLabel: `${category.name} · Match ${fixture.slotNumber ?? fixture.id}`,
+        matchNumber:
+          fixture.slotNumber != null ? String(fixture.slotNumber) : String(fixture.id),
         matchType: category.matchType,
         leftSideJson,
         rightSideJson,

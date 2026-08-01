@@ -16,6 +16,7 @@ export type BadmintonStatusLabel =
   | "Ready"
   | "Live"
   | "Paused"
+  | "On Hold"
   | "Delayed"
   | "Completed"
   | "Walkover"
@@ -34,6 +35,8 @@ export function formatMatchStatusLabel(status: string | null | undefined): Badmi
       return "Live";
     case "paused":
       return "Paused";
+    case "on_hold":
+      return "On Hold";
     case "completed":
       return "Completed";
     case "walkover":

@@ -30,6 +30,9 @@ import {
   type BadmintonMatchResumedPayload,
   type BadmintonMatchNoteAddedPayload,
   type BadmintonMarginPointsAssignedPayload,
+  type BadmintonScoreRevisedPayload,
+  type BadmintonMatchReopenedPayload,
+  type BadmintonScoreRevisedGame,
 } from "./events/badminton";
 import type { BadmintonMatchState, BadmintonSide, MatchPauseReason } from "./types";
 import { resolveAssignedMarginForCommand, hasCompletedGames } from "./assigned-margin";
@@ -490,9 +493,24 @@ export function cmdPauseMatch(
   ]);
 }
 
+/** Park a live match so another match can use the court (ops hold). */
+export function cmdHoldMatch(state: BadmintonMatchState, detail?: string): CommandResult {
+  if (state.matchStatus !== "live") {
+    return err("Only live matches can be put on hold");
+  }
+  if (state.isPaused) {
+    return err("Match is already on hold or paused");
+  }
+  return cmdPauseMatch(state, "ops_hold", detail ?? "Court freed for another match");
+}
+
 export function cmdResumeMatch(state: BadmintonMatchState): CommandResult {
-  if (state.matchStatus !== "paused" && !state.isPaused) {
-    return err("Match is not paused");
+  if (
+    state.matchStatus !== "paused" &&
+    state.matchStatus !== "on_hold" &&
+    !state.isPaused
+  ) {
+    return err("Match is not paused or on hold");
   }
 
   const payload: BadmintonMatchResumedPayload = {};
@@ -525,7 +543,11 @@ export function cmdForceEndMatch(
   reason: string,
   assignedMarginPoints?: number,
 ): CommandResult {
-  if (state.matchStatus !== "live" && state.matchStatus !== "paused") {
+  if (
+    state.matchStatus !== "live" &&
+    state.matchStatus !== "paused" &&
+    state.matchStatus !== "on_hold"
+  ) {
     return err("Match cannot be force-ended in current state");
   }
   if (!reason.trim()) return err("Force end reason is required");
@@ -576,6 +598,69 @@ export function cmdAssignMarginPoints(
   return ok([
     {
       eventType: BadmintonEventType.MARGIN_POINTS_ASSIGNED,
+      payload: payload as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+/** Quick admin correction of final set scores after the match has finished. */
+export function cmdReviseFinalScore(
+  state: BadmintonMatchState,
+  games: BadmintonScoreRevisedGame[],
+  winningSide: BadmintonSide,
+  note?: string,
+): CommandResult {
+  if (!isBadmintonTerminalMatchStatus(state.matchStatus)) {
+    return err("Score can only be revised after the match has finished");
+  }
+  if (games.length === 0) return err("At least one game score is required");
+
+  const need = gamesNeededToWin(state.format.totalGames);
+  let left = 0;
+  let right = 0;
+  for (let i = 0; i < games.length; i++) {
+    const g = games[i]!;
+    if (g.gameNumber !== i + 1) {
+      return err("Game numbers must be sequential starting at 1");
+    }
+    if (g.leftScore === g.rightScore) {
+      return err(`Game ${g.gameNumber} cannot be a tie`);
+    }
+    const winner: BadmintonSide = g.leftScore > g.rightScore ? "left" : "right";
+    if (g.winningSide !== winner) {
+      return err(`Game ${g.gameNumber} winningSide does not match scores`);
+    }
+    if (winner === "left") left += 1;
+    else right += 1;
+  }
+  if (left < need && right < need) {
+    return err(`Winner must reach ${need} games`);
+  }
+  if ((winningSide === "left" ? left : right) < need) {
+    return err("winningSide does not match game results");
+  }
+
+  const payload: BadmintonScoreRevisedPayload = { games, winningSide, note };
+  return ok([
+    {
+      eventType: BadmintonEventType.SCORE_REVISED,
+      payload: payload as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+/** Re-open a finished match so the scorer can undo / continue scoring. */
+export function cmdReopenMatch(
+  state: BadmintonMatchState,
+  note?: string,
+): CommandResult {
+  if (!isBadmintonTerminalMatchStatus(state.matchStatus)) {
+    return err("Only finished matches can be reopened");
+  }
+  const payload: BadmintonMatchReopenedPayload = { note };
+  return ok([
+    {
+      eventType: BadmintonEventType.MATCH_REOPENED,
       payload: payload as unknown as Record<string, unknown>,
     },
   ]);

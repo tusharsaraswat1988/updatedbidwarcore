@@ -89,6 +89,7 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
   const isLive = state.matchStatus === "live";
   const isPaused = state.matchStatus === "paused" || state.isPaused;
+  const isOnHold = state.matchStatus === "on_hold" || state.pauseReason === "ops_hold";
   const isTerminal = ["completed", "walkover", "retired", "disqualified", "abandoned"].includes(
     state.matchStatus,
   );
@@ -195,12 +196,41 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
       <div className="p-5 space-y-6">
         {actionError ? <FormError message={actionError} /> : null}
 
+        {/* Hold — frees court for another match */}
+        <section>
+          <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
+            Hold (free court)
+          </h3>
+          {isOnHold ? (
+            <BtnPrimary
+              disabled={busy}
+              onClick={() => runAction(() => director.unhold())}
+              className="w-full"
+            >
+              Resume from Hold
+            </BtnPrimary>
+          ) : (
+            <BtnPrimary
+              disabled={busy || (!isLive && state.matchStatus !== "scheduled")}
+              onClick={() =>
+                runAction(() => director.hold("Court freed for another match"))
+              }
+              className="w-full bg-sky-700 hover:bg-sky-600"
+            >
+              Put on Hold
+            </BtnPrimary>
+          )}
+          <p className="text-white/35 text-xs mt-2">
+            Use Hold when toss/start already happened but another match must use this court.
+          </p>
+        </section>
+
         {/* Pause / Resume */}
         <section>
           <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
             Pause / Resume
           </h3>
-          {isPaused ? (
+          {isPaused && !isOnHold ? (
             <BtnPrimary
               disabled={busy}
               onClick={() => runAction(() => director.resume())}
@@ -208,6 +238,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             >
               Resume Match
             </BtnPrimary>
+          ) : isOnHold ? (
+            <p className="text-sky-200/80 text-sm">Match is on Hold — use Resume from Hold above.</p>
           ) : (
             <div className="space-y-3">
               <FormField label="Pause reason" required>

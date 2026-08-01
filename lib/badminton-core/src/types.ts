@@ -126,6 +126,7 @@ export type BadmintonMatchStatus =
   | "scheduled"
   | "live"
   | "paused"
+  | "on_hold"
   | "completed"
   | "walkover"
   | "retired"
@@ -137,6 +138,7 @@ export type MatchPauseReason =
   | "technical_issue"
   | "weather"
   | "court_issue"
+  | "ops_hold"
   | "other";
 
 export type RetirementReason = "injury" | "illness" | "other";

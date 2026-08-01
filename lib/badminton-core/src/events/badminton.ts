@@ -22,6 +22,10 @@ export const BadmintonEventType = {
   MATCH_NOTE_ADDED: "badminton.match.note.added",
   /** Update/set winner margin when no completed games exist. */
   MARGIN_POINTS_ASSIGNED: "badminton.margin_points.assigned",
+  /** Admin correction of final game scores after completion. */
+  SCORE_REVISED: "badminton.score.revised",
+  /** Re-open a finished match for further scoring / undo. */
+  MATCH_REOPENED: "badminton.match.reopened",
 } as const;
 
 export type BadmintonEventTypeValue = (typeof BadmintonEventType)[keyof typeof BadmintonEventType];
@@ -249,7 +253,7 @@ export type BadmintonMarginPointsAssignedPayload = {
 };
 
 export type BadmintonMatchPausedPayload = {
-  reason: "medical" | "technical_issue" | "weather" | "court_issue" | "other";
+  reason: "medical" | "technical_issue" | "weather" | "court_issue" | "ops_hold" | "other";
   detail?: string;
 };
 
@@ -259,6 +263,23 @@ export type BadmintonMatchResumedPayload = {
 
 export type BadmintonMatchNoteAddedPayload = {
   text: string;
+};
+
+export type BadmintonScoreRevisedGame = {
+  gameNumber: number;
+  leftScore: number;
+  rightScore: number;
+  winningSide: BadmintonSide;
+};
+
+export type BadmintonScoreRevisedPayload = {
+  games: BadmintonScoreRevisedGame[];
+  winningSide: BadmintonSide;
+  note?: string;
+};
+
+export type BadmintonMatchReopenedPayload = {
+  note?: string;
 };
 
 // ── Payload parse helpers ────────────────────────────────────────────────────
@@ -373,7 +394,7 @@ const marginPointsAssignedSchema = z.object({
 });
 
 const matchPausedSchema = z.object({
-  reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "other"]),
+  reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "ops_hold", "other"]),
   detail: z.string().optional(),
 });
 
@@ -383,6 +404,26 @@ const matchResumedSchema = z.object({
 
 const matchNoteAddedSchema = z.object({
   text: z.string().min(1),
+});
+
+const scoreRevisedSchema = z.object({
+  games: z
+    .array(
+      z.object({
+        gameNumber: z.number().int().positive(),
+        leftScore: z.number().int().nonnegative(),
+        rightScore: z.number().int().nonnegative(),
+        winningSide: z.enum(["left", "right"]),
+      }),
+    )
+    .min(1)
+    .max(5),
+  winningSide: z.enum(["left", "right"]),
+  note: z.string().optional(),
+});
+
+const matchReopenedSchema = z.object({
+  note: z.string().optional(),
 });
 
 const sideChangedSchema = z.object({
@@ -448,6 +489,10 @@ export function parseBadmintonEventPayload(
       return parseWith(matchNoteAddedSchema, eventType, data);
     case BadmintonEventType.MARGIN_POINTS_ASSIGNED:
       return parseWith(marginPointsAssignedSchema, eventType, data);
+    case BadmintonEventType.SCORE_REVISED:
+      return parseWith(scoreRevisedSchema, eventType, data);
+    case BadmintonEventType.MATCH_REOPENED:
+      return parseWith(matchReopenedSchema, eventType, data);
     default:
       return { ok: false, error: `Unknown event type: ${eventType}` };
   }

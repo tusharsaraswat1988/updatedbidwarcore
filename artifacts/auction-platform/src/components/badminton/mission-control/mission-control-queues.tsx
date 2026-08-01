@@ -139,6 +139,9 @@ export function MissionControlQueues({
               className="flex items-center justify-between gap-3 py-2.5 border-b border-white/6 last:border-0"
             >
               <div className="min-w-0 flex-1">
+                <p className="text-primary/90 text-[11px] font-mono font-bold mb-0.5">
+                  {matchDisplayLabel(m).split(" · ")[0]}
+                </p>
                 {m.state?.leftSide || m.state?.rightSide ? (
                   <TeamPlayerVs
                     left={identityFromLooseSide(m.state?.leftSide)}
@@ -218,6 +221,9 @@ function ReadyRow({
     <li className={cn(compact ? "py-2" : "py-2.5", "border-b border-white/6 last:border-0 space-y-1.5")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
+          <p className="text-primary/90 text-[11px] font-mono font-bold mb-0.5">
+            {matchDisplayLabel(match).split(" · ")[0]}
+          </p>
           {match.state?.leftSide || match.state?.rightSide ? (
             <TeamPlayerVs
               left={identityFromLooseSide(match.state?.leftSide)}

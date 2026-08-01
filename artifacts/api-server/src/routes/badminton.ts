@@ -65,7 +65,11 @@ import {
   handleWalkover,
   handleDisqualification,
   handlePauseMatch,
+  handleHoldMatch,
+  handleUnholdMatch,
   handleResumeMatch,
+  handleReviseFinalScore,
+  handleReopenMatch,
   handleAddMatchNote,
   handleForceEndMatch,
   handleAssignMarginPoints,
@@ -2528,6 +2532,7 @@ router.patch("/matches/:matchId", async (req, res) => {
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
     courtId: z.number().int().nullable().optional(),
     courtNumber: z.string().max(20).nullable().optional(),
+    matchNumber: z.string().max(40).nullable().optional(),
     matchLabel: z.string().max(200).nullable().optional(),
     roundName: z.string().max(100).nullable().optional(),
     leftSideJson: z.record(z.unknown()).optional(),
@@ -3187,7 +3192,7 @@ router.post("/matches/:matchId/pause", async (req, res) => {
   const { tournamentId } = auth;
 
   const schema = z.object({
-    reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "other"]),
+    reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "ops_hold", "other"]),
     detail: z.string().optional(),
   });
 
@@ -3201,6 +3206,147 @@ router.post("/matches/:matchId/pause", async (req, res) => {
       parsed.data.reason,
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.detail,
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/hold", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    detail: z.string().max(200).optional(),
+  });
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const result = await handleHoldMatch(
+      matchId,
+      tournamentId,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.detail,
+    );
+    if ("matchStatus" in result) {
+      broadcastBadmintonMatchUpdate(matchId, tournamentId, result);
+      res.json({ state: result });
+    } else {
+      broadcastTournamentUpdate(tournamentId, { type: "match_updated", matchId });
+      res.json({ status: result.status, matchId: result.matchId });
+    }
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/unhold", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  try {
+    const result = await handleUnholdMatch(
+      matchId,
+      tournamentId,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+    );
+    if ("matchStatus" in result) {
+      broadcastBadmintonMatchUpdate(matchId, tournamentId, result);
+      res.json({ state: result });
+    } else {
+      broadcastTournamentUpdate(tournamentId, { type: "match_updated", matchId });
+      res.json({ status: result.status, matchId: result.matchId });
+    }
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/revise-score", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    games: z
+      .array(
+        z.object({
+          gameNumber: z.number().int().positive(),
+          leftScore: z.number().int().nonnegative(),
+          rightScore: z.number().int().nonnegative(),
+          winningSide: z.enum(["left", "right"]),
+        }),
+      )
+      .min(1)
+      .max(5),
+    winningSide: z.enum(["left", "right"]),
+    note: z.string().max(200).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleReviseFinalScore(
+      matchId,
+      tournamentId,
+      parsed.data.games,
+      parsed.data.winningSide,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.note,
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/reopen", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    note: z.string().max(200).optional(),
+  });
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleReopenMatch(
+      matchId,
+      tournamentId,
+      actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
+      parsed.data.note,
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
