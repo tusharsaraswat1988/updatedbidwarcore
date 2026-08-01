@@ -2,8 +2,8 @@
  * Results & Standings — tournament understanding after scoring
  * Route: /tournament/:id/badminton/results
  *
- * Page order (lifecycle):
- *   Champions → Categories → Bracket Progress → Recent Results → League Standings
+ * Page order:
+ *   Match points summary → Champions → Categories → Bracket Progress
  *
  * Read-only. Corrections via Match Control / Live Scoring.
  */
@@ -13,7 +13,6 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
 import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
-import { badmintonMatchControlPath } from "@/lib/badminton-routes";
 import {
   BADMINTON_MATCHES_RECONNECT_POLL_MS,
   subscribeBadmintonDashboardStream,
@@ -28,16 +27,6 @@ import {
 import {
   buildCategoryResultsBlocks,
   categoryDisplayName,
-  completedAtMs,
-  formatCompletedWhen,
-  formatPointDifference,
-  gameScoreLines,
-  gamesWonLine,
-  isCompletedMatch,
-  listWonToday,
-  outcomeLabel,
-  winnerLabel,
-  winnerTeamFields,
   type ResultsCategory,
   type ResultsCollection,
   type ResultsFixture,
@@ -48,11 +37,10 @@ import {
   isLeagueDrawType,
   type LeagueStandingRow,
 } from "@/lib/badminton-leaderboards";
-import { matchDisplayLabel } from "@/lib/badminton-control-center";
-import { formatTeamPlayerLine } from "@/lib/team-player-identity";
 import { ChampionCard } from "@/components/badminton/champion-card";
 import { CategoryStatusCard } from "@/components/badminton/category-status-card";
 import { BracketProgressPanel } from "@/components/badminton/bracket-progress-panel";
+import { MatchPointsSummary } from "@/components/badminton/match-points-summary";
 import {
   EmptyState,
   HubPageShell,
@@ -268,23 +256,6 @@ export default function BadmintonResultsPage() {
     [blocks],
   );
 
-  const recentResults = useMemo(() => {
-    const today = listWonToday(matches, 20);
-    if (today.length > 0) return today;
-    return matches
-      .filter(isCompletedMatch)
-      .sort((a, b) => completedAtMs(b) - completedAtMs(a))
-      .slice(0, 12);
-  }, [matches]);
-
-  const recentIsToday = useMemo(() => listWonToday(matches, 1).length > 0, [matches]);
-
-  const categoryName = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const c of categories) map.set(c.id, categoryDisplayName(c));
-    return map;
-  }, [categories]);
-
   const sideLabelFor = (categoryId: number) => (regId: number | null | undefined) => {
     if (regId == null) return "TBD";
     return registrationMaps[categoryId]?.get(regId) ?? `Entry #${regId}`;
@@ -320,7 +291,27 @@ export default function BadmintonResultsPage() {
           />
         ) : (
           <>
-            {/* 1. Champions */}
+            {/* 1. Match points summary (owners) */}
+            <MatchPointsSummary
+              boards={standingsBoards}
+              matches={matches}
+              loading={standingsLoading}
+              tournamentId={tournamentId}
+              showMatchControlLinks
+              emptyStandingsHint={
+                leagueCategories.length === 0
+                  ? "No league / group events yet. Knockout-only categories do not show a points table here."
+                  : undefined
+              }
+            />
+            {standingsBoards.length > 0 ? (
+              <p className="text-[11px] text-white/35 -mt-4">
+                Male: top 4 per group → QF. Female: top 4 overall → SF. Diff is point
+                difference on won matches only.
+              </p>
+            ) : null}
+
+            {/* 2. Champions */}
             <section className="space-y-4">
               <SectionHeading
                 id="champions"
@@ -433,163 +424,21 @@ export default function BadmintonResultsPage() {
               )}
             </section>
 
-            {/* 4. Recent Results (secondary — not the homepage) */}
-            <section className="space-y-4">
-              <SectionHeading
-                eyebrow="Recent Results"
-                title={recentIsToday ? "Finished today" : "Latest completed matches"}
-                subtitle="Secondary log — champions and categories above take priority"
-              />
-              {recentResults.length === 0 ? (
-                <p className={cn(hubCardClass, "p-4 text-white/35 text-sm")}>
-                  No completed matches yet.
-                </p>
-              ) : (
-                <div className={cn(hubCardClass, "p-4")}>
-                  <ul>
-                    {recentResults.map((m) => {
-                      const catId =
-                        typeof m.detail?.categoryId === "number" ? m.detail.categoryId : null;
-                      const winner = winnerLabel(m);
-                      const winnerTeam = winnerTeamFields(m);
-                      const winnerDisplay = winner
-                        ? formatTeamPlayerLine({
-                            playerName: winner,
-                            teamName: winnerTeam.teamName,
-                            teamLogoUrl: winnerTeam.teamLogoUrl,
-                            teamColor: winnerTeam.teamColor,
-                          })
-                        : null;
-                      const games = gameScoreLines(m);
-                      return (
-                        <li
-                          key={m.id}
-                          className="flex flex-wrap items-center justify-between gap-2 py-2.5 border-b border-white/6 last:border-0"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">
-                              {catId != null ? categoryName.get(catId) ?? "Match" : "Match"}
-                            </p>
-                            <p className="text-white/85 text-sm truncate">
-                              {matchDisplayLabel(m)}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-white/40">
-                              {winnerDisplay ? (
-                                <span className="text-emerald-400/90">Won by {winnerDisplay}</span>
-                              ) : null}
-                              {outcomeLabel(m) !== "Completed" ? (
-                                <span className="text-amber-200/70">{outcomeLabel(m)}</span>
-                              ) : null}
-                              <span>{formatCompletedWhen(m)}</span>
-                            </div>
-                            {games.length > 0 ? (
-                              <p className="text-white/30 text-xs font-mono mt-0.5">
-                                {games.join(" · ")}
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center gap-3 flex-none">
-                            <span className="text-white/60 font-mono text-sm">
-                              {gamesWonLine(m)}
-                            </span>
-                            <Link
-                              href={badmintonMatchControlPath(tournamentId, m.id)}
-                              className="text-[#4fc3f7] text-xs font-semibold hover:underline"
-                            >
-                              View
-                            </Link>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+            <Link
+              href={`/tournament/${tournamentId}/badminton/summary`}
+              className={cn(
+                hubCardClass,
+                "block p-4 border-amber-500/25 bg-amber-500/5 hover:bg-amber-500/10 transition-colors",
               )}
-            </section>
-
-            {/* 5. League standings (live after scored matches) */}
-            <section className="space-y-4">
-              <SectionHeading
-                id="standings"
-                eyebrow="League Standings"
-                title="Points table"
-                subtitle="Updates after each finished league match · ranked by wins, then Diff"
-              />
-              {standingsLoading && standingsBoards.length === 0 ? (
-                <div className="h-32 rounded-2xl bg-white/4 animate-pulse" />
-              ) : standingsBoards.length === 0 ? (
-                <p className={cn(hubCardClass, "p-4 text-white/35 text-sm")}>
-                  {leagueCategories.length === 0
-                    ? "No league / group events yet. Knockout-only categories do not show a points table here."
-                    : "No standings yet — finish a league match from Live Control and the table appears here."}
-                </p>
-              ) : (
-                <div className="space-y-5">
-                  {standingsBoards.map((board) => (
-                    <div key={board.key} className={cn(hubCardClass, "p-4 space-y-3")}>
-                      <div>
-                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
-                          {board.categoryName}
-                        </p>
-                        <h3 className="text-white font-semibold mt-0.5">{board.boardTitle}</h3>
-                        <p className="text-white/35 text-xs mt-0.5">{board.subtitle}</p>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-white/40 text-left text-xs uppercase tracking-wider">
-                              <th className="py-1.5 pr-2 font-semibold">#</th>
-                              <th className="py-1.5 pr-2 font-semibold">Pair</th>
-                              <th className="py-1.5 pr-2 font-semibold">P</th>
-                              <th className="py-1.5 pr-2 font-semibold">W</th>
-                              <th className="py-1.5 pr-2 font-semibold">L</th>
-                              <th className="py-1.5 font-semibold">Diff</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {board.rows.map((row) => (
-                              <tr
-                                key={`${board.key}-${row.registrationId ?? row.rank}-${row.label}`}
-                                className="border-t border-white/6 text-white/85"
-                              >
-                                <td className="py-2 pr-2 tabular-nums text-white/50">{row.rank}</td>
-                                <td className="py-2 pr-2 font-medium">{row.label}</td>
-                                <td className="py-2 pr-2 tabular-nums">{row.played}</td>
-                                <td className="py-2 pr-2 tabular-nums">{row.won}</td>
-                                <td className="py-2 pr-2 tabular-nums">{row.lost}</td>
-                                <td className="py-2 tabular-nums font-bold text-cyan-200">
-                                  {formatPointDifference(row.marginPoints)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-white/35">
-                    Male: top 4 per group → QF. Female: top 4 overall → SF. Diff is point
-                    difference on won matches only.
-                  </p>
-                </div>
-              )}
-
-              <Link
-                href={`/tournament/${tournamentId}/badminton/summary`}
-                className={cn(
-                  hubCardClass,
-                  "block p-4 border-amber-500/25 bg-amber-500/5 hover:bg-amber-500/10 transition-colors",
-                )}
-              >
-                <p className="text-amber-200/70 text-[10px] font-bold uppercase tracking-widest">
-                  Next
-                </p>
-                <p className="text-white font-bold mt-1">Tournament Summary & Awards</p>
-                <p className="text-white/40 text-xs mt-0.5">
-                  Official closing page — champions, court performance, timeline, and awards.
-                </p>
-              </Link>
-            </section>
+            >
+              <p className="text-amber-200/70 text-[10px] font-bold uppercase tracking-widest">
+                Next
+              </p>
+              <p className="text-white font-bold mt-1">Tournament Summary & Awards</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                Official closing page — champions, court performance, timeline, and awards.
+              </p>
+            </Link>
 
             <p className="text-white/40 text-xs text-center pb-4">
               Results are read-only. Corrections happen from Live Control.
