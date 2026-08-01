@@ -162,6 +162,7 @@ function PlatformRouter() {
 
         {/* Scoring — redirect legacy URLs to external scoring app */}
         <Route path="/badminton/scorer" component={RedirectToScoringApp} />
+        <Route path="/badminton/standings" component={RedirectToScoringApp} />
         <Route path="/badminton/:matchId/score" component={RedirectToScoringApp} />
         <Route path="/badminton/:matchId/display" component={RedirectToScoringApp} />
         <Route path="/badminton/:matchId/overlay" component={RedirectToScoringApp} />

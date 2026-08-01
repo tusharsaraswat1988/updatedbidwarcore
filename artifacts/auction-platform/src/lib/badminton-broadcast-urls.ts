@@ -1,6 +1,10 @@
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { LIVE_FOLLOW_MATCH_SEGMENT } from "@/lib/badminton-broadcast-console";
-import { badmintonResultsPath, badmintonScorerHomePath } from "@/lib/badminton-routes";
+import {
+  badmintonPublicStandingsPath,
+  badmintonResultsPath,
+  badmintonScorerHomePath,
+} from "@/lib/badminton-routes";
 
 export type BadmintonBroadcastKind = "display" | "overlay-compact" | "overlay-full" | "scorer";
 
@@ -8,7 +12,8 @@ export type TournamentBroadcastLinkKind =
   | "venue-display"
   | "obs-overlay"
   | "scorer-home"
-  | "public-results";
+  | "public-results"
+  | "public-standings";
 
 /** In-app path for wouter Link (no /scoring-app prefix — base is applied by the router). */
 export function badmintonBroadcastPath(tournamentId: number, matchId?: number) {
@@ -54,6 +59,14 @@ export function badmintonTournamentResultsUrl(
   return scoringAppPublicUrl(origin, badmintonResultsPath(tournamentId));
 }
 
+/** Public owner-facing points table + recent results (no login). */
+export function badmintonPublicStandingsUrl(
+  tournamentId: number,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+) {
+  return scoringAppPublicUrl(origin, badmintonPublicStandingsPath(tournamentId));
+}
+
 export function badmintonTournamentBroadcastLinkUrl(
   kind: TournamentBroadcastLinkKind,
   tournamentId: number,
@@ -68,6 +81,8 @@ export function badmintonTournamentBroadcastLinkUrl(
       return badmintonScorerHomePublicUrl(tournamentId, origin);
     case "public-results":
       return badmintonTournamentResultsUrl(tournamentId, origin);
+    case "public-standings":
+      return badmintonPublicStandingsUrl(tournamentId, origin);
   }
 }
 

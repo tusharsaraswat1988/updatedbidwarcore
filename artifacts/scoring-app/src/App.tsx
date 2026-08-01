@@ -40,6 +40,7 @@ const CricketGlobalLeaderboards = lazy(() => import("@/pages/cricket-global-lead
 const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
 const BadmintonScorerHomePage = lazy(() => import("@/pages/badminton/scorer-home"));
+const BadmintonPublicStandingsPage = lazy(() => import("@/pages/badminton/public-standings"));
 const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
 const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -114,6 +115,9 @@ function Router() {
 
         <Route path="/badminton/scorer">
           {() => <ScoringFeatureGuard><BadmintonScorerHomePage /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/badminton/standings">
+          {() => <ScoringFeatureGuard><BadmintonPublicStandingsPage /></ScoringFeatureGuard>}
         </Route>
         <Route path="/badminton/:matchId/score">
           {() => <ScoringFeatureGuard><BadmintonScorerPage /></ScoringFeatureGuard>}
