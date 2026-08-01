@@ -33,7 +33,7 @@ import { VenueSponsorShowcase } from "@/components/badminton/venue-sponsor-showc
 import {
   formatPointDifference,
   gameScoreLines,
-  gamesWonLine,
+  gamesWonDisplayLine,
   listRecentCompleted,
   loserLabel,
   outcomeLabel,
@@ -50,6 +50,17 @@ import { paginateItems, type LeaderboardPage } from "@/lib/badminton-leaderboard
 import { cn } from "@/lib/utils";
 
 const RESULTS_ROTATE_MS = BROADCAST_CAROUSEL_PAGE_MS;
+
+type ResultsMomentSlide =
+  | { key: string; kind: "standings"; page: LeaderboardPage }
+  | {
+      key: string;
+      kind: "results";
+      rows: ResultsMatch[];
+      pageIndex: number;
+      pageCount: number;
+      totalResults: number;
+    };
 
 type ChromeProps = {
   tournamentName: string;
@@ -499,46 +510,117 @@ function resultMetaLine(m: ResultsMatch): string {
     .join(" · ");
 }
 
-/** Between-match board — completed matches with winner + point difference (paginated). */
+/** Between-match board — points tables first, then scored results (paginated, 15s). */
 export function VenueRecentResultsScene({
   matches,
   chrome,
+  leaderboardPages = [],
+  leaderboardsLoading = false,
 }: {
   matches: BroadcastConsoleMatch[];
   chrome: ChromeProps;
+  leaderboardPages?: LeaderboardPage[];
+  leaderboardsLoading?: boolean;
 }) {
   const results = listRecentCompleted(
     matches.map(broadcastMatchToResults),
     BROADCAST_RESULTS_LIMIT,
   );
-  const pages = paginateItems(results, BROADCAST_RESULTS_PAGE_SIZE);
-  const [pageIndex, setPageIndex] = useState(0);
+  const resultPages = paginateItems(results, BROADCAST_RESULTS_PAGE_SIZE);
+
+  const slides: ResultsMomentSlide[] = [
+    ...leaderboardPages.map((page) => ({
+      key: `standings-${page.key}`,
+      kind: "standings" as const,
+      page,
+    })),
+    ...resultPages.map((rows, pageIndex) => ({
+      key: `results-${pageIndex}-${rows[0]?.id ?? 0}`,
+      kind: "results" as const,
+      rows,
+      pageIndex,
+      pageCount: resultPages.length,
+      totalResults: results.length,
+    })),
+  ];
+
+  const [slideIndex, setSlideIndex] = useState(0);
 
   useEffect(() => {
-    setPageIndex(0);
-  }, [results.length]);
+    setSlideIndex(0);
+  }, [slides.length, results.length, leaderboardPages.length]);
 
   useEffect(() => {
-    if (pages.length <= 1) return;
+    if (slides.length <= 1) return;
     const id = setInterval(() => {
-      setPageIndex((i) => (i + 1) % pages.length);
+      setSlideIndex((i) => (i + 1) % slides.length);
     }, RESULTS_ROTATE_MS);
     return () => clearInterval(id);
-  }, [pages.length]);
+  }, [slides.length]);
 
-  if (results.length === 0) {
+  if (leaderboardsLoading && slides.length === 0) {
+    return (
+      <VenueChromeShell chrome={{ ...chrome, roundName: "Results" }}>
+        <p className="bw-heading text-white/70 text-3xl tracking-[0.15em]">
+          Loading standings…
+        </p>
+      </VenueChromeShell>
+    );
+  }
+
+  if (slides.length === 0) {
     return (
       <VenueChromeShell chrome={{ ...chrome, roundName: "Results" }}>
         <div className="text-center space-y-3 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
           <p className="bw-label text-[#ffd700] tracking-[0.4em]">RESULTS</p>
-          <p className="bw-heading text-white/70 text-3xl">No completed matches yet</p>
+          <p className="bw-heading text-white/70 text-3xl">No points or results yet</p>
+          <p className="bw-caption text-white/40 text-sm max-w-lg mx-auto">
+            Finish league matches for the points table, or complete matches for results.
+          </p>
         </div>
       </VenueChromeShell>
     );
   }
 
-  const safePage = Math.min(pageIndex, pages.length - 1);
-  const pageRows = pages[safePage] ?? [];
+  const safeIndex = Math.min(slideIndex, slides.length - 1);
+  const slide = slides[safeIndex]!;
+
+  if (slide.kind === "standings") {
+    const { board, rows, pageIndex: boardPage, pageCount } = slide.page;
+    return (
+      <VenueChromeShell
+        chrome={{
+          ...chrome,
+          roundName: board.boardTitle,
+          matchStatus: "completed",
+        }}
+        showChyron={false}
+      >
+        <div
+          key={slide.key}
+          className="w-full max-w-5xl h-full min-h-0 flex flex-col gap-4 animate-[badmintonMomentIn_0.45s_ease-out_forwards]"
+        >
+          <div className="text-center shrink-0 space-y-1">
+            <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
+              POINTS TABLE
+            </p>
+            <p className="bw-heading text-white text-3xl md:text-4xl leading-none">
+              {board.boardTitle}
+            </p>
+            <p className="bw-caption text-white/50 text-xs md:text-sm uppercase tracking-[0.14em]">
+              {board.subtitle}
+              {pageCount > 1 ? ` · ${boardPage + 1}/${pageCount}` : ""}
+              {slides.length > 1 ? ` · ${safeIndex + 1}/${slides.length}` : ""}
+            </p>
+          </div>
+          <VenueStandingsTable rows={rows} pageKey={slide.key} />
+          {slides.length > 1 ? <VenueCarouselDots count={slides.length} active={safeIndex} /> : null}
+        </div>
+      </VenueChromeShell>
+    );
+  }
+
+  const pageRows = slide.rows;
   const focused = pageRows[0] ?? results[0]!;
 
   return (
@@ -546,21 +628,24 @@ export function VenueRecentResultsScene({
       chrome={{ ...chrome, roundName: "Match results", matchStatus: "completed" }}
       showChyron={false}
     >
-      <div className="w-full max-w-[79rem] h-full min-h-0 flex flex-col gap-4 md:gap-5 animate-[badmintonMomentIn_0.45s_ease-out_forwards]">
+      <div
+        key={slide.key}
+        className="w-full max-w-[79rem] h-full min-h-0 flex flex-col gap-4 md:gap-5 animate-[badmintonMomentIn_0.45s_ease-out_forwards]"
+      >
         <div className="text-center shrink-0 space-y-1">
           <p className="bw-label text-[#ffd700] tracking-[0.4em] text-sm md:text-base">
             RESULTS
           </p>
           <p className="bw-caption text-white/50 text-xs md:text-sm uppercase tracking-[0.18em]">
             Winner · Games · Point difference
-            {pages.length > 1
-              ? ` · Page ${safePage + 1}/${pages.length} · ${results.length} matches`
-              : ` · ${results.length} match${results.length === 1 ? "" : "es"}`}
+            {slide.pageCount > 1
+              ? ` · Page ${slide.pageIndex + 1}/${slide.pageCount} · ${slide.totalResults} matches`
+              : ` · ${slide.totalResults} match${slide.totalResults === 1 ? "" : "es"}`}
+            {slides.length > 1 ? ` · ${safeIndex + 1}/${slides.length}` : ""}
           </p>
         </div>
 
         <div
-          key={`highlight-${focused.id}-${safePage}`}
           className="shrink-0 rounded-2xl border border-white/15 px-5 py-4 md:px-8 md:py-5"
           style={{
             backgroundColor: BIDWAR_SCOREBOARD_SHELL,
@@ -576,6 +661,8 @@ export function VenueRecentResultsScene({
               const winner = winnerLabel(m) ?? "Winner";
               const loser = loserLabel(m) ?? "—";
               const diff = formatPointDifference(winnerPointDifference(m));
+              const gamesLine = gamesWonDisplayLine(m);
+              const outcome = outcomeLabel(m);
               const active = m.id === focused.id;
               return (
                 <div
@@ -593,14 +680,14 @@ export function VenueRecentResultsScene({
                       <span className="text-white/35 font-normal mx-1.5">def</span>
                       <span className="text-white/70">{loser}</span>
                     </p>
-                    {resultMetaLine(m) ? (
-                      <p className="bw-meta text-white/40 text-[11px] md:text-xs truncate mt-0.5">
-                        {resultMetaLine(m)}
-                      </p>
-                    ) : null}
+                    <p className="bw-meta text-white/40 text-[11px] md:text-xs truncate mt-0.5">
+                      {[outcome !== "Completed" ? outcome : null, resultMetaLine(m)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                   </div>
-                  <p className="bw-display-l text-xl md:text-2xl text-white tabular-nums shrink-0">
-                    {gamesWonLine(m)}
+                  <p className="bw-display-l text-xl md:text-2xl text-white tabular-nums shrink-0 min-w-[3rem] text-center">
+                    {gamesLine ?? (outcome !== "Completed" ? outcome.slice(0, 3).toUpperCase() : "")}
                   </p>
                   <p
                     className={cn(
@@ -619,21 +706,79 @@ export function VenueRecentResultsScene({
           </div>
         </div>
 
-        {pages.length > 1 ? (
-          <div className="flex justify-center gap-1.5 shrink-0 pb-1">
-            {pages.map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  i === safePage ? "w-6 bg-[#ffd700]" : "w-1.5 bg-white/25",
-                )}
-              />
-            ))}
-          </div>
-        ) : null}
+        {slides.length > 1 ? <VenueCarouselDots count={slides.length} active={safeIndex} /> : null}
       </div>
     </VenueChromeShell>
+  );
+}
+
+function VenueCarouselDots({ count, active }: { count: number; active: number }) {
+  return (
+    <div className="flex justify-center gap-1.5 shrink-0 pb-1">
+      {Array.from({ length: count }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            "h-1.5 rounded-full transition-all",
+            i === active ? "w-6 bg-[#ffd700]" : "w-1.5 bg-white/25",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function VenueStandingsTable({
+  rows,
+  pageKey,
+}: {
+  rows: LeaderboardPage["rows"];
+  pageKey: string;
+}) {
+  return (
+    <div
+      className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/15"
+      style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+    >
+      <div className="grid grid-cols-[3rem_minmax(0,1fr)_3.5rem_3.5rem_3.5rem_4.5rem] gap-2 px-4 py-2 border-b border-white/10 text-[10px] md:text-xs font-mono uppercase tracking-[0.18em] text-white/40">
+        <span>#</span>
+        <span>Pair</span>
+        <span className="text-center">P</span>
+        <span className="text-center">W</span>
+        <span className="text-center">L</span>
+        <span className="text-right">Diff</span>
+      </div>
+      <div className="divide-y divide-white/5">
+        {rows.map((row) => (
+          <div
+            key={`${pageKey}-${row.registrationId}`}
+            className={cn(
+              "grid grid-cols-[3rem_minmax(0,1fr)_3.5rem_3.5rem_3.5rem_4.5rem] gap-2 items-center px-4 py-2.5 md:py-3",
+              row.rank <= 4 ? "bg-[#ffd700]/6" : "",
+            )}
+          >
+            <span className="bw-heading text-white/70 text-lg md:text-xl tabular-nums">
+              {row.rank}
+            </span>
+            <span className="bw-heading text-white text-lg md:text-2xl truncate leading-tight">
+              {row.label}
+            </span>
+            <span className="text-center text-white/70 tabular-nums text-base md:text-lg">
+              {row.played}
+            </span>
+            <span className="text-center text-[#ffd700]/85 tabular-nums text-base md:text-lg">
+              {row.won}
+            </span>
+            <span className="text-center text-white/50 tabular-nums text-base md:text-lg">
+              {row.lost}
+            </span>
+            <span className="text-right bw-display-l text-[#ffd700] tabular-nums text-xl md:text-2xl">
+              {row.marginPoints}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -642,6 +787,7 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
   const loser = loserLabel(match) ?? "—";
   const diff = formatPointDifference(winnerPointDifference(match));
   const sets = gameScoreLines(match);
+  const gamesLine = gamesWonDisplayLine(match);
   const outcome = outcomeLabel(match);
   const meta = resultMetaLine(match);
 
@@ -665,12 +811,14 @@ function ResultHighlightCard({ match }: { match: ResultsMatch }) {
         ) : null}
       </div>
       <div className="flex items-center gap-4 md:gap-6 shrink-0">
-        <div className="text-center rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 min-w-[5.5rem]">
-          <p className="bw-label text-white/45 text-[10px] tracking-[0.2em]">GAMES</p>
-          <p className="bw-display-l text-[2rem] md:text-[2.4rem] text-white tabular-nums leading-none mt-1">
-            {gamesWonLine(match)}
-          </p>
-        </div>
+        {gamesLine ? (
+          <div className="text-center rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 min-w-[5.5rem]">
+            <p className="bw-label text-white/45 text-[10px] tracking-[0.2em]">GAMES</p>
+            <p className="bw-display-l text-[2rem] md:text-[2.4rem] text-white tabular-nums leading-none mt-1">
+              {gamesLine}
+            </p>
+          </div>
+        ) : null}
         <div
           className="text-center rounded-xl border px-4 py-2.5 min-w-[5.5rem]"
           style={{

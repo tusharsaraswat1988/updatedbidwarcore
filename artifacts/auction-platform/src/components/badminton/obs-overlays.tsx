@@ -44,9 +44,10 @@ import type { BroadcastConsoleMatch } from "@/lib/badminton-broadcast-console";
 import {
   formatPointDifference,
   gameScoreLines,
-  gamesWonLine,
+  gamesWonDisplayLine,
   listRecentCompleted,
   loserLabel,
+  outcomeLabel,
   winnerLabel,
   winnerPointDifference,
   type ResultsMatch,
@@ -1167,26 +1168,69 @@ function toResultsMatch(m: BroadcastConsoleMatch): ResultsMatch {
   };
 }
 
-/** OBS lower-third — cycles completed matches: winner, games, point difference. */
+type ObsResultsSlide =
+  | { key: string; kind: "standings"; page: LeaderboardPage }
+  | { key: string; kind: "result"; match: ResultsMatch; resultIndex: number; resultCount: number };
+
+/** OBS lower-third — points tables first, then scored results (15s). */
 export function ObsRecentResultsOverlay({
   matches,
+  leaderboardPages = [],
+  leaderboardsLoading = false,
   rotateMs = OBS_RESULTS_ROTATE_MS,
 }: {
   matches: BroadcastConsoleMatch[];
+  leaderboardPages?: LeaderboardPage[];
+  leaderboardsLoading?: boolean;
   rotateMs?: number;
 }) {
   const results = listRecentCompleted(matches.map(toResultsMatch), BROADCAST_RESULTS_LIMIT);
+  const slides: ObsResultsSlide[] = [
+    ...leaderboardPages.map((page) => ({
+      key: `standings-${page.key}`,
+      kind: "standings" as const,
+      page,
+    })),
+    ...results.map((match, resultIndex) => ({
+      key: `result-${match.id}`,
+      kind: "result" as const,
+      match,
+      resultIndex,
+      resultCount: results.length,
+    })),
+  ];
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (results.length <= 1) return;
+    setIndex(0);
+  }, [slides.length, results.length, leaderboardPages.length]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
     const id = setInterval(() => {
-      setIndex((i) => (i + 1) % results.length);
+      setIndex((i) => (i + 1) % slides.length);
     }, rotateMs);
     return () => clearInterval(id);
-  }, [results.length, rotateMs]);
+  }, [slides.length, rotateMs]);
 
-  if (results.length === 0) {
+  if (leaderboardsLoading && slides.length === 0) {
+    return (
+      <div
+        className="rounded-2xl border border-white/15 px-5 py-3 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
+        style={{ backgroundColor: BIDWAR_SCOREBOARD_SHELL }}
+      >
+        <p
+          className="text-[10px] font-mono uppercase tracking-[0.28em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW_MUTED }}
+        >
+          Points
+        </p>
+        <p className="text-white/70 text-sm font-semibold mt-1">Loading standings…</p>
+      </div>
+    );
+  }
+
+  if (slides.length === 0) {
     return (
       <div
         className="rounded-2xl border border-white/15 px-5 py-3 shadow-[0_12px_48px_rgba(0,0,0,0.55)]"
@@ -1198,26 +1242,77 @@ export function ObsRecentResultsOverlay({
         >
           Results
         </p>
-        <p className="text-white/70 text-sm font-semibold mt-1">No completed matches yet</p>
+        <p className="text-white/70 text-sm font-semibold mt-1">No points or results yet</p>
       </div>
     );
   }
 
-  const match = results[Math.min(index, results.length - 1)]!;
+  const slide = slides[Math.min(index, slides.length - 1)]!;
+
+  if (slide.kind === "standings") {
+    const { board, rows } = slide.page;
+    const top = rows.slice(0, 4);
+    return (
+      <div
+        key={slide.key}
+        className="rounded-2xl border border-white/15 px-5 py-3.5 shadow-[0_12px_48px_rgba(0,0,0,0.55)] animate-[badmintonMomentIn_0.35s_ease-out_forwards] min-w-[280px] max-w-[420px]"
+        style={{
+          fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif",
+          backgroundColor: BIDWAR_SCOREBOARD_SHELL,
+        }}
+      >
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <p
+            className="text-[10px] font-mono uppercase tracking-[0.28em]"
+            style={{ color: BIDWAR_BROADCAST_YELLOW }}
+          >
+            Points{slides.length > 1 ? ` · ${index + 1}/${slides.length}` : ""}
+          </p>
+          <p className="text-[10px] uppercase tracking-wide text-white/40 truncate max-w-[55%]">
+            {board.boardTitle}
+          </p>
+        </div>
+        <div className="space-y-1">
+          {top.map((row) => (
+            <div
+              key={`${slide.key}-${row.registrationId}`}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <p className="text-white font-semibold truncate min-w-0">
+                <span className="text-white/40 tabular-nums mr-2">{row.rank}</span>
+                {row.label}
+              </p>
+              <p
+                className="tabular-nums font-black shrink-0"
+                style={{ color: BIDWAR_BROADCAST_YELLOW }}
+              >
+                {row.won}W · {formatPointDifference(row.marginPoints)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const match = slide.match;
   const winner = winnerLabel(match) ?? "Winner";
   const loser = loserLabel(match) ?? "—";
   const diff = formatPointDifference(winnerPointDifference(match));
   const sets = gameScoreLines(match);
+  const gamesLine = gamesWonDisplayLine(match);
+  const outcome = outcomeLabel(match);
   const metaBits = [
     typeof match.detail?.categoryName === "string"
       ? match.detail.categoryName.trim()
       : "",
     typeof match.detail?.roundName === "string" ? match.detail.roundName.trim() : "",
+    outcome !== "Completed" ? outcome : "",
   ].filter(Boolean);
 
   return (
     <div
-      key={match.id}
+      key={slide.key}
       className="rounded-2xl border border-white/15 px-5 py-3.5 shadow-[0_12px_48px_rgba(0,0,0,0.55)] animate-[badmintonMomentIn_0.35s_ease-out_forwards]"
       style={{
         fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif",
@@ -1229,7 +1324,8 @@ export function ObsRecentResultsOverlay({
           className="text-[10px] font-mono uppercase tracking-[0.28em]"
           style={{ color: BIDWAR_BROADCAST_YELLOW }}
         >
-          Result{results.length > 1 ? ` · ${index + 1}/${results.length}` : ""}
+          Result
+          {slides.length > 1 ? ` · ${index + 1}/${slides.length}` : ""}
         </p>
         {metaBits.length > 0 ? (
           <p className="text-[10px] uppercase tracking-wide text-white/40 truncate max-w-[50%]">
@@ -1250,17 +1346,19 @@ export function ObsRecentResultsOverlay({
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <div
-            className="text-center rounded-lg px-2.5 py-1.5 border border-white/10"
-            style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
-          >
-            <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40">
-              Games
-            </p>
-            <p className="text-white text-[1.6rem] font-black tabular-nums leading-none">
-              {gamesWonLine(match)}
-            </p>
-          </div>
+          {gamesLine ? (
+            <div
+              className="text-center rounded-lg px-2.5 py-1.5 border border-white/10"
+              style={{ backgroundColor: BIDWAR_SCOREBOARD_INSET }}
+            >
+              <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40">
+                Games
+              </p>
+              <p className="text-white text-[1.6rem] font-black tabular-nums leading-none">
+                {gamesLine}
+              </p>
+            </div>
+          ) : null}
           <div
             className="text-center min-w-[3.25rem] rounded-lg px-2.5 py-1.5 border"
             style={{
