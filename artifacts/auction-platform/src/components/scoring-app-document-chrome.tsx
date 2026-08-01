@@ -30,6 +30,10 @@ export function resolveScoringDocumentTitle(pathname: string, search = ""): stri
     return "Scorer Home — BidWar";
   }
 
+  if (/^\/badminton\/standings\/?$/.test(pathname)) {
+    return "Points & Results — BidWar";
+  }
+
   if (/\/tournament\/\d+\/score-display\/?$/.test(pathname)) {
     return "Cricket Score Display — BidWar";
   }

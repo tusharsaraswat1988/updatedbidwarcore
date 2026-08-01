@@ -257,7 +257,14 @@ export function outcomeLabel(m: ResultsMatch): string {
 export function isBroadcastableResult(m: ResultsMatch): boolean {
   if (!isCompletedMatch(m) || !m.state?.winnerSide) return false;
   if (hasScoredGames(m)) return true;
-  return outcomeLabel(m) !== "Completed";
+  if (outcomeLabel(m) !== "Completed") return true;
+  // Row status may mark WO/retired while state labels still say completed.
+  return (
+    m.status === "walkover" ||
+    m.status === "retired" ||
+    m.status === "disqualified" ||
+    m.status === "abandoned"
+  );
 }
 
 export function formatCompletedWhen(m: ResultsMatch): string {
