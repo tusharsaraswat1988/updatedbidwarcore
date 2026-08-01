@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   formatPointDifference,
+  gamesWonDisplayLine,
+  isBroadcastableResult,
   isCompletedMatch,
   listRecentCompleted,
   loserLabel,
@@ -154,5 +156,32 @@ describe("winner point difference helpers", () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.id).toBe(2);
+  });
+
+  it("excludes completed rows with no scored games (fake 0–0)", () => {
+    const unfinished = completedMatch({
+      id: 9,
+      gamesLeft: 0,
+      gamesRight: 0,
+      games: [],
+    });
+    expect(isBroadcastableResult(unfinished)).toBe(false);
+    expect(gamesWonDisplayLine(unfinished)).toBeNull();
+    expect(listRecentCompleted([unfinished], 5)).toHaveLength(0);
+  });
+
+  it("includes walkovers without game scores", () => {
+    const wo = completedMatch({
+      id: 10,
+      matchStatus: "walkover",
+      gamesLeft: 0,
+      gamesRight: 0,
+      games: [],
+      assignedMarginPoints: 21,
+      resultReason: "walkover",
+    });
+    expect(isBroadcastableResult(wo)).toBe(true);
+    expect(gamesWonDisplayLine(wo)).toBeNull();
+    expect(listRecentCompleted([wo], 5)).toHaveLength(1);
   });
 });

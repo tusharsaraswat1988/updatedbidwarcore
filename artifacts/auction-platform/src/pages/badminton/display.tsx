@@ -199,7 +199,8 @@ function DisplayStage({
   const tournamentLogoUrl = branding?.logoUrl ?? undefined;
   const venueScene = branding?.venueScene ?? "auto";
   const multiCourtMode = isMultiCourtVenueScene(venueScene);
-  const leaderboardsEnabled = venueScene === "leaderboards";
+  const leaderboardsEnabled =
+    venueScene === "leaderboards" || venueScene === "results";
   const leaderboards = useBadmintonLeaderboardBoards(tournamentId, leaderboardsEnabled);
   const multiRows = useMemo(
     () => (multiCourtMode ? multiCourtRowsFromMatches(liveFollow.liveMatches) : []),
@@ -336,7 +337,12 @@ function DisplayStage({
     );
   } else if (venueScene === "results") {
     overlayContent = (
-      <VenueRecentResultsScene matches={liveFollow.matches} chrome={chrome} />
+      <VenueRecentResultsScene
+        matches={liveFollow.matches}
+        chrome={chrome}
+        leaderboardPages={leaderboards.pages}
+        leaderboardsLoading={leaderboards.loading}
+      />
     );
   } else if (venueScene === "leaderboards") {
     overlayContent = (

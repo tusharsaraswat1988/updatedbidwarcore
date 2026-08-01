@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
 import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import {
   buildCourtBoard,
+  listHeldMatches,
   listReadyMatches,
   listRecentlyCompleted,
   listUpcomingFixtures,
+  resolveMatchNumber,
   type ControlFixture,
   type ControlMatch,
 } from "@/lib/badminton-control-center";
@@ -39,6 +41,7 @@ import {
   EmptyState,
   HubPageShell,
   hubCardClass,
+  inputClass,
 } from "@/components/badminton/page-chrome";
 import { MissionControlTopBar } from "@/components/badminton/mission-control/mission-control-top-bar";
 import { MissionControlOpsRail } from "@/components/badminton/mission-control/mission-control-ops-rail";
@@ -105,6 +108,10 @@ export default function BadmintonControlCenterPage() {
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
   const [lastRealtimeAt, setLastRealtimeAt] = useState<number | null>(null);
+  const [courtFilter, setCourtFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [matchNoQuery, setMatchNoQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Operator page: avoid 8s branding poll fighting Moments / Auto focus clicks.
   const { data: branding, isSuccess: brandingOk } = useBadmintonBranding(tournamentId, {
@@ -235,15 +242,62 @@ export default function BadmintonControlCenterPage() {
     return map;
   }, [categories]);
 
-  const board = useMemo(
-    () => buildCourtBoard(courts, matches, fixtures),
-    [courts, matches, fixtures],
-  );
-  const sortedBoard = useMemo(() => sortCourtsByOpsPriority(board), [board]);
+  const filteredMatches = useMemo(() => {
+    const q = matchNoQuery.trim().toLowerCase();
+    return matches.filter((m) => {
+      if (statusFilter === "live" && m.status !== "live" && m.status !== "paused") return false;
+      if (statusFilter === "scheduled" && m.status !== "scheduled") return false;
+      if (statusFilter === "on_hold" && m.status !== "on_hold") return false;
+      if (
+        statusFilter === "finished" &&
+        !["completed", "walkover", "retired", "disqualified", "abandoned"].includes(m.status)
+      ) {
+        return false;
+      }
+      const detail = m.detail ?? {};
+      if (courtFilter !== "all") {
+        const courtId = typeof detail.courtId === "number" ? detail.courtId : null;
+        if (String(courtId) !== courtFilter) return false;
+      }
+      if (categoryFilter !== "all") {
+        const catId = typeof detail.categoryId === "number" ? detail.categoryId : null;
+        if (String(catId) !== categoryFilter) return false;
+      }
+      if (q) {
+        const num = resolveMatchNumber(m).toLowerCase();
+        const label = String(detail.matchLabel ?? "").toLowerCase();
+        if (!num.includes(q) && !label.includes(q) && !String(m.id).includes(q)) return false;
+      }
+      return true;
+    });
+  }, [matches, courtFilter, categoryFilter, matchNoQuery, statusFilter]);
 
-  const upcoming = useMemo(() => listUpcomingFixtures(fixtures), [fixtures]);
-  const ready = useMemo(() => listReadyMatches(matches), [matches]);
-  const recent = useMemo(() => listRecentlyCompleted(matches), [matches]);
+  const board = useMemo(
+    () => buildCourtBoard(courts, filteredMatches, fixtures),
+    [courts, filteredMatches, fixtures],
+  );
+  const sortedBoard = useMemo(() => {
+    if (courtFilter === "all") return sortCourtsByOpsPriority(board);
+    return board.filter((r) => String(r.court.id) === courtFilter);
+  }, [board, courtFilter]);
+
+  const upcoming = useMemo(() => {
+    let list = listUpcomingFixtures(fixtures);
+    if (courtFilter !== "all") {
+      list = list.filter((f) => String(f.courtId) === courtFilter);
+    }
+    if (categoryFilter !== "all") {
+      list = list.filter((f) => String(f.categoryId) === categoryFilter);
+    }
+    if (matchNoQuery.trim()) {
+      const q = matchNoQuery.trim().toLowerCase();
+      list = list.filter((f) => String(f.slotNumber ?? f.id).toLowerCase().includes(q));
+    }
+    return list;
+  }, [fixtures, courtFilter, categoryFilter, matchNoQuery]);
+  const ready = useMemo(() => listReadyMatches(filteredMatches), [filteredMatches]);
+  const held = useMemo(() => listHeldMatches(filteredMatches), [filteredMatches]);
+  const recent = useMemo(() => listRecentlyCompleted(filteredMatches), [filteredMatches]);
   const completedCount = useMemo(
     () =>
       matches.filter((m) =>
@@ -574,6 +628,67 @@ export default function BadmintonControlCenterPage() {
             )}
           >
             <div className="space-y-4 min-w-0">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                  Match no.
+                  <input
+                    value={matchNoQuery}
+                    onChange={(e) => setMatchNoQuery(e.target.value)}
+                    placeholder="e.g. 12"
+                    className={cn(inputClass, "w-28")}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                  Court
+                  <select
+                    value={courtFilter}
+                    onChange={(e) => setCourtFilter(e.target.value)}
+                    className={cn(inputClass, "w-40")}
+                  >
+                    <option value="all">All courts</option>
+                    {courts.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.shortName?.trim() || c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                  Category
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className={cn(inputClass, "w-44")}
+                  >
+                    <option value="all">All categories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.code?.trim() || c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                  Status
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className={cn(inputClass, "w-36")}
+                  >
+                    <option value="all">All</option>
+                    <option value="live">Live</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="finished">Finished</option>
+                  </select>
+                </label>
+                {held.length > 0 ? (
+                  <p className="text-sky-200/90 text-xs font-semibold self-center">
+                    {held.length} on hold
+                  </p>
+                ) : null}
+              </div>
+
               <MissionControlReadyStrip
                 tournamentId={tournamentId}
                 courts={courts}

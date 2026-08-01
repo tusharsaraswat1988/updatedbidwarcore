@@ -9,7 +9,7 @@
  */
 
 import { randomInt } from "node:crypto";
-import { eq, and, desc, asc, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, isNull, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { markLatency } from "./badminton-latency-trace";
 import {
@@ -50,9 +50,12 @@ import {
   cmdDeclareDisqualification,
   cmdAssignMarginPoints,
   cmdPauseMatch,
+  cmdHoldMatch,
   cmdResumeMatch,
   cmdAddMatchNote,
   cmdForceEndMatch,
+  cmdReviseFinalScore,
+  cmdReopenMatch,
   buildMatchReport,
   deriveIncidentLog,
   STANDARD_FORMAT,
@@ -560,6 +563,44 @@ async function updateSnapshot(
   // S3-08 — preserve terminal kinds (walkover/retired/DQ/abandoned), do not collapse to completed.
   const isTerminal = isBadmintonTerminalMatchStatus(state.matchStatus);
 
+  // Keep scoring_matches.status in sync for pause/hold/reopen so court conflict checks free the court.
+  if (
+    !isTerminal &&
+    (state.matchStatus === "live" ||
+      state.matchStatus === "paused" ||
+      state.matchStatus === "on_hold")
+  ) {
+    await db
+      .update(scoringMatchesTable)
+      .set({
+        status: mapBadmintonStatusToScoringMatchStatus(state.matchStatus),
+        completedAt: null,
+        resultSummary: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+
+    if (state.matchStatus === "live") {
+      const fixtureId = await getMatchFixtureId(matchId, tournamentId);
+      if (fixtureId) {
+        await db
+          .update(badmintonFixturesTable)
+          .set({ status: "live", completedAt: null, updatedAt: new Date() })
+          .where(
+            and(
+              eq(badmintonFixturesTable.id, fixtureId),
+              eq(badmintonFixturesTable.tournamentId, tournamentId),
+            ),
+          );
+      }
+    }
+  }
+
   if (isTerminal) {
     const scoringStatus = mapBadmintonStatusToScoringMatchStatus(state.matchStatus);
     await db
@@ -771,8 +812,42 @@ export async function startBadmintonMatch(
   const state = replayBadmintonViaPlatform(meta, events);
 
   // Idempotent retry: match already started (network double-submit / refresh)
-  if (state.matchStatus === "live" || state.matchStatus === "paused") {
+  if (
+    state.matchStatus === "live" ||
+    state.matchStatus === "paused" ||
+    state.matchStatus === "on_hold"
+  ) {
+    if (state.matchStatus === "on_hold") {
+      throw new BadmintonServiceError(
+        "MATCH_ON_HOLD",
+        "This match is on hold. Resume it from Hold before starting scoring again.",
+        409,
+      );
+    }
     return state;
+  }
+
+  // Pre-start hold: clear hold so start can proceed (toss preserved).
+  const [dbMatch] = await db
+    .select({ status: scoringMatchesTable.status })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+  if (dbMatch?.status === "on_hold" && events.length === 0) {
+    await db
+      .update(scoringMatchesTable)
+      .set({ status: "scheduled", updatedAt: new Date() })
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
   }
 
   const [detail] = await db
@@ -795,7 +870,7 @@ export async function startBadmintonMatch(
     if (other) {
       throw new BadmintonServiceError(
         "COURT_BUSY",
-        `Court already has a live match (#${other.id}). Finish or force-end that match before starting another.`,
+        `Court already has a live match (#${other.id}). Put it on Hold, finish, or force-end before starting another.`,
         409,
       );
     }
@@ -1244,6 +1319,146 @@ export async function handlePauseMatch(
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
 
+/**
+ * Put a match on hold so another match can use the court.
+ * - scheduled (incl. after toss saved): DB status → on_hold
+ * - live: engine hold (frees court; status → on_hold)
+ */
+export async function handleHoldMatch(
+  matchId: number,
+  tournamentId: number,
+  actor: Actor,
+  detail?: string,
+): Promise<BadmintonMatchState | { status: string; matchId: number }> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const [match] = await db
+    .select({ status: scoringMatchesTable.status })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!match) {
+    throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
+  }
+
+  if (match.status === "on_hold") {
+    throw new BadmintonServiceError("ALREADY_ON_HOLD", "Match is already on hold", 409);
+  }
+
+  if (match.status === "scheduled") {
+    await db
+      .update(scoringMatchesTable)
+      .set({ status: "on_hold", updatedAt: new Date() })
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+    return { status: "on_hold", matchId };
+  }
+
+  if (match.status === "live" || match.status === "paused") {
+    const events = await loadBadmintonEvents(matchId);
+    const state = replayBadmintonViaPlatform(meta, events);
+    if (state.matchStatus === "paused" && state.pauseReason !== "ops_hold") {
+      // Convert medical/tech pause → ops hold via resume then hold would be 2 steps;
+      // allow hold from live only; if already paused non-ops, resume first is required.
+      throw new BadmintonServiceError(
+        "MATCH_PAUSED",
+        "Resume the medical/technical pause first, then put the match on hold.",
+        409,
+      );
+    }
+    const result = cmdHoldMatch(state, detail);
+    return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+  }
+
+  throw new BadmintonServiceError(
+    "INVALID_STATUS",
+    "Only scheduled or live matches can be put on hold.",
+    409,
+  );
+}
+
+/**
+ * Resume from hold:
+ * - pre-start on_hold → scheduled
+ * - post-start on_hold → live (engine resume)
+ */
+export async function handleUnholdMatch(
+  matchId: number,
+  tournamentId: number,
+  actor: Actor,
+): Promise<BadmintonMatchState | { status: string; matchId: number }> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const [match] = await db
+    .select({ status: scoringMatchesTable.status })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!match) {
+    throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
+  }
+
+  if (match.status === "on_hold") {
+    const events = await loadBadmintonEvents(matchId);
+    if (events.length === 0) {
+      await db
+        .update(scoringMatchesTable)
+        .set({ status: "scheduled", updatedAt: new Date() })
+        .where(
+          and(
+            eq(scoringMatchesTable.id, matchId),
+            eq(scoringMatchesTable.tournamentId, tournamentId),
+          ),
+        );
+      return { status: "scheduled", matchId };
+    }
+    const state = replayBadmintonViaPlatform(meta, events);
+    if (state.matchStatus === "on_hold" || state.pauseReason === "ops_hold" || state.isPaused) {
+      const result = cmdResumeMatch(state);
+      return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+    }
+    // Status on_hold but engine says scheduled — clear hold flag.
+    await db
+      .update(scoringMatchesTable)
+      .set({ status: "scheduled", updatedAt: new Date() })
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+    return { status: "scheduled", matchId };
+  }
+
+  // Engine on_hold while DB still live (legacy pause sync gap)
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  if (state.matchStatus === "on_hold" || state.pauseReason === "ops_hold") {
+    const result = cmdResumeMatch(state);
+    return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+  }
+
+  throw new BadmintonServiceError("NOT_ON_HOLD", "Match is not on hold", 409);
+}
+
 export async function handleResumeMatch(
   matchId: number,
   tournamentId: number,
@@ -1255,6 +1470,57 @@ export async function handleResumeMatch(
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdResumeMatch(state);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+}
+
+async function clearMasterStatsApplied(matchId: number, tournamentId: number): Promise<void> {
+  await db
+    .update(badmintonMatchDetailsTable)
+    .set({ masterStatsAppliedAt: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    );
+}
+
+export async function handleReviseFinalScore(
+  matchId: number,
+  tournamentId: number,
+  games: Array<{
+    gameNumber: number;
+    leftScore: number;
+    rightScore: number;
+    winningSide: BadmintonSide;
+  }>,
+  winningSide: BadmintonSide,
+  actor: Actor,
+  note?: string,
+): Promise<BadmintonMatchState> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  const result = cmdReviseFinalScore(state, games, winningSide, note);
+  await clearMasterStatsApplied(matchId, tournamentId);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+}
+
+export async function handleReopenMatch(
+  matchId: number,
+  tournamentId: number,
+  actor: Actor,
+  note?: string,
+): Promise<BadmintonMatchState> {
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const events = await loadBadmintonEvents(matchId);
+  const state = replayBadmintonViaPlatform(meta, events);
+  const result = cmdReopenMatch(state, note);
+  await clearMasterStatsApplied(matchId, tournamentId);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
 
@@ -1582,11 +1848,49 @@ export async function getLiveBadmintonMatches(tournamentId: number) {
     match: typeof scoringMatchesTable.$inferSelect;
     detail: typeof badmintonMatchDetailsTable.$inferSelect | null;
   };
-  return (rows as MatchRow[]).map(({ match, detail }) => ({
-    ...match,
-    detail: detail ?? null,
-    state: detail?.stateSnapshotJson ?? null,
-  }));
+  const fixtureIds = [
+    ...new Set(
+      (rows as MatchRow[])
+        .map((r) => r.detail?.fixtureId ?? r.match.fixtureId)
+        .filter((id): id is number => typeof id === "number"),
+    ),
+  ];
+  const fixtureSlots =
+    fixtureIds.length > 0
+      ? await db
+          .select({
+            id: badmintonFixturesTable.id,
+            slotNumber: badmintonFixturesTable.slotNumber,
+          })
+          .from(badmintonFixturesTable)
+          .where(
+            and(
+              eq(badmintonFixturesTable.tournamentId, tournamentId),
+              inArray(badmintonFixturesTable.id, fixtureIds),
+            ),
+          )
+      : [];
+
+  const slotByFixtureId = new Map<number, number | null>();
+  for (const f of fixtureSlots) {
+    slotByFixtureId.set(f.id, f.slotNumber ?? null);
+  }
+
+  return (rows as MatchRow[]).map(({ match, detail }) => {
+    const fixtureId = detail?.fixtureId ?? match.fixtureId ?? null;
+    const fixtureSlotNumber =
+      fixtureId != null ? (slotByFixtureId.get(fixtureId) ?? null) : null;
+    return {
+      ...match,
+      detail: detail
+        ? {
+            ...detail,
+            fixtureSlotNumber,
+          }
+        : null,
+      state: detail?.stateSnapshotJson ?? null,
+    };
+  });
 }
 
 export async function createBadmintonMatch(input: {
@@ -1716,6 +2020,7 @@ export async function updateBadmintonMatch(
     matchType?: string;
     courtId?: number | null;
     courtNumber?: string | null;
+    matchNumber?: string | null;
     matchLabel?: string | null;
     roundName?: string | null;
     leftSideJson?: Record<string, unknown>;
@@ -1812,6 +2117,7 @@ export async function updateBadmintonMatch(
 
   if (input.courtId !== undefined) detailPatch.courtId = input.courtId;
   if (input.courtNumber !== undefined) detailPatch.courtNumber = input.courtNumber;
+  if (input.matchNumber !== undefined) detailPatch.matchNumber = input.matchNumber;
   if (input.matchLabel !== undefined) {
     detailPatch.matchLabel = input.matchLabel;
     matchPatch.matchLabel = input.matchLabel;

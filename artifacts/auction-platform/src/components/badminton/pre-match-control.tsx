@@ -269,6 +269,48 @@ export function PreMatchControlPanel({
       {error ? <FormError message={error} /> : null}
 
       <div className="space-y-3">
+        {snapshot.matchStatus === "on_hold" ||
+        peerMatches.some((m) => m.id === snapshot.matchId && m.status === "on_hold") ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void director
+                .unhold()
+                .then(() => {
+                  toastSuccess("Hold cleared", "Match is scheduled again");
+                  onRefresh();
+                })
+                .catch((e) => setError(friendlyBadmintonError(e, "Could not clear hold")))
+                .finally(() => setBusy(false));
+            }}
+            className="min-h-11 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/35 text-emerald-100 text-sm font-bold"
+          >
+            Resume from Hold
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void director
+                .hold("Court freed for another match")
+                .then(() => {
+                  toastSuccess("Match on hold", "Court is free for another match");
+                  onRefresh();
+                })
+                .catch((e) => setError(friendlyBadmintonError(e, "Could not put match on hold")))
+                .finally(() => setBusy(false));
+            }}
+            className="min-h-11 px-4 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/35 text-sky-100 text-sm font-bold"
+          >
+            Put on Hold (free court)
+          </button>
+        )}
         {hasSavedToss ? (
           <>
             <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100/90">

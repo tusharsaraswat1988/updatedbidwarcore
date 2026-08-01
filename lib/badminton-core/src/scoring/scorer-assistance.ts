@@ -222,15 +222,20 @@ export function deriveScorerAssistance(
 
   const banners: ScorerBanner[] = [];
 
-  if (state.isPaused || state.matchStatus === "paused") {
+  if (state.isPaused || state.matchStatus === "paused" || state.matchStatus === "on_hold") {
+    const onHold = state.matchStatus === "on_hold" || state.pauseReason === "ops_hold";
     const reason = state.pauseReason
       ? formatPauseReason(state.pauseReason, state.pauseDetail)
       : null;
     banners.push({
       kind: "match_paused",
-      label: reason
-        ? `MATCH PAUSED · ${reason} — WAITING FOR DIRECTOR`
-        : "MATCH PAUSED — WAITING FOR DIRECTOR",
+      label: onHold
+        ? reason
+          ? `MATCH ON HOLD · ${reason} — WAITING FOR DIRECTOR`
+          : "MATCH ON HOLD — WAITING FOR DIRECTOR"
+        : reason
+          ? `MATCH PAUSED · ${reason} — WAITING FOR DIRECTOR`
+          : "MATCH PAUSED — WAITING FOR DIRECTOR",
       emoji: "⏸",
     });
   } else if (state.matchStatus === "completed" || state.matchStatus === "walkover") {
@@ -277,7 +282,7 @@ export function deriveScorerAssistance(
   }
 
   let scoringBlockReason: ScorerAssistanceSnapshot["scoringBlockReason"] = null;
-  if (state.isPaused || state.matchStatus === "paused") {
+  if (state.isPaused || state.matchStatus === "paused" || state.matchStatus === "on_hold") {
     scoringBlockReason = "paused";
   } else if (state.inInterval) {
     scoringBlockReason = "interval";

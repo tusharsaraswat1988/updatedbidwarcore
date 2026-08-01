@@ -225,6 +225,20 @@ export function gameScoreLines(m: ResultsMatch): string[] {
     .map((g) => `${g.leftScore}–${g.rightScore}`);
 }
 
+/** True when at least one game was actually scored (not walkover 0–0). */
+export function hasScoredGames(m: ResultsMatch): boolean {
+  return gameScoreLines(m).length > 0;
+}
+
+/**
+ * Games line for boards/results UI — null when there are no real game scores
+ * so unplayed / walkover rows never show a fake `0–0`.
+ */
+export function gamesWonDisplayLine(m: ResultsMatch): string | null {
+  if (!hasScoredGames(m)) return null;
+  return gamesWonLine(m);
+}
+
 export function outcomeLabel(m: ResultsMatch): string {
   const status = m.state?.matchStatus;
   const reason = m.state?.resultReason;
@@ -233,6 +247,24 @@ export function outcomeLabel(m: ResultsMatch): string {
   if (status === "disqualified" || reason === "disqualification") return "Disqualified";
   if (status === "abandoned" || reason === "abandoned") return "Abandoned";
   return "Completed";
+}
+
+/**
+ * Safe to show on Results moment / summary: finished with a winner, and either
+ * real game scores or an explicit non-scored outcome (WO / retired / DQ / abandoned).
+ * Excludes unfinished rows that would otherwise render `0–0` / `—`.
+ */
+export function isBroadcastableResult(m: ResultsMatch): boolean {
+  if (!isCompletedMatch(m) || !m.state?.winnerSide) return false;
+  if (hasScoredGames(m)) return true;
+  if (outcomeLabel(m) !== "Completed") return true;
+  // Row status may mark WO/retired while state labels still say completed.
+  return (
+    m.status === "walkover" ||
+    m.status === "retired" ||
+    m.status === "disqualified" ||
+    m.status === "abandoned"
+  );
 }
 
 export function formatCompletedWhen(m: ResultsMatch): string {
@@ -265,10 +297,10 @@ export function listWonToday(matches: ResultsMatch[], limit = 12): ResultsMatch[
 
 /** Recent completed matches with a winner — prefer today, else latest overall. */
 export function listRecentCompleted(matches: ResultsMatch[], limit = 30): ResultsMatch[] {
-  const today = listWonToday(matches, limit).filter((m) => m.state?.winnerSide);
+  const today = listWonToday(matches, limit).filter(isBroadcastableResult);
   if (today.length > 0) return today;
   return matches
-    .filter((m) => isCompletedMatch(m) && m.state?.winnerSide)
+    .filter(isBroadcastableResult)
     .sort((a, b) => completedAtMs(b) - completedAtMs(a))
     .slice(0, limit);
 }

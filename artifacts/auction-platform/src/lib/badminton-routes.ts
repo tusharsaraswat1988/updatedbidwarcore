@@ -22,6 +22,11 @@ export function badmintonScorerHomePath(tournamentId: number) {
   return `/badminton/scorer?tid=${tournamentId}`;
 }
 
+/** Public points + recent results — share with franchise owners. */
+export function badmintonPublicStandingsPath(tournamentId: number) {
+  return `/badminton/standings?tid=${tournamentId}`;
+}
+
 /** Results & Standings — read-only post-scoring layer. */
 export function badmintonResultsPath(tournamentId: number) {
   return `${badmintonHubPath(tournamentId)}/results`;

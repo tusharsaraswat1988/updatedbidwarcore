@@ -37,7 +37,13 @@ export function mapBadmintonStatusToScoringMatchStatus(
   matchStatus: string,
 ): string {
   if (isBadmintonTerminalMatchStatus(matchStatus)) return matchStatus;
-  if (matchStatus === "live" || matchStatus === "paused") return matchStatus;
+  if (
+    matchStatus === "live" ||
+    matchStatus === "paused" ||
+    matchStatus === "on_hold"
+  ) {
+    return matchStatus;
+  }
   if (matchStatus === "scheduled" || matchStatus === "not_started") {
     return "scheduled";
   }
@@ -62,6 +68,7 @@ export function mapBadmintonStatusToFixtureStatus(matchStatus: string): string {
       return "abandoned";
     case "live":
     case "paused":
+    case "on_hold":
       return "live";
     default:
       return matchStatus;

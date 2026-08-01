@@ -57,6 +57,7 @@ const PAUSE_REASON_LABELS: Record<MatchPauseReason, string> = {
   technical_issue: "Technical Issue",
   weather: "Weather Delay",
   court_issue: "Court Issue",
+  ops_hold: "Ops Hold",
   other: "Other",
 };
 
@@ -254,6 +255,16 @@ export type DirectorStatusBanner = {
 
 /** Status banner for OBS / scoreboard when match is not in normal live play. */
 export function deriveDirectorStatusBanner(state: BadmintonMatchState): DirectorStatusBanner | null {
+  if (state.matchStatus === "on_hold" || state.pauseReason === "ops_hold") {
+    return {
+      kind: "paused",
+      title: "MATCH ON HOLD",
+      subtitle: state.pauseReason
+        ? `Reason: ${formatPauseReason(state.pauseReason, state.pauseDetail)}`
+        : "Court freed for another match",
+    };
+  }
+
   if (state.matchStatus === "paused" || state.isPaused) {
     return {
       kind: "paused",

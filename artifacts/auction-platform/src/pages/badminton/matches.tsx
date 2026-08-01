@@ -61,10 +61,12 @@ import { badmintonMatchControlPath, badmintonScorerHomePath, badmintonScorerMatc
 import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
+import { matchNumberLabel, resolveMatchNumber } from "@/lib/badminton-control-center";
 import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
+import { ReviseScoreDialog } from "@/components/badminton/revise-score-dialog";
 import {
   emptyMatchFormToss,
   matchFormTossFromDetail,
@@ -207,7 +209,10 @@ export default function BadmintonMatchesPage() {
     return Number.isFinite(id) ? id : undefined;
   }, [search]);
   const [showCreate, setShowCreate] = useState(!!initialFixtureId);
-  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "finished">("all");
+  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "hold" | "finished">("all");
+  const [courtFilter, setCourtFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [matchNoQuery, setMatchNoQuery] = useState("");
   const { data: scoringFormat } = useBadmintonScoringFormat(tournamentId);
   const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
   const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -246,16 +251,54 @@ export default function BadmintonMatchesPage() {
     };
   }, []);
 
+  const { data: courts = [] } = useQuery<Array<{ id: number; name: string; shortName?: string | null }>>({
+    queryKey: ["badminton-courts", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/courts`),
+    enabled: !!tournamentId,
+    staleTime: 60_000,
+  });
+
+  const { data: categories = [] } = useQuery<CategoryOption[]>({
+    queryKey: ["badminton-categories", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/categories`),
+    enabled: !!tournamentId,
+    staleTime: 60_000,
+  });
+
   const filtered = matches.filter((m) => {
-    if (filter === "all") return true;
-    if (filter === "finished") return isTerminalScoringMatchStatus(m.status);
-    return m.status === filter;
+    if (filter === "finished") {
+      if (!isTerminalScoringMatchStatus(m.status)) return false;
+    } else if (filter === "live") {
+      if (m.status !== "live" && m.status !== "paused") return false;
+    } else if (filter === "hold") {
+      if (m.status !== "on_hold") return false;
+    } else if (filter !== "all") {
+      if (m.status !== filter) return false;
+    }
+
+    const detail = m.detail ?? {};
+    if (courtFilter !== "all") {
+      const courtId = typeof detail.courtId === "number" ? detail.courtId : null;
+      if (String(courtId) !== courtFilter) return false;
+    }
+    if (categoryFilter !== "all") {
+      const catId = typeof detail.categoryId === "number" ? detail.categoryId : null;
+      if (String(catId) !== categoryFilter) return false;
+    }
+    const q = matchNoQuery.trim().toLowerCase();
+    if (q) {
+      const num = resolveMatchNumber(m).toLowerCase();
+      const label = String(detail.matchLabel ?? "").toLowerCase();
+      if (!num.includes(q) && !label.includes(q) && !String(m.id).includes(q)) return false;
+    }
+    return true;
   });
 
   const counts = {
     all: matches.length,
     live: matches.filter((m) => m.status === "live" || m.status === "paused").length,
     scheduled: matches.filter((m) => m.status === "scheduled").length,
+    hold: matches.filter((m) => m.status === "on_hold").length,
     finished: matches.filter((m) => isTerminalScoringMatchStatus(m.status)).length,
   };
 
@@ -316,12 +359,54 @@ export default function BadmintonMatchesPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <HubFilterTabs
-          tabs={["all", "live", "scheduled", "finished"] as const}
+          tabs={["all", "live", "scheduled", "hold", "finished"] as const}
           active={filter}
           onChange={(tab) => setFilter(tab as typeof filter)}
           counts={counts}
           liveTab="live"
         />
+
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Match no.
+            <input
+              value={matchNoQuery}
+              onChange={(e) => setMatchNoQuery(e.target.value)}
+              placeholder="e.g. 12"
+              className={cn(inputClass, "w-28")}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Court
+            <select
+              value={courtFilter}
+              onChange={(e) => setCourtFilter(e.target.value)}
+              className={cn(inputClass, "w-40")}
+            >
+              <option value="all">All courts</option>
+              {courts.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.shortName?.trim() || c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Category
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className={cn(inputClass, "w-44")}
+            >
+              <option value="all">All categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         {isLoading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Loading matches">
@@ -420,12 +505,15 @@ function MatchRow({
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(!!autoOpenEdit);
+  const [reviseOpen, setReviseOpen] = useState(false);
   const qc = useQueryClient();
   const state = match.state;
   const detail = match.detail ?? {};
   const isLive = match.status === "live" || match.status === "paused";
+  const isOnHold = match.status === "on_hold";
   const isCompleted = isTerminalScoringMatchStatus(match.status);
   const statusLabel = formatMatchStatusLabel(match.status);
+  const numberLabel = matchNumberLabel(match);
   const hasCourt =
     typeof detail.courtId === "number" ||
     (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);
@@ -466,12 +554,22 @@ function MatchRow({
             </div>
           ) : (
             <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center">
-              <span className="text-muted-foreground text-xs font-mono font-bold">#{match.id}</span>
+              <span className="text-muted-foreground text-[10px] font-mono font-bold leading-tight text-center px-0.5">
+                {resolveMatchNumber(match)}
+              </span>
             </div>
           )}
         </div>
 
         <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-primary text-xs font-mono font-bold">{numberLabel}</span>
+            {isOnHold ? (
+              <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-200">
+                On Hold
+              </Badge>
+            ) : null}
+          </div>
           {state ? (
             <div className="flex items-center gap-3 flex-wrap">
               <TeamPlayerCard
@@ -503,12 +601,14 @@ function MatchRow({
                 className="min-w-0"
                 playerClassName="text-foreground font-semibold text-sm"
               />
-              <span className="text-muted-foreground text-xs font-mono">G{state.currentGame}</span>
+              {isLive && state.currentGame != null ? (
+                <span className="text-muted-foreground text-xs font-mono">Game {state.currentGame}</span>
+              ) : null}
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-foreground font-semibold text-sm">
-                {(detail.matchLabel as string | undefined) ?? `Match #${match.id}`}
+                {(detail.matchLabel as string | undefined) ?? numberLabel}
               </span>
               {detail.roundName ? (
                 <span className="text-muted-foreground text-xs">{String(detail.roundName)}</span>
@@ -582,13 +682,23 @@ function MatchRow({
                 Open Scoring
               </a>
             ) : isCompleted ? (
-              <a
-                href={badmintonMatchControlPath(tournamentId, match.id)}
-                className="min-h-11 px-3 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold flex items-center transition-all"
-                title="View completed match"
-              >
-                View Match
-              </a>
+              <>
+                <a
+                  href={badmintonMatchControlPath(tournamentId, match.id)}
+                  className="min-h-11 px-3 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold flex items-center transition-all"
+                  title="View completed match"
+                >
+                  View Match
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setReviseOpen(true)}
+                  className="min-h-11 px-3 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-100 text-xs font-semibold flex items-center transition-all"
+                  title="Correct final scores"
+                >
+                  Revise score
+                </button>
+              </>
             ) : needsCourtOrTime ? (
               <button
                 type="button"
@@ -674,6 +784,21 @@ function MatchRow({
         />
       ) : null}
 
+      {reviseOpen ? (
+        <ReviseScoreDialog
+          tournamentId={tournamentId}
+          matchId={match.id}
+          matchLabel={numberLabel}
+          state={state}
+          onClose={() => setReviseOpen(false)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+            toastSuccess("Score revised", "Standings will refresh automatically");
+            setReviseOpen(false);
+          }}
+        />
+      ) : null}
+
       <ConfirmActionDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -716,6 +841,7 @@ function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
     scheduleDate: schedule.date,
     scheduleTime: schedule.time,
     matchLabel: (detail.matchLabel as string | undefined) ?? "",
+    matchNumber: (detail.matchNumber as string | undefined) ?? "",
     scorerName: (detail.scorerName as string | undefined) ?? "",
     scorerPin: (detail.scorerPin as string | undefined) ?? "",
     leftPlayer1: sideJsonToPlayerForm(left, 0),
@@ -905,6 +1031,9 @@ function MatchFormModal({
       matchLabel:
         prev.matchLabel.trim() ||
         `${category.name} · Match ${fixture.slotNumber ?? fixture.id}`,
+      matchNumber:
+        prev.matchNumber.trim() ||
+        (fixture.slotNumber != null ? String(fixture.slotNumber) : String(fixture.id)),
       leftPlayer1: left.player1,
       leftPlayer2: left.player2,
       rightPlayer1: right.player1,
@@ -929,6 +1058,7 @@ function MatchFormModal({
     | "matchType"
     | "courtNumber"
     | "matchLabel"
+    | "matchNumber"
     | "scorerName"
     | "scheduleDate"
     | "scheduleTime";
@@ -991,6 +1121,7 @@ function MatchFormModal({
         courtNumber: form.courtNumber || undefined,
         ...(scheduledAt != null ? { scheduledAt } : {}),
         matchLabel: form.matchLabel.trim() || undefined,
+        matchNumber: form.matchNumber.trim() || undefined,
         scorerName: form.scorerName || undefined,
         ...(rosterLocked
           ? {}
@@ -1110,6 +1241,9 @@ function MatchFormModal({
         </FormField>
         <FormField label="Match Name">
           <input {...f("matchLabel")} placeholder="League Match 1" className={inputClass} />
+        </FormField>
+        <FormField label="Match No.">
+          <input {...f("matchNumber")} placeholder="e.g. 12" className={inputClass} />
         </FormField>
         <FormField label="Court" required>
           <CourtAutocomplete

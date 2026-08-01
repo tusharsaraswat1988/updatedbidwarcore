@@ -7,16 +7,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearch, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { FullscreenLayout } from "@/components/fullscreen-layout";
 import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
+import { MatchPointsSummary } from "@/components/badminton/match-points-summary";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
+import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
 import {
+  fetchBadmintonMatches,
   fetchBadmintonScorerSession,
   type ScorerHomeCourtCard,
   type ScorerHomeMatchCard,
   type ScorerHomeSessionPayload,
   type ScorerHomeUiStatus,
 } from "@/lib/badminton-api";
+import type { ResultsMatch } from "@/lib/badminton-results";
 import {
   clearScorerAuthSession,
   getScorerAuthSession,
@@ -544,12 +549,21 @@ export default function BadmintonScorerHomePage() {
   const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [homeTab, setHomeTab] = useState<"matches" | "points">("matches");
   const [canScore, setCanScore] = useState(() => getScorerAuthSession()?.canScore !== false);
   const [refreshing, setRefreshing] = useState(false);
   const [scorerName, setScorerName] = useState(() => getScorerAuthSession()?.scorer.name ?? "");
   const sessionRestoreAttemptedRef = useRef(false);
 
   const { data: branding } = useBadmintonBranding(authAccepted ? tournamentId : 0);
+  const pointsEnabled = authAccepted && homeTab === "points" && tournamentId > 0;
+  const leaderboards = useBadmintonLeaderboardBoards(tournamentId, pointsEnabled);
+  const { data: pointsMatches = [], isLoading: pointsMatchesLoading } = useQuery<ResultsMatch[]>({
+    queryKey: ["badminton-matches", tournamentId],
+    queryFn: () => fetchBadmintonMatches(tournamentId),
+    enabled: pointsEnabled,
+    staleTime: 15_000,
+  });
   const tournamentName =
     branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
   const viewOnly = !canScore;
@@ -866,82 +880,132 @@ export default function BadmintonScorerHomePage() {
               </div>
             ) : null}
 
-            {teamNames.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Team filter</p>
-                <TeamFilterChips teams={teamNames} value={teamFilter} onChange={setTeamFilter} />
-              </div>
-            ) : null}
+            <div
+              role="tablist"
+              aria-label="Scorer home"
+              className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1"
+            >
+              {(
+                [
+                  { id: "matches", label: "Matches" },
+                  { id: "points", label: "Points" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={homeTab === tab.id}
+                  onClick={() => setHomeTab(tab.id)}
+                  className={cn(
+                    "min-h-11 rounded-lg text-sm font-semibold transition-colors",
+                    homeTab === tab.id
+                      ? "bg-white/12 text-white"
+                      : "text-white/50 hover:text-white/75",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-            {session?.view === "courts" && !selectedCourt ? (
+            {homeTab === "points" ? (
+              <MatchPointsSummary
+                boards={leaderboards.boards}
+                matches={pointsMatches}
+                loading={leaderboards.loading || pointsMatchesLoading}
+                emptyStandingsHint={
+                  leaderboards.leagueCategoryCount === 0
+                    ? "No league / group events yet. Knockout-only categories do not show a points table here."
+                    : undefined
+                }
+              />
+            ) : (
               <>
-                <p className="text-white/50 text-sm">Select your court</p>
-                {filteredCourts.length === 0 ? (
-                  <p className="text-white/35 text-sm py-2">No matches for this team</p>
-                ) : (
-                  filteredCourts.map((court) => (
-                    <button
-                      key={court.id}
-                      type="button"
-                      onClick={() => setSelectedCourtId(court.id)}
-                      className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-5 min-h-20"
-                    >
-                      <p className="text-white text-xl font-black">{court.name}</p>
-                      <p className="text-white/35 text-xs mt-2">
-                        {court.currentMatch
-                          ? `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
-                          : court.nextMatch
-                            ? `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`
-                            : "No matches queued"}
-                      </p>
-                    </button>
-                  ))
-                )}
-              </>
-            ) : null}
-
-            {selectedCourt ? (
-              <>
-                {session?.view === "courts" ? (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCourtId(null)}
-                    className="text-white/50 text-sm font-semibold min-h-10"
-                  >
-                    ← All courts
-                  </button>
+                {teamNames.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider">
+                      Team filter
+                    </p>
+                    <TeamFilterChips
+                      teams={teamNames}
+                      value={teamFilter}
+                      onChange={setTeamFilter}
+                    />
+                  </div>
                 ) : null}
-                <CourtFocusView
-                  court={selectedCourt}
-                  viewOnly={viewOnly}
-                  onOpenMatch={openMatch}
-                />
-              </>
-            ) : null}
 
-            {session?.view === "matches" ? (
-              filteredMatches.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
-                  <p className="text-white/70 font-semibold">
-                    {teamFilter ? "No matches for this team" : "No matches assigned"}
-                  </p>
-                  <p className="text-white/40 text-sm mt-2">
-                    {teamFilter
-                      ? "Try another team or clear the filter."
-                      : "Ask the organizer to assign you to this tournament under Officials."}
-                  </p>
-                </div>
-              ) : (
-                filteredMatches.map((match) => (
-                  <MatchListCard
-                    key={match.id}
-                    match={match}
-                    viewOnly={viewOnly}
-                    onOpen={() => openMatch(match)}
-                  />
-                ))
-              )
-            ) : null}
+                {session?.view === "courts" && !selectedCourt ? (
+                  <>
+                    <p className="text-white/50 text-sm">Select your court</p>
+                    {filteredCourts.length === 0 ? (
+                      <p className="text-white/35 text-sm py-2">No matches for this team</p>
+                    ) : (
+                      filteredCourts.map((court) => (
+                        <button
+                          key={court.id}
+                          type="button"
+                          onClick={() => setSelectedCourtId(court.id)}
+                          className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-5 min-h-20"
+                        >
+                          <p className="text-white text-xl font-black">{court.name}</p>
+                          <p className="text-white/35 text-xs mt-2">
+                            {court.currentMatch
+                              ? `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
+                              : court.nextMatch
+                                ? `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`
+                                : "No matches queued"}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </>
+                ) : null}
+
+                {selectedCourt ? (
+                  <>
+                    {session?.view === "courts" ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCourtId(null)}
+                        className="text-white/50 text-sm font-semibold min-h-10"
+                      >
+                        ← All courts
+                      </button>
+                    ) : null}
+                    <CourtFocusView
+                      court={selectedCourt}
+                      viewOnly={viewOnly}
+                      onOpenMatch={openMatch}
+                    />
+                  </>
+                ) : null}
+
+                {session?.view === "matches" ? (
+                  filteredMatches.length === 0 ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
+                      <p className="text-white/70 font-semibold">
+                        {teamFilter ? "No matches for this team" : "No matches assigned"}
+                      </p>
+                      <p className="text-white/40 text-sm mt-2">
+                        {teamFilter
+                          ? "Try another team or clear the filter."
+                          : "Ask the organizer to assign you to this tournament under Officials."}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredMatches.map((match) => (
+                      <MatchListCard
+                        key={match.id}
+                        match={match}
+                        viewOnly={viewOnly}
+                        onOpen={() => openMatch(match)}
+                      />
+                    ))
+                  )
+                ) : null}
+              </>
+            )}
           </div>
         </main>
       </div>

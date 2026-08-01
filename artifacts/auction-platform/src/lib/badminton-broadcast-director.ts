@@ -69,7 +69,7 @@ export const BROADCAST_RESULTS_PAGE_SIZE = 6;
 /** Rows per venue/OBS leaderboard page. */
 export const BROADCAST_LEADERBOARD_PAGE_SIZE = 8;
 /** Seconds between carousel pages on Results / Leaderboards. */
-export const BROADCAST_CAROUSEL_PAGE_MS = 6_000;
+export const BROADCAST_CAROUSEL_PAGE_MS = 15_000;
 
 const VENUE_MOMENT_SCENES: readonly BadmintonVenueScene[] = [
   "intro",

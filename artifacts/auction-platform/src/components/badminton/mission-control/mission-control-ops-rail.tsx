@@ -5,7 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Copy, Monitor, Pause, Play, QrCode, Radio, Tablet, X } from "lucide-react";
+import { Copy, Monitor, Pause, Play, QrCode, Radio, Tablet, Trophy, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch, fetchBadmintonMatches } from "@/lib/badminton-api";
 import { hubPanelClass } from "@/components/badminton/form-ui";
@@ -538,6 +538,13 @@ export function MissionControlOpsRail({
               title="Open scorer home"
               help="Opens in new tab"
               icon={Tablet}
+            />
+            <BroadcastLinkCard
+              kind="public-standings"
+              tournamentId={tournamentId}
+              title="Points for owners"
+              help="Public points table + results"
+              icon={Trophy}
             />
           </div>
         </div>

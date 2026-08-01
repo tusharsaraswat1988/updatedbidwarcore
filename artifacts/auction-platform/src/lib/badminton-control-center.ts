@@ -317,15 +317,42 @@ export function suggestCourtScheduleTimes(
   return results;
 }
 
+/**
+ * Resolve display match number: fixture slot → matchNumber → id fallback.
+ */
+export function resolveMatchNumber(m: {
+  id: number;
+  detail?: Record<string, unknown> | null;
+}): string {
+  const detail = m.detail ?? {};
+  const slot = detail.fixtureSlotNumber;
+  if (typeof slot === "number" && Number.isFinite(slot)) return String(slot);
+  if (typeof slot === "string" && slot.trim()) return slot.trim();
+  const num = detail.matchNumber;
+  if (typeof num === "string" && num.trim()) return num.trim();
+  if (typeof num === "number" && Number.isFinite(num)) return String(num);
+  return String(m.id);
+}
+
+export function matchNumberLabel(m: {
+  id: number;
+  detail?: Record<string, unknown> | null;
+}): string {
+  return `Match ${resolveMatchNumber(m)}`;
+}
+
 export function matchDisplayLabel(m: ControlMatch): string {
+  const num = matchNumberLabel(m);
   if (m.state?.leftSide || m.state?.rightSide) {
-    // Lazy import avoided — keep string helper self-contained for list labels.
     const left = formatSideWithTeam(m.state.leftSide);
     const right = formatSideWithTeam(m.state.rightSide);
-    return `${left} vs ${right}`;
+    return `${num} · ${left} vs ${right}`;
   }
   const label = m.detail?.matchLabel;
-  return typeof label === "string" && label.trim() ? label.trim() : `Match #${m.id}`;
+  if (typeof label === "string" && label.trim()) {
+    return `${num} · ${label.trim()}`;
+  }
+  return num;
 }
 
 function formatSideWithTeam(side: ControlMatchSide | undefined): string {
@@ -371,6 +398,7 @@ export function buildCourtBoard(
       .sort((a, b) => matchTime(a) - matchTime(b));
 
     const live = onCourt.find((m) => m.status === "live") ?? null;
+    // on_hold / paused free the court — ready scheduled matches can start.
     const scheduledOnCourt = onCourt.filter((m) => m.status === "scheduled");
     const ready = scheduledOnCourt[0] ?? null;
     const readyOverflow = Math.max(0, scheduledOnCourt.length - 1);
@@ -447,6 +475,12 @@ export function listUpcomingFixtures(fixtures: ControlFixture[]): ControlFixture
 export function listReadyMatches(matches: ControlMatch[]): ControlMatch[] {
   return matches
     .filter((m) => m.status === "scheduled")
+    .sort((a, b) => matchTime(a) - matchTime(b));
+}
+
+export function listHeldMatches(matches: ControlMatch[]): ControlMatch[] {
+  return matches
+    .filter((m) => m.status === "on_hold" || m.status === "paused")
     .sort((a, b) => matchTime(a) - matchTime(b));
 }
 

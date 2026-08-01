@@ -152,7 +152,11 @@ export default function BadmintonOverlayPage() {
     searchParams.get("type"),
   );
   const multiCourtMode = isMultiCourtOverlayScene(branding?.overlayScene);
-  const leaderboardsEnabled = requestedType === "leaderboards" || branding?.overlayScene === "leaderboards";
+  const leaderboardsEnabled =
+    requestedType === "leaderboards" ||
+    requestedType === "results" ||
+    branding?.overlayScene === "leaderboards" ||
+    branding?.overlayScene === "results";
   const leaderboards = useBadmintonLeaderboardBoards(tournamentId, leaderboardsEnabled);
 
   const data = followMode ? liveFollow.matchQuery.data : fixedMatch.data;
@@ -368,7 +372,11 @@ export default function BadmintonOverlayPage() {
             overlayPlacementClass("results", true, playDensity),
           )}
         >
-          <ObsRecentResultsOverlay matches={liveFollow.matches} />
+          <ObsRecentResultsOverlay
+            matches={liveFollow.matches}
+            leaderboardPages={leaderboards.pages}
+            leaderboardsLoading={leaderboards.loading}
+          />
         </div>
       ) : type === "leaderboards" ? (
         <div
