@@ -17,6 +17,7 @@ interface ScorerAssistanceShellProps {
   state: BadmintonMatchState;
   tournamentName: string;
   courtNumber?: string;
+  matchNumber?: string;
   categoryName?: string;
   onStartInterval: () => Promise<unknown>;
   onEndInterval: () => Promise<unknown>;
@@ -32,6 +33,7 @@ export function ScorerAssistanceShell({
   state,
   tournamentName,
   courtNumber,
+  matchNumber,
   categoryName,
   onStartInterval,
   onEndInterval,
@@ -81,6 +83,7 @@ export function ScorerAssistanceShell({
       <ScorerConsoleHeader
         tournamentName={tournamentName}
         courtNumber={courtNumber}
+        matchNumber={matchNumber}
         voiceEnabled={voiceEnabled}
         onToggleVoice={toggleVoice}
       />
@@ -88,6 +91,7 @@ export function ScorerAssistanceShell({
       <MatchIdentityStrip
         state={state}
         courtNumber={courtNumber}
+        matchNumber={matchNumber}
         categoryName={categoryName}
       />
 

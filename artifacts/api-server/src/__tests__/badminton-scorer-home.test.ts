@@ -81,6 +81,7 @@ describe("resolveEffectiveScorerPin", () => {
 describe("pickCourtCurrentAndNext", () => {
   const match = (partial: Partial<ScorerHomeMatchCard>): ScorerHomeMatchCard => ({
     id: 1,
+    matchNumber: null,
     category: "MS",
     playerA: "A",
     playerB: "B",
@@ -119,6 +120,7 @@ describe("pickCourtCurrentAndNext", () => {
 describe("buildScorerHomeView", () => {
   const match = (partial: Partial<ScorerHomeMatchCard>): ScorerHomeMatchCard => ({
     id: 1,
+    matchNumber: null,
     category: "MS",
     playerA: "A",
     playerB: "B",

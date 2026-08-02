@@ -116,13 +116,20 @@ function primaryActionLabel(match: ScorerHomeMatchCard | null, viewOnly = false)
   return "Start Scoring";
 }
 
+function matchNumberLabel(match: ScorerHomeMatchCard): string | null {
+  const n = match.matchNumber?.trim();
+  return n ? `Match ${n}` : null;
+}
+
 /** Short vs line so the primary button names the match it opens. */
 function matchActionSubtitle(match: ScorerHomeMatchCard): string {
   const left = identityFromCombinedLabel(match.playerA);
   const right = identityFromCombinedLabel(match.playerB);
   const leftName = left.playerName || left.teamName || "TBD";
   const rightName = right.playerName || right.teamName || "TBD";
-  return `${leftName} vs ${rightName}`;
+  const vs = `${leftName} vs ${rightName}`;
+  const num = matchNumberLabel(match);
+  return num ? `${num} · ${vs}` : vs;
 }
 
 function MatchSummary({
@@ -137,6 +144,7 @@ function MatchSummary({
   /** Stronger border when this is the match the primary button opens. */
   emphasized?: boolean;
 }) {
+  const numberLabel = match ? matchNumberLabel(match) : null;
   return (
     <div
       className={cn(
@@ -150,9 +158,14 @@ function MatchSummary({
       {match ? (
         <>
           <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
-            <p className="text-white/55 text-xs font-semibold truncate min-w-0">
-              {match.category ?? "Match"}
-            </p>
+            <div className="min-w-0">
+              {numberLabel ? (
+                <p className="text-white text-sm font-black truncate">{numberLabel}</p>
+              ) : null}
+              <p className="text-white/55 text-xs font-semibold truncate min-w-0">
+                {match.category ?? "Match"}
+              </p>
+            </div>
             <span
               className={cn(
                 "shrink-0 inline-flex items-center min-h-7 px-2 rounded-md border text-[10px] font-bold uppercase",
@@ -391,11 +404,15 @@ function MatchListCard({
     : match.status === "LIVE" || match.status === "PAUSED"
       ? "Resume Live Match"
       : match.actionLabel;
+  const numberLabel = matchNumberLabel(match);
 
   return (
     <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
+          {numberLabel ? (
+            <p className="text-white text-base font-black truncate">{numberLabel}</p>
+          ) : null}
           <p className="text-white/45 text-xs font-semibold uppercase tracking-wide truncate">
             {match.category ?? "Match"}
           </p>
@@ -951,9 +968,19 @@ export default function BadmintonScorerHomePage() {
                           <p className="text-white text-xl font-black">{court.name}</p>
                           <p className="text-white/35 text-xs mt-2">
                             {court.currentMatch
-                              ? `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`
+                              ? [
+                                  matchNumberLabel(court.currentMatch),
+                                  `Live: ${court.currentMatch.playerA} vs ${court.currentMatch.playerB}`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")
                               : court.nextMatch
-                                ? `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`
+                                ? [
+                                    matchNumberLabel(court.nextMatch),
+                                    `Up next: ${court.nextMatch.playerA} vs ${court.nextMatch.playerB}`,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")
                                 : "No matches queued"}
                           </p>
                         </button>

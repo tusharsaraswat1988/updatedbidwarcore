@@ -17,7 +17,11 @@ import {
   type ControlMatch,
 } from "@/lib/badminton-control-center";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
-import { identityFromLooseSide } from "@/lib/team-player-identity";
+import {
+  identityForPreStartMatchSide,
+  identityFromLooseSide,
+} from "@/lib/team-player-identity";
+import { displayMatchSideScores } from "@/lib/badminton-results";
 import { hubCardClass } from "@/components/badminton/page-chrome";
 import { useToast } from "@/hooks/use-toast";
 
@@ -144,8 +148,16 @@ export function MissionControlQueues({
                 </p>
                 {m.state?.leftSide || m.state?.rightSide ? (
                   <TeamPlayerVs
-                    left={identityFromLooseSide(m.state?.leftSide)}
-                    right={identityFromLooseSide(m.state?.rightSide)}
+                    left={identityForPreStartMatchSide(
+                      m.state?.leftSide,
+                      (m.detail?.leftSideJson as Record<string, unknown> | undefined) ??
+                        null,
+                    )}
+                    right={identityForPreStartMatchSide(
+                      m.state?.rightSide,
+                      (m.detail?.rightSideJson as Record<string, unknown> | undefined) ??
+                        null,
+                    )}
                     size="xs"
                     layout="inline"
                     className="items-start"
@@ -155,9 +167,14 @@ export function MissionControlQueues({
                 )}
                 <p className="text-white/35 text-xs">
                   {m.state
-                    ? m.state.gamesLeft != null && m.state.gamesRight != null
-                      ? `${m.state.gamesLeft}–${m.state.gamesRight} games`
-                      : `${m.state.leftScore ?? 0}–${m.state.rightScore ?? 0}`
+                    ? (() => {
+                        const scores = displayMatchSideScores(m.state);
+                        const hasGames =
+                          (m.state.gamesLeft ?? 0) > 0 || (m.state.gamesRight ?? 0) > 0;
+                        return hasGames
+                          ? `${m.state.gamesLeft}–${m.state.gamesRight} games`
+                          : `${scores.left}–${scores.right}`;
+                      })()
                     : "Completed"}
                   {m.detail?.courtNumber != null
                     ? ` · Court ${String(m.detail.courtNumber)}`

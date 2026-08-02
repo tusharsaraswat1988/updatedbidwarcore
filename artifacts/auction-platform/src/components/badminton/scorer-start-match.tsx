@@ -43,6 +43,11 @@ export function ScorerStartMatchPanel({
   const rightSideJson = (d.rightSideJson ?? {}) as Record<string, unknown>;
   const leftLabel = sideLabel(leftSideJson, "Side A");
   const rightLabel = sideLabel(rightSideJson, "Side B");
+  const matchNumberRaw = d.matchNumber ?? d.fixtureSlotNumber;
+  const matchLabel =
+    matchNumberRaw != null && String(matchNumberRaw).trim()
+      ? `Match ${String(matchNumberRaw).trim()}`
+      : null;
   const courtLabel =
     typeof d.courtNumber === "string" || typeof d.courtNumber === "number"
       ? `Court ${d.courtNumber}`
@@ -116,6 +121,15 @@ export function ScorerStartMatchPanel({
   if (showTossSetup) {
     return (
       <div className="w-full max-w-lg space-y-4">
+        <div className="text-center space-y-1">
+          {matchLabel ? (
+            <p className="text-white text-lg font-black">{matchLabel}</p>
+          ) : null}
+          <p className="text-white/55 text-sm">
+            {leftLabel} vs {rightLabel}
+            {courtLabel ? ` · ${courtLabel}` : ""}
+          </p>
+        </div>
         {error ? <FormError message={error} /> : null}
         {isPair ? (
           <DoublesPreMatchSetup
@@ -140,7 +154,9 @@ export function ScorerStartMatchPanel({
     <div className="w-full max-w-md space-y-4">
       <div className={cn(hubCardClass, "space-y-4 p-5")}>
         <div className="text-center space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Ready to start</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+            {matchLabel ? `${matchLabel} · Ready to start` : "Ready to start"}
+          </p>
           <h1 className="text-xl font-bold text-white">
             {leftLabel} vs {rightLabel}
           </h1>
