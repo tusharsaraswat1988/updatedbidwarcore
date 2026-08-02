@@ -12,6 +12,7 @@ import {
   formatTeamPlayerLine,
   identityFromSideInfo,
 } from "@/lib/team-player-identity";
+import { displayMatchSideScores } from "@/lib/badminton-results";
 
 export const LIVE_FOLLOW_MATCH_SEGMENT = "live";
 
@@ -316,7 +317,8 @@ export function currentGameLabel(state: BadmintonMatchState | null | undefined):
 
 export function currentScoreLabel(state: BadmintonMatchState | null | undefined): string {
   if (!state) return "—";
-  return `${state.leftScore ?? 0} – ${state.rightScore ?? 0}`;
+  const { left, right } = displayMatchSideScores(state);
+  return `${left} – ${right}`;
 }
 
 /** Soft connection status — no real telemetry yet. */

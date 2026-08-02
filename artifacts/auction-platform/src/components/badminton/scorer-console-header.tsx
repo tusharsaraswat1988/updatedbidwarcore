@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 interface ScorerConsoleHeaderProps {
   tournamentName: string;
   courtNumber?: string;
+  matchNumber?: string;
   voiceEnabled: boolean;
   onToggleVoice: () => void;
   showVoiceToggle?: boolean;
@@ -15,12 +16,20 @@ interface ScorerConsoleHeaderProps {
 export function ScorerConsoleHeader({
   tournamentName,
   courtNumber,
+  matchNumber,
   voiceEnabled,
   onToggleVoice,
   showVoiceToggle = true,
   showBrandMark = true,
   className,
 }: ScorerConsoleHeaderProps) {
+  const meta = [
+    courtNumber?.trim() ? `Court ${courtNumber.trim()}` : null,
+    matchNumber?.trim() ? `Match ${matchNumber.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <header
       className={cn(
@@ -33,8 +42,8 @@ export function ScorerConsoleHeader({
         <p className="font-semibold text-foreground text-sm leading-tight truncate" title={tournamentName}>
           {tournamentName}
         </p>
-        {courtNumber ? (
-          <p className="text-muted-foreground text-[11px] leading-tight mt-0.5">Court {courtNumber}</p>
+        {meta ? (
+          <p className="text-muted-foreground text-[11px] leading-tight mt-0.5 truncate">{meta}</p>
         ) : null}
       </div>
 

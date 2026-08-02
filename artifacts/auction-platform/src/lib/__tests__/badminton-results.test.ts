@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  displayMatchSideScores,
   formatPointDifference,
   gamesWonDisplayLine,
   isBroadcastableResult,
@@ -104,9 +105,34 @@ describe("winner point difference helpers", () => {
       gamesLeft: 0,
       gamesRight: 0,
       games: [],
+      leftScore: 0,
+      rightScore: 0,
       assignedMarginPoints: 21,
     });
     expect(winnerPointDifference(m)).toBe(21);
+    expect(displayMatchSideScores(m.state)).toEqual({
+      left: 21,
+      right: 0,
+      fromAssignedMargin: true,
+    });
+  });
+
+  it("maps walkover margin onto the winning side for list scores", () => {
+    const m = completedMatch({
+      matchStatus: "walkover",
+      winnerSide: "right",
+      gamesLeft: 0,
+      gamesRight: 0,
+      games: [],
+      leftScore: 0,
+      rightScore: 0,
+      assignedMarginPoints: 15,
+    });
+    expect(displayMatchSideScores(m.state)).toEqual({
+      left: 0,
+      right: 15,
+      fromAssignedMargin: true,
+    });
   });
 
   it("includes lost games in net difference for 2-1", () => {

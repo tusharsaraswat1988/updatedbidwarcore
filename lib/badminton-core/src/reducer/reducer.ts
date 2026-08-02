@@ -338,14 +338,28 @@ function applyRetirement(
   state: BadmintonMatchState,
   payload: BadmintonRetirementPayload,
 ): BadmintonMatchState {
+  const margin = payload.assignedMarginPoints;
+  const hasScoredGame = state.games.some(
+    (g) => g.phase === "completed" || Boolean(g.winner),
+  );
+  const scorePatch =
+    !hasScoredGame &&
+    margin != null &&
+    Number.isInteger(margin) &&
+    margin > 0
+      ? {
+          leftScore: payload.winningSide === "left" ? margin : 0,
+          rightScore: payload.winningSide === "right" ? margin : 0,
+        }
+      : {};
+
   return {
     ...state,
     matchStatus: "retired",
     winnerSide: payload.winningSide,
     resultReason: "retirement",
-    ...(payload.assignedMarginPoints != null
-      ? { assignedMarginPoints: payload.assignedMarginPoints }
-      : {}),
+    ...scorePatch,
+    ...(margin != null ? { assignedMarginPoints: margin } : {}),
   };
 }
 
@@ -353,14 +367,30 @@ function applyWalkover(
   state: BadmintonMatchState,
   payload: BadmintonWalkoverPayload,
 ): BadmintonMatchState {
+  const margin = payload.assignedMarginPoints;
+  const hasScoredGame = state.games.some(
+    (g) => g.phase === "completed" || Boolean(g.winner),
+  );
+  // Surface assigned margin on the scoreboard when no games were played
+  // (list/mission-control UIs read leftScore/rightScore).
+  const scorePatch =
+    !hasScoredGame &&
+    margin != null &&
+    Number.isInteger(margin) &&
+    margin > 0
+      ? {
+          leftScore: payload.winningSide === "left" ? margin : 0,
+          rightScore: payload.winningSide === "right" ? margin : 0,
+        }
+      : {};
+
   return {
     ...state,
     matchStatus: "walkover",
     winnerSide: payload.winningSide,
     resultReason: "walkover",
-    ...(payload.assignedMarginPoints != null
-      ? { assignedMarginPoints: payload.assignedMarginPoints }
-      : {}),
+    ...scorePatch,
+    ...(margin != null ? { assignedMarginPoints: margin } : {}),
   };
 }
 
@@ -368,15 +398,29 @@ function applyDisqualification(
   state: BadmintonMatchState,
   payload: BadmintonDisqualificationPayload,
 ): BadmintonMatchState {
+  const margin = payload.assignedMarginPoints;
+  const hasScoredGame = state.games.some(
+    (g) => g.phase === "completed" || Boolean(g.winner),
+  );
+  const scorePatch =
+    !hasScoredGame &&
+    margin != null &&
+    Number.isInteger(margin) &&
+    margin > 0
+      ? {
+          leftScore: payload.winningSide === "left" ? margin : 0,
+          rightScore: payload.winningSide === "right" ? margin : 0,
+        }
+      : {};
+
   return {
     ...state,
     matchStatus: "disqualified",
     winnerSide: payload.winningSide,
     resultReason: "disqualification",
     isPaused: false,
-    ...(payload.assignedMarginPoints != null
-      ? { assignedMarginPoints: payload.assignedMarginPoints }
-      : {}),
+    ...scorePatch,
+    ...(margin != null ? { assignedMarginPoints: margin } : {}),
   };
 }
 
@@ -384,9 +428,25 @@ function applyMarginPointsAssigned(
   state: BadmintonMatchState,
   payload: BadmintonMarginPointsAssignedPayload,
 ): BadmintonMatchState {
+  const margin = payload.assignedMarginPoints;
+  const hasScoredGame = state.games.some(
+    (g) => g.phase === "completed" || Boolean(g.winner),
+  );
+  const scorePatch =
+    !hasScoredGame &&
+    state.winnerSide &&
+    Number.isInteger(margin) &&
+    margin > 0
+      ? {
+          leftScore: state.winnerSide === "left" ? margin : 0,
+          rightScore: state.winnerSide === "right" ? margin : 0,
+        }
+      : {};
+
   return {
     ...state,
-    assignedMarginPoints: payload.assignedMarginPoints,
+    assignedMarginPoints: margin,
+    ...scorePatch,
   };
 }
 

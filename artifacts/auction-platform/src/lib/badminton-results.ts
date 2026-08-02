@@ -160,6 +160,56 @@ export function loserLabel(m: ResultsMatch): string | null {
 }
 
 /**
+ * Side scores for list / board UI.
+ * Walkover / early terminal outcomes store margin in `assignedMarginPoints`
+ * (not leftScore/rightScore), so map that onto the winner for display.
+ */
+export function displayMatchSideScores(
+  state: BadmintonMatchState | null | undefined,
+): { left: number; right: number; fromAssignedMargin: boolean } {
+  if (!state) return { left: 0, right: 0, fromAssignedMargin: false };
+
+  const hasScoredGame = (state.games ?? []).some(
+    (g) => g.phase === "completed" || Boolean(g.winner),
+  );
+  if (hasScoredGame) {
+    return {
+      left: state.leftScore ?? 0,
+      right: state.rightScore ?? 0,
+      fromAssignedMargin: false,
+    };
+  }
+
+  const status = state.matchStatus;
+  const isTerminal =
+    status === "walkover" ||
+    status === "retired" ||
+    status === "disqualified" ||
+    status === "abandoned" ||
+    status === "completed";
+  const margin = state.assignedMarginPoints;
+  if (
+    isTerminal &&
+    state.winnerSide &&
+    margin != null &&
+    Number.isInteger(margin) &&
+    margin > 0
+  ) {
+    return {
+      left: state.winnerSide === "left" ? margin : 0,
+      right: state.winnerSide === "right" ? margin : 0,
+      fromAssignedMargin: true,
+    };
+  }
+
+  return {
+    left: state.leftScore ?? 0,
+    right: state.rightScore ?? 0,
+    fromAssignedMargin: false,
+  };
+}
+
+/**
  * Net rally-point difference for the match winner across completed games
  * (sum of winnerScore − loserScore per game). Positive = winner scored more.
  * Falls back to director-assigned margin when no games were completed.

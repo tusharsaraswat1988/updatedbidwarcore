@@ -38,8 +38,9 @@ import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge"
 import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import {
   formatTeamPlayerVsLine,
-  identityFromSideInfo,
+  identityForPreStartMatchSide,
 } from "@/lib/team-player-identity";
+import { displayMatchSideScores } from "@/lib/badminton-results";
 import {
   BtnPrimary,
   DarkSelect,
@@ -519,12 +520,23 @@ function MatchRow({
     (typeof detail.courtNumber === "string" && detail.courtNumber.trim().length > 0);
   const hasSchedule = !!match.scheduledAt;
   const needsCourtOrTime = !isLive && !isCompleted && (!hasCourt || !hasSchedule);
-  const matchLabel = state
-    ? formatTeamPlayerVsLine(
-        identityFromSideInfo(state.leftSide),
-        identityFromSideInfo(state.rightSide),
+  const leftIdentity = state
+    ? identityForPreStartMatchSide(
+        state.leftSide,
+        (detail.leftSideJson as Record<string, unknown> | undefined) ?? null,
       )
-    : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
+    : null;
+  const rightIdentity = state
+    ? identityForPreStartMatchSide(
+        state.rightSide,
+        (detail.rightSideJson as Record<string, unknown> | undefined) ?? null,
+      )
+    : null;
+  const displayScores = displayMatchSideScores(state);
+  const matchLabel =
+    leftIdentity && rightIdentity
+      ? formatTeamPlayerVsLine(leftIdentity, rightIdentity)
+      : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
 
   useEffect(() => {
     if (autoOpenEdit) setEditOpen(true);
@@ -570,10 +582,10 @@ function MatchRow({
               </Badge>
             ) : null}
           </div>
-          {state ? (
+          {state && leftIdentity && rightIdentity ? (
             <div className="flex items-center gap-3 flex-wrap">
               <TeamPlayerCard
-                identity={identityFromSideInfo(state.leftSide)}
+                identity={leftIdentity}
                 size="xs"
                 layout="inline"
                 className="min-w-0"
@@ -584,18 +596,18 @@ function MatchRow({
                   "text-xl font-display font-bold tabular-nums",
                   isLive ? "text-primary" : "text-muted-foreground",
                 )}>
-                  {state.leftScore}
+                  {displayScores.left}
                 </span>
                 <span className="text-muted-foreground text-sm mx-0.5">—</span>
                 <span className={cn(
                   "text-xl font-display font-bold tabular-nums",
                   isLive ? "text-red-400" : "text-muted-foreground",
                 )}>
-                  {state.rightScore}
+                  {displayScores.right}
                 </span>
               </div>
               <TeamPlayerCard
-                identity={identityFromSideInfo(state.rightSide)}
+                identity={rightIdentity}
                 size="xs"
                 layout="inline"
                 className="min-w-0"

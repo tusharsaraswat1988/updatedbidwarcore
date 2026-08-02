@@ -151,6 +151,8 @@ describe("Tournament Director — walkover", () => {
     expect(state.matchStatus).toBe("walkover");
     expect(state.winnerSide).toBe("right");
     expect(state.assignedMarginPoints).toBe(21);
+    expect(state.leftScore).toBe(0);
+    expect(state.rightScore).toBe(21);
 
     const banner = deriveDirectorStatusBanner(state);
     expect(banner?.kind).toBe("walkover");

@@ -256,6 +256,11 @@ export default function BadmintonScorerPage() {
     branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
   const matchDetail = data?.detail as Record<string, unknown> | null | undefined;
   const courtNumber = matchDetail?.courtNumber ? String(matchDetail.courtNumber) : undefined;
+  const matchNumberRaw = matchDetail?.matchNumber ?? matchDetail?.fixtureSlotNumber;
+  const matchNumber =
+    matchNumberRaw != null && String(matchNumberRaw).trim()
+      ? String(matchNumberRaw).trim()
+      : undefined;
   const categoryName =
     typeof matchDetail?.categoryName === "string"
       ? matchDetail.categoryName
@@ -507,7 +512,9 @@ export default function BadmintonScorerPage() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-amber-200/80">
                   View only · Upcoming
                 </p>
-                <h1 className="text-foreground text-2xl font-black mt-2">Match schedule</h1>
+                <h1 className="text-foreground text-2xl font-black mt-2">
+                  {matchNumber ? `Match ${matchNumber}` : "Match schedule"}
+                </h1>
                 {categoryName ? (
                   <p className="text-muted-foreground text-sm mt-2">{categoryName}</p>
                 ) : null}
@@ -595,9 +602,13 @@ export default function BadmintonScorerPage() {
                   {tournamentName}
                 </p>
               ) : null}
-              {courtNumber || categoryName ? (
+              {matchNumber || courtNumber || categoryName ? (
                 <p className="text-muted-foreground text-xs mt-1">
-                  {[courtNumber ? `Court ${courtNumber}` : null, categoryName]
+                  {[
+                    matchNumber ? `Match ${matchNumber}` : null,
+                    courtNumber ? `Court ${courtNumber}` : null,
+                    categoryName,
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
@@ -782,6 +793,7 @@ export default function BadmintonScorerPage() {
               state={state}
               tournamentName={tournamentName}
               courtNumber={courtNumber}
+              matchNumber={matchNumber}
               categoryName={categoryName}
               onAwardPoint={viewOnly ? async () => {} : scorer.awardPoint}
               onStartInterval={viewOnly ? async () => {} : scorer.startInterval}

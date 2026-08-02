@@ -7,6 +7,8 @@ export type ScorerHomeUiStatus = "READY" | "LIVE" | "PAUSED" | "COMPLETED";
 
 export type ScorerHomeMatchCard = {
   id: number;
+  /** Organizer/fixture match number for scorer identification. */
+  matchNumber: string | null;
   category: string | null;
   playerA: string;
   playerB: string;

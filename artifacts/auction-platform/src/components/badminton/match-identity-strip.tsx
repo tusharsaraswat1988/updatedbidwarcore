@@ -12,15 +12,19 @@ import { cn } from "@/lib/utils";
 export function MatchIdentityStrip({
   state,
   categoryName,
+  matchNumber,
   className,
 }: {
   state: BadmintonMatchState;
   /** Kept for call-site compatibility; court is shown in ScorerConsoleHeader. */
   courtNumber?: string;
+  matchNumber?: string;
   categoryName?: string;
   className?: string;
 }) {
   const category = categoryName?.trim();
+  const matchLabel = matchNumber?.trim() ? `Match ${matchNumber.trim()}` : null;
+  const meta = [matchLabel, category].filter(Boolean).join(" · ");
 
   return (
     <div
@@ -29,9 +33,9 @@ export function MatchIdentityStrip({
         className,
       )}
     >
-      {category ? (
+      {meta ? (
         <div className="mb-1 min-w-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-          {category}
+          {meta}
         </div>
       ) : null}
       <TeamPlayerVs

@@ -1697,8 +1697,14 @@ function toScorerHomeMatchCard(input: {
   const leftSide = leftFromState ?? (detail.leftSideJson as Record<string, unknown> | null);
   const rightSide = rightFromState ?? (detail.rightSideJson as Record<string, unknown> | null);
 
+  const matchNumber =
+    typeof detail.matchNumber === "string" && detail.matchNumber.trim()
+      ? detail.matchNumber.trim()
+      : null;
+
   return {
     id: match.id,
+    matchNumber,
     category,
     playerA: sideDisplayLabel(leftSide),
     playerB: sideDisplayLabel(rightSide),
