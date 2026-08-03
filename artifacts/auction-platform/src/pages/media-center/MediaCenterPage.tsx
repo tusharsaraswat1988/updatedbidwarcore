@@ -70,7 +70,7 @@ export default function MediaCenterPage() {
                 BidWar Media Center
               </span>
             }
-            titleClassName="text-2xl font-display font-black text-white tracking-tight"
+            titleClassName="text-2xl font-display font-black text-foreground tracking-tight"
             description="Create professional tournament creatives powered by BidWar."
           />
 
@@ -85,10 +85,10 @@ export default function MediaCenterPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {enabledTemplates.map((entry) => (
                 <Link key={entry.id} href={templateHref(entry.id)}>
-                  <Card className="h-full border-border bg-card/70 hover:border-primary/40 hover:bg-card/90 transition-colors cursor-pointer group">
+                  <Card className="h-full panel border-none hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.3)] transition-all cursor-pointer group">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base font-display font-bold text-white group-hover:text-primary transition-colors">
+                        <CardTitle className="text-base font-display font-bold text-foreground group-hover:text-primary transition-colors">
                           {entry.title}
                         </CardTitle>
                         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -130,10 +130,10 @@ export default function MediaCenterPage() {
                 {comingSoonTemplates.map((entry) => (
                   <div
                     key={entry.id}
-                    className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 opacity-60"
+                    className="org-surface-card px-4 py-3 opacity-60"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-white">{entry.title}</span>
+                      <span className="text-sm font-medium text-foreground">{entry.title}</span>
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">
                         Soon
                       </Badge>
@@ -153,7 +153,7 @@ export default function MediaCenterPage() {
                 Tournament Overview
               </h2>
             </div>
-            <Card className="border-border bg-card/70">
+            <Card className="panel border-none">
               <CardContent className="pt-6">
                 {loadingTournament || loadingSummary ? (
                   <p className="text-sm text-muted-foreground">Loading tournament data…</p>
@@ -205,7 +205,7 @@ function OverviewStat({
         {icon}
         {label}
       </div>
-      <div className="text-lg font-display font-bold text-white truncate">{value}</div>
+      <div className="text-lg font-display font-bold text-foreground truncate">{value}</div>
     </div>
   );
 }

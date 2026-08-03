@@ -98,7 +98,7 @@ export default function LinksPage() {
           description="Share links for auction day — LED screen, streaming, and spectators."
         />
 
-        <Card className="overflow-hidden border-border">
+        <Card className="overflow-hidden panel border-none">
           <CardContent className="p-0">
             <LinkSectionHeader
               title="LED Big Screen"
@@ -131,7 +131,7 @@ export default function LinksPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-border">
+        <Card className="overflow-hidden panel border-none">
           <CardContent className="p-0">
             <LinkSectionHeader
               icon={<Radio className="h-5 w-5" />}
@@ -170,7 +170,7 @@ export default function LinksPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-border">
+        <Card className="overflow-hidden panel border-none">
           <CardContent className="p-0">
             <LinkSectionHeader
               icon={<Monitor className="h-5 w-5" />}

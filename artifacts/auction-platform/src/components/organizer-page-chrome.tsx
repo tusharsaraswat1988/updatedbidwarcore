@@ -69,12 +69,12 @@ export function OrganizerSectionHeader({
           <TournamentContextLabel tournament={tournament} className="mb-1.5" />
         ) : null}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <h1 className={cn("text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight", titleClassName)}>{title}</h1>
+          <h1 className={cn("text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight text-foreground", titleClassName)}>{title}</h1>
           {titleExtra}
         </div>
-        {description ? <p className="text-muted-foreground mt-1.5 text-sm sm:text-base">{description}</p> : null}
+        {description ? <p className="text-muted-foreground mt-1.5 text-sm sm:text-base max-w-2xl leading-relaxed">{description}</p> : null}
       </div>
-      {actions ? <div className="flex-shrink-0 flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex-shrink-0 flex items-center gap-2 flex-wrap">{actions}</div> : null}
     </div>
   );
 }

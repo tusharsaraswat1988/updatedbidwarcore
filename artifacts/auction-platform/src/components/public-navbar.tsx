@@ -5,6 +5,7 @@ import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { BrandLogoImage } from "@/components/brand-logo-image";
+import { PublicAuthCta } from "@/components/public-auth-cta";
 import {
   MORE_NAV_LINKS,
   SOLUTION_PLATFORM_LINKS,
@@ -239,19 +240,10 @@ export function PublicNavbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 ml-auto lg:pl-2">
-            <button
-              onClick={() => navigate("/organizer")}
-              className="ghost-button ghost-button-hover hidden rounded-md px-4 py-2 text-xs lg:inline-block"
-            >
-              Sign in
-            </button>
-            <button
-              onClick={() => navigate("/organizer?tab=signup")}
-              className="gold-button gold-button-hover rounded-md px-4 py-2 text-xs"
-              style={colors.primary ? { background: colors.primary } : undefined}
-            >
-              Get Started
-            </button>
+            <PublicAuthCta
+              variant="navbar"
+              primaryColor={colors.primary || undefined}
+            />
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               className="ghost-button lg:hidden rounded-md p-2"
@@ -381,19 +373,12 @@ export function PublicNavbar() {
                   </a>
                 ))}
               </div>
-              <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-1 gap-3">
-                <button
-                  onClick={() => { closeMobileMenu(); navigate("/organizer"); }}
-                  className="ghost-button w-full rounded-lg px-4 py-3 text-sm"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => { closeMobileMenu(); navigate("/organizer?tab=signup"); }}
-                  className="gold-button w-full rounded-lg px-4 py-3 text-sm"
-                >
-                  Get Started
-                </button>
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <PublicAuthCta
+                  variant="drawer"
+                  onBeforeNavigate={closeMobileMenu}
+                  primaryColor={colors.primary || undefined}
+                />
               </div>
             </div>
           </>

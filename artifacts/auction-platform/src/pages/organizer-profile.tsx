@@ -1,15 +1,20 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
-  checkOrganizerAccountAuth,
   updateOrganizerProfile,
   changeOrganizerPassword,
   setOrganizerPassword,
   logoutOrganizerAccount,
   type OrganizerInfo,
 } from "@/lib/auth";
+import {
+  clearOrganizerAccountAuth,
+  patchOrganizerAccountAuthOrganizer,
+} from "@/lib/organizer-account-auth-cache";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -335,28 +340,25 @@ function ChangePasswordSection({ organizer, onSaved }: { organizer: OrganizerInf
 
 export default function OrganizerProfilePage() {
   const [, navigate] = useLocation();
-  const [organizer, setOrganizer] = useState<OrganizerInfo | null>(null);
-  const [checking, setChecking] = useState(true);
+  const queryClient = useQueryClient();
+  const { organizer, isLoggedIn, isLoading } = useOrganizerAccountAuth();
 
   useEffect(() => {
-    checkOrganizerAccountAuth().then(me => {
-      if (me.loggedIn && me.organizer) {
-        setOrganizer(me.organizer);
-      } else {
-        navigate("/organizer?next=/organizer/profile");
-      }
-      setChecking(false);
-    });
-  }, []);
+    if (isLoading) return;
+    if (!isLoggedIn) {
+      navigate("/organizer?next=/organizer/profile");
+    }
+  }, [isLoading, isLoggedIn, navigate]);
 
   async function handleLogout() {
     await logoutOrganizerAccount();
+    clearOrganizerAccountAuth(queryClient);
     navigate("/organizer");
   }
 
-  const handleInactivityTimeout = useCallback(() => {
-    setOrganizer(null);
-  }, []);
+  function handleOrganizerSaved(next: OrganizerInfo) {
+    patchOrganizerAccountAuthOrganizer(queryClient, next);
+  }
 
   const {
     warningVisible,
@@ -364,20 +366,19 @@ export default function OrganizerProfilePage() {
     continueSession,
     lockMinutes,
   } = useOrganizerInactivityLogout({
-    enabled: !!organizer,
-    onTimeout: handleInactivityTimeout,
+    enabled: isLoggedIn,
   });
 
-  if (checking) {
-    return <div className="min-h-screen bg-[#09090b]" />;
+  if (isLoading) {
+    return <div className="lovable-theme min-h-screen dark" />;
   }
 
   if (!organizer) return null;
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="lovable-theme min-h-screen text-foreground dark">
       {/* Header */}
-      <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
+      <div className="border-b border-border/50 bg-background/75 sticky top-0 backdrop-blur-xl z-10">
         <div className="max-w-2xl mx-auto px-6 h-14 flex items-center gap-3">
           <button
             onClick={() => navigate("/organizer")}
@@ -387,7 +388,7 @@ export default function OrganizerProfilePage() {
             Dashboard
           </button>
           <div className="w-px h-5 bg-border/60" />
-          <span className="font-semibold text-sm text-white">Account Settings</span>
+          <span className="font-semibold text-sm text-foreground">Account Settings</span>
         </div>
       </div>
 
@@ -396,13 +397,13 @@ export default function OrganizerProfilePage() {
         <div className="flex items-center gap-4">
           <OrganizerAvatar organizer={organizer} size={64} />
           <div>
-            <h1 className="font-display font-black text-2xl text-white leading-tight">{organizer.name}</h1>
+            <h1 className="font-display font-black text-2xl text-foreground leading-tight">{organizer.name}</h1>
             <p className="text-sm text-muted-foreground">{organizer.email ?? organizer.mobile ?? ""}</p>
           </div>
         </div>
 
-        <ProfileInfoSection organizer={organizer} onSaved={setOrganizer} />
-        <ChangePasswordSection organizer={organizer} onSaved={setOrganizer} />
+        <ProfileInfoSection organizer={organizer} onSaved={handleOrganizerSaved} />
+        <ChangePasswordSection organizer={organizer} onSaved={handleOrganizerSaved} />
 
         {/* Sign out */}
         <div className="pt-2 border-t border-border/30">

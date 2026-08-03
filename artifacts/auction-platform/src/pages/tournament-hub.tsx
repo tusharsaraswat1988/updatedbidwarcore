@@ -143,7 +143,7 @@ export default function TournamentHub() {
                     </>
                   )}
                 </div>
-                <div className="org-kpi-icon bg-amber-500/10"><Users className="w-5 h-5 text-amber-500" /></div>
+                <div className="org-kpi-icon bg-primary/10"><Users className="w-5 h-5 text-primary" /></div>
               </div>
               <div className="org-kpi-card flex justify-between items-start gap-3">
                 <div className="min-w-0">
@@ -215,7 +215,7 @@ export default function TournamentHub() {
 
         {/* Setup Checklist — hidden once every item is complete */}
         {isSetupPhase && readinessDataLoaded && !readinessComplete && (
-          <div className="rounded-xl border border-border bg-card/30 p-5 space-y-4">
+          <div className="org-surface-rail p-5 space-y-4">
             <div>
               <h2 className="text-base font-display font-bold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-primary" /> Setup Checklist

@@ -46,7 +46,10 @@ import {
 } from "../lib/tournament-lifecycle";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament, snapshotOrganizer } from "../lib/audit-snapshots";
-import { claimTournamentsForOrganizer } from "../lib/claim-tournaments-for-organizer";
+import {
+  claimTournamentsForOrganizer,
+  tryClaimTournamentForOrganizer,
+} from "../lib/claim-tournaments-for-organizer";
 
 const scryptAsync = promisify(scrypt);
 
@@ -413,12 +416,35 @@ router.get("/auth/organizer/:tournamentId/me", async (req, res) => {
   }
 
   if (req.jwtUser.organizerAccountId && !isNaN(tidNum)) {
+    const accountId = req.jwtUser.organizerAccountId;
     const [tournament] = await db
       .select({ organizerId: tournamentsTable.organizerId })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tidNum))
       .limit(1);
-    if (tournament?.organizerId === req.jwtUser.organizerAccountId) {
+
+    let owns = tournament?.organizerId === accountId;
+
+    // Session restore: claim unlinked tournament when contact matches (idempotent).
+    if (!owns && tournament && tournament.organizerId == null) {
+      const [organizer] = await db
+        .select({
+          mobile: organizersTable.mobile,
+          email: organizersTable.email,
+        })
+        .from(organizersTable)
+        .where(eq(organizersTable.id, accountId))
+        .limit(1);
+      if (organizer) {
+        const claim = await tryClaimTournamentForOrganizer(accountId, tidNum, {
+          mobile: organizer.mobile,
+          email: organizer.email,
+        });
+        owns = claim === "granted" || claim === "already_owner";
+      }
+    }
+
+    if (owns) {
       const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [tid]: true as const };
       setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
       res.json({ isOrganizer: true });
@@ -1488,7 +1514,30 @@ router.get("/auth/organizer-account/me", async (req, res) => {
     res.json({ loggedIn: false });
     return;
   }
+
+  // Session restore: claim matching unlinked tournaments (idempotent, no-op when none).
+  await claimTournamentsForOrganizer(organizer.id, {
+    mobile: organizer.mobile,
+    email: organizer.email,
+  });
+
   const tournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+
+  // Bootstrap JWT organizer map for newly claimed tournaments so subsequent
+  // per-tournament checks succeed without another round-trip.
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
+  let mapChanged = false;
+  for (const t of tournaments) {
+    const key = String(t.id);
+    if (!orgMap[key]) {
+      orgMap[key] = true;
+      mapChanged = true;
+    }
+  }
+  if (mapChanged) {
+    setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  }
+
   res.json({
     loggedIn: true,
     organizer: organizerToJson(organizer),

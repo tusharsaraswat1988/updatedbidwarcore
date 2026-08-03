@@ -113,7 +113,7 @@ function TemplateLivePreview({
   const scale = previewScale(aspectRatio);
   const surfaceClass =
     previewTheme === "dark"
-      ? "bg-[#0a0a0a] border-white/10"
+      ? "bg-stage border-white/10"
       : "bg-neutral-100 border-neutral-300";
 
   return (
@@ -575,7 +575,7 @@ export default function TemplateStudioPage() {
                   <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Contract Inspector
                   </h2>
-                  <pre className="min-h-[240px] flex-1 overflow-auto rounded-md border border-border bg-[#030303] p-3 font-mono text-[11px] leading-relaxed text-emerald-300/90">
+                  <pre className="min-h-[240px] flex-1 overflow-auto rounded-md border border-border bg-background p-3 font-mono text-[11px] leading-relaxed text-emerald-300/90">
                     {activeContract
                       ? JSON.stringify(activeContract, null, 2)
                       : isEmpty

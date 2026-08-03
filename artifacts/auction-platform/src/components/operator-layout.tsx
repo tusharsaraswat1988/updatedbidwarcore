@@ -107,7 +107,7 @@ function AuctionStatusBadge({ status }: { status: string }) {
           ? "bg-green-500/15 border-green-500/40 text-green-400"
           : isPaused
             ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
-            : "bg-white/5 border-white/15 text-white/45"
+            : "bg-white/5 border-white/15 text-muted-foreground"
       }`}
     >
       <span
@@ -148,7 +148,7 @@ export function OperatorLayout({
   );
 
   const trialBadge = isTrialMode ? (
-    <span className="inline-flex items-center flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border border-yellow-500/30 bg-yellow-500/15 text-yellow-400">
+    <span className="inline-flex items-center flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border border-primary/30 bg-primary/15 text-primary">
       Trial
     </span>
   ) : null;
@@ -156,7 +156,7 @@ export function OperatorLayout({
   const fullscreenButton = (
     <FullscreenButton
       size="sm"
-      className="h-11 w-11 lg:h-8 lg:w-8 flex items-center justify-center rounded-md border border-white/12 text-white/60 hover:text-white hover:bg-white/8 transition-colors flex-shrink-0"
+      className="h-11 w-11 lg:h-8 lg:w-8 flex items-center justify-center rounded-md border border-white/12 text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors flex-shrink-0"
     />
   );
 
@@ -164,7 +164,7 @@ export function OperatorLayout({
     <button
       type="button"
       onClick={() => openSetupArea(tournamentId)}
-      className="h-8 lg:h-8 px-2.5 flex items-center gap-1 rounded-md border border-white/12 text-[11px] font-medium text-white/70 hover:text-white hover:bg-white/8 transition-colors flex-shrink-0"
+      className="h-8 lg:h-8 px-2.5 flex items-center gap-1 rounded-md border border-white/12 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors flex-shrink-0"
       title="Return to tournament setup"
       aria-label="Return to tournament setup"
     >
@@ -176,13 +176,13 @@ export function OperatorLayout({
   const statusCounters = (
     <div className="flex items-center gap-2 text-[11px] font-medium min-w-0 flex-wrap">
       {typeof soldCount === "number" && (
-        <span className="text-white/40">
+        <span className="text-muted-foreground">
           SOLD <span className="text-green-400 font-bold">{soldCount}</span>
         </span>
       )}
       {typeof remainingCount === "number" && (
-        <span className="text-white/40">
-          LEFT <span className="text-white font-bold">{remainingCount}</span>
+        <span className="text-muted-foreground">
+          LEFT <span className="text-foreground font-bold">{remainingCount}</span>
         </span>
       )}
       <AuctionStatusBadge status={auctionStatus} />
@@ -191,12 +191,12 @@ export function OperatorLayout({
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[#0f1117] text-white overflow-hidden dark">
-      <header className="flex-shrink-0 flex flex-col border-b border-white/10 bg-[#141720] z-20">
+    <div className="lovable-theme flex flex-col h-screen text-foreground overflow-hidden dark">
+      <header className="flex-shrink-0 flex flex-col border-b border-border bg-card/90 backdrop-blur-md z-20">
         {/* Desktop (>1024px): single row — Logo | Tournament Name | LIVE | Trial | Fullscreen | Setup */}
         <div className="hidden lg:flex items-center gap-3 px-3 py-2 min-h-[52px]">
           <OperatorAppIcon />
-          <h1 className="text-sm font-bold truncate text-white/90 flex-1 min-w-0">
+          <h1 className="text-sm font-bold truncate text-foreground/90 flex-1 min-w-0">
             {tournamentName}
           </h1>
           {connectionBadge}
@@ -211,7 +211,7 @@ export function OperatorLayout({
         <div className="flex lg:hidden flex-col gap-1 px-2.5 py-1.5">
           <div className="flex items-center gap-2 min-h-[32px]">
             <OperatorAppIcon compact />
-            <h1 className="text-[13px] font-bold truncate text-white/90 flex-1 min-w-0 leading-tight">
+            <h1 className="text-[13px] font-bold truncate text-foreground/90 flex-1 min-w-0 leading-tight">
               {tournamentName}
             </h1>
             {connectionBadge}
@@ -226,7 +226,7 @@ export function OperatorLayout({
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
+      <main className="flex-1 min-h-0 overflow-hidden bg-transparent">{children}</main>
     </div>
   );
 }

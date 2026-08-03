@@ -72,7 +72,7 @@ export default function OrganizerLogin() {
   }
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="lovable-theme">
       <div className="min-h-screen flex items-center justify-center px-4">
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
