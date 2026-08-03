@@ -182,6 +182,20 @@ export const badmintonCategoriesTable = pgTable(
     numSeeds: smallint("num_seeds").notNull().default(0),
     /** Phase: setup | draw_generated | live | completed */
     phase: text("phase").notNull().default("setup"),
+    /**
+     * Tournament Engine stage SSoT:
+     * league | quarter_final | semi_final | final | completed
+     * Null = unset (legacy categories); resolve via engine config helpers.
+     */
+    currentStage: text("current_stage"),
+    /** Ordered ranking rule keys JSON array. Null = legacy wins→margin→id. */
+    rankingRulesJson: jsonb("ranking_rules_json").$type<string[] | null>(),
+    /** Qualifiers taken from each group (or category when mode=category). */
+    qualifiersPerGroup: smallint("qualifiers_per_group"),
+    /** per_group | category */
+    qualifierMode: text("qualifier_mode"),
+    /** Set when league→knockout promotion has created a knockout draw (idempotency). */
+    promotedKnockoutAt: timestamp("promoted_knockout_at", { withTimezone: true }),
     /** Max players allowed. */
     maxPlayers: integer("max_players"),
     /** Registration fee (paise or cents). */
@@ -430,6 +444,8 @@ export const badmintonGroupsTable = pgTable(
     categoryId: integer("category_id").notNull(),
     name: text("name").notNull(),
     sortOrder: smallint("sort_order").notNull().default(0),
+    /** Optional per-group override; null → category qualifiers_per_group. */
+    qualifiersCount: smallint("qualifiers_count"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
