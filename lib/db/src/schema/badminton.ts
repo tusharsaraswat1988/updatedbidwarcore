@@ -492,6 +492,12 @@ export const badmintonPairStandingsTable = pgTable(
     lost: smallint("lost").notNull().default(0),
     /** Sum of rally-point margins from won games only. */
     marginPoints: integer("margin_points").notNull().default(0),
+    /** Total rally points scored (completed games + assigned WO margin). */
+    pointsFor: integer("points_for").notNull().default(0),
+    /** Total rally points conceded. */
+    pointsAgainst: integer("points_against").notNull().default(0),
+    /** max(0, scheduled fixtures − played). */
+    matchesRemaining: smallint("matches_remaining").notNull().default(0),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
