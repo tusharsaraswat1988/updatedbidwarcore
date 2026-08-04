@@ -502,7 +502,15 @@ describe("promoteCategoryToKnockout", () => {
 
     expect(result.created).toBe(true);
     expect(result.skipped).toBe(false);
-    expect(result.stage).toBe("quarter_final");
+    // 4-qualifier plan starts at Semi-Finals → dynamic stage (Option D)
+    expect(result.stage).toBe("semi_final");
+    expect(result.tournamentStage).toEqual(
+      expect.objectContaining({
+        currentStage: "semi_final",
+        lifecycleStage: "elimination",
+        displayLabel: "Semi Final",
+      }),
+    );
     expect(result.bracket.qualifiers).toHaveLength(4);
     expect(result.bracket.fixtures).toHaveLength(3);
     expect(planKnockoutBracket).toHaveBeenCalledWith([
@@ -513,10 +521,24 @@ describe("promoteCategoryToKnockout", () => {
     ]);
     expect(createFixtureCollection).toHaveBeenCalledTimes(2);
     expect(wireKnockoutProgressionLinks).toHaveBeenCalled();
-    expect(mockUpdate).toHaveBeenCalled();
+    // setPromotionStage + promotion marker update (no direct currentStage write)
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
     expect(loggerInfo).toHaveBeenCalledWith(
       expect.objectContaining({ qualifierCount: 4 }),
       "TOURNAMENT_PROMOTION_SUCCESS",
     );
+  });
+
+  it("rejects promotion when stage is not league", async () => {
+    queueSelects(
+      [{ id: 1 }],
+      [{ ...baseCategory, currentStage: "quarter_final" }],
+      [], // legacy
+    );
+
+    await expect(promoteCategoryToKnockout(1, 10)).rejects.toMatchObject({
+      code: "STAGE_NOT_LEAGUE",
+      status: 409,
+    });
   });
 });

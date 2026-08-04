@@ -15,7 +15,6 @@ import {
   type BadmintonDraw,
   type BadmintonFixture,
 } from "@workspace/db";
-import { resolveCurrentStage } from "@workspace/badminton-core";
 import { getCategoryPairStandings } from "./badminton-league-service";
 import { getTournamentEngineConfig } from "./badminton-tournament-engine";
 import { planKnockoutBracket } from "./badminton-knockout-plan";
@@ -25,9 +24,14 @@ import {
   wireKnockoutProgressionLinks,
 } from "./badminton-knockout-progression";
 import {
+  advanceStage,
+  initialKnockoutStageFromRounds,
+  isLeague,
   promotionPersistedStage,
-  resolveLifecycleStage,
+  resolveStageDto,
+  setPromotionStage,
   type PersistedTournamentStage,
+  type TournamentStageDto,
 } from "./tournament-stage";
 import { logger } from "./logger";
 
@@ -104,7 +108,10 @@ export type PromotionResult = {
   created: boolean;
   skipped: boolean;
   reason?: string;
+  /** @deprecated Prefer `tournamentStage.currentStage` — string kept for API BC. */
   stage: PersistedTournamentStage;
+  /** Canonical stage DTO from resolveStageDto / setPromotionStage. */
+  tournamentStage: TournamentStageDto;
   bracket: PromotionBracket;
 };
 
@@ -450,12 +457,13 @@ export async function promoteCategoryToKnockout(
         );
       }
 
+      const tournamentStage = resolveStageDto({
+        drawType: cat.drawType,
+        currentStage: cat.currentStage,
+        phase: cat.phase,
+      });
       const stage =
-        (resolveCurrentStage({
-          drawType: cat.drawType,
-          currentStage: cat.currentStage,
-          phase: cat.phase,
-        }) as PersistedTournamentStage | null) ?? promotionPersistedStage();
+        tournamentStage.currentStage ?? promotionPersistedStage();
 
       logger.info(
         {
@@ -473,6 +481,12 @@ export async function promoteCategoryToKnockout(
         skipped: true,
         reason: "Knockout already generated.",
         stage,
+        tournamentStage: {
+          ...tournamentStage,
+          currentStage: stage,
+          lifecycleStage: tournamentStage.lifecycleStage ?? "elimination",
+          displayLabel: tournamentStage.displayLabel,
+        },
         bracket: existing,
       };
     }
@@ -498,18 +512,28 @@ export async function promoteCategoryToKnockout(
         },
         "TOURNAMENT_PROMOTION_SKIPPED",
       );
-      return {
-        created: false,
-        skipped: true,
-        reason: "Knockout already generated.",
-        stage:
-          (resolveCurrentStage({
-            drawType: cat.drawType,
-            currentStage: cat.currentStage,
-            phase: cat.phase,
-          }) as PersistedTournamentStage | null) ?? promotionPersistedStage(),
-        bracket: legacy,
-      };
+      {
+        const tournamentStage = resolveStageDto({
+          drawType: cat.drawType,
+          currentStage: cat.currentStage,
+          phase: cat.phase,
+        });
+        const stage =
+          tournamentStage.currentStage ?? promotionPersistedStage();
+        return {
+          created: false,
+          skipped: true,
+          reason: "Knockout already generated.",
+          stage,
+          tournamentStage: {
+            ...tournamentStage,
+            currentStage: stage,
+            lifecycleStage: tournamentStage.lifecycleStage ?? "elimination",
+            displayLabel: tournamentStage.displayLabel,
+          },
+          bracket: legacy,
+        };
+      }
     }
 
     // ── Validation ─────────────────────────────────────────────────────────
@@ -521,17 +545,20 @@ export async function promoteCategoryToKnockout(
       );
     }
 
-    const lifecycle = resolveLifecycleStage({
+    const stageDto = resolveStageDto({
       drawType: cat.drawType,
       currentStage: cat.currentStage,
       phase: cat.phase,
     });
-    if (lifecycle !== "league") {
+    if (!isLeague(stageDto)) {
       throw new PromotionError(
         "STAGE_NOT_LEAGUE",
-        `Current stage must be league (resolved: ${lifecycle ?? "null"}).`,
+        `Current stage must be league (resolved: ${stageDto.lifecycleStage ?? "null"}).`,
         409,
-        { currentStage: cat.currentStage, lifecycle },
+        {
+          currentStage: stageDto.currentStage,
+          lifecycle: stageDto.lifecycleStage,
+        },
       );
     }
 
@@ -627,7 +654,6 @@ export async function promoteCategoryToKnockout(
     }));
     const plannedRounds = planKnockoutBracket(seeded);
     const totalRounds = plannedRounds.length;
-    const persistedStage = promotionPersistedStage();
 
     const result = await db.transaction(async (tx) => {
       const insertedByRound = new Map<
@@ -689,11 +715,16 @@ export async function promoteCategoryToKnockout(
       const r1Inserted = insertedByRound.get(1) ?? [];
       await advanceRound1Byes(tournamentId, r1Inserted, tx);
 
+      const initialStage = initialKnockoutStageFromRounds(plannedRounds);
+      await setPromotionStage(tx, tournamentId, categoryId, initialStage);
+      const settle = await advanceStage(tx, tournamentId, categoryId);
+      const persistedStage =
+        settle.currentStage ?? initialStage;
+
       const now = new Date();
       await tx
         .update(badmintonCategoriesTable)
         .set({
-          currentStage: persistedStage,
           promotedKnockoutAt: now,
           promotedKnockoutDrawId: firstCollection.id,
           updatedAt: now,
@@ -709,6 +740,7 @@ export async function promoteCategoryToKnockout(
         firstCollection,
         collections,
         allFixtures,
+        persistedStage,
       };
     });
 
@@ -740,11 +772,17 @@ export async function promoteCategoryToKnockout(
       })),
     };
 
+    const tournamentStage = resolveStageDto({
+      drawType: cat.drawType,
+      currentStage: result.persistedStage,
+      phase: cat.phase,
+    });
+
     logger.info(
       {
         tournamentId,
         categoryId,
-        stage: persistedStage,
+        stage: result.persistedStage,
         qualifierCount: qualifiers.length,
         duration: Date.now() - startedAt,
         drawId: bracket.drawId,
@@ -755,7 +793,8 @@ export async function promoteCategoryToKnockout(
     return {
       created: true,
       skipped: false,
-      stage: persistedStage,
+      stage: result.persistedStage,
+      tournamentStage,
       bracket,
     };
   } catch (err) {

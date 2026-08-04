@@ -1,15 +1,13 @@
 /**
  * Badminton Tournament Engine service (UI-agnostic).
- * Owns stage / ranking / qualification config resolution.
- * Does not know about screens, buttons, or navigation.
+ * Owns ranking / qualification config resolution.
+ * Category stage reads/writes go through tournament-stage helper (SSoT).
  */
 
 import { and, eq } from "drizzle-orm";
 import {
   PRODUCT_DEFAULT_RANKING_RULES,
-  initialStageForDrawType,
   normalizeRankingRules,
-  resolveCurrentStage,
   resolveQualificationRules,
   resolveRankingRules,
   type QualifierMode,
@@ -17,14 +15,26 @@ import {
   type TournamentEngineStage,
 } from "@workspace/badminton-core";
 import { db, badmintonCategoriesTable, badmintonGroupsTable } from "@workspace/db";
-import { assertPersistedStage } from "./tournament-stage";
+import {
+  assertPersistedStage,
+  isLeague,
+  resolveStageDto,
+  stageColumnForNewCategory,
+  writeCategoryStage,
+  type TournamentStageDto,
+} from "./tournament-stage";
 
 export type TournamentEngineConfigView = {
   categoryId: number;
   tournamentId: number;
   drawType: string;
   phase: string;
+  /** @deprecated Prefer `stage.currentStage` — kept for API backward compatibility. */
   currentStage: TournamentEngineStage | null;
+  lifecycleStage: TournamentStageDto["lifecycleStage"];
+  displayLabel: string | null;
+  /** Preferred nested stage DTO (from resolveStageDto). */
+  stage: TournamentStageDto;
   rankingRules: TournamentEngineRankingRules;
   rankingRulesSource: "configured" | "legacy_fallback" | "product_default";
   qualification: {
@@ -84,7 +94,7 @@ export async function getTournamentEngineConfig(
     groupCount: groups.length,
   });
 
-  const currentStage = resolveCurrentStage({
+  const stage = resolveStageDto({
     drawType: cat.drawType,
     currentStage: cat.currentStage,
     phase: cat.phase,
@@ -98,7 +108,10 @@ export async function getTournamentEngineConfig(
     tournamentId: cat.tournamentId,
     drawType: cat.drawType,
     phase: cat.phase,
-    currentStage,
+    currentStage: stage.currentStage,
+    lifecycleStage: stage.lifecycleStage,
+    displayLabel: stage.displayLabel ?? null,
+    stage,
     rankingRules: resolveRankingRules(cat.rankingRulesJson),
     rankingRulesSource: rankingSource(cat.rankingRulesJson),
     qualification,
@@ -111,7 +124,7 @@ export async function getTournamentEngineConfig(
       cat.drawType === "group_knockout" &&
       !cat.promotedKnockoutAt &&
       !cat.promotedKnockoutDrawId &&
-      currentStage === "league",
+      isLeague(stage),
   };
 }
 
@@ -120,22 +133,29 @@ export async function updateTournamentEngineConfig(
   categoryId: number,
   update: TournamentEngineConfigUpdate,
 ): Promise<TournamentEngineConfigView | null> {
-  const patch: Partial<typeof badmintonCategoriesTable.$inferInsert> = {
-    updatedAt: new Date(),
-  };
-
   if (update.currentStage !== undefined) {
     if (update.currentStage != null) {
       assertPersistedStage(update.currentStage);
     }
-    // Stage vocabulary writes go through the stage helper's assert path.
-    patch.currentStage = update.currentStage;
+    await writeCategoryStage(
+      db,
+      tournamentId,
+      categoryId,
+      update.currentStage,
+    );
   }
+
+  const patch: Partial<typeof badmintonCategoriesTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  let hasNonStagePatch = false;
 
   if (update.rankingRules !== undefined) {
     const normalized = normalizeRankingRules(update.rankingRules);
     if (!normalized) throw new Error("Invalid rankingRules");
     patch.rankingRulesJson = normalized;
+    hasNonStagePatch = true;
   }
 
   if (update.qualifiersPerGroup !== undefined) {
@@ -146,6 +166,7 @@ export async function updateTournamentEngineConfig(
       throw new Error("qualifiersPerGroup must be a positive integer or null");
     }
     patch.qualifiersPerGroup = update.qualifiersPerGroup;
+    hasNonStagePatch = true;
   }
 
   if (update.qualifierMode !== undefined) {
@@ -157,20 +178,23 @@ export async function updateTournamentEngineConfig(
       throw new Error("qualifierMode must be per_group, category, or null");
     }
     patch.qualifierMode = update.qualifierMode;
+    hasNonStagePatch = true;
   }
 
-  const [cat] = await db
-    .update(badmintonCategoriesTable)
-    .set(patch)
-    .where(
-      and(
-        eq(badmintonCategoriesTable.id, categoryId),
-        eq(badmintonCategoriesTable.tournamentId, tournamentId),
-      ),
-    )
-    .returning({ id: badmintonCategoriesTable.id });
+  if (hasNonStagePatch) {
+    const [cat] = await db
+      .update(badmintonCategoriesTable)
+      .set(patch)
+      .where(
+        and(
+          eq(badmintonCategoriesTable.id, categoryId),
+          eq(badmintonCategoriesTable.tournamentId, tournamentId),
+        ),
+      )
+      .returning({ id: badmintonCategoriesTable.id });
+    if (!cat) return null;
+  }
 
-  if (!cat) return null;
   return getTournamentEngineConfig(tournamentId, categoryId);
 }
 
@@ -185,7 +209,7 @@ export function newCategoryEngineDefaults(drawType: string): {
     drawType === "round_robin" || drawType === "group_knockout";
   return {
     rankingRulesJson: [...PRODUCT_DEFAULT_RANKING_RULES],
-    currentStage: initialStageForDrawType(drawType),
+    currentStage: stageColumnForNewCategory(drawType),
     qualifiersPerGroup: isLeagueFamily ? 4 : null,
     qualifierMode: isLeagueFamily ? "per_group" : null,
   };

@@ -687,6 +687,22 @@ async function updateSnapshot(
           }
         }
       }
+
+      // P0.4 — settle tournament stage after terminal KO fixture (best-effort).
+      if (leagueCategoryId) {
+        try {
+          const { advanceStage } = await import("./tournament-stage");
+          await advanceStage(db, tournamentId, leagueCategoryId);
+        } catch (err) {
+          console.error("[badminton] tournament stage advance failed:", {
+            tournamentId,
+            matchId,
+            fixtureId,
+            categoryId: leagueCategoryId,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
     }
 
     scheduleBadmintonAnalyticsRecompute(tournamentId);
