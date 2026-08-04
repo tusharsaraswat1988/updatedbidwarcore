@@ -46,6 +46,11 @@ import {
   parseSponsorLogosJson,
 } from "../lib/sponsor-logo-cleanup";
 import {
+  resolveCatalogBindingsForCreate,
+  tournamentCatalogBindingSchema,
+} from "../lib/tournament-catalog-bindings";
+import { CatalogRegistry } from "@workspace/platform-core/catalog";
+import {
   queueImageFieldChange,
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
@@ -141,7 +146,11 @@ const tournamentInputSchema = z.object({
   breakEndMusicVolume: z.number().int().min(0).max(100).optional(),
   matchDates: z.string().nullable().optional(),
   auctionUnit: z.string().optional(),
-});
+  registrationDeadline: z.string().nullable().optional(),
+  registrationLimit: z.number().int().min(0).nullable().optional(),
+  enableRegistrationPayment: z.boolean().optional(),
+  registrationFee: z.number().int().min(0).nullable().optional(),
+}).merge(tournamentCatalogBindingSchema);
 
 router.post("/tournaments", async (req, res) => {
   if (!isAccountOrAdmin(req)) { res.status(401).json({ error: "Authentication required" }); return; }
@@ -152,6 +161,22 @@ router.post("/tournaments", async (req, res) => {
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
     return;
+  }
+
+  const catalogBindings = resolveCatalogBindingsForCreate(d.sport, d);
+  if (!catalogBindings.ok) {
+    res.status(400).json({ error: catalogBindings.error });
+    return;
+  }
+
+  if (
+    catalogBindings.columns.competitionTypeId &&
+    CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId)
+  ) {
+    if (d.basePurse != null && d.basePurse < 1) {
+      res.status(400).json({ error: "basePurse is required for auction/hybrid competitions" });
+      return;
+    }
   }
 
   let validatedSponsorLogos: string | null | undefined;
@@ -217,7 +242,17 @@ router.post("/tournaments", async (req, res) => {
       minimumSquadSize: d.minimumSquadSize ?? 0,
       maximumSquadSize: d.maximumSquadSize ?? 0,
       matchDates: d.matchDates ?? null,
+      registrationDeadline: d.registrationDeadline ?? null,
+      registrationLimit: d.registrationLimit ?? null,
+      enableRegistrationPayment: d.enableRegistrationPayment ?? false,
+      registrationFee: d.registrationFee ?? null,
       status: "setup",
+      variantId: catalogBindings.columns.variantId,
+      competitionTypeId: catalogBindings.columns.competitionTypeId,
+      ruleProfileId: catalogBindings.columns.ruleProfileId,
+      ruleProfileVersion: catalogBindings.columns.ruleProfileVersion,
+      presentationProfileId: catalogBindings.columns.presentationProfileId,
+      presentationProfileVersion: catalogBindings.columns.presentationProfileVersion,
     })
     .returning();
 

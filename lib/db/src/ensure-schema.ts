@@ -146,6 +146,12 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_phase text NOT NULL DEFAULT 'disabled';
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_pin text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_settings_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS variant_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS competition_type_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_version text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_version text;
 
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent boolean NOT NULL DEFAULT false;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_at timestamptz;

@@ -1,0 +1,43 @@
+import type { RuleProfileCatalogEntry } from "../../types.ts";
+
+export const BADMINTON_RULE_PROFILES: readonly RuleProfileCatalogEntry[] = [
+  {
+    kind: "rule_profile",
+    id: "badminton.standard_bwf",
+    version: "1.0.0",
+    sportId: "badminton",
+    displayName: "BWF Standard",
+    description: "Best-of-3 to 21 points with standard BWF scoring.",
+    supportedCompetitionTypes: ["registered_teams", "hybrid", "practice", "auction"],
+    supportedVariants: ["badminton.standard"],
+    status: "default",
+    recommendation: "recommended",
+    preview: { presetId: "standard_bwf", gamesBestOf: 3, pointsToWin: 21 },
+  },
+  {
+    kind: "rule_profile",
+    id: "badminton.fast_match",
+    version: "1.0.0",
+    sportId: "badminton",
+    displayName: "Fast Match",
+    description: "Shorter badminton format for busy tournament days.",
+    supportedCompetitionTypes: ["registered_teams", "hybrid", "practice", "auction"],
+    supportedVariants: ["badminton.standard"],
+    status: "default",
+    recommendation: "auto_suggested",
+    preview: { presetId: "fast_match" },
+  },
+  {
+    kind: "rule_profile",
+    id: "badminton.custom",
+    version: "1.0.0",
+    sportId: "badminton",
+    displayName: "Custom Badminton",
+    description: "Advanced custom badminton scoring pack.",
+    supportedCompetitionTypes: ["registered_teams", "hybrid", "practice", "auction"],
+    supportedVariants: ["badminton.standard"],
+    status: "beta",
+    recommendation: "advanced",
+    preview: { presetId: "custom" },
+  },
+];

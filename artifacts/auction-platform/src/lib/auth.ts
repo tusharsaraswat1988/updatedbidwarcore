@@ -506,6 +506,11 @@ export async function changeOrganizerPassword(data: {
 export async function createOrganizerTournament(data: {
   name: string; sport?: string; city: string; venue?: string; auctionDate?: string; auctionTime?: string;
   basePurse?: number; minimumSquadSize?: number; minBid?: number; bidIncrement?: number;
+  variantId?: string; competitionTypeId?: string;
+  ruleProfileId?: string; ruleProfileVersion?: string;
+  presentationProfileId?: string; presentationProfileVersion?: string;
+  registrationDeadline?: string; registrationLimit?: number;
+  enableRegistrationPayment?: boolean; registrationFee?: number;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {

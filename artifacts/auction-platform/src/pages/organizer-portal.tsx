@@ -4,9 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
-import { SportSelect } from "@/components/sport-select";
-import { CityAutocomplete } from "@/components/city-autocomplete";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
+import { TournamentCreationWizard } from "@/components/tournament-creation/tournament-creation-wizard";
 import {
   signupEmail,
   signupVerify,
@@ -40,16 +39,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
 } from "lucide-react";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
-import { HintLabel } from "@/components/ui/hint-label";
-import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
@@ -103,30 +98,6 @@ function TournamentLicenseBadge({
   return <TrialLicenseBadge />;
 }
 
-type TimePeriod = "AM" | "PM";
-
-function to24HourTime(hour12: number, minute: number, period: TimePeriod): string {
-  let h = hour12 % 12;
-  if (period === "PM") h += 12;
-  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function formatAuctionSchedulePreview(date: string, hour12: number, minute: number, period: TimePeriod): string {
-  const d = new Date(`${date}T${to24HourTime(hour12, minute, period)}:00`);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-const TIME_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const TIME_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
@@ -146,93 +117,18 @@ function CreateTournamentModal({
   onCreated: (tournamentId?: number) => void;
 }) {
   const [, navigate] = useLocation();
-  const [form, setForm] = useState({
-    name: "",
-    sport: "cricket",
-    city: "",
-    venue: "",
-    auctionDate: "",
-    timeHour: "",
-    timeMinute: "00",
-    timePeriod: "PM" as TimePeriod,
-    basePurse: "",
-    minBid: "",
-    bidIncrement: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [createdTournamentId, setCreatedTournamentId] = useState<number | null>(null);
-  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
 
   function handleClose() {
     setCreatedCode(null);
     setCreatedTournamentId(null);
-    setWizardStep(1);
-    setForm({
-      name: "", sport: "cricket", city: "", venue: "", auctionDate: "",
-      timeHour: "", timeMinute: "00", timePeriod: "PM",
-      basePurse: "", minBid: "", bidIncrement: "",
-    });
-    setError("");
     onClose();
-  }
-
-  const auctionTime = form.timeHour
-    ? to24HourTime(parseInt(form.timeHour, 10), parseInt(form.timeMinute, 10) || 0, form.timePeriod)
-    : "";
-  const schedulePreview = form.auctionDate && form.timeHour
-    ? formatAuctionSchedulePreview(
-        form.auctionDate,
-        parseInt(form.timeHour, 10),
-        parseInt(form.timeMinute, 10) || 0,
-        form.timePeriod,
-      )
-    : form.auctionDate
-      ? new Date(`${form.auctionDate}T12:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
-      : "";
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) { setError("Tournament name is required."); return; }
-    if (!form.city.trim()) { setError("City is required."); return; }
-    if (!form.basePurse || parseInt(form.basePurse, 10) <= 0) {
-      setError("Team budget (purse) is required.");
-      return;
-    }
-    const minBid = parseInt(form.minBid, 10);
-    if (!form.minBid || Number.isNaN(minBid) || minBid < 1) {
-      setError("Minimum player value is required.");
-      return;
-    }
-    const bidIncrement = parseInt(form.bidIncrement, 10);
-    if (!form.bidIncrement || Number.isNaN(bidIncrement) || bidIncrement < 1) {
-      setError("Bid increase amount is required.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    const r = await createOrganizerTournament({
-      name: form.name.trim(),
-      sport: form.sport,
-      city: form.city.trim(),
-      venue: form.venue.trim() || undefined,
-      auctionDate: form.auctionDate || undefined,
-      auctionTime: auctionTime || undefined,
-      basePurse: parseInt(form.basePurse, 10),
-      minBid,
-      bidIncrement,
-    });
-    setLoading(false);
-    if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
-    setCreatedCode(r.tournament?.auctionCode ?? null);
-    setCreatedTournamentId(r.tournament?.id ?? null);
-    onCreated(r.tournament?.id);
   }
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-lg dark">
+      <DialogContent className="max-w-lg dark max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gavel className="w-4 h-4 text-primary" />
@@ -268,191 +164,27 @@ function CreateTournamentModal({
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <AuthStepIndicator step={wizardStep} total={2} />
-            <p className="text-xs text-center text-muted-foreground -mt-2">
-              {wizardStep === 1 ? "Basic details" : "Budget & pricing (required)"}
-            </p>
-
-            {wizardStep === 1 ? (
-              <>
-                <div className="space-y-2">
-                  <Label>Tournament Name *</Label>
-                  <Input
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Enter the name of your tournament"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sport</Label>
-                  <SportSelect
-                    value={form.sport}
-                    onValueChange={(v) => setForm((f) => ({ ...f, sport: v }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>City *</Label>
-                  <CityAutocomplete
-                    value={form.city}
-                    onChange={v => setForm(f => ({ ...f, city: v }))}
-                    placeholder="Start typing city name"
-                    minChars={3}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Venue</Label>
-                  <Input
-                    value={form.venue}
-                    onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
-                    placeholder="Stadium or ground name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Auction Date</Label>
-                  <DatePicker
-                    value={form.auctionDate}
-                    onChange={auctionDate => setForm(f => ({ ...f, auctionDate }))}
-                    placeholder="Select auction date"
-                    disablePastDates
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Auction Time</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Select value={form.timeHour || undefined} onValueChange={v => setForm(f => ({ ...f, timeHour: v }))}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Hour" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_HOURS.map(h => (
-                          <SelectItem key={h} value={String(h)}>{h}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={form.timeMinute} onValueChange={v => setForm(f => ({ ...f, timeMinute: v }))}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Min" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_MINUTES.map(m => (
-                          <SelectItem key={m} value={String(m).padStart(2, "0")}>
-                            {String(m).padStart(2, "0")}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={form.timePeriod} onValueChange={v => setForm(f => ({ ...f, timePeriod: v as TimePeriod }))}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="AM">AM</SelectItem>
-                        <SelectItem value="PM">PM</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {schedulePreview && (
-                  <p className="text-xs text-muted-foreground -mt-2">
-                    Scheduled: <span className="text-foreground font-medium">{schedulePreview}</span>
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
-                  Enter your auction budget and bid rules below. These fields are required — nothing is pre-filled.
-                </p>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>
-                      <HintLabel hint="Har team ke paas kitna paisa kharch karne ko milega — jaise 1 crore">
-                        Team Budget (Purse) *
-                      </HintLabel>
-                    </Label>
-                    <Input
-                      type="number"
-                      value={form.basePurse}
-                      onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
-                      placeholder="e.g. 10000000"
-                      min={1}
-                      required
-                    />
-                    <IndianAmountHint value={form.basePurse} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>
-                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">
-                        Minimum Player Value (₹) *
-                      </HintLabel>
-                    </Label>
-                    <Input
-                      type="number"
-                      value={form.minBid}
-                      onChange={e => setForm(f => ({ ...f, minBid: e.target.value }))}
-                      placeholder="e.g. 10000"
-                      min={1}
-                      required
-                    />
-                    <IndianAmountHint value={form.minBid} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>
-                      <HintLabel hint="Har baar bid badhne par kitna add hoga">
-                        Bid Increase Amount (₹) *
-                      </HintLabel>
-                    </Label>
-                    <Input
-                      type="number"
-                      value={form.bidIncrement}
-                      onChange={e => setForm(f => ({ ...f, bidIncrement: e.target.value }))}
-                      placeholder="e.g. 5000"
-                      min={1}
-                      required
-                    />
-                    <IndianAmountHint value={form.bidIncrement} />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {error && (
-              <div className="flex items-center gap-2 text-destructive text-sm">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
-              </div>
-            )}
-            <div className="flex gap-3 pt-2">
-              {wizardStep === 1 ? (
-                <>
-                  <Button
-                    type="button"
-                    className="flex-1"
-                    onClick={() => {
-                      if (!form.name.trim()) { setError("Tournament name is required."); return; }
-                      if (!form.city.trim()) { setError("City is required."); return; }
-                      setError("");
-                      setWizardStep(2);
-                    }}
-                  >
-                    Continue →
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-                </>
-              ) : (
-                <>
-                  <Button type="submit" className="flex-1" disabled={loading}>
-                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                    Create Tournament
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => { setWizardStep(1); setError(""); }}>
-                    Back
-                  </Button>
-                </>
-              )}
-            </div>
-          </form>
+          <TournamentCreationWizard
+            mode="dialog"
+            onCancel={handleClose}
+            submit={async (payload) => {
+              const r = await createOrganizerTournament(payload);
+              if (!r.success) return { success: false as const, error: r.error || "Create failed" };
+              return {
+                success: true as const,
+                tournament: {
+                  id: r.tournament!.id,
+                  name: r.tournament!.name,
+                  auctionCode: r.tournament?.auctionCode ?? null,
+                },
+              };
+            }}
+            onCreated={(tournament) => {
+              setCreatedCode(tournament.auctionCode ?? null);
+              setCreatedTournamentId(tournament.id);
+              onCreated(tournament.id);
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>

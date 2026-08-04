@@ -49,3 +49,21 @@ export {
   DEFAULT_SCORING_DEV_PORT,
   DEFAULT_MOBILE_DEV_PORT,
 } from "./ports.ts";
+
+export {
+  CatalogRegistry,
+  LEGACY_COMPETITION_TYPE_ID,
+  LEGACY_PROFILE,
+  LEGACY_VARIANT_ID,
+} from "./catalog/index.ts";
+export type {
+  CatalogValidationResult,
+  CompetitionTypeCatalogEntry,
+  PresentationProfileCatalogEntry,
+  ResolvedTournamentBindings,
+  RuleProfileCatalogEntry,
+  SportCatalogEntry,
+  TournamentBindingColumns,
+  TournamentCreateBindings,
+  VariantCatalogEntry,
+} from "./catalog/index.ts";
