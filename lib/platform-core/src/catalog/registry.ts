@@ -1,5 +1,9 @@
+import { RULE_CATEGORY_CATALOG } from "./categories/index.ts";
 import { COMPETITION_TYPE_CATALOG } from "./competition/index.ts";
+import { RULE_DEFINITION_CATALOG } from "./definitions/index.ts";
 import { PRESENTATION_PROFILE_CATALOG } from "./presentation/index.ts";
+import { resolveResultOk, resolveRuleProfile } from "./resolve/resolver.ts";
+import type { ResolveContext, ResolveResult, ValidationIssue } from "./resolve/types.ts";
 import { RULE_PROFILE_CATALOG } from "./rules/index.ts";
 import { SPORT_CATALOG } from "./sports/index.ts";
 import {
@@ -13,6 +17,8 @@ import {
   type ListProfilesFilter,
   type PresentationProfileCatalogEntry,
   type ResolvedTournamentBindings,
+  type RuleCategoryEntry,
+  type RuleDefinitionEntry,
   type RuleProfileCatalogEntry,
   type SportCatalogEntry,
   type SuggestDefaultsInput,
@@ -21,13 +27,16 @@ import {
   type VariantCatalogEntry,
 } from "./types.ts";
 import { VARIANT_CATALOG } from "./variants/index.ts";
+import { compareSemver, isSemver } from "./versioning/semver.ts";
 
 function supportsToken(supported: readonly string[], token: string): boolean {
   return supported.includes("*") || supported.includes(token);
 }
 
 function isActiveForPicker(entry: CatalogEntryBase, includeDeprecated: boolean): boolean {
-  if (entry.status === "deprecated") return includeDeprecated;
+  if (entry.status === "deprecated" || entry.status === "legacy") {
+    return includeDeprecated;
+  }
   return true;
 }
 
@@ -58,10 +67,15 @@ function pickProfileVersion(
     if (!exact) return null;
     return { id: exact.id, version: exact.version };
   }
-  // Prefer non-deprecated newest by version string (semver-ish lexical is enough for catalog packs).
-  const active = matches.filter((e) => e.status !== "deprecated");
+  const active = matches.filter((e) => e.status !== "deprecated" && e.status !== "legacy");
   const pool = active.length > 0 ? active : matches;
-  const chosen = [...pool].sort((a, b) => b.version.localeCompare(a.version))[0];
+  const chosen = [...pool].sort((a, b) => {
+    try {
+      return compareSemver(b.version, a.version);
+    } catch {
+      return b.version.localeCompare(a.version);
+    }
+  })[0];
   return chosen ? { id: chosen.id, version: chosen.version } : null;
 }
 
@@ -117,6 +131,39 @@ export const CatalogRegistry = {
 
   getCompetitionType(competitionTypeId: string): CompetitionTypeCatalogEntry | null {
     return COMPETITION_TYPE_CATALOG.find((c) => c.id === competitionTypeId) ?? null;
+  },
+
+  listRuleCategories(): RuleCategoryEntry[] {
+    return [...RULE_CATEGORY_CATALOG].sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  getRuleDefinition(id: string, version?: string | null): RuleDefinitionEntry | null {
+    const matches = RULE_DEFINITION_CATALOG.filter((d) => d.id === id);
+    if (matches.length === 0) return null;
+    if (version) return matches.find((d) => d.version === version) ?? null;
+    return [...matches].sort((a, b) => compareSemver(b.version, a.version))[0] ?? null;
+  },
+
+  getRuleDefinitions(filter: {
+    sportId: string;
+    categoryId?: string;
+  }): RuleDefinitionEntry[] {
+    return RULE_DEFINITION_CATALOG.filter((d) => {
+      if (d.sportId !== filter.sportId) return false;
+      if (filter.categoryId && d.categoryId !== filter.categoryId) return false;
+      return d.status !== "deprecated";
+    });
+  },
+
+  listRuleProfileFamilies(filter: ListProfilesFilter): string[] {
+    const profiles = this.listRuleProfiles(filter);
+    return [...new Set(profiles.map((p) => p.familyId))].sort();
+  },
+
+  listRuleProfileVersions(familyId: string): RuleProfileCatalogEntry[] {
+    return RULE_PROFILE_CATALOG.filter((p) => p.familyId === familyId).sort((a, b) =>
+      compareSemver(b.version, a.version),
+    );
   },
 
   listRuleProfiles(filter: ListProfilesFilter): RuleProfileCatalogEntry[] {
@@ -201,7 +248,7 @@ export const CatalogRegistry = {
     if (!sport) {
       return { ok: false, error: `Unknown sport: ${input.sportId}` };
     }
-    if (sport.status === "deprecated") {
+    if (sport.status === "deprecated" || sport.status === "legacy") {
       return { ok: false, error: `Sport is deprecated: ${input.sportId}` };
     }
 
@@ -236,7 +283,7 @@ export const CatalogRegistry = {
           : `Unknown rule profile: ${input.ruleProfileId}`,
       };
     }
-    if (rule.status === "deprecated") {
+    if (rule.status === "deprecated" || rule.status === "legacy") {
       return { ok: false, error: `Rule profile is deprecated: ${rule.id}` };
     }
     if (!profileCompatible(rule, input.sportId, input.variantId, input.competitionTypeId)) {
@@ -258,7 +305,7 @@ export const CatalogRegistry = {
           : `Unknown presentation profile: ${input.presentationProfileId}`,
       };
     }
-    if (presentation.status === "deprecated") {
+    if (presentation.status === "deprecated" || presentation.status === "legacy") {
       return {
         ok: false,
         error: `Presentation profile is deprecated: ${presentation.id}`,
@@ -289,6 +336,31 @@ export const CatalogRegistry = {
       presentationProfileVersion: presentation.version,
     };
     return { ok: true, bindings };
+  },
+
+  validateRuleProfile(input: {
+    sportId: string;
+    variantId: string;
+    competitionTypeId: string;
+    profileId: string;
+    profileVersion: string;
+    profileFamilyId?: string;
+  }): { ok: boolean; issues: ValidationIssue[] } {
+    const familyId = input.profileFamilyId ?? input.profileId;
+    const result = this.resolveRuleProfilePreview({
+      sportId: input.sportId,
+      variantId: input.variantId,
+      competitionTypeId: input.competitionTypeId,
+      profileFamilyId: familyId,
+      profileId: input.profileId,
+      profileVersion: input.profileVersion,
+      resolutionMode: "VALIDATE",
+    });
+    return { ok: resolveResultOk(result), issues: result.validation };
+  },
+
+  resolveRuleProfilePreview(ctx: ResolveContext): ResolveResult {
+    return resolveRuleProfile(ctx);
   },
 
   /**
@@ -347,6 +419,50 @@ export const CatalogRegistry = {
 
   requiresAuctionEconomics(competitionTypeId: string): boolean {
     return this.getCompetitionType(competitionTypeId)?.requiresAuctionEconomics ?? false;
+  },
+
+  /** Catalog quality: no orphan definitions / orphan profile values. */
+  assertCatalogIntegrity(): { ok: boolean; issues: string[] } {
+    const issues: string[] = [];
+    const defIds = new Set(RULE_DEFINITION_CATALOG.map((d) => `${d.id}@${d.version}`));
+    const usedDefs = new Set<string>();
+
+    for (const profile of RULE_PROFILE_CATALOG) {
+      if (!isSemver(profile.version)) {
+        issues.push(`Profile ${profile.id} has non-semver version ${profile.version}`);
+      }
+      for (const entry of profile.values) {
+        const key = `${entry.definitionId}@${entry.definitionVersion}`;
+        if (!defIds.has(key)) {
+          issues.push(
+            `Profile ${profile.id}@${profile.version} references missing definition ${key}`,
+          );
+        } else {
+          usedDefs.add(key);
+        }
+        const categoryOk = RULE_CATEGORY_CATALOG.some((c) => {
+          const def = RULE_DEFINITION_CATALOG.find(
+            (d) => d.id === entry.definitionId && d.version === entry.definitionVersion,
+          );
+          return def ? c.id === def.categoryId : false;
+        });
+        if (!categoryOk && defIds.has(key)) {
+          // category presence already on definition; skip duplicate noise
+        }
+      }
+    }
+
+    for (const def of RULE_DEFINITION_CATALOG) {
+      const key = `${def.id}@${def.version}`;
+      if (!usedDefs.has(key)) {
+        issues.push(`Orphan definition ${key} is not referenced by any profile`);
+      }
+      if (!RULE_CATEGORY_CATALOG.some((c) => c.id === def.categoryId)) {
+        issues.push(`Definition ${key} references unknown category ${def.categoryId}`);
+      }
+    }
+
+    return { ok: issues.length === 0, issues };
   },
 };
 

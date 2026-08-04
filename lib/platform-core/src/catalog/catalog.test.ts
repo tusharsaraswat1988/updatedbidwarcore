@@ -158,5 +158,23 @@ describe("CatalogRegistry", () => {
       expect(createWithDeprecated.error).toMatch(/deprecated/i);
     }
   });
+
+  it("exposes typed rule profile values instead of preview blobs", () => {
+    const profile = CatalogRegistry.getRuleProfile("cricket.box.corporate_standard");
+    expect(profile?.values.length).toBeGreaterThan(0);
+    expect(profile?.runtimeBinding.runtimeBindingType).toBe("cricket_platform_defaults");
+    expect(profile && "preview" in profile).toBe(false);
+    expect(profile?.status).toBe("active");
+  });
+
+  it("lists badminton single_game profile", () => {
+    const profiles = CatalogRegistry.listRuleProfiles({
+      sportId: "badminton",
+      variantId: "badminton.standard",
+      competitionTypeId: "registered_teams",
+    });
+    expect(profiles.some((p) => p.id === "badminton.single_game")).toBe(true);
+  });
 });
+
 

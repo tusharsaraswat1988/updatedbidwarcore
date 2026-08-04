@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { CatalogOptionList } from "./catalog-option-list";
+import { RuleProfileCatalogPanel } from "./rule-profile-catalog-panel";
 import {
   emptyTournamentCreationDraft,
   WIZARD_STEPS,
@@ -400,17 +401,20 @@ export function TournamentCreationWizard({
         )}
 
         {step.id === "rule_profile" && (
-          <CatalogOptionList
-            entries={ruleProfiles}
-            value={draft.ruleProfileId}
-            onSelect={(entry) =>
-              patch({
-                ruleProfileId: entry.id,
-                ruleProfileVersion: entry.version,
-              })
-            }
-            emptyLabel="No rule profiles match this sport, variant, and competition."
-          />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <CatalogOptionList
+              entries={ruleProfiles}
+              value={draft.ruleProfileId}
+              onSelect={(entry) =>
+                patch({
+                  ruleProfileId: entry.id,
+                  ruleProfileVersion: entry.version,
+                })
+              }
+              emptyLabel="No rule profiles match this sport, variant, and competition."
+            />
+            <RuleProfileCatalogPanel profile={ruleEntry} />
+          </div>
         )}
 
         {step.id === "presentation" && (

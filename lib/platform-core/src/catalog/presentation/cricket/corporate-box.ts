@@ -10,7 +10,7 @@ export const CRICKET_CORPORATE_BOX_PRESENTATION: readonly PresentationProfileCat
     description: "Compact corporate box cricket graphics and LED density.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.box"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
     preview: { density: "compact", theme: "corporate_box" },
   },

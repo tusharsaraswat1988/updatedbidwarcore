@@ -1,9 +1,10 @@
 /**
- * Platform Catalog — product assets for Tournament Creation.
+ * Platform Catalog — product assets for Tournament Creation + Rule Profiles.
  * Tournament stores only ids + versions; catalogs own definitions.
  */
 
-export type CatalogStatus = "default" | "beta" | "deprecated";
+/** Lifecycle status for catalog assets (not selection emphasis). */
+export type CatalogStatus = "active" | "beta" | "deprecated" | "legacy";
 
 /** Wizard / picker emphasis — not persisted on tournaments. */
 export type CatalogRecommendation = "auto_suggested" | "recommended" | "advanced";
@@ -36,11 +37,87 @@ export type CompetitionTypeCatalogEntry = CatalogEntryBase & {
   requiresAuctionEconomics: boolean;
 };
 
+/** Rule value types — extensible from day one. */
+export type RuleValueType =
+  | "integer"
+  | "boolean"
+  | "enum"
+  | "duration"
+  | "percentage"
+  | "decimal"
+  | "string"
+  | "list"
+  | "object"
+  | "custom";
+
+export type ConcreteRuleValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly ConcreteRuleValue[]
+  | { readonly [key: string]: ConcreteRuleValue };
+
+export type RuleCategoryEntry = {
+  id: string;
+  version: string;
+  displayName: string;
+  description: string;
+  status: CatalogStatus;
+  sortOrder: number;
+};
+
+export type RuleDefinitionValidation = {
+  required?: boolean;
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+};
+
+export type RuleDefinitionEntry = {
+  id: string;
+  version: string;
+  status: CatalogStatus;
+  name: string;
+  description: string;
+  categoryId: string;
+  sportId: string;
+  type: RuleValueType;
+  defaultValue: ConcreteRuleValue;
+  allowedValues?: readonly ConcreteRuleValue[];
+  validation?: RuleDefinitionValidation;
+  dependencies?: readonly string[];
+  conflicts?: readonly string[];
+  futureCompatible: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RuleProfileValueEntry = {
+  definitionId: string;
+  definitionVersion: string;
+  value: ConcreteRuleValue | "inherit";
+};
+
+/** Declarative runtime binding metadata — never adapter classes. */
+export type DeclarativeRuntimeBinding = {
+  runtimeBindingType: string;
+  runtimeBindingId: string;
+  metadata?: Readonly<Record<string, string | number | boolean>>;
+};
+
 export type RuleProfileCatalogEntry = CatalogEntryBase & {
   kind: "rule_profile";
   sportId: string;
-  /** UI-only preview metadata — never written onto tournaments. */
-  preview?: Record<string, unknown>;
+  familyId: string;
+  tags: readonly string[];
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+  values: readonly RuleProfileValueEntry[];
+  runtimeBinding: DeclarativeRuntimeBinding;
 };
 
 export type PresentationProfileCatalogEntry = CatalogEntryBase & {
@@ -111,3 +188,5 @@ export const LEGACY_PROFILE = {
 
 export const LEGACY_VARIANT_ID = "platform.legacy_variant";
 export const LEGACY_COMPETITION_TYPE_ID = "platform.legacy_competition";
+
+export const ASSET_EPOCH = "2026-08-04T00:00:00.000Z";

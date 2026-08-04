@@ -10,7 +10,7 @@ export const CRICKET_OUTDOOR_PRESENTATION: readonly PresentationProfileCatalogEn
     description: "Classic outdoor cricket public + LED presentation pack.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.outdoor", "cricket.custom"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
     preview: { density: "standard", theme: "outdoor" },
   },

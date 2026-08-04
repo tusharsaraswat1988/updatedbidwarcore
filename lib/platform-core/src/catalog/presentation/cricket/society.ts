@@ -10,7 +10,7 @@ export const CRICKET_SOCIETY_PRESENTATION: readonly PresentationProfileCatalogEn
     description: "Community / society aesthetic for tennis-ball and local leagues.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.tennis_ball", "cricket.box", "cricket.outdoor"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
     preview: { density: "friendly", theme: "society" },
   },

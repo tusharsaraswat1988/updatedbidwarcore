@@ -10,7 +10,7 @@ export const BADMINTON_VARIANTS: readonly VariantCatalogEntry[] = [
     description: "Standard singles/doubles badminton tournament variant.",
     supportedCompetitionTypes: ["registered_teams", "hybrid", "practice", "auction"],
     supportedVariants: ["badminton.standard"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
   },
 ];

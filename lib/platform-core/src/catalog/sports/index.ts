@@ -15,7 +15,7 @@ export const SPORT_CATALOG: readonly SportCatalogEntry[] = [
       "cricket.indoor",
       "cricket.custom",
     ],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
   },
   {
@@ -26,7 +26,7 @@ export const SPORT_CATALOG: readonly SportCatalogEntry[] = [
     description: "Singles and doubles badminton tournaments with draw-based competition.",
     supportedCompetitionTypes: ["registered_teams", "hybrid", "practice", "auction"],
     supportedVariants: ["badminton.standard"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
   },
   {

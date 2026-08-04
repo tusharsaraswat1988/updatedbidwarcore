@@ -44,10 +44,12 @@ import academyPublicRouter from "./academy-public";
 import diagnosticsRouter from "./diagnostics";
 import schemaHealthRouter from "./schema-health";
 import scorerRouter from "./scorer";
+import catalogRouter from "./catalog";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(catalogRouter);
 router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);

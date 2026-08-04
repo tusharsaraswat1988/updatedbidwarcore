@@ -10,7 +10,7 @@ export const CRICKET_VARIANTS: readonly VariantCatalogEntry[] = [
     description: "Standard outdoor cricket formats (T20 / custom overs).",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.outdoor"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
   },
   {
@@ -22,7 +22,7 @@ export const CRICKET_VARIANTS: readonly VariantCatalogEntry[] = [
     description: "Indoor/box cricket with shorter overs and variant dismissals.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.box"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
   },
   {
@@ -34,7 +34,7 @@ export const CRICKET_VARIANTS: readonly VariantCatalogEntry[] = [
     description: "Community tennis-ball cricket leagues.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.tennis_ball"],
-    status: "default",
+    status: "active",
     recommendation: "auto_suggested",
   },
   {
@@ -46,7 +46,7 @@ export const CRICKET_VARIANTS: readonly VariantCatalogEntry[] = [
     description: "Indoor court cricket with compact presentation.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.indoor"],
-    status: "default",
+    status: "active",
     recommendation: "advanced",
   },
   {

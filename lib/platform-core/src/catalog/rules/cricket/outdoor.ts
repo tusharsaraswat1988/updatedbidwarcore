@@ -1,30 +1,71 @@
-import type { RuleProfileCatalogEntry } from "../../types.ts";
+import { value } from "../../definitions/helpers.ts";
+import { ruleProfile } from "../profile-helpers.ts";
 
-export const CRICKET_OUTDOOR_RULE_PROFILES: readonly RuleProfileCatalogEntry[] = [
-  {
-    kind: "rule_profile",
+const ALL_COMP = ["auction", "registered_teams", "hybrid", "practice"] as const;
+
+const T20_VALUES = [
+  value("cricket.match.overs_per_innings", 20),
+  value("cricket.match.max_wickets", 10),
+  value("cricket.match.playing_squad_size", 11),
+  value("cricket.match.bench_size", 4),
+  value("cricket.match.balls_per_over", 6),
+  value("cricket.match.ball_type", "leather"),
+  value("cricket.dismissal.lbw_enabled", true),
+  value("cricket.bowling.free_hit_enabled", true),
+  value("cricket.batting.retire_at_runs", null),
+  value("cricket.powerplay.enabled", true),
+  value("cricket.tie_break.ties_allowed", true),
+  value("cricket.tie_break.super_over_enabled", true),
+  value("cricket.boundary.four_runs", 4),
+  value("cricket.boundary.six_runs", 6),
+] as const;
+
+export const CRICKET_OUTDOOR_RULE_PROFILES = [
+  ruleProfile({
     id: "cricket.outdoor.t20_standard",
-    version: "1.0.0",
     sportId: "cricket",
     displayName: "Outdoor T20 Standard",
-    description: "20-over outdoor cricket with standard LBW and free-hit rules.",
-    supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
+    description: "20-over outdoor cricket documenting current platform defaults.",
+    supportedCompetitionTypes: ALL_COMP,
     supportedVariants: ["cricket.outdoor"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
-    preview: { overs: 20, playersPerSide: 11, lbw: true, ball: "leather" },
-  },
-  {
-    kind: "rule_profile",
+    tags: ["t20", "outdoor", "leather"],
+    values: T20_VALUES,
+    runtimeBinding: {
+      runtimeBindingType: "cricket_platform_defaults",
+      runtimeBindingId: "outdoor_t20_current",
+    },
+  }),
+  ruleProfile({
     id: "cricket.outdoor.custom",
-    version: "1.0.0",
     sportId: "cricket",
     displayName: "Outdoor Custom",
-    description: "Flexible outdoor pack for society/corporate overs.",
-    supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
+    description: "Flexible outdoor pack; overs left to organizer runtime defaults.",
+    supportedCompetitionTypes: ALL_COMP,
     supportedVariants: ["cricket.outdoor", "cricket.custom"],
     status: "beta",
     recommendation: "advanced",
-    preview: { overs: null, playersPerSide: 11, lbw: true, ball: "leather" },
-  },
-];
+    tags: ["outdoor", "custom"],
+    values: [
+      value("cricket.match.overs_per_innings", "inherit"),
+      value("cricket.match.max_wickets", 10),
+      value("cricket.match.playing_squad_size", 11),
+      value("cricket.match.bench_size", 4),
+      value("cricket.match.balls_per_over", 6),
+      value("cricket.match.ball_type", "leather"),
+      value("cricket.dismissal.lbw_enabled", true),
+      value("cricket.bowling.free_hit_enabled", true),
+      value("cricket.batting.retire_at_runs", null),
+      value("cricket.powerplay.enabled", true),
+      value("cricket.tie_break.ties_allowed", true),
+      value("cricket.tie_break.super_over_enabled", true),
+      value("cricket.boundary.four_runs", 4),
+      value("cricket.boundary.six_runs", 6),
+    ],
+    runtimeBinding: {
+      runtimeBindingType: "cricket_platform_defaults",
+      runtimeBindingId: "outdoor_custom",
+    },
+  }),
+] as const;

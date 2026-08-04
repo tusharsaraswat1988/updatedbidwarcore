@@ -6,6 +6,7 @@ import { CRICKET_INDOOR_RULE_PROFILES } from "./cricket/indoor.ts";
 import { CRICKET_OUTDOOR_RULE_PROFILES } from "./cricket/outdoor.ts";
 import { CRICKET_TENNIS_BALL_RULE_PROFILES } from "./cricket/tennis-ball.ts";
 import { FOOTBALL_RULE_PROFILES } from "./football/standard.ts";
+import { LEGACY_RULE_PROFILES } from "./legacy.ts";
 
 /** Internal aggregate — consumers must use CatalogRegistry only. */
 export const RULE_PROFILE_CATALOG: readonly RuleProfileCatalogEntry[] = [
@@ -16,5 +17,5 @@ export const RULE_PROFILE_CATALOG: readonly RuleProfileCatalogEntry[] = [
   ...CRICKET_CUSTOM_RULE_PROFILES,
   ...BADMINTON_RULE_PROFILES,
   ...FOOTBALL_RULE_PROFILES,
+  ...LEGACY_RULE_PROFILES,
 ];
-

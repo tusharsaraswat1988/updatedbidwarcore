@@ -1,10 +1,9 @@
-import type { RuleProfileCatalogEntry } from "../../types.ts";
+import { value } from "../../definitions/helpers.ts";
+import { ruleProfile } from "../profile-helpers.ts";
 
-export const FOOTBALL_RULE_PROFILES: readonly RuleProfileCatalogEntry[] = [
-  {
-    kind: "rule_profile",
+export const FOOTBALL_RULE_PROFILES = [
+  ruleProfile({
     id: "football.standard",
-    version: "1.0.0",
     sportId: "football",
     displayName: "Football Standard",
     description: "Placeholder football rule pack for future expansion.",
@@ -12,6 +11,11 @@ export const FOOTBALL_RULE_PROFILES: readonly RuleProfileCatalogEntry[] = [
     supportedVariants: ["football.standard"],
     status: "beta",
     recommendation: "recommended",
-    preview: { note: "Future rule engine pack" },
-  },
-];
+    tags: ["placeholder"],
+    values: [value("football.match.duration_minutes", 90)],
+    runtimeBinding: {
+      runtimeBindingType: "football_platform_defaults",
+      runtimeBindingId: "standard",
+    },
+  }),
+] as const;

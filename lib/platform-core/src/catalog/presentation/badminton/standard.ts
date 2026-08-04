@@ -10,7 +10,7 @@ export const BADMINTON_PRESENTATION: readonly PresentationProfileCatalogEntry[] 
     description: "Default badminton public + court display presentation.",
     supportedCompetitionTypes: ["registered_teams", "hybrid", "practice", "auction"],
     supportedVariants: ["badminton.standard"],
-    status: "default",
+    status: "active",
     recommendation: "recommended",
     preview: { density: "standard", theme: "badminton" },
   },

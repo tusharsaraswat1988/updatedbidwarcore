@@ -10,7 +10,7 @@ export const CRICKET_INDOOR_BOX_PRESENTATION: readonly PresentationProfileCatalo
     description: "Indoor / box venue presentation with tight scorebug density.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
     supportedVariants: ["cricket.box", "cricket.indoor"],
-    status: "default",
+    status: "active",
     recommendation: "auto_suggested",
     preview: { density: "tight", theme: "indoor_box" },
   },

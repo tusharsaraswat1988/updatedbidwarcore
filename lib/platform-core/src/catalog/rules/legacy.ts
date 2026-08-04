@@ -1,17 +1,20 @@
-import { value } from "../../definitions/helpers.ts";
-import { ruleProfile } from "../profile-helpers.ts";
+import { value } from "../definitions/helpers.ts";
+import { LEGACY_PROFILE } from "../types.ts";
+import { ruleProfile } from "./profile-helpers.ts";
 
-export const CRICKET_CUSTOM_RULE_PROFILES = [
+/** Legacy compatibility profile — status legacy; not offered on create. */
+export const LEGACY_RULE_PROFILES = [
   ruleProfile({
-    id: "cricket.custom.blank",
+    id: LEGACY_PROFILE.id,
+    familyId: LEGACY_PROFILE.id,
     sportId: "cricket",
-    displayName: "Custom Cricket Pack",
-    description: "Starting point for organizer-defined cricket rules (resolved later by Rule Engine).",
-    supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
-    supportedVariants: ["cricket.custom"],
-    status: "beta",
+    displayName: LEGACY_PROFILE.displayName,
+    description: LEGACY_PROFILE.description,
+    supportedCompetitionTypes: ["*"],
+    supportedVariants: ["*"],
+    status: "legacy",
     recommendation: "advanced",
-    tags: ["custom"],
+    tags: ["legacy"],
     values: [
       value("cricket.match.overs_per_innings", "inherit"),
       value("cricket.match.max_wickets", "inherit"),
@@ -30,7 +33,7 @@ export const CRICKET_CUSTOM_RULE_PROFILES = [
     ],
     runtimeBinding: {
       runtimeBindingType: "cricket_platform_defaults",
-      runtimeBindingId: "custom_blank",
+      runtimeBindingId: "legacy",
     },
   }),
 ] as const;
