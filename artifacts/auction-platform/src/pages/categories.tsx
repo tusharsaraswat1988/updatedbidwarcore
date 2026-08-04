@@ -368,7 +368,7 @@ export default function Categories() {
             {[1,2,3].map(i => <Skeleton key={i} className="h-36" />)}
           </div>
         ) : categories?.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 bg-card/20 py-14 px-8 text-center max-w-xl">
+          <div className="org-surface-card border-dashed py-14 px-8 text-center max-w-xl">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
               <Tag className="w-7 h-7 text-amber-500/60" />
             </div>
@@ -391,7 +391,7 @@ export default function Categories() {
               const assignedCount = playersByCategory.get(cat.id) ?? 0;
               const deleteBlocked = assignedCount > 0;
               return (
-                <Card key={cat.id} className="overflow-hidden border-border hover:border-primary/30 transition-all">
+                <Card key={cat.id} className="overflow-hidden panel border-none hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.25)] transition-all">
                   <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-4">

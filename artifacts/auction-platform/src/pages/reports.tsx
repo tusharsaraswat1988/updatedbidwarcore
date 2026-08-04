@@ -104,7 +104,7 @@ export default function Reports() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          <Card className="border-border">
+          <Card className="panel border-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary" /> Team Purse Usage
@@ -133,7 +133,7 @@ export default function Reports() {
             </CardContent>
           </Card>
 
-          <Card className="border-border">
+          <Card className="panel border-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" /> Sold by Category
@@ -169,7 +169,7 @@ export default function Reports() {
 
         {/* Team Purse Detail Table */}
         {teamPurses && teamPurses.length > 0 && (
-          <Card className="border-border">
+          <Card className="panel border-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" /> Team Purse Breakdown
@@ -203,7 +203,7 @@ export default function Reports() {
 
         {/* Top Bids */}
         {topBids && topBids.length > 0 && (
-          <Card className="border-border">
+          <Card className="panel border-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Award className="w-4 h-4 text-primary" /> Top Sold Players

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, hydrate, type DehydratedState } from "@tanstack/react-query";
 import { useBranding } from "@/hooks/use-branding";
+import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { PageTracking } from "@/components/page-tracking";
 import { applyPwaHeadBranding, ADMIN_MANIFEST_HREF, isAdminPwaRoute } from "@/lib/branding-pwa";
 import {
@@ -142,12 +143,39 @@ function BrandingEffects() {
   return null;
 }
 
+/** Ensures the shared Organizer account auth query starts at app boot. */
+function OrganizerAccountAuthBootstrap() {
+  useOrganizerAccountAuth();
+  return null;
+}
+
+/**
+ * Root URL gate: never mount Landing for an authenticated Organizer.
+ * Redirect uses replace so Back does not return to a page that re-redirects.
+ */
+function HomeRoute() {
+  const { isLoggedIn, isLoading } = useOrganizerAccountAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && isLoggedIn) {
+      navigate("/organizer", { replace: true });
+    }
+  }, [isLoading, isLoggedIn, navigate]);
+
+  if (isLoading || isLoggedIn) {
+    return <BootSplash />;
+  }
+
+  return <Landing />;
+}
+
 function Router() {
   return (
     <Suspense fallback={<BootSplash />}>
       <Switch>
         {/* Marketing routes */}
-        <Route path="/" component={Landing} />
+        <Route path="/" component={HomeRoute} />
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/pricing" component={PricingPage} />
@@ -222,6 +250,7 @@ function App(props: AppProps = {}) {
           base={import.meta.env.BASE_URL.replace(/\/$/, "")}
           ssrPath={props.ssrPath}
         >
+          <OrganizerAccountAuthBootstrap />
           <BrandingEffects />
           <PageTracking />
           <Router />

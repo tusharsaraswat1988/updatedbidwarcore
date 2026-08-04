@@ -765,7 +765,7 @@ export default function TournamentSettings() {
       />
 
       {/* Sticky tab strip — horizontally scrollable on mobile */}
-      <div className="sticky top-0 z-20 mb-4 sm:mb-5 rounded-xl border border-border/70 bg-[hsl(240,10%,8%)] p-1 shadow-sm shadow-black/15">
+      <div className="sticky top-0 z-20 mb-4 sm:mb-5 rounded-xl border border-border/70 bg-card p-1 shadow-sm shadow-black/15">
         <div className="flex overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         {tabs.map(tab => {
           const Icon = tab.icon;
@@ -776,7 +776,7 @@ export default function TournamentSettings() {
               onClick={() => navigate(settingsPath(tournamentId, tab.id), { replace: true })}
               className={`flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all rounded-lg min-w-0 touch-target ${
                 active
-                  ? "text-primary bg-[hsl(240,10%,14%)] shadow-sm ring-1 ring-primary/25"
+                  ? "text-primary bg-secondary shadow-sm ring-1 ring-primary/25"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
               }`}
             >
@@ -962,7 +962,7 @@ export default function TournamentSettings() {
         {/* ── PLAYER REGISTRATION ── */}
         {activeSection === "playerRegistration" && (
           <SettingsTabPanel className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 bg-[hsl(240,10%,9%)] px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 bg-muted/40 px-3 py-2">
               <Badge variant="outline" className="text-xs font-normal">All settings optional</Badge>
               <p className="text-[11px] text-muted-foreground">
                 Configure the public player registration link. Changes save automatically.
@@ -1003,7 +1003,7 @@ export default function TournamentSettings() {
                         return (
                           <label
                             key={key}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-[hsl(240,10%,8%)] px-3 py-2.5 hover:bg-[hsl(240,10%,10%)] transition-colors"
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card px-3 py-2.5 hover:bg-white/[0.04] transition-colors"
                           >
                             <span className="text-sm">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
                             <Switch

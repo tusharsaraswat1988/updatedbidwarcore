@@ -72,7 +72,7 @@ function CreativeJobPreviewDialog({
         <DialogHeader className="border-b border-border px-4 py-3">
           <DialogTitle className="font-display text-base">{title}</DialogTitle>
         </DialogHeader>
-        <div className="flex max-h-[calc(90vh-4rem)] items-center justify-center overflow-auto bg-[#0a0a0a] p-4">
+        <div className="flex max-h-[calc(90vh-4rem)] items-center justify-center overflow-auto bg-stage p-4">
           <img
             src={previewUrl}
             alt={title}

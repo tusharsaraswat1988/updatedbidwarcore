@@ -1,14 +1,23 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
-import { useOrganizerAuth } from "@/hooks/use-auth";
+import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
+import { AccessStateView } from "@/components/access-state-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, MonitorDown } from "lucide-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
-import { checkOrganizerAccountAuth } from "@/lib/auth";
+import {
+  checkOrganizerAuth,
+  logoutOrganizerAccount,
+} from "@/lib/auth";
+import {
+  clearOrganizerClientState,
+  syncOrganizerAccountAuth,
+} from "@/lib/organizer-account-auth-cache";
+import { useQueryClient } from "@tanstack/react-query";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
   if (badmintonRoute) {
@@ -37,15 +46,25 @@ function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean })
   );
 }
 
+function scoringLoginUrl(returnTo: string): string {
+  return `${SCORING_APP_BASE}/login?next=${encodeURIComponent(returnTo)}`;
+}
+
 export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
-  const { isLoggedIn, isLoading } = useOrganizerAuth(tournamentId);
+  const { isLoggedIn, isLoading, refetch } = useOrganizerAuth(tournamentId);
+  const { isLoading: accountLoading } = useOrganizerAccountAuth();
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   const [location] = useLocation();
   const badmintonRoute = isBadmintonOrganizerPath(location);
   const inScoringApp =
     typeof window !== "undefined" &&
     window.location.pathname.startsWith(SCORING_APP_BASE);
+
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [resolvingAccount, setResolvingAccount] = useState(false);
 
   const {
     warningVisible,
@@ -58,41 +77,97 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   });
 
   const redirectedRef = useRef(false);
+  const authSettled = !isLoading && !accountLoading;
 
   useEffect(() => {
     if (redirectedRef.current) return;
-    if (!isLoading && !isLoggedIn && tournamentId && !isBidWarLocalHost()) {
-      redirectedRef.current = true;
-      const returnTo = `${window.location.pathname}${window.location.search}`;
+    if (!authSettled || isLoggedIn || !tournamentId || isBidWarLocalHost()) return;
 
-      void (async () => {
-        const account = await checkOrganizerAccountAuth();
+    redirectedRef.current = true;
+    setResolvingAccount(true);
+    const returnTo = `${window.location.pathname}${window.location.search}`;
 
-        // Logged-in organizer account but no tournament session — send to the
-        // per-tournament login gate. Sending them to /organizer?next=… causes an
-        // infinite loop because the portal auto-navigates back to `next`.
+    void (async () => {
+      try {
+        // Refresh shared account query (session restore / claim) then retry tournament auth.
+        const account = await syncOrganizerAccountAuth(queryClient);
+
+        if (account.serverError) {
+          setSessionExpired(true);
+          setResolvingAccount(false);
+          return;
+        }
+
         if (account.loggedIn) {
-          const loginPath = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
-          if (inScoringApp) {
-            window.location.href = loginPath;
+          const ok = await checkOrganizerAuth(tournamentId);
+          if (ok) {
+            await refetch();
+            setResolvingAccount(false);
+            redirectedRef.current = false;
             return;
           }
+
+          // Account present but not owner after claim — scoring shows 403.
+          // Auction keeps the per-tournament password / operator gate.
+          if (inScoringApp) {
+            setAccessDenied(true);
+            setResolvingAccount(false);
+            return;
+          }
+
+          const loginPath = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
           navigate(loginPath);
           return;
         }
 
-        // No organizer account — always use regular signup/login (incl. scoring-app).
-        const organizerPath = `/organizer?next=${encodeURIComponent(returnTo)}`;
+        // No organizer account — scoring-local login (never Auction homepage).
         if (inScoringApp) {
-          window.location.href = organizerPath;
+          window.location.href = scoringLoginUrl(returnTo);
           return;
         }
-        navigate(organizerPath);
-      })();
-    }
-  }, [isLoggedIn, isLoading, tournamentId, navigate, inScoringApp]);
+        navigate(`/organizer?next=${encodeURIComponent(returnTo)}`);
+      } catch {
+        setSessionExpired(true);
+        setResolvingAccount(false);
+      }
+    })();
+  }, [authSettled, isLoggedIn, tournamentId, navigate, inScoringApp, refetch, queryClient]);
 
-  if (isLoading) {
+  if (sessionExpired) {
+    return (
+      <AccessStateView
+        code={401}
+        actionLabel="Sign in again"
+        onAction={() => {
+          const returnTo = `${window.location.pathname}${window.location.search}`;
+          if (inScoringApp) {
+            window.location.href = scoringLoginUrl(returnTo);
+            return;
+          }
+          navigate(`/organizer?next=${encodeURIComponent(returnTo)}`);
+        }}
+      />
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <AccessStateView
+        code={403}
+        actionLabel="Sign in with another account"
+        onAction={() => {
+          const returnTo = `${window.location.pathname}${window.location.search}`;
+          void (async () => {
+            await logoutOrganizerAccount();
+            clearOrganizerClientState(queryClient);
+            window.location.href = scoringLoginUrl(returnTo);
+          })();
+        }}
+      />
+    );
+  }
+
+  if (!authSettled || resolvingAccount) {
     return <OrganizerAccessLoading badmintonRoute={badmintonRoute || inScoringApp} />;
   }
   if (!isLoggedIn) {

@@ -155,6 +155,15 @@ import {
   listLeagueGroups,
   replaceLeagueGroups,
 } from "../lib/badminton-league-service";
+import {
+  getTournamentEngineConfig,
+  newCategoryEngineDefaults,
+  updateTournamentEngineConfig,
+} from "../lib/badminton-tournament-engine";
+import {
+  isTournamentEngineStage,
+  normalizeRankingRules,
+} from "@workspace/badminton-core";
 import { bulkCreateBadmintonMatchesFromFixtures } from "../lib/badminton-bulk-match-create";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
 import {
@@ -1241,9 +1250,18 @@ router.post("/categories", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  const engineDefaults = newCategoryEngineDefaults(parsed.data.drawType);
+
   const [cat] = await db
     .insert(badmintonCategoriesTable)
-    .values({ tournamentId, ...parsed.data })
+    .values({
+      tournamentId,
+      ...parsed.data,
+      rankingRulesJson: engineDefaults.rankingRulesJson,
+      currentStage: engineDefaults.currentStage,
+      qualifiersPerGroup: engineDefaults.qualifiersPerGroup,
+      qualifierMode: engineDefaults.qualifierMode,
+    })
     .returning();
 
   res.status(201).json(cat);
@@ -1294,6 +1312,67 @@ router.patch("/categories/:catId", async (req, res) => {
 
   if (!cat) return void res.status(404).json({ error: "category not found" });
   res.json(cat);
+});
+
+/** Tournament Engine config — ranking / qualification / stage (UI-agnostic). */
+router.get("/categories/:catId/tournament-engine", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const config = await getTournamentEngineConfig(tournamentId, catId);
+  if (!config) return void res.status(404).json({ error: "category not found" });
+  res.json(config);
+});
+
+router.put("/categories/:catId/tournament-engine", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    currentStage: z
+      .enum(["league", "quarter_final", "semi_final", "final", "completed"])
+      .nullable()
+      .optional(),
+    rankingRules: z
+      .array(
+        z.enum([
+          "wins",
+          "pointsDifference",
+          "headToHead",
+          "random",
+          "registrationId",
+        ]),
+      )
+      .min(1)
+      .optional(),
+    qualifiersPerGroup: z.number().int().min(1).max(64).nullable().optional(),
+    qualifierMode: z.enum(["per_group", "category"]).nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  if (parsed.data.rankingRules && !normalizeRankingRules(parsed.data.rankingRules)) {
+    return void res.status(400).json({ error: "Invalid rankingRules" });
+  }
+  if (
+    parsed.data.currentStage != null &&
+    !isTournamentEngineStage(parsed.data.currentStage)
+  ) {
+    return void res.status(400).json({ error: "Invalid currentStage" });
+  }
+
+  try {
+    const config = await updateTournamentEngineConfig(tournamentId, catId, parsed.data);
+    if (!config) return void res.status(404).json({ error: "category not found" });
+    res.json(config);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Update failed";
+    return void res.status(400).json({ error: message });
+  }
 });
 
 router.delete("/categories/:catId", async (req, res) => {
@@ -2039,22 +2118,25 @@ router.get("/categories/:catId/qualifiers", async (req, res) => {
   const catId = parseId((req.params as MergedParams).catId);
   if (!catId) return void res.status(400).json({ error: "bad id" });
 
+  const engine = await getTournamentEngineConfig(tournamentId, catId);
+  if (!engine) return void res.status(404).json({ error: "category not found" });
+
   const limitRaw = req.query.limit;
-  const limit =
+  const limitFromQuery =
     typeof limitRaw === "string" && limitRaw.trim()
       ? Number.parseInt(limitRaw, 10)
-      : 4;
+      : NaN;
   const modeRaw = req.query.mode;
-  /** Default per_group when category has multiple groups; else category-wide. */
-  let mode: "category" | "per_group" =
-    modeRaw === "per_group" || modeRaw === "category" ? modeRaw : "category";
-  if (modeRaw !== "per_group" && modeRaw !== "category") {
-    const groups = await listLeagueGroups(tournamentId, catId);
-    if (groups.length > 1) mode = "per_group";
-  }
+  const modeFromQuery =
+    modeRaw === "per_group" || modeRaw === "category" ? modeRaw : null;
+
+  const limit = !Number.isNaN(limitFromQuery)
+    ? limitFromQuery
+    : engine.qualification.effectiveQualifiersPerGroup;
+  const mode = modeFromQuery ?? engine.qualification.effectiveQualifierMode;
 
   const qualifiers = await getCategoryPairStandings(tournamentId, catId, {
-    limit: Number.isNaN(limit) ? 4 : limit,
+    limit,
     mode,
   });
   res.json(qualifiers);

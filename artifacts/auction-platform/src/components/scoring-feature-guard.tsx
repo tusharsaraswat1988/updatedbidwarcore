@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 import { usePlatformFeatures } from "@/hooks/use-platform-features";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
-import { NotFoundView } from "@/components/not-found-view";
+import { AccessStateView } from "@/components/access-state-view";
 
 /** Gates cricket, badminton, and future sport scoring UIs behind platform SCORING=true. */
 export function ScoringFeatureGuard({ children }: { children: ReactNode }) {
@@ -16,7 +16,16 @@ export function ScoringFeatureGuard({ children }: { children: ReactNode }) {
       <div className={loadingClass} aria-busy="true" aria-label="Loading scoring features" />
     );
   }
-  if (!scoring) return <NotFoundView />;
+  if (!scoring) {
+    return (
+      <AccessStateView
+        code={503}
+        title="Scoring unavailable"
+        body="Scoring is currently unavailable."
+        next="Please contact your tournament administrator."
+      />
+    );
+  }
   return <>{children}</>;
 }
 

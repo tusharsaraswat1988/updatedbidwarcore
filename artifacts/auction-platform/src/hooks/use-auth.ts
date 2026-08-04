@@ -4,10 +4,48 @@ import {
   checkOrganizerAuth, bootstrapLocalOrganizer, loginOrganizer, logoutOrganizer,
   checkAdminAuth, loginAdmin, logoutAdmin,
 } from "@/lib/auth";
+import {
+  ORGANIZER_ACCOUNT_AUTH_QUERY_KEY,
+  fetchOrganizerAccountAuthState,
+} from "@/lib/organizer-account-auth-cache";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
+
+export { ORGANIZER_ACCOUNT_AUTH_QUERY_KEY };
 
 export function organizerAuthQueryKey(tournamentId: number) {
   return ["organizer-auth", tournamentId] as const;
+}
+
+/**
+ * Single source of truth for Organizer *account* session (cookie + /me).
+ * All surfaces must read through this hook — do not call checkOrganizerAccountAuth() from components.
+ */
+export function useOrganizerAccountAuth() {
+  const queryClient = useQueryClient();
+
+  const { data, isPending, refetch } = useQuery({
+    queryKey: ORGANIZER_ACCOUNT_AUTH_QUERY_KEY,
+    queryFn: () => fetchOrganizerAccountAuthState(queryClient),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  // Remounts with warm cache must not blank the page waiting on auth.
+  const isLoading = isPending && data === undefined;
+  const isLoggedIn = !!data?.loggedIn && !!data.organizer;
+
+  return {
+    organizer: isLoggedIn ? data!.organizer! : null,
+    tournaments: isLoggedIn ? (data!.tournaments ?? []) : [],
+    isLoggedIn,
+    isLoading,
+    isServerError: !!data?.serverError,
+    refresh: async () => {
+      await refetch();
+    },
+  };
 }
 
 async function resolveOrganizerAuth(tournamentId: number): Promise<boolean> {

@@ -632,7 +632,7 @@ export default function Teams() {
             {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-52" />)}
           </div>
         ) : teams?.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 bg-card/20 py-16 px-8 text-center max-w-xl mx-auto">
+          <div className="org-surface-card border-dashed py-16 px-8 text-center max-w-xl mx-auto">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
               <Users className="w-8 h-8 text-primary/60" />
             </div>

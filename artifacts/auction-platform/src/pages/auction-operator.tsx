@@ -238,7 +238,7 @@ function CircularTimer({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-4 rounded-2xl border border-white/8 bg-[#141820]">
+    <div className="flex flex-col items-center justify-center py-4 rounded-2xl border border-white/8 bg-card">
       {ring}
       <div className="flex items-center gap-1.5 mt-2">
         <div className={`w-1.5 h-1.5 rounded-full ${running ? (urgent ? "bg-red-400 animate-ping" : "bg-yellow-400 animate-pulse") : "bg-white/15"}`} />
@@ -1082,7 +1082,7 @@ export default function AuctionOperator() {
 
   const timerAndUtilitiesBar = (
     /* Mobile: single horizontal row under header (no wrap). Desktop may wrap utilities. */
-    <div className="flex-shrink-0 flex items-center gap-1 lg:gap-2 px-2 lg:px-4 py-1.5 lg:py-2 bg-[#141720] border-b border-white/8 flex-nowrap lg:flex-wrap overflow-x-auto">
+    <div className="flex-shrink-0 flex items-center gap-1 lg:gap-2 px-2 lg:px-4 py-1.5 lg:py-2 bg-card/90 border-b border-white/8 flex-nowrap lg:flex-wrap overflow-x-auto">
       <Clock className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white/25 flex-shrink-0" />
       <ServerCountdown
         variant="operator"
@@ -1213,7 +1213,7 @@ export default function AuctionOperator() {
             key={state?.currentPlayer?.id}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="relative rounded-xl lg:rounded-2xl border border-white/10 overflow-hidden min-h-[132px] lg:min-h-[200px] bg-[#141820]"
+            className="relative rounded-xl lg:rounded-2xl border border-white/10 overflow-hidden min-h-[132px] lg:min-h-[200px] bg-card"
           >
             {/* Full-bleed photo — face stays in the clear upper zone */}
             {state?.currentPlayer?.photoUrl ? (
@@ -1284,14 +1284,14 @@ export default function AuctionOperator() {
           <motion.div
             key="no-player"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="rounded-xl lg:rounded-2xl border border-white/8 bg-[#141820] flex items-center justify-center min-h-[132px] lg:min-h-[200px] text-white/20 text-xs lg:text-sm text-center px-2 lg:px-4"
+            className="rounded-xl lg:rounded-2xl border border-white/8 bg-card flex items-center justify-center min-h-[132px] lg:min-h-[200px] text-white/20 text-xs lg:text-sm text-center px-2 lg:px-4"
           >
             {isActive ? "Click Next Player to load a player" : "Start the auction to begin"}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col rounded-xl lg:rounded-2xl border border-white/8 bg-[#141820] overflow-hidden min-w-0">
+      <div className="flex flex-col rounded-xl lg:rounded-2xl border border-white/8 bg-card overflow-hidden min-w-0">
         <div className="flex flex-col items-center justify-center flex-1 py-2 px-2 lg:py-3 lg:px-3 text-center min-w-0">
           <p className="text-[9px] lg:text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-0.5 lg:mb-1">Current Bid</p>
           <motion.div
@@ -1530,7 +1530,7 @@ export default function AuctionOperator() {
                 </div>
               )}
               {isTrialRestricted && (
-                <div className="absolute inset-0 rounded-xl bg-[#0f1117]/60 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-xl bg-background/60 flex items-center justify-center">
                   <span className="text-[9px] font-bold text-yellow-400/70 uppercase">Trial</span>
                 </div>
               )}
@@ -1611,7 +1611,7 @@ export default function AuctionOperator() {
       remainingCount={state?.remainingPlayersCount || 0}
       headerSessionAction={headerSessionAction}
     >
-      <div className="flex flex-col h-full overflow-hidden bg-[#0f1117] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="flex flex-col h-full overflow-hidden bg-transparent text-foreground">
 
         <DisplayConnectionBanner
           feedState={feed.state}
@@ -1688,7 +1688,7 @@ export default function AuctionOperator() {
 
         {/* ══════════ AUCTION CONTROL BAR (desktop only — session + LED/OBS) ═ */}
         {/* Mobile/tablet: Pause/Start lives in OperatorLayout header; Broadcast tab owns LED/OBS. */}
-        <div className="hidden lg:flex flex-shrink-0 items-center gap-2 px-3 py-1.5 bg-[#141720] border-b border-white/8 flex-wrap min-h-[44px] z-10">
+        <div className="hidden lg:flex flex-shrink-0 items-center gap-2 px-3 py-1.5 bg-card/90 border-b border-white/8 flex-wrap min-h-[44px] z-10">
 
           {/* Stats — mirrored in the persistent mobile app header, so desktop-only here */}
           <div className="hidden lg:flex items-center gap-2 text-xs font-medium flex-shrink-0">
@@ -1836,7 +1836,7 @@ export default function AuctionOperator() {
                       <ChevronDown className="w-2.5 h-2.5 opacity-60" />
                     </button>
                     {playerFilterOpen && (
-                      <div className="absolute top-full right-0 mt-1 w-56 rounded-xl border border-white/15 bg-[#1a1f2e] shadow-2xl z-50 p-3 space-y-3">
+                      <div className="absolute top-full right-0 mt-1 w-56 rounded-xl border border-white/15 bg-secondary shadow-2xl z-50 p-3 space-y-3">
                         {!active && (teams?.length ?? 0) > 0 && playerFilterStatus !== "available" && (!playerFilterStatusPicked || !playerFilterTeamPicked) && (
                           <p className="text-[10px] text-white/45 leading-snug">
                             Pick one status and one team to show the player list on the LED screen.
@@ -1989,7 +1989,7 @@ export default function AuctionOperator() {
         <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${rightCollapsed ? "lg:grid-cols-[280px_1fr]" : "lg:grid-cols-[280px_1fr_260px]"}`}>
 
           {/* ══ LEFT: PLAYER QUEUE ══════════════════════════════════════════ */}
-          <aside className={`border-r border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "menu" ? "flex" : "hidden"} lg:flex`}>
+          <aside className={`border-r border-white/8 flex-col min-h-0 overflow-hidden bg-card/90 ${mobilePanel === "menu" ? "flex" : "hidden"} lg:flex`}>
 
             {/* Header */}
             <div className="flex items-center px-3 py-2 border-b border-white/8 flex-shrink-0">
@@ -2248,7 +2248,7 @@ export default function AuctionOperator() {
 
           {/* ══ MOBILE BROADCAST PANEL ══════════════════════════════════════════ */}
           {/* Dedicated mobile workspace for screen controls — hidden on desktop   */}
-          <div className={`flex-col min-h-0 overflow-y-auto bg-[#0f1117] ${mobilePanel === "broadcast" ? "flex" : "hidden"} lg:hidden`}>
+          <div className={`flex-col min-h-0 overflow-y-auto bg-background ${mobilePanel === "broadcast" ? "flex" : "hidden"} lg:hidden`}>
             <div className="p-3 space-y-4 pb-4">
 
               {/* ── LED SCREEN ──────────────────────────────────────────────────── */}
@@ -2381,7 +2381,7 @@ export default function AuctionOperator() {
           </div>
 
           {/* ══ RIGHT: TEAMS + BID HISTORY ══════════════════════════════════ */}
-          <aside className={`border-l border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "reference" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
+          <aside className={`border-l border-white/8 flex-col min-h-0 overflow-hidden bg-card/90 ${mobilePanel === "reference" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
 
             {/* Teams & Purse — mobile: dense rows; desktop: fuller cards */}
             <div className="flex flex-col flex-1 lg:flex-shrink-0 min-h-0 lg:max-h-[55%]">
@@ -2389,7 +2389,7 @@ export default function AuctionOperator() {
                 <Trophy className="w-3.5 h-3.5 text-white/40 lg:text-amber-400 flex-shrink-0" />
                 <span className="text-xs font-black uppercase tracking-wider text-white/50 lg:text-amber-100/80">Teams &amp; Purse</span>
               </div>
-              <ScrollArea className="flex-1 min-h-0 bg-[#141720]">
+              <ScrollArea className="flex-1 min-h-0 bg-card/90">
                 <div className="p-1.5 lg:p-2.5 flex flex-col gap-1 lg:gap-2">
                   {(teams || []).map(team => {
                     const purseData = teamPurses?.find(p => p.teamId === team.id);
@@ -2495,10 +2495,10 @@ export default function AuctionOperator() {
               </ScrollArea>
             </div>
 
-            <div className="flex-shrink-0 h-2 bg-[#0f1117] border-y border-white/10" aria-hidden />
+            <div className="flex-shrink-0 h-2 bg-background border-y border-white/10" aria-hidden />
 
             {/* Last Actions / Bid History */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#11141c]">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-stage">
               <div className="flex items-center gap-2 px-3 py-2.5 border-b border-yellow-500/20 bg-yellow-500/[0.06] flex-shrink-0">
                 <Gavel className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
                 <span className="text-xs font-black uppercase tracking-wider text-yellow-100/80">Last Biddings Actions</span>
@@ -2537,7 +2537,7 @@ export default function AuctionOperator() {
 
         {/* ══ MOBILE WORKSPACE NAV ════════════════════════════════════════════ */}
         {/* 4 workflow-first tabs — Auction, Broadcast, Reference, Queue        */}
-        <div className="flex-shrink-0 flex lg:hidden border-t border-white/8 bg-[#141720]">
+        <div className="flex-shrink-0 flex lg:hidden border-t border-white/8 bg-card/90">
           {([
             { id: "auction",   label: "Auction",   icon: Gavel,      hint: "Bidding"   },
             { id: "broadcast", label: "Broadcast", icon: Tv2,        hint: "Screens"   },

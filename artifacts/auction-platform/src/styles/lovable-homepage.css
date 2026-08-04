@@ -149,13 +149,36 @@
 :is(.lovable-home, .lovable-theme) .bg-muted { background-color: var(--muted) !important; }
 :is(.lovable-home, .lovable-theme) .bg-accent { background-color: var(--accent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-card { background-color: var(--card) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/20 { background-color: color-mix(in oklab, var(--card) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/25 { background-color: color-mix(in oklab, var(--card) 25%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/30 { background-color: color-mix(in oklab, var(--card) 30%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/40 { background-color: color-mix(in oklab, var(--card) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/50 { background-color: color-mix(in oklab, var(--card) 50%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/70 { background-color: color-mix(in oklab, var(--card) 70%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/80 { background-color: color-mix(in oklab, var(--card) 80%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/90 { background-color: color-mix(in oklab, var(--card) 90%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-card\/95 { background-color: color-mix(in oklab, var(--card) 95%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-muted\/20 { background-color: color-mix(in oklab, var(--muted) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-muted\/30 { background-color: color-mix(in oklab, var(--muted) 30%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-muted\/40 { background-color: color-mix(in oklab, var(--muted) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-background\/60 { background-color: color-mix(in oklab, var(--background) 60%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-background\/75 { background-color: color-mix(in oklab, var(--background) 75%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-background\/80 { background-color: color-mix(in oklab, var(--background) 80%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-background\/95 { background-color: color-mix(in oklab, var(--background) 95%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-destructive { background-color: var(--destructive) !important; }
 :is(.lovable-home, .lovable-theme) .border-border { border-color: var(--border) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/40 { border-color: color-mix(in oklab, var(--border) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/50 { border-color: color-mix(in oklab, var(--border) 50%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/60 { border-color: color-mix(in oklab, var(--border) 60%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-border\/70 { border-color: color-mix(in oklab, var(--border) 70%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-primary { border-color: var(--primary) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary\/20 { border-color: color-mix(in oklab, var(--primary) 20%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .border-primary\/30 { border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-primary\/40 { border-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-primary\/50 { border-color: color-mix(in oklab, var(--primary) 50%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-input { border-color: var(--input) !important; }
 :is(.lovable-home, .lovable-theme) .ring-ring { --tw-ring-color: var(--ring) !important; }
+:is(.lovable-home, .lovable-theme) .bg-stage { background-color: var(--stage) !important; }
 
 /* Homepage-only: Anton uppercase display type.
    .lovable-theme (badminton app) keeps readable product headings. */

@@ -620,8 +620,8 @@ export default function PlayerRegister() {
 
   if (contextLoading) {
     return (
-      <FullscreenLayout>
-        <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4">
+      <FullscreenLayout className="lovable-theme">
+        <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground mt-3">Loading registration form…</p>
           <footer className="absolute bottom-6 left-0 right-0 flex justify-center">
@@ -634,9 +634,9 @@ export default function PlayerRegister() {
 
   if (contextError || !tournament || !status) {
     return (
-      <FullscreenLayout>
-        <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4 py-8">
-          <Card className="w-full max-w-md border-destructive/40">
+      <FullscreenLayout className="lovable-theme">
+        <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-8">
+          <Card className="w-full max-w-md panel border-none">
             <CardContent className="p-8 text-center space-y-3">
               <Lock className="w-12 h-12 text-destructive mx-auto" />
               <h1 className="text-xl font-semibold">Registration unavailable</h1>
@@ -654,8 +654,8 @@ export default function PlayerRegister() {
   }
 
   return (
-    <FullscreenLayout>
-      <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-4">
+    <FullscreenLayout className="lovable-theme">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-4">
         <div className="w-full max-w-lg">
           <RegistrationPageHeader
             tournamentName={tournament?.name}

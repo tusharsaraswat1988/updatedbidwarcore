@@ -2844,7 +2844,7 @@ export default function Players() {
           <button
             type="button"
             onClick={() => { setEditing(null); setOpen(true); }}
-            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -2857,7 +2857,7 @@ export default function Players() {
           <button
             type="button"
             onClick={() => setBulkOpen(true)}
-            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -2870,7 +2870,7 @@ export default function Players() {
           <button
             type="button"
             onClick={() => setRegSettingsOpen(true)}
-            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -2883,7 +2883,7 @@ export default function Players() {
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -3115,7 +3115,7 @@ export default function Players() {
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-12" />)}
           </div>
         ) : filtered.length === 0 && (players?.length ?? 0) === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 bg-card/20 py-16 px-8 text-center max-w-xl mx-auto">
+          <div className="org-surface-card border-dashed py-16 px-8 text-center max-w-xl mx-auto">
             <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-4">
               <User className="w-8 h-8 text-blue-500/60" />
             </div>

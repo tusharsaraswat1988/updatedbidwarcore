@@ -44,6 +44,7 @@ const BadmintonPublicStandingsPage = lazy(() => import("@/pages/badminton/public
 const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
 const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const ScoringLoginPage = lazy(() => import("@/pages/scoring-login"));
 const ScoringAppTournamentHomeRedirect = lazy(
   () => import("@/components/scoring/cricket-scoring-sport-redirect").then((m) => ({
     default: m.ScoringAppTournamentHomeRedirect,
@@ -111,6 +112,7 @@ function Router() {
   return (
     <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
+        <Route path="/login" component={ScoringLoginPage} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
 
         <Route path="/badminton/scorer">

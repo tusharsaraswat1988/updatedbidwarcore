@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
 import { BrandLogoImage } from "@/components/brand-logo-image";
+import { PublicAuthCta } from "@/components/public-auth-cta";
 import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
@@ -213,7 +214,6 @@ function AuctionCard({
 
 function Home() {
   const [, navigate] = useLocation();
-  const goOrganizer = () => navigate("/organizer");
   const goSignup = () => navigate("/organizer?tab=signup");
   const goBlog = () => navigate("/blog");
   const goAcademy = () => navigate("/academy");
@@ -230,16 +230,12 @@ function Home() {
       <div className="lovable-home min-h-screen text-foreground">
       <Header
         onOpenDrawer={() => setDrawerOpen(true)}
-        goOrganizer={goOrganizer}
-        goSignup={goSignup}
         goBlog={goBlog}
         goAcademy={goAcademy}
       />
       {drawerOpen && (
         <MobileDrawer
           onClose={() => setDrawerOpen(false)}
-          goOrganizer={goOrganizer}
-          goSignup={goSignup}
           goBlog={goBlog}
           goAcademy={goAcademy}
           goContact={goContact}
@@ -298,10 +294,8 @@ function Home() {
 /* Header                                                              */
 /* ------------------------------------------------------------------ */
 
-function Header({ onOpenDrawer, goOrganizer, goSignup, goBlog, goAcademy }: {
+function Header({ onOpenDrawer, goBlog, goAcademy }: {
   onOpenDrawer: () => void;
-  goOrganizer: () => void;
-  goSignup: () => void;
   goBlog: () => void;
   goAcademy: () => void;
 }) {
@@ -386,8 +380,7 @@ function Header({ onOpenDrawer, goOrganizer, goSignup, goBlog, goAcademy }: {
         </nav>
 
         <div className="flex items-center gap-2">
-          <button type="button" onClick={goOrganizer} className="ghost-button ghost-button-hover hidden rounded-md px-4 py-2 text-xs md:inline-block">Sign in</button>
-          <button type="button" onClick={goSignup} className="gold-button gold-button-hover hidden rounded-md px-4 py-2 text-xs md:inline-block">Get Started</button>
+          <PublicAuthCta variant="homepage" />
           <button type="button" onClick={onOpenDrawer} className="ghost-button rounded-md p-2 lg:hidden" aria-label="Open menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/></svg>
           </button>
@@ -398,10 +391,8 @@ function Header({ onOpenDrawer, goOrganizer, goSignup, goBlog, goAcademy }: {
 }
 
 
-function MobileDrawer({ onClose, goOrganizer, goSignup, goBlog, goAcademy, goContact }: {
+function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
   onClose: () => void;
-  goOrganizer: () => void;
-  goSignup: () => void;
   goBlog: () => void;
   goAcademy: () => void;
   goContact: () => void;
@@ -423,7 +414,6 @@ function MobileDrawer({ onClose, goOrganizer, goSignup, goBlog, goAcademy, goCon
           { label: "Contact Us", href: "/contact", action: goContact },
           { label: "Auction Tips", href: "/auction-tips" },
           { label: "FAQ", href: "#faq", sectionId: "faq" },
-          { label: "Sign in", href: "/organizer", action: goOrganizer },
         ] as const).map((item) => (
           <a
             key={item.label}
@@ -465,7 +455,9 @@ function MobileDrawer({ onClose, goOrganizer, goSignup, goBlog, goAcademy, goCon
             ))}
           </div>
         ) : null}
-        <button type="button" onClick={() => { goSignup(); onClose(); }} className="gold-button mt-6 rounded-md py-4 text-center text-base">Get Started Free</button>
+        <div className="mt-6">
+          <PublicAuthCta variant="drawer" onBeforeNavigate={onClose} />
+        </div>
       </nav>
     </div>
   );
@@ -1273,7 +1265,7 @@ function Footer() {
         { label: "About" },
         { label: "Careers" },
         { label: "Contact", href: "/contact" },
-        { label: "Sign In", href: "/organizer" },
+        { label: "auth-cta" },
       ],
     },
   ];
@@ -1336,7 +1328,9 @@ function Footer() {
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {c.items.map((i) => (
                     <li key={i.label}>
-                      {i.href ? (
+                      {i.label === "auth-cta" ? (
+                        <PublicAuthCta variant="footer-link" />
+                      ) : i.href ? (
                         <a
                           href={i.href}
                           onClick={(e) => {

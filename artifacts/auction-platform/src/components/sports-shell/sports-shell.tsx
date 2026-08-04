@@ -6,10 +6,12 @@ import {
   getGetTournamentQueryKey,
   useGetTournament,
 } from "@workspace/api-client-react";
-import { useOrganizerAuth } from "@/hooks/use-auth";
+import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
-import { checkOrganizerAccountAuth, logoutOrganizerAccount } from "@/lib/auth";
+import { logoutOrganizerAccount } from "@/lib/auth";
+import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
+import { useQueryClient } from "@tanstack/react-query";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -31,8 +33,21 @@ function isScoringAppHost(): boolean {
   return typeof window !== "undefined" && window.location.pathname.startsWith(SCORING_APP_BASE);
 }
 
-/** Navigate to auction-platform organizer portal (cross-app when under scoring-app). */
-function goToOrganizerPortal() {
+/** Leave scoring shell: scoring login when in scoring-app, else Auction portal. */
+function goToPostLogoutHome() {
+  if (isScoringAppHost()) {
+    window.location.href = `${SCORING_APP_BASE}/login`;
+    return;
+  }
+  window.location.href = "/organizer";
+}
+
+/** Tournament list / portal entry — scoring-safe when hosted under scoring-app. */
+function goToTournamentsHome() {
+  if (isScoringAppHost()) {
+    window.location.href = `${SCORING_APP_BASE}/login`;
+    return;
+  }
   window.location.href = "/organizer";
 }
 
@@ -52,19 +67,10 @@ function SidebarAccountFooter({
   tournamentId: number;
   collapsed: boolean;
 }) {
-  const [accountLabel, setAccountLabel] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void checkOrganizerAccountAuth().then((me) => {
-      if (cancelled || !me.loggedIn || !me.organizer) return;
-      const email = me.organizer.email?.trim();
-      setAccountLabel(email || me.organizer.mobile?.trim() || me.organizer.name?.trim() || null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [tournamentId]);
+  const { organizer, isLoggedIn } = useOrganizerAccountAuth();
+  const accountLabel = isLoggedIn && organizer
+    ? (organizer.email?.trim() || organizer.mobile?.trim() || organizer.name?.trim() || null)
+    : null;
 
   return (
     <div className="border-t border-border p-3 flex-shrink-0 space-y-2">
@@ -93,12 +99,14 @@ function LogoutButton({
   accountLabel?: string | null;
 }) {
   const { logout } = useOrganizerAuth(tournamentId);
+  const queryClient = useQueryClient();
 
   async function handleLogout() {
     await logout();
     if (!isBidWarLocalHost()) {
       await logoutOrganizerAccount();
-      goToOrganizerPortal();
+      clearOrganizerClientState(queryClient);
+      goToPostLogoutHome();
     }
   }
 
@@ -515,7 +523,7 @@ export function SportsShell({
               <nav className={cn("space-y-1", collapsed ? "px-1.5" : "px-2")}>
                 <button
                   type="button"
-                  onClick={goToOrganizerPortal}
+                  onClick={goToTournamentsHome}
                   title="All Tournaments"
                   className={navItemClass(false, collapsed)}
                 >

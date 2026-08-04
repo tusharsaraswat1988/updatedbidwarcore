@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBranding } from "@/hooks/use-branding";
+import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { SportSelect } from "@/components/sport-select";
 import { CityAutocomplete } from "@/components/city-autocomplete";
@@ -14,7 +16,6 @@ import {
   fetchLoginGuardStatus,
   loginOrganizerAccount,
   type LoginGuardStatus,
-  checkOrganizerAccountAuth,
   checkOrganizerAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
@@ -24,6 +25,12 @@ import {
   resendOtp,
   verifyOtpAndReset,
 } from "@/lib/auth";
+import {
+  clearOrganizerClientState,
+  patchOrganizerAccountAuthOrganizer,
+  setOrganizerAccountAuthData,
+  syncOrganizerAccountAuth,
+} from "@/lib/organizer-account-auth-cache";
 import { cldUrl } from "@/lib/cloudinary";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -618,6 +625,7 @@ function CompleteProfileForm({
 // ─── Forgot Password Flow ─────────────────────────────────────────────────────
 
 function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -668,7 +676,7 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
     setLoading(false);
     if (!r.success) { setError(r.error || "Password reset failed"); return; }
     setDone(true);
-    const me = await checkOrganizerAccountAuth();
+    const me = await syncOrganizerAccountAuth(queryClient);
     if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
   }
 
@@ -841,7 +849,8 @@ function readAuthTabFromLocation(): "login" | "signup" {
   }
 }
 
-function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initialView = "login" }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; initialRedirectUriHint?: string; next?: string; initialView?: "login" | "signup" }) {
+export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initialView = "login" }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; initialRedirectUriHint?: string; next?: string; initialView?: "login" | "signup" }) {
+  const queryClient = useQueryClient();
   const [view, setView] = useState<"login" | "signup" | "forgot">(() => {
     const fromUrl = readAuthTabFromLocation();
     return fromUrl === "signup" ? "signup" : initialView;
@@ -915,7 +924,7 @@ function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initi
   }, [cooldownSec, loginForm.identifier]);
 
   async function finishAccountSession(): Promise<boolean> {
-    const me = await checkOrganizerAccountAuth();
+    const me = await syncOrganizerAccountAuth(queryClient);
     if (me.loggedIn && me.organizer) {
       onSuccess(me.organizer, me.tournaments ?? []);
       if (next && next.startsWith("/")) navigateAfterOrganizerAuth(next, navigate);
@@ -1588,9 +1597,9 @@ function OrganizerDashboard({
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="lovable-theme min-h-screen text-foreground dark">
       {/* Header */}
-      <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
+      <div className="border-b border-border/50 bg-background/75 sticky top-0 backdrop-blur-xl z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             {/* BidWar brand mark */}
@@ -1606,7 +1615,7 @@ function OrganizerDashboard({
             })()}
             <div className="w-px h-5 bg-border/60 hidden sm:block flex-shrink-0" />
             <div className="min-w-0">
-              <p className="font-display font-bold text-sm sm:text-base leading-none text-white truncate">{organizer.name}</p>
+              <p className="font-display font-bold text-sm sm:text-base leading-none text-foreground truncate">{organizer.name}</p>
               <p className="text-[11px] sm:text-xs text-muted-foreground truncate hidden sm:block">{organizer.mobile ?? organizer.email ?? ""}</p>
             </div>
           </div>
@@ -1615,7 +1624,7 @@ function OrganizerDashboard({
               <RefreshCw className="w-3 h-3" /> Refresh
             </Button>
             <button
-              className="sm:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="sm:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
               onClick={onRefresh}
               title="Refresh"
             >
@@ -1712,15 +1721,15 @@ function OrganizerDashboard({
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          <div className="p-3 sm:p-4 rounded-xl border border-border bg-card/30 text-center">
+          <div className="org-kpi-card text-center">
             <p className="text-xl sm:text-2xl font-display font-black text-primary">{tournaments.length}</p>
             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Total</p>
           </div>
-          <div className="p-3 sm:p-4 rounded-xl border border-border bg-card/30 text-center">
+          <div className="org-kpi-card text-center">
             <p className="text-xl sm:text-2xl font-display font-black text-green-400">{activeTournaments.length}</p>
             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Active</p>
           </div>
-          <div className="p-3 sm:p-4 rounded-xl border border-border bg-card/30 text-center">
+          <div className="org-kpi-card text-center">
             <p className="text-xl sm:text-2xl font-display font-black text-blue-400">{completedTournaments.length}</p>
             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Completed</p>
           </div>
@@ -1820,10 +1829,10 @@ function OrganizerDashboard({
                       }
                     }}
                     aria-disabled={isLocked}
-                    className={`group border-border/50 bg-card/30 h-full select-none transition-all duration-200 focus-visible:outline-none ${
+                    className={`group panel border-none h-full select-none transition-all duration-200 focus-visible:outline-none ${
                       isLocked
                         ? "cursor-not-allowed opacity-50"
-                        : "cursor-pointer hover:border-primary/35 hover:bg-card/55 hover:shadow-[0_10px_40px_rgba(0,0,0,0.45),0_0_0_1px_hsl(var(--primary)/0.12)] active:shadow-[0_4px_20px_rgba(0,0,0,0.35)] focus-visible:ring-2 focus-visible:ring-primary/40"
+                        : "cursor-pointer hover:border-primary/40 hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.35)] focus-visible:ring-2 focus-visible:ring-primary/40"
                     }`}
                   >
                     <CardContent className="p-5 space-y-3">
@@ -1911,15 +1920,19 @@ function OrganizerDashboard({
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-const DASHBOARD_POLL_INTERVAL_MS = 30_000;
-
 export default function OrganizerPortal() {
-  const [organizer, setOrganizer] = useState<OrganizerInfo | null>(null);
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [checking, setChecking] = useState(true);
-  const [needsMobile, setNeedsMobile] = useState(false);
+  const queryClient = useQueryClient();
+  const {
+    organizer,
+    tournaments,
+    isLoggedIn,
+    isLoading,
+    refresh,
+  } = useOrganizerAccountAuth();
+  const [forceNeedsMobile, setForceNeedsMobile] = useState(false);
   const search = useSearch();
   const [, navigate] = useLocation();
+  const bootHandledRef = useRef(false);
 
   const nextParam = (() => {
     try { return new URLSearchParams(search).get("next") ?? ""; } catch { return ""; }
@@ -1928,31 +1941,10 @@ export default function OrganizerPortal() {
   // Capture before auth-check effects strip ?tab=signup from the URL.
   const [authInitialView] = useState<"login" | "signup">(readAuthTabFromLocation);
 
-  async function refresh(): Promise<boolean> {
-    const me = await checkOrganizerAccountAuth();
-    if (me.loggedIn && me.organizer) {
-      setOrganizer(me.organizer);
-      setTournaments(me.tournaments ?? []);
-      setNeedsMobile(!!(me.organizer.needsMobile || me.organizer.incompleteProfile));
-      setChecking(false);
-      return true;
-    }
-    // Transient server error (DB cold start, 500, network blip) — do NOT log the
-    // user out. Keep the existing session state. Only clear on an explicit "not
-    // logged in" response (serverError is false and loggedIn is false).
-    if (me.serverError) {
-      setChecking(false);
-      return false;
-    }
-    setOrganizer(null);
-    setTournaments([]);
-    setNeedsMobile(false);
-    setChecking(false);
-    return false;
-  }
+  const needsMobile =
+    forceNeedsMobile || !!(organizer?.needsMobile || organizer?.incompleteProfile);
 
   const [googleError, setGoogleError] = useState("");
-
   const [googleRedirectUriHint, setGoogleRedirectUriHint] = useState("");
 
   useEffect(() => {
@@ -1964,13 +1956,13 @@ export default function OrganizerPortal() {
       setGoogleError(GOOGLE_ERROR_MESSAGES[err] ?? "Google sign-in failed. Please try again.");
       window.history.replaceState({}, "", "/organizer");
     } else if (params.get("require_mobile") === "1") {
-      setNeedsMobile(true);
+      setForceNeedsMobile(true);
       window.history.replaceState({}, "", "/organizer");
     }
   }, []);
 
   useEffect(() => {
-    if (checking || organizer) return;
+    if (isLoading || isLoggedIn) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("tab") !== "signup") return;
     const next = params.get("next");
@@ -1979,59 +1971,49 @@ export default function OrganizerPortal() {
       "",
       next ? `/organizer?next=${encodeURIComponent(next)}` : "/organizer",
     );
-  }, [checking, organizer]);
+  }, [isLoading, isLoggedIn]);
 
   useEffect(() => {
-    void refresh().then((loggedIn) => {
-      const params = new URLSearchParams(window.location.search);
-      // Preserve next BEFORE clearing google_ok query — required for /mobile return paths.
-      const next = params.get("next") ?? "";
-      if (params.get("google_ok") === "1") {
-        window.history.replaceState({}, "", "/organizer");
-        if (!loggedIn) {
-          setGoogleError(
-            "Google sign-in succeeded but your browser did not save the session. Clear cookies for this site and try again.",
-          );
-        }
+    if (isLoading || bootHandledRef.current) return;
+    bootHandledRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    // Preserve next BEFORE clearing google_ok query — required for /mobile return paths.
+    const next = params.get("next") ?? "";
+    if (params.get("google_ok") === "1") {
+      window.history.replaceState({}, "", "/organizer");
+      if (!isLoggedIn) {
+        setGoogleError(
+          "Google sign-in succeeded but your browser did not save the session. Clear cookies for this site and try again.",
+        );
       }
-      // If already logged in and there's a ?next= param, navigate only when access is confirmed.
-      // Blind redirects to /tournament/:id caused an infinite loop with OrganizerGuard.
-      // Cross-app paths (/mobile, /owner-app, /scoring-app) must use a full page load.
-      if (loggedIn && next.startsWith("/")) {
-        void (async () => {
-          const tournamentMatch = next.match(/^\/tournament\/(\d+)(?:\/|$)/);
-          if (tournamentMatch) {
-            const tid = parseInt(tournamentMatch[1], 10);
-            const canAccess = await checkOrganizerAuth(tid);
-            if (canAccess) {
-              navigateAfterOrganizerAuth(next, navigate);
-            }
-            return;
+    }
+    // If already logged in and there's a ?next= param, navigate only when access is confirmed.
+    // Blind redirects to /tournament/:id caused an infinite loop with OrganizerGuard.
+    // Cross-app paths (/mobile, /owner-app, /scoring-app) must use a full page load.
+    if (isLoggedIn && next.startsWith("/")) {
+      void (async () => {
+        const tournamentMatch = next.match(
+          /^(?:\/scoring-app)?\/tournament\/(\d+)(?:\/|$)/,
+        );
+        if (tournamentMatch) {
+          const tid = parseInt(tournamentMatch[1], 10);
+          const canAccess = await checkOrganizerAuth(tid);
+          if (canAccess) {
+            navigateAfterOrganizerAuth(next, navigate);
           }
-          navigateAfterOrganizerAuth(next, navigate);
-        })();
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!organizer) return;
-    const id = setInterval(() => { refresh(); }, DASHBOARD_POLL_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [organizer]);
+          return;
+        }
+        navigateAfterOrganizerAuth(next, navigate);
+      })();
+    }
+  }, [isLoading, isLoggedIn, navigate]);
 
   async function handleLogout() {
     await logoutOrganizerAccount();
-    setOrganizer(null);
-    setTournaments([]);
-    setNeedsMobile(false);
+    clearOrganizerClientState(queryClient);
+    setForceNeedsMobile(false);
   }
-
-  const handleInactivityTimeout = useCallback(() => {
-    setOrganizer(null);
-    setTournaments([]);
-    setNeedsMobile(false);
-  }, []);
 
   const {
     warningVisible,
@@ -2039,29 +2021,27 @@ export default function OrganizerPortal() {
     continueSession,
     lockMinutes,
   } = useOrganizerInactivityLogout({
-    enabled: !!organizer,
-    onTimeout: handleInactivityTimeout,
+    enabled: isLoggedIn,
   });
 
   function handleAuthSuccess(org: OrganizerInfo, tours: Tournament[]) {
-    setOrganizer(org);
-    setTournaments(tours);
-    setNeedsMobile(!!(org.needsMobile || org.incompleteProfile));
+    setOrganizerAccountAuthData(queryClient, { organizer: org, tournaments: tours });
+    setForceNeedsMobile(!!(org.needsMobile || org.incompleteProfile));
     // Navigation to nextParam is handled by finishAccountSession in AuthForm
     // to avoid double-navigate. Only navigate here if no nextParam (stay on /organizer,
     // show dashboard).
   }
 
   function handleProfileComplete(org: OrganizerInfo) {
-    setOrganizer(org);
-    setNeedsMobile(false);
+    patchOrganizerAccountAuthOrganizer(queryClient, org);
+    setForceNeedsMobile(false);
   }
 
   function handlePasswordSet(org: OrganizerInfo) {
-    setOrganizer(org);
+    patchOrganizerAccountAuthOrganizer(queryClient, org);
   }
 
-  if (checking) {
+  if (isLoading) {
     return (
       <FullscreenLayout>
         <div className="lovable-home min-h-screen flex items-center justify-center">
@@ -2084,7 +2064,7 @@ export default function OrganizerPortal() {
               organizer={organizer}
               tournaments={tournaments}
               onLogout={handleLogout}
-              onRefresh={refresh}
+              onRefresh={() => { void refresh(); }}
               onPasswordSet={handlePasswordSet}
             />
           </motion.div>

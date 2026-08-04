@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useInactivityLock, IDLE_WARNING_MS } from "@/hooks/use-inactivity-lock";
 import { logoutOrganizer, logoutOrganizerAccount } from "@/lib/auth";
+import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
 
 export const ORGANIZER_IDLE_TIMEOUT_MINUTES = 30;
 export const ORGANIZER_IDLE_TIMEOUT_MS = ORGANIZER_IDLE_TIMEOUT_MINUTES * 60 * 1000;
@@ -10,9 +13,23 @@ export const ORGANIZER_IDLE_WARNING_MS = IDLE_WARNING_MS;
 type UseOrganizerInactivityLogoutOptions = {
   enabled: boolean;
   tournamentId?: number;
-  /** Called after server logout, before redirect to /organizer */
+  /** Called after server logout, before redirect */
   onTimeout?: () => void;
 };
+
+function postLogoutDestination(returnTo: string): string {
+  const inScoringApp =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith(SCORING_APP_BASE);
+  if (inScoringApp) {
+    return returnTo.startsWith("/")
+      ? `${SCORING_APP_BASE}/login?next=${encodeURIComponent(returnTo)}`
+      : `${SCORING_APP_BASE}/login`;
+  }
+  return returnTo.startsWith("/")
+    ? `/organizer?next=${encodeURIComponent(returnTo)}`
+    : "/organizer";
+}
 
 /**
  * Signs the organizer out after 30 minutes of inactivity (with a 90s warning).
@@ -24,6 +41,7 @@ export function useOrganizerInactivityLogout({
   onTimeout,
 }: UseOrganizerInactivityLogoutOptions) {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   const {
     locked,
@@ -47,14 +65,16 @@ export function useOrganizerInactivityLogout({
         await logoutOrganizer(tournamentId);
       }
       await logoutOrganizerAccount();
+      clearOrganizerClientState(queryClient);
       onTimeout?.();
-      const next =
-        returnTo && returnTo.startsWith("/")
-          ? `/organizer?next=${encodeURIComponent(returnTo)}`
-          : "/organizer";
-      navigate(next);
+      const dest = postLogoutDestination(returnTo);
+      if (dest.startsWith(SCORING_APP_BASE) || dest.startsWith("/organizer")) {
+        window.location.href = dest;
+        return;
+      }
+      navigate(dest);
     })();
-  }, [locked, tournamentId, navigate, onTimeout]);
+  }, [locked, tournamentId, navigate, onTimeout, queryClient]);
 
   return {
     warningVisible,

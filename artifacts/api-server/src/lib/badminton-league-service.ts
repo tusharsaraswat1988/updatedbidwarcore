@@ -6,6 +6,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   buildPairStandingsFromMatches,
   comparePairStandings,
+  computeWinPercentage,
   planTeamTieGroupFixtures,
   type PairStandingsMatchInput,
 } from "@workspace/badminton-core";
@@ -409,14 +410,13 @@ export async function rebuildCategoryPairStandings(
       ),
     );
 
-  const completedFixtures = fixtures.filter(
-    (f) =>
-      f.status === "completed" ||
-      f.status === "walkover" ||
-      f.winnerRegistrationId != null,
+  // Include all two-sided fixtures so scheduled/remaining counts are accurate;
+  // the standings pass ignores non-terminal rows for W/L/PF/PA.
+  const leagueFixtures = fixtures.filter(
+    (f) => f.registrationAId != null && f.registrationBId != null,
   );
 
-  const scoringMatchIds = completedFixtures
+  const scoringMatchIds = leagueFixtures
     .map((f) => f.scoringMatchId)
     .filter((id): id is number => id != null);
 
@@ -444,7 +444,7 @@ export async function rebuildCategoryPairStandings(
 
   const matchInputs: PairStandingsMatchInput[] = [];
 
-  for (const fixture of completedFixtures) {
+  for (const fixture of leagueFixtures) {
     if (!fixture.registrationAId || !fixture.registrationBId) continue;
 
     let games: BadmintonGameState[] = [];
@@ -503,6 +503,9 @@ export async function rebuildCategoryPairStandings(
         won: row.won,
         lost: row.lost,
         marginPoints: row.marginPoints,
+        pointsFor: row.pointsFor,
+        pointsAgainst: row.pointsAgainst,
+        matchesRemaining: row.matchesRemaining,
       })),
     );
   }
@@ -621,6 +624,10 @@ export async function getCategoryPairStandings(
       won: row.won,
       lost: row.lost,
       marginPoints: row.marginPoints,
+      pointsFor: row.pointsFor ?? 0,
+      pointsAgainst: row.pointsAgainst ?? 0,
+      matchesRemaining: Math.max(0, row.matchesRemaining ?? 0),
+      winPercentage: computeWinPercentage(row.won, row.played),
     };
   });
 }

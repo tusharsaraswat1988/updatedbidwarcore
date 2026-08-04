@@ -3,6 +3,7 @@ import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/l
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import { BrandLogoImage } from "@/components/brand-logo-image";
+import { PublicAuthCta } from "@/components/public-auth-cta";
 import { LEGAL_LINKS, SITE_CONTACT, SITE_SOCIAL, waMeUrl } from "@/lib/public-site-links";
 
 const landingFooterPreset = getBrandSurfacePreset("landing-footer");
@@ -41,7 +42,7 @@ const FOOTER_COLUMNS: Array<{ h: string; items: FooterItem[] }> = [
     h: "Company",
     items: [
       { label: "Contact", href: "/contact" },
-      { label: "Sign In", href: "/organizer" },
+      { label: "auth-cta" },
       { label: "About" },
       { label: "Careers" },
     ],
@@ -127,7 +128,9 @@ export function PublicFooter() {
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {c.items.map((i) => (
                     <li key={i.label}>
-                      {i.href ? (
+                      {i.label === "auth-cta" ? (
+                        <PublicAuthCta variant="footer-link" />
+                      ) : i.href ? (
                         <a href={i.href} className="hover:text-foreground">{i.label}</a>
                       ) : (
                         <span className="cursor-default opacity-60" title="Coming soon">{i.label}</span>
