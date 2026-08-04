@@ -161,6 +161,10 @@ import {
   updateTournamentEngineConfig,
 } from "../lib/badminton-tournament-engine";
 import {
+  PromotionError,
+  promoteCategoryToKnockout,
+} from "../lib/badminton-promotion-engine";
+import {
   isTournamentEngineStage,
   normalizeRankingRules,
 } from "@workspace/badminton-core";
@@ -2140,6 +2144,38 @@ router.get("/categories/:catId/qualifiers", async (req, res) => {
     mode,
   });
   res.json(qualifiers);
+});
+
+/**
+ * League → Knockout Promotion Engine entry point.
+ * Explicit only — never auto-triggered from standings rebuilds.
+ */
+router.post("/categories/:catId/promote-to-knockout", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const result = await promoteCategoryToKnockout(tournamentId, catId);
+    return void res.status(200).json({
+      created: result.created,
+      skipped: result.skipped,
+      reason: result.reason,
+      stage: result.stage,
+      bracket: result.bracket,
+    });
+  } catch (err) {
+    if (err instanceof PromotionError) {
+      return void res.status(err.status).json({
+        error: err.code,
+        message: err.message,
+        ...(err.details ?? {}),
+      });
+    }
+    const message = err instanceof Error ? err.message : "Promotion failed";
+    return void res.status(500).json({ error: "PROMOTION_FAILED", message });
+  }
 });
 
 /**

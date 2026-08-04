@@ -8,7 +8,6 @@ import { and, eq } from "drizzle-orm";
 import {
   PRODUCT_DEFAULT_RANKING_RULES,
   initialStageForDrawType,
-  isTournamentEngineStage,
   normalizeRankingRules,
   resolveCurrentStage,
   resolveQualificationRules,
@@ -18,6 +17,7 @@ import {
   type TournamentEngineStage,
 } from "@workspace/badminton-core";
 import { db, badmintonCategoriesTable, badmintonGroupsTable } from "@workspace/db";
+import { assertPersistedStage } from "./tournament-stage";
 
 export type TournamentEngineConfigView = {
   categoryId: number;
@@ -34,6 +34,7 @@ export type TournamentEngineConfigView = {
     effectiveQualifierMode: QualifierMode;
   };
   promotedKnockoutAt: string | null;
+  promotedKnockoutDrawId: number | null;
   canPromoteToKnockout: boolean;
 };
 
@@ -104,10 +105,12 @@ export async function getTournamentEngineConfig(
     promotedKnockoutAt: cat.promotedKnockoutAt
       ? cat.promotedKnockoutAt.toISOString()
       : null,
+    promotedKnockoutDrawId: cat.promotedKnockoutDrawId ?? null,
     canPromoteToKnockout:
       isLeagueFamily &&
       cat.drawType === "group_knockout" &&
       !cat.promotedKnockoutAt &&
+      !cat.promotedKnockoutDrawId &&
       currentStage === "league",
   };
 }
@@ -122,9 +125,10 @@ export async function updateTournamentEngineConfig(
   };
 
   if (update.currentStage !== undefined) {
-    if (update.currentStage != null && !isTournamentEngineStage(update.currentStage)) {
-      throw new Error("Invalid currentStage");
+    if (update.currentStage != null) {
+      assertPersistedStage(update.currentStage);
     }
+    // Stage vocabulary writes go through the stage helper's assert path.
     patch.currentStage = update.currentStage;
   }
 

@@ -183,9 +183,10 @@ export const badmintonCategoriesTable = pgTable(
     /** Phase: setup | draw_generated | live | completed */
     phase: text("phase").notNull().default("setup"),
     /**
-     * Tournament Engine stage SSoT:
+     * Tournament Engine stage SSoT (persisted P0 vocabulary):
      * league | quarter_final | semi_final | final | completed
-     * Null = unset (legacy categories); resolve via engine config helpers.
+     * Null = unset (legacy categories); resolve via tournament-stage helper.
+     * Lifecycle view maps quarter/semi/final → elimination (future vocab).
      */
     currentStage: text("current_stage"),
     /** Ordered ranking rule keys JSON array. Null = legacy wins→margin→id. */
@@ -196,6 +197,11 @@ export const badmintonCategoriesTable = pgTable(
     qualifierMode: text("qualifier_mode"),
     /** Set when league→knockout promotion has created a knockout draw (idempotency). */
     promotedKnockoutAt: timestamp("promoted_knockout_at", { withTimezone: true }),
+    /**
+     * Canonical pointer to the first (R1) knockout fixture collection created by promotion.
+     * Null for legacy / not-yet-promoted categories.
+     */
+    promotedKnockoutDrawId: integer("promoted_knockout_draw_id"),
     /** Max players allowed. */
     maxPlayers: integer("max_players"),
     /** Registration fee (paise or cents). */
