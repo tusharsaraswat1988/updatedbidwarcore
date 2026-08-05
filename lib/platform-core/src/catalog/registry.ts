@@ -15,28 +15,38 @@ import {
   DEFAULT_TEAM_FORMATION_BY_COMPETITION,
   TEAM_FORMATION_STRATEGY_CATALOG,
 } from "./team-formation/index.ts";
+import { ADVANCEMENT_RULE_CATALOG } from "./advancement-rules/index.ts";
+import { FIXTURE_NODE_KIND_CATALOG } from "./fixture-node-kinds/index.ts";
+import { FIXTURE_TYPE_CATALOG } from "./fixture-types/index.ts";
 import { MATCH_ROLE_CATALOG } from "./match-roles/index.ts";
 import { MATCH_TYPE_CATALOG } from "./match-types/index.ts";
+import { RESOURCE_KIND_CATALOG } from "./resource-kinds/index.ts";
+import { SCHEDULING_STRATEGY_CATALOG } from "./scheduling-strategies/index.ts";
 import { TEAM_ROLE_CATALOG } from "./team-roles/index.ts";
 import { TEAM_TYPE_CATALOG } from "./team-types/index.ts";
 import {
   LEGACY_COMPETITION_TYPE_ID,
   LEGACY_PROFILE,
   LEGACY_VARIANT_ID,
+  type AdvancementRuleCatalogEntry,
   type BusinessStageCatalogEntry,
   type CatalogEntryBase,
   type CatalogRecommendation,
   type CatalogValidationResult,
   type CompetitionTypeCatalogEntry,
+  type FixtureNodeKindCatalogEntry,
+  type FixtureTypeCatalogEntry,
   type ListProfilesFilter,
   type MatchRoleCatalogEntry,
   type MatchTypeCatalogEntry,
   type PresentationProfileCatalogEntry,
   type RegistrationModeCatalogEntry,
+  type ResourceKindCatalogEntry,
   type ResolvedTournamentBindings,
   type RuleCategoryEntry,
   type RuleDefinitionEntry,
   type RuleProfileCatalogEntry,
+  type SchedulingStrategyCatalogEntry,
   type SportCatalogEntry,
   type SuggestDefaultsInput,
   type TeamFormationStrategyCatalogEntry,
@@ -544,6 +554,54 @@ export const CatalogRegistry = {
 
   getMatchRole(id: string): MatchRoleCatalogEntry | undefined {
     return MATCH_ROLE_CATALOG.find((e) => e.id === id);
+  },
+
+  listFixtureTypes(includeDeprecated = false): FixtureTypeCatalogEntry[] {
+    return sortForWizard(
+      FIXTURE_TYPE_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated)),
+    );
+  },
+
+  getFixtureType(id: string): FixtureTypeCatalogEntry | undefined {
+    return FIXTURE_TYPE_CATALOG.find((e) => e.id === id);
+  },
+
+  listFixtureNodeKinds(includeDeprecated = false): FixtureNodeKindCatalogEntry[] {
+    return FIXTURE_NODE_KIND_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated));
+  },
+
+  getFixtureNodeKind(id: string): FixtureNodeKindCatalogEntry | undefined {
+    return FIXTURE_NODE_KIND_CATALOG.find((e) => e.id === id);
+  },
+
+  listAdvancementRules(includeDeprecated = false): AdvancementRuleCatalogEntry[] {
+    return sortForWizard(
+      ADVANCEMENT_RULE_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated)),
+    );
+  },
+
+  getAdvancementRule(id: string): AdvancementRuleCatalogEntry | undefined {
+    return ADVANCEMENT_RULE_CATALOG.find((e) => e.id === id);
+  },
+
+  listResourceKinds(includeDeprecated = false): ResourceKindCatalogEntry[] {
+    return sortForWizard(
+      RESOURCE_KIND_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated)),
+    );
+  },
+
+  getResourceKind(id: string): ResourceKindCatalogEntry | undefined {
+    return RESOURCE_KIND_CATALOG.find((e) => e.id === id);
+  },
+
+  listSchedulingStrategies(includeDeprecated = false): SchedulingStrategyCatalogEntry[] {
+    return sortForWizard(
+      SCHEDULING_STRATEGY_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated)),
+    );
+  },
+
+  getSchedulingStrategy(id: string): SchedulingStrategyCatalogEntry | undefined {
+    return SCHEDULING_STRATEGY_CATALOG.find((e) => e.id === id);
   },
 
   /** Catalog quality: no orphan definitions / orphan profile values. */

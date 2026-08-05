@@ -28,6 +28,8 @@ import { TournamentInsightsSection } from "@/components/tournament-insights-sect
 import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
 import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
 import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
+import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
+import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 
 export default function TournamentHub() {
@@ -220,6 +222,8 @@ export default function TournamentHub() {
           <>
             <CompetitionSetupCard tournamentId={tournamentId} />
             <TeamSetupCard tournamentId={tournamentId} />
+            <FixtureSetupCard tournamentId={tournamentId} />
+            <SchedulingSetupCard tournamentId={tournamentId} />
             <MatchSetupCard tournamentId={tournamentId} />
           </>
         ) : null}

@@ -554,6 +554,52 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS ux_match_configuration_history_match_version
       ON match_configuration_history (match_id, version);
 
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS fixture_type_id text;
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS fixture_type_id text;
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS fixture_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      fixture_key text NOT NULL,
+      source text NOT NULL,
+      source_id integer NOT NULL,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_fixture_configuration_history_key_version
+      ON fixture_configuration_history (fixture_key, version);
+
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS scheduling_strategy_id text;
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS scheduling_lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS scheduling_configuration_locked boolean NOT NULL DEFAULT false;
+
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS scheduling_strategy_id text;
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS scheduling_lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS scheduling_configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS scheduling_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      scheduling_key text NOT NULL,
+      source text NOT NULL,
+      source_id integer NOT NULL,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_scheduling_configuration_history_key_version
+      ON scheduling_configuration_history (scheduling_key, version);
+
     CREATE TABLE IF NOT EXISTS workbook_versions (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,

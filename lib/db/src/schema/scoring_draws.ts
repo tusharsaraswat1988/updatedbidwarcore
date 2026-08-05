@@ -3,6 +3,7 @@ import {
   serial,
   text,
   integer,
+  boolean,
   timestamp,
   jsonb,
   index,
@@ -33,6 +34,18 @@ export const scoringDrawsTable = pgTable(
     format: text("format").notNull().$type<ScoringDrawFormat>(),
     configJson: jsonb("config_json").$type<ScoringDrawConfigJson>(),
     status: text("status").notNull().default("draft"),
+    /** Platform Fixture Type catalog id (EPIC-06). */
+    fixtureTypeId: text("fixture_type_id"),
+    /** Platform Fixture lifecycle (EPIC-06) — separate from draw status. */
+    lifecycleStatus: text("lifecycle_status").default("draft"),
+    configurationLocked: boolean("configuration_locked").notNull().default(false),
+    /** Platform Scheduling Strategy catalog id (EPIC-07). */
+    schedulingStrategyId: text("scheduling_strategy_id"),
+    /** Platform Scheduling lifecycle (EPIC-07) — separate from Fixture lifecycle. */
+    schedulingLifecycleStatus: text("scheduling_lifecycle_status").default("draft"),
+    schedulingConfigurationLocked: boolean("scheduling_configuration_locked")
+      .notNull()
+      .default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

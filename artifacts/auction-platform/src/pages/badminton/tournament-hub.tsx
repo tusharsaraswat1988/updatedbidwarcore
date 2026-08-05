@@ -33,6 +33,8 @@ import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge"
 import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
 import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
 import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
+import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
+import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -93,6 +95,8 @@ export default function BadmintonTournamentHub() {
             <>
               <CompetitionSetupCard tournamentId={tournamentId} />
               <TeamSetupCard tournamentId={tournamentId} />
+              <FixtureSetupCard tournamentId={tournamentId} />
+              <SchedulingSetupCard tournamentId={tournamentId} />
               <MatchSetupCard tournamentId={tournamentId} />
             </>
           ) : null}

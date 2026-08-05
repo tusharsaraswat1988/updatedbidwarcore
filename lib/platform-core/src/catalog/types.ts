@@ -69,6 +69,37 @@ export type MatchTypeCatalogEntry = CatalogEntryBase & {
   kind: "match_type";
 };
 
+/** Fixture Type — planned competitive structure kind (EPIC-06). */
+export type FixtureTypeCatalogEntry = CatalogEntryBase & {
+  kind: "fixture_type";
+};
+
+/** Fixture Node Kind — structural position kind (EPIC-06). */
+export type FixtureNodeKindCatalogEntry = CatalogEntryBase & {
+  kind: "fixture_node_kind";
+};
+
+/**
+ * Advancement Rule — catalog-driven progression policy (EPIC-06).
+ * Generators consume these; they must not hardcode winner/loser/group logic.
+ */
+export type AdvancementRuleCatalogEntry = CatalogEntryBase & {
+  kind: "advancement_rule";
+};
+
+/** Resource Kind — facility type Scheduling may reference (EPIC-07). */
+export type ResourceKindCatalogEntry = CatalogEntryBase & {
+  kind: "resource_kind";
+};
+
+/**
+ * Scheduling Strategy — catalog-driven planning policy (EPIC-07).
+ * Bridges consume these; strategies never contain algorithms.
+ */
+export type SchedulingStrategyCatalogEntry = CatalogEntryBase & {
+  kind: "scheduling_strategy";
+};
+
 export type MatchRoleScope = "side" | "official";
 
 /**

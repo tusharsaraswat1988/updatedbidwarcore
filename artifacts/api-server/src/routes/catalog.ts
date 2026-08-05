@@ -77,6 +77,26 @@ router.get("/catalog/match-roles", (req, res) => {
   res.json({ roles: CatalogRegistry.listMatchRoles(scope) });
 });
 
+router.get("/catalog/fixture-types", (_req, res) => {
+  res.json({ types: CatalogRegistry.listFixtureTypes() });
+});
+
+router.get("/catalog/fixture-node-kinds", (_req, res) => {
+  res.json({ kinds: CatalogRegistry.listFixtureNodeKinds() });
+});
+
+router.get("/catalog/advancement-rules", (_req, res) => {
+  res.json({ rules: CatalogRegistry.listAdvancementRules() });
+});
+
+router.get("/catalog/resource-kinds", (_req, res) => {
+  res.json({ kinds: CatalogRegistry.listResourceKinds() });
+});
+
+router.get("/catalog/scheduling-strategies", (_req, res) => {
+  res.json({ strategies: CatalogRegistry.listSchedulingStrategies() });
+});
+
 router.get("/catalog/rule-categories", (_req, res) => {
   res.json({ categories: CatalogRegistry.listRuleCategories() });
 });

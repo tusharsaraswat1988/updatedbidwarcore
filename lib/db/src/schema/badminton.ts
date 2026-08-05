@@ -296,6 +296,18 @@ export const badmintonDrawsTable = pgTable(
     groupId: text("group_id"),
     /** Collection status: pending | active | completed */
     status: text("status").notNull().default("pending"),
+    /** Platform Fixture Type catalog id (EPIC-06). */
+    fixtureTypeId: text("fixture_type_id"),
+    /** Platform Fixture lifecycle (EPIC-06) — separate from collection status. */
+    lifecycleStatus: text("lifecycle_status").default("draft"),
+    configurationLocked: boolean("configuration_locked").notNull().default(false),
+    /** Platform Scheduling Strategy catalog id (EPIC-07). */
+    schedulingStrategyId: text("scheduling_strategy_id"),
+    /** Platform Scheduling lifecycle (EPIC-07) — separate from Fixture lifecycle. */
+    schedulingLifecycleStatus: text("scheduling_lifecycle_status").default("draft"),
+    schedulingConfigurationLocked: boolean("scheduling_configuration_locked")
+      .notNull()
+      .default(false),
     metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

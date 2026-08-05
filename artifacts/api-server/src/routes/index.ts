@@ -48,6 +48,8 @@ import catalogRouter from "./catalog";
 import competitionRouter from "./competition";
 import teamFoundationRouter from "./team-foundation";
 import matchFoundationRouter from "./match-foundation";
+import fixtureFoundationRouter from "./fixture-foundation";
+import schedulingFoundationRouter from "./scheduling-foundation";
 
 const router: IRouter = Router();
 
@@ -56,6 +58,8 @@ router.use(catalogRouter);
 router.use(competitionRouter);
 router.use(teamFoundationRouter);
 router.use(matchFoundationRouter);
+router.use(fixtureFoundationRouter);
+router.use(schedulingFoundationRouter);
 router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);

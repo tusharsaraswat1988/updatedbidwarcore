@@ -128,3 +128,52 @@ export type {
   MatchOfficial,
   MatchValidationResult,
 } from "./match/index.ts";
+
+export {
+  resolveBadmintonFixtureConfiguration,
+  resolveScoringFixtureConfiguration,
+  mapBadmintonDrawToIdentity,
+  mapBadmintonDrawToConfiguration,
+  mapBadmintonDrawToLifecycle,
+  mapBadmintonFixturesToNodes,
+  mapScoringDrawToIdentity,
+  mapScoringDrawToConfiguration,
+  mapScoringDrawToLifecycle,
+  mapScoringFixturesToNodes,
+  buildFixtureAdvancementView,
+  validateFixture,
+  buildFixtureConfigurationHistoryPayload,
+  isValidFixtureLifecycleTransition,
+  lifecycleAfterFixtureLock,
+  encodeFixtureId,
+  parseFixtureId,
+} from "./fixture/index.ts";
+export type {
+  FixtureConfiguration,
+  FixtureIdentity,
+  FixtureNode,
+  MatchBlueprint,
+  FixtureValidationResult,
+} from "./fixture/index.ts";
+
+export {
+  resolveSchedulingConfiguration,
+  mapDrawToSchedulingIdentity,
+  mapDrawToSchedulingConfiguration,
+  mapDrawToSchedulingLifecycle,
+  mapBadmintonFixturesToSchedule,
+  mapScoringFixturesToSchedule,
+  validateScheduling,
+  buildSchedulingConfigurationHistoryPayload,
+  isValidSchedulingLifecycleTransition,
+  lifecycleAfterSchedulingLock,
+  encodeSchedulingId,
+  parseSchedulingId,
+} from "./scheduling/index.ts";
+export type {
+  SchedulingConfiguration,
+  SchedulingIdentity,
+  ScheduleSlot,
+  ResourceAssignment,
+  SchedulingValidationResult,
+} from "./scheduling/index.ts";
