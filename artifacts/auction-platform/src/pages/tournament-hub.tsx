@@ -25,6 +25,7 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
+import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 
 export default function TournamentHub() {
@@ -212,6 +213,10 @@ export default function TournamentHub() {
           insights={insightsPayload?.insights}
           isLoading={loadingInsights && !insightsPayload}
         />
+
+        {tournamentId ? (
+          <CompetitionSetupCard tournamentId={tournamentId} />
+        ) : null}
 
         {/* Setup Checklist — hidden once every item is complete */}
         {isSetupPhase && readinessDataLoaded && !readinessComplete && (

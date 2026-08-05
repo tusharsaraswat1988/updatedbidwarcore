@@ -3,10 +3,20 @@ export type WizardStepId =
   | "sport"
   | "variant"
   | "competition"
+  | "registration_mode"
+  | "team_formation"
+  | "squad_rules"
   | "rule_profile"
   | "presentation"
   | "registration"
   | "review";
+
+export type SquadRulesDraft = {
+  minPlayers: string;
+  maxPlayers: string;
+  substitutes: string;
+  retentions: string;
+};
 
 export type TournamentCreationDraft = {
   name: string;
@@ -15,6 +25,9 @@ export type TournamentCreationDraft = {
   sportId: string;
   variantId: string;
   competitionTypeId: string;
+  registrationModeId: string;
+  teamFormationStrategyId: string;
+  squadRules: SquadRulesDraft;
   ruleProfileId: string;
   ruleProfileVersion: string;
   presentationProfileId: string;
@@ -38,6 +51,9 @@ export const WIZARD_STEPS: { id: WizardStepId; title: string; job: string }[] = 
   { id: "sport", title: "Sport", job: "Choose the sport for this event" },
   { id: "variant", title: "Variant", job: "Pick the sport variant" },
   { id: "competition", title: "Competition", job: "How teams enter and compete" },
+  { id: "registration_mode", title: "Registration Mode", job: "How participants enter" },
+  { id: "team_formation", title: "Team Formation", job: "How teams will be formed" },
+  { id: "squad_rules", title: "Squad Rules", job: "Min/max squad configuration" },
   { id: "rule_profile", title: "Rule Profile", job: "Choose a product Rule Profile from the catalog" },
   { id: "presentation", title: "Presentation", job: "Bind look & display pack by reference" },
   { id: "registration", title: "Registration", job: "Light registration settings" },
@@ -54,6 +70,14 @@ export function emptyTournamentCreationDraft(
     sportId: "cricket",
     variantId: "",
     competitionTypeId: "",
+    registrationModeId: "",
+    teamFormationStrategyId: "",
+    squadRules: {
+      minPlayers: "",
+      maxPlayers: "",
+      substitutes: "",
+      retentions: "",
+    },
     ruleProfileId: "",
     ruleProfileVersion: "",
     presentationProfileId: "",

@@ -43,4 +43,31 @@ describe("resolveCatalogBindingsForCreate", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("accepts confirmed registration mode with full bindings", () => {
+    const result = resolveCatalogBindingsForCreate("badminton", {
+      variantId: "badminton.standard",
+      competitionTypeId: "registered_teams",
+      ruleProfileId: "badminton.standard_bwf",
+      presentationProfileId: "presentation.badminton.standard",
+      registrationModeId: "team",
+      teamFormationStrategyId: "manual",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.columns.registrationModeId).toBe("team");
+      expect(result.columns.teamFormationStrategyId).toBe("manual");
+    }
+  });
+
+  it("rejects unknown registration mode id", () => {
+    const unknown = resolveCatalogBindingsForCreate("badminton", {
+      variantId: "badminton.standard",
+      competitionTypeId: "registered_teams",
+      ruleProfileId: "badminton.standard_bwf",
+      presentationProfileId: "presentation.badminton.standard",
+      registrationModeId: "not_a_real_mode",
+    });
+    expect(unknown.ok).toBe(false);
+  });
 });

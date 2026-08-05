@@ -49,6 +49,7 @@ export * from "./photo-source-assets";
 export * from "./entity-audit-logs";
 export * from "./workbook-versions";
 export * from "./workbook-mapping-profiles";
+export * from "./competition-configuration-history";
 export * from "./contact_inquiries";
 export * from "./creative_jobs";
 export * from "./intelligence_archive";

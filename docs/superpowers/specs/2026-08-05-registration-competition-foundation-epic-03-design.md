@@ -518,6 +518,57 @@ Implementation is complete only when:
 
 ---
 
+## Backlog (non-blocking — not EPIC-03 scope)
+
+These improve clarity and UI i18n. They do **not** block EPIC-03 implementation. Prefer adopting `#1` column naming if cheap during first implementation; otherwise defer rename.
+
+### B1 — Persist IDs, never labels
+
+Standardize Working Configuration / Plan fields as catalog IDs:
+
+| Prefer | Avoid persisting |
+|--------|------------------|
+| `registration_mode_id` | `registrationMode` label strings as source of truth |
+| `team_formation_strategy_id` | free-text strategy labels |
+| `business_stage_id` | ad-hoc stage strings without registry |
+| `participant_kind_id` | display labels for kind |
+
+Platform persists IDs. Labels come from catalogs at read time.
+
+### B2 — Business Stage Catalog
+
+Today business stages are implied by Competition Module vocabulary.
+
+Future: first-class **Business Stage Catalog** (same pattern as Rule Catalog), e.g. `registration_open`, `verification`, `team_formation`, `competition_ready`.
+
+Not now.
+
+### B3 — Validation codes
+
+Today: severity `ERROR` | `WARNING` | `INFO`.
+
+Future: stable `validationCode` for UI/i18n, e.g.:
+
+- `REGISTRATION_REQUIRED`
+- `INSUFFICIENT_PLAYERS`
+- `RULE_PROFILE_INCOMPATIBLE`
+
+UI must not depend on English messages as the contract.
+
+---
+
+## Working style note (from EPIC-04 onward)
+
+Foundations (Tournament / Rule / Competition identity) are stable. Recommended delivery style for execution-oriented epics:
+
+```
+Architecture (minimal) → Implementation → Review → Refinement
+```
+
+EPIC-01…03 used Architecture → Review → Implementation. That remains valid for new identity layers; prefer the faster loop when extending execution on frozen identities.
+
+---
+
 ## Status
 
 **APPROVED**

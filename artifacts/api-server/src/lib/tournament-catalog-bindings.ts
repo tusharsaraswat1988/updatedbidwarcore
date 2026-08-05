@@ -9,6 +9,10 @@ export const tournamentCatalogBindingSchema = z.object({
   ruleProfileVersion: z.string().min(1).optional(),
   presentationProfileId: z.string().min(1).optional(),
   presentationProfileVersion: z.string().min(1).optional(),
+  /** EPIC-03 — confirmed Working Configuration ids (optional on create). */
+  registrationModeId: z.string().min(1).optional(),
+  teamFormationStrategyId: z.string().min(1).optional(),
+  squadRules: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type TournamentCatalogBindingInput = z.infer<typeof tournamentCatalogBindingSchema>;
@@ -20,6 +24,9 @@ export type CatalogBindingColumns = {
   ruleProfileVersion: string | null;
   presentationProfileId: string | null;
   presentationProfileVersion: string | null;
+  registrationModeId: string | null;
+  teamFormationStrategyId: string | null;
+  squadRulesJson: Record<string, unknown> | null;
 };
 
 /**
@@ -39,6 +46,25 @@ export function resolveCatalogBindingsForCreate(
     !!input.ruleProfileId ||
     !!input.presentationProfileId;
 
+  const competitionConfigColumns = {
+    registrationModeId: input.registrationModeId ?? null,
+    teamFormationStrategyId: input.teamFormationStrategyId ?? null,
+    squadRulesJson: input.squadRules ?? null,
+  };
+
+  if (competitionConfigColumns.registrationModeId) {
+    if (!CatalogRegistry.getRegistrationMode(competitionConfigColumns.registrationModeId)) {
+      return { ok: false, error: "Unknown registrationModeId" };
+    }
+  }
+  if (competitionConfigColumns.teamFormationStrategyId) {
+    if (
+      !CatalogRegistry.getTeamFormationStrategy(competitionConfigColumns.teamFormationStrategyId)
+    ) {
+      return { ok: false, error: "Unknown teamFormationStrategyId" };
+    }
+  }
+
   if (!anyBinding) {
     return {
       ok: true,
@@ -49,6 +75,7 @@ export function resolveCatalogBindingsForCreate(
         ruleProfileVersion: null,
         presentationProfileId: null,
         presentationProfileVersion: null,
+        ...competitionConfigColumns,
       },
     };
   }
@@ -80,6 +107,18 @@ export function resolveCatalogBindingsForCreate(
     return { ok: false, error: validated.error };
   }
 
+  if (
+    competitionConfigColumns.registrationModeId &&
+    !CatalogRegistry.listRegistrationModes(validated.bindings.competitionTypeId).some(
+      (m) => m.id === competitionConfigColumns.registrationModeId,
+    )
+  ) {
+    return {
+      ok: false,
+      error: "registrationModeId is not compatible with competitionTypeId",
+    };
+  }
+
   return {
     ok: true,
     columns: {
@@ -89,6 +128,7 @@ export function resolveCatalogBindingsForCreate(
       ruleProfileVersion: validated.bindings.ruleProfileVersion,
       presentationProfileId: validated.bindings.presentationProfileId,
       presentationProfileVersion: validated.bindings.presentationProfileVersion,
+      ...competitionConfigColumns,
     },
   };
 }
@@ -119,6 +159,10 @@ export function catalogBindingSerializerFields(t: {
     ruleProfileVersion: t.ruleProfileVersion ?? null,
     presentationProfileId: t.presentationProfileId ?? null,
     presentationProfileVersion: t.presentationProfileVersion ?? null,
+    registrationModeId: (t as { registrationModeId?: string | null }).registrationModeId ?? null,
+    teamFormationStrategyId:
+      (t as { teamFormationStrategyId?: string | null }).teamFormationStrategyId ?? null,
+    businessStageId: (t as { businessStageId?: string | null }).businessStageId ?? null,
     /** Always-present resolved refs for engines (Legacy Profile when unbound). */
     resolvedCatalogBindings: resolved,
   };

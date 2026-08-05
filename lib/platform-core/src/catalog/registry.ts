@@ -1,27 +1,39 @@
+import { BUSINESS_STAGE_CATALOG } from "./business-stages/index.ts";
 import { RULE_CATEGORY_CATALOG } from "./categories/index.ts";
 import { COMPETITION_TYPE_CATALOG } from "./competition/index.ts";
 import { RULE_DEFINITION_CATALOG } from "./definitions/index.ts";
 import { PRESENTATION_PROFILE_CATALOG } from "./presentation/index.ts";
+import {
+  DEFAULT_REGISTRATION_MODE_BY_COMPETITION,
+  REGISTRATION_MODE_CATALOG,
+} from "./registration-modes/index.ts";
 import { resolveResultOk, resolveRuleProfile } from "./resolve/resolver.ts";
 import type { ResolveContext, ResolveResult, ValidationIssue } from "./resolve/types.ts";
 import { RULE_PROFILE_CATALOG } from "./rules/index.ts";
 import { SPORT_CATALOG } from "./sports/index.ts";
 import {
+  DEFAULT_TEAM_FORMATION_BY_COMPETITION,
+  TEAM_FORMATION_STRATEGY_CATALOG,
+} from "./team-formation/index.ts";
+import {
   LEGACY_COMPETITION_TYPE_ID,
   LEGACY_PROFILE,
   LEGACY_VARIANT_ID,
+  type BusinessStageCatalogEntry,
   type CatalogEntryBase,
   type CatalogRecommendation,
   type CatalogValidationResult,
   type CompetitionTypeCatalogEntry,
   type ListProfilesFilter,
   type PresentationProfileCatalogEntry,
+  type RegistrationModeCatalogEntry,
   type ResolvedTournamentBindings,
   type RuleCategoryEntry,
   type RuleDefinitionEntry,
   type RuleProfileCatalogEntry,
   type SportCatalogEntry,
   type SuggestDefaultsInput,
+  type TeamFormationStrategyCatalogEntry,
   type TournamentBindingColumns,
   type TournamentCreateBindings,
   type VariantCatalogEntry,
@@ -419,6 +431,68 @@ export const CatalogRegistry = {
 
   requiresAuctionEconomics(competitionTypeId: string): boolean {
     return this.getCompetitionType(competitionTypeId)?.requiresAuctionEconomics ?? false;
+  },
+
+  listRegistrationModes(
+    competitionTypeId?: string,
+    includeDeprecated = false,
+  ): RegistrationModeCatalogEntry[] {
+    const entries = REGISTRATION_MODE_CATALOG.filter((e) =>
+      isActiveForPicker(e, includeDeprecated),
+    );
+    if (!competitionTypeId) return sortForWizard([...entries]);
+    return sortForWizard(
+      entries.filter((e) => supportsToken(e.supportedCompetitionTypes, competitionTypeId)),
+    );
+  },
+
+  getRegistrationMode(id: string): RegistrationModeCatalogEntry | undefined {
+    return REGISTRATION_MODE_CATALOG.find((e) => e.id === id);
+  },
+
+  /** Suggested registration mode id — recommendation only; never auto-persist. */
+  suggestRegistrationModeId(competitionTypeId: string): string | null {
+    const preferred = DEFAULT_REGISTRATION_MODE_BY_COMPETITION[competitionTypeId];
+    if (preferred && this.listRegistrationModes(competitionTypeId).some((m) => m.id === preferred)) {
+      return preferred;
+    }
+    return this.listRegistrationModes(competitionTypeId)[0]?.id ?? null;
+  },
+
+  listTeamFormationStrategies(
+    competitionTypeId?: string,
+    includeDeprecated = false,
+  ): TeamFormationStrategyCatalogEntry[] {
+    const entries = TEAM_FORMATION_STRATEGY_CATALOG.filter((e) =>
+      isActiveForPicker(e, includeDeprecated),
+    );
+    if (!competitionTypeId) return sortForWizard([...entries]);
+    return sortForWizard(
+      entries.filter((e) => supportsToken(e.supportedCompetitionTypes, competitionTypeId)),
+    );
+  },
+
+  getTeamFormationStrategy(id: string): TeamFormationStrategyCatalogEntry | undefined {
+    return TEAM_FORMATION_STRATEGY_CATALOG.find((e) => e.id === id);
+  },
+
+  suggestTeamFormationStrategyId(competitionTypeId: string): string | null {
+    const preferred = DEFAULT_TEAM_FORMATION_BY_COMPETITION[competitionTypeId];
+    if (
+      preferred &&
+      this.listTeamFormationStrategies(competitionTypeId).some((s) => s.id === preferred)
+    ) {
+      return preferred;
+    }
+    return this.listTeamFormationStrategies(competitionTypeId)[0]?.id ?? null;
+  },
+
+  listBusinessStages(): BusinessStageCatalogEntry[] {
+    return [...BUSINESS_STAGE_CATALOG].sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  getBusinessStage(id: string): BusinessStageCatalogEntry | undefined {
+    return BUSINESS_STAGE_CATALOG.find((e) => e.id === id);
   },
 
   /** Catalog quality: no orphan definitions / orphan profile values. */

@@ -60,13 +60,33 @@ export type {
   CatalogValidationResult,
   CompetitionTypeCatalogEntry,
   PresentationProfileCatalogEntry,
+  RegistrationModeCatalogEntry,
   ResolveContext,
   ResolveResult,
   ResolvedRuleSnapshot,
   ResolvedTournamentBindings,
   RuleProfileCatalogEntry,
   SportCatalogEntry,
+  TeamFormationStrategyCatalogEntry,
   TournamentBindingColumns,
   TournamentCreateBindings,
   VariantCatalogEntry,
 } from "./catalog/index.ts";
+
+export {
+  resolveCompetitionConfiguration,
+  validateCompetitionConfiguration,
+  buildCompetitionStatus,
+  buildCompetitionPlanPayload,
+  resolveTransitionRequest,
+  mapAuctionPlayersToParticipants,
+  mapBadmintonRegistrationsToParticipants,
+} from "./competition/index.ts";
+export type {
+  CompetitionAggregate,
+  CompetitionConfiguration,
+  CompetitionPlan,
+  CompetitionStatus,
+  CompetitionValidationResult,
+  Participant,
+} from "./competition/index.ts";

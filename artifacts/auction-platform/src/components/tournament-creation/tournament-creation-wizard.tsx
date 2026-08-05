@@ -30,6 +30,9 @@ export type TournamentCreationPayload = {
   venue?: string;
   variantId: string;
   competitionTypeId: string;
+  registrationModeId?: string;
+  teamFormationStrategyId?: string;
+  squadRules?: Record<string, number>;
   ruleProfileId: string;
   ruleProfileVersion: string;
   presentationProfileId: string;
@@ -112,6 +115,27 @@ export function TournamentCreationWizard({
     draft.competitionTypeId,
   );
 
+  const registrationModes = useMemo(
+    () =>
+      draft.competitionTypeId
+        ? CatalogRegistry.listRegistrationModes(draft.competitionTypeId)
+        : [],
+    [draft.competitionTypeId],
+  );
+  const teamFormationStrategies = useMemo(
+    () =>
+      draft.competitionTypeId
+        ? CatalogRegistry.listTeamFormationStrategies(draft.competitionTypeId)
+        : [],
+    [draft.competitionTypeId],
+  );
+  const recommendedRegistrationModeId = draft.competitionTypeId
+    ? CatalogRegistry.suggestRegistrationModeId(draft.competitionTypeId)
+    : null;
+  const recommendedTeamFormationId = draft.competitionTypeId
+    ? CatalogRegistry.suggestTeamFormationStrategyId(draft.competitionTypeId)
+    : null;
+
   // Cascade defaults when sport/variant/competition change
   useEffect(() => {
     if (!draft.sportId) return;
@@ -148,6 +172,19 @@ export function TournamentCreationWizard({
         next.presentationProfileId = suggested.presentationProfile.id;
         next.presentationProfileVersion = suggested.presentationProfile.version;
       }
+      // Recommendations only — do not auto-persist inferred registration/formation ids.
+      // Clear incompatible prior selections when competition type changes.
+      const modes = CatalogRegistry.listRegistrationModes(d.competitionTypeId);
+      if (d.registrationModeId && !modes.some((m) => m.id === d.registrationModeId)) {
+        next.registrationModeId = "";
+      }
+      const strategies = CatalogRegistry.listTeamFormationStrategies(d.competitionTypeId);
+      if (
+        d.teamFormationStrategyId &&
+        !strategies.some((s) => s.id === d.teamFormationStrategyId)
+      ) {
+        next.teamFormationStrategyId = "";
+      }
       return next;
     });
   }, [draft.sportId, draft.variantId, draft.competitionTypeId]);
@@ -173,6 +210,24 @@ export function TournamentCreationWizard({
       case "competition":
         if (!draft.competitionTypeId) return "Select a competition type.";
         return null;
+      case "registration_mode":
+        if (!draft.registrationModeId) return "Confirm a registration mode.";
+        return null;
+      case "team_formation":
+        if (!draft.teamFormationStrategyId) return "Confirm a team formation strategy.";
+        return null;
+      case "squad_rules": {
+        const min = draft.squadRules.minPlayers
+          ? parseInt(draft.squadRules.minPlayers, 10)
+          : NaN;
+        const max = draft.squadRules.maxPlayers
+          ? parseInt(draft.squadRules.maxPlayers, 10)
+          : NaN;
+        if (Number.isFinite(min) && Number.isFinite(max) && min > max) {
+          return "Minimum players cannot exceed maximum players.";
+        }
+        return null;
+      }
       case "rule_profile":
         if (!draft.ruleProfileId) return "Select a rule profile.";
         return null;
@@ -243,6 +298,13 @@ export function TournamentCreationWizard({
           )
         : undefined;
 
+    const squadRules: Record<string, number> = {};
+    for (const [key, raw] of Object.entries(draft.squadRules)) {
+      if (raw && Number.isFinite(parseInt(raw, 10))) {
+        squadRules[key] = parseInt(raw, 10);
+      }
+    }
+
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
       sport: draft.sportId,
@@ -250,6 +312,9 @@ export function TournamentCreationWizard({
       venue: draft.venue.trim() || undefined,
       variantId: draft.variantId,
       competitionTypeId: draft.competitionTypeId,
+      registrationModeId: draft.registrationModeId || undefined,
+      teamFormationStrategyId: draft.teamFormationStrategyId || undefined,
+      squadRules: Object.keys(squadRules).length > 0 ? squadRules : undefined,
       ruleProfileId: draft.ruleProfileId,
       ruleProfileVersion: draft.ruleProfileVersion,
       presentationProfileId: draft.presentationProfileId,
@@ -284,6 +349,10 @@ export function TournamentCreationWizard({
   const sportEntry = CatalogRegistry.getSport(draft.sportId);
   const variantEntry = CatalogRegistry.getVariant(draft.variantId);
   const competitionEntry = CatalogRegistry.getCompetitionType(draft.competitionTypeId);
+  const registrationModeEntry = CatalogRegistry.getRegistrationMode(draft.registrationModeId);
+  const teamFormationEntry = CatalogRegistry.getTeamFormationStrategy(
+    draft.teamFormationStrategyId,
+  );
   const ruleEntry = CatalogRegistry.getRuleProfile(
     draft.ruleProfileId,
     draft.ruleProfileVersion,
@@ -358,6 +427,8 @@ export function TournamentCreationWizard({
                 sportId: entry.id,
                 variantId: "",
                 competitionTypeId: "",
+                registrationModeId: "",
+                teamFormationStrategyId: "",
                 ruleProfileId: "",
                 ruleProfileVersion: "",
                 presentationProfileId: "",
@@ -391,6 +462,8 @@ export function TournamentCreationWizard({
             onSelect={(entry) =>
               patch({
                 competitionTypeId: entry.id,
+                registrationModeId: "",
+                teamFormationStrategyId: "",
                 ruleProfileId: "",
                 ruleProfileVersion: "",
                 presentationProfileId: "",
@@ -398,6 +471,78 @@ export function TournamentCreationWizard({
               })
             }
           />
+        )}
+
+        {step.id === "registration_mode" && (
+          <div className="space-y-3">
+            {recommendedRegistrationModeId ? (
+              <p className="text-sm text-muted-foreground">
+                ⭐ Recommended:{" "}
+                <span className="font-medium text-foreground">
+                  {CatalogRegistry.getRegistrationMode(recommendedRegistrationModeId)
+                    ?.displayName ?? recommendedRegistrationModeId}
+                </span>
+              </p>
+            ) : null}
+            <CatalogOptionList
+              entries={registrationModes}
+              value={draft.registrationModeId}
+              onSelect={(entry) => patch({ registrationModeId: entry.id })}
+              emptyLabel="No registration modes for this competition type."
+            />
+          </div>
+        )}
+
+        {step.id === "team_formation" && (
+          <div className="space-y-3">
+            {recommendedTeamFormationId ? (
+              <p className="text-sm text-muted-foreground">
+                ⭐ Recommended:{" "}
+                <span className="font-medium text-foreground">
+                  {CatalogRegistry.getTeamFormationStrategy(recommendedTeamFormationId)
+                    ?.displayName ?? recommendedTeamFormationId}
+                </span>
+              </p>
+            ) : null}
+            <CatalogOptionList
+              entries={teamFormationStrategies}
+              value={draft.teamFormationStrategyId}
+              onSelect={(entry) => patch({ teamFormationStrategyId: entry.id })}
+              emptyLabel="No team formation strategies for this competition type."
+            />
+          </div>
+        )}
+
+        {step.id === "squad_rules" && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Optional squad limits. Leave blank if not needed yet.
+            </p>
+            {(
+              [
+                ["minPlayers", "Minimum players"],
+                ["maxPlayers", "Maximum players"],
+                ["substitutes", "Substitutes"],
+                ["retentions", "Retentions"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key} className="space-y-2">
+                <Label>{label}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={draft.squadRules[key]}
+                  onChange={(e) =>
+                    patch({
+                      squadRules: { ...draft.squadRules, [key]: e.target.value },
+                    })
+                  }
+                  className="min-h-12"
+                  placeholder="Optional"
+                />
+              </div>
+            ))}
+          </div>
         )}
 
         {step.id === "rule_profile" && (
@@ -581,6 +726,35 @@ export function TournamentCreationWizard({
             <BlueprintRow
               label="Competition"
               value={competitionEntry?.displayName ?? draft.competitionTypeId}
+            />
+            <BlueprintRow
+              label="Registration Mode"
+              value={
+                registrationModeEntry?.displayName ?? draft.registrationModeId
+              }
+            />
+            <BlueprintRow
+              label="Team Formation"
+              value={teamFormationEntry?.displayName ?? draft.teamFormationStrategyId}
+            />
+            <BlueprintRow
+              label="Squad Rules"
+              value={[
+                draft.squadRules.minPlayers
+                  ? `Min ${draft.squadRules.minPlayers}`
+                  : null,
+                draft.squadRules.maxPlayers
+                  ? `Max ${draft.squadRules.maxPlayers}`
+                  : null,
+                draft.squadRules.substitutes
+                  ? `Subs ${draft.squadRules.substitutes}`
+                  : null,
+                draft.squadRules.retentions
+                  ? `Retentions ${draft.squadRules.retentions}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "Not set"}
             />
             <BlueprintRow
               label="Rule Profile"

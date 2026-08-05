@@ -33,6 +33,30 @@ const resolveBodySchema = z.object({
 
 /** Read-only Product Catalog APIs — never expose RuntimeAdapter DTOs. */
 
+router.get("/catalog/registration-modes", (req, res) => {
+  const competitionTypeId =
+    typeof req.query.competitionTypeId === "string" ? req.query.competitionTypeId : undefined;
+  const modes = CatalogRegistry.listRegistrationModes(competitionTypeId);
+  const recommendedId = competitionTypeId
+    ? CatalogRegistry.suggestRegistrationModeId(competitionTypeId)
+    : null;
+  res.json({ modes, recommendedId });
+});
+
+router.get("/catalog/team-formation-strategies", (req, res) => {
+  const competitionTypeId =
+    typeof req.query.competitionTypeId === "string" ? req.query.competitionTypeId : undefined;
+  const strategies = CatalogRegistry.listTeamFormationStrategies(competitionTypeId);
+  const recommendedId = competitionTypeId
+    ? CatalogRegistry.suggestTeamFormationStrategyId(competitionTypeId)
+    : null;
+  res.json({ strategies, recommendedId });
+});
+
+router.get("/catalog/business-stages", (_req, res) => {
+  res.json({ stages: CatalogRegistry.listBusinessStages() });
+});
+
 router.get("/catalog/rule-categories", (_req, res) => {
   res.json({ categories: CatalogRegistry.listRuleCategories() });
 });

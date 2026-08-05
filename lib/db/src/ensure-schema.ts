@@ -152,6 +152,11 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_version text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_version text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_mode_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_formation_strategy_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS squad_rules_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS participant_constraints_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS business_stage_id text;
 
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent boolean NOT NULL DEFAULT false;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_at timestamptz;
@@ -494,6 +499,18 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS source_type text DEFAULT 'excel';
     ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS google_sheet_url text;
     ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS workbook_version_id integer;
+
+    CREATE TABLE IF NOT EXISTS competition_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_competition_configuration_history_tournament_version
+      ON competition_configuration_history (tournament_id, version);
 
     CREATE TABLE IF NOT EXISTS workbook_versions (
       id SERIAL PRIMARY KEY,

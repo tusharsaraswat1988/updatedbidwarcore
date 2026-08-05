@@ -37,6 +37,19 @@ export type CompetitionTypeCatalogEntry = CatalogEntryBase & {
   requiresAuctionEconomics: boolean;
 };
 
+export type RegistrationModeCatalogEntry = CatalogEntryBase & {
+  kind: "registration_mode";
+};
+
+export type TeamFormationStrategyCatalogEntry = CatalogEntryBase & {
+  kind: "team_formation";
+};
+
+export type BusinessStageCatalogEntry = CatalogEntryBase & {
+  kind: "business_stage";
+  sortOrder: number;
+};
+
 /** Rule value types — extensible from day one. */
 export type RuleValueType =
   | "integer"

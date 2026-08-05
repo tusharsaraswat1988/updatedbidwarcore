@@ -574,6 +574,10 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     ruleProfileVersion: catalogBindings.columns.ruleProfileVersion,
     presentationProfileId: catalogBindings.columns.presentationProfileId,
     presentationProfileVersion: catalogBindings.columns.presentationProfileVersion,
+    registrationModeId: catalogBindings.columns.registrationModeId,
+    teamFormationStrategyId: catalogBindings.columns.teamFormationStrategyId,
+    squadRulesJson: catalogBindings.columns.squadRulesJson,
+    businessStageId: "registration_planning",
     organizerMobile,
     organizerEmail: d.organizerEmail,
     basePurse: d.basePurse ?? 10000000,
@@ -1740,6 +1744,10 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     ruleProfileVersion: catalogBindings.columns.ruleProfileVersion,
     presentationProfileId: catalogBindings.columns.presentationProfileId,
     presentationProfileVersion: catalogBindings.columns.presentationProfileVersion,
+    registrationModeId: catalogBindings.columns.registrationModeId,
+    teamFormationStrategyId: catalogBindings.columns.teamFormationStrategyId,
+    squadRulesJson: catalogBindings.columns.squadRulesJson,
+    businessStageId: "registration_planning",
   }).returning();
 
   notifyAsync("TOURNAMENT_CREATED", {

@@ -45,11 +45,13 @@ import diagnosticsRouter from "./diagnostics";
 import schemaHealthRouter from "./schema-health";
 import scorerRouter from "./scorer";
 import catalogRouter from "./catalog";
+import competitionRouter from "./competition";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(catalogRouter);
+router.use(competitionRouter);
 router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);
