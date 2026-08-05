@@ -12,6 +12,7 @@ import {
 } from "@workspace/platform-core/competition";
 import {
   buildMatchConfigurationHistoryPayload,
+  isValidMatchLifecycleTransition,
   lifecycleAfterMatchLock,
   mapScoringMatchToConfiguration,
   mapScoringMatchToIdentity,
@@ -29,6 +30,7 @@ import {
   type MatchSide,
   type MatchValidationResult,
 } from "@workspace/platform-core/match";
+
 import {
   buildWorkingConfiguration,
   loadLatestPlan,
@@ -377,3 +379,42 @@ export async function patchMatchConfiguration(
 
   return { ok: true, configuration: buildMatchConfiguration(updated, null) };
 }
+
+/**
+ * EPIC-05 Match Lifecycle authority — other modules request transitions here.
+ * Runtime Match (EPIC-08) must not invent a second lifecycle owner.
+ */
+export async function requestMatchLifecycleTransition(
+  tournamentId: number,
+  matchId: number,
+  to: MatchLifecycleStatusId,
+): Promise<
+  | { ok: true; lifecycle: MatchLifecycle; from: MatchLifecycleStatusId; to: MatchLifecycleStatusId }
+  | { ok: false; status: number; error: string }
+> {
+  const match = await loadMatchRow(tournamentId, matchId);
+  if (!match) return { ok: false, status: 404, error: "Match not found" };
+  const from = (match.lifecycleStatus as MatchLifecycleStatusId) ?? "draft";
+  if (from === to) {
+    return { ok: true, lifecycle: buildMatchLifecycle(match), from, to };
+  }
+  if (!isValidMatchLifecycleTransition(from, to)) {
+    return {
+      ok: false,
+      status: 409,
+      error: `Match Lifecycle cannot transition from ${from} to ${to}.`,
+    };
+  }
+  const [updated] = await db
+    .update(scoringMatchesTable)
+    .set({ lifecycleStatus: to, updatedAt: new Date() })
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .returning();
+  return { ok: true, lifecycle: buildMatchLifecycle(updated), from, to };
+}
+

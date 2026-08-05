@@ -50,6 +50,7 @@ import teamFoundationRouter from "./team-foundation";
 import matchFoundationRouter from "./match-foundation";
 import fixtureFoundationRouter from "./fixture-foundation";
 import schedulingFoundationRouter from "./scheduling-foundation";
+import runtimeMatchFoundationRouter from "./runtime-match-foundation";
 
 const router: IRouter = Router();
 
@@ -60,6 +61,7 @@ router.use(teamFoundationRouter);
 router.use(matchFoundationRouter);
 router.use(fixtureFoundationRouter);
 router.use(schedulingFoundationRouter);
+router.use(runtimeMatchFoundationRouter);
 router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);

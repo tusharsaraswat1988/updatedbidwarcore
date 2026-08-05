@@ -54,6 +54,8 @@ export * from "./team-configuration-history";
 export * from "./match-configuration-history";
 export * from "./fixture-configuration-history";
 export * from "./scheduling-configuration-history";
+export * from "./runtime-match-history";
+
 export * from "./contact_inquiries";
 export * from "./creative_jobs";
 export * from "./intelligence_archive";

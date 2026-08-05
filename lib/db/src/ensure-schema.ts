@@ -600,6 +600,27 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS ux_scheduling_configuration_history_key_version
       ON scheduling_configuration_history (scheduling_key, version);
 
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS execution_phase text DEFAULT 'preparing';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS current_runtime_version integer;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS runtime_prep_metadata_json jsonb;
+
+    CREATE TABLE IF NOT EXISTS runtime_match_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      match_id integer NOT NULL REFERENCES scoring_matches(id) ON DELETE CASCADE,
+      operation text NOT NULL,
+      snapshot_version integer,
+      execution_phase text,
+      actor text,
+      reason text,
+      payload_json jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_runtime_match_history_match_id
+      ON runtime_match_history (match_id);
+    CREATE INDEX IF NOT EXISTS ix_runtime_match_history_match_created
+      ON runtime_match_history (match_id, created_at);
+
     CREATE TABLE IF NOT EXISTS workbook_versions (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,

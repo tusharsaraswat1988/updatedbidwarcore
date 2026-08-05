@@ -51,6 +51,13 @@ export const scoringMatchesTable = pgTable(
     /** Lifecycle module storage — not part of Match Configuration product view. */
     lifecycleStatus: text("lifecycle_status").default("draft"),
     configurationLocked: boolean("configuration_locked").notNull().default(false),
+    /** EPIC-08 — subordinate Execution Phase (not a second lifecycle). */
+    executionPhase: text("execution_phase").default("preparing"),
+    /** EPIC-08 — pointer to active Runtime Snapshot version in history. */
+    currentRuntimeVersion: integer("current_runtime_version"),
+    /** EPIC-08 — minimal prep metadata only when not derivable. */
+    runtimePrepMetadataJson: jsonb("runtime_prep_metadata_json").$type<Record<string, unknown>>(),
+
     officialsJson: jsonb("officials_json").$type<{
       scorers?: number[];
       matchReferee?: number | null;

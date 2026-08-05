@@ -177,3 +177,24 @@ export type {
   ResourceAssignment,
   SchedulingValidationResult,
 } from "./scheduling/index.ts";
+
+export {
+  mapRowToRuntimeIdentity,
+  mapRowToExecutionPhaseState,
+  mapRowToRuntimeListItem,
+  buildRuntimeContextFromSnapshot,
+  buildRuntimeSnapshot,
+  buildSnapshotReferences,
+  validateRuntimeMatch,
+  isValidExecutionPhaseTransition,
+  isPhaseAllowedForLifecycle,
+  buildFreezeHistoryPayload,
+  buildRuntimeHistoryEntry,
+} from "./runtime-match/index.ts";
+export type {
+  RuntimeSnapshot,
+  RuntimeContext,
+  ExecutionPhaseState,
+  RuntimeValidationResult,
+  RuntimeHistoryEntry,
+} from "./runtime-match/index.ts";
