@@ -64,7 +64,7 @@ describe("RuleResolver", () => {
     expect(result.validation.some((i) => i.code === "UNKNOWN_PROFILE")).toBe(true);
   });
 
-  it("rejects unsupported resolution modes", () => {
+  it("preview façade coerces MATCH_START to PREVIEW (dark-launch; no cutover)", () => {
     const result = CatalogRegistry.resolveRuleProfilePreview({
       sportId: "cricket",
       variantId: "cricket.outdoor",
@@ -74,8 +74,8 @@ describe("RuleResolver", () => {
       profileVersion: "1.0.0",
       resolutionMode: "MATCH_START",
     });
-    expect(resolveResultOk(result)).toBe(false);
-    expect(result.validation.some((i) => i.code === "MODE_UNSUPPORTED")).toBe(true);
+    expect(resolveResultOk(result)).toBe(true);
+    expect(result.validation.some((i) => i.code === "MODE_UNSUPPORTED")).toBe(false);
   });
 
   it("inherits omitted/inherit values from platform defaults", () => {

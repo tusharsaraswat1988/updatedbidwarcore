@@ -11,6 +11,7 @@ export type {
   RuntimeAdapterResult,
 } from "./contracts/types.ts";
 
+/** Transitional EPIC-02 adapters — deprecate → remove after Scoring cutover (not Rule Engine). */
 export { BadmintonRuntimeAdapter } from "./adapters/badminton.ts";
 export { CricketRuntimeAdapter } from "./adapters/cricket.ts";
 export { FootballRuntimeAdapter } from "./adapters/football.ts";

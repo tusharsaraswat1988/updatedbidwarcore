@@ -1,10 +1,9 @@
-import type { PresentationProfileCatalogEntry } from "../../types.ts";
+import { presentationProfile } from "../helpers.ts";
+import { standardPresentationValues } from "../profile-values.ts";
 
-export const BADMINTON_PRESENTATION: readonly PresentationProfileCatalogEntry[] = [
-  {
-    kind: "presentation_profile",
+export const BADMINTON_PRESENTATION = [
+  presentationProfile({
     id: "presentation.badminton.standard",
-    version: "1.0.0",
     sportId: "badminton",
     displayName: "Badminton Standard",
     description: "Default badminton public + court display presentation.",
@@ -12,12 +11,12 @@ export const BADMINTON_PRESENTATION: readonly PresentationProfileCatalogEntry[] 
     supportedVariants: ["badminton.standard"],
     status: "active",
     recommendation: "recommended",
+    tags: ["badminton", "standard"],
+    values: standardPresentationValues(),
     preview: { density: "standard", theme: "badminton" },
-  },
-  {
-    kind: "presentation_profile",
+  }),
+  presentationProfile({
     id: "presentation.badminton.broadcast",
-    version: "1.0.0",
     sportId: "badminton",
     displayName: "Badminton Broadcast",
     description: "Broadcast-oriented badminton overlays (advanced).",
@@ -25,6 +24,8 @@ export const BADMINTON_PRESENTATION: readonly PresentationProfileCatalogEntry[] 
     supportedVariants: ["badminton.standard"],
     status: "beta",
     recommendation: "advanced",
+    tags: ["badminton", "broadcast"],
+    values: standardPresentationValues({ animation: true, ticker: true }),
     preview: { density: "broadcast", theme: "badminton_broadcast" },
-  },
-];
+  }),
+] as const;

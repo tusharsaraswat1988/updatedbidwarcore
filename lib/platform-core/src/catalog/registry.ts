@@ -2,13 +2,23 @@ import { BUSINESS_STAGE_CATALOG } from "./business-stages/index.ts";
 import { RULE_CATEGORY_CATALOG } from "./categories/index.ts";
 import { COMPETITION_TYPE_CATALOG } from "./competition/index.ts";
 import { RULE_DEFINITION_CATALOG } from "./definitions/index.ts";
-import { PRESENTATION_PROFILE_CATALOG } from "./presentation/index.ts";
+import {
+  PRESENTATION_CAPABILITY_PROFILE_CATALOG,
+  PRESENTATION_DEFINITION_CATALOG,
+  PRESENTATION_PROFILE_CATALOG,
+} from "./presentation/index.ts";
 import {
   DEFAULT_REGISTRATION_MODE_BY_COMPETITION,
   REGISTRATION_MODE_CATALOG,
 } from "./registration-modes/index.ts";
+import {
+  presentationResolveResultOk,
+  resolvePresentationProfile,
+  type PresentationResolveContext,
+} from "./resolve/presentation-resolver.ts";
 import { resolveResultOk, resolveRuleProfile } from "./resolve/resolver.ts";
 import type { ResolveContext, ResolveResult, ValidationIssue } from "./resolve/types.ts";
+import type { PresentationEngineResult } from "../presentation-engine/types.ts";
 import { RULE_PROFILE_CATALOG } from "./rules/index.ts";
 import { SPORT_CATALOG } from "./sports/index.ts";
 import {
@@ -39,6 +49,8 @@ import {
   type ListProfilesFilter,
   type MatchRoleCatalogEntry,
   type MatchTypeCatalogEntry,
+  type PresentationCapabilityProfileEntry,
+  type PresentationDefinitionEntry,
   type PresentationProfileCatalogEntry,
   type RegistrationModeCatalogEntry,
   type ResourceKindCatalogEntry,
@@ -241,6 +253,33 @@ export const CatalogRegistry = {
     );
   },
 
+  listPresentationDefinitions(filter?: {
+    sportId?: string;
+  }): PresentationDefinitionEntry[] {
+    return PRESENTATION_DEFINITION_CATALOG.filter((d) => {
+      if (filter?.sportId && d.sportId !== "*" && d.sportId !== filter.sportId) {
+        return false;
+      }
+      return d.status !== "deprecated";
+    }).sort((a, b) => a.id.localeCompare(b.id));
+  },
+
+  listCapabilityProfiles(): PresentationCapabilityProfileEntry[] {
+    return [...PRESENTATION_CAPABILITY_PROFILE_CATALOG].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+  },
+
+  getCapabilityProfile(
+    id: string,
+    version?: string | null,
+  ): PresentationCapabilityProfileEntry | null {
+    const matches = PRESENTATION_CAPABILITY_PROFILE_CATALOG.filter((p) => p.id === id);
+    if (matches.length === 0) return null;
+    if (version) return matches.find((p) => p.version === version) ?? null;
+    return [...matches].sort((a, b) => compareSemver(b.version, a.version))[0] ?? null;
+  },
+
   suggestDefaults(input: SuggestDefaultsInput): {
     ruleProfile: RuleProfileCatalogEntry | null;
     presentationProfile: PresentationProfileCatalogEntry | null;
@@ -391,6 +430,32 @@ export const CatalogRegistry = {
 
   resolveRuleProfilePreview(ctx: ResolveContext): ResolveResult {
     return resolveRuleProfile(ctx);
+  },
+
+  validatePresentationProfile(input: {
+    sportId: string;
+    variantId: string;
+    competitionTypeId: string;
+    profileId: string;
+    profileVersion: string;
+    matchTypeId?: string;
+  }): { ok: boolean; result: PresentationEngineResult } {
+    const result = this.resolvePresentationProfilePreview({
+      sportId: input.sportId,
+      variantId: input.variantId,
+      competitionTypeId: input.competitionTypeId,
+      profileId: input.profileId,
+      profileVersion: input.profileVersion,
+      matchTypeId: input.matchTypeId,
+      resolutionMode: "VALIDATE",
+    });
+    return { ok: presentationResolveResultOk(result), result };
+  },
+
+  resolvePresentationProfilePreview(
+    ctx: PresentationResolveContext,
+  ): PresentationEngineResult {
+    return resolvePresentationProfile(ctx);
   },
 
   /**

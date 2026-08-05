@@ -1,10 +1,9 @@
-import type { PresentationProfileCatalogEntry } from "../../types.ts";
+import { presentationProfile } from "../helpers.ts";
+import { standardPresentationValues } from "../profile-values.ts";
 
-export const FOOTBALL_PRESENTATION: readonly PresentationProfileCatalogEntry[] = [
-  {
-    kind: "presentation_profile",
+export const FOOTBALL_PRESENTATION = [
+  presentationProfile({
     id: "presentation.football.standard",
-    version: "1.0.0",
     sportId: "football",
     displayName: "Football Standard",
     description: "Placeholder football presentation pack.",
@@ -12,6 +11,8 @@ export const FOOTBALL_PRESENTATION: readonly PresentationProfileCatalogEntry[] =
     supportedVariants: ["football.standard"],
     status: "beta",
     recommendation: "recommended",
+    tags: ["football"],
+    values: standardPresentationValues(),
     preview: { theme: "football" },
-  },
-];
+  }),
+] as const;

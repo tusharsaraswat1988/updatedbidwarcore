@@ -51,11 +51,15 @@ import matchFoundationRouter from "./match-foundation";
 import fixtureFoundationRouter from "./fixture-foundation";
 import schedulingFoundationRouter from "./scheduling-foundation";
 import runtimeMatchFoundationRouter from "./runtime-match-foundation";
+import ruleEngineRouter from "./rule-engine";
+import presentationEngineRouter from "./presentation-engine";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(catalogRouter);
+router.use(ruleEngineRouter);
+router.use(presentationEngineRouter);
 router.use(competitionRouter);
 router.use(teamFoundationRouter);
 router.use(matchFoundationRouter);

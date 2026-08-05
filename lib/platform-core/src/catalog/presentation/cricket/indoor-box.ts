@@ -1,10 +1,9 @@
-import type { PresentationProfileCatalogEntry } from "../../types.ts";
+import { presentationProfile } from "../helpers.ts";
+import { standardPresentationValues } from "../profile-values.ts";
 
-export const CRICKET_INDOOR_BOX_PRESENTATION: readonly PresentationProfileCatalogEntry[] = [
-  {
-    kind: "presentation_profile",
+export const CRICKET_INDOOR_BOX_PRESENTATION = [
+  presentationProfile({
     id: "presentation.cricket.indoor_box",
-    version: "1.0.0",
     sportId: "cricket",
     displayName: "Indoor Box",
     description: "Indoor / box venue presentation with tight scorebug density.",
@@ -12,6 +11,8 @@ export const CRICKET_INDOOR_BOX_PRESENTATION: readonly PresentationProfileCatalo
     supportedVariants: ["cricket.box", "cricket.indoor"],
     status: "active",
     recommendation: "auto_suggested",
+    tags: ["indoor", "box"],
+    values: standardPresentationValues({ ticker: true }),
     preview: { density: "tight", theme: "indoor_box" },
-  },
-];
+  }),
+] as const;

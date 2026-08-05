@@ -27,7 +27,7 @@ const resolveBodySchema = z.object({
   profileId: z.string().min(1),
   profileVersion: z.string().min(1),
   resolutionMode: z
-    .enum(["PREVIEW", "CREATE", "MATCH_START", "VALIDATE", "MIGRATION"])
+    .enum(["PREVIEW", "CREATE", "PREPARE", "MATCH_START", "VALIDATE", "MIGRATION"])
     .default("PREVIEW"),
 });
 

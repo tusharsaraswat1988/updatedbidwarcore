@@ -1,10 +1,9 @@
-import type { PresentationProfileCatalogEntry } from "../../types.ts";
+import { presentationProfile } from "../helpers.ts";
+import { standardPresentationValues } from "../profile-values.ts";
 
-export const CRICKET_SOCIETY_PRESENTATION: readonly PresentationProfileCatalogEntry[] = [
-  {
-    kind: "presentation_profile",
+export const CRICKET_SOCIETY_PRESENTATION = [
+  presentationProfile({
     id: "presentation.cricket.society",
-    version: "1.0.0",
     sportId: "cricket",
     displayName: "Society League",
     description: "Community / society aesthetic for tennis-ball and local leagues.",
@@ -12,6 +11,8 @@ export const CRICKET_SOCIETY_PRESENTATION: readonly PresentationProfileCatalogEn
     supportedVariants: ["cricket.tennis_ball", "cricket.box", "cricket.outdoor"],
     status: "active",
     recommendation: "recommended",
+    tags: ["society"],
+    values: standardPresentationValues(),
     preview: { density: "friendly", theme: "society" },
-  },
-];
+  }),
+] as const;

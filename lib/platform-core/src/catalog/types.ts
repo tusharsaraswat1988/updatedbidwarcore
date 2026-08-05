@@ -202,11 +202,72 @@ export type RuleProfileCatalogEntry = CatalogEntryBase & {
   runtimeBinding: DeclarativeRuntimeBinding;
 };
 
+/** Presentation value types — same concrete union as rules for foundation. */
+export type PresentationValueType = RuleValueType;
+export type ConcretePresentationValue = ConcreteRuleValue;
+
+export type PresentationDefinitionKind =
+  | "token"
+  | "style"
+  | "feature"
+  | "region"
+  | "slot"
+  | "capability";
+
+export type PresentationDefinitionEntry = {
+  id: string;
+  version: string;
+  status: CatalogStatus;
+  kind: PresentationDefinitionKind;
+  name: string;
+  description: string;
+  sportId: string; // "*" for platform-wide
+  type: PresentationValueType;
+  defaultValue: ConcretePresentationValue;
+  allowedValues?: readonly ConcretePresentationValue[];
+  validation?: RuleDefinitionValidation;
+  /** Token ids bound by a style definition. */
+  tokenIds?: readonly string[];
+  /** Feature id gating a slot. */
+  featureId?: string;
+  /** Region id owning a slot. */
+  regionId?: string;
+  /** Style id bound by a region (optional). */
+  styleId?: string;
+  dependencies?: readonly string[];
+  conflicts?: readonly string[];
+  futureCompatible: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PresentationProfileValueEntry = {
+  definitionId: string;
+  definitionVersion: string;
+  value: ConcretePresentationValue | "inherit";
+};
+
 export type PresentationProfileCatalogEntry = CatalogEntryBase & {
   kind: "presentation_profile";
   sportId: string;
-  /** UI-only preview metadata — never written onto tournaments. */
+  familyId: string;
+  tags: readonly string[];
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+  values: readonly PresentationProfileValueEntry[];
+  /** Rule profile ids this pack supports. ["*"] = all. */
+  compatibleRuleProfileIds: readonly string[];
+  /** Match type ids this pack supports. ["*"] = all. */
+  supportedMatchTypes: readonly string[];
+  /** Derived UI chips — never written onto tournaments; not engine input. */
   preview?: Record<string, unknown>;
+};
+
+export type PresentationCapabilityProfileEntry = CatalogEntryBase & {
+  kind: "presentation_capability_profile";
+  optionalCapabilities: readonly string[];
+  requiredCapabilities: readonly string[];
 };
 
 export type TournamentCreateBindings = {

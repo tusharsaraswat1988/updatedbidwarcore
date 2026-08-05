@@ -3,6 +3,7 @@ import type { ConcreteRuleValue, DeclarativeRuntimeBinding } from "../types.ts";
 export type ResolutionMode =
   | "PREVIEW"
   | "CREATE"
+  | "PREPARE"
   | "MATCH_START"
   | "VALIDATE"
   | "MIGRATION";
@@ -12,8 +13,20 @@ export type ResolveLayerId =
   | "sport"
   | "variant"
   | "profile"
+  | "competition_override"
   | "tournament_override"
   | "match_override";
+
+export type ValidationIssueOrigin =
+  | "definition"
+  | "profile"
+  | "override"
+  | "dependency"
+  | "conflictPolicy"
+  | "snapshot"
+  | "context"
+  | "catalog"
+  | "engine";
 
 export type TournamentRuleOverrides = {
   values?: Readonly<Record<string, ConcreteRuleValue>>;
@@ -42,6 +55,7 @@ export type ValidationIssue = {
   code: string;
   message: string;
   path?: string;
+  origin?: ValidationIssueOrigin;
 };
 
 export type ResolvedRuleEntry = {
@@ -65,13 +79,14 @@ export type ResolvedRuleSnapshot = {
   profileVersion: string;
   values: readonly ResolvedRuleEntry[];
   runtimeBinding: DeclarativeRuntimeBinding;
-  provenance: {
-    layersApplied: readonly ResolveLayerId[];
-    overridesApplied: {
-      tournament: boolean;
-      match: boolean;
+    provenance: {
+      layersApplied: readonly ResolveLayerId[];
+      overridesApplied: {
+        competition: boolean;
+        tournament: boolean;
+        match: boolean;
+      };
     };
-  };
   snapshotHash: string;
   resolvedAt: string;
 };

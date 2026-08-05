@@ -1,10 +1,9 @@
-import type { PresentationProfileCatalogEntry } from "../../types.ts";
+import { presentationProfile } from "../helpers.ts";
+import { standardPresentationValues } from "../profile-values.ts";
 
-export const CRICKET_CUSTOM_PRESENTATION: readonly PresentationProfileCatalogEntry[] = [
-  {
-    kind: "presentation_profile",
+export const CRICKET_CUSTOM_PRESENTATION = [
+  presentationProfile({
     id: "presentation.cricket.custom",
-    version: "1.0.0",
     sportId: "cricket",
     displayName: "Custom Presentation",
     description: "Blank presentation binding for organizer branding later.",
@@ -12,6 +11,8 @@ export const CRICKET_CUSTOM_PRESENTATION: readonly PresentationProfileCatalogEnt
     supportedVariants: ["*"],
     status: "beta",
     recommendation: "advanced",
+    tags: ["custom"],
+    values: standardPresentationValues({ animation: false, ticker: false }),
     preview: { density: "custom", theme: "custom" },
-  },
-];
+  }),
+] as const;

@@ -1,17 +1,18 @@
-import type { PresentationProfileCatalogEntry } from "../../types.ts";
+import { presentationProfile } from "../helpers.ts";
+import { standardPresentationValues } from "../profile-values.ts";
 
-export const CRICKET_CORPORATE_BOX_PRESENTATION: readonly PresentationProfileCatalogEntry[] = [
-  {
-    kind: "presentation_profile",
+export const CRICKET_CORPORATE_BOX_PRESENTATION = [
+  presentationProfile({
     id: "presentation.cricket.corporate_box",
-    version: "1.0.0",
     sportId: "cricket",
     displayName: "Corporate Box",
-    description: "Compact corporate box cricket graphics and LED density.",
+    description: "Corporate box cricket presentation pack.",
     supportedCompetitionTypes: ["auction", "registered_teams", "hybrid", "practice"],
-    supportedVariants: ["cricket.box"],
+    supportedVariants: ["cricket.box", "cricket.custom"],
     status: "active",
     recommendation: "recommended",
+    tags: ["box", "corporate"],
+    values: standardPresentationValues({ ticker: true }),
     preview: { density: "compact", theme: "corporate_box" },
-  },
-];
+  }),
+] as const;

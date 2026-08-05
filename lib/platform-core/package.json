@@ -14,6 +14,8 @@
     "./scheduling": "./src/scheduling/index.ts",
     "./runtime-match": "./src/runtime-match/index.ts",
     "./runtime": "./src/runtime/index.ts",
+    "./rule-engine": "./src/rule-engine/index.ts",
+    "./presentation-engine": "./src/presentation-engine/index.ts",
 
     "./tournament-features": "./src/tournament-features.ts",
     "./scoring-urls": "./src/scoring-urls.ts",

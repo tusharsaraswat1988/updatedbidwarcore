@@ -8,6 +8,11 @@ export { CatalogRegistry } from "./registry.ts";
 export type { CatalogRegistryApi } from "./registry.ts";
 
 export { resolveRuleProfile, resolveResultOk } from "./resolve/resolver.ts";
+export {
+  resolvePresentationProfile,
+  presentationResolveResultOk,
+} from "./resolve/presentation-resolver.ts";
+export type { PresentationResolveContext } from "./resolve/presentation-resolver.ts";
 export { computeSnapshotHash } from "./resolve/hash.ts";
 export {
   compareSemver,
@@ -45,6 +50,8 @@ export {
   type ConcreteRuleValue,
   type DeclarativeRuntimeBinding,
   type ListProfilesFilter,
+  type PresentationCapabilityProfileEntry,
+  type PresentationDefinitionEntry,
   type PresentationProfileCatalogEntry,
   type RegistrationModeCatalogEntry,
   type ResolvedTournamentBindings,

@@ -198,3 +198,54 @@ export type {
   RuntimeValidationResult,
   RuntimeHistoryEntry,
 } from "./runtime-match/index.ts";
+
+export {
+  RuleEngine,
+  resolve as resolveRules,
+  preview as previewRules,
+  validate as validateRules,
+  ruleEngineResultOk,
+  buildRuleResolutionContextFromParts,
+  RULE_ENGINE_VERSION,
+  RULE_ENGINE_INPUT_VERSION,
+  RUNTIME_RULES_VERSION,
+  RUNTIME_RULES_SCHEMA_VERSION,
+} from "./rule-engine/index.ts";
+export type {
+  RuleEngineInput,
+  RuleEngineResult,
+  RuleEngineDiagnostics,
+  RuleResolutionContext,
+  RuleResolutionMode,
+  ResolvedRuntimeRules,
+  ExecutableRule,
+  RuleOverrideDocument,
+} from "./rule-engine/index.ts";
+
+export {
+  PresentationEngine,
+  CapabilityCompiler,
+  resolve as resolvePresentation,
+  preview as previewPresentation,
+  validate as validatePresentation,
+  adapt as adaptPresentation,
+  presentationEngineResultOk,
+  buildPresentationResolutionContextFromParts,
+  PRESENTATION_ENGINE_VERSION,
+  PRESENTATION_ENGINE_INPUT_VERSION,
+  PRESENTATION_SCHEMA_VERSION,
+  PRESENTATION_CONTRACT_VERSION,
+} from "./presentation-engine/index.ts";
+export type {
+  PresentationEngineInput,
+  PresentationEngineResult,
+  PresentationEngineDiagnostics,
+  PresentationResolutionContext,
+  PresentationResolutionMode,
+  CompilationMode,
+  ResolvedPresentationSnapshot,
+  ResolvedPresentationContract,
+  AdaptedPresentationContract,
+  CapabilityCompilerResult,
+  PresentationOverrideDocument,
+} from "./presentation-engine/index.ts";

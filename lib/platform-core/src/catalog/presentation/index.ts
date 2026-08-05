@@ -7,6 +7,12 @@ import { CRICKET_OUTDOOR_PRESENTATION } from "./cricket/outdoor.ts";
 import { CRICKET_SOCIETY_PRESENTATION } from "./cricket/society.ts";
 import { FOOTBALL_PRESENTATION } from "./football/standard.ts";
 
+export { PRESENTATION_DEFINITION_CATALOG, getPresentationDefinition } from "./definitions/index.ts";
+export {
+  PRESENTATION_CAPABILITY_PROFILE_CATALOG,
+  getCapabilityProfile,
+} from "./capabilities/index.ts";
+
 /** Internal aggregate — consumers must use CatalogRegistry only. */
 export const PRESENTATION_PROFILE_CATALOG: readonly PresentationProfileCatalogEntry[] = [
   ...CRICKET_OUTDOOR_PRESENTATION,
@@ -17,4 +23,3 @@ export const PRESENTATION_PROFILE_CATALOG: readonly PresentationProfileCatalogEn
   ...BADMINTON_PRESENTATION,
   ...FOOTBALL_PRESENTATION,
 ];
-
