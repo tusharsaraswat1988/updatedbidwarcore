@@ -8,6 +8,8 @@
     "./api-fetch": "./src/api-fetch.ts",
     "./catalog": "./src/catalog/index.ts",
     "./competition": "./src/competition/index.ts",
+    "./team": "./src/team/index.ts",
+    "./match": "./src/match/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./tournament-features": "./src/tournament-features.ts",
     "./scoring-urls": "./src/scoring-urls.ts",

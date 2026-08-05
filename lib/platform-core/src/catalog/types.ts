@@ -45,6 +45,44 @@ export type TeamFormationStrategyCatalogEntry = CatalogEntryBase & {
   kind: "team_formation";
 };
 
+/** Team Type — platform identity kind (EPIC-04). */
+export type TeamTypeCatalogEntry = CatalogEntryBase & {
+  kind: "team_type";
+};
+
+/**
+ * Team Role — membership role (EPIC-04).
+ * Constraints live on the catalog entry; validators must read these fields.
+ */
+export type TeamRoleCatalogEntry = CatalogEntryBase & {
+  kind: "team_role";
+  /** When true, at least one member with this role is required to lock. */
+  required: boolean;
+  /** When false, at most maxCount members may hold this role. */
+  multipleAllowed: boolean;
+  /** Max holders; null = unlimited when multipleAllowed. */
+  maxCount: number | null;
+};
+
+/** Match Type — platform contest kind (EPIC-05). */
+export type MatchTypeCatalogEntry = CatalogEntryBase & {
+  kind: "match_type";
+};
+
+export type MatchRoleScope = "side" | "official";
+
+/**
+ * Match Role — side or official role (EPIC-05).
+ * Never home/away/team_a/player_a — those are presentation labels.
+ */
+export type MatchRoleCatalogEntry = CatalogEntryBase & {
+  kind: "match_role";
+  scope: MatchRoleScope;
+  required: boolean;
+  multipleAllowed: boolean;
+  maxCount: number | null;
+};
+
 export type BusinessStageCatalogEntry = CatalogEntryBase & {
   kind: "business_stage";
   sortOrder: number;

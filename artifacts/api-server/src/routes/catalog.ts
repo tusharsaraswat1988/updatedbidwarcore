@@ -57,6 +57,26 @@ router.get("/catalog/business-stages", (_req, res) => {
   res.json({ stages: CatalogRegistry.listBusinessStages() });
 });
 
+router.get("/catalog/team-types", (_req, res) => {
+  res.json({ types: CatalogRegistry.listTeamTypes() });
+});
+
+router.get("/catalog/team-roles", (_req, res) => {
+  res.json({ roles: CatalogRegistry.listTeamRoles() });
+});
+
+router.get("/catalog/match-types", (_req, res) => {
+  res.json({ types: CatalogRegistry.listMatchTypes() });
+});
+
+router.get("/catalog/match-roles", (req, res) => {
+  const scope =
+    req.query.scope === "side" || req.query.scope === "official"
+      ? req.query.scope
+      : undefined;
+  res.json({ roles: CatalogRegistry.listMatchRoles(scope) });
+});
+
 router.get("/catalog/rule-categories", (_req, res) => {
   res.json({ categories: CatalogRegistry.listRuleCategories() });
 });

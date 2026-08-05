@@ -512,6 +512,48 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS ux_competition_configuration_history_tournament_version
       ON competition_configuration_history (tournament_id, version);
 
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS team_type_id text DEFAULT 'competitive';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS display_name text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS secondary_color text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS visibility text DEFAULT 'tournament';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS theme_json jsonb;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS team_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      team_id integer NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_team_configuration_history_team_version
+      ON team_configuration_history (team_id, version);
+
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS match_type_id text DEFAULT 'league';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS display_name text;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS surface text;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS visibility text DEFAULT 'tournament';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS branding_json jsonb;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS match_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      match_id integer NOT NULL REFERENCES scoring_matches(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_match_configuration_history_match_version
+      ON match_configuration_history (match_id, version);
+
     CREATE TABLE IF NOT EXISTS workbook_versions (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,

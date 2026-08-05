@@ -26,6 +26,8 @@ import {
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
 import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
+import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
+import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 
 export default function TournamentHub() {
@@ -215,7 +217,11 @@ export default function TournamentHub() {
         />
 
         {tournamentId ? (
-          <CompetitionSetupCard tournamentId={tournamentId} />
+          <>
+            <CompetitionSetupCard tournamentId={tournamentId} />
+            <TeamSetupCard tournamentId={tournamentId} />
+            <MatchSetupCard tournamentId={tournamentId} />
+          </>
         ) : null}
 
         {/* Setup Checklist — hidden once every item is complete */}

@@ -46,12 +46,16 @@ import schemaHealthRouter from "./schema-health";
 import scorerRouter from "./scorer";
 import catalogRouter from "./catalog";
 import competitionRouter from "./competition";
+import teamFoundationRouter from "./team-foundation";
+import matchFoundationRouter from "./match-foundation";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(catalogRouter);
 router.use(competitionRouter);
+router.use(teamFoundationRouter);
+router.use(matchFoundationRouter);
 router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);

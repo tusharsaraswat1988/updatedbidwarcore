@@ -15,6 +15,10 @@ import {
   DEFAULT_TEAM_FORMATION_BY_COMPETITION,
   TEAM_FORMATION_STRATEGY_CATALOG,
 } from "./team-formation/index.ts";
+import { MATCH_ROLE_CATALOG } from "./match-roles/index.ts";
+import { MATCH_TYPE_CATALOG } from "./match-types/index.ts";
+import { TEAM_ROLE_CATALOG } from "./team-roles/index.ts";
+import { TEAM_TYPE_CATALOG } from "./team-types/index.ts";
 import {
   LEGACY_COMPETITION_TYPE_ID,
   LEGACY_PROFILE,
@@ -25,6 +29,8 @@ import {
   type CatalogValidationResult,
   type CompetitionTypeCatalogEntry,
   type ListProfilesFilter,
+  type MatchRoleCatalogEntry,
+  type MatchTypeCatalogEntry,
   type PresentationProfileCatalogEntry,
   type RegistrationModeCatalogEntry,
   type ResolvedTournamentBindings,
@@ -34,6 +40,8 @@ import {
   type SportCatalogEntry,
   type SuggestDefaultsInput,
   type TeamFormationStrategyCatalogEntry,
+  type TeamRoleCatalogEntry,
+  type TeamTypeCatalogEntry,
   type TournamentBindingColumns,
   type TournamentCreateBindings,
   type VariantCatalogEntry,
@@ -493,6 +501,49 @@ export const CatalogRegistry = {
 
   getBusinessStage(id: string): BusinessStageCatalogEntry | undefined {
     return BUSINESS_STAGE_CATALOG.find((e) => e.id === id);
+  },
+
+  listTeamTypes(includeDeprecated = false): TeamTypeCatalogEntry[] {
+    return sortForWizard(
+      TEAM_TYPE_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated)),
+    );
+  },
+
+  getTeamType(id: string): TeamTypeCatalogEntry | undefined {
+    return TEAM_TYPE_CATALOG.find((e) => e.id === id);
+  },
+
+  listTeamRoles(includeDeprecated = false): TeamRoleCatalogEntry[] {
+    return TEAM_ROLE_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated));
+  },
+
+  getTeamRole(id: string): TeamRoleCatalogEntry | undefined {
+    return TEAM_ROLE_CATALOG.find((e) => e.id === id);
+  },
+
+  listMatchTypes(includeDeprecated = false): MatchTypeCatalogEntry[] {
+    return sortForWizard(
+      MATCH_TYPE_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated)),
+    );
+  },
+
+  getMatchType(id: string): MatchTypeCatalogEntry | undefined {
+    return MATCH_TYPE_CATALOG.find((e) => e.id === id);
+  },
+
+  listMatchRoles(
+    scope?: "side" | "official",
+    includeDeprecated = false,
+  ): MatchRoleCatalogEntry[] {
+    return MATCH_ROLE_CATALOG.filter((e) => {
+      if (!isActiveForPicker(e, includeDeprecated)) return false;
+      if (scope && e.scope !== scope) return false;
+      return true;
+    });
+  },
+
+  getMatchRole(id: string): MatchRoleCatalogEntry | undefined {
+    return MATCH_ROLE_CATALOG.find((e) => e.id === id);
   },
 
   /** Catalog quality: no orphan definitions / orphan profile values. */

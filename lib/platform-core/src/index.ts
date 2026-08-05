@@ -90,3 +90,41 @@ export type {
   CompetitionValidationResult,
   Participant,
 } from "./competition/index.ts";
+
+export {
+  resolveTeamConfiguration,
+  mapAuctionTeamToIdentity,
+  mapAuctionTeamToConfiguration,
+  mapAuctionSignalsToMembers,
+  mapMasterTeamBrandingHint,
+  validateTeam,
+  buildTeamConfigurationHistoryPayload,
+  isValidLifecycleTransition,
+  lifecycleAfterLock,
+} from "./team/index.ts";
+export type {
+  TeamConfiguration,
+  TeamIdentity,
+  TeamMember,
+  TeamValidationResult,
+} from "./team/index.ts";
+
+export {
+  resolveMatchConfiguration,
+  mapScoringMatchToIdentity,
+  mapScoringMatchToConfiguration,
+  mapScoringMatchToLifecycle,
+  mapScoringMatchToSides,
+  mapScoringMatchToOfficials,
+  validateMatch,
+  buildMatchConfigurationHistoryPayload,
+  isValidMatchLifecycleTransition,
+  lifecycleAfterMatchLock,
+} from "./match/index.ts";
+export type {
+  MatchConfiguration,
+  MatchIdentity,
+  MatchSide,
+  MatchOfficial,
+  MatchValidationResult,
+} from "./match/index.ts";

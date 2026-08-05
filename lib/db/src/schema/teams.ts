@@ -1,4 +1,13 @@
-import { pgTable, text, serial, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  timestamp,
+  integer,
+  boolean,
+  uniqueIndex,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -17,6 +26,14 @@ export const teamsTable = pgTable("teams", {
   logoPublicId: text("logo_public_id"),
   /** Canonical team in master_teams (mt_*). */
   masterTeamId: text("master_team_id"),
+  /** EPIC-04 platform Team Type catalog id. */
+  teamTypeId: text("team_type_id").default("competitive"),
+  displayName: text("display_name"),
+  secondaryColor: text("secondary_color"),
+  visibility: text("visibility").default("tournament"),
+  themeJson: jsonb("theme_json").$type<Record<string, unknown>>(),
+  lifecycleStatus: text("lifecycle_status").default("draft"),
+  configurationLocked: boolean("configuration_locked").notNull().default(false),
   purse: integer("purse").notNull().default(10000000),
   purseUsed: integer("purse_used").notNull().default(0),
   isBiddingEnabled: boolean("is_bidding_enabled").notNull().default(true),
