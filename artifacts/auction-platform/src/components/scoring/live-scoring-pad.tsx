@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
+import { availableDismissalTypes } from "@workspace/scoring-core";
 import { ScoreButton } from "@/components/scoring/score-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ import {
 } from "@/lib/scoring-match-logic";
 import { Input } from "@/components/ui/input";
 import { CloudRain } from "lucide-react";
+import type { ScoringMatchRulesJson } from "@/lib/scoring-api";
 
 type WicketType =
   | "bowled"
@@ -58,6 +60,8 @@ type LiveScoringPadProps = {
   state: CricketScoreboardState;
   teams: CricketScorerTeam[];
   players: CricketScorerPlayer[];
+  /** RuntimeExecutionPolicy-derived rules from prepared match.rules. */
+  rules: ScoringMatchRulesJson | null;
   bowlerId: number | null;
   busy: boolean;
   onBall: (payload: Record<string, unknown>) => Promise<void>;
@@ -86,6 +90,7 @@ export function LiveScoringPad({
   state,
   teams,
   players,
+  rules,
   bowlerId,
   busy,
   onBall,
@@ -99,6 +104,21 @@ export function LiveScoringPad({
   localStrikerId,
   localNonStrikerId,
 }: LiveScoringPadProps) {
+  const lbwEnabled = rules?.lbwEnabled !== false;
+  const freeHitEnabled = rules?.freeHitEnabled !== false;
+  const retireAtRuns =
+    typeof rules?.retireAtRuns === "number" ? rules.retireAtRuns : null;
+  const dismissalOptions = availableDismissalTypes(lbwEnabled) as WicketType[];
+
+  // Local batter runs accumulator for retire-at-N prompts (existing Retire sheet UX).
+  const [batterRuns, setBatterRuns] = useState<Record<number, number>>({});
+  const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Reset when innings changes.
+    setBatterRuns({});
+    setRetirePromptPlayerId(null);
+  }, [state.currentInnings]);
   const canTap = useDebounceTap();
   const innings = getActiveInnings(state);
   const [wicketSheet, setWicketSheet] = useState(false);
@@ -169,6 +189,21 @@ export function LiveScoringPad({
 
     if (input.wicket) {
       onNewBatsman(-1);
+      setBatterRuns((prev) => {
+        const next = { ...prev };
+        delete next[strikerId];
+        return next;
+      });
+    } else if (input.runsOffBat > 0 && strikerId) {
+      setBatterRuns((prev) => {
+        const nextRuns = (prev[strikerId] ?? 0) + input.runsOffBat;
+        const updated = { ...prev, [strikerId]: nextRuns };
+        if (retireAtRuns != null && nextRuns >= retireAtRuns) {
+          setRetirePromptPlayerId(strikerId);
+          setRetireSheet(true);
+        }
+        return updated;
+      });
     }
   }
 
@@ -213,6 +248,17 @@ export function LiveScoringPad({
       ) : null}
       {/* Scoreboard strip */}
       <div className="px-4 py-3 border-b border-border/60 bg-card/50">
+        {retireAtRuns != null ? (
+          <p className="text-xs text-muted-foreground mb-2">
+            Retire at {retireAtRuns} runs
+            {strikerId && batterRuns[strikerId] != null
+              ? ` · Striker ${batterRuns[strikerId]}/${retireAtRuns}`
+              : ""}
+          </p>
+        ) : null}
+        {!lbwEnabled ? (
+          <p className="text-xs text-muted-foreground mb-2">LBW disabled by match policy</p>
+        ) : null}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">
@@ -296,7 +342,20 @@ export function LiveScoringPad({
         <ScoreButton label="4" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 4, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
         <ScoreButton label="6" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 6, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
         <ScoreButton label="Wd" sublabel="wide" variant="extra" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 0, extras: { type: "wide", runs: 1 }, wicket: null, isLegalDelivery: false })} />
-        <ScoreButton label="Nb" sublabel="no ball" variant="extra" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 0, extras: { type: "no_ball", runs: 1 }, wicket: null, isLegalDelivery: false })} />
+        <ScoreButton
+          label="Nb"
+          sublabel={freeHitEnabled ? "no ball" : "no ball (no FH)"}
+          variant="extra"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 0,
+              extras: { type: "no_ball", runs: 1 },
+              wicket: null,
+              isLegalDelivery: false,
+            })
+          }
+        />
         <ScoreButton label="W" sublabel="wicket" variant="wicket" disabled={busy || pendingNewBatsman} onClick={() => setWicketSheet(true)} className="col-span-2" />
         <ScoreButton label="↩" sublabel="undo" variant="undo" disabled={busy} onClick={() => { if (canTap()) void onUndo(); }} className="col-span-2" />
       </div>
@@ -316,19 +375,7 @@ export function LiveScoringPad({
             <SheetTitle>Wicket — how out?</SheetTitle>
           </SheetHeader>
           <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
-            {(
-              [
-                "bowled",
-                "caught",
-                "lbw",
-                "run_out",
-                "stumped",
-                "hit_wicket",
-                "timed_out",
-                "obstructing_field",
-                "hit_ball_twice",
-              ] as const
-            ).map((type) => (
+            {dismissalOptions.map((type) => (
               <Button
                 key={type}
                 variant="outline"
@@ -544,19 +591,34 @@ export function LiveScoringPad({
       <Sheet open={retireSheet} onOpenChange={setRetireSheet}>
         <SheetContent side="bottom" className="rounded-t-2xl">
           <SheetHeader>
-            <SheetTitle>Retired — {playerNameById(players, strikerId)}</SheetTitle>
+            <SheetTitle>
+              Retired —{" "}
+              {playerNameById(players, retirePromptPlayerId ?? strikerId)}
+            </SheetTitle>
           </SheetHeader>
+          {retireAtRuns != null && retirePromptPlayerId != null ? (
+            <p className="text-xs text-muted-foreground mt-2">
+              Policy retire at {retireAtRuns} — striker reached{" "}
+              {batterRuns[retirePromptPlayerId] ?? retireAtRuns} runs.
+            </p>
+          ) : retireAtRuns != null ? (
+            <p className="text-xs text-muted-foreground mt-2">
+              Match policy: retire at {retireAtRuns} runs.
+            </p>
+          ) : null}
           <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
             <Button
               variant="outline"
               className="h-12"
-              disabled={busy || !strikerId || !battingId}
+              disabled={busy || !(retirePromptPlayerId ?? strikerId) || !battingId}
               onClick={async () => {
+                const playerId = retirePromptPlayerId ?? strikerId;
                 setRetireSheet(false);
+                setRetirePromptPlayerId(null);
                 await onEvent(CricketEventType.PLAYER_RETIRED, {
                   innings: state.currentInnings,
                   teamId: battingId,
-                  playerId: strikerId,
+                  playerId,
                   type: "hurt",
                 });
                 onNewBatsman(-1);
@@ -567,13 +629,15 @@ export function LiveScoringPad({
             <Button
               variant="outline"
               className="h-12"
-              disabled={busy || !strikerId || !battingId}
+              disabled={busy || !(retirePromptPlayerId ?? strikerId) || !battingId}
               onClick={async () => {
+                const playerId = retirePromptPlayerId ?? strikerId;
                 setRetireSheet(false);
+                setRetirePromptPlayerId(null);
                 await onEvent(CricketEventType.PLAYER_RETIRED, {
                   innings: state.currentInnings,
                   teamId: battingId,
-                  playerId: strikerId,
+                  playerId,
                   type: "out",
                 });
                 onNewBatsman(-1);

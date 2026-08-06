@@ -86,13 +86,28 @@ function matchToJson(m: {
   roundName: string | null;
   scheduledAt: Date | null;
   venue: string | null;
-  rulesJson: { overs?: number; maxWickets?: number } | null;
+  rulesJson: Record<string, unknown> | null;
+  runtimePrepMetadataJson?: Record<string, unknown> | null;
+  currentRuntimeVersion?: number | null;
   winnerTeamId: number | null;
   resultSummary: string | null;
   startedAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
 }) {
+  const prep = m.runtimePrepMetadataJson as
+    | { ruleResolution?: Record<string, unknown> }
+    | null
+    | undefined;
+  const bind = prep?.ruleResolution as
+    | {
+        resolutionId?: string;
+        rulesHash?: string;
+        runtimeRulesVersion?: string;
+        snapshotVersion?: number;
+      }
+    | undefined;
+
   return {
     id: m.id,
     tournamentId: m.tournamentId,
@@ -105,6 +120,15 @@ function matchToJson(m: {
     scheduledAt: m.scheduledAt?.toISOString() ?? null,
     venue: m.venue,
     rules: m.rulesJson,
+    /** Session-facing Policy identity — no Rule Engine import. */
+    executionPolicyBind: bind
+      ? {
+          resolutionId: bind.resolutionId ?? null,
+          rulesHash: bind.rulesHash ?? null,
+          runtimeRulesVersion: bind.runtimeRulesVersion ?? null,
+          snapshotVersion: bind.snapshotVersion ?? m.currentRuntimeVersion ?? null,
+        }
+      : null,
     winnerTeamId: m.winnerTeamId,
     resultSummary: m.resultSummary,
     startedAt: m.startedAt?.toISOString() ?? null,
@@ -221,7 +245,7 @@ router.get("/tournaments/:tournamentId/scoring/squads", async (req, res) => {
 
   try {
     const squads = await getSquadReadiness(tournamentId);
-    res.json({ squads, minPlayingXi: 11 });
+    res.json({ squads, minPlayingXi: null });
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });

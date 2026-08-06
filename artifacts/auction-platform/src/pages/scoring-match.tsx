@@ -372,6 +372,7 @@ export default function ScoringMatchPage() {
                 state={data.state}
               teams={teams}
               players={players}
+                rules={data.match.rules}
                 bowlerId={localBowlerId}
                 busy={busy}
                 pendingNewBatsman={pendingNewBatsman}

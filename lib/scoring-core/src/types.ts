@@ -39,4 +39,15 @@ export type MatchMeta = {
   awayTeamId: number;
   oversLimit: number;
   maxWickets?: number;
+  /** From RuntimeExecutionPolicy via prepared rulesJson. */
+  playingSquadSize?: number;
+  benchSize?: number;
+  lbwEnabled?: boolean;
+  freeHitEnabled?: boolean;
+  retireAtRuns?: number | null;
+  /** Prepare bind — session knows identity without importing Rule Engine. */
+  resolutionId?: string | null;
+  rulesHash?: string | null;
+  runtimeRulesVersion?: string | null;
+  executionRulesSource?: "runtime_execution_policy" | "placeholder";
 };

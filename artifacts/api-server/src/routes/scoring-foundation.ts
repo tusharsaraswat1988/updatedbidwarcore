@@ -317,8 +317,8 @@ router.put("/matches/:matchId/squads/:teamId", async (req, res) => {
   if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
-    playingXi: z.array(z.number().int().positive()).min(1).max(11),
-    bench: z.array(z.number().int().positive()).max(8).default([]),
+    playingXi: z.array(z.number().int().positive()).min(1).max(20),
+    bench: z.array(z.number().int().positive()).max(20).default([]),
     battingOrder: z.array(z.number().int().positive()).optional(),
     captainId: z.number().int().positive().nullable().optional(),
     wicketKeeperId: z.number().int().positive().nullable().optional(),
