@@ -8,6 +8,7 @@ import {
   auctionRoomPath,
   displayScreenPath,
   openAuctionRoom,
+  scoringPath,
   setupAreaPath,
 } from "@/lib/tournament-navigation";
 import { badmintonHubPath } from "@/lib/badminton-routes";
@@ -128,7 +129,18 @@ function LiveOperationsBody({
           title="Cricket Live Control"
           description="Scoring and cricket live operations."
           icon={<MonitorPlay className="w-4 h-4" />}
-          href={`/tournament/${tournamentId}/scoring?from=${from}`}
+          href={
+            from
+              ? `${scoringPath(tournamentId)}?from=${from}`
+              : scoringPath(tournamentId)
+          }
+          onClick={() => {
+            const target = from
+              ? `${scoringPath(tournamentId)}?from=${from}`
+              : scoringPath(tournamentId);
+            window.location.assign(target);
+          }}
+          external
         />
       ) : null}
 

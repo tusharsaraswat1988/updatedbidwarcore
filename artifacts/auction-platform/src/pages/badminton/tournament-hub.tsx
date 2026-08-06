@@ -36,6 +36,7 @@ import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
 import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
 import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
 import { RuntimePreparationCard } from "@/components/tournament-hub/runtime-preparation-card";
+import { ModuleRegistryProvider } from "@/components/tournament-hub/module-registry";
 
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -94,14 +95,14 @@ export default function BadmintonTournamentHub() {
 
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
           {tournamentId ? (
-            <>
+            <ModuleRegistryProvider>
               <CompetitionSetupCard tournamentId={tournamentId} />
               <TeamSetupCard tournamentId={tournamentId} />
               <FixtureSetupCard tournamentId={tournamentId} />
               <SchedulingSetupCard tournamentId={tournamentId} />
               <MatchSetupCard tournamentId={tournamentId} />
               <RuntimePreparationCard tournamentId={tournamentId} />
-            </>
+            </ModuleRegistryProvider>
           ) : null}
           {atReady ? (
             <>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, useSearch, Link } from "wouter";
 import {
   useListTeams,
   useCreateTeam,
@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, TrendingDown, LockOpen, Zap, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, TrendingDown, LockOpen, Zap, MessageCircle, ChevronLeft } from "lucide-react";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
@@ -33,6 +33,7 @@ import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
+import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
 
 function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -452,7 +453,15 @@ function CopyButton({ text }: { text: string }) {
 export default function Teams() {
   const [, params] = useRoute("/tournament/:id/teams");
   const [, navigate] = useLocation();
+  const search = useSearch();
   const tournamentId = parseInt(params?.id || "0");
+  const returnFrom = new URLSearchParams(
+    search.startsWith("?") ? search.slice(1) : search,
+  ).get("from");
+  const returnTo = resolveReturnPath(returnFrom, tournamentId);
+  const showReturn =
+    Boolean(returnFrom?.startsWith("/") && !returnFrom.startsWith("//")) &&
+    returnTo !== `/tournament/${tournamentId}/teams`;
   const qc = useQueryClient();
   const { data: teams, isLoading } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
@@ -563,6 +572,15 @@ export default function Teams() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="org-page-content">
+        {showReturn ? (
+          <Link
+            href={returnTo}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80 transition-colors w-fit"
+          >
+            <ChevronLeft className="w-4 h-4 shrink-0" aria-hidden />
+            {returnPathBackLabel(returnTo)}
+          </Link>
+        ) : null}
         {/* T011: flow guard — remind organiser once exactly 1 team added */}
         {!isLoading && (teams?.length ?? 0) === 1 && !isAuctionEnded && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-xl">
