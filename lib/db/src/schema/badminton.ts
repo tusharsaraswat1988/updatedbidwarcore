@@ -183,9 +183,10 @@ export const badmintonCategoriesTable = pgTable(
     /** Phase: setup | draw_generated | live | completed */
     phase: text("phase").notNull().default("setup"),
     /**
-     * Tournament Engine stage SSoT:
+     * Tournament Engine stage SSoT (persisted P0 vocabulary):
      * league | quarter_final | semi_final | final | completed
-     * Null = unset (legacy categories); resolve via engine config helpers.
+     * Null = unset (legacy categories); resolve via tournament-stage helper.
+     * Lifecycle view maps quarter/semi/final → elimination (future vocab).
      */
     currentStage: text("current_stage"),
     /** Ordered ranking rule keys JSON array. Null = legacy wins→margin→id. */
@@ -196,6 +197,11 @@ export const badmintonCategoriesTable = pgTable(
     qualifierMode: text("qualifier_mode"),
     /** Set when league→knockout promotion has created a knockout draw (idempotency). */
     promotedKnockoutAt: timestamp("promoted_knockout_at", { withTimezone: true }),
+    /**
+     * Canonical pointer to the first (R1) knockout fixture collection created by promotion.
+     * Null for legacy / not-yet-promoted categories.
+     */
+    promotedKnockoutDrawId: integer("promoted_knockout_draw_id"),
     /** Max players allowed. */
     maxPlayers: integer("max_players"),
     /** Registration fee (paise or cents). */
@@ -290,6 +296,18 @@ export const badmintonDrawsTable = pgTable(
     groupId: text("group_id"),
     /** Collection status: pending | active | completed */
     status: text("status").notNull().default("pending"),
+    /** Platform Fixture Type catalog id (EPIC-06). */
+    fixtureTypeId: text("fixture_type_id"),
+    /** Platform Fixture lifecycle (EPIC-06) — separate from collection status. */
+    lifecycleStatus: text("lifecycle_status").default("draft"),
+    configurationLocked: boolean("configuration_locked").notNull().default(false),
+    /** Platform Scheduling Strategy catalog id (EPIC-07). */
+    schedulingStrategyId: text("scheduling_strategy_id"),
+    /** Platform Scheduling lifecycle (EPIC-07) — separate from Fixture lifecycle. */
+    schedulingLifecycleStatus: text("scheduling_lifecycle_status").default("draft"),
+    schedulingConfigurationLocked: boolean("scheduling_configuration_locked")
+      .notNull()
+      .default(false),
     metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

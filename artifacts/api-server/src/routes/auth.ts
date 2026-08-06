@@ -37,6 +37,11 @@ import {
   notifyAdminTournamentCreated,
 } from "../lib/admin-notifications/triggers.js";
 import { commitCloudinaryImageWrite } from "../lib/cloudinary-media-service";
+import {
+  resolveCatalogBindingsForCreate,
+  tournamentCatalogBindingSchema,
+} from "../lib/tournament-catalog-bindings";
+import { CatalogRegistry } from "@workspace/platform-core/catalog";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
 import { isKnownActiveSportSlug, resolveSportIdBySlug } from "./sports";
@@ -523,13 +528,19 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     minBid: z.number().int().optional(),
     timerSeconds: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
-  });
+  }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
+
+  const catalogBindings = resolveCatalogBindingsForCreate(d.sport, d);
+  if (!catalogBindings.ok) {
+    res.status(400).json({ error: catalogBindings.error });
     return;
   }
 
@@ -557,6 +568,16 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     auctionTime: d.auctionTime ?? null,
     organizerId: d.organizerId ?? null,
     organizerName: d.organizerName,
+    variantId: catalogBindings.columns.variantId,
+    competitionTypeId: catalogBindings.columns.competitionTypeId,
+    ruleProfileId: catalogBindings.columns.ruleProfileId,
+    ruleProfileVersion: catalogBindings.columns.ruleProfileVersion,
+    presentationProfileId: catalogBindings.columns.presentationProfileId,
+    presentationProfileVersion: catalogBindings.columns.presentationProfileVersion,
+    registrationModeId: catalogBindings.columns.registrationModeId,
+    teamFormationStrategyId: catalogBindings.columns.teamFormationStrategyId,
+    squadRulesJson: catalogBindings.columns.squadRulesJson,
+    businessStageId: "registration_planning",
     organizerMobile,
     organizerEmail: d.organizerEmail,
     basePurse: d.basePurse ?? 10000000,
@@ -1625,11 +1646,15 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().optional(),
-    basePurse: z.number().int().min(1),
-    minBid: z.number().int().min(1),
-    bidIncrement: z.number().int().min(1),
+    basePurse: z.number().int().min(1).optional(),
+    minBid: z.number().int().min(1).optional(),
+    bidIncrement: z.number().int().min(1).optional(),
     minimumSquadSize: z.number().int().min(1).max(100).optional(),
-  });
+    registrationDeadline: z.string().nullable().optional(),
+    registrationLimit: z.number().int().min(0).nullable().optional(),
+    enableRegistrationPayment: z.boolean().optional(),
+    registrationFee: z.number().int().min(0).nullable().optional(),
+  }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
@@ -1639,7 +1664,35 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     return;
   }
 
-  const bidTiersJson = JSON.stringify([{ increment: d.bidIncrement }]);
+  const catalogBindings = resolveCatalogBindingsForCreate(d.sport, d);
+  if (!catalogBindings.ok) {
+    res.status(400).json({ error: catalogBindings.error });
+    return;
+  }
+
+  const needsAuctionEconomics =
+    !!catalogBindings.columns.competitionTypeId &&
+    CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId);
+
+  // Legacy path (no catalog bindings): keep requiring purse/bid fields.
+  // Catalog path: require economics only for auction/hybrid.
+  if (!catalogBindings.columns.competitionTypeId || needsAuctionEconomics) {
+    if (d.basePurse == null || d.basePurse < 1) {
+      res.status(400).json({ error: "Team budget (purse) is required" });
+      return;
+    }
+    if (d.minBid == null || d.minBid < 1) {
+      res.status(400).json({ error: "Minimum player value is required" });
+      return;
+    }
+    if (d.bidIncrement == null || d.bidIncrement < 1) {
+      res.status(400).json({ error: "Bid increase amount is required" });
+      return;
+    }
+  }
+
+  const bidIncrement = d.bidIncrement ?? 100000;
+  const bidTiersJson = JSON.stringify([{ increment: bidIncrement }]);
 
   // Generate unique auction code (TT+NN+DDMM format)
   function buildOrgCode(name: string, auctionDate?: string | null): string {
@@ -1671,15 +1724,30 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerName: organizer.name,
     organizerMobile: organizer.mobile,
     organizerEmail: organizer.email ?? null,
-    basePurse: d.basePurse,
-    minBid: d.minBid,
+    basePurse: d.basePurse ?? 10000000,
+    minBid: d.minBid ?? 100000,
+    bidIncrement,
     bidTiers: bidTiersJson,
     timerSeconds: DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
     bidTimerSeconds: DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
     playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
     minimumSquadSize: d.minimumSquadSize ?? 0,
     maximumSquadSize: 0,
+    registrationDeadline: d.registrationDeadline ?? null,
+    registrationLimit: d.registrationLimit ?? null,
+    enableRegistrationPayment: d.enableRegistrationPayment ?? false,
+    registrationFee: d.registrationFee ?? null,
     licenseStatus: "trial",
+    variantId: catalogBindings.columns.variantId,
+    competitionTypeId: catalogBindings.columns.competitionTypeId,
+    ruleProfileId: catalogBindings.columns.ruleProfileId,
+    ruleProfileVersion: catalogBindings.columns.ruleProfileVersion,
+    presentationProfileId: catalogBindings.columns.presentationProfileId,
+    presentationProfileVersion: catalogBindings.columns.presentationProfileVersion,
+    registrationModeId: catalogBindings.columns.registrationModeId,
+    teamFormationStrategyId: catalogBindings.columns.teamFormationStrategyId,
+    squadRulesJson: catalogBindings.columns.squadRulesJson,
+    businessStageId: "registration_planning",
   }).returning();
 
   notifyAsync("TOURNAMENT_CREATED", {

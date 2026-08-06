@@ -1,8 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": ["src"],
+  "exclude": ["src/**/*.test.ts"],
   "compilerOptions": {
     "types": ["node"],
-    "lib": ["es2022", "es2023", "DOM"]
+    "lib": ["es2022", "es2023", "DOM"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   }
 }

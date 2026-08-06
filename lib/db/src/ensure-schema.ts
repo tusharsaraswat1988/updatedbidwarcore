@@ -146,6 +146,17 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_phase text NOT NULL DEFAULT 'disabled';
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_pin text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_settings_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS variant_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS competition_type_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_version text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_version text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_mode_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_formation_strategy_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS squad_rules_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS participant_constraints_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS business_stage_id text;
 
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent boolean NOT NULL DEFAULT false;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_at timestamptz;
@@ -488,6 +499,127 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS source_type text DEFAULT 'excel';
     ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS google_sheet_url text;
     ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS workbook_version_id integer;
+
+    CREATE TABLE IF NOT EXISTS competition_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_competition_configuration_history_tournament_version
+      ON competition_configuration_history (tournament_id, version);
+
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS team_type_id text DEFAULT 'competitive';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS display_name text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS secondary_color text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS visibility text DEFAULT 'tournament';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS theme_json jsonb;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS team_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      team_id integer NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_team_configuration_history_team_version
+      ON team_configuration_history (team_id, version);
+
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS match_type_id text DEFAULT 'league';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS display_name text;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS surface text;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS visibility text DEFAULT 'tournament';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS branding_json jsonb;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS match_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      match_id integer NOT NULL REFERENCES scoring_matches(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_match_configuration_history_match_version
+      ON match_configuration_history (match_id, version);
+
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS fixture_type_id text;
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS fixture_type_id text;
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS fixture_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      fixture_key text NOT NULL,
+      source text NOT NULL,
+      source_id integer NOT NULL,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_fixture_configuration_history_key_version
+      ON fixture_configuration_history (fixture_key, version);
+
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS scheduling_strategy_id text;
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS scheduling_lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE badminton_draws ADD COLUMN IF NOT EXISTS scheduling_configuration_locked boolean NOT NULL DEFAULT false;
+
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS scheduling_strategy_id text;
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS scheduling_lifecycle_status text DEFAULT 'draft';
+    ALTER TABLE scoring_draws ADD COLUMN IF NOT EXISTS scheduling_configuration_locked boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS scheduling_configuration_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      scheduling_key text NOT NULL,
+      source text NOT NULL,
+      source_id integer NOT NULL,
+      version integer NOT NULL DEFAULT 1,
+      payload_json jsonb NOT NULL,
+      checksum text,
+      frozen_by text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_scheduling_configuration_history_key_version
+      ON scheduling_configuration_history (scheduling_key, version);
+
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS execution_phase text DEFAULT 'preparing';
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS current_runtime_version integer;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS runtime_prep_metadata_json jsonb;
+
+    CREATE TABLE IF NOT EXISTS runtime_match_history (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      match_id integer NOT NULL REFERENCES scoring_matches(id) ON DELETE CASCADE,
+      operation text NOT NULL,
+      snapshot_version integer,
+      execution_phase text,
+      actor text,
+      reason text,
+      payload_json jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_runtime_match_history_match_id
+      ON runtime_match_history (match_id);
+    CREATE INDEX IF NOT EXISTS ix_runtime_match_history_match_created
+      ON runtime_match_history (match_id, created_at);
 
     CREATE TABLE IF NOT EXISTS workbook_versions (
       id SERIAL PRIMARY KEY,

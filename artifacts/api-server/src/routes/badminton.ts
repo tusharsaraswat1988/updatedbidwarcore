@@ -161,9 +161,21 @@ import {
   updateTournamentEngineConfig,
 } from "../lib/badminton-tournament-engine";
 import {
+  PromotionError,
+  promoteCategoryToKnockout,
+} from "../lib/badminton-promotion-engine";
+import {
+  TOURNAMENT_ENGINE_STAGES,
   isTournamentEngineStage,
   normalizeRankingRules,
 } from "@workspace/badminton-core";
+import {
+  advanceStage,
+  initialKnockoutStageFromRounds,
+  resolveStageDto,
+  setPromotionStage,
+  stageColumnForNewCategory,
+} from "../lib/tournament-stage";
 import { bulkCreateBadmintonMatchesFromFixtures } from "../lib/badminton-bulk-match-create";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
 import {
@@ -1217,7 +1229,17 @@ router.get("/categories", async (req, res) => {
     .where(eq(badmintonCategoriesTable.tournamentId, tournamentId))
     .orderBy(asc(badmintonCategoriesTable.sortOrder), asc(badmintonCategoriesTable.name));
 
-  res.json(categories);
+  // Stage DTO from helper only — no extra queries; translate loaded rows.
+  res.json(
+    categories.map((cat) => ({
+      ...cat,
+      stage: resolveStageDto({
+        drawType: cat.drawType,
+        currentStage: cat.currentStage,
+        phase: cat.phase,
+      }),
+    })),
+  );
 });
 
 router.post("/categories", async (req, res) => {
@@ -1251,6 +1273,8 @@ router.post("/categories", async (req, res) => {
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
   const engineDefaults = newCategoryEngineDefaults(parsed.data.drawType);
+  // Stage value must originate from Tournament Stage Helper only.
+  const initialStage = stageColumnForNewCategory(parsed.data.drawType);
 
   const [cat] = await db
     .insert(badmintonCategoriesTable)
@@ -1258,13 +1282,20 @@ router.post("/categories", async (req, res) => {
       tournamentId,
       ...parsed.data,
       rankingRulesJson: engineDefaults.rankingRulesJson,
-      currentStage: engineDefaults.currentStage,
+      currentStage: initialStage,
       qualifiersPerGroup: engineDefaults.qualifiersPerGroup,
       qualifierMode: engineDefaults.qualifierMode,
     })
     .returning();
 
-  res.status(201).json(cat);
+  res.status(201).json({
+    ...cat,
+    stage: resolveStageDto({
+      drawType: cat.drawType,
+      currentStage: cat.currentStage,
+      phase: cat.phase,
+    }),
+  });
 });
 
 router.patch("/categories/:catId", async (req, res) => {
@@ -1332,11 +1363,12 @@ router.put("/categories/:catId/tournament-engine", async (req, res) => {
   const catId = parseId((req.params as MergedParams).catId);
   if (!catId) return void res.status(400).json({ error: "bad id" });
 
+  const stageEnum = TOURNAMENT_ENGINE_STAGES as unknown as [
+    (typeof TOURNAMENT_ENGINE_STAGES)[number],
+    ...(typeof TOURNAMENT_ENGINE_STAGES)[number][],
+  ];
   const schema = z.object({
-    currentStage: z
-      .enum(["league", "quarter_final", "semi_final", "final", "completed"])
-      .nullable()
-      .optional(),
+    currentStage: z.enum(stageEnum).nullable().optional(),
     rankingRules: z
       .array(
         z.enum([
@@ -2010,6 +2042,11 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
       );
   }
 
+  // P0.4 — dynamic initial KO stage + settle (byes may clear early rounds).
+  const initialStage = initialKnockoutStageFromRounds(plannedRounds);
+  await setPromotionStage(db, tournamentId, catId, initialStage);
+  const stageSettle = await advanceStage(db, tournamentId, catId);
+
   // Compatibility: existing clients expect `{ draw, fixtures }` — draw = R1 collection.
   res.status(201).json({
     draw: firstCollection,
@@ -2020,6 +2057,12 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
       roundName: r.roundName,
       fixtureCount: r.fixtures.length,
     })),
+    stage: stageSettle.currentStage ?? initialStage,
+    tournamentStage: resolveStageDto({
+      drawType: category.drawType,
+      currentStage: stageSettle.currentStage ?? initialStage,
+      phase: category.phase,
+    }),
   });
 });
 
@@ -2140,6 +2183,40 @@ router.get("/categories/:catId/qualifiers", async (req, res) => {
     mode,
   });
   res.json(qualifiers);
+});
+
+/**
+ * League → Knockout Promotion Engine entry point.
+ * Explicit only — never auto-triggered from standings rebuilds.
+ */
+router.post("/categories/:catId/promote-to-knockout", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const result = await promoteCategoryToKnockout(tournamentId, catId);
+    return void res.status(200).json({
+      created: result.created,
+      skipped: result.skipped,
+      reason: result.reason,
+      // BC: string stage; preferred nested DTO from helper.
+      stage: result.stage,
+      tournamentStage: result.tournamentStage,
+      bracket: result.bracket,
+    });
+  } catch (err) {
+    if (err instanceof PromotionError) {
+      return void res.status(err.status).json({
+        error: err.code,
+        message: err.message,
+        ...(err.details ?? {}),
+      });
+    }
+    const message = err instanceof Error ? err.message : "Promotion failed";
+    return void res.status(500).json({ error: "PROMOTION_FAILED", message });
+  }
 });
 
 /**

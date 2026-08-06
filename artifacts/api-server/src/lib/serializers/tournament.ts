@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-base/platform-audio";
 import { resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import type { tournamentsTable } from "@workspace/db";
+import { catalogBindingSerializerFields } from "../tournament-catalog-bindings";
 
 type TournamentRow = typeof tournamentsTable.$inferSelect;
 
@@ -84,6 +85,7 @@ export function publicTournamentSerializer(
     scoringEnabled: t.scoringEnabled ?? false,
     scoringPhase: t.scoringPhase ?? "disabled",
     features: resolveTournamentFeatures(t.featuresJson),
+    ...catalogBindingSerializerFields(t),
     createdAt: t.createdAt.toISOString(),
     ...(platform
       ? {

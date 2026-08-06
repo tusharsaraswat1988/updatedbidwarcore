@@ -6,6 +6,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./api-fetch": "./src/api-fetch.ts",
+    "./catalog": "./src/catalog/index.ts",
+    "./competition": "./src/competition/index.ts",
+    "./team": "./src/team/index.ts",
+    "./match": "./src/match/index.ts",
+    "./fixture": "./src/fixture/index.ts",
+    "./scheduling": "./src/scheduling/index.ts",
+    "./runtime-match": "./src/runtime-match/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./rule-engine": "./src/rule-engine/index.ts",
+    "./presentation-engine": "./src/presentation-engine/index.ts",
+
     "./tournament-features": "./src/tournament-features.ts",
     "./scoring-urls": "./src/scoring-urls.ts",
     "./owner-urls": "./src/owner-urls.ts",
@@ -14,8 +25,13 @@
     "./dev-cors": "./src/dev-cors.ts",
     "./vite-proxy": "./src/vite-proxy.ts"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
+
   "devDependencies": {
     "@types/node": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "^4.1.6"
   }
 }

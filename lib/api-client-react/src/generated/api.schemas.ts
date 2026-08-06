@@ -292,6 +292,7 @@ export interface TournamentInput {
   /** City where the tournament is held (required on create) */
   city: string;
   auctionDate?: string;
+  auctionTime?: string;
   organizerName?: string;
   organizerMobile?: string;
   logoUrl?: string;
@@ -327,6 +328,17 @@ export interface TournamentInput {
   mainBannerFit?: TournamentInputMainBannerFit;
   /** Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19' */
   matchDates?: string;
+  /** Platform catalog bindings (EPIC-01) — references only */
+  variantId?: string;
+  competitionTypeId?: string;
+  ruleProfileId?: string;
+  ruleProfileVersion?: string;
+  presentationProfileId?: string;
+  presentationProfileVersion?: string;
+  registrationDeadline?: string;
+  registrationLimit?: number;
+  enableRegistrationPayment?: boolean;
+  registrationFee?: number;
 }
 
 export type TournamentUpdateAuctionUnit =

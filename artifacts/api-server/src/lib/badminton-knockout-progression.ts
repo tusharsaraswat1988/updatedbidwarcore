@@ -7,6 +7,8 @@ import { db, badmintonFixturesTable } from "@workspace/db";
 import type { BadmintonSide } from "@workspace/badminton-core";
 import type { PlannedKnockoutRound } from "./badminton-knockout-plan";
 
+export type DbExecutor = Pick<typeof db, "select" | "insert" | "delete" | "update">;
+
 export class KnockoutProgressionError extends Error {
   readonly code = "KNOCKOUT_PROGRESSION_FAILED";
 
@@ -30,6 +32,7 @@ export async function wireKnockoutProgressionLinks(
   tournamentId: number,
   insertedByRound: Map<number, Array<{ id: number; slotNumber: number | null }>>,
   planned: PlannedKnockoutRound[],
+  executor: DbExecutor = db,
 ): Promise<void> {
   for (const round of planned) {
     const inserted = insertedByRound.get(round.roundNumber) ?? [];
@@ -50,7 +53,7 @@ export async function wireKnockoutProgressionLinks(
       );
       if (!to) continue;
 
-      await db
+      await executor
         .update(badmintonFixturesTable)
         .set({
           winnerAdvancesTo: to.id,
@@ -76,8 +79,11 @@ export async function advanceKnockoutWinner(input: {
   tournamentId: number;
   fixtureId: number;
   winnerSide: BadmintonSide;
+  executor?: DbExecutor;
 }): Promise<{ advancedToFixtureId: number | null }> {
-  const [fixture] = await db
+  const executor = input.executor ?? db;
+
+  const [fixture] = await executor
     .select()
     .from(badmintonFixturesTable)
     .where(
@@ -93,7 +99,7 @@ export async function advanceKnockoutWinner(input: {
   const winnerRegistrationId =
     input.winnerSide === "left" ? fixture.registrationAId : fixture.registrationBId;
 
-  await db
+  await executor
     .update(badmintonFixturesTable)
     .set({
       winnerRegistrationId: winnerRegistrationId ?? null,
@@ -110,7 +116,7 @@ export async function advanceKnockoutWinner(input: {
     return { advancedToFixtureId: null };
   }
 
-  const [next] = await db
+  const [next] = await executor
     .select()
     .from(badmintonFixturesTable)
     .where(
@@ -161,7 +167,7 @@ export async function advanceKnockoutWinner(input: {
     patch.status = "unscheduled";
   }
 
-  await db
+  await executor
     .update(badmintonFixturesTable)
     .set(patch)
     .where(

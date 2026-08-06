@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   index,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -41,6 +42,22 @@ export const scoringMatchesTable = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     venueId: integer("venue_id"),
     venue: text("venue"),
+    /** EPIC-05 platform Match Type catalog id. */
+    matchTypeId: text("match_type_id").default("league"),
+    displayName: text("display_name"),
+    surface: text("surface"),
+    visibility: text("visibility").default("tournament"),
+    brandingJson: jsonb("branding_json").$type<Record<string, unknown>>(),
+    /** Lifecycle module storage — not part of Match Configuration product view. */
+    lifecycleStatus: text("lifecycle_status").default("draft"),
+    configurationLocked: boolean("configuration_locked").notNull().default(false),
+    /** EPIC-08 — subordinate Execution Phase (not a second lifecycle). */
+    executionPhase: text("execution_phase").default("preparing"),
+    /** EPIC-08 — pointer to active Runtime Snapshot version in history. */
+    currentRuntimeVersion: integer("current_runtime_version"),
+    /** EPIC-08 — minimal prep metadata only when not derivable. */
+    runtimePrepMetadataJson: jsonb("runtime_prep_metadata_json").$type<Record<string, unknown>>(),
+
     officialsJson: jsonb("officials_json").$type<{
       scorers?: number[];
       matchReferee?: number | null;

@@ -27,6 +27,8 @@ import {
 /** Product collection kinds (extensible). Legacy rows may still use knockout_round. */
 export type FixtureCollectionKind = "generated" | "imported" | "manual";
 
+export type DbExecutor = Pick<typeof db, "select" | "insert" | "delete" | "update">;
+
 export type FixtureWriterInput = {
   slotNumber?: number | null;
   registrationAId?: number | null;
@@ -56,6 +58,8 @@ export type CreateFixtureCollectionInput = {
    * Manual / Import leave category phase unchanged.
    */
   markCategoryLive?: boolean;
+  /** Optional transaction / executor (defaults to global db). */
+  executor?: DbExecutor;
 };
 
 export type CreateFixturesResult = {
@@ -69,7 +73,9 @@ export type CreateFixturesResult = {
 export async function createFixtureCollection(
   input: CreateFixtureCollectionInput,
 ): Promise<CreateFixturesResult> {
-  const [collection] = await db
+  const executor = input.executor ?? db;
+
+  const [collection] = await executor
     .insert(badmintonDrawsTable)
     .values({
       tournamentId: input.tournamentId,
@@ -86,12 +92,12 @@ export async function createFixtureCollection(
 
   if (input.fixtures.length === 0) {
     if (input.markCategoryLive) {
-      await markCategoryLive(input.tournamentId, input.categoryId);
+      await markCategoryLive(executor, input.tournamentId, input.categoryId);
     }
     return { collection, fixtures: [] };
   }
 
-  const fixtures = await db
+  const fixtures = await executor
     .insert(badmintonFixturesTable)
     .values(
       input.fixtures.map((f) => ({
@@ -112,14 +118,18 @@ export async function createFixtureCollection(
     .returning();
 
   if (input.markCategoryLive) {
-    await markCategoryLive(input.tournamentId, input.categoryId);
+    await markCategoryLive(executor, input.tournamentId, input.categoryId);
   }
 
   return { collection, fixtures };
 }
 
-async function markCategoryLive(tournamentId: number, categoryId: number): Promise<void> {
-  await db
+async function markCategoryLive(
+  executor: DbExecutor,
+  tournamentId: number,
+  categoryId: number,
+): Promise<void> {
+  await executor
     .update(badmintonCategoriesTable)
     .set({ phase: "live", updatedAt: new Date() })
     .where(

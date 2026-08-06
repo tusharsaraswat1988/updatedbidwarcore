@@ -30,6 +30,13 @@ import {
   BadmintonNextStepBanner,
 } from "@/components/badminton/setup-checklist";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
+import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
+import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
+import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
+import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
+import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
+import { RuntimePreparationCard } from "@/components/tournament-hub/runtime-preparation-card";
+
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -86,6 +93,16 @@ export default function BadmintonTournamentHub() {
         />
 
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+          {tournamentId ? (
+            <>
+              <CompetitionSetupCard tournamentId={tournamentId} />
+              <TeamSetupCard tournamentId={tournamentId} />
+              <FixtureSetupCard tournamentId={tournamentId} />
+              <SchedulingSetupCard tournamentId={tournamentId} />
+              <MatchSetupCard tournamentId={tournamentId} />
+              <RuntimePreparationCard tournamentId={tournamentId} />
+            </>
+          ) : null}
           {atReady ? (
             <>
               <div className={cn(hubPanelClass, "flex flex-col sm:flex-row sm:items-center gap-4")}>

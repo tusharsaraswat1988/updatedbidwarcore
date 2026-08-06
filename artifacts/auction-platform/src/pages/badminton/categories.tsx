@@ -29,6 +29,12 @@ import { useBadmintonScoringFormat } from "@/hooks/use-badminton-scoring-format"
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { parseBadmintonMatchFormat } from "@workspace/badminton-core";
 
+interface TournamentStageDto {
+  currentStage: string | null;
+  lifecycleStage: string | null;
+  displayLabel?: string | null;
+}
+
 interface BadmintonCategory {
   id: number;
   tournamentId: number;
@@ -40,6 +46,8 @@ interface BadmintonCategory {
   drawType: string;
   numSeeds: number;
   phase: string;
+  /** Server-resolved stage DTO — never infer client-side. */
+  stage?: TournamentStageDto | null;
   maxPlayers?: number | null;
   entryFee?: number | null;
   colorCode?: string | null;
@@ -269,6 +277,11 @@ function CategoryPanel({
                   </span>
                 )}
                 <PhaseBadge phase={category.phase} />
+                {category.stage?.displayLabel ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300/90 px-2 py-0.5 rounded-full">
+                    {category.stage.displayLabel}
+                  </span>
+                ) : null}
               </div>
               <p className="text-white/40 text-sm mt-0.5">
                 {formatMatchType(category.matchType)}

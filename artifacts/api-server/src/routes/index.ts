@@ -44,10 +44,28 @@ import academyPublicRouter from "./academy-public";
 import diagnosticsRouter from "./diagnostics";
 import schemaHealthRouter from "./schema-health";
 import scorerRouter from "./scorer";
+import catalogRouter from "./catalog";
+import competitionRouter from "./competition";
+import teamFoundationRouter from "./team-foundation";
+import matchFoundationRouter from "./match-foundation";
+import fixtureFoundationRouter from "./fixture-foundation";
+import schedulingFoundationRouter from "./scheduling-foundation";
+import runtimeMatchFoundationRouter from "./runtime-match-foundation";
+import ruleEngineRouter from "./rule-engine";
+import presentationEngineRouter from "./presentation-engine";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(catalogRouter);
+router.use(ruleEngineRouter);
+router.use(presentationEngineRouter);
+router.use(competitionRouter);
+router.use(teamFoundationRouter);
+router.use(matchFoundationRouter);
+router.use(fixtureFoundationRouter);
+router.use(schedulingFoundationRouter);
+router.use(runtimeMatchFoundationRouter);
 router.use("/scorer", scorerRouter);
 router.use(diagnosticsRouter);
 router.use(schemaHealthRouter);

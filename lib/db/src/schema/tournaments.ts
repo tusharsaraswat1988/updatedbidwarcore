@@ -120,6 +120,25 @@ export const tournamentsTable = pgTable("tournaments", {
   scoringSettingsJson: jsonb("scoring_settings_json").$type<Record<string, unknown>>(),
   /** Per-tournament module feature flags — see @workspace/api-base/tournament-features */
   featuresJson: jsonb("features_json").$type<Record<string, unknown>>(),
+  /**
+   * Platform catalog bindings (EPIC-01). References only — never resolved rules.
+   * Null = legacy tournament; resolve via CatalogRegistry.resolveLegacyBindings.
+   */
+  variantId: text("variant_id"),
+  competitionTypeId: text("competition_type_id"),
+  ruleProfileId: text("rule_profile_id"),
+  ruleProfileVersion: text("rule_profile_version"),
+  presentationProfileId: text("presentation_profile_id"),
+  presentationProfileVersion: text("presentation_profile_version"),
+  /**
+   * Competition Working Configuration (EPIC-03). IDs only — labels from catalogs.
+   * Locked Plan snapshots live in competition_configuration_history.
+   */
+  registrationModeId: text("registration_mode_id"),
+  teamFormationStrategyId: text("team_formation_strategy_id"),
+  squadRulesJson: jsonb("squad_rules_json").$type<Record<string, unknown>>(),
+  participantConstraintsJson: jsonb("participant_constraints_json").$type<Record<string, unknown>>(),
+  businessStageId: text("business_stage_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },
