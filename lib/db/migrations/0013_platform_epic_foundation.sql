@@ -168,3 +168,11 @@ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ─── Badminton standings enrichment (0010) — re-assert ───────────────────────
+ALTER TABLE badminton_pair_standings
+  ADD COLUMN IF NOT EXISTS points_for INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE badminton_pair_standings
+  ADD COLUMN IF NOT EXISTS points_against INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE badminton_pair_standings
+  ADD COLUMN IF NOT EXISTS matches_remaining SMALLINT NOT NULL DEFAULT 0;
