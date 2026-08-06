@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-05  
 **Parent:** [`2026-08-05-product-experience-phase-pxp-design.md`](./2026-08-05-product-experience-phase-pxp-design.md)  
-**Phase status:** Phase 1 extraction landed · Phase 2 TMC shell landed · Phase 3 workspace migration landed (all EPIC modules Workspace Complete)
+**Phase status:** Phase 1 extraction landed · Phase 2 TMC shell landed · Phase 3 workspace migration landed (all EPIC modules Workspace Complete) · Phase 4 Live Operations landed · Phase 5 Home Cutover landed
 
 **Status legend**
 
@@ -54,6 +54,7 @@
 | `ModuleQuickPeek` | 3 | ✅ Wired from TMC module registry |
 | `ModuleRegistry` | 3 | ✅ `tournament-hub/module-registry.tsx` |
 | Live Operations workspace | 4 | Navigation only |
+| Home Cutover (operator home ownership) | 5 | ✅ TMC sole home; badminton hub = operational workspace; return contracts → TMC |
 
 ---
 

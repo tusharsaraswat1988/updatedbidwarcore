@@ -166,9 +166,9 @@ function SidebarNav({
           )}
           {!expanded && <div className="mt-6 mb-2 border-t border-border mx-2" />}
           <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
-            <SidebarLink href={`/tournament/${tournamentId}`} title="Tournament Home" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
+            <SidebarLink href={`/tournament/${tournamentId}`} title="Mission Control" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
               <Activity className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Tournament Home</span>}
+              {expanded && <span className="font-medium">Mission Control</span>}
             </SidebarLink>
             <SidebarLink href={`/tournament/${tournamentId}/teams`} title="Teams" className={cls(`/tournament/${tournamentId}/teams`)} active={active(`/tournament/${tournamentId}/teams`)} showAccent={expanded}>
               <Users className="w-5 h-5 flex-shrink-0" />

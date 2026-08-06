@@ -36,9 +36,17 @@ export function openAuctionRoom(tournamentId: number): void {
   window.open(auctionRoomPath(tournamentId), "_blank");
 }
 
-/** Relative path to the tournament setup dashboard. */
-export function setupAreaPath(tournamentId: number): string {
+/**
+ * Tournament Mission Control — the sole operator home.
+ * Prefer this name in Phase 5+ call sites; `setupAreaPath` remains as alias.
+ */
+export function tournamentMissionControlPath(tournamentId: number): string {
   return `/tournament/${tournamentId}`;
+}
+
+/** @alias tournamentMissionControlPath — historical name used by auction operator return. */
+export function setupAreaPath(tournamentId: number): string {
+  return tournamentMissionControlPath(tournamentId);
 }
 
 /** BidWar Media Center — organizer Buzz Studio hub (requires features.buzzStudio). */

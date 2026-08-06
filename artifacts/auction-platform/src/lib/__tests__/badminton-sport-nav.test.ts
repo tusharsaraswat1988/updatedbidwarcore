@@ -22,7 +22,7 @@ describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
     assert.deepEqual(
       items.map((i) => i.label),
       [
-        "Dashboard",
+        "Operations",
         "Tournament Setup",
         "Participants",
         "Tournament Structure",
@@ -82,7 +82,7 @@ describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
     assert.deepEqual(activeIds(`${BASE}/analytics`), ["results"]);
   });
 
-  it("activates Dashboard only on the hub path", () => {
+  it("activates Operations only on the hub path", () => {
     assert.deepEqual(activeIds(BASE), ["dashboard"]);
     assert.deepEqual(activeIds(`${BASE}/`), ["dashboard"]);
     assert.equal(activeIds(`${BASE}/branding`).includes("dashboard"), false);

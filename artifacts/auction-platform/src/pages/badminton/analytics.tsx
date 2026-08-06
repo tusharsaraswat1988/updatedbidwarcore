@@ -257,9 +257,11 @@ export default function BadmintonAnalyticsPage() {
 
             action={{
 
-              label: "Go to Dashboard",
+              label: "Open Mission Control",
 
-              href: `/tournament/${tournamentId}/badminton`,
+              onClick: () => {
+                window.location.href = `/tournament/${tournamentId}`;
+              },
 
             }}
 
