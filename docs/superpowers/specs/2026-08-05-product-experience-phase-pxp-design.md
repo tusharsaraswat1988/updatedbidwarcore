@@ -1,7 +1,7 @@
 # BidWar Product Experience Phase (PXP) Design
 
 **Date:** 2026-08-05  
-**Status:** PHASES 0–4 landed (shell + Live Operations); Phase 5 cutover + Phase 6 polish pending  
+**Status:** PHASES 0–5 landed (shell + Live Operations + Home Cutover); Phase 6 polish pending  
 **Scope:** Product Experience only. Platform Foundation EPIC-01 → EPIC-10 remains frozen.  
 **Authority:** This document freezes PXP migration rules. It does not redefine platform ownership, APIs, or business rules.  
 **Precedents:** `2026-08-05-platform-architecture-freeze.md`; Auction Operator UX; Badminton Mission Control UX; EPIC setup cards on Tournament Hub.
@@ -386,5 +386,5 @@ Tournament Health = rollup of module health. Not a substitute for Ready.
 **Phase 2 status:** Tournament Mission Control shell on `/tournament/:id` — readiness strip, tournament health, attention center, ModuleWorkspace wrappers. Cards preserved.  
 **Phase 3 status:** Hybrid shell (`ModuleQuickPeek` side sheet) + deep-link `from=` return to TMC started (Team Manage). Full per-module chrome migration still progressive.  
 **Phase 4 status:** Live Operations module workspace deep-links Auction Live Control / Badminton Mission Control / LED / Broadcast.  
-**Phase 5 pending:** Canonical home cutover (badminton hub becomes workspace-only).  
+**Phase 5 status:** Home Cutover complete — `/tournament/:id` is the sole operator home; badminton hub is operational workspace only; Home/Dashboard/return contracts resolve to Tournament Mission Control.  
 **Phase 6 pending:** Keyboard, a11y, motion polish.

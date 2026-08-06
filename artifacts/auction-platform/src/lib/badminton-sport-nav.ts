@@ -123,7 +123,7 @@ function preloadNav(id: string) {
 export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   {
     id: "dashboard",
-    label: "Dashboard",
+    label: "Operations",
     href: badmintonHubPath,
     isActive: isHubPath,
     icon: LayoutDashboard,

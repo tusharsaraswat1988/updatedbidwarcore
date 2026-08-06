@@ -1,14 +1,17 @@
 /**
- * Badminton Tournament Command Center / Setup landing
+ * Badminton operational workspace
  * Route: /tournament/:id/badminton
  *
- * Incomplete setup → checklist + next step
- * Setup complete → Tournament Command Center
+ * Phase 5: Not an operator home. Tournament Mission Control owns home.
+ * This surface is Court Operations / Scoring / Match Control entry only.
+ *
+ * Incomplete setup → checklist + next step (+ link to Mission Control)
+ * Setup complete → operational workspace (live courts / operator panel entry)
  */
 
 import { useRoute, Link, useLocation } from "wouter";
 import {
-  Users, MapPin, Trophy, Calendar, Radio, CheckCircle2, Target,
+  Users, MapPin, Trophy, Calendar, Radio, CheckCircle2, Target, Activity,
 } from "lucide-react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { identityFromSideInfo } from "@/lib/team-player-identity";
@@ -23,6 +26,7 @@ import {
   HubSectionHeader,
   HubMatchCard,
   BtnPrimary,
+  BtnSecondary,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
 import {
@@ -30,12 +34,7 @@ import {
   BadmintonNextStepBanner,
 } from "@/components/badminton/setup-checklist";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
-import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
-import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
-import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
-import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
-import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
-import { RuntimePreparationCard } from "@/components/tournament-hub/runtime-preparation-card";
+import { tournamentMissionControlPath } from "@/lib/tournament-navigation";
 
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,6 +44,7 @@ export default function BadmintonTournamentHub() {
   const [, params] = useRoute("/tournament/:id/badminton");
   const tournamentId = parseInt(params?.id ?? "0");
   const [, setLocation] = useLocation();
+  const missionControlHref = tournamentMissionControlPath(tournamentId);
 
   const {
     items,
@@ -80,28 +80,41 @@ export default function BadmintonTournamentHub() {
       <HubPageShell tournamentId={tournamentId}>
         <PageHeader
           tournamentId={tournamentId}
-          eyebrow="Setup"
-          title={atReady ? "Tournament Ready" : "Tournament Setup"}
+          eyebrow="Operations"
+          title={atReady ? "Ready to Operate" : "Court Operations Setup"}
           subtitle={
             atReady
-              ? "Setup is complete — open the Operator Panel to run the tournament."
+              ? "Badminton setup is complete — open the Operator Panel to run match day."
               : remaining === 1
-                ? "One step left to finish setup"
-                : `${remaining} steps remaining (${percent}%)`
+                ? "One operational step left"
+                : `${remaining} operational steps remaining (${percent}%)`
           }
           badge={atReady ? "Ready" : undefined}
         />
 
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
           {tournamentId ? (
-            <>
-              <CompetitionSetupCard tournamentId={tournamentId} />
-              <TeamSetupCard tournamentId={tournamentId} />
-              <FixtureSetupCard tournamentId={tournamentId} />
-              <SchedulingSetupCard tournamentId={tournamentId} />
-              <MatchSetupCard tournamentId={tournamentId} />
-              <RuntimePreparationCard tournamentId={tournamentId} />
-            </>
+            <div className={cn(hubPanelClass, "flex flex-col sm:flex-row sm:items-center gap-4")}>
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="p-2.5 rounded-lg bg-primary/15 shrink-0">
+                  <Activity className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-display font-bold text-foreground">
+                    Tournament Mission Control
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Competition, Teams, Fixtures, Scheduling, Matches, Runtime, and Live Operations live on Mission Control — the operator home.
+                  </p>
+                </div>
+              </div>
+              <a href={missionControlHref} className="w-full sm:w-auto shrink-0">
+                <BtnSecondary className="w-full sm:w-auto">
+                  <Activity className="w-4 h-4" />
+                  Open Mission Control
+                </BtnSecondary>
+              </a>
+            </div>
           ) : null}
           {atReady ? (
             <>
@@ -145,14 +158,14 @@ export default function BadmintonTournamentHub() {
     <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         tournamentId={tournamentId}
-        eyebrow="Dashboard"
-        title="Tournament Dashboard"
+        eyebrow="Operations"
+        title="Badminton Operations"
         subtitle={
           isScoringComplete
             ? "All events finished — review Results and Tournament Summary"
             : isLive
               ? "Matches in progress — run courts and broadcast from the Operator Panel"
-              : "Setup complete — manage matches and operations from the sidebar"
+              : "Operational workspace — manage matches and court control from here"
         }
         badge={isScoringComplete ? "Completed" : isLive ? `${liveCount} Live` : "Ready"}
         actions={formatLabel ? <ScoringFormatBadge label={formatLabel} /> : undefined}

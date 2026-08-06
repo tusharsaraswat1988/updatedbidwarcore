@@ -131,11 +131,13 @@ export function ModuleWorkspace({
           </div>
         </div>
 
-        <ValidationPanel
-          issues={validationIssues}
-          maxItems={validationMaxItems}
-          variant={validationVariant}
-        />
+        {validationIssues.length > 0 ? (
+          <ValidationPanel
+            issues={validationIssues}
+            maxItems={validationMaxItems}
+            variant={validationVariant}
+          />
+        ) : null}
 
         <HistoryPanel entries={history} />
 

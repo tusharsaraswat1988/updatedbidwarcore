@@ -1,8 +1,14 @@
+import { tournamentMissionControlPath } from "./tournament-navigation";
+
 /** Organizer badminton hub + management routes under a tournament. */
 export function isBadmintonOrganizerPath(path: string): boolean {
   return /^\/tournament\/\d+\/badminton(\/|$)/.test(path);
 }
 
+/**
+ * Badminton operational workspace root (Phase 5).
+ * Not an operator home — Tournament Mission Control owns home.
+ */
 export function badmintonHubPath(tournamentId: number) {
   return `/tournament/${tournamentId}/badminton`;
 }
@@ -52,7 +58,7 @@ function pathEndsWithSection(path: string, section: string): boolean {
 export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
   {
     id: "hub",
-    label: "Tournament Dashboard",
+    label: "Operations",
     href: badmintonHubPath,
     isActive: (path, tid) => {
       const base = badmintonHubPath(tid);
@@ -168,17 +174,19 @@ export type BadmintonHubBackNav =
   | { kind: "history"; label: string };
 
 /**
- * Contextual back control — follows setup / ops workflow, avoids dead ends.
+ * Contextual back control — operational workspace chain, then Mission Control.
+ * Hub root always returns to Tournament Mission Control (sole operator home).
  */
 export function getBadmintonHubBackNav(tournamentId: number, pathname: string): BadmintonHubBackNav {
   const hub = badmintonHubPath(tournamentId);
+  const tmc = tournamentMissionControlPath(tournamentId);
 
   if (/\/badminton\/matches\/\d+\/control/.test(pathname)) {
     return { kind: "link", href: `${hub}/control`, label: "Back to Operator Panel" };
   }
 
   if (/\/badminton\/control\/?$/.test(pathname)) {
-    return { kind: "link", href: hub, label: "Back to Tournament Dashboard" };
+    return { kind: "link", href: hub, label: "Back to Operations" };
   }
 
   if (/\/badminton\/results\/?$/.test(pathname)) {
@@ -222,7 +230,7 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (/\/badminton\/branding/.test(pathname)) {
-    return { kind: "link", href: hub, label: "Back" };
+    return { kind: "link", href: hub, label: "Back to Operations" };
   }
 
   if (/\/badminton\/broadcast/.test(pathname) || /\/badminton\/analytics/.test(pathname)) {
@@ -230,10 +238,14 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   }
 
   if (pathname === hub || pathname === `${hub}/`) {
-    return { kind: "history", label: "Back" };
+    return {
+      kind: "link",
+      href: tmc,
+      label: "Back to Tournament Mission Control",
+    };
   }
 
-  return { kind: "link", href: hub, label: "Back to Tournament Dashboard" };
+  return { kind: "link", href: hub, label: "Back to Operations" };
 }
 
 export const BADMINTON_ROUTE_LOADING_CLASS = "lovable-theme min-h-screen bg-background dark";

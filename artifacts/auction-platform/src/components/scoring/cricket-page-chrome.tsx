@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -8,7 +8,12 @@ import {
   CricketPublicBrandMark,
   useCricketBidWarTheme,
 } from "@/components/scoring/cricket-branding";
-import { cricketPublicPath, scoringSchedulePath } from "@/lib/tournament-navigation";
+import {
+  cricketPublicPath,
+  resolveReturnPath,
+  returnPathBackLabel,
+  scoringSchedulePath,
+} from "@/lib/tournament-navigation";
 /** Standard cricket hub card — matches auction `Card`. */
 export const cricketCardClass =
   "rounded-xl border bg-card border-border text-card-foreground shadow";
@@ -85,6 +90,12 @@ export function CricketPublicShell({
 /** Sticky nav for cricket organizer scoring pages (matches, schedule, fan page). */
 export function CricketScoringNav({ tournamentId }: { tournamentId: number }) {
   const [location] = useLocation();
+  const search = useSearch();
+  const from = new URLSearchParams(
+    search.startsWith("?") ? search.slice(1) : search,
+  ).get("from");
+  const returnTo = resolveReturnPath(from, tournamentId);
+  const backLabel = returnPathBackLabel(returnTo);
   const schedulePath = scoringSchedulePath(tournamentId);
   const fanPath = cricketPublicPath(tournamentId);
   const matchesPath = `/tournament/${tournamentId}/score`;
@@ -108,13 +119,11 @@ export function CricketScoringNav({ tournamentId }: { tournamentId: number }) {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 space-y-2.5">
         <a
-          href={`/tournament/${tournamentId}`}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={returnTo}
           className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
         >
           <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          Auction Hub
+          {backLabel}
         </a>
 
         <div
