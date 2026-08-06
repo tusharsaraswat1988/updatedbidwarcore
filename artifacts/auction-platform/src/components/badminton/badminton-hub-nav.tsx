@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronLeft } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import {
   getGetTournamentQueryKey,
   useGetTournament,
@@ -20,8 +20,30 @@ import {
   detectBadmintonTournamentMode,
   getBadmintonHubBackNav,
   getBadmintonHubNavLayout,
+  type BadmintonHubBackNav,
   type BadmintonHubNavItem,
 } from "@/lib/badminton-routes";
+import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
+
+function resolveHubBackNav(
+  tournamentId: number,
+  location: string,
+  from: string | null,
+): BadmintonHubBackNav {
+  const defaultBack = getBadmintonHubBackNav(tournamentId, location);
+  const hasSafeFrom = Boolean(from?.startsWith("/") && !from.startsWith("//"));
+  const onLiveOpsSurface =
+    /\/badminton\/control\/?$/.test(location) || /\/badminton\/broadcast\/?$/.test(location);
+  if (!hasSafeFrom || !onLiveOpsSurface) return defaultBack;
+
+  const returnTo = resolveReturnPath(from, tournamentId);
+  if (returnTo.includes("/badminton")) return defaultBack;
+  return {
+    kind: "link",
+    href: returnTo,
+    label: returnPathBackLabel(returnTo),
+  };
+}
 
 function NavChip({
   item,
@@ -126,7 +148,14 @@ function CollapsibleNavSection({
 
 export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
   const [location] = useLocation();
-  const back = getBadmintonHubBackNav(tournamentId, location);
+  const search = useSearch();
+  const from = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get(
+    "from",
+  );
+  const back = resolveHubBackNav(tournamentId, location, from);
+  // TMC lives on the auction-platform shell — leave scoring-app when returning there.
+  const leaveScoringApp =
+    back.kind === "link" && !back.href.includes("/badminton");
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: {
@@ -168,6 +197,14 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
               <ChevronLeft className="w-5 h-5 shrink-0" aria-hidden />
               {back.label}
             </button>
+          ) : leaveScoringApp ? (
+            <a
+              href={back.href}
+              className="inline-flex items-center gap-1 min-h-12 text-sm font-semibold text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md touch-manipulation"
+            >
+              <ChevronLeft className="w-5 h-5 shrink-0" aria-hidden />
+              {back.label}
+            </a>
           ) : (
             <Link
               href={back.href}
