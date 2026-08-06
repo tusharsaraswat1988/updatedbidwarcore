@@ -87,6 +87,7 @@ function matchToJson(m: {
   scheduledAt: Date | null;
   venue: string | null;
   rulesJson: Record<string, unknown> | null;
+  brandingJson?: Record<string, unknown> | null;
   runtimePrepMetadataJson?: Record<string, unknown> | null;
   currentRuntimeVersion?: number | null;
   winnerTeamId: number | null;
@@ -96,7 +97,10 @@ function matchToJson(m: {
   createdAt: Date;
 }) {
   const prep = m.runtimePrepMetadataJson as
-    | { ruleResolution?: Record<string, unknown> }
+    | {
+        ruleResolution?: Record<string, unknown>;
+        presentationResolution?: Record<string, unknown>;
+      }
     | null
     | undefined;
   const bind = prep?.ruleResolution as
@@ -104,6 +108,14 @@ function matchToJson(m: {
         resolutionId?: string;
         rulesHash?: string;
         runtimeRulesVersion?: string;
+        snapshotVersion?: number;
+      }
+    | undefined;
+  const presentationBind = prep?.presentationResolution as
+    | {
+        presentationResolutionId?: string;
+        presentationHash?: string;
+        presentationVersion?: string;
         snapshotVersion?: number;
       }
     | undefined;
@@ -120,13 +132,28 @@ function matchToJson(m: {
     scheduledAt: m.scheduledAt?.toISOString() ?? null,
     venue: m.venue,
     rules: m.rulesJson,
-    /** Session-facing Policy identity — no Rule Engine import. */
+    /**
+     * EPIC-12 Phase 1 — Compatibility Adapter paint DTO (temporary).
+     * source === "presentation_execution_policy" when Prepare-bound.
+     */
+    branding: m.brandingJson ?? null,
+    /** Session-facing Rule Policy identity — no Rule Engine import. */
     executionPolicyBind: bind
       ? {
           resolutionId: bind.resolutionId ?? null,
           rulesHash: bind.rulesHash ?? null,
           runtimeRulesVersion: bind.runtimeRulesVersion ?? null,
           snapshotVersion: bind.snapshotVersion ?? m.currentRuntimeVersion ?? null,
+        }
+      : null,
+    /** Session-facing Presentation identity — no Presentation Engine import. */
+    presentationPolicyBind: presentationBind
+      ? {
+          presentationResolutionId: presentationBind.presentationResolutionId ?? null,
+          presentationHash: presentationBind.presentationHash ?? null,
+          presentationVersion: presentationBind.presentationVersion ?? null,
+          snapshotVersion:
+            presentationBind.snapshotVersion ?? m.currentRuntimeVersion ?? null,
         }
       : null,
     winnerTeamId: m.winnerTeamId,

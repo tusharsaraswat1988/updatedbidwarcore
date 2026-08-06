@@ -66,6 +66,30 @@ export function resolveBroadcastSettings(
   };
 }
 
+/**
+ * EPIC-12 Phase 1 — overlay Compatibility Adapter paint onto OBS broadcast settings.
+ * When paint is absent or not Policy-sourced, returns settings unchanged (legacy path).
+ */
+export function applyPresentationPaintToBroadcastSettings(
+  settings: BroadcastSettings,
+  paint:
+    | {
+        source?: string;
+        broadcastTheme?: BroadcastTheme;
+        sponsorStripEnabled?: boolean;
+      }
+    | null
+    | undefined,
+): BroadcastSettings {
+  if (!paint || paint.source !== "presentation_execution_policy") {
+    return settings;
+  }
+  return {
+    ...settings,
+    theme: paint.broadcastTheme ?? settings.theme,
+  };
+}
+
 export function saveBroadcastSettings(tournamentId: number, settings: BroadcastSettings): void {
   if (typeof window === "undefined" || !tournamentId) return;
   try {

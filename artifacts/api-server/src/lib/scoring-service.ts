@@ -17,6 +17,7 @@ import {
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { verifyMatchStartContract } from "@workspace/platform-core/rule-engine";
+import { verifyPresentationMatchStartContract } from "@workspace/platform-core/presentation-engine";
 import { replayScoringMatchState } from "./scoring-platform";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
@@ -287,6 +288,7 @@ export async function appendScoringEvent(
   }
 
   // EPIC-11 Phase 1 — Match Start verifies Prepare bind only; never RuleEngine.resolve().
+  // EPIC-12 Phase 1 — also verifies presentation bind; never PresentationEngine.resolve().
   if (input.eventType === CricketEventType.MATCH_STARTED) {
     const verified = verifyMatchStartContract({
       currentRuntimeVersion: match.currentRuntimeVersion,
@@ -294,6 +296,17 @@ export async function appendScoringEvent(
     });
     if (!verified.ok) {
       throw new ScoringServiceError(verified.error, 409, verified.code);
+    }
+    const presentationVerified = verifyPresentationMatchStartContract({
+      currentRuntimeVersion: match.currentRuntimeVersion,
+      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<string, unknown> | null,
+    });
+    if (!presentationVerified.ok) {
+      throw new ScoringServiceError(
+        presentationVerified.error,
+        409,
+        presentationVerified.code,
+      );
     }
   }
 

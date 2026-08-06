@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -13,6 +13,10 @@ import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { CricketPublicBrandMark, useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
 import { getCricketMasterTeams } from "@/lib/scoring-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
+import {
+  getDisplayThemeFromPresentationPaint,
+  type PresentationPaintJson,
+} from "@/lib/display-theme";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +66,22 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const summary = live?.summary;
   const innings = state ? getActiveInnings(state) : null;
 
+  // EPIC-12 Phase 1 — consume Compatibility Adapter paint when Prepare-bound.
+  // Maps to current stadium-gold defaults; no LED redesign.
+  const presentationPaint = match?.branding as PresentationPaintJson | null | undefined;
+  const paintTheme = getDisplayThemeFromPresentationPaint(presentationPaint);
+  const displayShellStyle = useMemo(() => {
+    if (presentationPaint?.source !== "presentation_execution_policy") {
+      return shellStyle;
+    }
+    return {
+      ...shellStyle,
+      ["--accent" as string]: paintTheme.accentColor,
+      ["--background" as string]: paintTheme.bg,
+      backgroundColor: paintTheme.bg,
+    } as CSSProperties;
+  }, [shellStyle, presentationPaint, paintTheme]);
+
   const home = teams.find((t) => t.id === match?.homeTeamId);
   const away = teams.find((t) => t.id === match?.awayTeamId);
   const battingTeam = teams.find((t) => t.id === innings?.battingTeamId);
@@ -94,7 +114,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
     <FullscreenLayout>
       <div
         className="min-h-screen bg-background text-foreground flex flex-col relative dark"
-        style={shellStyle}
+        style={displayShellStyle}
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/25 via-background to-background pointer-events-none" />
         <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-border bg-card/80 backdrop-blur-sm">
