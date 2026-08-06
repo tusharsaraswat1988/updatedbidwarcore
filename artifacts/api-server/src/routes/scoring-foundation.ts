@@ -154,7 +154,7 @@ router.post("/officials", async (req, res) => {
 
   const schema = z.object({
     name: z.string().min(1),
-    role: z.enum(["scorer", "referee", "match_referee"]).optional(),
+    role: z.enum(["umpire", "scorer", "referee", "match_referee"]).optional(),
     mobile: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
   });

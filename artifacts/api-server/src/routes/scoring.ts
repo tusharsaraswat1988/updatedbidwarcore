@@ -30,6 +30,7 @@ import {
   getGlobalPlayerCricketProfile,
   getTournamentPlayerPublicProfile,
   getTournamentTeamPublicProfile,
+  listTournamentAwards,
 } from "../lib/scoring-public-service";
 import { getGlobalCricketLeaderboard } from "../lib/scoring-global-stats-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
@@ -500,6 +501,26 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
       state: result.state,
       match: matchToJson(result.match),
     });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Tournament awards (MoM etc.) — public read of projected awards. */
+router.get("/tournaments/:tournamentId/scoring/awards", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  try {
+    const awards = await listTournamentAwards(tournamentId);
+    res.json({ awards });
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });

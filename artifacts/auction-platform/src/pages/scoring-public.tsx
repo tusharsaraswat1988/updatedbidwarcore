@@ -24,6 +24,8 @@ import type { LeaderboardCategory } from "@workspace/scoring-core";
 const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: string }[] = [
   { key: "runs", label: "Runs", valueLabel: "Runs" },
   { key: "wickets", label: "Wickets", valueLabel: "Wkts" },
+  { key: "strike_rate", label: "SR", valueLabel: "SR" },
+  { key: "economy", label: "Econ", valueLabel: "Econ" },
   { key: "sixes", label: "Sixes", valueLabel: "6s" },
   { key: "fours", label: "Fours", valueLabel: "4s" },
 ];
@@ -108,7 +110,7 @@ export default function ScoringPublicPage() {
               {liveMatches.map((m: { id: number; homeTeamId: number; awayTeamId: number }) => (
                 <li key={m.id}>
                   <Link
-                    href={`/tournament/${tournamentId}/score-display`}
+                    href={`/tournament/${tournamentId}/cricket/match/${m.id}`}
                     className={cn(
                       cricketCardClass,
                       "block border-emerald-500/30 bg-emerald-500/5 px-4 py-3 hover:bg-emerald-500/10 transition-colors",
