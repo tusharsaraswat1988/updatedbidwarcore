@@ -164,7 +164,7 @@ function LiveOperationsBody({
           title="OBS / Presentation"
           description="Presentation engine surfaces."
           icon={<Radio className="w-4 h-4" />}
-          href={`/tournament/${tournamentId}/display?from=${from}`}
+          href={displayScreenPath(tournamentId)}
           external
         />
       )}
