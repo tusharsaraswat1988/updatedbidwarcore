@@ -19,9 +19,26 @@ export type ScoringSideJson = {
   displayName?: string;
 };
 
+/**
+ * Temporary compatibility projection for the existing reducer / MatchMeta.
+ * Phase 1: authored at Runtime Prepare from RuntimeExecutionPolicy (not Match Create).
+ * Extra fields beyond overs/maxWickets are ignored by the reducer today.
+ */
 export type ScoringMatchRulesJson = {
   overs?: number;
   maxWickets?: number;
+  playingSquadSize?: number;
+  benchSize?: number;
+  ballsPerOver?: number;
+  ballType?: string;
+  lbwEnabled?: boolean;
+  freeHitEnabled?: boolean;
+  retireAtRuns?: number | null;
+  powerplayEnabled?: boolean;
+  superOverEnabled?: boolean;
+  tiesAllowed?: boolean;
+  /** Marker when derived from RuntimeExecutionPolicy — never gameplay authority. */
+  source?: "runtime_execution_policy" | string;
 };
 
 export const scoringMatchesTable = pgTable(

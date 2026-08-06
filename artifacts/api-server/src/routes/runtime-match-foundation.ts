@@ -160,6 +160,11 @@ router.post(
       context: result.context,
       executionPhase: result.executionPhase,
       validation: result.validation,
+      // EPIC-11 Phase 1 — Prepare binds execution contract identity (not Snapshot bodies).
+      resolutionId: result.resolutionId,
+      rulesHash: result.rulesHash,
+      runtimeRulesVersion: result.runtimeRulesVersion,
+      runtimeExecutionPolicy: result.runtimeExecutionPolicy,
     });
   },
 );

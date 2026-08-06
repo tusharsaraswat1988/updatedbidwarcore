@@ -255,6 +255,7 @@ export async function generateScoringDraw(input: {
   await ensureTeamsInTournament(input.tournamentId, input.teamIds);
 
   const config: ScoringDrawConfigJson = {
+    // Non-authoritative draw default — Runtime Prepare overwrites match rulesJson.
     oversLimit: input.oversLimit ?? 20,
     teamIds: input.teamIds,
     groups: input.groups,
@@ -350,6 +351,7 @@ export async function generateScoringDraw(input: {
           awayTeamId: f.awayTeamId,
           homeSideJson: { teamId: f.homeTeamId },
           awaySideJson: { teamId: f.awayTeamId },
+          // Placeholder only — Runtime Prepare replaces via RuntimeExecutionPolicy.
           rulesJson: { overs: config.oversLimit ?? 20, maxWickets: 10 },
           roundName: f.roundName,
           scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
