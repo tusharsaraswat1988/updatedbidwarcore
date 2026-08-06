@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
-import { Link, useLocation, useSearch } from "wouter";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -8,12 +7,12 @@ import {
   CricketPublicBrandMark,
   useCricketBidWarTheme,
 } from "@/components/scoring/cricket-branding";
-import {
-  cricketPublicPath,
-  resolveReturnPath,
-  returnPathBackLabel,
-  scoringSchedulePath,
-} from "@/lib/tournament-navigation";
+import { SportsShell, useInSportsShell } from "@/components/sports-shell";
+import { getCricketSportNav } from "@/lib/cricket-sport-nav";
+import { cricketPublicPath, scoringSchedulePath } from "@/lib/tournament-navigation";
+
+const cricketSportNav = getCricketSportNav();
+
 /** Standard cricket hub card — matches auction `Card`. */
 export const cricketCardClass =
   "rounded-xl border bg-card border-border text-card-foreground shadow";
@@ -87,26 +86,24 @@ export function CricketPublicShell({
   );
 }
 
-/** Sticky nav for cricket organizer scoring pages (matches, schedule, fan page). */
+/** @deprecated Prefer SportsShell via CricketOrganizerPageShell. */
 export function CricketScoringNav({ tournamentId }: { tournamentId: number }) {
   const [location] = useLocation();
-  const search = useSearch();
-  const from = new URLSearchParams(
-    search.startsWith("?") ? search.slice(1) : search,
-  ).get("from");
-  const returnTo = resolveReturnPath(from, tournamentId);
-  const backLabel = returnPathBackLabel(returnTo);
   const schedulePath = scoringSchedulePath(tournamentId);
   const fanPath = cricketPublicPath(tournamentId);
   const matchesPath = `/tournament/${tournamentId}/score`;
+  const dashboardPath = `/tournament/${tournamentId}/score/dashboard`;
 
   const items = [
+    { label: "Dashboard", href: dashboardPath, active: location.startsWith(dashboardPath) },
     {
       label: "Matches",
       href: matchesPath,
       active:
         location === matchesPath ||
-        (location.startsWith(`${matchesPath}/`) && !location.startsWith(schedulePath)),
+        (location.startsWith(`${matchesPath}/`) &&
+          !location.startsWith(schedulePath) &&
+          !location.startsWith(dashboardPath)),
     },
     { label: "Schedule", href: schedulePath, active: location.startsWith(schedulePath) },
     { label: "Fan page", href: fanPath, active: location.startsWith(fanPath) },
@@ -117,15 +114,7 @@ export function CricketScoringNav({ tournamentId }: { tournamentId: number }) {
       className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-md"
       aria-label="Cricket scoring navigation"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 space-y-2.5">
-        <a
-          href={returnTo}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-        >
-          <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          {backLabel}
-        </a>
-
+      <div className="max-w-7xl mx-auto px-4 py-2.5 sm:px-6">
         <div
           className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-none"
           role="tablist"
@@ -153,21 +142,44 @@ export function CricketScoringNav({ tournamentId }: { tournamentId: number }) {
   );
 }
 
-/** Organizer cricket pages with BidWar brand bar + scoring nav. */
+/**
+ * Organizer cricket pages — SportsShell sidebar.
+ * When already inside SportsShell layout, renders children only.
+ */
 export function CricketOrganizerPageShell({
   children,
   className,
   tournamentId,
+  noPadding = true,
 }: {
   children: ReactNode;
   className?: string;
   tournamentId?: number;
+  noPadding?: boolean;
 }) {
+  const inShell = useInSportsShell();
+
+  if (inShell) {
+    return className ? <div className={className}>{children}</div> : <>{children}</>;
+  }
+
+  if (!tournamentId) {
+    return (
+      <CricketOrganizerShell className={className} tournamentId={tournamentId}>
+        {children}
+      </CricketOrganizerShell>
+    );
+  }
+
   return (
-    <CricketOrganizerShell className={className} tournamentId={tournamentId}>
-      {tournamentId ? <CricketScoringNav tournamentId={tournamentId} /> : null}
+    <SportsShell
+      tournamentId={tournamentId}
+      nav={cricketSportNav}
+      noPadding={noPadding}
+      className={className}
+    >
       {children}
-    </CricketOrganizerShell>
+    </SportsShell>
   );
 }
 

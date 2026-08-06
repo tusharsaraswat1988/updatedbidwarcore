@@ -50,6 +50,8 @@ import {
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath, openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
+import { CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
+import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { cn } from "@/lib/utils";
 
 function statusBadgeVariant(status: string): "default" | "destructive" | "secondary" | "outline" {
@@ -57,6 +59,20 @@ function statusBadgeVariant(status: string): "default" | "destructive" | "second
   if (status === "completed") return "secondary";
   if (status === "abandoned") return "outline";
   return "default";
+}
+
+type MatchFilter = "all" | "today" | "upcoming" | "live" | "completed";
+
+function isSameLocalDay(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
 }
 
 export default function ScoringMatchListPage() {
@@ -99,6 +115,29 @@ export default function ScoringMatchListPage() {
   const [awayTeamId, setAwayTeamId] = useState("");
   const [overs, setOvers] = useState("20");
   const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState<MatchFilter>("all");
+
+  const filteredMatches = useMemo(() => {
+    const list = matches ?? [];
+    switch (filter) {
+      case "today":
+        return list.filter(
+          (m) =>
+            m.status === "live" ||
+            isSameLocalDay(m.scheduledAt) ||
+            isSameLocalDay(m.startedAt) ||
+            isSameLocalDay(m.completedAt),
+        );
+      case "upcoming":
+        return list.filter((m) => m.status === "scheduled");
+      case "live":
+        return list.filter((m) => m.status === "live");
+      case "completed":
+        return list.filter((m) => isTerminalCricketMatchStatus(m.status));
+      default:
+        return list;
+    }
+  }, [matches, filter]);
 
   async function handleCreate() {
     const home = parseInt(homeTeamId, 10);
@@ -214,14 +253,34 @@ export default function ScoringMatchListPage() {
             <section>
               <HubSectionHeader
                 title="All matches"
-                subtitle={`${stats.total} match${stats.total === 1 ? "" : "es"} in this tournament`}
+                subtitle={`${filteredMatches.length} of ${stats.total} match${stats.total === 1 ? "" : "es"}`}
                 badge={stats.live > 0 ? "LIVE" : undefined}
                 badgeVariant="destructive"
               />
 
-              {matches && matches.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {(
+                  [
+                    ["all", "All"],
+                    ["today", "Today"],
+                    ["upcoming", "Upcoming"],
+                    ["live", "Live"],
+                    ["completed", "Completed"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <CricketFilterPill
+                    key={key}
+                    active={filter === key}
+                    onClick={() => setFilter(key)}
+                  >
+                    {label}
+                  </CricketFilterPill>
+                ))}
+              </div>
+
+              {filteredMatches.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-                  {matches.map((m) => {
+                  {filteredMatches.map((m) => {
                     const home = teams.find((t) => t.id === m.homeTeamId);
                     const away = teams.find((t) => t.id === m.awayTeamId);
                     const isLive = m.status === "live";
@@ -256,8 +315,12 @@ export default function ScoringMatchListPage() {
               ) : (
                 <EmptyState
                   icon={Plus}
-                  title="No matches yet"
-                  desc="Create your first match to open the live scorer."
+                  title={filter === "all" ? "No matches yet" : "No matches in this filter"}
+                  desc={
+                    filter === "all"
+                      ? "Create your first match to open the live scorer."
+                      : "Try another filter or create a new match."
+                  }
                   action={{ label: "New match", onClick: () => setCreateOpen(true) }}
                 />
               )}

@@ -92,11 +92,40 @@ export async function listOfficials(tournamentId: number): Promise<ScoringOffici
 
 export async function createOfficial(
   tournamentId: number,
-  body: { name: string; role?: string },
+  body: { name: string; role?: string; mobile?: string | null; email?: string | null },
 ): Promise<ScoringOfficial> {
   const r = await apiFetch(`${base(tournamentId)}/officials`, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function updateOfficial(
+  tournamentId: number,
+  officialId: number,
+  body: {
+    name?: string;
+    role?: string;
+    mobile?: string | null;
+    email?: string | null;
+  },
+): Promise<ScoringOfficial> {
+  const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function deleteOfficial(
+  tournamentId: number,
+  officialId: number,
+): Promise<ScoringOfficial> {
+  const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}`, {
+    method: "DELETE",
   });
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();

@@ -5,7 +5,8 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
-import { ScorerShell } from "@/components/scoring/scorer-shell";
+import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
+import { PageHeader } from "@/components/badminton/page-chrome";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,8 @@ import { getCricketMasterTeams } from "@/lib/scoring-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
-import { scoringPath, cricketPublicPath } from "@/lib/tournament-navigation";
+import { cricketPublicPath } from "@/lib/tournament-navigation";
+import { cricketFixturesPath } from "@/lib/cricket-routes";
 import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
 
 export default function ScoringSchedulePage() {
@@ -173,37 +175,50 @@ export default function ScoringSchedulePage() {
 
   if (tournamentLoading) {
     return (
-      <ScorerShell tournamentId={tournamentId} title="Schedule" backHref={`/tournament/${tournamentId}`}>
-        <div className="p-4 space-y-3">
+      <CricketOrganizerPageShell tournamentId={tournamentId}>
+        <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule" />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-10 space-y-3">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-24 w-full" />
         </div>
-      </ScorerShell>
+      </CricketOrganizerPageShell>
     );
   }
 
   if (!scoringActive) {
     return (
-      <ScorerShell tournamentId={tournamentId} title="Schedule" backHref={`/tournament/${tournamentId}`}>
-        <p className="p-4 text-muted-foreground">Cricket scoring is not enabled.</p>
-      </ScorerShell>
+      <CricketOrganizerPageShell tournamentId={tournamentId}>
+        <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule" />
+        <p className="max-w-3xl mx-auto px-4 sm:px-6 pb-10 text-muted-foreground">
+          Cricket scoring is not enabled.
+        </p>
+      </CricketOrganizerPageShell>
     );
   }
 
   return (
-    <ScorerShell
-      tournamentId={tournamentId}
-      title="Tournament Schedule"
-      backHref={scoringPath(tournamentId)}
-    >
-      <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto">
+    <CricketOrganizerPageShell tournamentId={tournamentId}>
+      <PageHeader
+        tournamentId={tournamentId}
+        eyebrow="Cricket Operations"
+        title="Schedule & Generate"
+        subtitle="Venues, draws, and batch fixture generation"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" asChild>
+              <Link href={cricketFixturesPath(tournamentId)}>Fixture browser</Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a href={cricketPublicPath(tournamentId)}>Public page</a>
+            </Button>
+          </div>
+        }
+      />
+      <div className="flex flex-col gap-4 max-w-3xl mx-auto px-4 sm:px-6 pb-10">
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={openGenerateDialog}>
             <Plus className="h-4 w-4 mr-1" />
             Generate schedule
-          </Button>
-          <Button size="sm" variant="outline" asChild>
-            <Link href={cricketPublicPath(tournamentId)}>Public page</Link>
           </Button>
         </div>
 
@@ -462,6 +477,6 @@ export default function ScoringSchedulePage() {
           </div>
         ) : null}
       </div>
-    </ScorerShell>
+    </CricketOrganizerPageShell>
   );
 }
