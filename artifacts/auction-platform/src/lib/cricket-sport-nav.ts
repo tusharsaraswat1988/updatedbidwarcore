@@ -37,8 +37,8 @@ function isMatchesListPath(path: string, tournamentId: number): boolean {
   const pathname = navPathname(path);
   const base = cricketScoreHubPath(tournamentId);
   if (pathname === base || pathname === `${base}/`) return true;
-  // /score/:matchId (numeric only)
-  return new RegExp(`^${base}/\\d+/?$`).test(pathname);
+  // /score/:matchId and /score/:matchId/live (Match Center + Live Control)
+  return new RegExp(`^${base}/\\d+(/live)?/?$`).test(pathname);
 }
 
 function isDashboardPath(path: string): boolean {
@@ -49,6 +49,7 @@ function isDashboardPath(path: string): boolean {
 const PRELOAD: Record<string, () => Promise<unknown>> = {
   dashboard: () => import("../pages/cricket/dashboard"),
   matches: () => import("../pages/scoring-match-list"),
+  matchCenter: () => import("../pages/cricket/match-center"),
   schedule: () => import("../pages/scoring-schedule"),
   fixtures: () => import("../pages/cricket/fixtures"),
   standings: () => import("../pages/cricket/standings"),
@@ -87,7 +88,10 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     href: cricketScoreHubPath,
     isActive: (path, tid) => isMatchesListPath(path, tid),
     icon: Radio,
-    preload: () => preloadNav("matches"),
+    preload: () => {
+      preloadNav("matches");
+      preloadNav("matchCenter");
+    },
   },
   {
     id: "fixtures",
