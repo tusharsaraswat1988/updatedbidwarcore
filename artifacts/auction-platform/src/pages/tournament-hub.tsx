@@ -8,7 +8,6 @@ import {
   getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
-import { Progress } from "@/components/ui/progress";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
@@ -16,6 +15,11 @@ import {
   CheckCircle2, Circle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PlatformSurface } from "@/components/platform/platform-surface";
+import { ProgressHeader } from "@/components/platform/progress-header";
+import { AttentionCenter } from "@/components/platform/attention-center";
+import { PlatformReadinessStrip } from "@/components/platform/platform-readiness-strip";
+import { TournamentHealth } from "@/components/platform/tournament-health";
 import {
   getReadinessChecklistItems,
   tournamentToReadinessInput,
@@ -25,12 +29,15 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
-import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
-import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
-import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
-import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
-import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
-import { RuntimePreparationCard } from "@/components/tournament-hub/runtime-preparation-card";
+import { ModuleRegistryProvider } from "@/components/tournament-hub/module-registry";
+import {
+  TournamentMissionControlModules,
+  useTournamentModuleOrchestration,
+} from "@/components/tournament-hub/tournament-mission-control-modules";
+import {
+  buildAttentionFromReadiness,
+  buildPlatformReadinessSteps,
+} from "@/lib/tournament-mission-control";
 
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 
@@ -94,6 +101,16 @@ export default function TournamentHub() {
         ? "Auction Done"
         : tournament?.status ?? "";
 
+  const readinessSteps = buildPlatformReadinessSteps({
+    isSetupPhase,
+    readinessComplete,
+  });
+  const readinessAttention = buildAttentionFromReadiness({
+    isSetupPhase,
+    readinessComplete,
+    readinessChecks,
+  });
+
   if (loadingTournament) {
     return (
       <AppLayout tournamentId={tournamentId}>
@@ -107,6 +124,105 @@ export default function TournamentHub() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
+      <ModuleRegistryProvider>
+        <TournamentHubMissionControl
+          tournamentId={tournamentId}
+          tournament={tournament}
+          summary={summary}
+          insightsPayload={insightsPayload}
+          loadingInsights={loadingInsights}
+          loadingPurses={loadingPurses}
+          loadingSummary={loadingSummary}
+          isSetupPhase={isSetupPhase}
+          readinessComplete={readinessComplete}
+          readinessAttention={readinessAttention}
+          readinessSteps={readinessSteps}
+          readinessChecks={readinessChecks}
+          readinessDataLoaded={readinessDataLoaded}
+          readinessDoneCount={readinessDoneCount}
+          readinessTotal={readinessTotal}
+          readinessPercent={readinessPercent}
+          readinessMode={readinessMode}
+          statusLabel={statusLabel}
+          teamCount={teamCount}
+          playerCount={playerCount}
+          teamsReady={teamsReady}
+          playersReady={playersReady}
+          minPlayersNeeded={minPlayersNeeded}
+          formatAmount={formatAmount}
+          formatShort={formatShort}
+          budgetLabel={budgetLabel}
+          navigate={navigate}
+        />
+      </ModuleRegistryProvider>
+    </AppLayout>
+  );
+}
+
+function TournamentHubMissionControl({
+  tournamentId,
+  tournament,
+  summary,
+  insightsPayload,
+  loadingInsights,
+  loadingPurses,
+  loadingSummary,
+  isSetupPhase,
+  readinessComplete,
+  readinessAttention,
+  readinessSteps,
+  readinessChecks,
+  readinessDataLoaded,
+  readinessDoneCount,
+  readinessTotal,
+  readinessPercent,
+  readinessMode,
+  statusLabel,
+  teamCount,
+  playerCount,
+  teamsReady,
+  playersReady,
+  minPlayersNeeded,
+  formatAmount,
+  formatShort,
+  budgetLabel,
+  navigate,
+}: {
+  tournamentId: number;
+  tournament: ReturnType<typeof useGetTournament>["data"];
+  summary: ReturnType<typeof useGetTournamentSummary>["data"];
+  insightsPayload: ReturnType<typeof useTournamentInsightsFeed>["data"];
+  loadingInsights: boolean;
+  loadingPurses: boolean;
+  loadingSummary: boolean;
+  isSetupPhase: boolean;
+  readinessComplete: boolean;
+  readinessAttention: import("@/components/platform/attention-center").AttentionItem[];
+  readinessSteps: import("@/components/platform/platform-readiness-strip").PipelineStep[];
+  readinessChecks: ReturnType<typeof getReadinessChecklistItems>;
+  readinessDataLoaded: boolean;
+  readinessDoneCount: number;
+  readinessTotal: number;
+  readinessPercent: number;
+  readinessMode: "live" | "trial";
+  statusLabel: string;
+  teamCount: number;
+  playerCount: number;
+  teamsReady: boolean;
+  playersReady: boolean;
+  minPlayersNeeded: number;
+  formatAmount: (value?: number | null) => string;
+  formatShort: (value?: number | null) => string;
+  budgetLabel: string;
+  navigate: (path: string) => void;
+}) {
+  const { attentionItems, moduleHealth, scrollToModule } = useTournamentModuleOrchestration({
+    isSetupPhase,
+    readinessComplete,
+    readinessAttention,
+  });
+
+  return (
       <div className="org-page-content">
         {/* Title */}
         <div>
@@ -128,11 +244,17 @@ export default function TournamentHub() {
             <span>· {budgetLabel}: {formatAmount(tournament?.basePurse)}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-1.5 max-w-2xl">
+            <span className="font-semibold text-foreground/80">Tournament Mission Control</span>
+            {" — "}
             {isSetupPhase && readinessComplete
-              ? "Setup complete — open Auction Control when you are ready to start."
-              : "Add teams and players, finish settings, then open Auction Control in a new tab when you are ready."}
+              ? "Setup complete — open Live Operations when you are ready to start."
+              : "Orchestrate competition setup, then open Live Operations when you are ready."}
           </p>
         </div>
+
+        <PlatformReadinessStrip steps={readinessSteps} />
+        <TournamentHealth modules={moduleHealth} />
+        <AttentionCenter items={attentionItems} onModuleAction={scrollToModule} />
 
         {/* Summary Stats */}
         <div className="org-stat-grid">
@@ -221,29 +343,21 @@ export default function TournamentHub() {
         />
 
         {tournamentId ? (
-          <>
-            <CompetitionSetupCard tournamentId={tournamentId} />
-            <TeamSetupCard tournamentId={tournamentId} />
-            <FixtureSetupCard tournamentId={tournamentId} />
-            <SchedulingSetupCard tournamentId={tournamentId} />
-            <MatchSetupCard tournamentId={tournamentId} />
-            <RuntimePreparationCard tournamentId={tournamentId} />
-
-          </>
+          <TournamentMissionControlModules
+            tournamentId={tournamentId}
+            sport={tournament?.sport}
+          />
         ) : null}
 
         {/* Setup Checklist — hidden once every item is complete */}
         {isSetupPhase && readinessDataLoaded && !readinessComplete && (
-          <div className="org-surface-rail p-5 space-y-4">
-            <div>
-              <h2 className="text-base font-display font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-primary" /> Setup Checklist
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {readinessDoneCount} of {readinessTotal} complete ({readinessPercent}%)
-              </p>
-              <Progress value={readinessPercent} className="h-1.5 mt-2 max-w-xs" />
-            </div>
+          <PlatformSurface className="space-y-4">
+            <ProgressHeader
+              title="Setup Checklist"
+              icon={<CheckCircle2 className="w-4 h-4 text-primary" />}
+              doneCount={readinessDoneCount}
+              totalCount={readinessTotal}
+            />
             <div className="space-y-2">
               <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-green-500/20 bg-green-500/5">
                 <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
@@ -280,10 +394,9 @@ export default function TournamentHub() {
                 </div>
               ))}
             </div>
-          </div>
+          </PlatformSurface>
         )}
 
       </div>
-    </AppLayout>
   );
 }

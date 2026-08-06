@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle2, Info, Lock, Loader2 } from "lucide-react";
-
-type ValidationIssue = {
-  severity: "ERROR" | "WARNING" | "INFO";
-  code: string;
-  message: string;
-};
+import { Lock, Loader2 } from "lucide-react";
+import { ModuleWorkspace } from "@/components/platform/module-workspace";
+import { ReviewPanel, ReviewInfoRow } from "@/components/platform/review-panel";
+import type { PlatformValidationIssue } from "@/components/platform/types";
+import {
+  aggregateValidationIssues,
+  buildCompetitionDependencies,
+  buildRecommendationHistory,
+  buildValidationAttentionItems,
+  deriveModuleHealth,
+} from "@/lib/module-workspace-utils";
+import {
+  useModuleWorkspaceRef,
+  useRegisterModuleSnapshot,
+} from "@/components/tournament-hub/use-module-registry";
 
 type CompetitionAggregate = {
   plan: { version: number } | null;
@@ -20,7 +27,7 @@ type CompetitionAggregate = {
     locked: boolean;
   };
   validation: {
-    issues: ValidationIssue[];
+    issues: PlatformValidationIssue[];
     errorCount: number;
     warningCount: number;
     readiness: string;
@@ -40,9 +47,10 @@ type CompetitionAggregate = {
 
 type CompetitionSetupCardProps = {
   tournamentId: number;
+  onQuickPeek?: () => void;
 };
 
-export function CompetitionSetupCard({ tournamentId }: CompetitionSetupCardProps) {
+export function CompetitionSetupCard({ tournamentId, onQuickPeek }: CompetitionSetupCardProps) {
   const [data, setData] = useState<CompetitionAggregate | null>(null);
   const [loading, setLoading] = useState(true);
   const [locking, setLocking] = useState(false);
@@ -88,134 +96,138 @@ export function CompetitionSetupCard({ tournamentId }: CompetitionSetupCardProps
     }
   }
 
-  if (loading && !data) {
-    return (
-      <div className="org-surface-rail p-5 space-y-3">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-4 w-64" />
-        <Skeleton className="h-10 w-full" />
-      </div>
-    );
-  }
+  const summary = data?.summary;
+  const validation = data?.validation;
+  const configuration = data?.configuration;
+  const plan = data?.plan;
+  const locked = Boolean(summary?.status.locked || plan);
+  const canLock = !locked && (validation?.errorCount ?? 0) === 0;
+  const validationIssues = aggregateValidationIssues(validation?.issues ?? []);
 
-  if (!data) {
+  const snapshot = useMemo(() => {
+    if (!data) {
+      return {
+        id: "competition" as const,
+        health: deriveModuleHealth({ errorCount: 0, warningCount: 0, loading: true }),
+        errorCount: 0,
+        warningCount: 0,
+        validationIssues: [],
+        recommendations: [],
+        attentionItems: [],
+        peekSummary: { title: "Competition", lines: ["Loading…"] },
+        entityCount: 0,
+        lockedCount: 0,
+        loading: true,
+      };
+    }
+
+    const recommendations = data.summary.status.recommendations ?? [];
+    const issues = aggregateValidationIssues(data.validation.issues);
+
+    return {
+      id: "competition" as const,
+      health: deriveModuleHealth({
+        errorCount: data.validation.errorCount,
+        warningCount: data.validation.warningCount,
+        entityCount: 1,
+      }),
+      locked,
+      readiness: data.summary.status.readiness,
+      errorCount: data.validation.errorCount,
+      warningCount: data.validation.warningCount,
+      validationIssues: issues,
+      recommendations,
+      attentionItems: buildValidationAttentionItems({
+        moduleId: "competition",
+        moduleLabel: "Competition",
+        issues,
+      }),
+      peekSummary: {
+        title: "Competition",
+        lines: [
+          `Type: ${data.configuration.competitionTypeId ?? "—"}`,
+          `Participants: ${data.summary.participantCount}`,
+          locked ? "Configuration locked" : `Readiness: ${data.summary.status.readiness}`,
+        ],
+      },
+      entityCount: 1,
+      lockedCount: locked ? 1 : 0,
+      loading: false,
+    };
+  }, [data, locked]);
+
+  useRegisterModuleSnapshot(snapshot);
+  const workspaceRef = useModuleWorkspaceRef("competition");
+
+  if (!data && !loading) {
     return (
-      <div className="org-surface-rail p-5">
+      <ModuleWorkspace
+        id="competition"
+        icon={Lock}
+        title="Competition Setup"
+        description="Configure and lock how this competition runs — before draws and fixtures."
+        health="blocked"
+        error={error || "Competition Setup unavailable"}
+        workspaceRef={workspaceRef}
+      >
         <p className="text-sm text-destructive">{error || "Competition Setup unavailable"}</p>
-      </div>
+      </ModuleWorkspace>
     );
   }
 
-  const { summary, validation, configuration, plan } = data;
-  const locked = summary.status.locked || !!plan;
-  const canLock = !locked && validation.errorCount === 0;
-
-  const readinessLabel =
-    locked
-      ? "Configuration Locked"
-      : summary.status.readiness === "ready"
-        ? "Ready"
-        : summary.status.readiness === "almost_ready"
-          ? "Almost Ready"
-          : "Not Ready";
-
   return (
-    <div className="org-surface-rail p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-display font-bold flex items-center gap-2">
-            <Lock className="w-4 h-4 text-primary" /> Competition Setup
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Configure and lock how this competition runs — before draws and fixtures.
+    <ModuleWorkspace
+      id="competition"
+      icon={Lock}
+      title="Competition Setup"
+      description="Configure and lock how this competition runs — before draws and fixtures."
+      locked={locked}
+      readiness={summary?.status.readiness}
+      errorCount={validation?.errorCount ?? 0}
+      lockedLabel="Configuration Locked"
+      health={snapshot.health}
+      dependencies={buildCompetitionDependencies()}
+      validationIssues={validationIssues}
+      validationVariant="bordered"
+      validationMaxItems={8}
+      history={buildRecommendationHistory(summary?.status.recommendations ?? [])}
+      error={error}
+      loading={loading && !data}
+      onQuickPeek={onQuickPeek}
+      workspaceRef={workspaceRef}
+      actionBar={
+        !locked ? (
+          <Button
+            type="button"
+            className="min-h-12 w-full sm:w-auto"
+            disabled={!canLock || locking}
+            onClick={() => void handleLock()}
+          >
+            {locking ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Locking…
+              </>
+            ) : (
+              "Lock Competition Setup"
+            )}
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Competition Plan is frozen. Re-freeze is not available in this release.
           </p>
-        </div>
-        <span
-          className={`text-xs font-semibold px-2 py-1 rounded-md border ${
-            locked
-              ? "border-green-500/30 bg-green-500/10 text-green-400"
-              : validation.errorCount > 0
-                ? "border-destructive/30 bg-destructive/10 text-destructive"
-                : "border-amber-500/30 bg-amber-500/10 text-amber-500"
-          }`}
-        >
-          {readinessLabel}
-        </span>
-      </div>
-
-      <div className="grid gap-2 text-sm sm:grid-cols-2">
-        <InfoRow label="Competition Type" value={configuration.competitionTypeId ?? "—"} />
-        <InfoRow label="Registration Mode" value={configuration.registrationModeId ?? "—"} />
-        <InfoRow
+        )
+      }
+    >
+      <ReviewPanel>
+        <ReviewInfoRow label="Competition Type" value={configuration?.competitionTypeId ?? "—"} />
+        <ReviewInfoRow label="Registration Mode" value={configuration?.registrationModeId ?? "—"} />
+        <ReviewInfoRow
           label="Team Formation"
-          value={configuration.teamFormationStrategyId ?? "—"}
+          value={configuration?.teamFormationStrategyId ?? "—"}
         />
-        <InfoRow label="Participants" value={String(summary.participantCount)} />
-        {plan ? <InfoRow label="Plan Version" value={`v${plan.version}`} /> : null}
-      </div>
-
-      {validation.issues.length > 0 ? (
-        <ul className="space-y-1.5">
-          {validation.issues.slice(0, 8).map((issue) => (
-            <li
-              key={`${issue.code}-${issue.message}`}
-              className="flex items-start gap-2 text-xs rounded-md border border-border/50 px-2.5 py-2"
-            >
-              {issue.severity === "ERROR" ? (
-                <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
-              ) : issue.severity === "WARNING" ? (
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-              ) : (
-                <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
-              )}
-              <span>
-                <span className="font-medium">{issue.severity}</span> — {issue.message}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-          No validation issues
-        </p>
-      )}
-
-      {error ? (
-        <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-          {error}
-        </p>
-      ) : null}
-
-      {!locked ? (
-        <Button
-          type="button"
-          className="min-h-12 w-full sm:w-auto"
-          disabled={!canLock || locking}
-          onClick={() => void handleLock()}
-        >
-          {locking ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Locking…
-            </>
-          ) : (
-            "Lock Competition Setup"
-          )}
-        </Button>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Competition Plan is frozen. Re-freeze is not available in this release.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="font-medium truncate">{value}</p>
-    </div>
+        <ReviewInfoRow label="Participants" value={String(summary?.participantCount ?? 0)} />
+        {plan ? <ReviewInfoRow label="Plan Version" value={`v${plan.version}`} /> : null}
+      </ReviewPanel>
+    </ModuleWorkspace>
   );
 }

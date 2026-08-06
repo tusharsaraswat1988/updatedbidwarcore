@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Lock, Loader2, Swords } from "lucide-react";
+import { ModuleWorkspace } from "@/components/platform/module-workspace";
+import { ModuleEntityRow } from "@/components/platform/module-entity-row";
+import type { PlatformValidationIssue } from "@/components/platform/types";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Info,
-  Lock,
-  Loader2,
-  Swords,
-} from "lucide-react";
+  aggregateValidationIssues,
+  buildMatchDependencies,
+  buildValidationAttentionItems,
+  deriveModuleHealth,
+} from "@/lib/module-workspace-utils";
+import {
+  useModuleSnapshots,
+  useModuleWorkspaceRef,
+  useRegisterModuleSnapshot,
+} from "@/components/tournament-hub/use-module-registry";
 
-type ValidationIssue = {
-  severity: "ERROR" | "WARNING" | "INFO";
-  code: string;
-  message: string;
-};
+type ValidationIssue = PlatformValidationIssue;
 
 type MatchIdentity = {
   id: string;
@@ -60,13 +62,15 @@ type MatchRow = {
 
 type MatchSetupCardProps = {
   tournamentId: number;
+  onQuickPeek?: () => void;
 };
 
-export function MatchSetupCard({ tournamentId }: MatchSetupCardProps) {
+export function MatchSetupCard({ tournamentId, onQuickPeek }: MatchSetupCardProps) {
   const [rows, setRows] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [lockingId, setLockingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const snapshots = useModuleSnapshots();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,35 +155,66 @@ export function MatchSetupCard({ tournamentId }: MatchSetupCardProps) {
     }
   }
 
-  if (loading && rows.length === 0) {
-    return (
-      <div className="org-surface-rail p-5 space-y-3">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-4 w-64" />
-        <Skeleton className="h-10 w-full" />
-      </div>
-    );
-  }
+  const lockedCount = rows.filter((row) => row.configuration.locked).length;
+  const errorCount = rows.reduce((sum, row) => sum + row.validation.errorCount, 0);
+  const warningCount = rows.reduce(
+    (sum, row) => sum + row.validation.issues.filter((i) => i.severity === "WARNING").length,
+    0,
+  );
+  const allIssues = aggregateValidationIssues(
+    rows.flatMap((row) => row.validation.issues),
+  );
+
+  const snapshot = useMemo(() => {
+    const peekLines =
+      rows.length === 0
+        ? ["No matches yet"]
+        : [
+            `${rows.length} match${rows.length === 1 ? "" : "es"}`,
+            `${lockedCount} locked`,
+            errorCount > 0 ? `${errorCount} blocking issue${errorCount === 1 ? "" : "s"}` : "No blocking issues",
+          ];
+
+    return {
+      id: "matches" as const,
+      health: deriveModuleHealth({
+        errorCount,
+        warningCount,
+        loading,
+        entityCount: rows.length,
+      }),
+      errorCount,
+      warningCount,
+      validationIssues: allIssues,
+      recommendations: [],
+      attentionItems: buildValidationAttentionItems({
+        moduleId: "matches",
+        moduleLabel: "Matches",
+        issues: allIssues,
+      }),
+      peekSummary: { title: "Matches", lines: peekLines },
+      entityCount: rows.length,
+      lockedCount,
+      loading,
+    };
+  }, [allIssues, errorCount, lockedCount, loading, rows.length, warningCount]);
+
+  useRegisterModuleSnapshot(snapshot);
+  const workspaceRef = useModuleWorkspaceRef("matches");
 
   return (
-    <div className="org-surface-rail p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-display font-bold flex items-center gap-2">
-            <Swords className="w-4 h-4 text-primary" /> Match Setup
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Configure and lock each Match identity — no scoring, broadcast, or fixtures.
-          </p>
-        </div>
-      </div>
-
-      {error ? (
-        <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-          {error}
-        </p>
-      ) : null}
-
+    <ModuleWorkspace
+      id="matches"
+      icon={Swords}
+      title="Match Setup"
+      description="Configure and lock each Match identity — no scoring, broadcast, or fixtures."
+      health={snapshot.health}
+      dependencies={buildMatchDependencies(snapshots.fixtures)}
+      error={error}
+      loading={loading && rows.length === 0}
+      onQuickPeek={onQuickPeek}
+      workspaceRef={workspaceRef}
+    >
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No matches yet. Create matches in scoring or badminton runtime, then lock configuration
@@ -194,100 +229,55 @@ export function MatchSetupCard({ tournamentId }: MatchSetupCardProps) {
               .map((s) => s.subject?.displayName ?? `${s.sideId} (empty)`)
               .join(" vs ");
             return (
-              <li
+              <ModuleEntityRow
                 key={row.identity.id}
-                className="rounded-lg border border-border/40 bg-muted/10 px-3 py-3 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{row.configuration.displayName}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {row.configuration.typeId} · lifecycle {row.lifecycle.status}
-                      {row.configuration.venue ? ` · ${row.configuration.venue}` : ""}
-                      {row.configuration.planVersion
-                        ? ` · v${row.configuration.planVersion}`
-                        : ""}
+                title={row.configuration.displayName}
+                subtitle={
+                  <>
+                    {row.configuration.typeId} · lifecycle {row.lifecycle.status}
+                    {row.configuration.venue ? ` · ${row.configuration.venue}` : ""}
+                    {row.configuration.planVersion ? ` · v${row.configuration.planVersion}` : ""}
+                  </>
+                }
+                locked={locked}
+                readiness={row.validation.readiness}
+                errorCount={row.validation.errorCount}
+                issues={row.validation.issues}
+                footer={
+                  !locked ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="min-h-10"
+                      disabled={!canLock || lockingId === row.identity.id}
+                      onClick={() => void handleLock(row.identity.id)}
+                    >
+                      {lockingId === row.identity.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Locking…
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-3.5 h-3.5 mr-1.5" /> Lock Match Setup
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Configuration frozen. Score and events are not stored here.
                     </p>
-                  </div>
-                  <span
-                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border shrink-0 ${
-                      locked
-                        ? "border-green-500/30 bg-green-500/10 text-green-400"
-                        : row.validation.errorCount > 0
-                          ? "border-destructive/30 bg-destructive/10 text-destructive"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-500"
-                    }`}
-                  >
-                    {locked
-                      ? "Locked"
-                      : row.validation.readiness === "ready"
-                        ? "Ready"
-                        : row.validation.readiness === "almost_ready"
-                          ? "Almost Ready"
-                          : "Not Ready"}
-                  </span>
-                </div>
-
+                  )
+                }
+              >
                 <p className="text-xs text-muted-foreground truncate">
                   Sides: {sideLabel} · {row.officialCount} official
                   {row.officialCount === 1 ? "" : "s"}
                 </p>
-
-                {row.validation.issues.length > 0 ? (
-                  <ul className="space-y-1">
-                    {row.validation.issues.slice(0, 4).map((issue) => (
-                      <li
-                        key={`${row.identity.id}-${issue.code}-${issue.message}`}
-                        className="flex items-start gap-2 text-xs"
-                      >
-                        {issue.severity === "ERROR" ? (
-                          <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
-                        ) : issue.severity === "WARNING" ? (
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                        ) : (
-                          <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                        )}
-                        <span>
-                          <span className="font-medium">{issue.severity}</span> — {issue.message}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-                    No validation issues
-                  </p>
-                )}
-
-                {!locked ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="min-h-10"
-                    disabled={!canLock || lockingId === row.identity.id}
-                    onClick={() => void handleLock(row.identity.id)}
-                  >
-                    {lockingId === row.identity.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Locking…
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-3.5 h-3.5 mr-1.5" /> Lock Match Setup
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Configuration frozen. Score and events are not stored here.
-                  </p>
-                )}
-              </li>
+              </ModuleEntityRow>
             );
           })}
         </ul>
       )}
-    </div>
+    </ModuleWorkspace>
   );
 }

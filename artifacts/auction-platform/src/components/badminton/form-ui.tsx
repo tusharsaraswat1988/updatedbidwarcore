@@ -45,14 +45,8 @@ export const selectItemClass =
 
 
 
-/** Standard hub card — matches shared `Card` */
-
-export const hubCardClass =
-  "rounded-xl border bg-card border-border text-card-foreground shadow panel";
-
-
-
-export const hubPanelClass = cn(hubCardClass, "p-5");
+/** Standard hub card — canonical in platform; thin re-export for compatibility */
+export { hubCardClass, hubPanelClass } from "@/components/platform/platform-surface";
 
 const badmintonSportNav = getBadmintonSportNav();
 

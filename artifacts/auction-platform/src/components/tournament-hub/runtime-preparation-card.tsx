@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,12 +9,21 @@ import {
   Loader2,
   PlayCircle,
 } from "lucide-react";
+import { ModuleWorkspace } from "@/components/platform/module-workspace";
+import type { PlatformValidationIssue } from "@/components/platform/types";
+import {
+  aggregateValidationIssues,
+  buildRuntimeDependencies,
+  buildValidationAttentionItems,
+  deriveModuleHealth,
+} from "@/lib/module-workspace-utils";
+import {
+  useModuleSnapshots,
+  useModuleWorkspaceRef,
+  useRegisterModuleSnapshot,
+} from "@/components/tournament-hub/use-module-registry";
 
-type ValidationIssue = {
-  severity: "ERROR" | "WARNING" | "INFO";
-  code: string;
-  message: string;
-};
+type ValidationIssue = PlatformValidationIssue;
 
 type RuntimeListItem = {
   identity: { id: string; tournamentId: number; typeId: string };
@@ -52,6 +61,7 @@ type RuntimeRow = {
 
 type RuntimePreparationCardProps = {
   tournamentId: number;
+  onQuickPeek?: () => void;
 };
 
 function checklist(validation: RuntimeValidation, snapshot: RuntimeSnapshot | null) {
@@ -86,11 +96,12 @@ function checklist(validation: RuntimeValidation, snapshot: RuntimeSnapshot | nu
   ];
 }
 
-export function RuntimePreparationCard({ tournamentId }: RuntimePreparationCardProps) {
+export function RuntimePreparationCard({ tournamentId, onQuickPeek }: RuntimePreparationCardProps) {
   const [rows, setRows] = useState<RuntimeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const snapshots = useModuleSnapshots();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -172,43 +183,90 @@ export function RuntimePreparationCard({ tournamentId }: RuntimePreparationCardP
     }
   }
 
+  const errorCount = rows.reduce((sum, row) => sum + row.validation.errorCount, 0);
+  const warningCount = rows.reduce((sum, row) => sum + row.validation.warningCount, 0);
+  const snapshotCount = rows.filter((row) => row.snapshot != null).length;
+  const allIssues = aggregateValidationIssues(
+    rows.flatMap((row) => row.validation.issues),
+  );
+
+  const snapshot = useMemo(() => {
+    const peekLines =
+      rows.length === 0
+        ? ["No runtime matches yet"]
+        : [
+            `${rows.length} match${rows.length === 1 ? "" : "es"}`,
+            `${snapshotCount} snapshot${snapshotCount === 1 ? "" : "s"} frozen`,
+            errorCount > 0 ? `${errorCount} blocking issue${errorCount === 1 ? "" : "s"}` : "No blocking issues",
+          ];
+
+    return {
+      id: "runtime" as const,
+      health: deriveModuleHealth({
+        errorCount,
+        warningCount,
+        loading,
+        entityCount: rows.length,
+      }),
+      errorCount,
+      warningCount,
+      validationIssues: allIssues,
+      recommendations: [],
+      attentionItems: buildValidationAttentionItems({
+        moduleId: "runtime",
+        moduleLabel: "Runtime",
+        issues: allIssues,
+      }),
+      peekSummary: { title: "Runtime Preparation", lines: peekLines },
+      entityCount: rows.length,
+      lockedCount: snapshotCount,
+      loading,
+    };
+  }, [allIssues, errorCount, loading, rows.length, snapshotCount, warningCount]);
+
+  useRegisterModuleSnapshot(snapshot);
+  const workspaceRef = useModuleWorkspaceRef("runtime");
+
   if (loading && rows.length === 0) {
     return (
-      <div className="org-surface-rail p-5 space-y-3">
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-4 w-72" />
-        <Skeleton className="h-10 w-full" />
-      </div>
+      <ModuleWorkspace
+        id="runtime"
+        icon={PlayCircle}
+        title="Runtime Preparation"
+        description="Freeze the execution contract for each Match — no scoring, broadcast, or statistics."
+        health="warning"
+        loading
+        workspaceRef={workspaceRef}
+      >
+        <div className="space-y-3">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </ModuleWorkspace>
     );
   }
 
   return (
-    <div className="org-surface-rail p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-display font-bold flex items-center gap-2">
-            <PlayCircle className="w-4 h-4 text-primary" /> Runtime Preparation
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Freeze the execution contract for each Match — no scoring, broadcast, or statistics.
-          </p>
-        </div>
-      </div>
-
-      {error ? (
-        <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-          {error}
-        </p>
-      ) : null}
-
+    <ModuleWorkspace
+      id="runtime"
+      icon={PlayCircle}
+      title="Runtime Preparation"
+      description="Freeze the execution contract for each Match — no scoring, broadcast, or statistics."
+      health={snapshot.health}
+      dependencies={buildRuntimeDependencies(snapshots.matches, snapshots.scheduling)}
+      error={error}
+      onQuickPeek={onQuickPeek}
+      workspaceRef={workspaceRef}
+    >
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No matches yet. Create matches first, then prepare their Runtime Snapshot.
         </p>
       ) : (
         <ul className="space-y-3">
-          {rows.map(({ list, validation, snapshot }) => {
-            const items = checklist(validation, snapshot);
+          {rows.map(({ list, validation, snapshot: runtimeSnapshot }) => {
+            const items = checklist(validation, runtimeSnapshot);
             const busy = busyId === list.identity.id;
             return (
               <li
@@ -242,23 +300,23 @@ export function RuntimePreparationCard({ tournamentId }: RuntimePreparationCardP
                   </div>
                 </div>
 
-                {snapshot ? (
+                {runtimeSnapshot ? (
                   <div className="text-xs text-muted-foreground space-y-0.5 rounded-md bg-muted/40 px-2.5 py-2">
                     <p>
-                      Snapshot v{snapshot.snapshotVersion} · schema{" "}
-                      {snapshot.snapshotSchemaVersion}
+                      Snapshot v{runtimeSnapshot.snapshotVersion} · schema{" "}
+                      {runtimeSnapshot.snapshotSchemaVersion}
                     </p>
                     <p>
-                      Frozen {new Date(snapshot.createdAt).toLocaleString()}
-                      {snapshot.createdBy ? ` by ${snapshot.createdBy}` : ""}
+                      Frozen {new Date(runtimeSnapshot.createdAt).toLocaleString()}
+                      {runtimeSnapshot.createdBy ? ` by ${runtimeSnapshot.createdBy}` : ""}
                     </p>
                     <p>
-                      Refs: config v{snapshot.references.matchConfiguration?.version ?? "—"}
-                      {snapshot.references.fixture
-                        ? ` · fixture ${snapshot.references.fixture.id}`
+                      Refs: config v{runtimeSnapshot.references.matchConfiguration?.version ?? "—"}
+                      {runtimeSnapshot.references.fixture
+                        ? ` · fixture ${runtimeSnapshot.references.fixture.id}`
                         : ""}
-                      {snapshot.references.sides?.length
-                        ? ` · ${snapshot.references.sides.length} sides`
+                      {runtimeSnapshot.references.sides?.length
+                        ? ` · ${runtimeSnapshot.references.sides.length} sides`
                         : ""}
                     </p>
                   </div>
@@ -310,6 +368,6 @@ export function RuntimePreparationCard({ tournamentId }: RuntimePreparationCardP
           })}
         </ul>
       )}
-    </div>
+    </ModuleWorkspace>
   );
 }

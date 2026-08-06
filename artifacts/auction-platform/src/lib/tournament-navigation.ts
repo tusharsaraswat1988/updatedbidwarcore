@@ -22,7 +22,9 @@ export function resolveReturnPath(from: string | null | undefined, tournamentId:
 export function returnPathBackLabel(path: string): string {
   if (path.includes("/settings")) return "Back to Settings";
   if (path.includes("/auction")) return "Back to Auction Room";
-  if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) return "Back to Setup";
+  if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) {
+    return "Back to Tournament Mission Control";
+  }
   return "Go back";
 }
 

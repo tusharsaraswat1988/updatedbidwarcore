@@ -1,0 +1,118 @@
+import { useMemo, useState } from "react";
+import type { AttentionItem } from "@/components/platform/attention-center";
+import type { ModuleHealthEntry } from "@/components/platform/tournament-health";
+import type { ModuleWorkspaceId } from "@/components/platform/module-workspace";
+import { ModuleQuickPeek } from "@/components/platform/module-quick-peek";
+import { CompetitionSetupCard } from "@/components/tournament-hub/competition-setup-card";
+import { TeamSetupCard } from "@/components/tournament-hub/team-setup-card";
+import { MatchSetupCard } from "@/components/tournament-hub/match-setup-card";
+import { FixtureSetupCard } from "@/components/tournament-hub/fixture-setup-card";
+import { SchedulingSetupCard } from "@/components/tournament-hub/scheduling-setup-card";
+import { RuntimePreparationCard } from "@/components/tournament-hub/runtime-preparation-card";
+import { LiveOperationsModule } from "@/components/platform/live-operations-panel";
+import { useModuleSnapshots, useScrollToModule } from "@/components/tournament-hub/use-module-registry";
+import {
+  buildDefaultModuleHealth,
+  TMC_PIPELINE_ORDER,
+} from "@/lib/tournament-mission-control";
+import { collectModuleHealthFromSnapshots } from "@/lib/module-workspace-utils";
+
+export function TournamentMissionControlModules({
+  tournamentId,
+  sport,
+}: {
+  tournamentId: number;
+  sport?: string | null;
+}) {
+  const [peekModuleId, setPeekModuleId] = useState<ModuleWorkspaceId | null>(null);
+  const snapshots = useModuleSnapshots();
+  const openPeek = (id: ModuleWorkspaceId) => () => setPeekModuleId(id);
+
+  const peekSnapshot = peekModuleId ? snapshots[peekModuleId] : null;
+
+  return (
+    <>
+      <div className="space-y-6">
+        <CompetitionSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("competition")} />
+        <TeamSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("teams")} />
+        <FixtureSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("fixtures")} />
+        <SchedulingSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("scheduling")} />
+        <MatchSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("matches")} />
+        <RuntimePreparationCard tournamentId={tournamentId} onQuickPeek={openPeek("runtime")} />
+        <LiveOperationsModule
+          tournamentId={tournamentId}
+          sport={sport}
+          onQuickPeek={openPeek("live_operations")}
+        />
+      </div>
+
+      <ModuleQuickPeek
+        open={peekModuleId != null}
+        onOpenChange={(open) => {
+          if (!open) setPeekModuleId(null);
+        }}
+        title={peekSnapshot?.peekSummary.title ?? "Module summary"}
+        description="Cross-module quick peek — full editing stays in the module body."
+      >
+        {peekSnapshot ? (
+          <ul className="space-y-2">
+            {peekSnapshot.peekSummary.lines.map((line) => (
+              <li
+                key={line}
+                className="text-sm text-muted-foreground rounded-md border border-border/40 px-3 py-2"
+              >
+                {line}
+              </li>
+            ))}
+            {peekSnapshot.validationIssues.length > 0 ? (
+              <li className="text-xs text-muted-foreground pt-2">
+                {peekSnapshot.errorCount} blocker{peekSnapshot.errorCount === 1 ? "" : "s"},{" "}
+                {peekSnapshot.warningCount} warning{peekSnapshot.warningCount === 1 ? "" : "s"}
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
+      </ModuleQuickPeek>
+    </>
+  );
+}
+
+export function useTournamentModuleOrchestration(input: {
+  isSetupPhase: boolean;
+  readinessComplete: boolean;
+  readinessAttention: AttentionItem[];
+}) {
+  const snapshots = useModuleSnapshots();
+  const scrollToModule = useScrollToModule();
+
+  const moduleAttention = useMemo(() => {
+    const items: AttentionItem[] = [];
+    for (const snapshot of Object.values(snapshots)) {
+      if (!snapshot) continue;
+      items.push(...snapshot.attentionItems);
+    }
+    return items;
+  }, [snapshots]);
+
+  const attentionItems = useMemo(() => {
+    const seen = new Set<string>();
+    const merged = [...input.readinessAttention, ...moduleAttention];
+    return merged.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [input.readinessAttention, moduleAttention]);
+
+  const moduleHealth: ModuleHealthEntry[] = useMemo(() => {
+    if (Object.keys(snapshots).length === 0) {
+      return buildDefaultModuleHealth({
+        isSetupPhase: input.isSetupPhase,
+        readinessComplete: input.readinessComplete,
+      });
+    }
+    return collectModuleHealthFromSnapshots(snapshots, TMC_PIPELINE_ORDER);
+  }, [snapshots, input.isSetupPhase, input.readinessComplete]);
+
+  return { attentionItems, moduleHealth, scrollToModule };
+}
