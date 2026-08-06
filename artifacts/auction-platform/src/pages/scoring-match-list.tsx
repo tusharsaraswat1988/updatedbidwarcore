@@ -312,7 +312,8 @@ export default function ScoringMatchListPage() {
             </div>
             {squadData?.squads.some((s) => !s.ready) ? (
               <p className="text-xs text-primary">
-                Some teams have fewer than {squadData.minPlayingXi} sold/retained players — playing XI may be incomplete.
+                Some teams have a thin roster — Playing XI / bench limits come from
+                RuntimeExecutionPolicy after Runtime Prepare.
               </p>
             ) : null}
             <div className="space-y-2">

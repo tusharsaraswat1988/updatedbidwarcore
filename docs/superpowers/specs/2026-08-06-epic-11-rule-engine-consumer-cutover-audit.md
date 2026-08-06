@@ -1,13 +1,15 @@
 # EPIC-11 — Rule Engine Consumer Cutover Audit (Revised)
 
 **Date:** 2026-08-06  
-**Status:** DESIGN GATE — Architecture Amended · Awaiting Design Proposal approval  
+**Status:** APPROVED — Phase 1 + Phase 2 complete (see Phase 1/2 reports); Phase 3 not started  
 **Scope:** Connect the existing EPIC-09 Rule Engine into the live cricket execution path  
-**Non-goals:** Redesign EPIC-09, Runtime Match, Scoring, Reducer mechanisms; implementation; code  
+**Non-goals:** Redesign EPIC-09, Runtime Match, Scoring, Reducer mechanisms  
 **Authority:** Platform Architecture Freeze (Constitution), Master Plan, EPIC-01→10, PXP, RC Stabilization, Corporate Box Consumer Cutover Trace  
 **Precedents:** EPIC-09 dark launch (zero runtime consumers); EPIC-08 Runtime Snapshot (refs only); Corporate Box Execution Trace Report  
 
 **Revision note:** This document supersedes the prior EPIC-11 audit draft. Four architecture amendments OVERRIDE earlier recommendations where they conflict (Prepare optional; Match Start re-resolve; Match Create inventing rules; `rulesJson` as architectural consumer).
+
+**Implementation note:** Phase 1 uses the mission name `RuntimeExecutionPolicy` for the runtime-facing contract (audit text historically used `MatchRuntimePolicy` for the same role). Phase 2 migrates scoring consumers onto Policy-derived `rulesJson` / MatchMeta (no Rule Engine calls from UI or reducer).
 
 ---
 

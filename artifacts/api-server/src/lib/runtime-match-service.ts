@@ -7,6 +7,7 @@ import {
   scoringDrawsTable,
   scoringFixturesTable,
   scoringMatchesTable,
+  scoringSessionsTable,
 } from "@workspace/db";
 import { encodeFixtureId } from "@workspace/platform-core/fixture";
 import { type MatchLifecycleStatusId } from "@workspace/platform-core/match";
@@ -583,6 +584,36 @@ export async function prepareRuntimeMatch(
       ),
     )
     .returning();
+
+  // Phase 2 — refresh idle session projection from Policy-derived rules (no Rule Engine).
+  if (rulesJsonUpdate && match.sportSlug === "cricket") {
+    const sessions = await db
+      .select()
+      .from(scoringSessionsTable)
+      .where(eq(scoringSessionsTable.matchId, matchId))
+      .limit(1);
+    const session = sessions[0];
+    if (session?.stateJson && typeof session.stateJson === "object") {
+      const prev = session.stateJson as Record<string, unknown>;
+      await db
+        .update(scoringSessionsTable)
+        .set({
+          stateJson: {
+            ...prev,
+            oversLimit: rulesJsonUpdate.overs,
+            maxWickets: rulesJsonUpdate.maxWickets,
+            executionPolicyBind: {
+              resolutionId,
+              rulesHash,
+              runtimeRulesVersion,
+              snapshotVersion: nextVersion,
+            },
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(scoringSessionsTable.matchId, matchId));
+    }
+  }
 
   return {
     ok: true,

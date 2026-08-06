@@ -7,10 +7,13 @@ import {
 import {
   CricketEventType,
   buildCricketMatchSummary,
+  buildMatchMetaFromRules,
   createInitialCricketState,
   type MatchMeta,
   type CricketScoreboardState,
   type CricketMatchSummary,
+  type CricketMatchRulesJson,
+  RUNTIME_EXECUTION_POLICY_SOURCE,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { verifyMatchStartContract } from "@workspace/platform-core/rule-engine";
@@ -41,15 +44,28 @@ function mapPlatformError<T>(fn: () => Promise<T>): Promise<T> {
 const CRICKET_SPORT_SLUG = "cricket" as const;
 
 function matchMetaFromRow(match: typeof scoringMatchesTable.$inferSelect): MatchMeta {
-  const rules = match.rulesJson ?? {};
-  return {
+  const rules = (match.rulesJson ?? {}) as CricketMatchRulesJson;
+  const prep = match.runtimePrepMetadataJson as
+    | { ruleResolution?: Record<string, unknown> }
+    | null
+    | undefined;
+  const bind = prep?.ruleResolution as
+    | {
+        resolutionId?: string;
+        rulesHash?: string;
+        runtimeRulesVersion?: string;
+        snapshotVersion?: number;
+      }
+    | undefined;
+
+  return buildMatchMetaFromRules({
     matchId: match.id,
     tournamentId: match.tournamentId,
     homeTeamId: match.homeTeamId,
     awayTeamId: match.awayTeamId,
-    oversLimit: rules.overs ?? 20,
-    maxWickets: rules.maxWickets ?? 10,
-  };
+    rules,
+    ruleResolution: bind ?? null,
+  });
 }
 
 async function projectMatchState(
@@ -281,6 +297,48 @@ export async function appendScoringEvent(
     }
   }
 
+  const matchMeta = matchMetaFromRow(match);
+
+  // EPIC-11 Phase 2 — MATCH_STARTED overs (and policy identity) from MatchMeta, not UI defaults.
+  let payload = input.payload;
+  if (input.eventType === CricketEventType.MATCH_STARTED) {
+    if (matchMeta.executionRulesSource !== RUNTIME_EXECUTION_POLICY_SOURCE) {
+      throw new ScoringServiceError(
+        "Match Start requires RuntimeExecutionPolicy-derived rules. Complete Runtime Prepare first.",
+        409,
+        "RUNTIME_EXECUTION_POLICY_REQUIRED",
+      );
+    }
+    payload = {
+      ...input.payload,
+      oversLimit: matchMeta.oversLimit,
+    };
+  }
+
+  if (input.eventType === CricketEventType.LINEUP_SET) {
+    const playerIds = Array.isArray(payload.playerIds)
+      ? (payload.playerIds as unknown[])
+      : [];
+    if (
+      matchMeta.executionRulesSource === RUNTIME_EXECUTION_POLICY_SOURCE &&
+      typeof matchMeta.playingSquadSize !== "number"
+    ) {
+      throw new ScoringServiceError(
+        "Playing XI requires playingSquadSize from RuntimeExecutionPolicy.",
+        409,
+        "RUNTIME_EXECUTION_POLICY_REQUIRED",
+      );
+    }
+    const maxXi = matchMeta.playingSquadSize;
+    if (typeof maxXi === "number" && playerIds.length > maxXi) {
+      throw new ScoringServiceError(
+        `Playing XI cannot exceed playingSquadSize (${maxXi}) from RuntimeExecutionPolicy.`,
+        400,
+        "PLAYING_SQUAD_SIZE_EXCEEDED",
+      );
+    }
+  }
+
   return mapPlatformError(() =>
     appendSingleMatchEvent(
       {
@@ -288,11 +346,11 @@ export async function appendScoringEvent(
         matchId,
         sportSlug: CRICKET_SPORT_SLUG,
         eventType: input.eventType,
-        payload: input.payload,
+        payload,
         expectedSequence: input.expectedSequence,
         actor: input.actor,
         correlationId: input.correlationId,
-        matchMeta: matchMetaFromRow(match),
+        matchMeta,
       },
       match,
     ),

@@ -33,7 +33,8 @@ export const cricketMatchStartedPayloadSchema = z.object({
 
 export const cricketLineupSetPayloadSchema = z.object({
   teamId: z.number().int().positive(),
-  playerIds: z.array(z.number().int().positive()).min(1).max(11),
+  /** Upper bound left wide; MatchMeta.playingSquadSize enforces policy size at the service layer. */
+  playerIds: z.array(z.number().int().positive()).min(1).max(20),
   battingOrder: z.array(z.number().int().positive()).optional(),
 });
 

@@ -20,7 +20,8 @@ import {
   resolveCricketFranchiseTeamsByIds,
 } from "./master-sports/cricket-franchise-registry";
 
-const MIN_PLAYING_XI = 11;
+/** Soft floor only — match Playing XI size comes from RuntimeExecutionPolicy after Prepare. */
+const MIN_SQUAD_ELIGIBLE = 2;
 const CRICKET_SPORT_SLUG = "cricket" as const;
 
 /** Rebuild and persist standings from all finished matches in a tournament. */
@@ -178,7 +179,7 @@ export async function getSquadReadiness(tournamentId: number): Promise<SquadRead
       soldCount,
       retainedCount,
       eligibleCount,
-      ready: eligibleCount >= MIN_PLAYING_XI,
+      ready: eligibleCount >= MIN_SQUAD_ELIGIBLE,
     };
   });
 }

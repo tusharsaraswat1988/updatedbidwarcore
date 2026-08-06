@@ -468,8 +468,41 @@ export async function setMatchSquad(
   if (match.homeTeamId !== teamId && match.awayTeamId !== teamId) {
     throw new ScoringServiceError("Team not in this match", 400, "INVALID_TEAM");
   }
-  if (squad.playingXi.length < 1 || squad.playingXi.length > 11) {
-    throw new ScoringServiceError("Playing XI must have 1–11 players", 400, "INVALID_XI");
+  const rules = (match.rulesJson ?? {}) as {
+    playingSquadSize?: number;
+    benchSize?: number;
+    source?: string;
+  };
+  const fromPolicy = rules.source === "runtime_execution_policy";
+  if (fromPolicy) {
+    if (typeof rules.playingSquadSize !== "number" || typeof rules.benchSize !== "number") {
+      throw new ScoringServiceError(
+        "Match squad requires playingSquadSize/benchSize from RuntimeExecutionPolicy.",
+        409,
+        "RUNTIME_EXECUTION_POLICY_REQUIRED",
+      );
+    }
+  }
+  const maxXi =
+    typeof rules.playingSquadSize === "number" ? rules.playingSquadSize : null;
+  const maxBench = typeof rules.benchSize === "number" ? rules.benchSize : null;
+  if (maxXi == null || squad.playingXi.length < 1 || squad.playingXi.length > maxXi) {
+    throw new ScoringServiceError(
+      maxXi == null
+        ? "Playing XI size requires Runtime Prepare (RuntimeExecutionPolicy playingSquadSize)."
+        : `Playing XI must have 1–${maxXi} players (RuntimeExecutionPolicy playingSquadSize)`,
+      maxXi == null ? 409 : 400,
+      maxXi == null ? "RUNTIME_EXECUTION_POLICY_REQUIRED" : "INVALID_XI",
+    );
+  }
+  if (maxBench == null || squad.bench.length > maxBench) {
+    throw new ScoringServiceError(
+      maxBench == null
+        ? "Bench size requires Runtime Prepare (RuntimeExecutionPolicy benchSize)."
+        : `Bench cannot exceed ${maxBench} (RuntimeExecutionPolicy benchSize)`,
+      maxBench == null ? 409 : 400,
+      maxBench == null ? "RUNTIME_EXECUTION_POLICY_REQUIRED" : "INVALID_BENCH",
+    );
   }
 
   const [existing] = await db
