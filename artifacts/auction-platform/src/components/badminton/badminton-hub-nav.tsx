@@ -32,11 +32,10 @@ function resolveHubBackNav(
 ): BadmintonHubBackNav {
   const defaultBack = getBadmintonHubBackNav(tournamentId, location);
   const hasSafeFrom = Boolean(from?.startsWith("/") && !from.startsWith("//"));
-  const onLiveOpsSurface =
-    /\/badminton\/control\/?$/.test(location) || /\/badminton\/broadcast\/?$/.test(location);
-  if (!hasSafeFrom || !onLiveOpsSurface) return defaultBack;
+  if (!hasSafeFrom) return defaultBack;
 
   const returnTo = resolveReturnPath(from, tournamentId);
+  // Dishonest / obsolete: never treat badminton hub as a home return target.
   if (returnTo.includes("/badminton")) return defaultBack;
   return {
     kind: "link",
@@ -156,6 +155,9 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
   // TMC lives on the auction-platform shell — leave scoring-app when returning there.
   const leaveScoringApp =
     back.kind === "link" && !back.href.includes("/badminton");
+  const showLiveOpsCrumb =
+    leaveScoringApp &&
+    (/\/badminton\/control\/?$/.test(location) || /\/badminton\/broadcast\/?$/.test(location));
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: {
@@ -228,6 +230,25 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
             {BADMINTON_TOURNAMENT_MODE_LABEL[layout.mode]}
           </span>
         </div>
+
+        {showLiveOpsCrumb && back.kind === "link" ? (
+          <p
+            className="text-xs text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <a href={back.href} className="text-primary hover:text-primary/80 font-semibold">
+              Tournament Mission Control
+            </a>
+            <span aria-hidden="true"> / </span>
+            <span>Live Operations</span>
+            <span aria-hidden="true"> / </span>
+            <span className="text-foreground font-semibold">
+              {/focus=broadcast/.test(search) || /\/badminton\/broadcast/.test(location)
+                ? "Broadcast"
+                : "Badminton Mission Control"}
+            </span>
+          </p>
+        ) : null}
 
         <div
           className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-none"
