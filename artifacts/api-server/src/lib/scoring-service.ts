@@ -13,6 +13,7 @@ import {
   type CricketMatchSummary,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { verifyMatchStartContract } from "@workspace/platform-core/rule-engine";
 import { replayScoringMatchState } from "./scoring-platform";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
@@ -108,7 +109,13 @@ export async function createScoringMatch(
   await ensureTeamInTournament(tournamentId, input.homeTeamId);
   await ensureTeamInTournament(tournamentId, input.awayTeamId);
 
-  const oversLimit = input.oversLimit ?? 20;
+  // Non-authoritative placeholder only. Runtime Prepare overwrites rulesJson
+  // from RuntimeExecutionPolicy via the Compatibility Adapter (EPIC-11 Phase 1).
+  // Match Create must never be the source of gameplay rules.
+  const placeholderRules =
+    input.oversLimit != null
+      ? { overs: input.oversLimit, maxWickets: 10 }
+      : { maxWickets: 10 };
 
   const [match] = await db
     .insert(scoringMatchesTable)
@@ -121,7 +128,7 @@ export async function createScoringMatch(
       awayTeamId: input.awayTeamId,
       homeSideJson: { teamId: input.homeTeamId },
       awaySideJson: { teamId: input.awayTeamId },
-      rulesJson: { overs: oversLimit, maxWickets: 10 },
+      rulesJson: placeholderRules,
       roundName: input.roundName ?? null,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       venue: input.venue ?? null,
@@ -261,6 +268,17 @@ export async function appendScoringEvent(
 
   if (!match) {
     throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+  }
+
+  // EPIC-11 Phase 1 — Match Start verifies Prepare bind only; never RuleEngine.resolve().
+  if (input.eventType === CricketEventType.MATCH_STARTED) {
+    const verified = verifyMatchStartContract({
+      currentRuntimeVersion: match.currentRuntimeVersion,
+      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<string, unknown> | null,
+    });
+    if (!verified.ok) {
+      throw new ScoringServiceError(verified.error, 409, verified.code);
+    }
   }
 
   return mapPlatformError(() =>

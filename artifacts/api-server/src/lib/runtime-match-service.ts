@@ -36,6 +36,16 @@ import {
   type SchedulingStateForRuntime,
 } from "@workspace/platform-core/runtime-match";
 import {
+  RuleEngine,
+  buildPrepareRuleEngineInput,
+  buildRuleResolutionPrepMetadata,
+  buildRuntimeExecutionPolicy,
+  projectRuntimeExecutionPolicyToRulesJson,
+  resolvePrepareCatalogBindings,
+  ruleEngineResultOk,
+  type RuntimeExecutionPolicy,
+} from "@workspace/platform-core/rule-engine";
+import {
   buildWorkingConfiguration,
   loadLatestPlan,
   loadTournamentCompetitionRow,
@@ -51,6 +61,7 @@ import {
 } from "./match-service";
 import { loadLatestFixtureHistory } from "./fixture-service";
 import { loadLatestSchedulingHistory } from "./scheduling-service";
+
 
 
 function toBridgeRow(match: typeof scoringMatchesTable.$inferSelect) {
@@ -94,13 +105,24 @@ async function loadCompetitionStateForRuntime(
   const configuration = buildWorkingConfiguration(tournament, plan);
   const validation = validateCompetitionConfiguration(configuration);
   const status = buildCompetitionStatus(configuration, validation);
+  // Catalog semver for Snapshot refs — never competition plan integer version.
+  // Legacy unbound tournaments resolve via CatalogRegistry so Prepare can still compile.
+  const bindings = resolvePrepareCatalogBindings({
+    sportId: configuration.sportId,
+    variantId: configuration.variantId,
+    competitionTypeId: configuration.competitionTypeId,
+    ruleProfileId: configuration.ruleProfileId,
+    ruleProfileVersion: configuration.ruleProfileVersion,
+    presentationProfileId: configuration.presentationProfileId,
+    presentationProfileVersion: configuration.presentationProfileVersion,
+  });
   return {
     competitionLocked: !!plan,
     competitionReadiness: status.readiness,
-    ruleProfileId: configuration.ruleProfileId,
-    ruleProfileVersion: plan?.version ?? null,
-    presentationProfileId: configuration.presentationProfileId,
-    presentationProfileVersion: plan?.version ?? null,
+    ruleProfileId: bindings.ruleProfileId,
+    ruleProfileVersion: bindings.ruleProfileVersion,
+    presentationProfileId: bindings.presentationProfileId,
+    presentationProfileVersion: bindings.presentationProfileVersion,
   };
 }
 
@@ -385,6 +407,11 @@ export type PrepareRuntimeResult =
       context: RuntimeContext;
       executionPhase: ExecutionPhaseState;
       validation: RuntimeValidationResult;
+      /** Bound at Prepare — execution authority identity. */
+      resolutionId: string | null;
+      rulesHash: string | null;
+      runtimeRulesVersion: string | null;
+      runtimeExecutionPolicy: RuntimeExecutionPolicy | null;
     }
   | {
       ok: false;
@@ -394,8 +421,12 @@ export type PrepareRuntimeResult =
     };
 
 /**
- * prepare → validation → freeze snapshot → execution phase transition.
- * Never mutates Match Lifecycle.
+ * Runtime Prepare (EPIC-11 Phase 1):
+ * validate → freeze Snapshot (refs only) → RuleEngine.resolve(PREPARE) once
+ * → bind ResolvedRuntimeRules → RuntimeExecutionPolicy → Compatibility Adapter → rulesJson
+ * → save resolutionId / rulesHash / runtimeRulesVersion.
+ *
+ * Never mutates Match Lifecycle. Never stores rule bodies on Snapshot.
  */
 export async function prepareRuntimeMatch(
   tournamentId: number,
@@ -436,6 +467,75 @@ export async function prepareRuntimeMatch(
     nextPhase = "preparing";
   }
 
+  // ── EPIC-11: sole RuleEngine.resolve(PREPARE) site (cricket execution path) ──
+  let runtimeExecutionPolicy: RuntimeExecutionPolicy | null = null;
+  let rulesJsonUpdate: Record<string, unknown> | null = null;
+  let prepMetadata = (match.runtimePrepMetadataJson as Record<string, unknown> | null) ?? null;
+  let resolutionId: string | null = null;
+  let rulesHash: string | null = null;
+  let runtimeRulesVersion: string | null = null;
+
+  if (match.sportSlug === "cricket") {
+    const tournament = await loadTournamentCompetitionRow(tournamentId);
+    if (!tournament) {
+      return { ok: false, status: 404, error: "Tournament not found" };
+    }
+    const bindings = resolvePrepareCatalogBindings({
+      sportId: tournament.sport ?? "cricket",
+      variantId: tournament.variantId,
+      competitionTypeId: tournament.competitionTypeId,
+      ruleProfileId: tournament.ruleProfileId,
+      ruleProfileVersion: tournament.ruleProfileVersion,
+      presentationProfileId: tournament.presentationProfileId,
+      presentationProfileVersion: tournament.presentationProfileVersion,
+    });
+
+    // Snapshot refs must already match catalog bindings (buildSnapshotRefInput).
+    // Fail closed before persist if profile ref missing / mismatched.
+    if (!snapshot.references.ruleProfile) {
+      return {
+        ok: false,
+        status: 400,
+        error: "Runtime Snapshot missing ruleProfile reference — cannot resolve execution contract",
+        validation,
+      };
+    }
+
+    const engineInput = buildPrepareRuleEngineInput(snapshot, bindings);
+    const engineResult = RuleEngine.resolve(engineInput);
+
+    if (!ruleEngineResultOk(engineResult) || !engineResult.resolvedRuntimeRules) {
+      const firstError =
+        engineResult.diagnostics.validation.structural.find((i) => i.severity === "ERROR") ??
+        engineResult.diagnostics.validation.semantic.find((i) => i.severity === "ERROR");
+      return {
+        ok: false,
+        status: 400,
+        error: firstError
+          ? `Rule Engine Prepare failed: ${firstError.code} — ${firstError.message}`
+          : "Rule Engine Prepare failed — no ResolvedRuntimeRules",
+        validation,
+      };
+    }
+
+    const resolved = engineResult.resolvedRuntimeRules;
+    runtimeExecutionPolicy = buildRuntimeExecutionPolicy(resolved);
+    const projected = projectRuntimeExecutionPolicyToRulesJson(runtimeExecutionPolicy);
+    rulesJsonUpdate = { ...projected };
+    resolutionId = resolved.resolutionId;
+    rulesHash = resolved.rulesHash;
+    runtimeRulesVersion = resolved.runtimeRulesVersion;
+    prepMetadata = buildRuleResolutionPrepMetadata(
+      {
+        resolutionId: resolved.resolutionId,
+        rulesHash: resolved.rulesHash,
+        runtimeRulesVersion: resolved.runtimeRulesVersion,
+        snapshotVersion: nextVersion,
+      },
+      prepMetadata,
+    );
+  }
+
   await appendHistory({
     tournamentId,
     matchId,
@@ -443,6 +543,7 @@ export async function prepareRuntimeMatch(
     snapshotVersion: nextVersion,
     executionPhase: nextPhase,
     actor,
+    // Snapshot payload — refs only (buildFreezeHistoryPayload). Never rule bodies.
     payload: buildFreezeHistoryPayload(snapshot, validation),
   });
   await appendHistory({
@@ -452,7 +553,18 @@ export async function prepareRuntimeMatch(
     snapshotVersion: nextVersion,
     executionPhase: nextPhase,
     actor,
-    reason: "Runtime Preparation freeze",
+    reason: runtimeExecutionPolicy
+      ? "Runtime Preparation freeze + Rule Engine resolve (PREPARE)"
+      : "Runtime Preparation freeze",
+    payload: runtimeExecutionPolicy
+      ? {
+          // Identity + runtime-facing contract metadata — not Snapshot body.
+          resolutionId,
+          rulesHash,
+          runtimeRulesVersion,
+          runtimeExecutionPolicy,
+        }
+      : null,
   });
 
   const [updated] = await db
@@ -460,6 +572,8 @@ export async function prepareRuntimeMatch(
     .set({
       currentRuntimeVersion: nextVersion,
       executionPhase: nextPhase,
+      ...(rulesJsonUpdate ? { rulesJson: rulesJsonUpdate } : {}),
+      ...(prepMetadata ? { runtimePrepMetadataJson: prepMetadata } : {}),
       updatedAt: new Date(),
     })
     .where(
@@ -476,6 +590,10 @@ export async function prepareRuntimeMatch(
     context: buildRuntimeContextFromSnapshot(snapshot, updated.runtimePrepMetadataJson),
     executionPhase: mapRowToExecutionPhaseState(toBridgeRow(updated)),
     validation,
+    resolutionId,
+    rulesHash,
+    runtimeRulesVersion,
+    runtimeExecutionPolicy,
   };
 }
 
