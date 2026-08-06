@@ -165,6 +165,11 @@ router.post(
       rulesHash: result.rulesHash,
       runtimeRulesVersion: result.runtimeRulesVersion,
       runtimeExecutionPolicy: result.runtimeExecutionPolicy,
+      // EPIC-12 Phase 1 — Prepare binds presentation contract identity (not Snapshot bodies).
+      presentationResolutionId: result.presentationResolutionId,
+      presentationHash: result.presentationHash,
+      presentationVersion: result.presentationVersion,
+      presentationExecutionPolicy: result.presentationExecutionPolicy,
     });
   },
 );

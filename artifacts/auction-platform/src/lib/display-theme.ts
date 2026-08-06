@@ -113,6 +113,40 @@ export function getDisplayTheme(name: string | null | undefined): DisplayTheme {
   return DISPLAY_THEMES["stadium-gold"];
 }
 
+/**
+ * EPIC-12 Phase 1 — prefer Compatibility Adapter paint when Prepare-bound.
+ * Falls back to stadium-gold (current production default) — no visual redesign.
+ */
+export type PresentationPaintJson = {
+  source?: string;
+  displayThemeId?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  secondaryGlow?: string | null;
+  accentGlow?: string;
+  stagePreset?: ThemeId;
+  safeAreaBottomPx?: number;
+  sponsorStripEnabled?: boolean;
+};
+
+export function getDisplayThemeFromPresentationPaint(
+  paint: PresentationPaintJson | null | undefined,
+  fallbackName?: string | null,
+): DisplayTheme {
+  if (paint?.source === "presentation_execution_policy") {
+    const base = getDisplayTheme(paint.displayThemeId ?? "stadium-gold");
+    return {
+      ...base,
+      accentColor: paint.accentColor ?? base.accentColor,
+      bg: paint.backgroundColor ?? base.bg,
+      secondaryGlow: paint.accentGlow ?? paint.secondaryGlow ?? base.secondaryGlow,
+      stagePreset: paint.stagePreset ?? base.stagePreset,
+      dot: paint.accentColor ?? base.dot,
+    };
+  }
+  return getDisplayTheme(fallbackName);
+}
+
 export function displayThemeToStagePreset(theme: DisplayTheme): ThemeId {
   return theme.stagePreset;
 }

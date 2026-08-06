@@ -47,6 +47,15 @@ import {
   type RuntimeExecutionPolicy,
 } from "@workspace/platform-core/rule-engine";
 import {
+  PresentationEngine,
+  buildPreparePresentationEngineInput,
+  buildPresentationExecutionPolicy,
+  buildPresentationResolutionPrepMetadata,
+  presentationEngineResultOk,
+  projectPresentationExecutionPolicyToPaintJson,
+  type PresentationExecutionPolicy,
+} from "@workspace/platform-core/presentation-engine";
+import {
   buildWorkingConfiguration,
   loadLatestPlan,
   loadTournamentCompetitionRow,
@@ -413,6 +422,11 @@ export type PrepareRuntimeResult =
       rulesHash: string | null;
       runtimeRulesVersion: string | null;
       runtimeExecutionPolicy: RuntimeExecutionPolicy | null;
+      /** Bound at Prepare — presentation authority identity (EPIC-12 Phase 1). */
+      presentationResolutionId: string | null;
+      presentationHash: string | null;
+      presentationVersion: string | null;
+      presentationExecutionPolicy: PresentationExecutionPolicy | null;
     }
   | {
       ok: false;
@@ -422,12 +436,14 @@ export type PrepareRuntimeResult =
     };
 
 /**
- * Runtime Prepare (EPIC-11 Phase 1):
- * validate → freeze Snapshot (refs only) → RuleEngine.resolve(PREPARE) once
- * → bind ResolvedRuntimeRules → RuntimeExecutionPolicy → Compatibility Adapter → rulesJson
- * → save resolutionId / rulesHash / runtimeRulesVersion.
+ * Runtime Prepare (EPIC-11 + EPIC-12 Phase 1):
+ * validate → freeze Snapshot (refs only)
+ * → RuleEngine.resolve(PREPARE) once → RuntimeExecutionPolicy → rulesJson
+ * → PresentationEngine.resolve(PREPARE) once → PresentationExecutionPolicy → brandingJson
+ * → save resolution identity binds (rules + presentation).
  *
- * Never mutates Match Lifecycle. Never stores rule bodies on Snapshot.
+ * Engines never call each other. Never mutates Match Lifecycle.
+ * Never stores rule/presentation bodies on Snapshot.
  */
 export async function prepareRuntimeMatch(
   tournamentId: number,
@@ -468,13 +484,18 @@ export async function prepareRuntimeMatch(
     nextPhase = "preparing";
   }
 
-  // ── EPIC-11: sole RuleEngine.resolve(PREPARE) site (cricket execution path) ──
+  // ── EPIC-11 + EPIC-12: sole resolve sites (cricket execution path) ──
   let runtimeExecutionPolicy: RuntimeExecutionPolicy | null = null;
   let rulesJsonUpdate: Record<string, unknown> | null = null;
+  let brandingJsonUpdate: Record<string, unknown> | null = null;
   let prepMetadata = (match.runtimePrepMetadataJson as Record<string, unknown> | null) ?? null;
   let resolutionId: string | null = null;
   let rulesHash: string | null = null;
   let runtimeRulesVersion: string | null = null;
+  let presentationExecutionPolicy: PresentationExecutionPolicy | null = null;
+  let presentationResolutionId: string | null = null;
+  let presentationHash: string | null = null;
+  let presentationVersion: string | null = null;
 
   if (match.sportSlug === "cricket") {
     const tournament = await loadTournamentCompetitionRow(tournamentId);
@@ -498,6 +519,15 @@ export async function prepareRuntimeMatch(
         ok: false,
         status: 400,
         error: "Runtime Snapshot missing ruleProfile reference — cannot resolve execution contract",
+        validation,
+      };
+    }
+    if (!snapshot.references.presentationProfile) {
+      return {
+        ok: false,
+        status: 400,
+        error:
+          "Runtime Snapshot missing presentationProfile reference — cannot resolve presentation contract",
         validation,
       };
     }
@@ -535,6 +565,53 @@ export async function prepareRuntimeMatch(
       },
       prepMetadata,
     );
+
+    // ── EPIC-12 Phase 1: sole PresentationEngine.resolve(PREPARE) site ──
+    // Engines never call each other. Presentation resolve is independent of Rule resolve.
+    const presentationInput = buildPreparePresentationEngineInput(snapshot, {
+      sportId: bindings.sportId,
+      variantId: bindings.variantId,
+      competitionTypeId: bindings.competitionTypeId,
+      presentationProfileId: bindings.presentationProfileId,
+      presentationProfileVersion: bindings.presentationProfileVersion,
+      ruleProfileId: bindings.ruleProfileId,
+      ruleProfileVersion: bindings.ruleProfileVersion,
+    });
+    const presentationResult = PresentationEngine.resolve(presentationInput);
+
+    if (
+      !presentationEngineResultOk(presentationResult) ||
+      !presentationResult.resolvedPresentationContract
+    ) {
+      const firstError = presentationResult.diagnostics.issues.find(
+        (i) => i.severity === "ERROR",
+      );
+      return {
+        ok: false,
+        status: 400,
+        error: firstError
+          ? `Presentation Engine Prepare failed: ${firstError.code} — ${firstError.message}`
+          : "Presentation Engine Prepare failed — no ResolvedPresentationContract",
+        validation,
+      };
+    }
+
+    const presentationContract = presentationResult.resolvedPresentationContract;
+    presentationExecutionPolicy = buildPresentationExecutionPolicy(presentationContract);
+    const paint = projectPresentationExecutionPolicyToPaintJson(presentationExecutionPolicy);
+    brandingJsonUpdate = { ...paint };
+    presentationResolutionId = presentationExecutionPolicy.presentationResolutionId;
+    presentationHash = presentationExecutionPolicy.presentationHash;
+    presentationVersion = presentationExecutionPolicy.presentationVersion;
+    prepMetadata = buildPresentationResolutionPrepMetadata(
+      {
+        presentationResolutionId: presentationExecutionPolicy.presentationResolutionId,
+        presentationHash: presentationExecutionPolicy.presentationHash,
+        presentationVersion: presentationExecutionPolicy.presentationVersion,
+        snapshotVersion: nextVersion,
+      },
+      prepMetadata,
+    );
   }
 
   await appendHistory({
@@ -555,7 +632,7 @@ export async function prepareRuntimeMatch(
     executionPhase: nextPhase,
     actor,
     reason: runtimeExecutionPolicy
-      ? "Runtime Preparation freeze + Rule Engine resolve (PREPARE)"
+      ? "Runtime Preparation freeze + Rule/Presentation Engine resolve (PREPARE)"
       : "Runtime Preparation freeze",
     payload: runtimeExecutionPolicy
       ? {
@@ -564,6 +641,10 @@ export async function prepareRuntimeMatch(
           rulesHash,
           runtimeRulesVersion,
           runtimeExecutionPolicy,
+          presentationResolutionId,
+          presentationHash,
+          presentationVersion,
+          presentationExecutionPolicy,
         }
       : null,
   });
@@ -574,6 +655,7 @@ export async function prepareRuntimeMatch(
       currentRuntimeVersion: nextVersion,
       executionPhase: nextPhase,
       ...(rulesJsonUpdate ? { rulesJson: rulesJsonUpdate } : {}),
+      ...(brandingJsonUpdate ? { brandingJson: brandingJsonUpdate } : {}),
       ...(prepMetadata ? { runtimePrepMetadataJson: prepMetadata } : {}),
       updatedAt: new Date(),
     })
@@ -585,7 +667,8 @@ export async function prepareRuntimeMatch(
     )
     .returning();
 
-  // Phase 2 — refresh idle session projection from Policy-derived rules (no Rule Engine).
+  // EPIC-11 Phase 2 + EPIC-12 Phase 1 — refresh idle session from Policy-derived
+  // rules + presentation identity/paint (no Rule/Presentation Engine on this path).
   if (rulesJsonUpdate && match.sportSlug === "cricket") {
     const sessions = await db
       .select()
@@ -608,6 +691,15 @@ export async function prepareRuntimeMatch(
               runtimeRulesVersion,
               snapshotVersion: nextVersion,
             },
+            presentationPolicyBind: presentationResolutionId
+              ? {
+                  presentationResolutionId,
+                  presentationHash,
+                  presentationVersion,
+                  snapshotVersion: nextVersion,
+                }
+              : (prev.presentationPolicyBind ?? null),
+            presentationPaint: brandingJsonUpdate ?? prev.presentationPaint ?? null,
           },
           updatedAt: new Date(),
         })
@@ -625,6 +717,10 @@ export async function prepareRuntimeMatch(
     rulesHash,
     runtimeRulesVersion,
     runtimeExecutionPolicy,
+    presentationResolutionId,
+    presentationHash,
+    presentationVersion,
+    presentationExecutionPolicy,
   };
 }
 

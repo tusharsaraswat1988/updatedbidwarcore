@@ -12,6 +12,7 @@ export type {
 export { DEFAULT_BROADCAST_SETTINGS } from "./types";
 export {
   resolveBroadcastSettings,
+  applyPresentationPaintToBroadcastSettings,
   saveBroadcastSettings,
   buildObsOverlayUrl,
   broadcastSettingsToSearchParams,
