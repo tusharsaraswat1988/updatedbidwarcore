@@ -1,17 +1,24 @@
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { ShareButtons } from "@/components/scoring/share-buttons";
 import { getTournamentTeamProfile } from "@/lib/scoring-api";
-import { cricketPlayerPublicPath, cricketPublicPath } from "@/lib/tournament-navigation";
+import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import {
-  CricketEmptyState,
-  CricketLoadingShell,
-  CricketPublicPageHeader,
-  CricketPublicShell,
+  cricketFanPlayerPath,
+  cricketFanMatchPath,
+  cricketFanTeamsPath,
+  cricketTeamPublicPath,
+} from "@/lib/tournament-navigation";
+import {
+  CricketFanEmpty,
+  CricketFanExperienceShell,
+  CricketFanLoading,
+} from "@/components/scoring/public-tournament-shell";
+import {
   cricketCardClass,
   cricketSectionTitleClass,
 } from "@/components/scoring/cricket-page-chrome";
+import type { PublicSchedulePayload } from "@/lib/public-tournament-types";
 import { cn } from "@/lib/utils";
 
 export default function ScoringTeamPublicPage() {
@@ -19,47 +26,87 @@ export default function ScoringTeamPublicPage() {
   const tournamentId = parseInt(params?.id || "0");
   const teamId = parseInt(params?.teamId || "0");
 
+  const { data: schedule } = useQuery({
+    queryKey: ["scoring-public", tournamentId],
+    queryFn: () => getPublicSchedule(tournamentId) as Promise<PublicSchedulePayload>,
+    enabled: !!tournamentId,
+  });
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["scoring-team-public", tournamentId, teamId],
     queryFn: () => getTournamentTeamProfile(tournamentId, teamId),
     enabled: !!tournamentId && !!teamId,
   });
 
+  const liveMatchId = (schedule?.matches ?? []).find((m) => m.status === "live")?.id ?? null;
   const pageUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/tournament/${tournamentId}/cricket/team/${teamId}`
+      ? `${window.location.origin}${cricketTeamPublicPath(tournamentId, teamId)}`
       : "";
 
-  if (isLoading) return <CricketLoadingShell />;
-  if (error || !data) return <CricketEmptyState message="Team profile not available." />;
+  if (isLoading) return <CricketFanLoading tournamentId={tournamentId} />;
+  if (error || !data) {
+    return <CricketFanEmpty tournamentId={tournamentId} message="Team profile not available." />;
+  }
 
   const { team, standing, squad, recentResults, topBatsmen } = data;
+  const captain =
+    squad.find((p) => (p.role ?? "").toLowerCase().includes("captain")) ?? null;
 
   return (
-    <CricketPublicShell>
-      <Link
-        href={cricketPublicPath(tournamentId)}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Tournament
-      </Link>
+    <CricketFanExperienceShell tournamentId={tournamentId} liveMatchId={liveMatchId}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href={cricketFanTeamsPath(tournamentId)}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Teams
+        </Link>
+        {pageUrl ? <ShareButtons url={pageUrl} shareText={`${team.name} — team profile`} /> : null}
+      </div>
 
-      <CricketPublicPageHeader
-        eyebrow="Team profile"
-        title={team.name}
-        subtitle={
-          <>
-            <p>{team.shortCode}</p>
-            {standing ? (
-              <p className="text-primary">
-                {standing.points} pts · NRR {standing.netRunRate.toFixed(3)} · {standing.won}W-{standing.lost}L
-              </p>
-            ) : null}
-          </>
-        }
-        actions={pageUrl ? <ShareButtons url={pageUrl} shareText={`${team.name} — team profile`} /> : null}
-      />
+      <header className="mb-8 flex items-start gap-4">
+        {team.logoUrl ? (
+          <img
+            src={team.logoUrl}
+            alt=""
+            className="h-20 w-20 rounded-2xl object-cover border border-border bg-muted/30 shrink-0"
+          />
+        ) : (
+          <div
+            className="h-20 w-20 rounded-2xl border border-border flex items-center justify-center font-display text-xl font-bold shrink-0"
+            style={{
+              backgroundColor: team.color ? `${team.color}22` : undefined,
+              color: team.color ?? undefined,
+            }}
+          >
+            {team.shortCode.slice(0, 3)}
+          </div>
+        )}
+        <div className="min-w-0 space-y-2">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Team</p>
+          <h1 className="font-display text-3xl font-bold tracking-tight truncate">{team.name}</h1>
+          <p className="text-sm text-muted-foreground">{team.shortCode}</p>
+          {captain ? (
+            <p className="text-sm">
+              Captain:{" "}
+              <Link
+                href={cricketFanPlayerPath(tournamentId, captain.id)}
+                className="text-primary hover:underline"
+              >
+                {captain.name}
+              </Link>
+            </p>
+          ) : null}
+          {standing ? (
+            <p className="text-sm text-primary tabular-nums">
+              {standing.played}P · {standing.won}W · {standing.lost}L · {standing.points} pts · NRR{" "}
+              {standing.netRunRate > 0 ? "+" : ""}
+              {standing.netRunRate.toFixed(3)}
+            </p>
+          ) : null}
+        </div>
+      </header>
 
       <div className="space-y-6">
         {topBatsmen.length > 0 ? (
@@ -74,7 +121,7 @@ export default function ScoringTeamPublicPage() {
                   className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 last:border-0"
                 >
                   <Link
-                    href={cricketPlayerPublicPath(tournamentId, b.playerId)}
+                    href={cricketFanPlayerPath(tournamentId, b.playerId)}
                     className="text-foreground hover:text-primary"
                   >
                     {b.playerName}
@@ -87,7 +134,7 @@ export default function ScoringTeamPublicPage() {
         ) : null}
 
         <section className={cn(cricketCardClass, "overflow-hidden")}>
-          <h2 className={cn(cricketSectionTitleClass, "px-4 py-3 border-b border-border")}>Squad</h2>
+          <h2 className={cn(cricketSectionTitleClass, "px-4 py-3 border-b border-border")}>Players</h2>
           <ul>
             {squad.map((p) => (
               <li
@@ -95,10 +142,13 @@ export default function ScoringTeamPublicPage() {
                 className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 last:border-0 text-sm"
               >
                 <Link
-                  href={cricketPlayerPublicPath(tournamentId, p.id)}
+                  href={cricketFanPlayerPath(tournamentId, p.id)}
                   className="text-foreground hover:text-primary"
                 >
                   {p.name}
+                  {captain?.id === p.id ? (
+                    <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">C</span>
+                  ) : null}
                 </Link>
                 <span className="text-muted-foreground">{p.role ?? p.status}</span>
               </li>
@@ -111,17 +161,22 @@ export default function ScoringTeamPublicPage() {
             <h2 className={cricketSectionTitleClass}>Recent results</h2>
             <ul className="space-y-2">
               {recentResults.map((m) => (
-                <li key={m.id} className={cn(cricketCardClass, "px-4 py-2 text-sm")}>
-                  <span className={m.won ? "text-emerald-400" : "text-muted-foreground"}>
-                    {m.won ? "W" : "L"}
-                  </span>
-                  <span className="ml-2 text-foreground">{m.resultSummary ?? `Match #${m.id}`}</span>
+                <li key={m.id}>
+                  <Link
+                    href={cricketFanMatchPath(tournamentId, m.id)}
+                    className={cn(cricketCardClass, "block px-4 py-2 text-sm hover:border-primary/25")}
+                  >
+                    <span className={m.won ? "text-emerald-400" : "text-muted-foreground"}>
+                      {m.won ? "W" : "L"}
+                    </span>
+                    <span className="ml-2 text-foreground">{m.resultSummary ?? `Match #${m.id}`}</span>
+                  </Link>
                 </li>
               ))}
             </ul>
           </section>
         ) : null}
       </div>
-    </CricketPublicShell>
+    </CricketFanExperienceShell>
   );
 }

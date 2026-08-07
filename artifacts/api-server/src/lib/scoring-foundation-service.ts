@@ -255,6 +255,7 @@ export async function generateScoringDraw(input: {
   await ensureTeamsInTournament(input.tournamentId, input.teamIds);
 
   const config: ScoringDrawConfigJson = {
+    // Non-authoritative draw default — Runtime Prepare overwrites match rulesJson.
     oversLimit: input.oversLimit ?? 20,
     teamIds: input.teamIds,
     groups: input.groups,
@@ -350,6 +351,7 @@ export async function generateScoringDraw(input: {
           awayTeamId: f.awayTeamId,
           homeSideJson: { teamId: f.homeTeamId },
           awaySideJson: { teamId: f.awayTeamId },
+          // Placeholder only — Runtime Prepare replaces via RuntimeExecutionPolicy.
           rulesJson: { overs: config.oversLimit ?? 20, maxWickets: 10 },
           roundName: f.roundName,
           scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
@@ -466,8 +468,41 @@ export async function setMatchSquad(
   if (match.homeTeamId !== teamId && match.awayTeamId !== teamId) {
     throw new ScoringServiceError("Team not in this match", 400, "INVALID_TEAM");
   }
-  if (squad.playingXi.length < 1 || squad.playingXi.length > 11) {
-    throw new ScoringServiceError("Playing XI must have 1–11 players", 400, "INVALID_XI");
+  const rules = (match.rulesJson ?? {}) as {
+    playingSquadSize?: number;
+    benchSize?: number;
+    source?: string;
+  };
+  const fromPolicy = rules.source === "runtime_execution_policy";
+  if (fromPolicy) {
+    if (typeof rules.playingSquadSize !== "number" || typeof rules.benchSize !== "number") {
+      throw new ScoringServiceError(
+        "Match squad requires playingSquadSize/benchSize from RuntimeExecutionPolicy.",
+        409,
+        "RUNTIME_EXECUTION_POLICY_REQUIRED",
+      );
+    }
+  }
+  const maxXi =
+    typeof rules.playingSquadSize === "number" ? rules.playingSquadSize : null;
+  const maxBench = typeof rules.benchSize === "number" ? rules.benchSize : null;
+  if (maxXi == null || squad.playingXi.length < 1 || squad.playingXi.length > maxXi) {
+    throw new ScoringServiceError(
+      maxXi == null
+        ? "Playing XI size requires Runtime Prepare (RuntimeExecutionPolicy playingSquadSize)."
+        : `Playing XI must have 1–${maxXi} players (RuntimeExecutionPolicy playingSquadSize)`,
+      maxXi == null ? 409 : 400,
+      maxXi == null ? "RUNTIME_EXECUTION_POLICY_REQUIRED" : "INVALID_XI",
+    );
+  }
+  if (maxBench == null || squad.bench.length > maxBench) {
+    throw new ScoringServiceError(
+      maxBench == null
+        ? "Bench size requires Runtime Prepare (RuntimeExecutionPolicy benchSize)."
+        : `Bench cannot exceed ${maxBench} (RuntimeExecutionPolicy benchSize)`,
+      maxBench == null ? 409 : 400,
+      maxBench == null ? "RUNTIME_EXECUTION_POLICY_REQUIRED" : "INVALID_BENCH",
+    );
   }
 
   const [existing] = await db
@@ -505,6 +540,17 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
       name: tournamentsTable.name,
       sport: tournamentsTable.sport,
       scoringEnabled: tournamentsTable.scoringEnabled,
+      status: tournamentsTable.status,
+      scoringPhase: tournamentsTable.scoringPhase,
+      venue: tournamentsTable.venue,
+      city: tournamentsTable.city,
+      logoUrl: tournamentsTable.logoUrl,
+      matchDates: tournamentsTable.matchDates,
+      sponsorLogos: tournamentsTable.sponsorLogos,
+      mainBannerUrl: tournamentsTable.mainBannerUrl,
+      mainBannerEnabled: tournamentsTable.mainBannerEnabled,
+      variantId: tournamentsTable.variantId,
+      presentationProfileId: tournamentsTable.presentationProfileId,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
@@ -520,6 +566,8 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     name: t.name,
     shortCode: t.shortCode,
     color: t.color,
+    logoUrl: t.logoUrl,
+    squadCount: t.squadCount,
   }));
 
   const fixtures = await listScoringFixtures(tournamentId);

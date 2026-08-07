@@ -7,12 +7,17 @@ import {
 import {
   CricketEventType,
   buildCricketMatchSummary,
+  buildMatchMetaFromRules,
   createInitialCricketState,
   type MatchMeta,
   type CricketScoreboardState,
   type CricketMatchSummary,
+  type CricketMatchRulesJson,
+  RUNTIME_EXECUTION_POLICY_SOURCE,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { verifyMatchStartContract } from "@workspace/platform-core/rule-engine";
+import { verifyPresentationMatchStartContract } from "@workspace/platform-core/presentation-engine";
 import { replayScoringMatchState } from "./scoring-platform";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
@@ -40,15 +45,28 @@ function mapPlatformError<T>(fn: () => Promise<T>): Promise<T> {
 const CRICKET_SPORT_SLUG = "cricket" as const;
 
 function matchMetaFromRow(match: typeof scoringMatchesTable.$inferSelect): MatchMeta {
-  const rules = match.rulesJson ?? {};
-  return {
+  const rules = (match.rulesJson ?? {}) as CricketMatchRulesJson;
+  const prep = match.runtimePrepMetadataJson as
+    | { ruleResolution?: Record<string, unknown> }
+    | null
+    | undefined;
+  const bind = prep?.ruleResolution as
+    | {
+        resolutionId?: string;
+        rulesHash?: string;
+        runtimeRulesVersion?: string;
+        snapshotVersion?: number;
+      }
+    | undefined;
+
+  return buildMatchMetaFromRules({
     matchId: match.id,
     tournamentId: match.tournamentId,
     homeTeamId: match.homeTeamId,
     awayTeamId: match.awayTeamId,
-    oversLimit: rules.overs ?? 20,
-    maxWickets: rules.maxWickets ?? 10,
-  };
+    rules,
+    ruleResolution: bind ?? null,
+  });
 }
 
 async function projectMatchState(
@@ -108,7 +126,13 @@ export async function createScoringMatch(
   await ensureTeamInTournament(tournamentId, input.homeTeamId);
   await ensureTeamInTournament(tournamentId, input.awayTeamId);
 
-  const oversLimit = input.oversLimit ?? 20;
+  // Non-authoritative placeholder only. Runtime Prepare overwrites rulesJson
+  // from RuntimeExecutionPolicy via the Compatibility Adapter (EPIC-11 Phase 1).
+  // Match Create must never be the source of gameplay rules.
+  const placeholderRules =
+    input.oversLimit != null
+      ? { overs: input.oversLimit, maxWickets: 10 }
+      : { maxWickets: 10 };
 
   const [match] = await db
     .insert(scoringMatchesTable)
@@ -121,7 +145,7 @@ export async function createScoringMatch(
       awayTeamId: input.awayTeamId,
       homeSideJson: { teamId: input.homeTeamId },
       awaySideJson: { teamId: input.awayTeamId },
-      rulesJson: { overs: oversLimit, maxWickets: 10 },
+      rulesJson: placeholderRules,
       roundName: input.roundName ?? null,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       venue: input.venue ?? null,
@@ -263,6 +287,71 @@ export async function appendScoringEvent(
     throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
+  // EPIC-11 Phase 1 — Match Start verifies Prepare bind only; never RuleEngine.resolve().
+  // EPIC-12 Phase 1 — also verifies presentation bind; never PresentationEngine.resolve().
+  if (input.eventType === CricketEventType.MATCH_STARTED) {
+    const verified = verifyMatchStartContract({
+      currentRuntimeVersion: match.currentRuntimeVersion,
+      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<string, unknown> | null,
+    });
+    if (!verified.ok) {
+      throw new ScoringServiceError(verified.error, 409, verified.code);
+    }
+    const presentationVerified = verifyPresentationMatchStartContract({
+      currentRuntimeVersion: match.currentRuntimeVersion,
+      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<string, unknown> | null,
+    });
+    if (!presentationVerified.ok) {
+      throw new ScoringServiceError(
+        presentationVerified.error,
+        409,
+        presentationVerified.code,
+      );
+    }
+  }
+
+  const matchMeta = matchMetaFromRow(match);
+
+  // EPIC-11 Phase 2 — MATCH_STARTED overs (and policy identity) from MatchMeta, not UI defaults.
+  let payload = input.payload;
+  if (input.eventType === CricketEventType.MATCH_STARTED) {
+    if (matchMeta.executionRulesSource !== RUNTIME_EXECUTION_POLICY_SOURCE) {
+      throw new ScoringServiceError(
+        "Match Start requires RuntimeExecutionPolicy-derived rules. Complete Runtime Prepare first.",
+        409,
+        "RUNTIME_EXECUTION_POLICY_REQUIRED",
+      );
+    }
+    payload = {
+      ...input.payload,
+      oversLimit: matchMeta.oversLimit,
+    };
+  }
+
+  if (input.eventType === CricketEventType.LINEUP_SET) {
+    const playerIds = Array.isArray(payload.playerIds)
+      ? (payload.playerIds as unknown[])
+      : [];
+    if (
+      matchMeta.executionRulesSource === RUNTIME_EXECUTION_POLICY_SOURCE &&
+      typeof matchMeta.playingSquadSize !== "number"
+    ) {
+      throw new ScoringServiceError(
+        "Playing XI requires playingSquadSize from RuntimeExecutionPolicy.",
+        409,
+        "RUNTIME_EXECUTION_POLICY_REQUIRED",
+      );
+    }
+    const maxXi = matchMeta.playingSquadSize;
+    if (typeof maxXi === "number" && playerIds.length > maxXi) {
+      throw new ScoringServiceError(
+        `Playing XI cannot exceed playingSquadSize (${maxXi}) from RuntimeExecutionPolicy.`,
+        400,
+        "PLAYING_SQUAD_SIZE_EXCEEDED",
+      );
+    }
+  }
+
   return mapPlatformError(() =>
     appendSingleMatchEvent(
       {
@@ -270,11 +359,11 @@ export async function appendScoringEvent(
         matchId,
         sportSlug: CRICKET_SPORT_SLUG,
         eventType: input.eventType,
-        payload: input.payload,
+        payload,
         expectedSequence: input.expectedSequence,
         actor: input.actor,
         correlationId: input.correlationId,
-        matchMeta: matchMetaFromRow(match),
+        matchMeta,
       },
       match,
     ),

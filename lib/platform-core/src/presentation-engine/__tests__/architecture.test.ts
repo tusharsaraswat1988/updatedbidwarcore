@@ -47,7 +47,7 @@ describe("Presentation Engine architecture compliance", () => {
     }
   });
 
-  it("no production renderer path imports presentation-engine (dark-launch DoD)", () => {
+  it("only Prepare / Match Start / HTTP façade may import presentation-engine (EPIC-12 Phase 1)", () => {
     const roots = [
       join(ROOT, "artifacts/auction-platform/src"),
       join(ROOT, "artifacts/api-server/src"),
@@ -55,7 +55,11 @@ describe("Presentation Engine architecture compliance", () => {
     const allow = (file: string) =>
       file.includes(`${join("routes", "presentation-engine")}`) ||
       file.includes(`${join("routes", "index.ts")}`) ||
-      file.includes(`${join("lib", "__tests__", "presentation-engine")}`);
+      file.includes(`${join("routes", "runtime-match-foundation")}`) ||
+      file.includes(`${join("lib", "runtime-match-service")}`) ||
+      file.includes(`${join("lib", "scoring-service")}`) ||
+      file.includes(`${join("lib", "__tests__", "presentation-engine")}`) ||
+      file.includes(`${join("lib", "__tests__", "epic-12")}`);
     for (const root of roots) {
       for (const file of walkTsFiles(root)) {
         if (allow(file)) continue;
@@ -63,7 +67,7 @@ describe("Presentation Engine architecture compliance", () => {
         expect(
           src.includes("@workspace/platform-core/presentation-engine") ||
             /from\s+["'].*presentation-engine/.test(src),
-          `dark-launch violation: ${file}`,
+          `renderer/cutover violation: ${file} must not import Presentation Engine (consume paint DTO only)`,
         ).toBe(false);
       }
     }

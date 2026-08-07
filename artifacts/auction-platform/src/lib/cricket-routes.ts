@@ -45,8 +45,19 @@ export function cricketReportsPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/reports`;
 }
 
-export function cricketMatchOpsPath(tournamentId: number, matchId: number): string {
+/** Canonical Corporate Match Center for one match. */
+export function cricketMatchCenterPath(tournamentId: number, matchId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/${matchId}`;
+}
+
+/** @deprecated Prefer cricketMatchCenterPath — same URL. */
+export function cricketMatchOpsPath(tournamentId: number, matchId: number): string {
+  return cricketMatchCenterPath(tournamentId, matchId);
+}
+
+/** Live Control (scorer pad) — launched from Match Center. */
+export function cricketLiveControlPath(tournamentId: number, matchId: number): string {
+  return `${cricketMatchCenterPath(tournamentId, matchId)}/live`;
 }
 
 /** Reserved score subpaths — not numeric match IDs. */

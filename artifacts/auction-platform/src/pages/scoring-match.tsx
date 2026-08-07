@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRoute, useLocation } from "wouter";
+import { Link, useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
@@ -29,17 +29,19 @@ import {
 } from "@/lib/scoring-offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { openScoreDisplay } from "@/lib/tournament-navigation";
+import { cricketMatchCenterPath, cricketScoreHubPath } from "@/lib/cricket-routes";
 import { Button } from "@/components/ui/button";
-import { Monitor, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Monitor, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 export default function ScoringMatchPage() {
-  const [, params] = useRoute("/tournament/:id/score/:matchId");
+  const [, params] = useRoute("/tournament/:id/score/:matchId/live");
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const matchId = parseInt(params?.matchId || "0");
+  const matchCenterHref = cricketMatchCenterPath(tournamentId, matchId);
   const { toast } = useToast();
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
@@ -235,7 +237,7 @@ export default function ScoringMatchPage() {
 
   const matchTitle =
     data?.match.status === "live"
-      ? "Live scoring"
+      ? "Live Control"
       : data?.match.status === "completed"
         ? "Match result"
         : "Match setup";
@@ -290,12 +292,19 @@ export default function ScoringMatchPage() {
   return (
     <CricketOrganizerPageShell tournamentId={tournamentId}>
       <PageHeader
-        eyebrow="Cricket Scorer"
+        tournamentId={tournamentId}
+        eyebrow="Live Control"
         title={matchTitle}
         subtitle={subtitle ?? tournament?.name}
         badge={data?.match.status === "live" ? "LIVE" : undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" asChild>
+              <Link href={matchCenterHref}>
+                <ArrowLeft className="w-4 h-4" />
+                Match Center
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -348,8 +357,8 @@ export default function ScoringMatchPage() {
             title="Match not found"
             desc="This match may have been removed. Go back to the match list."
             action={{
-              label: "Back to matches",
-              onClick: () => navigate(`/tournament/${tournamentId}/score`),
+              label: "Back to Match Center",
+              onClick: () => navigate(matchCenterHref || cricketScoreHubPath(tournamentId)),
             }}
           />
         ) : (
@@ -372,6 +381,7 @@ export default function ScoringMatchPage() {
                 state={data.state}
               teams={teams}
               players={players}
+                rules={data.match.rules}
                 bowlerId={localBowlerId}
                 busy={busy}
                 pendingNewBatsman={pendingNewBatsman}

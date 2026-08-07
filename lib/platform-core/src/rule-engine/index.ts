@@ -13,6 +13,35 @@ export {
   RUNTIME_RULES_SCHEMA_VERSION,
 } from "./versions.ts";
 
+export {
+  RUNTIME_EXECUTION_POLICY_SCHEMA_VERSION,
+  buildRuntimeExecutionPolicy,
+} from "./execution-policy.ts";
+export type {
+  CricketRuntimeExecutionFields,
+  RuntimeExecutionPolicy,
+} from "./execution-policy.ts";
+
+export { projectRuntimeExecutionPolicyToRulesJson } from "./compatibility-adapter.ts";
+export type { CompatibilityRulesJson } from "./compatibility-adapter.ts";
+
+export {
+  buildRuleResolutionPrepMetadata,
+  readRuleResolutionBind,
+  verifyMatchStartContract,
+} from "./match-start-verify.ts";
+export type {
+  MatchStartVerifyInput,
+  MatchStartVerifyResult,
+  RuleResolutionBind,
+} from "./match-start-verify.ts";
+
+export {
+  buildPrepareRuleEngineInput,
+  resolvePrepareCatalogBindings,
+} from "./prepare-resolve.ts";
+export type { PrepareResolveBindings } from "./prepare-resolve.ts";
+
 export type {
   RuleEngineInput,
   RuleEngineResult,

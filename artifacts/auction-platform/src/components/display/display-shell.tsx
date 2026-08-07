@@ -8,8 +8,8 @@ import {
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { useLedView } from "@/lib/led-view/use-led-view";
+import { getDisplayThemeFromPresentationPaint } from "@/lib/display-theme";
 import type { DisplayTheme } from "@/lib/display-theme";
-import { DISPLAY_THEMES } from "@/lib/display-theme";
 import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { useBroadcastAudio } from "./use-broadcast-audio";
 import { useDisplayAudioLeader } from "./use-display-audio-leader";
@@ -57,7 +57,8 @@ export function DisplayShell({
     typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null;
   const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
 
-  const resolvedTheme = theme ?? DISPLAY_THEMES["stadium-gold"];
+  // EPIC-12 Phase 1 — prefer Policy-derived paint when provided; else stadium-gold (unchanged).
+  const resolvedTheme = theme ?? getDisplayThemeFromPresentationPaint(undefined);
 
   const displayMode = useMemo(() => deriveAuctionDisplayMode(state), [state]);
 

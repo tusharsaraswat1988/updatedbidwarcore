@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
-import { CricketEventType } from "@workspace/scoring-core";
+import { CricketEventType, executionLimitsFromRules } from "@workspace/scoring-core";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,11 @@ type PreMatchSetupProps = {
   onEvent: (eventType: string, payload: Record<string, unknown>) => Promise<void>;
   onBowlerSelected: (bowlerId: number) => void;
 };
+
+/** Limits from RuntimeExecutionPolicy via prepared rulesJson (Phase 2). */
+export function executionLimitsFromMatch(match: ScoringMatchJson) {
+  return executionLimitsFromRules(match.rules);
+}
 
 function teamName(teams: CricketScorerTeam[], id: number) {
   return teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
@@ -72,7 +77,16 @@ export function PreMatchSetup({
     String(state.tossWinnerTeamId ?? match.homeTeamId),
   );
   const [electedTo, setElectedTo] = useState<"bat" | "bowl">("bat");
-  const oversLimit = match.rules?.overs ?? state.oversLimit ?? 20;
+  const limits = executionLimitsFromMatch(match);
+  // MATCH_STARTED overs originate from RuntimeExecutionPolicy-derived rules only.
+  const oversLimit = limits.oversLimit ?? state.oversLimit;
+  const policyReady =
+    limits.fromPolicy &&
+    typeof limits.oversLimit === "number" &&
+    typeof limits.playingSquadSize === "number" &&
+    typeof limits.benchSize === "number";
+  const playingSquadSize = limits.playingSquadSize;
+  const benchSize = limits.benchSize;
 
   const { battingId, bowlingId } = resolveCricketSideTeamIds(state, match);
   const needsToss =
@@ -102,6 +116,22 @@ export function PreMatchSetup({
 
   return (
     <div className="p-4 space-y-4 border-b border-border/60 bg-muted/10">
+      {!limits.fromPolicy ? (
+        <p className="text-xs text-amber-200/90 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          Runtime Prepare required before Match Start. Overs, XI, and bench limits come from
+          RuntimeExecutionPolicy after Prepare.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Policy: {limits.oversLimit} overs · XI {limits.playingSquadSize ?? "—"} · Bench{" "}
+          {limits.benchSize ?? "—"}
+          {match.rules?.lbwEnabled === false ? " · LBW off" : ""}
+          {match.rules?.retireAtRuns != null
+            ? ` · Retire at ${match.rules.retireAtRuns}`
+            : ""}
+        </p>
+      )}
+
       {needsToss ? (
         <TossStep
           match={match}
@@ -111,7 +141,7 @@ export function PreMatchSetup({
           electedTo={electedTo}
           setElectedTo={setElectedTo}
           oversLimit={oversLimit}
-          busy={busy}
+          busy={busy || !policyReady}
           onStart={() =>
             onEvent(CricketEventType.MATCH_STARTED, {
               tossWinnerTeamId: parseInt(tossWinner, 10),
@@ -122,11 +152,13 @@ export function PreMatchSetup({
         />
       ) : null}
 
-      {needsBattingLineup && battingId ? (
+      {needsBattingLineup && battingId && playingSquadSize != null && benchSize != null ? (
         <SquadLineupPicker
           title={`${teamName(teams, battingId)} — squad & XI`}
           teamId={battingId}
           players={players}
+          playingSquadSize={playingSquadSize}
+          benchSize={benchSize}
           busy={busy}
           onConfirm={async (playingXi, bench, battingOrder) => {
             await setMatchSquad(tournamentId, match.id, battingId, {
@@ -143,11 +175,13 @@ export function PreMatchSetup({
         />
       ) : null}
 
-      {needsBowlingLineup && bowlingId ? (
+      {needsBowlingLineup && bowlingId && playingSquadSize != null && benchSize != null ? (
         <SquadLineupPicker
           title={`${teamName(teams, bowlingId)} — squad & XI`}
           teamId={bowlingId}
           players={players}
+          playingSquadSize={playingSquadSize}
+          benchSize={benchSize}
           busy={busy}
           onConfirm={async (playingXi, bench) => {
             await setMatchSquad(tournamentId, match.id, bowlingId, {
@@ -268,12 +302,16 @@ function SquadLineupPicker({
   title,
   teamId,
   players,
+  playingSquadSize,
+  benchSize,
   busy,
   onConfirm,
 }: {
   title: string;
   teamId: number;
   players: CricketScorerPlayer[];
+  playingSquadSize: number;
+  benchSize: number;
   busy: boolean;
   onConfirm: (playingXi: number[], bench: number[], battingOrder?: number[]) => void | Promise<void>;
 }) {
@@ -287,7 +325,7 @@ function SquadLineupPicker({
         setBench((b) => b.filter((x) => x !== id));
         return prev.filter((x) => x !== id);
       }
-      if (prev.length >= 11) return prev;
+      if (prev.length >= playingSquadSize) return prev;
       setBench((b) => b.filter((x) => x !== id));
       return [...prev, id];
     });
@@ -297,7 +335,7 @@ function SquadLineupPicker({
     if (playingXi.includes(id)) return;
     setBench((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 4) return prev;
+      if (prev.length >= benchSize) return prev;
       return [...prev, id];
     });
   }
@@ -307,7 +345,7 @@ function SquadLineupPicker({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">{title}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">
-          XI {playingXi.length}/11 · Bench {bench.length}/4
+          XI {playingXi.length}/{playingSquadSize} · Bench {bench.length}/{benchSize}
         </span>
       </div>
       {squad.length === 0 ? (

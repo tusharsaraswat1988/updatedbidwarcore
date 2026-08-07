@@ -10,6 +10,29 @@ export function isTerminalCricketMatchStatus(status: string): boolean {
   return status === "completed" || status === "abandoned";
 }
 
+export type ScoringMatchRulesJson = {
+  overs?: number;
+  maxWickets?: number;
+  playingSquadSize?: number;
+  benchSize?: number;
+  ballsPerOver?: number;
+  ballType?: string;
+  lbwEnabled?: boolean;
+  freeHitEnabled?: boolean;
+  retireAtRuns?: number | null;
+  powerplayEnabled?: boolean;
+  superOverEnabled?: boolean;
+  tiesAllowed?: boolean;
+  source?: string;
+};
+
+export type ExecutionPolicyBindJson = {
+  resolutionId: string | null;
+  rulesHash: string | null;
+  runtimeRulesVersion: string | null;
+  snapshotVersion: number | null;
+};
+
 export type ScoringMatchJson = {
   id: number;
   tournamentId: number;
@@ -21,7 +44,21 @@ export type ScoringMatchJson = {
   roundName: string | null;
   scheduledAt: string | null;
   venue: string | null;
-  rules: { overs?: number; maxWickets?: number } | null;
+  rules: ScoringMatchRulesJson | null;
+  /**
+   * EPIC-12 Phase 1 — Compatibility Adapter paint when Prepare-bound
+   * (source === "presentation_execution_policy").
+   */
+  branding?: Record<string, unknown> | null;
+  /** Bound at Runtime Prepare — Scoring Session identity without Rule Engine. */
+  executionPolicyBind?: ExecutionPolicyBindJson | null;
+  /** Bound at Runtime Prepare — presentation identity without Presentation Engine. */
+  presentationPolicyBind?: {
+    presentationResolutionId: string | null;
+    presentationHash: string | null;
+    presentationVersion: string | null;
+    snapshotVersion: number | null;
+  } | null;
   winnerTeamId: number | null;
   resultSummary: string | null;
   startedAt: string | null;

@@ -8,9 +8,12 @@ function nrrText(nrr: number): string {
 export function StandingsTable({
   rows,
   compact = false,
+  highlightTop = 0,
 }: {
   rows: ScoringStandingRow[];
   compact?: boolean;
+  /** Highlight the first N rows as a qualification band. */
+  highlightTop?: number;
 }) {
   if (rows.length === 0) {
     return (
@@ -38,7 +41,14 @@ export function StandingsTable({
         </thead>
         <tbody>
           {rows.map((row, idx) => (
-            <tr key={row.teamId} className="border-b border-border/60 last:border-0">
+            <tr
+              key={row.teamId}
+              className={
+                highlightTop > 0 && idx < highlightTop
+                  ? "border-b border-border/60 last:border-0 bg-primary/5"
+                  : "border-b border-border/60 last:border-0"
+              }
+            >
               <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
               <td className="px-3 py-2.5 font-medium">
                 <span className="inline-flex items-center gap-2">

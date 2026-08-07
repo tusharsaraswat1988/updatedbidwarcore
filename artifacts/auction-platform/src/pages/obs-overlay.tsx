@@ -18,6 +18,7 @@ import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 import { BROADCAST_OVERLAY_HEIGHT } from "@/lib/broadcast-overlay";
 import {
   BroadcastLayout,
+  applyPresentationPaintToBroadcastSettings,
   resolveBroadcastSettings,
   useObsBrowserSource,
 } from "@/components/broadcast";
@@ -31,10 +32,11 @@ export default function ObsOverlay() {
   const tournamentId = parseInt(params?.id || "0");
   const isObsMode = useObsBrowserSource();
 
-  const settings = useMemo(
-    () => resolveBroadcastSettings(tournamentId),
-    [tournamentId],
-  );
+  const settings = useMemo(() => {
+    // EPIC-12 Phase 1 — Policy paint overlay when present (auction path has none → unchanged).
+    const base = resolveBroadcastSettings(tournamentId);
+    return applyPresentationPaintToBroadcastSettings(base, undefined);
+  }, [tournamentId]);
 
   useEffect(() => {
     const html = document.documentElement;

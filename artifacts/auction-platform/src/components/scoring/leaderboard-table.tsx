@@ -1,6 +1,6 @@
 import type { ScoringLeaderboardRow } from "@/lib/scoring-api";
 import { Link } from "wouter";
-import { cricketPlayerPublicPath, cricketTeamPublicPath } from "@/lib/tournament-navigation";
+import { cricketFanPlayerPath, cricketFanTeamPath } from "@/lib/tournament-navigation";
 
 import {
   cricketTableHeadRowClass,
@@ -35,7 +35,7 @@ export function LeaderboardTable({ rows, valueLabel = "Value", tournamentId }: L
               <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{row.rank}</td>
               <td className="px-3 py-2.5 font-medium text-foreground">
                 {tournamentId ? (
-                  <Link href={cricketPlayerPublicPath(tournamentId, row.playerId)} className="hover:text-primary">
+                  <Link href={cricketFanPlayerPath(tournamentId, row.playerId)} className="hover:text-primary">
                     {row.playerName}
                   </Link>
                 ) : (
@@ -44,7 +44,7 @@ export function LeaderboardTable({ rows, valueLabel = "Value", tournamentId }: L
               </td>
               <td className="px-3 py-2.5 text-muted-foreground">
                 {tournamentId ? (
-                  <Link href={cricketTeamPublicPath(tournamentId, row.teamId)} className="hover:text-primary">
+                  <Link href={cricketFanTeamPath(tournamentId, row.teamId)} className="hover:text-primary">
                     {row.shortCode}
                   </Link>
                 ) : (
