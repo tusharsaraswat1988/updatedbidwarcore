@@ -40,6 +40,7 @@ import {
   applySpecificationsToSelections,
   buildSpecificationsPayload,
 } from "@/lib/player-specifications";
+import { getSportCapabilities } from "@/lib/sport-capabilities";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -183,7 +184,7 @@ export default function PlayerRegister() {
 
   // Dynamic roles from sport master table
   const sportSlug = (tournament as { sport?: string } | undefined)?.sport;
-  const isCricket = (sportSlug ?? "cricket") === "cricket";
+  const sportCaps = getSportCapabilities(sportSlug);
   const roles = useSportRoles(sportSlug);
 
   // Set default role once roles load
@@ -313,7 +314,7 @@ export default function PlayerRegister() {
   const showGender = fieldVisibility.gender;
   const showJersey = fieldVisibility.jerseyNumber || fieldVisibility.jerseySize;
   const showAchievements = fieldVisibility.achievements;
-  const showCrichero = isCricket && fieldVisibility.cricheroUrl;
+  const showCrichero = sportCaps.hasLegacyCricketSpecs && fieldVisibility.cricheroUrl;
   const showMatchAvailability = fieldVisibility.matchAvailability;
   const showWhatsappConsent = fieldVisibility.whatsappConsent;
   const showProfileDetails = showCity || showAge || showGender;
@@ -1100,7 +1101,7 @@ export default function PlayerRegister() {
                               )}
                             </div>
                           ))
-                        ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
+                        ) : sportCaps.hasLegacyCricketSpecs ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Batting Style</Label>

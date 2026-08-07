@@ -435,7 +435,7 @@ export async function loginOrganizerAccount(
   success: boolean;
   error?: string;
   organizer?: OrganizerInfo;
-  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string }>;
+  tournaments?: import("@/lib/organizer-account-auth-cache").OrganizerAccountTournament[];
   loginGuard?: LoginGuardStatus;
 }> {
   try {
@@ -459,7 +459,7 @@ export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
   serverError?: boolean;
   organizer?: OrganizerInfo;
-  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string }>;
+  tournaments?: import("@/lib/organizer-account-auth-cache").OrganizerAccountTournament[];
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/me");

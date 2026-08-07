@@ -43,7 +43,9 @@ import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
+  Download, Loader2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
@@ -69,6 +71,8 @@ type OrganizerInfo = {
 type Tournament = {
   id: number; name: string; sport: string; status: string;
   licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string;
+  auctionRulesPdfReady?: boolean;
+  auctionRulesPdfBlockedReason?: string | null;
 };
 
 // ─── Tournament License Badge ─────────────────────────────────────────────────
@@ -1256,10 +1260,12 @@ function OrganizerDashboard({
   onPasswordSet: (org: OrganizerInfo) => void;
 }) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const { logos, brandName, miniBrandText, poweredByText } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [downloadingRulesTid, setDownloadingRulesTid] = useState<number | null>(null);
 
   const [spDismissed, setSpDismissed] = useState(false);
   const [spPassword, setSpPassword] = useState("");
@@ -1308,6 +1314,49 @@ function OrganizerDashboard({
       }
     } finally {
       setDeclaring(false);
+    }
+  }
+
+  async function handleDownloadAuctionRules(tournament: Tournament) {
+    if (!tournament.auctionRulesPdfReady) {
+      toast({
+        title: "Auction rules incomplete",
+        description: tournament.auctionRulesPdfBlockedReason
+          || "Complete Auction Rules in Settings first",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDownloadingRulesTid(tournament.id);
+    try {
+      const r = await fetch(`/api/tournaments/${tournament.id}/auction-rules.pdf`, {
+        credentials: "include",
+      });
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) {
+          throw new Error("Sign in again to download auction rules.");
+        }
+        const err = await r.json().catch(() => null) as { error?: string } | null;
+        throw new Error(err?.error || `Couldn't download PDF (${r.status})`);
+      }
+      const blob = await r.blob();
+      const cd = r.headers.get("Content-Disposition") || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `${tournament.name.replace(/[^a-zA-Z0-9]+/g, "_")}_Auction_Rules.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({
+        title: "Download failed",
+        description: e instanceof Error ? e.message : "Couldn't download PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingRulesTid(null);
     }
   }
 
@@ -1584,7 +1633,27 @@ function OrganizerDashboard({
                       <p className="text-xs text-muted-foreground">
                         {[t.city, t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
                       </p>
-                      <div className="pt-2 border-t border-border/40">
+                      <div className="pt-2 border-t border-border/40 space-y-1">
+                        <button
+                          type="button"
+                          disabled={isLocked || !t.auctionRulesPdfReady || downloadingRulesTid === t.id}
+                          title={
+                            t.auctionRulesPdfReady
+                              ? "Download auction rules PDF"
+                              : (t.auctionRulesPdfBlockedReason
+                                || "Complete Auction Rules in Settings first")
+                          }
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={e => {
+                            e.stopPropagation();
+                            void handleDownloadAuctionRules(t);
+                          }}
+                        >
+                          {downloadingRulesTid === t.id
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <Download className="w-3 h-3" />}
+                          Download auction rules
+                        </button>
                         <button
                           type="button"
                           disabled={isLocked}

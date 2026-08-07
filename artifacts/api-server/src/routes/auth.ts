@@ -28,6 +28,7 @@ import {
   DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
+import { toOrganizerTournamentListItem } from "../lib/organizer-tournament-list-item";
 import { parseIndianMobile, isPlaceholderOrganizerMobile, displayOrganizerMobile, organizerNeedsPhoneVerification } from "@workspace/api-base/mobile";
 import { isOrganizerAccountLocked, organizerPhoneStatusLabel } from "@workspace/api-base/organizer-account";
 import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
@@ -1509,18 +1510,7 @@ router.post("/auth/organizer-account/login", async (req, res) => {
   res.json({
     success: true,
     organizer: organizerToJson(organizer),
-    tournaments: myTournaments.map(t => ({
-      id: t.id,
-      name: t.name,
-      sport: t.sport,
-      status: t.status,
-      licenseStatus: t.licenseStatus,
-      city: t.city ?? null,
-      venue: t.venue ?? null,
-      auctionDate: t.auctionDate ?? null,
-      auctionTime: t.auctionTime ?? null,
-      createdAt: t.createdAt.toISOString(),
-    })),
+    tournaments: myTournaments.map(toOrganizerTournamentListItem),
   });
 });
 
@@ -1562,18 +1552,7 @@ router.get("/auth/organizer-account/me", async (req, res) => {
   res.json({
     loggedIn: true,
     organizer: organizerToJson(organizer),
-    tournaments: tournaments.map(t => ({
-      id: t.id,
-      name: t.name,
-      sport: t.sport,
-      status: t.status,
-      licenseStatus: t.licenseStatus,
-      city: t.city ?? null,
-      venue: t.venue,
-      auctionDate: t.auctionDate,
-      auctionTime: t.auctionTime ?? null,
-      createdAt: t.createdAt.toISOString(),
-    })),
+    tournaments: tournaments.map(toOrganizerTournamentListItem),
   });
 });
 

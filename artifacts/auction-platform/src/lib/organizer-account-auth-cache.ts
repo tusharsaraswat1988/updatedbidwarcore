@@ -16,6 +16,8 @@ export type OrganizerAccountTournament = {
   venue: string | null;
   auctionDate: string | null;
   createdAt: string;
+  auctionRulesPdfReady?: boolean;
+  auctionRulesPdfBlockedReason?: string | null;
 };
 
 export type OrganizerAccountAuthState = {

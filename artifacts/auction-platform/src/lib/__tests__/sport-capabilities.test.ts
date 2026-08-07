@@ -1,0 +1,81 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { PLAYER_TAG_OPTIONS } from "../tag-theme.ts";
+import {
+  filterPlayerTagOptions,
+  getSportCapabilities,
+} from "../sport-capabilities.ts";
+
+describe("sport-capabilities", () => {
+  it("cricket declares cricket-specific capabilities", () => {
+    const caps = getSportCapabilities("cricket");
+    assert.equal(caps.hasPlayingXi, true);
+    assert.equal(caps.hasBench, true);
+    assert.equal(caps.hasOvers, true);
+    assert.equal(caps.hasCaptain, true);
+    assert.equal(caps.hasLBW, true);
+    assert.equal(caps.hasSets, false);
+    assert.equal(caps.hasCourts, false);
+    assert.equal(caps.playingSquadLabel, "Playing XI");
+    assert.equal(caps.hasLegacyCricketSpecs, true);
+  });
+
+  it("badminton does not declare cricket capabilities", () => {
+    const caps = getSportCapabilities("badminton");
+    assert.equal(caps.hasPlayingXi, false);
+    assert.equal(caps.hasBench, false);
+    assert.equal(caps.hasOvers, false);
+    assert.equal(caps.hasCaptain, false);
+    assert.equal(caps.hasLBW, false);
+    assert.equal(caps.hasSets, true);
+    assert.equal(caps.hasCourts, true);
+    assert.equal(caps.hasServiceSide, true);
+    assert.equal(caps.hasLegacyCricketSpecs, false);
+    assert.equal(caps.playingSquadLabel, "Lineup");
+  });
+
+  it("badminton live ops links exclude cricket-only destinations", () => {
+    const caps = getSportCapabilities("badminton");
+    const ids = caps.liveOpsLinks.map((l) => l.id);
+    assert.ok(ids.includes("mission_control"));
+    assert.ok(ids.includes("broadcast"));
+    assert.equal(ids.includes("match_center"), false);
+    assert.equal(ids.includes("standings"), false);
+    assert.equal(ids.includes("statistics"), false);
+    assert.equal(ids.includes("public"), false);
+  });
+
+  it("cricket live ops links exclude badminton-only destinations", () => {
+    const caps = getSportCapabilities("cricket");
+    const ids = caps.liveOpsLinks.map((l) => l.id);
+    assert.ok(ids.includes("dashboard"));
+    assert.ok(ids.includes("match_center"));
+    assert.equal(ids.includes("mission_control"), false);
+    assert.equal(ids.includes("broadcast"), false);
+  });
+
+  it("filterPlayerTagOptions hides captain tags when sport lacks hasCaptain", () => {
+    const cricketTags = filterPlayerTagOptions(
+      getSportCapabilities("cricket"),
+      PLAYER_TAG_OPTIONS,
+    );
+    assert.ok(cricketTags.some((t) => t.value === "captain"));
+    assert.ok(cricketTags.some((t) => t.value === "vice_captain"));
+
+    const badmintonTags = filterPlayerTagOptions(
+      getSportCapabilities("badminton"),
+      PLAYER_TAG_OPTIONS,
+    );
+    assert.equal(badmintonTags.some((t) => t.value === "captain"), false);
+    assert.equal(badmintonTags.some((t) => t.value === "vice_captain"), false);
+    assert.ok(badmintonTags.some((t) => t.value === "icon"));
+  });
+
+  it("unknown sport gets safe defaults with no cricket concepts", () => {
+    const caps = getSportCapabilities("volleyball");
+    assert.equal(caps.hasPlayingXi, false);
+    assert.equal(caps.hasOvers, false);
+    assert.equal(caps.hasCaptain, false);
+    assert.equal(caps.liveOpsLinks.length, 0);
+  });
+});

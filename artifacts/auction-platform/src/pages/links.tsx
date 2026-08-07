@@ -23,6 +23,7 @@ import {
   sideDisplayPath,
 } from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
+import { getSportCapabilities } from "@/lib/sport-capabilities";
 
 function LinkSectionHeader({
   title,
@@ -95,7 +96,8 @@ export default function LinksPage() {
   const broadcastV2PreviewUrlValue = broadcastOverlayV2PreviewUrl(base, tournamentId);
   const cricketPublicUrl = `${base}${cricketPublicPath(tournamentId)}`;
   const cricketScoreboardUrl = `${base}${scoreDisplayPath(tournamentId, tournament?.auctionCode)}`;
-  const scoringOn = Boolean(tournament?.scoringEnabled) && tournament?.sport === "cricket";
+  const sportCaps = getSportCapabilities(tournament?.sport);
+  const scoringOn = Boolean(tournament?.scoringEnabled) && sportCaps.hasPublicTournament;
 
   return (
     <AppLayout tournamentId={tournamentId}>
