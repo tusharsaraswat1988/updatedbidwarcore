@@ -1212,7 +1212,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} />
           </div>
         </div>
-      ) : null)}
+      ) : null}
       {/* Player Photo */}
       <div className="space-y-2">
           <Label>Player Photo</Label>
