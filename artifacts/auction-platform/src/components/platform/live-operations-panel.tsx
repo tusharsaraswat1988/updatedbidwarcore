@@ -1,16 +1,23 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { Link } from "wouter";
-import { ExternalLink, Radio, MonitorPlay, Tv2, LayoutGrid } from "lucide-react";
+import { ExternalLink, Radio, MonitorPlay, Tv2, LayoutGrid, Table2, Trophy, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModuleWorkspace } from "@/components/platform/module-workspace";
 import {
   auctionRoomPath,
+  cricketPublicPath,
   displayScreenPath,
   openAuctionRoom,
   scoringPath,
   setupAreaPath,
 } from "@/lib/tournament-navigation";
+import {
+  cricketDashboardPath,
+  cricketStandingsOpsPath,
+  cricketStatsOpsPath,
+} from "@/lib/cricket-routes";
+import { scoringAppPath } from "@workspace/api-base/scoring-urls";
 import { badmintonHubPath } from "@/lib/badminton-routes";
 import { deriveModuleHealth } from "@/lib/module-workspace-utils";
 import {
@@ -48,16 +55,20 @@ export function LiveOperationsModule({
       peekSummary: {
         title: "Live Operations",
         lines: [
-          isBadminton ? "Badminton Mission Control" : "Auction / sport live control",
+          isBadminton
+            ? "Badminton Mission Control"
+            : isCricket
+              ? "Cricket dashboard & matches"
+              : "Auction / sport live control",
           "LED display",
-          isBadminton ? "Broadcast / OBS" : "OBS / Presentation",
+          isBadminton ? "Broadcast / OBS" : isCricket ? "Public cricket page" : "OBS / Presentation",
         ],
       },
       entityCount: 1,
       lockedCount: 0,
       loading: false,
     }),
-    [isBadminton],
+    [isBadminton, isCricket],
   );
 
   useRegisterModuleSnapshot(snapshot);
@@ -125,23 +136,64 @@ function LiveOperationsBody({
       ) : null}
 
       {isCricket ? (
-        <LiveOpsLink
-          title="Cricket Live Control"
-          description="Scoring and cricket live operations."
-          icon={<MonitorPlay className="w-4 h-4" />}
-          href={
-            from
-              ? `${scoringPath(tournamentId)}?from=${from}`
-              : scoringPath(tournamentId)
-          }
-          onClick={() => {
-            const target = from
-              ? `${scoringPath(tournamentId)}?from=${from}`
-              : scoringPath(tournamentId);
-            window.location.assign(target);
-          }}
-          external
-        />
+        <>
+          <LiveOpsLink
+            title="Cricket Dashboard"
+            description="Today's matches, pending actions, standings."
+            icon={<MonitorPlay className="w-4 h-4" />}
+            href={scoringAppPath(`${cricketDashboardPath(tournamentId)}?from=${from}`)}
+            onClick={() => {
+              window.location.assign(
+                scoringAppPath(`${cricketDashboardPath(tournamentId)}?from=${from}`),
+              );
+            }}
+            external
+          />
+          <LiveOpsLink
+            title="Match Command Center"
+            description="Create and open matches for scoring."
+            icon={<LayoutGrid className="w-4 h-4" />}
+            href={
+              from
+                ? `${scoringPath(tournamentId)}?from=${from}`
+                : scoringPath(tournamentId)
+            }
+            onClick={() => {
+              const target = from
+                ? `${scoringPath(tournamentId)}?from=${from}`
+                : scoringPath(tournamentId);
+              window.location.assign(target);
+            }}
+            external
+          />
+          <LiveOpsLink
+            title="Standings"
+            description="Points table and NRR."
+            icon={<Table2 className="w-4 h-4" />}
+            href={scoringAppPath(cricketStandingsOpsPath(tournamentId))}
+            onClick={() => {
+              window.location.assign(scoringAppPath(cricketStandingsOpsPath(tournamentId)));
+            }}
+            external
+          />
+          <LiveOpsLink
+            title="Statistics"
+            description="Runs, wickets, SR, economy, and more."
+            icon={<Trophy className="w-4 h-4" />}
+            href={scoringAppPath(cricketStatsOpsPath(tournamentId))}
+            onClick={() => {
+              window.location.assign(scoringAppPath(cricketStatsOpsPath(tournamentId)));
+            }}
+            external
+          />
+          <LiveOpsLink
+            title="Public Cricket Page"
+            description="Fan-facing fixtures, standings, and stats."
+            icon={<Calendar className="w-4 h-4" />}
+            href={cricketPublicPath(tournamentId)}
+            external
+          />
+        </>
       ) : null}
 
       <LiveOpsLink
@@ -159,7 +211,7 @@ function LiveOperationsBody({
           icon={<Radio className="w-4 h-4" />}
           href={`${badmintonHubPath(tournamentId)}/broadcast?from=${from}`}
         />
-      ) : (
+      ) : !isCricket ? (
         <LiveOpsLink
           title="OBS / Presentation"
           description="Presentation engine surfaces."
@@ -167,7 +219,7 @@ function LiveOperationsBody({
           href={displayScreenPath(tournamentId)}
           external
         />
-      )}
+      ) : null}
     </ul>
   );
 }

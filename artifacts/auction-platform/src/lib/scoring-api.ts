@@ -283,6 +283,27 @@ export async function getScoringLeaderboard(
   return data.rows ?? [];
 }
 
+export type ScoringAwardRow = {
+  id: number;
+  matchId: number;
+  awardType: string;
+  reason: string | null;
+  score: number | null;
+  awardedAt: string;
+  playerId: number;
+  playerName: string;
+  teamId: number;
+  teamName: string;
+  shortCode: string;
+};
+
+export async function listScoringAwards(tournamentId: number): Promise<ScoringAwardRow[]> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/awards`);
+  if (!r.ok) throw new Error(await parseError(r));
+  const data = await r.json();
+  return data.awards ?? [];
+}
+
 export async function getPublicMatchScorecard(
   tournamentId: number,
   matchId: number,

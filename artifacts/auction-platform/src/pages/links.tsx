@@ -16,7 +16,12 @@ import {
   broadcastOverlayV2Url,
   broadcastOverlayV2PreviewUrl,
 } from "@/lib/broadcast-overlay";
-import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
+import {
+  cricketPublicPath,
+  liveViewerPath,
+  scoreDisplayPath,
+  sideDisplayPath,
+} from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
 
 function LinkSectionHeader({
@@ -88,6 +93,9 @@ export default function LinksPage() {
   const broadcastPreviewUrlValue = broadcastOverlayPreviewUrl(base, tournamentId);
   const broadcastV2UrlValue = broadcastOverlayV2Url(base, tournamentId);
   const broadcastV2PreviewUrlValue = broadcastOverlayV2PreviewUrl(base, tournamentId);
+  const cricketPublicUrl = `${base}${cricketPublicPath(tournamentId)}`;
+  const cricketScoreboardUrl = `${base}${scoreDisplayPath(tournamentId, tournament?.auctionCode)}`;
+  const scoringOn = Boolean(tournament?.scoringEnabled) && tournament?.sport === "cricket";
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -95,9 +103,33 @@ export default function LinksPage() {
         <OrganizerSectionHeader
           tournament={tournament}
           title={<span className="flex items-center gap-3"><Link2 className="w-8 h-8 text-primary" /> Links</span>}
-          description="Share links for auction day — LED screen, streaming, and spectators."
+          description="Share links for auction day and cricket match day — LED, stream, and fans."
         />
 
+        {scoringOn ? (
+          <Card className="overflow-hidden panel border-none mb-6">
+            <CardContent className="p-0">
+              <LinkSectionHeader
+                title="Cricket public"
+                description="Share with fans, sponsors, and franchise owners."
+              />
+              <div className="p-6 pt-4">
+                <LinkRow
+                  label="Tournament home (fixtures · standings · stats)"
+                  url={cricketPublicUrl}
+                  description="Public cricket page — live matches, results, points table, and leaderboards."
+                  shareText={`${tournament?.name ?? "Tournament"} cricket page: ${cricketPublicUrl}`}
+                />
+                <LinkRow
+                  label="Cricket LED scoreboard"
+                  url={cricketScoreboardUrl}
+                  description="Venue scoreboard for live cricket matches."
+                  shareText={`Cricket scoreboard: ${cricketScoreboardUrl}`}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
         <Card className="overflow-hidden panel border-none">
           <CardContent className="p-0">
             <LinkSectionHeader

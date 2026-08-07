@@ -401,3 +401,46 @@ export async function getGlobalPlayerCricketProfile(globalPlayerId: string) {
     })),
   };
 }
+
+/** Tournament awards board — reads existing scoring_player_awards rows. */
+export async function listTournamentAwards(tournamentId: number) {
+  await ensureScoringEnabled(tournamentId);
+
+  const rows = await db
+    .select({
+      id: scoringPlayerAwardsTable.id,
+      matchId: scoringPlayerAwardsTable.matchId,
+      playerId: scoringPlayerAwardsTable.playerId,
+      teamId: scoringPlayerAwardsTable.teamId,
+      awardType: scoringPlayerAwardsTable.awardType,
+      reason: scoringPlayerAwardsTable.reason,
+      score: scoringPlayerAwardsTable.score,
+      createdAt: scoringPlayerAwardsTable.createdAt,
+    })
+    .from(scoringPlayerAwardsTable)
+    .where(eq(scoringPlayerAwardsTable.tournamentId, tournamentId))
+    .orderBy(desc(scoringPlayerAwardsTable.createdAt));
+
+  if (rows.length === 0) return [];
+
+  const playerIds = [...new Set(rows.map((r) => r.playerId))];
+  const teamIds = [...new Set(rows.map((r) => r.teamId))];
+  const [playerMap, teamMap] = await Promise.all([
+    resolveCricketFranchisePlayersByIds(tournamentId, playerIds),
+    resolveCricketFranchiseTeamsByIds(tournamentId, teamIds),
+  ]);
+
+  return rows.map((row) => ({
+    id: row.id,
+    matchId: row.matchId,
+    awardType: row.awardType,
+    reason: row.reason,
+    score: row.score,
+    awardedAt: row.createdAt,
+    playerId: row.playerId,
+    playerName: playerMap.get(row.playerId)?.name ?? `Player #${row.playerId}`,
+    teamId: row.teamId,
+    teamName: teamMap.get(row.teamId)?.name ?? `Team #${row.teamId}`,
+    shortCode: teamMap.get(row.teamId)?.shortCode ?? "",
+  }));
+}

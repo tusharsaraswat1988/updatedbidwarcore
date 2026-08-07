@@ -123,9 +123,24 @@ export function scoringPath(tournamentId: number): string {
   return scoringAppPath(`/tournament/${tournamentId}/score`);
 }
 
+/** Cricket tournament dashboard (organizer day-ops). */
+export function cricketDashboardAppPath(tournamentId: number): string {
+  return scoringAppPath(`/tournament/${tournamentId}/score/dashboard`);
+}
+
 /** Tournament schedule generator (organizer) — external scoring app. */
 export function scoringSchedulePath(tournamentId: number): string {
   return scoringAppPath(`/tournament/${tournamentId}/score/schedule`);
+}
+
+/** Cricket standings (organizer). */
+export function cricketStandingsAppPath(tournamentId: number): string {
+  return scoringAppPath(`/tournament/${tournamentId}/score/standings`);
+}
+
+/** Cricket statistics (organizer). */
+export function cricketStatsAppPath(tournamentId: number): string {
+  return scoringAppPath(`/tournament/${tournamentId}/score/stats`);
 }
 
 /** Public cricket tournament page (fans) — external scoring app. */

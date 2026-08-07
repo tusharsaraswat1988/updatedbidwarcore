@@ -5,7 +5,12 @@ import { OrganizerGuard } from "@/components/organizer-guard";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
 import { SportsShell } from "@/components/sports-shell";
 import { getBadmintonSportNav } from "@/lib/badminton-sport-nav";
+import { getCricketSportNav } from "@/lib/cricket-sport-nav";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
+import {
+  CRICKET_ROUTE_LOADING_CLASS,
+  isCricketOrganizerPath,
+} from "@/lib/cricket-routes";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
 
@@ -28,6 +33,14 @@ const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"))
 const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
 const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
 
+const CricketDashboard = lazy(() => import("@/pages/cricket/dashboard"));
+const CricketFixtures = lazy(() => import("@/pages/cricket/fixtures"));
+const CricketStandings = lazy(() => import("@/pages/cricket/standings"));
+const CricketStats = lazy(() => import("@/pages/cricket/stats"));
+const CricketOfficials = lazy(() => import("@/pages/cricket/officials"));
+const CricketAwards = lazy(() => import("@/pages/cricket/awards"));
+const CricketReports = lazy(() => import("@/pages/cricket/reports"));
+const CricketMatchCenter = lazy(() => import("@/pages/cricket/match-center"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
@@ -53,17 +66,25 @@ const ScoringAppTournamentHomeRedirect = lazy(
 
 const BASE = SCORING_APP_BASE.replace(/\/$/, "");
 const badmintonSportNav = getBadmintonSportNav();
+const cricketSportNav = getCricketSportNav();
 
 function RouteSuspenseFallback() {
   const [location] = useLocation();
   const className = isBadmintonOrganizerPath(location)
     ? BADMINTON_ROUTE_LOADING_CLASS
-    : "min-h-screen bg-background";
+    : isCricketOrganizerPath(location)
+      ? CRICKET_ROUTE_LOADING_CLASS
+      : "min-h-screen bg-background";
   return <div className={className} aria-busy="true" />;
 }
 
 function badmintonTournamentIdFromPath(path: string): number {
   const match = path.match(/^\/tournament\/(\d+)\/badminton(\/|$)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+function cricketTournamentIdFromPath(path: string): number {
+  const match = path.match(/^\/tournament\/(\d+)\/score(\/|$)/);
   return match ? parseInt(match[1], 10) : 0;
 }
 
@@ -102,11 +123,45 @@ function BadmintonOrganizerLayout({ tournamentId }: { tournamentId: number }) {
   );
 }
 
+/**
+ * Cricket organizer OS — SportsShell stays mounted across sidebar navigations.
+ * CricketOrganizerPageShell becomes a no-op inside this shell.
+ */
+function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
+  return (
+    <ScoringFeatureGuard>
+      <OrganizerGuard tournamentId={tournamentId}>
+        <SportsShell tournamentId={tournamentId} nav={cricketSportNav} noPadding>
+          <Suspense fallback={<RouteSuspenseFallback />}>
+            <Switch>
+              <Route path="/tournament/:id/score/dashboard" component={CricketDashboard} />
+              <Route path="/tournament/:id/score/fixtures" component={CricketFixtures} />
+              <Route path="/tournament/:id/score/standings" component={CricketStandings} />
+              <Route path="/tournament/:id/score/stats" component={CricketStats} />
+              <Route path="/tournament/:id/score/officials" component={CricketOfficials} />
+              <Route path="/tournament/:id/score/awards" component={CricketAwards} />
+              <Route path="/tournament/:id/score/reports" component={CricketReports} />
+              <Route path="/tournament/:id/score/schedule" component={ScoringSchedule} />
+              <Route path="/tournament/:id/score/:matchId/live" component={ScoringMatch} />
+              <Route path="/tournament/:id/score/:matchId" component={CricketMatchCenter} />
+              <Route path="/tournament/:id/score" component={ScoringMatchList} />
+            </Switch>
+          </Suspense>
+        </SportsShell>
+      </OrganizerGuard>
+    </ScoringFeatureGuard>
+  );
+}
+
 function Router() {
   const [location] = useLocation();
 
   if (isBadmintonOrganizerPath(location)) {
     return <BadmintonOrganizerLayout tournamentId={badmintonTournamentIdFromPath(location)} />;
+  }
+
+  if (isCricketOrganizerPath(location)) {
+    return <CricketOrganizerLayout tournamentId={cricketTournamentIdFromPath(location)} />;
   }
 
   return (
@@ -144,37 +199,6 @@ function Router() {
         <Route path="/player/:globalPlayerId" component={CricketGlobalPlayer} />
         <Route path="/tournament/:id/cricket">
           {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
-        </Route>
-
-        <Route path="/tournament/:id/score/schedule">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><ScoringSchedule /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/score/:matchId">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><ScoringMatch /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/score">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><ScoringMatchList /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
         </Route>
 
         <Route path="/tournament/:id">
