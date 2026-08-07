@@ -165,11 +165,11 @@ export function OperatorLayout({
       type="button"
       onClick={() => openSetupArea(tournamentId)}
       className="h-8 lg:h-8 px-2.5 flex items-center gap-1 rounded-md border border-white/12 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors flex-shrink-0"
-      title="Return to Tournament Mission Control"
-      aria-label="Return to Tournament Mission Control"
+      title="Return to Auction Overview"
+      aria-label="Return to Auction Overview"
     >
       <ArrowLeft className="w-3.5 h-3.5" />
-      <span className="hidden sm:inline">Mission Control</span>
+      <span className="hidden sm:inline">Overview</span>
     </button>
   );
 

@@ -15,13 +15,14 @@ function activeIds(pathname: string): string[] {
 }
 
 describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
-  it("exposes exactly 7 primary sidebar items", () => {
+  it("exposes Mission Control plus 7 operational sidebar items", () => {
     const nav = getBadmintonSportNav();
     const items = nav.sections.flatMap((s) => s.items);
-    assert.equal(items.length, 7);
+    assert.equal(items.length, 8);
     assert.deepEqual(
       items.map((i) => i.label),
       [
+        "Mission Control",
         "Operations",
         "Tournament Setup",
         "Participants",
@@ -43,6 +44,7 @@ describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
     const byId = Object.fromEntries(
       BADMINTON_PRIMARY_NAV.map((item) => [item.id, item.href(TID)]),
     );
+    assert.equal(byId["mission-control"], `/tournament/${TID}/mission-control`);
     assert.equal(byId.dashboard, BASE);
     assert.equal(byId.setup, `${BASE}/branding`);
     assert.equal(byId.participants, `${BASE}/players`);

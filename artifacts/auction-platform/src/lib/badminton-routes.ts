@@ -1,13 +1,18 @@
-import { tournamentMissionControlPath } from "./tournament-navigation";
+import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 
 /** Organizer badminton hub + management routes under a tournament. */
 export function isBadmintonOrganizerPath(path: string): boolean {
   return /^\/tournament\/\d+\/badminton(\/|$)/.test(path);
 }
 
+/** Sports product home (Tournament Mission Control) — relative to scoring-app base. */
+export function sportsHomePath(tournamentId: number): string {
+  return sportsMissionControlPath(tournamentId);
+}
+
 /**
- * Badminton operational workspace root (Phase 5).
- * Not an operator home — Tournament Mission Control owns home.
+ * Badminton operational workspace root.
+ * Not Sports home — Tournament Mission Control (Sports product) owns home.
  */
 export function badmintonHubPath(tournamentId: number) {
   return `/tournament/${tournamentId}/badminton`;
@@ -174,12 +179,12 @@ export type BadmintonHubBackNav =
   | { kind: "history"; label: string };
 
 /**
- * Contextual back control — operational workspace chain, then Mission Control.
- * Hub root always returns to Tournament Mission Control (sole operator home).
+ * Contextual back control — operational workspace chain, then Sports Mission Control.
+ * Hub root returns to Sports product home (not Auction Overview).
  */
 export function getBadmintonHubBackNav(tournamentId: number, pathname: string): BadmintonHubBackNav {
   const hub = badmintonHubPath(tournamentId);
-  const tmc = tournamentMissionControlPath(tournamentId);
+  const tmc = sportsHomePath(tournamentId);
 
   if (/\/badminton\/matches\/\d+\/control/.test(pathname)) {
     return { kind: "link", href: `${hub}/control`, label: "Back to Operator Panel" };

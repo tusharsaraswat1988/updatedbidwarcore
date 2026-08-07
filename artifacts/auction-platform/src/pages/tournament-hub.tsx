@@ -1,3 +1,9 @@
+/**
+ * Auction Overview — Auction product home.
+ *
+ * Sports Tournament Mission Control is owned by the Sports product
+ * (temporarily hosted under /scoring-app). Do not mount sports modules here.
+ */
 import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
@@ -12,14 +18,12 @@ import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle,
+  CheckCircle2, Circle, ExternalLink,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { PlatformSurface } from "@/components/platform/platform-surface";
 import { ProgressHeader } from "@/components/platform/progress-header";
-import { AttentionCenter } from "@/components/platform/attention-center";
-import { PlatformReadinessStrip } from "@/components/platform/platform-readiness-strip";
-import { TournamentHealth } from "@/components/platform/tournament-health";
 import {
   getReadinessChecklistItems,
   tournamentToReadinessInput,
@@ -29,17 +33,10 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
-import { ModuleRegistryProvider } from "@/components/tournament-hub/module-registry";
-import {
-  TournamentMissionControlModules,
-  useTournamentModuleOrchestration,
-} from "@/components/tournament-hub/tournament-mission-control-modules";
-import {
-  buildAttentionFromReadiness,
-  buildPlatformReadinessSteps,
-} from "@/lib/tournament-mission-control";
-
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
+import { useTournamentScoringActive } from "@/hooks/use-platform-features";
+import { sportsMissionControlAppPath } from "@/lib/tournament-navigation";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
@@ -60,6 +57,8 @@ export default function TournamentHub() {
     tournamentId,
     tournament,
   );
+  const sportsActive = useTournamentScoringActive(tournament?.sport, tournament?.scoringEnabled);
+  const localVenue = isBidWarLocalHost();
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
@@ -101,16 +100,6 @@ export default function TournamentHub() {
         ? "Auction Done"
         : tournament?.status ?? "";
 
-  const readinessSteps = buildPlatformReadinessSteps({
-    isSetupPhase,
-    readinessComplete,
-  });
-  const readinessAttention = buildAttentionFromReadiness({
-    isSetupPhase,
-    readinessComplete,
-    readinessChecks,
-  });
-
   if (loadingTournament) {
     return (
       <AppLayout tournamentId={tournamentId}>
@@ -124,107 +113,7 @@ export default function TournamentHub() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <ModuleRegistryProvider>
-        <TournamentHubMissionControl
-          tournamentId={tournamentId}
-          tournament={tournament}
-          summary={summary}
-          insightsPayload={insightsPayload}
-          loadingInsights={loadingInsights}
-          loadingPurses={loadingPurses}
-          loadingSummary={loadingSummary}
-          isSetupPhase={isSetupPhase}
-          readinessComplete={readinessComplete}
-          readinessAttention={readinessAttention}
-          readinessSteps={readinessSteps}
-          readinessChecks={readinessChecks}
-          readinessDataLoaded={readinessDataLoaded}
-          readinessDoneCount={readinessDoneCount}
-          readinessTotal={readinessTotal}
-          readinessPercent={readinessPercent}
-          readinessMode={readinessMode}
-          statusLabel={statusLabel}
-          teamCount={teamCount}
-          playerCount={playerCount}
-          teamsReady={teamsReady}
-          playersReady={playersReady}
-          minPlayersNeeded={minPlayersNeeded}
-          formatAmount={formatAmount}
-          formatShort={formatShort}
-          budgetLabel={budgetLabel}
-          navigate={navigate}
-        />
-      </ModuleRegistryProvider>
-    </AppLayout>
-  );
-}
-
-function TournamentHubMissionControl({
-  tournamentId,
-  tournament,
-  summary,
-  insightsPayload,
-  loadingInsights,
-  loadingPurses,
-  loadingSummary,
-  isSetupPhase,
-  readinessComplete,
-  readinessAttention,
-  readinessSteps,
-  readinessChecks,
-  readinessDataLoaded,
-  readinessDoneCount,
-  readinessTotal,
-  readinessPercent,
-  readinessMode,
-  statusLabel,
-  teamCount,
-  playerCount,
-  teamsReady,
-  playersReady,
-  minPlayersNeeded,
-  formatAmount,
-  formatShort,
-  budgetLabel,
-  navigate,
-}: {
-  tournamentId: number;
-  tournament: ReturnType<typeof useGetTournament>["data"];
-  summary: ReturnType<typeof useGetTournamentSummary>["data"];
-  insightsPayload: ReturnType<typeof useTournamentInsightsFeed>["data"];
-  loadingInsights: boolean;
-  loadingPurses: boolean;
-  loadingSummary: boolean;
-  isSetupPhase: boolean;
-  readinessComplete: boolean;
-  readinessAttention: import("@/components/platform/attention-center").AttentionItem[];
-  readinessSteps: import("@/components/platform/platform-readiness-strip").PipelineStep[];
-  readinessChecks: ReturnType<typeof getReadinessChecklistItems>;
-  readinessDataLoaded: boolean;
-  readinessDoneCount: number;
-  readinessTotal: number;
-  readinessPercent: number;
-  readinessMode: "live" | "trial";
-  statusLabel: string;
-  teamCount: number;
-  playerCount: number;
-  teamsReady: boolean;
-  playersReady: boolean;
-  minPlayersNeeded: number;
-  formatAmount: (value?: number | null) => string;
-  formatShort: (value?: number | null) => string;
-  budgetLabel: string;
-  navigate: (path: string) => void;
-}) {
-  const { attentionItems, moduleHealth, scrollToModule } = useTournamentModuleOrchestration({
-    isSetupPhase,
-    readinessComplete,
-    readinessAttention,
-  });
-
-  return (
       <div className="org-page-content">
-        {/* Title */}
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             {tournament?.logoUrl && (
@@ -238,25 +127,41 @@ function TournamentHubMissionControl({
           </div>
           <p className="text-muted-foreground mt-1.5 font-mono text-xs sm:text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
             {tournament?.sport?.toUpperCase()}
-            {tournament?.city && <span>· {tournament.city}</span>}
             {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
             {tournament?.venue && <span>· {tournament.venue}</span>}
             <span>· {budgetLabel}: {formatAmount(tournament?.basePurse)}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-1.5 max-w-2xl">
-            <span className="font-semibold text-foreground/80">Tournament Mission Control</span>
+            <span className="font-semibold text-foreground/80">Auction Overview</span>
             {" — "}
             {isSetupPhase && readinessComplete
-              ? "Setup complete — open Live Operations when you are ready to start."
-              : "Orchestrate competition setup, then open Live Operations when you are ready."}
+              ? "Auction setup complete — open Auction Control when you are ready to start."
+              : "Prepare teams, players, and auction settings for auction day."}
           </p>
         </div>
 
-        <PlatformReadinessStrip steps={readinessSteps} />
-        <TournamentHealth modules={moduleHealth} />
-        <AttentionCenter items={attentionItems} onModuleAction={scrollToModule} />
+        {sportsActive && !localVenue ? (
+          <PlatformSurface className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Sports product</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Competition, fixtures, runtime, and live ops live in Sports Mission Control.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 gap-2"
+              onClick={() => {
+                window.location.assign(sportsMissionControlAppPath(tournamentId));
+              }}
+            >
+              Open Sports
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Button>
+          </PlatformSurface>
+        ) : null}
 
-        {/* Summary Stats */}
         <div className="org-stat-grid">
           {isSetupPhase ? (
             <>
@@ -342,18 +247,10 @@ function TournamentHubMissionControl({
           isLoading={loadingInsights && !insightsPayload}
         />
 
-        {tournamentId ? (
-          <TournamentMissionControlModules
-            tournamentId={tournamentId}
-            sport={tournament?.sport}
-          />
-        ) : null}
-
-        {/* Setup Checklist — hidden once every item is complete */}
         {isSetupPhase && readinessDataLoaded && !readinessComplete && (
           <PlatformSurface className="space-y-4">
             <ProgressHeader
-              title="Setup Checklist"
+              title="Auction Setup Checklist"
               icon={<CheckCircle2 className="w-4 h-4 text-primary" />}
               doneCount={readinessDoneCount}
               totalCount={readinessTotal}
@@ -396,7 +293,7 @@ function TournamentHubMissionControl({
             </div>
           </PlatformSurface>
         )}
-
       </div>
+    </AppLayout>
   );
 }

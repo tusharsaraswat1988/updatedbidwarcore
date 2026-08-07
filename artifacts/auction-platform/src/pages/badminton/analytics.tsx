@@ -260,7 +260,9 @@ export default function BadmintonAnalyticsPage() {
               label: "Open Mission Control",
 
               onClick: () => {
-                window.location.href = `/tournament/${tournamentId}`;
+                window.location.assign(
+                  `/scoring-app/tournament/${tournamentId}/mission-control`,
+                );
               },
 
             }}

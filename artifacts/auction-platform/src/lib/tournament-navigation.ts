@@ -1,4 +1,10 @@
-import { scoringAppPath } from "@workspace/api-base/scoring-urls";
+import {
+  scoringAppPath,
+  sportsMissionControlAppPath,
+  sportsMissionControlPath,
+} from "@workspace/api-base/scoring-urls";
+
+export { sportsMissionControlAppPath, sportsMissionControlPath };
 
 /** Relative path to the live auction operator room for a tournament. */
 export function auctionRoomPath(tournamentId: number): string {
@@ -23,6 +29,9 @@ export function returnPathBackLabel(path: string): string {
   if (path.includes("/settings")) return "Back to Settings";
   if (path.includes("/auction")) return "Back to Auction Room";
   if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) {
+    return "Back to Auction Overview";
+  }
+  if (path.includes("/mission-control")) {
     return "Back to Tournament Mission Control";
   }
   return "Go back";
@@ -37,16 +46,24 @@ export function openAuctionRoom(tournamentId: number): void {
 }
 
 /**
- * Tournament Mission Control — the sole operator home.
- * Prefer this name in Phase 5+ call sites; `setupAreaPath` remains as alias.
+ * Auction Overview — Auction product home (not Sports Mission Control).
+ * Historical name `tournamentMissionControlPath` kept as alias for Auction Overview.
  */
-export function tournamentMissionControlPath(tournamentId: number): string {
+export function auctionOverviewPath(tournamentId: number): string {
   return `/tournament/${tournamentId}`;
 }
 
-/** @alias tournamentMissionControlPath — historical name used by auction operator return. */
+/**
+ * @deprecated Prefer `auctionOverviewPath` for Auction, or `sportsMissionControlAppPath` for Sports.
+ * Resolves to Auction Overview — Sports Mission Control lives under the Sports product host.
+ */
+export function tournamentMissionControlPath(tournamentId: number): string {
+  return auctionOverviewPath(tournamentId);
+}
+
+/** @alias auctionOverviewPath — historical name used by auction operator return. */
 export function setupAreaPath(tournamentId: number): string {
-  return tournamentMissionControlPath(tournamentId);
+  return auctionOverviewPath(tournamentId);
 }
 
 /** BidWar Media Center — organizer Buzz Studio hub (requires features.buzzStudio). */

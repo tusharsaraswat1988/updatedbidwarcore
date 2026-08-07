@@ -1,5 +1,6 @@
 import {
   CalendarClock,
+  ClipboardList,
   LayoutDashboard,
   ListTree,
   Radio,
@@ -7,8 +8,9 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { badmintonHubPath } from "./badminton-routes";
+import { badmintonHubPath, sportsHomePath } from "./badminton-routes";
 import type { SportNavConfig, SportNavItem, SportNavSection } from "./sports-shell-types";
+import { getSportCapabilities } from "./sport-capabilities";
 
 /**
  * VNBL Phase 1 — Product IA sidebar (max 7 primary items).
@@ -92,8 +94,15 @@ function resultsSection(path: string): "standings" | "summary" | "insights" | nu
   return null;
 }
 
+function isMissionControlPath(path: string, tournamentId: number): boolean {
+  const pathname = navPathname(path);
+  const home = sportsHomePath(tournamentId);
+  return pathname === home || pathname === `${home}/`;
+}
+
 /** Warm lazy route chunks before the user clicks a sidebar link. */
 const PRELOAD: Record<string, () => Promise<unknown>> = {
+  missionControl: () => import("../pages/sports/mission-control"),
   dashboard: () => import("../pages/badminton/tournament-hub"),
   setup: () => import("../pages/badminton/branding"),
   participants: () => import("../pages/badminton/players"),
@@ -117,10 +126,18 @@ function preloadNav(id: string) {
 }
 
 /**
- * Primary organizer destinations — tournament lifecycle order.
- * Do not add sidebar items without an IA review (max 7).
+ * Primary organizer destinations — Sports home + lifecycle ops.
+ * Mission Control is Sports product home; remaining items are operational.
  */
 export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
+  {
+    id: "mission-control",
+    label: "Mission Control",
+    href: sportsHomePath,
+    isActive: (path, tid) => isMissionControlPath(path, tid),
+    icon: ClipboardList,
+    preload: () => preloadNav("missionControl"),
+  },
   {
     id: "dashboard",
     label: "Operations",
@@ -288,6 +305,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
  * Badminton sidebar for SportsShell — flat lifecycle nav (no module sections).
  */
 export function getBadmintonSportNav(): SportNavConfig {
+  const capabilities = getSportCapabilities("badminton");
   const sections: SportNavSection[] = [
     {
       id: "primary",
@@ -301,6 +319,7 @@ export function getBadmintonSportNav(): SportNavConfig {
     sportId: "badminton",
     sportLabel: "Badminton",
     sections,
+    capabilities,
   };
 }
 

@@ -24,11 +24,21 @@ export {
 
 export {
   SCORING_APP_BASE,
+  SPORTS_PRODUCT_HOST_BASE,
   scoringAppPath,
   scoringAppHomePath,
+  sportsMissionControlPath,
+  sportsMissionControlAppPath,
   scoringAppPublicUrl,
   openScoringApp,
 } from "./scoring-urls.ts";
+
+export {
+  type TournamentIdentity,
+  type TournamentIdentitySource,
+  normalizeTournamentIdentity,
+  tournamentIdentityTitle,
+} from "./tournament-identity.ts";
 
 export {
   OWNER_APP_BASE,

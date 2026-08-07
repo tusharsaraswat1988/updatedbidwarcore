@@ -4,6 +4,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { badmintonHubPath } from "@/lib/badminton-routes";
+import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 
 /**
  * Cricket `/score*` routes are cricket-only. Badminton tournaments that land here
@@ -22,7 +23,7 @@ export function CricketScoringSportRedirect({
   return null;
 }
 
-/** Resolves `/tournament/:id` in the scoring app to the sport-correct home. */
+/** Resolves `/tournament/:id` in the scoring app to Sports Mission Control. */
 export function ScoringAppTournamentHomeRedirect({
   tournamentId,
 }: {
@@ -36,7 +37,7 @@ export function ScoringAppTournamentHomeRedirect({
   });
 
   if (!tournamentId || isError) {
-    return <Redirect to={`/tournament/${tournamentId || 0}/score`} replace />;
+    return <Redirect to={sportsMissionControlPath(tournamentId || 0)} replace />;
   }
 
   if (isLoading || !tournament) {
@@ -49,9 +50,5 @@ export function ScoringAppTournamentHomeRedirect({
     );
   }
 
-  if (tournament.sport === "badminton") {
-    return <Redirect to={badmintonHubPath(tournamentId)} replace />;
-  }
-
-  return <Redirect to={`/tournament/${tournamentId}/score`} replace />;
+  return <Redirect to={sportsMissionControlPath(tournamentId)} replace />;
 }

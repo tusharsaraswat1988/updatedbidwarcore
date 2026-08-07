@@ -39,7 +39,7 @@ import {
   cricketStandingsOpsPath,
   cricketStatsOpsPath,
 } from "@/lib/cricket-routes";
-import { tournamentMissionControlPath } from "@/lib/tournament-navigation";
+import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import {
   AlertTriangle,
   Calendar,
@@ -111,7 +111,7 @@ export default function CricketDashboardPage() {
       items.push({
         id: "squads",
         message: `${notReady.length} team${notReady.length === 1 ? "" : "s"} below playing XI readiness`,
-        href: tournamentMissionControlPath(tournamentId),
+        href: sportsMissionControlPath(tournamentId),
         external: true,
       });
     }
@@ -167,7 +167,7 @@ export default function CricketDashboardPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <a href={tournamentMissionControlPath(tournamentId)}>Mission Control</a>
+              <Link href={sportsMissionControlPath(tournamentId)}>Mission Control</Link>
             </Button>
             <Button size="sm" asChild>
               <Link href={cricketScoreHubPath(tournamentId)}>Open Matches</Link>
@@ -323,29 +323,13 @@ export default function CricketDashboardPage() {
 
             <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {[
+                { label: "Mission Control", href: sportsMissionControlPath(tournamentId) },
                 { label: "Fixtures", href: cricketFixturesPath(tournamentId) },
                 { label: "Schedule", href: cricketScheduleOpsPath(tournamentId) },
                 { label: "Stats", href: cricketStatsOpsPath(tournamentId) },
                 { label: "Officials", href: cricketOfficialsPath(tournamentId) },
                 { label: "Awards", href: cricketAwardsPath(tournamentId) },
-                {
-                  label: "Teams",
-                  href: `/tournament/${tournamentId}/teams`,
-                  external: true as const,
-                },
-              ].map((item) =>
-                "external" in item && item.external ? (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className={cn(
-                      hubPanelClass,
-                      "text-center text-sm font-semibold hover:border-primary/30",
-                    )}
-                  >
-                    {item.label}
-                  </a>
-                ) : (
+              ].map((item) => (
                   <Link
                     key={item.label}
                     href={item.href}
@@ -356,8 +340,7 @@ export default function CricketDashboardPage() {
                   >
                     {item.label}
                   </Link>
-                ),
-              )}
+              ))}
             </section>
           </>
         )}

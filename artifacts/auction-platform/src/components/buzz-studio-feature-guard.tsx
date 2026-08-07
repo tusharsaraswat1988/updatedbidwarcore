@@ -49,7 +49,7 @@ export function BuzzStudioFeatureGuard({
           Contact your BidWar administrator to enable Buzz Studio.
         </p>
         <Button asChild variant="outline" className="mt-6">
-          <Link href={setupAreaPath(tournamentId)}>Back to Tournament Mission Control</Link>
+          <Link href={setupAreaPath(tournamentId)}>Back to Auction Overview</Link>
         </Button>
       </div>
     );

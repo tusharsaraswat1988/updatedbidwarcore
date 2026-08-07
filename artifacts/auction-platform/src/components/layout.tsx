@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Sparkles, Menu, X,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, Sparkles, Menu, X,
 } from "lucide-react";
 import {
   auctionRoomPath,
@@ -12,15 +12,12 @@ import {
   mediaCenterPath,
   mediaCenterTournamentPath,
 } from "@/lib/tournament-navigation";
-import { openScoringApp } from "@workspace/api-base/scoring-urls";
-import { getScoringNavLabel } from "@/lib/sport-label";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { clearOrganizerAccountAuth } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
-import { useScoringPlatformEnabled } from "@/hooks/use-platform-features";
 import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
@@ -53,11 +50,8 @@ interface SidebarNavProps {
   location: string;
   tournamentId: number | undefined;
   tournament: TournamentData | undefined;
-  scoringPlatform: boolean;
   buzzStudioActive: boolean;
   localVenue: boolean;
-  scoringNavLabel: string;
-  onOpenScoringApp: () => void;
 }
 
 function navLinkCls(path: string, currentLocation: string, expanded: boolean, tournamentId?: number) {
@@ -111,11 +105,8 @@ function SidebarNav({
   location,
   tournamentId,
   tournament,
-  scoringPlatform,
   buzzStudioActive,
   localVenue,
-  scoringNavLabel,
-  onOpenScoringApp,
 }: SidebarNavProps) {
   const cls = (path: string) => navLinkCls(path, location, expanded, tournamentId);
   const active = (path: string) => isNavActive(path, location, tournamentId);
@@ -166,9 +157,9 @@ function SidebarNav({
           )}
           {!expanded && <div className="mt-6 mb-2 border-t border-border mx-2" />}
           <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
-            <SidebarLink href={`/tournament/${tournamentId}`} title="Mission Control" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
+            <SidebarLink href={`/tournament/${tournamentId}`} title="Overview" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
               <Activity className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Mission Control</span>}
+              {expanded && <span className="font-medium">Overview</span>}
             </SidebarLink>
             <SidebarLink href={`/tournament/${tournamentId}/teams`} title="Teams" className={cls(`/tournament/${tournamentId}/teams`)} active={active(`/tournament/${tournamentId}/teams`)} showAccent={expanded}>
               <Users className="w-5 h-5 flex-shrink-0" />
@@ -191,19 +182,6 @@ function SidebarNav({
                 <Sparkles className="w-5 h-5 flex-shrink-0" />
                 {expanded && <span className="font-medium">Media Center</span>}
               </SidebarLink>
-            ) : null}
-            {scoringPlatform && tournament?.scoringEnabled && !localVenue ? (
-              <button
-                type="button"
-                onClick={onOpenScoringApp}
-                title={`Open ${scoringNavLabel} in a new tab`}
-                className={`flex items-center rounded-md transition-colors font-medium ${
-                  !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
-                } text-muted-foreground hover:bg-white/[0.06] hover:text-foreground border border-primary/20`}
-              >
-                <CircleDot className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span>{scoringNavLabel}</span>}
-              </button>
             ) : null}
             {tournament?.status === "completed" ? (
               <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
@@ -403,10 +381,8 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
-  const scoringPlatform = useScoringPlatformEnabled();
   const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
   const localVenue = isBidWarLocalHost();
-  const scoringNavLabel = getScoringNavLabel(tournament?.sport);
 
   // Three sidebar states:
   // - mobile (< 768px): hidden by default, opens as overlay drawer
@@ -464,11 +440,8 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
     location,
     tournamentId,
     tournament,
-    scoringPlatform,
     buzzStudioActive,
     localVenue,
-    scoringNavLabel,
-    onOpenScoringApp: () => openScoringApp(tournamentId ?? 0, tournament?.sport),
     expanded: false,
   };
 

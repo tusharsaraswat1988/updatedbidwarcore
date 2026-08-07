@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  auctionOverviewPath,
   displayScreenPath,
   resolveReturnPath,
   returnPathBackLabel,
   scoringPath,
   setupAreaPath,
+  sportsMissionControlPath,
   tournamentMissionControlPath,
 } from "../tournament-navigation.ts";
 import {
   badmintonHubPath,
   getBadmintonHubBackNav,
+  sportsHomePath,
 } from "../badminton-routes.ts";
 
 const TID = 42;
-const TMC = tournamentMissionControlPath(TID);
+const AUCTION_OVERVIEW = auctionOverviewPath(TID);
+const SPORTS_TMC = sportsHomePath(TID);
 const HUB = badmintonHubPath(TID);
 
 describe("Live Ops return + cricket path helpers", () => {
@@ -29,26 +33,37 @@ describe("Live Ops return + cricket path helpers", () => {
   });
 
   it("resolveReturnPath accepts same-origin from= and rejects open redirects", () => {
-    assert.equal(resolveReturnPath(TMC, TID), TMC);
-    assert.equal(resolveReturnPath("//evil.example", TID), TMC);
-    assert.equal(resolveReturnPath("https://evil.example", TID), TMC);
+    assert.equal(resolveReturnPath(AUCTION_OVERVIEW, TID), AUCTION_OVERVIEW);
+    assert.equal(resolveReturnPath("//evil.example", TID), AUCTION_OVERVIEW);
+    assert.equal(resolveReturnPath("https://evil.example", TID), AUCTION_OVERVIEW);
   });
 
-  it("returnPathBackLabel names Tournament Mission Control for hub paths", () => {
-    assert.match(returnPathBackLabel(TMC), /Mission Control/i);
+  it("returnPathBackLabel names Auction Overview for auction hub paths", () => {
+    assert.match(returnPathBackLabel(AUCTION_OVERVIEW), /Auction Overview/i);
   });
 
-  it("setupAreaPath aliases Tournament Mission Control", () => {
-    assert.equal(setupAreaPath(TID), TMC);
+  it("returnPathBackLabel names Mission Control for Sports home paths", () => {
+    assert.match(returnPathBackLabel(SPORTS_TMC), /Mission Control/i);
+  });
+
+  it("setupAreaPath aliases Auction Overview (not Sports Mission Control)", () => {
+    assert.equal(setupAreaPath(TID), AUCTION_OVERVIEW);
+    assert.equal(tournamentMissionControlPath(TID), AUCTION_OVERVIEW);
+    assert.notEqual(setupAreaPath(TID), SPORTS_TMC);
+  });
+
+  it("sportsMissionControlPath is Sports product home", () => {
+    assert.equal(sportsMissionControlPath(TID), `/tournament/${TID}/mission-control`);
+    assert.equal(SPORTS_TMC, `/tournament/${TID}/mission-control`);
   });
 });
 
-describe("Phase 5 home cutover — badminton hub is not home", () => {
-  it("hub root back nav returns to Tournament Mission Control", () => {
+describe("Product boundary — badminton hub is not Sports home", () => {
+  it("hub root back nav returns to Sports Mission Control", () => {
     const back = getBadmintonHubBackNav(TID, HUB);
     assert.equal(back.kind, "link");
     if (back.kind === "link") {
-      assert.equal(back.href, TMC);
+      assert.equal(back.href, SPORTS_TMC);
       assert.match(back.label, /Mission Control/i);
     }
   });

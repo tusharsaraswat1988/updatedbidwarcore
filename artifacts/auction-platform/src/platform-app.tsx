@@ -348,6 +348,8 @@ function PlatformRouter() {
             return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
           }}
         </Route>
+        {/* Sports Mission Control — temporary host under scoring-app */}
+        <Route path="/tournament/:id/mission-control" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/match/:matchId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/player/:playerId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/team/:teamId" component={RedirectToScoringApp} />

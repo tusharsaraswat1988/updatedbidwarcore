@@ -34,7 +34,7 @@ import {
   BadmintonNextStepBanner,
 } from "@/components/badminton/setup-checklist";
 import { ScoringFormatBadge } from "@/components/badminton/scoring-format-badge";
-import { tournamentMissionControlPath } from "@/lib/tournament-navigation";
+import { sportsHomePath } from "@/lib/badminton-routes";
 
 import { matchFormatChipLabel } from "@/lib/match-format-display";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,7 +44,7 @@ export default function BadmintonTournamentHub() {
   const [, params] = useRoute("/tournament/:id/badminton");
   const tournamentId = parseInt(params?.id ?? "0");
   const [, setLocation] = useLocation();
-  const missionControlHref = tournamentMissionControlPath(tournamentId);
+  const missionControlHref = sportsHomePath(tournamentId);
 
   const {
     items,
@@ -108,12 +108,12 @@ export default function BadmintonTournamentHub() {
                   </p>
                 </div>
               </div>
-              <a href={missionControlHref} className="w-full sm:w-auto shrink-0">
+              <Link href={missionControlHref} className="w-full sm:w-auto shrink-0">
                 <BtnSecondary className="w-full sm:w-auto">
                   <Activity className="w-4 h-4" />
                   Open Mission Control
                 </BtnSecondary>
-              </a>
+              </Link>
             </div>
           ) : null}
           {atReady ? (
