@@ -540,6 +540,17 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
       name: tournamentsTable.name,
       sport: tournamentsTable.sport,
       scoringEnabled: tournamentsTable.scoringEnabled,
+      status: tournamentsTable.status,
+      scoringPhase: tournamentsTable.scoringPhase,
+      venue: tournamentsTable.venue,
+      city: tournamentsTable.city,
+      logoUrl: tournamentsTable.logoUrl,
+      matchDates: tournamentsTable.matchDates,
+      sponsorLogos: tournamentsTable.sponsorLogos,
+      mainBannerUrl: tournamentsTable.mainBannerUrl,
+      mainBannerEnabled: tournamentsTable.mainBannerEnabled,
+      variantId: tournamentsTable.variantId,
+      presentationProfileId: tournamentsTable.presentationProfileId,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
@@ -555,6 +566,8 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     name: t.name,
     shortCode: t.shortCode,
     color: t.color,
+    logoUrl: t.logoUrl,
+    squadCount: t.squadCount,
   }));
 
   const fixtures = await listScoringFixtures(tournamentId);

@@ -45,6 +45,12 @@ const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
 const ScoringPublic = lazy(() => import("@/pages/scoring-public"));
+const ScoringPublicMatches = lazy(() => import("@/pages/scoring-public-matches"));
+const ScoringPublicStandings = lazy(() => import("@/pages/scoring-public-standings"));
+const ScoringPublicTeams = lazy(() => import("@/pages/scoring-public-teams"));
+const ScoringPublicPlayers = lazy(() => import("@/pages/scoring-public-players"));
+const ScoringPublicStatistics = lazy(() => import("@/pages/scoring-public-statistics"));
+const ScoringPublicSponsors = lazy(() => import("@/pages/scoring-public-sponsors"));
 const ScoringMatchPublic = lazy(() => import("@/pages/scoring-match-public"));
 const ScoringPlayerPublic = lazy(() => import("@/pages/scoring-player-public"));
 const ScoringTeamPublic = lazy(() => import("@/pages/scoring-team-public"));
@@ -194,6 +200,24 @@ function Router() {
         </Route>
         <Route path="/tournament/:id/cricket/team/:teamId">
           {() => <ScoringFeatureGuard><ScoringTeamPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/cricket/matches">
+          {() => <ScoringFeatureGuard><ScoringPublicMatches /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/cricket/standings">
+          {() => <ScoringFeatureGuard><ScoringPublicStandings /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/cricket/teams">
+          {() => <ScoringFeatureGuard><ScoringPublicTeams /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/cricket/players">
+          {() => <ScoringFeatureGuard><ScoringPublicPlayers /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/cricket/statistics">
+          {() => <ScoringFeatureGuard><ScoringPublicStatistics /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/cricket/sponsors">
+          {() => <ScoringFeatureGuard><ScoringPublicSponsors /></ScoringFeatureGuard>}
         </Route>
         <Route path="/cricket/leaderboards" component={CricketGlobalLeaderboards} />
         <Route path="/player/:globalPlayerId" component={CricketGlobalPlayer} />

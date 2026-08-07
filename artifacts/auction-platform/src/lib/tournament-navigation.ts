@@ -143,24 +143,65 @@ export function cricketStatsAppPath(tournamentId: number): string {
   return scoringAppPath(`/tournament/${tournamentId}/score/stats`);
 }
 
+/** In-app fan paths (scoring-app wouter base already applied). */
+export function cricketFanHomePath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket`;
+}
+
+export function cricketFanMatchesPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/matches`;
+}
+
+export function cricketFanStandingsPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/standings`;
+}
+
+export function cricketFanTeamsPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/teams`;
+}
+
+export function cricketFanPlayersPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/players`;
+}
+
+export function cricketFanStatisticsPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/statistics`;
+}
+
+export function cricketFanSponsorsPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/sponsors`;
+}
+
+export function cricketFanMatchPath(tournamentId: number, matchId: number): string {
+  return `/tournament/${tournamentId}/cricket/match/${matchId}`;
+}
+
+export function cricketFanPlayerPath(tournamentId: number, playerId: number): string {
+  return `/tournament/${tournamentId}/cricket/player/${playerId}`;
+}
+
+export function cricketFanTeamPath(tournamentId: number, teamId: number): string {
+  return `/tournament/${tournamentId}/cricket/team/${teamId}`;
+}
+
 /** Public cricket tournament page (fans) — external scoring app. */
 export function cricketPublicPath(tournamentId: number): string {
-  return scoringAppPath(`/tournament/${tournamentId}/cricket`);
+  return scoringAppPath(cricketFanHomePath(tournamentId));
 }
 
 /** Public full scorecard for a completed match. */
 export function cricketMatchPublicPath(tournamentId: number, matchId: number): string {
-  return scoringAppPath(`/tournament/${tournamentId}/cricket/match/${matchId}`);
+  return scoringAppPath(cricketFanMatchPath(tournamentId, matchId));
 }
 
 /** Public tournament player profile. */
 export function cricketPlayerPublicPath(tournamentId: number, playerId: number): string {
-  return scoringAppPath(`/tournament/${tournamentId}/cricket/player/${playerId}`);
+  return scoringAppPath(cricketFanPlayerPath(tournamentId, playerId));
 }
 
 /** Public tournament team profile. */
 export function cricketTeamPublicPath(tournamentId: number, teamId: number): string {
-  return scoringAppPath(`/tournament/${tournamentId}/cricket/team/${teamId}`);
+  return scoringAppPath(cricketFanTeamPath(tournamentId, teamId));
 }
 
 /** Global cricket player career profile. */
