@@ -1134,7 +1134,7 @@ export default function PlayerRegister() {
                               />
                             </div>
                           </div>
-                        ) : null)}
+                          ) : null}
                       </div>
 
                       {playerBidValueMode && !existingRegistration && bidValueOptions.length > 0 && (
