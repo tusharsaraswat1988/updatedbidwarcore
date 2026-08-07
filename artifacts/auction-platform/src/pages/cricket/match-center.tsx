@@ -52,8 +52,8 @@ import {
   cricketPublicPath,
   openScoreDisplay,
   scoreDisplayPath,
-  tournamentMissionControlPath,
 } from "@/lib/tournament-navigation";
+import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import {
@@ -354,12 +354,12 @@ export default function CricketMatchCenterPage() {
               <Download className="w-4 h-4 text-primary shrink-0" />
               Scorecard
             </button>
-            <a
-              href={tournamentMissionControlPath(tournamentId)}
+            <Link
+              href={sportsMissionControlPath(tournamentId)}
               className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
             >
               Mission Control
-            </a>
+            </Link>
             <Link
               href={cricketDashboardPath(tournamentId)}
               className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}

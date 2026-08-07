@@ -1,11 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 
 export type PlatformFeatures = {
-  /** Platform kill-switch — SCORING=true on the host enables all sport scoring modules */
+  /** Platform kill-switch — SCORING=true on the host enables sport scoring modules */
   scoring: boolean;
-  /** Same as scoring — kept for older UI checks */
+  /**
+   * Per-sport platform gates. When the API only returns `scoring`, both inherit it.
+   * Structured so cricket/badminton can diverge without Auction UI changes.
+   */
   badminton: boolean;
   cricket: boolean;
+  /** Future Broadcast product gate (defaults false until API exposes it). */
+  broadcast: boolean;
+  /** Future Auction product gate (defaults true when omitted — Auction remains default). */
+  auction: boolean;
 };
 
 export type PlatformFeaturesState = PlatformFeatures & {
@@ -17,13 +24,25 @@ const DEFAULT_FEATURES: PlatformFeatures = {
   scoring: false,
   badminton: false,
   cricket: false,
+  broadcast: false,
+  auction: true,
 };
 
 const PLATFORM_FEATURES_QUERY_KEY = ["platform-features"] as const;
 
 function normalizeFeatures(data: Partial<PlatformFeatures>): PlatformFeatures {
-  const scoring = data.scoring ?? data.badminton ?? data.cricket ?? false;
-  return { scoring, badminton: scoring, cricket: scoring };
+  // Legacy clients may only send one of scoring/badminton/cricket.
+  const scoringFallback = data.scoring ?? data.badminton ?? data.cricket ?? false;
+  // Prefer explicit per-sport flags when present; else inherit scoring fallback.
+  const badminton = data.badminton ?? scoringFallback;
+  const cricket = data.cricket ?? scoringFallback;
+  return {
+    scoring: data.scoring ?? (badminton || cricket),
+    badminton,
+    cricket,
+    broadcast: data.broadcast ?? false,
+    auction: data.auction ?? true,
+  };
 }
 
 async function fetchPlatformFeatures(): Promise<PlatformFeatures> {
@@ -63,29 +82,32 @@ export function isTournamentScoringSport(
   return TOURNAMENT_SCORING_SPORTS.includes(sport as TournamentScoringSport);
 }
 
-/** Platform SCORING=true plus per-tournament admin toggle. */
+/** Platform sport gate + per-tournament admin toggle. */
 export function useTournamentScoringActive(
   sport: string | undefined,
   scoringEnabled: boolean | undefined,
 ): boolean {
-  const scoringPlatform = useScoringPlatformEnabled();
-  return scoringPlatform && isTournamentScoringSport(sport) && scoringEnabled === true;
+  const features = usePlatformFeatures();
+  if (!isTournamentScoringSport(sport) || scoringEnabled !== true) return false;
+  if (sport === "cricket") return features.cricket;
+  if (sport === "badminton") return features.badminton;
+  return features.scoring;
 }
 
-/** Platform SCORING=true plus per-tournament admin toggle for cricket. */
+/** Platform cricket gate + per-tournament admin toggle. */
 export function useCricketScoringActive(
   sport: string | undefined,
   scoringEnabled: boolean | undefined,
 ): boolean {
-  const scoringPlatform = useScoringPlatformEnabled();
-  return scoringPlatform && sport === "cricket" && scoringEnabled === true;
+  const { cricket } = usePlatformFeatures();
+  return cricket && sport === "cricket" && scoringEnabled === true;
 }
 
-/** Platform SCORING=true plus per-tournament admin toggle for badminton. */
+/** Platform badminton gate + per-tournament admin toggle. */
 export function useBadmintonScoringActive(
   sport: string | undefined,
   scoringEnabled: boolean | undefined,
 ): boolean {
-  const scoringPlatform = useScoringPlatformEnabled();
-  return scoringPlatform && sport === "badminton" && scoringEnabled === true;
+  const { badminton } = usePlatformFeatures();
+  return badminton && sport === "badminton" && scoringEnabled === true;
 }

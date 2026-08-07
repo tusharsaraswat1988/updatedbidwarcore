@@ -1,8 +1,6 @@
 import {
   Award,
-  CalendarClock,
   ClipboardList,
-  FileText,
   LayoutDashboard,
   ListOrdered,
   Radio,
@@ -22,7 +20,8 @@ import {
   cricketStatsOpsPath,
 } from "./cricket-routes";
 import type { SportNavConfig, SportNavItem, SportNavSection } from "./sports-shell-types";
-import { cricketPublicPath, tournamentMissionControlPath } from "./tournament-navigation";
+import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
+import { getSportCapabilities } from "./sport-capabilities";
 
 function navPathname(path: string): string {
   const noHash = path.split("#")[0] ?? path;
@@ -37,7 +36,6 @@ function isMatchesListPath(path: string, tournamentId: number): boolean {
   const pathname = navPathname(path);
   const base = cricketScoreHubPath(tournamentId);
   if (pathname === base || pathname === `${base}/`) return true;
-  // /score/:matchId and /score/:matchId/live (Match Center + Live Control)
   return new RegExp(`^${base}/\\d+(/live)?/?$`).test(pathname);
 }
 
@@ -45,8 +43,15 @@ function isDashboardPath(path: string): boolean {
   return scoreSection(path, "dashboard");
 }
 
+function isMissionControlPath(path: string, tournamentId: number): boolean {
+  const pathname = navPathname(path);
+  const home = sportsMissionControlPath(tournamentId);
+  return pathname === home || pathname === `${home}/`;
+}
+
 /** Warm lazy route chunks before the user clicks a sidebar link. */
 const PRELOAD: Record<string, () => Promise<unknown>> = {
+  missionControl: () => import("../pages/sports/mission-control"),
   dashboard: () => import("../pages/cricket/dashboard"),
   matches: () => import("../pages/scoring-match-list"),
   matchCenter: () => import("../pages/cricket/match-center"),
@@ -70,10 +75,18 @@ function preloadNav(id: string) {
 }
 
 /**
- * Primary cricket organizer destinations — tournament lifecycle order.
- * Registration / Teams / Settings remain on Tournament Mission Control (auction shell).
+ * Primary cricket organizer destinations — Sports product only.
+ * No Auction deep links (Teams / Players / Settings stay in Auction).
  */
 export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
+  {
+    id: "mission-control",
+    label: "Mission Control",
+    href: sportsMissionControlPath,
+    isActive: (path, tid) => isMissionControlPath(path, tid),
+    icon: ClipboardList,
+    preload: () => preloadNav("missionControl"),
+  },
   {
     id: "dashboard",
     label: "Dashboard",
@@ -169,65 +182,13 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   },
 ];
 
-/** Secondary actions that leave scoring-app (absolute auction-shell paths). */
-export const CRICKET_EXTERNAL_NAV: SportNavItem[] = [
-  {
-    id: "mission-control",
-    label: "Mission Control",
-    href: tournamentMissionControlPath,
-    isActive: () => false,
-    icon: ClipboardList,
-    external: true,
-    hint: "Operator home",
-  },
-  {
-    id: "teams",
-    label: "Teams",
-    href: (tid) => `/tournament/${tid}/teams`,
-    isActive: () => false,
-    icon: Users,
-    external: true,
-    hint: "Roster · captains · owners",
-  },
-  {
-    id: "players",
-    label: "Players",
-    href: (tid) => `/tournament/${tid}/players`,
-    isActive: () => false,
-    icon: Users,
-    external: true,
-    hint: "Registration · import",
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    href: (tid) => `/tournament/${tid}/settings`,
-    isActive: () => false,
-    icon: FileText,
-    external: true,
-  },
-  {
-    id: "public",
-    label: "Public page",
-    href: cricketPublicPath,
-    isActive: () => false,
-    icon: CalendarClock,
-    external: true,
-    hint: "Fan tournament home",
-  },
-];
-
 export function getCricketSportNav(): SportNavConfig {
+  const capabilities = getSportCapabilities("cricket");
   const sections: SportNavSection[] = [
     {
       id: "primary",
       label: "",
       items: CRICKET_PRIMARY_NAV,
-    },
-    {
-      id: "platform",
-      label: "Platform",
-      items: CRICKET_EXTERNAL_NAV,
     },
   ];
 
@@ -235,6 +196,7 @@ export function getCricketSportNav(): SportNavConfig {
     sportId: "cricket",
     sportLabel: "Cricket",
     sections,
+    capabilities,
   };
 }
 

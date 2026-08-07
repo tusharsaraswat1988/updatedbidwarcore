@@ -38,12 +38,34 @@ export type SportNavSection = {
 };
 
 /**
+ * Declared capabilities for a sport module.
+ * Shared SportsShell / Mission Control chrome must branch on these —
+ * never assume cricket concepts in generic Sports UI.
+ */
+export type SportCapabilities = {
+  sportId: string;
+  sportLabel: string;
+  hasPlayingXi?: boolean;
+  hasOvers?: boolean;
+  hasCaptain?: boolean;
+  hasCourts?: boolean;
+  hasDraw?: boolean;
+  hasStandings?: boolean;
+  hasStatistics?: boolean;
+  hasMatchCenter?: boolean;
+  hasPublicTournament?: boolean;
+  hasBroadcast?: boolean;
+};
+
+/**
  * Sport-specific navigation plugged into SportsShell.
- * Auction keeps AppLayout; new sports provide a config like this.
+ * Auction keeps AppLayout; sports provide a config like this.
  */
 export type SportNavConfig = {
   sportId: string;
   /** Shown in collapsed/expanded section headers when useful. */
   sportLabel: string;
   sections: SportNavSection[];
+  /** Optional capability map for capability-driven chrome. */
+  capabilities?: SportCapabilities;
 };

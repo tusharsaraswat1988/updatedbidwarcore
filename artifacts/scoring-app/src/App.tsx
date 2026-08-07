@@ -1,6 +1,6 @@
-import { Suspense, lazy } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
+import { Suspense, lazy, useMemo } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { SCORING_APP_BASE, sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
 import { SportsShell } from "@/components/sports-shell";
@@ -13,9 +13,14 @@ import {
 } from "@/lib/cricket-routes";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
+import {
+  useGetTournament,
+  getGetTournamentQueryKey,
+} from "@workspace/api-client-react";
 
 // Route-level code splitting — loading one organizer page must not pull in
 // players/matches/mission-control/image-cropper and the rest of the graph.
+const SportsMissionControlPage = lazy(() => import("@/pages/sports/mission-control"));
 const BadmintonTournamentHub = lazy(() => import("@/pages/badminton/tournament-hub"));
 const BadmintonPlayersPage = lazy(() => import("@/pages/badminton/players"));
 const BadmintonMatchesPage = lazy(() => import("@/pages/badminton/matches"));
@@ -64,21 +69,25 @@ const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
 const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const ScoringLoginPage = lazy(() => import("@/pages/scoring-login"));
-const ScoringAppTournamentHomeRedirect = lazy(
-  () => import("@/components/scoring/cricket-scoring-sport-redirect").then((m) => ({
-    default: m.ScoringAppTournamentHomeRedirect,
-  })),
-);
 
 const BASE = SCORING_APP_BASE.replace(/\/$/, "");
 const badmintonSportNav = getBadmintonSportNav();
 const cricketSportNav = getCricketSportNav();
 
+function isSportsMissionControlPath(path: string): boolean {
+  return /^\/tournament\/\d+\/mission-control\/?$/.test(path.split("?")[0] ?? path);
+}
+
+function tournamentIdFromMissionControlPath(path: string): number {
+  const match = path.match(/^\/tournament\/(\d+)\/mission-control/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 function RouteSuspenseFallback() {
   const [location] = useLocation();
   const className = isBadmintonOrganizerPath(location)
     ? BADMINTON_ROUTE_LOADING_CLASS
-    : isCricketOrganizerPath(location)
+    : isCricketOrganizerPath(location) || isSportsMissionControlPath(location)
       ? CRICKET_ROUTE_LOADING_CLASS
       : "min-h-screen bg-background";
   return <div className={className} aria-busy="true" />;
@@ -92,6 +101,42 @@ function badmintonTournamentIdFromPath(path: string): number {
 function cricketTournamentIdFromPath(path: string): number {
   const match = path.match(/^\/tournament\/(\d+)\/score(\/|$)/);
   return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Sports product home — Tournament Mission Control.
+ * Temporarily hosted under /scoring-app; ownership is Sports.
+ */
+function SportsMissionControlLayout({ tournamentId }: { tournamentId: number }) {
+  const { data: tournament, isLoading } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId,
+    },
+  });
+
+  const nav = useMemo(() => {
+    if (tournament?.sport === "badminton") return badmintonSportNav;
+    return cricketSportNav;
+  }, [tournament?.sport]);
+
+  if (isLoading || !tournament) {
+    return (
+      <div className="min-h-screen bg-background" aria-busy="true" aria-label="Loading Sports" />
+    );
+  }
+
+  return (
+    <ScoringFeatureGuard>
+      <OrganizerGuard tournamentId={tournamentId}>
+        <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
+          <Suspense fallback={<RouteSuspenseFallback />}>
+            <SportsMissionControlPage />
+          </Suspense>
+        </SportsShell>
+      </OrganizerGuard>
+    </ScoringFeatureGuard>
+  );
 }
 
 /**
@@ -162,6 +207,14 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
 function Router() {
   const [location] = useLocation();
 
+  if (isSportsMissionControlPath(location)) {
+    return (
+      <SportsMissionControlLayout
+        tournamentId={tournamentIdFromMissionControlPath(location)}
+      />
+    );
+  }
+
   if (isBadmintonOrganizerPath(location)) {
     return <BadmintonOrganizerLayout tournamentId={badmintonTournamentIdFromPath(location)} />;
   }
@@ -228,7 +281,7 @@ function Router() {
         <Route path="/tournament/:id">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <ScoringAppTournamentHomeRedirect tournamentId={tid} />;
+            return <Redirect to={sportsMissionControlPath(tid)} replace />;
           }}
         </Route>
 

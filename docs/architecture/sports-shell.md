@@ -16,7 +16,7 @@ Auction and scoring sports must feel like one product. Only sport-specific scree
 | Scoring sports organizer | **`SportsShell`** | `components/sports-shell/` |
 | Public / PIN / LED / OBS | Chrome-free pages | Per sport |
 
-Auction remains on `AppLayout` until a later unify pass. Badminton organizer pages use `SportsShell` via `HubPageShell`.
+Auction remains on `AppLayout` (Auction Overview). Sports Mission Control + sport ops use `SportsShell` under the Sports product host (`/scoring-app` temporary). Do not unify Auction onto SportsShell.
 
 ## How a sport plugs in
 
