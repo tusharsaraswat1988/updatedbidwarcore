@@ -24,6 +24,7 @@
     "./re-auction-strategy": "./src/re-auction-strategy.ts",
     "./venue-auction-guard": "./src/venue-auction-guard.ts",
     "./team-report-rules": "./src/team-report-rules.ts",
+    "./auction-rules-pdf": "./src/auction-rules-pdf.ts",
     "./auction-data": "./src/auction-data/index.ts"
   },
   "devDependencies": {
