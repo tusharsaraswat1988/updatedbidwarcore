@@ -91,6 +91,7 @@ import {
   type SportSpecCatalog,
 } from "@/lib/csv-player-import";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
+import { filterPlayerTagOptions, getSportCapabilities } from "@/lib/sport-capabilities";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
@@ -496,7 +497,8 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   const showPlayerBidSelector = shouldShowPlayerBidValueSelector(tournament ?? {});
   const organizerBidOptions = getOrganizerBidOptions(tournament ?? {});
   const bidValueEditable = canEditPlayerBidValue(tournament?.status);
-  const isCricket = (tournament?.sport ?? "cricket") === "cricket";
+  const sportCaps = getSportCapabilities(tournament?.sport);
+  const playerTagOptions = filterPlayerTagOptions(sportCaps, PLAYER_TAG_OPTIONS);
   const lockedBidDisplayAmount =
     player?.selectedBidValue ?? player?.basePrice ?? tournament?.minBid ?? 100000;
 
@@ -796,7 +798,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
       email: emailResult.email || undefined,
-      cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
+      cricheroUrl: sportCaps.hasLegacyCricketSpecs ? (form.cricheroUrl || undefined) : undefined,
       availabilityDates: form.availabilityDates || undefined,
       // Omit nulls on create — POST schema rejects null for retainedPrice.
       // PATCH clears team/retained fields server-side when leaving retained/sold.
@@ -1194,8 +1196,8 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             );
           })}
         </div>
-      ) : (["cricket", "other", ""].includes(tournament?.sport ?? "cricket") ? (
-        /* Fallback free-text spec fields — only shown for cricket/other/unknown sport */
+      ) : sportCaps.hasLegacyCricketSpecs ? (
+        /* Fallback free-text spec fields — only when sport declares legacy cricket specs */
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Batting Style</Label>
@@ -1306,12 +1308,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           </div>
         );
       })()}
-      {isCricket && (
+      {sportCaps.hasLegacyCricketSpecs ? (
         <div className="space-y-2">
           <Label>Crichero URL</Label>
           <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} />
         </div>
-      )}
+      ) : null}
       <div className="space-y-2">
         <Label>Achievements</Label>
         <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} />
@@ -1418,7 +1420,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               <SelectTrigger><SelectValue placeholder="No tag" /></SelectTrigger>
               <SelectContent className="dark">
                 <SelectItem value="_none">No tag</SelectItem>
-                {PLAYER_TAGS.map(t => (
+                {playerTagOptions.map(t => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -2072,7 +2074,7 @@ function PlayerDetailPanel({
   onReinstate: () => void;
 }) {
   const tagTheme = getTagTheme(player.playerTag);
-  const isCricket = (tournament?.sport ?? "cricket") === "cricket";
+  const sportCaps = getSportCapabilities(tournament?.sport);
   const specValues = [player.battingStyle, player.bowlingStyle, player.specialization];
 
   return (
@@ -2247,7 +2249,7 @@ function PlayerDetailPanel({
             <p className="text-muted-foreground">{player.achievements}</p>
           </div>
         )}
-        {isCricket && player.cricheroUrl && (
+        {sportCaps.hasLegacyCricketSpecs && player.cricheroUrl && (
           <div className="col-span-2 sm:col-span-3">
             <a
               href={player.cricheroUrl}
@@ -2771,7 +2773,11 @@ export default function Players() {
     label: t.name,
     color: t.color,
   }));
-  const tagOptions = PLAYER_TAGS.map(t => ({ value: t.value, label: t.label }));
+  const listSportCaps = getSportCapabilities(tournament?.sport);
+  const tagOptions = filterPlayerTagOptions(listSportCaps, PLAYER_TAGS).map((t) => ({
+    value: t.value,
+    label: t.label,
+  }));
   const genderOptions = [
     { value: "M", label: "Male" },
     { value: "F", label: "Female" },

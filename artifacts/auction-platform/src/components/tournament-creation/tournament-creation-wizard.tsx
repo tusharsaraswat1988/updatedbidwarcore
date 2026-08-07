@@ -22,6 +22,7 @@ import {
   type TournamentCreationDraft,
   type WizardStepId,
 } from "./types";
+import { getSportCapabilities } from "@/lib/sport-capabilities";
 
 export type TournamentCreationPayload = {
   name: string;
@@ -123,11 +124,16 @@ export function TournamentCreationWizard({
     [draft.competitionTypeId],
   );
   const teamFormationStrategies = useMemo(
-    () =>
-      draft.competitionTypeId
-        ? CatalogRegistry.listTeamFormationStrategies(draft.competitionTypeId)
-        : [],
-    [draft.competitionTypeId],
+    () => {
+      const entries =
+        draft.competitionTypeId
+          ? CatalogRegistry.listTeamFormationStrategies(draft.competitionTypeId)
+          : [];
+      const caps = getSportCapabilities(draft.sportId);
+      if (caps.hasCaptain) return entries;
+      return entries.filter((entry) => entry.id !== "captain_pick");
+    },
+    [draft.competitionTypeId, draft.sportId],
   );
   const recommendedRegistrationModeId = draft.competitionTypeId
     ? CatalogRegistry.suggestRegistrationModeId(draft.competitionTypeId)

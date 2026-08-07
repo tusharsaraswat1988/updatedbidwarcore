@@ -4,29 +4,33 @@ import { Link } from "wouter";
 import { ExternalLink, Radio, MonitorPlay, Tv2, LayoutGrid, Table2, Trophy, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModuleWorkspace } from "@/components/platform/module-workspace";
-import {
-  cricketFanHomePath,
-  displayScreenPath,
-  sportsMissionControlPath,
-} from "@/lib/tournament-navigation";
-import {
-  cricketDashboardPath,
-  cricketScoreHubPath,
-  cricketStandingsOpsPath,
-  cricketStatsOpsPath,
-} from "@/lib/cricket-routes";
-import { badmintonHubPath } from "@/lib/badminton-routes";
+import { displayScreenPath, sportsMissionControlPath } from "@/lib/tournament-navigation";
 import { deriveModuleHealth } from "@/lib/module-workspace-utils";
 import {
   useModuleWorkspaceRef,
   useRegisterModuleSnapshot,
 } from "@/components/tournament-hub/use-module-registry";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
+import type { SportLiveOpsLink } from "@/lib/sports-shell-types";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useTournamentScoringActive } from "@/hooks/use-platform-features";
+
+const LIVE_OPS_ICONS: Record<string, ReactNode> = {
+  dashboard: <MonitorPlay className="w-4 h-4" />,
+  mission_control: <MonitorPlay className="w-4 h-4" />,
+  match_center: <LayoutGrid className="w-4 h-4" />,
+  standings: <Table2 className="w-4 h-4" />,
+  statistics: <Trophy className="w-4 h-4" />,
+  public: <Calendar className="w-4 h-4" />,
+  broadcast: <Radio className="w-4 h-4" />,
+};
+
+function liveOpsIcon(link: SportLiveOpsLink): ReactNode {
+  return LIVE_OPS_ICONS[link.id] ?? <MonitorPlay className="w-4 h-4" />;
+}
 
 /**
  * Live Operations — Sports Mission Control destination.
@@ -63,26 +67,14 @@ export function LiveOperationsModule({
       peekSummary: {
         title: "Live Operations",
         lines: sportsActive
-          ? [
-              caps.sportId === "badminton"
-                ? "Badminton Mission Control"
-                : caps.sportId === "cricket"
-                  ? "Cricket dashboard & matches"
-                  : "Sport live control",
-              "LED display",
-              caps.hasBroadcast
-                ? "Broadcast / OBS"
-                : caps.hasPublicTournament
-                  ? "Public tournament page"
-                  : "Presentation surfaces",
-            ]
+          ? caps.liveOpsPeekLines
           : ["Sports not enabled for this tournament"],
       },
       entityCount: sportsActive ? 1 : 0,
       lockedCount: 0,
       loading: false,
     }),
-    [caps, sportsActive],
+    [caps.liveOpsPeekLines, sportsActive],
   );
 
   useRegisterModuleSnapshot(snapshot);
@@ -128,64 +120,21 @@ function LiveOperationsBody({
   sport?: string | null;
 }) {
   const returnTo = sportsMissionControlPath(tournamentId);
-  const from = encodeURIComponent(returnTo);
+  const encodedReturnTo = encodeURIComponent(returnTo);
   const caps = getSportCapabilities(sport);
-  const isBadminton = caps.sportId === "badminton";
-  const isCricket = caps.sportId === "cricket";
 
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
-      {isBadminton ? (
+      {caps.liveOpsLinks.map((link) => (
         <LiveOpsLink
-          title="Badminton Mission Control"
-          description="Courts, queues, and live match control."
-          icon={<MonitorPlay className="w-4 h-4" />}
-          href={`${badmintonHubPath(tournamentId)}/control?from=${from}`}
+          key={link.id}
+          title={link.title}
+          description={link.description}
+          icon={liveOpsIcon(link)}
+          href={link.buildHref({ tournamentId, encodedReturnTo })}
+          external={link.external}
         />
-      ) : null}
-
-      {isCricket ? (
-        <>
-          <LiveOpsLink
-            title="Cricket Dashboard"
-            description="Today's matches, pending actions, standings."
-            icon={<MonitorPlay className="w-4 h-4" />}
-            href={`${cricketDashboardPath(tournamentId)}?from=${from}`}
-          />
-          {caps.hasMatchCenter ? (
-            <LiveOpsLink
-              title="Match Command Center"
-              description="Create and open matches for scoring."
-              icon={<LayoutGrid className="w-4 h-4" />}
-              href={`${cricketScoreHubPath(tournamentId)}?from=${from}`}
-            />
-          ) : null}
-          {caps.hasStandings ? (
-            <LiveOpsLink
-              title="Standings"
-              description="Points table and NRR."
-              icon={<Table2 className="w-4 h-4" />}
-              href={cricketStandingsOpsPath(tournamentId)}
-            />
-          ) : null}
-          {caps.hasStatistics ? (
-            <LiveOpsLink
-              title="Statistics"
-              description="Runs, wickets, SR, economy, and more."
-              icon={<Trophy className="w-4 h-4" />}
-              href={cricketStatsOpsPath(tournamentId)}
-            />
-          ) : null}
-          {caps.hasPublicTournament ? (
-            <LiveOpsLink
-              title="Public Cricket Page"
-              description="Fan-facing fixtures, standings, and stats."
-              icon={<Calendar className="w-4 h-4" />}
-              href={cricketFanHomePath(tournamentId)}
-            />
-          ) : null}
-        </>
-      ) : null}
+      ))}
 
       <LiveOpsLink
         title="LED Display"
@@ -197,15 +146,6 @@ function LiveOperationsBody({
         }}
         external
       />
-
-      {isBadminton && caps.hasBroadcast ? (
-        <LiveOpsLink
-          title="Broadcast / OBS"
-          description="Badminton broadcast director surfaces."
-          icon={<Radio className="w-4 h-4" />}
-          href={`${badmintonHubPath(tournamentId)}/broadcast?from=${from}`}
-        />
-      ) : null}
     </ul>
   );
 }
