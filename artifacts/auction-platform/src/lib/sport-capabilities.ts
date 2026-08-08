@@ -131,6 +131,7 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
         fixtures: (tid) => `${badmintonHubPath(tid)}/fixtures`,
         schedule: (tid) => `${badmintonHubPath(tid)}/schedule`,
         scoring: (tid) => `${badmintonHubPath(tid)}/matches`,
+        tournament: (tid) => `${badmintonHubPath(tid)}/branding`,
       },
     };
   }

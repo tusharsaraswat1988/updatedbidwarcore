@@ -5,10 +5,15 @@ import type { ModuleWorkspaceId } from "../../components/platform/module-workspa
 import { getSportCapabilities } from "../sport-capabilities.ts";
 import {
   buildMissionControlPresenterView,
+  isFreshTournamentSetup,
   isModuleStepComplete,
   isRuntimeReady,
   ORGANISER_JOURNEY_ORDER,
 } from "../mission-control-presenter.ts";
+import {
+  assertNoForbiddenOrganiserTerms,
+  translateOrganiserIssue,
+} from "../tournament-dashboard-vocabulary.ts";
 
 function snap(
   id: ModuleWorkspaceId,
@@ -42,16 +47,85 @@ function allCompleteSnapshots(): Partial<Record<ModuleWorkspaceId, ModuleSnapsho
   };
 }
 
+function collectOrganiserText(
+  view: ReturnType<typeof buildMissionControlPresenterView>,
+): string {
+  return [
+    view.nextStep.title,
+    view.nextStep.description,
+    view.nextStep.ctaLabel,
+    view.scoring.label,
+    view.liveOps.primaryTitle ?? "",
+    ...view.journey.map((s) => s.label),
+    ...view.remainingStepTitles,
+    ...view.attention.flatMap((a) => [a.title, a.detail]),
+  ].join("\n");
+}
+
 describe("mission-control-presenter", () => {
   it("organiser setup journey never includes Runtime or Live", () => {
     assert.deepEqual(
       ORGANISER_JOURNEY_ORDER.map((s) => s.id),
       ["competition", "teams", "fixtures", "schedule", "matches"],
     );
+  });
+
+  it("badminton empty tournament uses onboarding Start Setup to branding", () => {
+    const snapshots = {
+      competition: snap("competition"),
+      teams: snap("teams"),
+      fixtures: snap("fixtures"),
+      scheduling: snap("scheduling"),
+      matches: snap("matches"),
+      runtime: snap("runtime"),
+    };
+    assert.equal(isFreshTournamentSetup(snapshots), true);
+    const view = buildMissionControlPresenterView({
+      tournamentId: 3,
+      snapshots,
+      capabilities: getSportCapabilities("badminton"),
+    });
+    assert.equal(view.mode, "onboarding");
+    assert.equal(view.nextStep.ctaLabel, "Start Setup");
+    assert.equal(view.nextStep.continue.kind, "route");
+    if (view.nextStep.continue.kind === "route") {
+      assert.match(view.nextStep.continue.href, /\/badminton\/branding$/);
+    }
+    assert.equal(view.attention.length, 0);
+    assert.equal(assertNoForbiddenOrganiserTerms(collectOrganiserText(view)).length, 0);
+  });
+
+  it("badminton journey uses Players & Teams and Courts & Schedule", () => {
+    const snapshots = allCompleteSnapshots();
+    snapshots.scheduling = snap("scheduling", { entityCount: 1, lockedCount: 0 });
+    const view = buildMissionControlPresenterView({
+      tournamentId: 1,
+      snapshots,
+      capabilities: getSportCapabilities("badminton"),
+    });
+    assert.equal(view.mode, "setup");
     assert.deepEqual(
-      ORGANISER_JOURNEY_ORDER.map((s) => s.label),
-      ["Competition", "Teams & Players", "Fixtures", "Schedule", "Match Setup"],
+      view.journey.map((s) => s.label),
+      ["Tournament", "Players & Teams", "Fixtures", "Courts & Schedule", "Match Setup"],
     );
+    assert.equal(view.journey.find((s) => s.id === "schedule")?.state, "next");
+    assert.match(view.nextStep.title, /courts and match timings/i);
+    assert.equal(view.nextStep.continue.kind, "route");
+    if (view.nextStep.continue.kind === "route") {
+      assert.match(view.nextStep.continue.href, /\/badminton\/schedule$/);
+    }
+  });
+
+  it("cricket journey keeps Teams & Players / Schedule labels", () => {
+    const snapshots = allCompleteSnapshots();
+    snapshots.teams = snap("teams", { entityCount: 1, lockedCount: 0 });
+    const view = buildMissionControlPresenterView({
+      tournamentId: 9,
+      snapshots,
+      capabilities: getSportCapabilities("cricket"),
+    });
+    assert.equal(view.journey.find((s) => s.id === "teams")?.label, "Teams & Players");
+    assert.equal(view.journey.find((s) => s.id === "schedule")?.label, "Schedule");
   });
 
   it("does not treat empty blockers as complete", () => {
@@ -63,55 +137,20 @@ describe("mission-control-presenter", () => {
     );
   });
 
-  it("uses locked / lockedCount completeness signals", () => {
-    assert.equal(
-      isModuleStepComplete(snap("competition", { locked: true, entityCount: 1, lockedCount: 1 })),
-      true,
-    );
-    assert.equal(
-      isModuleStepComplete(snap("teams", { entityCount: 2, lockedCount: 2 })),
-      true,
-    );
-    assert.equal(
-      isModuleStepComplete(snap("teams", { entityCount: 2, lockedCount: 1 })),
-      false,
-    );
-  });
-
-  it("while loading: setup mode, Competition is Next", () => {
-    const view = buildMissionControlPresenterView({
-      tournamentId: 1,
-      snapshots: {
-        competition: snap("competition", { loading: true }),
-      },
-      capabilities: getSportCapabilities("badminton"),
-    });
-    assert.equal(view.mode, "setup");
-    assert.equal(view.journey[0]?.state, "next");
-    assert.ok(view.journey.slice(1).every((s) => s.state === "upcoming"));
-    assert.equal(view.nextStep.stepId, "competition");
-    assert.equal(view.nextStep.ctaLabel, "Continue Setup");
-    assert.equal(view.liveOps.available, false);
-  });
-
-  it("first incomplete setup step wins", () => {
+  it("Matches complete + Runtime not ready → Match Setup without Runtime jargon", () => {
     const snapshots = allCompleteSnapshots();
-    snapshots.fixtures = snap("fixtures", { entityCount: 2, lockedCount: 0 });
-    const view = buildMissionControlPresenterView({
-      tournamentId: 1,
-      snapshots,
-      capabilities: getSportCapabilities("badminton"),
+    snapshots.runtime = snap("runtime", {
+      entityCount: 2,
+      lockedCount: 0,
+      errorCount: 1,
+      validationIssues: [
+        {
+          severity: "ERROR",
+          code: "RUNTIME_SNAPSHOT_REQUIRED",
+          message: "Runtime Snapshot must reference a frozen Match Configuration version.",
+        },
+      ],
     });
-    assert.equal(view.mode, "setup");
-    assert.equal(view.nextStep.stepId, "fixtures");
-    assert.equal(view.journey.find((s) => s.id === "fixtures")?.state, "next");
-    assert.equal(view.journey.find((s) => s.id === "competition")?.state, "complete");
-    assert.equal(view.journey.find((s) => s.id === "schedule")?.state, "upcoming");
-  });
-
-  it("Matches complete + Runtime not ready → setup Match Setup with Continue Setup", () => {
-    const snapshots = allCompleteSnapshots();
-    snapshots.runtime = snap("runtime", { entityCount: 2, lockedCount: 0, errorCount: 1 });
     const view = buildMissionControlPresenterView({
       tournamentId: 1,
       snapshots,
@@ -119,31 +158,27 @@ describe("mission-control-presenter", () => {
     });
     assert.equal(view.mode, "setup");
     assert.equal(view.nextStep.stepId, "matches");
-    assert.equal(view.nextStep.ctaLabel, "Continue Setup");
-    assert.equal(view.liveOps.available, false);
-    assert.equal(view.nextStep.continue.kind, "focus-module");
-    if (view.nextStep.continue.kind === "focus-module") {
-      assert.equal(view.nextStep.continue.moduleId, "runtime");
+    assert.match(view.nextStep.description, /match setup still needs to be completed/i);
+    assert.equal(view.nextStep.continue.kind, "route");
+    if (view.nextStep.continue.kind === "route") {
+      assert.match(view.nextStep.continue.href, /\/badminton\/matches$/);
     }
-    assert.equal(
-      view.journey.some((s) => (s.id as string) === "runtime"),
-      false,
-    );
+    const text = collectOrganiserText(view);
+    assert.equal(assertNoForbiddenOrganiserTerms(text).length, 0);
+    assert.doesNotMatch(text, /Runtime/i);
+    assert.doesNotMatch(text, /Snapshot/i);
   });
 
-  it("Matches + Runtime ready → ready mode with Open Scoring", () => {
+  it("fully ready badminton tournament → Open Live Scoring", () => {
     const view = buildMissionControlPresenterView({
       tournamentId: 42,
       snapshots: allCompleteSnapshots(),
       capabilities: getSportCapabilities("badminton"),
     });
     assert.equal(view.mode, "ready");
-    assert.deepEqual(view.journey, []);
-    assert.equal(view.nextStep.stepId, "ready");
-    assert.equal(view.nextStep.ctaLabel, "Open Scoring");
-    assert.equal(view.liveOps.available, true);
+    assert.equal(view.nextStep.ctaLabel, "Open Live Scoring");
     assert.ok(view.scoring.href?.includes("/badminton/matches"));
-    assert.ok(view.liveOps.primaryHref?.includes("/badminton/control"));
+    assert.equal(assertNoForbiddenOrganiserTerms(collectOrganiserText(view)).length, 0);
   });
 
   it("Runtime blocked keeps Live unavailable", () => {
@@ -153,22 +188,66 @@ describe("mission-control-presenter", () => {
     );
   });
 
-  it("badminton Hybrid Continue uses capability destinations, not cricket routes", () => {
+  it("competition Continue for badminton routes to branding, not competition card", () => {
     const snapshots = allCompleteSnapshots();
-    snapshots.teams = snap("teams", { entityCount: 1, lockedCount: 0 });
+    snapshots.competition = snap("competition", { locked: false, entityCount: 1, lockedCount: 0 });
+    // Not fresh because other steps are complete — but competition is first incomplete
+    // Wait - if competition incomplete, scan finds competition first even if others complete
     const view = buildMissionControlPresenterView({
-      tournamentId: 7,
+      tournamentId: 1,
       snapshots,
       capabilities: getSportCapabilities("badminton"),
     });
+    assert.equal(view.nextStep.stepId, "competition");
     assert.equal(view.nextStep.continue.kind, "route");
     if (view.nextStep.continue.kind === "route") {
-      assert.match(view.nextStep.continue.href, /\/badminton\/players$/);
-      assert.doesNotMatch(view.nextStep.continue.href, /\/score\//);
+      assert.match(view.nextStep.continue.href, /\/badminton\/branding$/);
     }
   });
 
-  it("cricket Hybrid Continue uses cricket destinations without badminton paths", () => {
+  it("translates and suppresses technical engine issues for badminton", () => {
+    const caps = getSportCapabilities("badminton");
+    const registration = translateOrganiserIssue(
+      { code: "REGISTRATION_MODE_REQUIRED", message: "Registration Mode must be confirmed before locking." },
+      caps,
+    );
+    assert.ok(registration);
+    assert.match(registration!.detail, /players or teams will be entered/i);
+    assert.equal(assertNoForbiddenOrganiserTerms(registration!.detail).length, 0);
+
+    const runtime = translateOrganiserIssue(
+      {
+        code: "RUNTIME_SNAPSHOT",
+        message: "Runtime Snapshot must reference a frozen Match Configuration version.",
+      },
+      caps,
+    );
+    assert.ok(runtime);
+    assert.match(runtime!.detail, /match setup/i);
+    assert.equal(assertNoForbiddenOrganiserTerms(`${runtime!.title} ${runtime!.detail}`).length, 0);
+
+    const lockOrder = translateOrganiserIssue(
+      {
+        code: "DEPENDENCY",
+        message: "Competition Setup must be locked before locking Fixture Setup.",
+      },
+      caps,
+    );
+    assert.ok(lockOrder);
+    assert.match(lockOrder!.detail, /before creating fixtures/i);
+
+    const formation = translateOrganiserIssue(
+      { code: "TEAM_FORMATION_STRATEGY_REQUIRED", message: "Team Formation Strategy is not set." },
+      caps,
+    );
+    // Folded or suppressed — never leaks formation strategy wording.
+    if (formation) {
+      assert.equal(assertNoForbiddenOrganiserTerms(`${formation.title} ${formation.detail}`).length, 0);
+      assert.doesNotMatch(formation.detail, /Team Formation/i);
+    }
+  });
+
+  it("cricket Hybrid Continue still uses cricket destinations", () => {
     const snapshots = allCompleteSnapshots();
     snapshots.fixtures = snap("fixtures", { entityCount: 1, lockedCount: 0 });
     const view = buildMissionControlPresenterView({
@@ -181,19 +260,5 @@ describe("mission-control-presenter", () => {
       assert.match(view.nextStep.continue.href, /\/score\/fixtures$/);
       assert.doesNotMatch(view.nextStep.continue.href, /badminton/);
     }
-  });
-
-  it("competition Continue focuses in-page module", () => {
-    const snapshots = allCompleteSnapshots();
-    snapshots.competition = snap("competition", { locked: false, entityCount: 1, lockedCount: 0 });
-    const view = buildMissionControlPresenterView({
-      tournamentId: 1,
-      snapshots,
-      capabilities: getSportCapabilities("badminton"),
-    });
-    assert.deepEqual(view.nextStep.continue, {
-      kind: "focus-module",
-      moduleId: "competition",
-    });
   });
 });

@@ -121,6 +121,8 @@ export type SportCapabilities = {
    * journey steps. Shared MC must consume these — never hard-code sport routes.
    */
   missionControlDestinations?: {
+    /** First-time / tournament identity setup (e.g. badminton branding). */
+    tournament?: (tournamentId: number) => string;
     teams?: (tournamentId: number) => string;
     fixtures?: (tournamentId: number) => string;
     schedule?: (tournamentId: number) => string;

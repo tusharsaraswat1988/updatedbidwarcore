@@ -123,7 +123,11 @@ function TournamentDashboardBody({
   );
 
   useEffect(() => {
-    if (presenter.mode === "ready" || presenter.nextStep.continue.kind === "route") {
+    if (
+      presenter.mode === "ready" ||
+      presenter.mode === "onboarding" ||
+      presenter.nextStep.continue.kind === "route"
+    ) {
       setFocusedModuleId(null);
     }
   }, [presenter.mode, presenter.nextStep.stepId, presenter.nextStep.continue.kind]);
@@ -135,13 +139,19 @@ function TournamentDashboardBody({
       setLocation(target.href);
       return;
     }
+    // Avoid focusing Runtime / Competition diagnostic cards for organisers.
+    if (target.moduleId === "runtime" || target.moduleId === "competition") {
+      return;
+    }
     setFocusedModuleId(target.moduleId);
   }
 
   const showFocusedWorkspace =
     presenter.mode === "setup" &&
     focusedModuleId != null &&
-    presenter.nextStep.continue.kind === "focus-module";
+    presenter.nextStep.continue.kind === "focus-module" &&
+    focusedModuleId !== "runtime" &&
+    focusedModuleId !== "competition";
 
   return (
     <div className="org-page-content p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -168,13 +178,39 @@ function TournamentDashboardBody({
           </span>
         </div>
         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          {presenter.mode === "setup"
+          {presenter.mode === "onboarding"
             ? "Let's get your tournament ready."
-            : "Your tournament is ready for matches and scoring."}
+            : presenter.mode === "setup"
+              ? "Tournament setup is progressing."
+              : "Your tournament is ready for matches and scoring."}
         </p>
       </header>
 
       <div className="mt-6 space-y-5">
+        {presenter.mode === "onboarding" ? (
+          <section
+            className="rounded-xl border border-primary/25 bg-primary/5 px-5 py-5 sm:px-6 sm:py-6 space-y-4"
+            aria-labelledby="td-onboarding-heading"
+          >
+            <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-primary">
+              Get started
+            </p>
+            <h2
+              id="td-onboarding-heading"
+              className="text-xl sm:text-2xl font-bold tracking-tight text-foreground"
+            >
+              {presenter.nextStep.title}
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-xl">
+              {presenter.nextStep.description}
+            </p>
+            <Button type="button" onClick={handleContinue} className="gap-2">
+              {presenter.nextStep.ctaLabel}
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Button>
+          </section>
+        ) : null}
+
         {presenter.mode === "setup" ? (
           <section
             className="rounded-xl border border-primary/25 bg-primary/5 px-5 py-5 sm:px-6 sm:py-6 space-y-5"
@@ -182,7 +218,7 @@ function TournamentDashboardBody({
           >
             <div>
               <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-primary">
-                Get your tournament ready
+                Setup Status
               </p>
               <h2
                 id="td-setup-heading"
@@ -197,12 +233,28 @@ function TournamentDashboardBody({
 
             <MissionControlJourney steps={presenter.journey} />
 
+            {presenter.attention.length > 0 ? (
+              <ul className="space-y-2">
+                {presenter.attention.map((item) => (
+                  <li
+                    key={`${item.title}-${item.detail}`}
+                    className="rounded-md border border-border/50 bg-background/60 px-3 py-2"
+                  >
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             <Button type="button" onClick={handleContinue} className="gap-2">
               {presenter.nextStep.ctaLabel}
               <ArrowRight className="w-4 h-4" aria-hidden />
             </Button>
           </section>
-        ) : (
+        ) : null}
+
+        {presenter.mode === "ready" ? (
           <ReadyOverview
             nextStepTitle={presenter.nextStep.title}
             nextStepDescription={presenter.nextStep.description}
@@ -210,9 +262,10 @@ function TournamentDashboardBody({
             scoringLabel={presenter.scoring.label}
             liveOpsHref={presenter.liveOps.primaryHref}
             liveOpsTitle={presenter.liveOps.primaryTitle}
+            journey={presenter.journey}
             onOpenScoring={handleContinue}
           />
-        )}
+        ) : null}
 
         {showFocusedWorkspace ? (
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -220,6 +273,7 @@ function TournamentDashboardBody({
           </p>
         ) : null}
 
+        {/* Registry host — always mounted; never the organiser dashboard */}
         <TournamentMissionControlModules
           tournamentId={tournamentId}
           sport={sport}
@@ -239,6 +293,7 @@ function ReadyOverview({
   scoringLabel,
   liveOpsHref,
   liveOpsTitle,
+  journey,
   onOpenScoring,
 }: {
   nextStepTitle: string;
@@ -247,6 +302,7 @@ function ReadyOverview({
   scoringLabel: string;
   liveOpsHref: string | null;
   liveOpsTitle: string | null;
+  journey: import("@/lib/mission-control-presenter").OrganiserJourneyStep[];
   onOpenScoring: () => void;
 }) {
   return (
@@ -257,6 +313,7 @@ function ReadyOverview({
       <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-primary">
         Match Day
       </p>
+      {journey.length > 0 ? <MissionControlJourney steps={journey} /> : null}
       <h2
         id="td-ready-heading"
         className="text-xl sm:text-2xl font-bold tracking-tight text-foreground"
@@ -282,7 +339,7 @@ function ReadyOverview({
           <Button asChild variant="outline" className="gap-2">
             <Link href={liveOpsHref}>
               <Radio className="w-4 h-4" aria-hidden />
-              {liveOpsTitle ?? "Live Operations"}
+              {liveOpsTitle ?? "Live Scoring"}
             </Link>
           </Button>
         ) : null}

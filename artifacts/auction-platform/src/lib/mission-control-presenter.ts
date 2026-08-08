@@ -2,7 +2,7 @@
  * Tournament Dashboard presenter — experience translator only.
  *
  * Input: authoritative ModuleSnapshots (incl. Runtime).
- * Output: organiser setup/ready state + one primary CTA + Hybrid Continue.
+ * Output: sport-aware organiser setup/ready/onboarding state + one CTA.
  * Does not invent readiness rules or expose Runtime as a journey step.
  */
 
@@ -10,14 +10,13 @@ import type { ModuleWorkspaceId } from "../components/platform/module-workspace"
 import type { ModuleSnapshot } from "../components/tournament-hub/module-registry";
 import type { SportCapabilities } from "./sports-shell-types";
 import { sportsMissionControlPath } from "./tournament-navigation";
+import {
+  getSportOrganiserVocabulary,
+  translateOrganiserIssue,
+  type OrganiserJourneyStepId,
+} from "./tournament-dashboard-vocabulary";
 
-/** Setup journey step ids — Runtime and Live are never organiser journey steps. */
-export type OrganiserJourneyStepId =
-  | "competition"
-  | "teams"
-  | "fixtures"
-  | "schedule"
-  | "matches";
+export type { OrganiserJourneyStepId };
 
 export type OrganiserJourneyState = "complete" | "next" | "upcoming";
 
@@ -36,15 +35,18 @@ export type MissionControlNextStep = {
   description: string;
   ctaLabel: string;
   continue: PresenterContinue;
-  /** Organiser-facing step this action advances. */
-  stepId: OrganiserJourneyStepId | "ready";
+  stepId: OrganiserJourneyStepId | "ready" | "onboarding";
 };
 
-export type TournamentDashboardMode = "setup" | "ready";
+export type TournamentDashboardMode = "onboarding" | "setup" | "ready";
+
+export type OrganiserAttentionItem = {
+  title: string;
+  detail: string;
+};
 
 export type MissionControlPresenterView = {
   mode: TournamentDashboardMode;
-  /** Setup checklist — empty when mode is ready. */
   journey: OrganiserJourneyStep[];
   nextStep: MissionControlNextStep;
   scoring: {
@@ -57,26 +59,22 @@ export type MissionControlPresenterView = {
     primaryTitle: string | null;
   };
   remainingStepTitles: string[];
+  /** Translated organiser-facing attention — never raw engine jargon. */
+  attention: OrganiserAttentionItem[];
 };
 
-/** Organiser setup journey — Runtime is never included. */
+/** Module-backed setup order — Runtime is never included. */
 export const ORGANISER_JOURNEY_ORDER: {
   id: OrganiserJourneyStepId;
-  label: string;
   moduleId: ModuleWorkspaceId;
 }[] = [
-  { id: "competition", label: "Competition", moduleId: "competition" },
-  { id: "teams", label: "Teams & Players", moduleId: "teams" },
-  { id: "fixtures", label: "Fixtures", moduleId: "fixtures" },
-  { id: "schedule", label: "Schedule", moduleId: "scheduling" },
-  { id: "matches", label: "Match Setup", moduleId: "matches" },
+  { id: "competition", moduleId: "competition" },
+  { id: "teams", moduleId: "teams" },
+  { id: "fixtures", moduleId: "fixtures" },
+  { id: "schedule", moduleId: "scheduling" },
+  { id: "matches", moduleId: "matches" },
 ];
 
-/**
- * Completeness from existing snapshot signals only.
- * Prefer locked / readiness / lockedCount vs entityCount.
- * Never treat empty blockers as complete.
- */
 export function isModuleStepComplete(snapshot: ModuleSnapshot | undefined): boolean {
   if (!snapshot || snapshot.loading) return false;
   if (snapshot.locked === true) return true;
@@ -114,60 +112,52 @@ function snapshotsLoading(
   });
 }
 
-type NextCopy = {
-  title: string;
-  description: string;
-  ctaLabel: string;
-};
+/** Fresh tournament: no setup step complete yet. */
+export function isFreshTournamentSetup(
+  snapshots: Partial<Record<ModuleWorkspaceId, ModuleSnapshot>>,
+): boolean {
+  return ORGANISER_JOURNEY_ORDER.every(
+    (step) => !isModuleStepComplete(snapshots[step.moduleId]),
+  );
+}
 
-function copyForStep(
-  stepId: OrganiserJourneyStepId,
-  opts: { matchDayPrep: boolean },
-): NextCopy {
-  if (stepId === "matches" && opts.matchDayPrep) {
-    return {
-      title: "Finish Match Setup",
-      description: "A few match preparations are still needed before you can score.",
-      ctaLabel: "Continue Setup",
-    };
-  }
+function buildTranslatedAttention(
+  snapshots: Partial<Record<ModuleWorkspaceId, ModuleSnapshot>>,
+  caps: SportCapabilities,
+  activeStepId: OrganiserJourneyStepId | null,
+): OrganiserAttentionItem[] {
+  const items: OrganiserAttentionItem[] = [];
+  const seen = new Set<string>();
 
-  switch (stepId) {
-    case "competition":
-      return {
-        title: "Competition setup isn't complete",
-        description: "Choose the competition type and how teams will register.",
-        ctaLabel: "Continue Setup",
-      };
-    case "teams":
-      return {
-        title: "Add Teams & Players",
-        description: "Create the teams and players competing in this tournament.",
-        ctaLabel: "Continue Setup",
-      };
-    case "fixtures":
-      return {
-        title: "Create Fixtures",
-        description: "Build the tournament draw and structure.",
-        ctaLabel: "Continue Setup",
-      };
-    case "schedule":
-      return {
-        title: "Schedule your matches",
-        description: "Assign courts or venues, dates and times.",
-        ctaLabel: "Continue Setup",
-      };
-    case "matches":
-      return {
-        title: "Finish Match Setup",
-        description: "Confirm match sides and officials for match day.",
-        ctaLabel: "Continue Setup",
-      };
+  const modulesToScan: ModuleWorkspaceId[] = activeStepId
+    ? [
+        ORGANISER_JOURNEY_ORDER.find((s) => s.id === activeStepId)?.moduleId ?? "competition",
+        "runtime",
+      ]
+    : ["competition", "teams", "fixtures", "scheduling", "matches", "runtime"];
+
+  for (const moduleId of modulesToScan) {
+    const snap = snapshots[moduleId];
+    if (!snap) continue;
+    for (const issue of snap.validationIssues) {
+      if (issue.severity !== "ERROR") continue;
+      const translated = translateOrganiserIssue(
+        { code: issue.code, message: issue.message },
+        caps,
+      );
+      if (!translated?.actionable) continue;
+      const key = `${translated.title}|${translated.detail}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({ title: translated.title, detail: translated.detail });
+      if (items.length >= 3) return items;
+    }
   }
+  return items;
 }
 
 function resolveContinue(input: {
-  stepId: OrganiserJourneyStepId;
+  stepId: OrganiserJourneyStepId | "onboarding";
   tournamentId: number;
   caps: SportCapabilities;
   matchDayPrep: boolean;
@@ -175,7 +165,11 @@ function resolveContinue(input: {
   const { stepId, tournamentId, caps, matchDayPrep } = input;
   const destinations = caps.missionControlDestinations;
 
-  if (stepId === "competition") {
+  if (stepId === "onboarding" || stepId === "competition") {
+    const href = destinations?.tournament?.(tournamentId) ?? destinations?.teams?.(tournamentId);
+    if (href) return { kind: "route", href };
+    // Prefer not to dump organisers into the technical competition card when a
+    // sport destination exists; only focus as last resort.
     return { kind: "focus-module", moduleId: "competition" };
   }
 
@@ -200,8 +194,12 @@ function resolveContinue(input: {
     return { kind: "focus-module", moduleId: "scheduling" };
   }
 
+  // Match day prep / match setup: never surface Runtime module to organisers.
   if (matchDayPrep) {
-    return { kind: "focus-module", moduleId: "runtime" };
+    const href =
+      destinations?.scoring?.(tournamentId) ?? destinations?.schedule?.(tournamentId);
+    if (href) return { kind: "route", href };
+    return { kind: "focus-module", moduleId: "matches" };
   }
   return { kind: "focus-module", moduleId: "matches" };
 }
@@ -221,6 +219,7 @@ export function buildMissionControlPresenterView(input: {
   encodedReturnTo?: string;
 }): MissionControlPresenterView {
   const { tournamentId, snapshots, capabilities } = input;
+  const vocab = getSportOrganiserVocabulary(capabilities);
   const encodedReturnTo =
     input.encodedReturnTo ??
     encodeURIComponent(sportsMissionControlPath(tournamentId));
@@ -236,32 +235,69 @@ export function buildMissionControlPresenterView(input: {
     : null;
   const openScoringHref = scoringHref(tournamentId, capabilities, primaryLiveHref);
 
+  const labeledJourney = (activeStepId: OrganiserJourneyStepId | null) => {
+    const activeIndex =
+      activeStepId == null
+        ? -1
+        : ORGANISER_JOURNEY_ORDER.findIndex((s) => s.id === activeStepId);
+    return ORGANISER_JOURNEY_ORDER.map((step, stepIndex) => {
+      const label = vocab.journeyLabels[step.id];
+      if (activeStepId != null && step.id === activeStepId) {
+        return { id: step.id, label, state: "next" as const };
+      }
+      if (activeIndex >= 0 && stepIndex < activeIndex) {
+        return { id: step.id, label, state: "complete" as const };
+      }
+      if (activeStepId == null) {
+        return { id: step.id, label, state: "upcoming" as const };
+      }
+      return { id: step.id, label, state: "upcoming" as const };
+    });
+  };
+
   if (loading) {
-    const journey: OrganiserJourneyStep[] = ORGANISER_JOURNEY_ORDER.map((step, index) => ({
-      id: step.id,
-      label: step.label,
-      state: index === 0 ? "next" : "upcoming",
-    }));
-    const copy = copyForStep("competition", { matchDayPrep: false });
     return {
-      mode: "setup",
-      journey,
+      mode: "onboarding",
+      journey: labeledJourney(null),
       nextStep: {
-        ...copy,
-        stepId: "competition",
-        continue: { kind: "focus-module", moduleId: "competition" },
+        ...vocab.onboarding,
+        stepId: "onboarding",
+        continue: resolveContinue({
+          stepId: "onboarding",
+          tournamentId,
+          caps: capabilities,
+          matchDayPrep: false,
+        }),
       },
-      scoring: { href: null, label: "Open Scoring" },
-      liveOps: {
-        available: false,
-        primaryHref: null,
-        primaryTitle: null,
-      },
-      remainingStepTitles: ORGANISER_JOURNEY_ORDER.map((s) => s.label),
+      scoring: { href: null, label: vocab.openScoringLabel },
+      liveOps: { available: false, primaryHref: null, primaryTitle: null },
+      remainingStepTitles: ORGANISER_JOURNEY_ORDER.map((s) => vocab.journeyLabels[s.id]),
+      attention: [],
     };
   }
 
-  // Find first incomplete setup step. Runtime only gates ready mode.
+  // Fresh tournament — calm onboarding, no diagnostics.
+  if (isFreshTournamentSetup(snapshots) && !tournamentReady) {
+    return {
+      mode: "onboarding",
+      journey: labeledJourney(null),
+      nextStep: {
+        ...vocab.onboarding,
+        stepId: "onboarding",
+        continue: resolveContinue({
+          stepId: "onboarding",
+          tournamentId,
+          caps: capabilities,
+          matchDayPrep: false,
+        }),
+      },
+      scoring: { href: null, label: vocab.openScoringLabel },
+      liveOps: { available: false, primaryHref: null, primaryTitle: null },
+      remainingStepTitles: ORGANISER_JOURNEY_ORDER.map((s) => vocab.journeyLabels[s.id]),
+      attention: [],
+    };
+  }
+
   let activeStepId: OrganiserJourneyStepId | null = null;
   for (const step of ORGANISER_JOURNEY_ORDER) {
     if (!isModuleStepComplete(snapshots[step.moduleId])) {
@@ -275,15 +311,16 @@ export function buildMissionControlPresenterView(input: {
     activeStepId = "matches";
   }
 
-  // STATE B — tournament ready
   if (activeStepId == null && tournamentReady) {
     return {
       mode: "ready",
-      journey: [],
+      journey: ORGANISER_JOURNEY_ORDER.map((step) => ({
+        id: step.id,
+        label: vocab.journeyLabels[step.id],
+        state: "complete" as const,
+      })),
       nextStep: {
-        title: "Your tournament is ready",
-        description: "Open scoring when you are ready to run matches.",
-        ctaLabel: "Open Scoring",
+        ...vocab.ready,
         stepId: "ready",
         continue: openScoringHref
           ? { kind: "route", href: openScoringHref }
@@ -291,32 +328,21 @@ export function buildMissionControlPresenterView(input: {
       },
       scoring: {
         href: openScoringHref,
-        label: "Open Scoring",
+        label: vocab.openScoringLabel,
       },
       liveOps: {
         available: true,
         primaryHref: primaryLiveHref,
-        primaryTitle: primaryLink?.title ?? "Live Operations",
+        primaryTitle: primaryLink?.title ?? vocab.liveOpsFallbackTitle,
       },
       remainingStepTitles: [],
+      attention: [],
     };
   }
 
-  // STATE A — setup in progress
   const stepId = activeStepId ?? "competition";
-  const activeIndex = ORGANISER_JOURNEY_ORDER.findIndex((s) => s.id === stepId);
-
-  const journey: OrganiserJourneyStep[] = ORGANISER_JOURNEY_ORDER.map((step, stepIndex) => {
-    if (step.id === stepId) {
-      return { id: step.id, label: step.label, state: "next" };
-    }
-    if (stepIndex < activeIndex) {
-      return { id: step.id, label: step.label, state: "complete" };
-    }
-    return { id: step.id, label: step.label, state: "upcoming" };
-  });
-
-  const copy = copyForStep(stepId, { matchDayPrep });
+  const copy = vocab.stepCopy(stepId, { matchDayPrep });
+  const journey = labeledJourney(stepId);
   const continueTarget = resolveContinue({
     stepId,
     tournamentId,
@@ -332,12 +358,13 @@ export function buildMissionControlPresenterView(input: {
       stepId,
       continue: continueTarget,
     },
-    scoring: { href: null, label: "Open Scoring" },
+    scoring: { href: null, label: vocab.openScoringLabel },
     liveOps: {
       available: false,
       primaryHref: null,
       primaryTitle: null,
     },
     remainingStepTitles: journey.filter((s) => s.state !== "complete").map((s) => s.label),
+    attention: buildTranslatedAttention(snapshots, capabilities, stepId),
   };
 }
