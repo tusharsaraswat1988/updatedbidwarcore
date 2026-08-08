@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-base/auction-date";
 
 import { cn } from "@/lib/utils";
+import { fieldControlClass, fieldControlSizeClass } from "@/components/ui/field-control";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -68,7 +69,10 @@ function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full justify-start rounded-md border border-input bg-secondary/40 px-3 py-1 text-base font-normal text-foreground shadow-sm transition-colors hover:bg-secondary/50 md:text-sm",
+            "flex w-full justify-start font-normal",
+            fieldControlClass,
+            fieldControlSizeClass,
+            "hover:bg-[color-mix(in_oklab,var(--rail)_88%,white)]",
             !value && "text-muted-foreground",
             className,
           )}

@@ -352,7 +352,7 @@ export default function Categories() {
                 <Plus className="w-5 h-5" /> Add Category
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg dark">
+            <DialogContent className="max-w-lg">
               <OrganizerFormDialogHeader
                 tournament={tournament}
                 title={editing ? "Edit Category" : "Add Category"}

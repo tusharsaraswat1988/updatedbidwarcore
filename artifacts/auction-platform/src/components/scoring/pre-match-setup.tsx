@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
 import { CricketEventType, executionLimitsFromRules } from "@workspace/scoring-core";
+import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -101,7 +103,8 @@ export function PreMatchSetup({
     !needsToss &&
     !needsBattingLineup &&
     !needsBowlingLineup &&
-    (state.strikerId == null || state.nonStrikerId == null);
+    state.strikerId == null &&
+    state.nonStrikerId == null;
   const needsBowler =
     !needsToss &&
     !needsBattingLineup &&
@@ -117,10 +120,15 @@ export function PreMatchSetup({
   return (
     <div className="p-4 space-y-4 border-b border-border/60 bg-muted/10">
       {!limits.fromPolicy ? (
-        <p className="text-xs text-amber-200/90 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-          Runtime Prepare required before Match Start. Overs, XI, and bench limits come from
-          RuntimeExecutionPolicy after Prepare.
-        </p>
+        <div className="text-xs text-amber-200/90 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 space-y-2">
+          <p>
+            Runtime Prepare is required before Match Start. Overs, XI, and bench limits come from
+            RuntimeExecutionPolicy after Prepare.
+          </p>
+          <Button variant="outline" size="sm" className="h-8" asChild>
+            <Link href={sportsMissionControlPath(tournamentId)}>Open Mission Control → Prepare</Link>
+          </Button>
+        </div>
       ) : (
         <p className="text-xs text-muted-foreground">
           Policy: {limits.oversLimit} overs · XI {limits.playingSquadSize ?? "—"} · Bench{" "}

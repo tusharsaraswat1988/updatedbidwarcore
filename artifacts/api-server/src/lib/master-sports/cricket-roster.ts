@@ -10,6 +10,7 @@ import { db } from "@workspace/db";
 import {
   playersTable,
   teamsTable,
+  tournamentsTable,
   playerTeamAssignmentsTable,
   type Player,
 } from "@workspace/db";
@@ -22,6 +23,7 @@ import {
 import {
   syncAuctionPlayerToMaster,
   syncAuctionTeamToMaster,
+  syncAllAuctionPlayersToMaster,
 } from "./sync";
 import { ensureCricketStatisticsBaseline } from "./cricket-stats";
 import {
@@ -167,6 +169,64 @@ export async function syncCricketRosterFromAuction(tournamentId: number): Promis
   });
 
   return { teamsSynced, playersSynced };
+}
+
+export type AuctionSportsHandoffResult = {
+  /** Opaque organiser-facing counts (not internal sync jargon). */
+  teamsReady: number;
+  playersReady: number;
+  sportId: string;
+  /** True when Cricket Sports can create matches (≥2 franchise teams with squad). */
+  readyForMatches: boolean;
+};
+
+/**
+ * Canonical Auction → Sports participant handoff for a tournament.
+ * Idempotent: safe to call repeatedly; does not duplicate PTA rows.
+ * Cricket: full franchise roster rebuild. Other sports: master-player link only.
+ */
+export async function handoffAuctionParticipantsToSports(
+  tournamentId: number,
+): Promise<AuctionSportsHandoffResult> {
+  const [tournament] = await db
+    .select({ sport: tournamentsTable.sport })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) {
+    throw new Error("Tournament not found");
+  }
+
+  const sportId = (tournament.sport ?? "cricket").trim().toLowerCase();
+
+  if (sportId === "cricket") {
+    const { teamsSynced, playersSynced } = await syncCricketRosterFromAuction(tournamentId);
+    const franchise = await listCricketMasterTeams(tournamentId);
+    const withSquad = franchise.filter((t) => t.squadCount > 0);
+    return {
+      teamsReady: teamsSynced,
+      playersReady: playersSynced,
+      sportId,
+      readyForMatches: franchise.length >= 2 && withSquad.length >= 2,
+    };
+  }
+
+  // Non-cricket: preserve prior conclude behaviour (identity link only).
+  const playersReady = await syncAllAuctionPlayersToMaster(tournamentId);
+  return {
+    teamsReady: 0,
+    playersReady,
+    sportId,
+    readyForMatches: false,
+  };
+}
+
+/** Fire-and-forget for Auction conclude / auto-complete. */
+export function handoffAuctionParticipantsToSportsAsync(tournamentId: number): void {
+  void handoffAuctionParticipantsToSports(tournamentId).catch((err) => {
+    console.error("[auction→sports] handoffAuctionParticipantsToSports failed:", err);
+  });
 }
 
 /** Called when auction player moves between teams (transfer / unsold replacement). */

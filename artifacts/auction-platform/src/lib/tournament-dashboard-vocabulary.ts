@@ -88,7 +88,7 @@ const BADMINTON_VOCAB: SportOrganiserVocabulary = {
       case "competition":
         return {
           title: "Set up your tournament",
-          description: "Confirm branding and tournament details to get started.",
+          description: "Confirm how teams enter and compete for Sports scoring.",
           ctaLabel: "Continue Setup",
         };
       case "teams":
@@ -151,7 +151,7 @@ const DEFAULT_VOCAB: SportOrganiserVocabulary = {
       case "competition":
         return {
           title: "Set up your tournament",
-          description: "Confirm how this tournament will be organised.",
+          description: "Confirm how teams enter and compete for Sports scoring.",
           ctaLabel: "Continue Setup",
         };
       case "teams":

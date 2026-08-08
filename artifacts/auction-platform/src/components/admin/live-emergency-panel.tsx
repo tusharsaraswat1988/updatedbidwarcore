@@ -287,7 +287,7 @@ export function LiveEmergencyPanel({
       </div>
 
       <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
-        <DialogContent className="dark max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-400">Reset auction data</DialogTitle>
           </DialogHeader>
@@ -341,7 +341,7 @@ export function LiveEmergencyPanel({
       </Dialog>
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent className="dark max-w-sm">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-destructive">Delete tournament</DialogTitle>
           </DialogHeader>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { CatalogRegistry } from "@workspace/platform-core/catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,15 +14,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { CatalogOptionList } from "./catalog-option-list";
-import { RuleProfileCatalogPanel } from "./rule-profile-catalog-panel";
+import { resolveAuctionCreateCatalogBindings } from "./auction-create-bindings";
 import {
   emptyTournamentCreationDraft,
   WIZARD_STEPS,
   type TournamentCreationDraft,
   type WizardStepId,
 } from "./types";
-import { getSportCapabilities } from "@/lib/sport-capabilities";
 
 export type TournamentCreationPayload = {
   name: string;
@@ -31,9 +31,6 @@ export type TournamentCreationPayload = {
   venue?: string;
   variantId: string;
   competitionTypeId: string;
-  registrationModeId?: string;
-  teamFormationStrategyId?: string;
-  squadRules?: Record<string, number>;
   ruleProfileId: string;
   ruleProfileVersion: string;
   presentationProfileId: string;
@@ -42,9 +39,9 @@ export type TournamentCreationPayload = {
   registrationLimit?: number;
   enableRegistrationPayment?: boolean;
   registrationFee?: number;
-  basePurse?: number;
-  minBid?: number;
-  bidIncrement?: number;
+  basePurse: number;
+  minBid: number;
+  bidIncrement: number;
   auctionDate?: string;
   auctionTime?: string;
 };
@@ -86,114 +83,9 @@ export function TournamentCreationWizard({
   const [loading, setLoading] = useState(false);
 
   const step = WIZARD_STEPS[stepIndex]!;
-  const sports = useMemo(() => CatalogRegistry.listSportsForCreation(), []);
-  const variants = useMemo(
-    () => (draft.sportId ? CatalogRegistry.listVariants(draft.sportId) : []),
-    [draft.sportId],
-  );
-  const competitions = useMemo(
-    () => CatalogRegistry.listCompetitionTypes(draft.sportId || undefined),
-    [draft.sportId],
-  );
-  const ruleProfiles = useMemo(() => {
-    if (!draft.sportId || !draft.variantId || !draft.competitionTypeId) return [];
-    return CatalogRegistry.listRuleProfiles({
-      sportId: draft.sportId,
-      variantId: draft.variantId,
-      competitionTypeId: draft.competitionTypeId,
-    });
-  }, [draft.sportId, draft.variantId, draft.competitionTypeId]);
-  const presentationProfiles = useMemo(() => {
-    if (!draft.sportId || !draft.variantId || !draft.competitionTypeId) return [];
-    return CatalogRegistry.listPresentationProfiles({
-      sportId: draft.sportId,
-      variantId: draft.variantId,
-      competitionTypeId: draft.competitionTypeId,
-    });
-  }, [draft.sportId, draft.variantId, draft.competitionTypeId]);
-
-  const needsAuctionEconomics = CatalogRegistry.requiresAuctionEconomics(
-    draft.competitionTypeId,
-  );
-
-  const registrationModes = useMemo(
-    () =>
-      draft.competitionTypeId
-        ? CatalogRegistry.listRegistrationModes(draft.competitionTypeId)
-        : [],
-    [draft.competitionTypeId],
-  );
-  const teamFormationStrategies = useMemo(
-    () => {
-      const entries =
-        draft.competitionTypeId
-          ? CatalogRegistry.listTeamFormationStrategies(draft.competitionTypeId)
-          : [];
-      const caps = getSportCapabilities(draft.sportId);
-      if (caps.hasCaptain) return entries;
-      return entries.filter((entry) => entry.id !== "captain_pick");
-    },
-    [draft.competitionTypeId, draft.sportId],
-  );
-  const recommendedRegistrationModeId = draft.competitionTypeId
-    ? CatalogRegistry.suggestRegistrationModeId(draft.competitionTypeId)
-    : null;
-  const recommendedTeamFormationId = draft.competitionTypeId
-    ? CatalogRegistry.suggestTeamFormationStrategyId(draft.competitionTypeId)
-    : null;
-
-  // Cascade defaults when sport/variant/competition change
-  useEffect(() => {
-    if (!draft.sportId) return;
-    const list = CatalogRegistry.listVariants(draft.sportId);
-    if (list.length === 1 && draft.variantId !== list[0]!.id) {
-      setDraft((d) => ({ ...d, variantId: list[0]!.id }));
-    }
-  }, [draft.sportId, draft.variantId]);
-
-  useEffect(() => {
-    if (!draft.sportId || !draft.variantId || !draft.competitionTypeId) return;
-    const suggested = CatalogRegistry.suggestDefaults({
-      sportId: draft.sportId,
-      variantId: draft.variantId,
-      competitionTypeId: draft.competitionTypeId,
-    });
-    setDraft((d) => {
-      const next = { ...d };
-      const ruleStillValid = CatalogRegistry.listRuleProfiles({
-        sportId: d.sportId,
-        variantId: d.variantId,
-        competitionTypeId: d.competitionTypeId,
-      }).some((p) => p.id === d.ruleProfileId);
-      if (!ruleStillValid && suggested.ruleProfile) {
-        next.ruleProfileId = suggested.ruleProfile.id;
-        next.ruleProfileVersion = suggested.ruleProfile.version;
-      }
-      const presStillValid = CatalogRegistry.listPresentationProfiles({
-        sportId: d.sportId,
-        variantId: d.variantId,
-        competitionTypeId: d.competitionTypeId,
-      }).some((p) => p.id === d.presentationProfileId);
-      if (!presStillValid && suggested.presentationProfile) {
-        next.presentationProfileId = suggested.presentationProfile.id;
-        next.presentationProfileVersion = suggested.presentationProfile.version;
-      }
-      // Recommendations only — do not auto-persist inferred registration/formation ids.
-      // Clear incompatible prior selections when competition type changes.
-      const modes = CatalogRegistry.listRegistrationModes(d.competitionTypeId);
-      if (d.registrationModeId && !modes.some((m) => m.id === d.registrationModeId)) {
-        next.registrationModeId = "";
-      }
-      const strategies = CatalogRegistry.listTeamFormationStrategies(d.competitionTypeId);
-      if (
-        d.teamFormationStrategyId &&
-        !strategies.some((s) => s.id === d.teamFormationStrategyId)
-      ) {
-        next.teamFormationStrategyId = "";
-      }
-      return next;
-    });
-  }, [draft.sportId, draft.variantId, draft.competitionTypeId]);
+  const sports = CatalogRegistry.listSportsForCreation();
+  const sportEntry = CatalogRegistry.getSport(draft.sportId);
+  const isDialog = mode === "dialog";
 
   function patch(partial: Partial<TournamentCreationDraft>) {
     setDraft((d) => ({ ...d, ...partial }));
@@ -209,61 +101,21 @@ export function TournamentCreationWizard({
       case "sport":
         if (!draft.sportId) return "Select a sport.";
         return null;
-      case "variant":
-        if (!draft.variantId) return "Select a variant.";
-        if (!CatalogRegistry.getVariant(draft.variantId)) return "Unknown variant.";
-        return null;
-      case "competition":
-        if (!draft.competitionTypeId) return "Select a competition type.";
-        return null;
-      case "registration_mode":
-        if (!draft.registrationModeId) return "Confirm a registration mode.";
-        return null;
-      case "team_formation":
-        if (!draft.teamFormationStrategyId) return "Confirm a team formation strategy.";
-        return null;
-      case "squad_rules": {
-        const min = draft.squadRules.minPlayers
-          ? parseInt(draft.squadRules.minPlayers, 10)
-          : NaN;
-        const max = draft.squadRules.maxPlayers
-          ? parseInt(draft.squadRules.maxPlayers, 10)
-          : NaN;
-        if (Number.isFinite(min) && Number.isFinite(max) && min > max) {
-          return "Minimum players cannot exceed maximum players.";
-        }
-        return null;
-      }
-      case "rule_profile":
-        if (!draft.ruleProfileId) return "Select a rule profile.";
-        return null;
-      case "presentation":
-        if (!draft.presentationProfileId) return "Select a presentation profile.";
-        return null;
       case "registration":
-        if (needsAuctionEconomics) {
-          if (!draft.basePurse || parseInt(draft.basePurse, 10) < 1) {
-            return "Team budget (purse) is required for auction/hybrid.";
-          }
-          if (!draft.minBid || parseInt(draft.minBid, 10) < 1) {
-            return "Minimum player value is required for auction/hybrid.";
-          }
-          if (!draft.bidIncrement || parseInt(draft.bidIncrement, 10) < 1) {
-            return "Bid increase amount is required for auction/hybrid.";
-          }
+        if (!draft.basePurse || parseInt(draft.basePurse, 10) < 1) {
+          return "Team budget (purse) is required.";
+        }
+        if (!draft.minBid || parseInt(draft.minBid, 10) < 1) {
+          return "Minimum player value is required.";
+        }
+        if (!draft.bidIncrement || parseInt(draft.bidIncrement, 10) < 1) {
+          return "Bid increase amount is required.";
         }
         return null;
       case "review": {
-        const v = CatalogRegistry.validateCreateBindings({
-          sportId: draft.sportId,
-          variantId: draft.variantId,
-          competitionTypeId: draft.competitionTypeId,
-          ruleProfileId: draft.ruleProfileId,
-          ruleProfileVersion: draft.ruleProfileVersion || undefined,
-          presentationProfileId: draft.presentationProfileId,
-          presentationProfileVersion: draft.presentationProfileVersion || undefined,
-        });
-        return v.ok ? null : v.error;
+        const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
+        if ("error" in bindings) return bindings.error;
+        return null;
       }
       default:
         return null;
@@ -277,7 +129,6 @@ export function TournamentCreationWizard({
       return;
     }
     setError("");
-    // Skip variant step visually? Keep it — auto-selects when only one.
     setStepIndex((i) => Math.min(i + 1, WIZARD_STEPS.length - 1));
   }
 
@@ -292,6 +143,13 @@ export function TournamentCreationWizard({
       setError(err);
       return;
     }
+
+    const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
+    if ("error" in bindings) {
+      setError(bindings.error);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -304,27 +162,17 @@ export function TournamentCreationWizard({
           )
         : undefined;
 
-    const squadRules: Record<string, number> = {};
-    for (const [key, raw] of Object.entries(draft.squadRules)) {
-      if (raw && Number.isFinite(parseInt(raw, 10))) {
-        squadRules[key] = parseInt(raw, 10);
-      }
-    }
-
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
       sport: draft.sportId,
       city: draft.city.trim(),
       venue: draft.venue.trim() || undefined,
-      variantId: draft.variantId,
-      competitionTypeId: draft.competitionTypeId,
-      registrationModeId: draft.registrationModeId || undefined,
-      teamFormationStrategyId: draft.teamFormationStrategyId || undefined,
-      squadRules: Object.keys(squadRules).length > 0 ? squadRules : undefined,
-      ruleProfileId: draft.ruleProfileId,
-      ruleProfileVersion: draft.ruleProfileVersion,
-      presentationProfileId: draft.presentationProfileId,
-      presentationProfileVersion: draft.presentationProfileVersion,
+      variantId: bindings.variantId,
+      competitionTypeId: bindings.competitionTypeId,
+      ruleProfileId: bindings.ruleProfileId,
+      ruleProfileVersion: bindings.ruleProfileVersion,
+      presentationProfileId: bindings.presentationProfileId,
+      presentationProfileVersion: bindings.presentationProfileVersion,
       registrationDeadline: draft.registrationDeadline || undefined,
       registrationLimit: draft.registrationLimit
         ? parseInt(draft.registrationLimit, 10)
@@ -333,15 +181,12 @@ export function TournamentCreationWizard({
       registrationFee: draft.registrationFee
         ? parseInt(draft.registrationFee, 10)
         : undefined,
+      basePurse: parseInt(draft.basePurse, 10),
+      minBid: parseInt(draft.minBid, 10),
+      bidIncrement: parseInt(draft.bidIncrement, 10),
       auctionDate: draft.auctionDate || undefined,
       auctionTime,
     };
-
-    if (needsAuctionEconomics) {
-      payload.basePurse = parseInt(draft.basePurse, 10);
-      payload.minBid = parseInt(draft.minBid, 10);
-      payload.bidIncrement = parseInt(draft.bidIncrement, 10);
-    }
 
     const result = await submit(payload);
     setLoading(false);
@@ -352,490 +197,329 @@ export function TournamentCreationWizard({
     onCreated(result.tournament);
   }
 
-  const sportEntry = CatalogRegistry.getSport(draft.sportId);
-  const variantEntry = CatalogRegistry.getVariant(draft.variantId);
-  const competitionEntry = CatalogRegistry.getCompetitionType(draft.competitionTypeId);
-  const registrationModeEntry = CatalogRegistry.getRegistrationMode(draft.registrationModeId);
-  const teamFormationEntry = CatalogRegistry.getTeamFormationStrategy(
-    draft.teamFormationStrategyId,
-  );
-  const ruleEntry = CatalogRegistry.getRuleProfile(
-    draft.ruleProfileId,
-    draft.ruleProfileVersion,
-  );
-  const presentationEntry = CatalogRegistry.getPresentationProfile(
-    draft.presentationProfileId,
-    draft.presentationProfileVersion,
+  const actions = (
+    <div
+      className={cn(
+        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-between",
+        isDialog &&
+          "border-t border-border/60 bg-card/95 px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-0",
+      )}
+    >
+      <div className="flex gap-2">
+        {stepIndex > 0 ? (
+          <Button type="button" variant="outline" className="min-h-12 flex-1 sm:flex-none px-5" onClick={goBack}>
+            Back
+          </Button>
+        ) : onCancel ? (
+          <Button type="button" variant="ghost" className="min-h-12 flex-1 sm:flex-none px-5" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+      {step.id === "review" ? (
+        <Button
+          type="button"
+          className="min-h-12 flex-1 sm:flex-none px-6"
+          disabled={loading}
+          onClick={() => void handleCreate()}
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+          Create Tournament
+        </Button>
+      ) : (
+        <Button type="button" className="min-h-12 flex-1 sm:flex-none px-6" onClick={goNext}>
+          Continue
+        </Button>
+      )}
+    </div>
   );
 
   return (
-    <div className={mode === "page" ? "space-y-6" : "space-y-4"}>
-      <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">
-          Step {stepIndex + 1} of {WIZARD_STEPS.length}
-        </p>
-        <h2 className="text-xl font-bold tracking-tight">{step.title}</h2>
-        <p className="text-sm text-muted-foreground">{step.job}</p>
-      </div>
-
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full bg-primary transition-all"
-          style={{ width: `${((stepIndex + 1) / WIZARD_STEPS.length) * 100}%` }}
-        />
-      </div>
-
-      {error ? (
-        <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="min-h-[280px]">
-        {step.id === "identity" && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Tournament Name *</Label>
-              <Input
-                value={draft.name}
-                onChange={(e) => patch({ name: e.target.value })}
-                placeholder="e.g. City Championship"
-                className="min-h-12"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>City *</Label>
-              <CityAutocomplete
-                value={draft.city}
-                onChange={(v) => patch({ city: v })}
-                placeholder="Start typing city name"
-                minChars={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Venue</Label>
-              <Input
-                value={draft.venue}
-                onChange={(e) => patch({ venue: e.target.value })}
-                placeholder="Stadium, arena, or ground"
-                className="min-h-12"
-              />
-            </div>
-          </div>
-        )}
-
-        {step.id === "sport" && (
-          <CatalogOptionList
-            entries={sports}
-            value={draft.sportId}
-            onSelect={(entry) =>
-              patch({
-                sportId: entry.id,
-                variantId: "",
-                competitionTypeId: "",
-                registrationModeId: "",
-                teamFormationStrategyId: "",
-                ruleProfileId: "",
-                ruleProfileVersion: "",
-                presentationProfileId: "",
-                presentationProfileVersion: "",
-              })
-            }
-          />
-        )}
-
-        {step.id === "variant" && (
-          <CatalogOptionList
-            entries={variants}
-            value={draft.variantId}
-            onSelect={(entry) =>
-              patch({
-                variantId: entry.id,
-                ruleProfileId: "",
-                ruleProfileVersion: "",
-                presentationProfileId: "",
-                presentationProfileVersion: "",
-              })
-            }
-            emptyLabel="No variants available for this sport."
-          />
-        )}
-
-        {step.id === "competition" && (
-          <CatalogOptionList
-            entries={competitions}
-            value={draft.competitionTypeId}
-            onSelect={(entry) =>
-              patch({
-                competitionTypeId: entry.id,
-                registrationModeId: "",
-                teamFormationStrategyId: "",
-                ruleProfileId: "",
-                ruleProfileVersion: "",
-                presentationProfileId: "",
-                presentationProfileVersion: "",
-              })
-            }
-          />
-        )}
-
-        {step.id === "registration_mode" && (
-          <div className="space-y-3">
-            {recommendedRegistrationModeId ? (
-              <p className="text-sm text-muted-foreground">
-                ⭐ Recommended:{" "}
-                <span className="font-medium text-foreground">
-                  {CatalogRegistry.getRegistrationMode(recommendedRegistrationModeId)
-                    ?.displayName ?? recommendedRegistrationModeId}
-                </span>
-              </p>
-            ) : null}
-            <CatalogOptionList
-              entries={registrationModes}
-              value={draft.registrationModeId}
-              onSelect={(entry) => patch({ registrationModeId: entry.id })}
-              emptyLabel="No registration modes for this competition type."
+    <div
+      className={cn(
+        isDialog ? "flex min-h-0 flex-1 flex-col gap-0" : "space-y-6",
+      )}
+    >
+      <div className={cn(isDialog ? "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1" : "space-y-6")}>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Step {stepIndex + 1} of {WIZARD_STEPS.length}
+          </p>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{step.title}</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">{step.job}</p>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${((stepIndex + 1) / WIZARD_STEPS.length) * 100}%` }}
             />
           </div>
-        )}
+        </div>
 
-        {step.id === "team_formation" && (
-          <div className="space-y-3">
-            {recommendedTeamFormationId ? (
-              <p className="text-sm text-muted-foreground">
-                ⭐ Recommended:{" "}
-                <span className="font-medium text-foreground">
-                  {CatalogRegistry.getTeamFormationStrategy(recommendedTeamFormationId)
-                    ?.displayName ?? recommendedTeamFormationId}
-                </span>
-              </p>
-            ) : null}
-            <CatalogOptionList
-              entries={teamFormationStrategies}
-              value={draft.teamFormationStrategyId}
-              onSelect={(entry) => patch({ teamFormationStrategyId: entry.id })}
-              emptyLabel="No team formation strategies for this competition type."
-            />
-          </div>
-        )}
+        {error ? (
+          <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+            {error}
+          </p>
+        ) : null}
 
-        {step.id === "squad_rules" && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Optional squad limits. Leave blank if not needed yet.
-            </p>
-            {(
-              [
-                ["minPlayers", "Minimum players"],
-                ["maxPlayers", "Maximum players"],
-                ["substitutes", "Substitutes"],
-                ["retentions", "Retentions"],
-              ] as const
-            ).map(([key, label]) => (
-              <div key={key} className="space-y-2">
-                <Label>{label}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={draft.squadRules[key]}
-                  onChange={(e) =>
-                    patch({
-                      squadRules: { ...draft.squadRules, [key]: e.target.value },
-                    })
-                  }
-                  className="min-h-12"
-                  placeholder="Optional"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {step.id === "rule_profile" && (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <CatalogOptionList
-              entries={ruleProfiles}
-              value={draft.ruleProfileId}
-              onSelect={(entry) =>
-                patch({
-                  ruleProfileId: entry.id,
-                  ruleProfileVersion: entry.version,
-                })
-              }
-              emptyLabel="No rule profiles match this sport, variant, and competition."
-            />
-            <RuleProfileCatalogPanel profile={ruleEntry} />
-          </div>
-        )}
-
-        {step.id === "presentation" && (
-          <CatalogOptionList
-            entries={presentationProfiles}
-            value={draft.presentationProfileId}
-            onSelect={(entry) =>
-              patch({
-                presentationProfileId: entry.id,
-                presentationProfileVersion: entry.version,
-              })
-            }
-            emptyLabel="No presentation profiles match this combination."
-          />
-        )}
-
-        {step.id === "registration" && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Registration deadline</Label>
-              <DatePicker
-                value={draft.registrationDeadline}
-                onChange={(registrationDeadline) => patch({ registrationDeadline })}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Registration limit</Label>
-              <Input
-                type="number"
-                min={0}
-                value={draft.registrationLimit}
-                onChange={(e) => patch({ registrationLimit: e.target.value })}
-                placeholder="Optional max registrations"
-                className="min-h-12"
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">Registration payment</p>
-                <p className="text-xs text-muted-foreground">Collect a fee at signup</p>
-              </div>
-              <Switch
-                checked={draft.enableRegistrationPayment}
-                onCheckedChange={(enableRegistrationPayment) =>
-                  patch({ enableRegistrationPayment })
-                }
-              />
-            </div>
-            {draft.enableRegistrationPayment ? (
+        <div className="min-h-[220px] pb-2">
+          {step.id === "identity" && (
+            <div className="space-y-4 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
               <div className="space-y-2">
-                <Label>Registration fee</Label>
+                <Label>Tournament Name *</Label>
                 <Input
-                  type="number"
-                  min={0}
-                  value={draft.registrationFee}
-                  onChange={(e) => patch({ registrationFee: e.target.value })}
-                  className="min-h-12"
+                  value={draft.name}
+                  onChange={(e) => patch({ name: e.target.value })}
+                  placeholder="e.g. City Championship"
                 />
               </div>
-            ) : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>City *</Label>
+                  <CityAutocomplete
+                    value={draft.city}
+                    onChange={(v) => patch({ city: v })}
+                    placeholder="Start typing city name"
+                    minChars={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Venue</Label>
+                  <Input
+                    value={draft.venue}
+                    onChange={(e) => patch({ venue: e.target.value })}
+                    placeholder="Stadium, arena, or ground"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-            {needsAuctionEconomics ? (
-              <div className="space-y-3 rounded-xl border border-border/60 p-4">
-                <p className="text-sm font-semibold">Auction economics</p>
-                <p className="text-xs text-muted-foreground">
-                  Required for Auction / Hybrid. Full auction settings remain in Tournament Settings.
-                </p>
-                <div className="space-y-2">
-                  <Label>Team budget (purse) *</Label>
-                  <Input
-                    type="number"
-                    value={draft.basePurse}
-                    onChange={(e) => patch({ basePurse: e.target.value })}
-                    className="min-h-12"
-                  />
+          {step.id === "sport" && (
+            <CatalogOptionList
+              entries={sports}
+              value={draft.sportId}
+              onSelect={(entry) => patch({ sportId: entry.id })}
+            />
+          )}
+
+          {step.id === "registration" && (
+            <div className="space-y-4">
+              <section className="space-y-4 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Auction economics</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Required for every auction tournament. Full auction settings remain in Tournament
+                    Settings.
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Minimum player value *</Label>
-                  <Input
-                    type="number"
-                    value={draft.minBid}
-                    onChange={(e) => patch({ minBid: e.target.value })}
-                    className="min-h-12"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bid increase *</Label>
-                  <Input
-                    type="number"
-                    value={draft.bidIncrement}
-                    onChange={(e) => patch({ bidIncrement: e.target.value })}
-                    className="min-h-12"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Auction date</Label>
-                  <DatePicker
-                    value={draft.auctionDate}
-                    onChange={(auctionDate) => patch({ auctionDate })}
-                    placeholder="Optional"
-                    disablePastDates
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Auction time</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Select
-                      value={draft.auctionTimeHour || undefined}
-                      onValueChange={(v) => patch({ auctionTimeHour: v })}
-                    >
-                      <SelectTrigger className="min-h-12">
-                        <SelectValue placeholder="Hour" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_HOURS.map((h) => (
-                          <SelectItem key={h} value={String(h)}>
-                            {h}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={draft.auctionTimeMinute}
-                      onValueChange={(v) => patch({ auctionTimeMinute: v })}
-                    >
-                      <SelectTrigger className="min-h-12">
-                        <SelectValue placeholder="Min" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_MINUTES.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={draft.auctionTimePeriod}
-                      onValueChange={(v) =>
-                        patch({ auctionTimePeriod: v as "AM" | "PM" })
-                      }
-                    >
-                      <SelectTrigger className="min-h-12">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="AM">AM</SelectItem>
-                        <SelectItem value="PM">PM</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Team budget (purse) *</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={draft.basePurse}
+                      onChange={(e) => patch({ basePurse: e.target.value })}
+                      placeholder="e.g. 10000000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Minimum player value *</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={draft.minBid}
+                      onChange={(e) => patch({ minBid: e.target.value })}
+                      placeholder="e.g. 100000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bid increase *</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={draft.bidIncrement}
+                      onChange={(e) => patch({ bidIncrement: e.target.value })}
+                      placeholder="e.g. 50000"
+                    />
                   </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
-        )}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Auction date</Label>
+                    <DatePicker
+                      value={draft.auctionDate}
+                      onChange={(auctionDate) => patch({ auctionDate })}
+                      placeholder="Optional"
+                      disablePastDates
+                      className="min-h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Auction time</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select
+                        value={draft.auctionTimeHour || undefined}
+                        onValueChange={(v) => patch({ auctionTimeHour: v })}
+                      >
+                        <SelectTrigger aria-label="Hour">
+                          <SelectValue placeholder="Hour" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIME_HOURS.map((h) => (
+                            <SelectItem key={h} value={String(h)}>
+                              {h}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={draft.auctionTimeMinute}
+                        onValueChange={(v) => patch({ auctionTimeMinute: v })}
+                      >
+                        <SelectTrigger aria-label="Minute">
+                          <SelectValue placeholder="Min" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIME_MINUTES.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={draft.auctionTimePeriod}
+                        onValueChange={(v) =>
+                          patch({ auctionTimePeriod: v as "AM" | "PM" })
+                        }
+                      >
+                        <SelectTrigger aria-label="AM or PM">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-        {step.id === "review" && (
-          <div className="space-y-3 rounded-xl border border-border/60 bg-card/30 p-4">
-            <p className="text-sm font-semibold">Tournament Blueprint</p>
-            <BlueprintRow label="Sport" value={sportEntry?.displayName ?? draft.sportId} />
-            <BlueprintRow label="Variant" value={variantEntry?.displayName ?? draft.variantId} />
-            <BlueprintRow
-              label="Competition"
-              value={competitionEntry?.displayName ?? draft.competitionTypeId}
-            />
-            <BlueprintRow
-              label="Registration Mode"
-              value={
-                registrationModeEntry?.displayName ?? draft.registrationModeId
-              }
-            />
-            <BlueprintRow
-              label="Team Formation"
-              value={teamFormationEntry?.displayName ?? draft.teamFormationStrategyId}
-            />
-            <BlueprintRow
-              label="Squad Rules"
-              value={[
-                draft.squadRules.minPlayers
-                  ? `Min ${draft.squadRules.minPlayers}`
-                  : null,
-                draft.squadRules.maxPlayers
-                  ? `Max ${draft.squadRules.maxPlayers}`
-                  : null,
-                draft.squadRules.substitutes
-                  ? `Subs ${draft.squadRules.substitutes}`
-                  : null,
-                draft.squadRules.retentions
-                  ? `Retentions ${draft.squadRules.retentions}`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ") || "Not set"}
-            />
-            <BlueprintRow
-              label="Rule Profile"
-              value={
-                ruleEntry
-                  ? `${ruleEntry.displayName} (v${ruleEntry.version})`
-                  : draft.ruleProfileId
-              }
-            />
-            <BlueprintRow
-              label="Presentation Profile"
-              value={
-                presentationEntry
-                  ? `${presentationEntry.displayName} (v${presentationEntry.version})`
-                  : draft.presentationProfileId
-              }
-            />
-            <BlueprintRow
-              label="Registration"
-              value={[
-                draft.registrationDeadline
-                  ? `Deadline ${draft.registrationDeadline}`
-                  : "No deadline",
-                draft.registrationLimit ? `Limit ${draft.registrationLimit}` : "No limit",
-                draft.enableRegistrationPayment
-                  ? `Fee ${draft.registrationFee || "—"}`
-                  : "Payment off",
-              ].join(" · ")}
-            />
-            <BlueprintRow label="Name" value={draft.name.trim()} />
-            <BlueprintRow label="City" value={draft.city.trim()} />
-            {draft.venue.trim() ? (
-              <BlueprintRow label="Venue" value={draft.venue.trim()} />
-            ) : null}
-          </div>
-        )}
-      </div>
+              <section className="space-y-4 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Registration</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Optional signup limits and fee collection.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Registration deadline</Label>
+                    <DatePicker
+                      value={draft.registrationDeadline}
+                      onChange={(registrationDeadline) => patch({ registrationDeadline })}
+                      placeholder="Optional"
+                      className="min-h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Registration limit</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      value={draft.registrationLimit}
+                      onChange={(e) => patch({ registrationLimit: e.target.value })}
+                      placeholder="Optional max registrations"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-rail px-3.5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Registration payment</p>
+                    <p className="text-xs text-muted-foreground">Collect a fee at signup</p>
+                  </div>
+                  <Switch
+                    checked={draft.enableRegistrationPayment}
+                    onCheckedChange={(enableRegistrationPayment) =>
+                      patch({ enableRegistrationPayment })
+                    }
+                  />
+                </div>
+                {draft.enableRegistrationPayment ? (
+                  <div className="space-y-2">
+                    <Label>Registration fee</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      value={draft.registrationFee}
+                      onChange={(e) => patch({ registrationFee: e.target.value })}
+                      placeholder="Amount"
+                    />
+                  </div>
+                ) : null}
+              </section>
+            </div>
+          )}
 
-      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-between pt-2">
-        <div className="flex gap-2">
-          {stepIndex > 0 ? (
-            <Button type="button" variant="outline" className="min-h-12 px-5" onClick={goBack}>
-              Back
-            </Button>
-          ) : onCancel ? (
-            <Button type="button" variant="ghost" className="min-h-12 px-5" onClick={onCancel}>
-              Cancel
-            </Button>
-          ) : null}
+          {step.id === "review" && (
+            <div className="space-y-3 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
+              <p className="text-sm font-semibold">Auction tournament</p>
+              <BlueprintRow label="Name" value={draft.name.trim()} />
+              <BlueprintRow label="Sport" value={sportEntry?.displayName ?? draft.sportId} />
+              <BlueprintRow label="City" value={draft.city.trim()} />
+              {draft.venue.trim() ? (
+                <BlueprintRow label="Venue" value={draft.venue.trim()} />
+              ) : null}
+              <BlueprintRow label="Team budget" value={draft.basePurse || "—"} />
+              <BlueprintRow label="Minimum bid" value={draft.minBid || "—"} />
+              <BlueprintRow label="Bid increase" value={draft.bidIncrement || "—"} />
+              <BlueprintRow
+                label="Auction schedule"
+                value={
+                  draft.auctionDate
+                    ? `${draft.auctionDate}${
+                        draft.auctionTimeHour
+                          ? ` · ${draft.auctionTimeHour}:${draft.auctionTimeMinute} ${draft.auctionTimePeriod}`
+                          : ""
+                      }`
+                    : "Not set"
+                }
+              />
+              <BlueprintRow
+                label="Registration"
+                value={[
+                  draft.registrationDeadline
+                    ? `Deadline ${draft.registrationDeadline}`
+                    : "No deadline",
+                  draft.registrationLimit ? `Limit ${draft.registrationLimit}` : "No limit",
+                  draft.enableRegistrationPayment
+                    ? `Fee ${draft.registrationFee || "—"}`
+                    : "Payment off",
+                ].join(" · ")}
+              />
+              <p className="text-xs text-muted-foreground pt-2 leading-relaxed">
+                How teams enter, squads, and scoring setup are configured later in Sports — after you
+                open the Sports module for this tournament.
+              </p>
+            </div>
+          )}
         </div>
-        {step.id === "review" ? (
-          <Button
-            type="button"
-            className="min-h-12 px-6"
-            disabled={loading}
-            onClick={() => void handleCreate()}
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Create Tournament
-          </Button>
-        ) : (
-          <Button type="button" className="min-h-12 px-6" onClick={goNext}>
-            Continue
-          </Button>
-        )}
       </div>
+
+      {isDialog ? <div className="shrink-0 pt-1">{actions}</div> : actions}
     </div>
   );
 }
 
 function BlueprintRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border/40 pb-2 last:border-0">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-right">{value}</span>
+    <div className="flex items-start justify-between gap-4 border-b border-border/50 py-2.5 last:border-0 last:pb-0 first:pt-0">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
+      <span className="text-sm font-medium text-right break-words">{value}</span>
     </div>
   );
 }

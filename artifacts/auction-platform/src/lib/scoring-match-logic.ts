@@ -1,4 +1,5 @@
 import type { CricketScoreboardState } from "@workspace/scoring-core";
+import { deriveCricketMatchResult } from "@workspace/scoring-core";
 import {
   calculateDlsChaseTarget,
   calculateDlsMidChasePar,
@@ -38,55 +39,9 @@ export function suggestInningsEndReason(
   return "overs_complete";
 }
 
-export function buildMatchResult(state: CricketScoreboardState): {
-  winnerTeamId: number | null;
-  margin: string;
-  resultText: string;
-  isTie: boolean;
-} {
-  const first = state.innings.find((i) => i.innings === 1);
-  const second = state.innings.find((i) => i.innings === 2);
-
-  if (!first) {
-    return { winnerTeamId: null, margin: "", resultText: "Match abandoned", isTie: false };
-  }
-
-  if (!second || second.phase !== "completed") {
-    const winner = first.runs > 0 ? first.battingTeamId : null;
-    return {
-      winnerTeamId: winner,
-      margin: `${first.wickets} wkts`,
-      resultText: winner ? `Innings complete — ${first.runs}/${first.wickets}` : "No result",
-      isTie: false,
-    };
-  }
-
-  if (second.runs > first.runs) {
-    const wicketsLeft = state.maxWickets - second.wickets;
-    return {
-      winnerTeamId: second.battingTeamId,
-      margin: `${wicketsLeft} wkts`,
-      resultText: `Won by ${wicketsLeft} wicket${wicketsLeft === 1 ? "" : "s"}`,
-      isTie: false,
-    };
-  }
-
-  if (second.runs < first.runs) {
-    const diff = first.runs - second.runs;
-    return {
-      winnerTeamId: first.battingTeamId,
-      margin: `${diff} runs`,
-      resultText: `Won by ${diff} run${diff === 1 ? "" : "s"}`,
-      isTie: false,
-    };
-  }
-
-  return {
-    winnerTeamId: null,
-    margin: "tie",
-    resultText: "Match tied",
-    isTie: true,
-  };
+/** Client preview — server overwrites MATCH_COMPLETED with the same derivation. */
+export function buildMatchResult(state: CricketScoreboardState) {
+  return deriveCricketMatchResult(state);
 }
 
 /** Compute DLS par score and revised target for rain-affected overs. */
@@ -131,10 +86,10 @@ export function computeDlsApplication(
     firstInningsRuns: first.runs,
     firstInningsOvers: firstOvers,
     firstInningsWickets: first.wickets,
+    revisedOvers,
     secondInningsRuns: current.runs,
     secondInningsOvers: oversText(current.over, current.ball),
     secondInningsWickets: current.wickets,
-    revisedOvers,
   });
   return { ...result, innings: current.innings };
 }

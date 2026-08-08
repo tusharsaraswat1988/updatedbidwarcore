@@ -4,6 +4,7 @@ import * as React from "react";
 import { Clock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { fieldControlClass, fieldControlSizeClass } from "@/components/ui/field-control";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -99,7 +100,10 @@ function TimePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full justify-start rounded-md border border-input bg-secondary/40 px-3 py-1 text-base font-normal text-foreground shadow-sm transition-colors hover:bg-secondary/50 md:text-sm",
+            "flex w-full justify-start font-normal",
+            fieldControlClass,
+            fieldControlSizeClass,
+            "hover:bg-[color-mix(in_oklab,var(--rail)_88%,white)]",
             !value && "text-muted-foreground",
             className,
           )}
@@ -108,7 +112,7 @@ function TimePicker({
           {value && parsed ? formatTimeLabel(value) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="z-[100] w-[260px] space-y-3 p-3" align="start">
+      <PopoverContent className="z-[100] w-[min(260px,calc(100vw-2rem))] space-y-3 p-3" align="start">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <p className="text-[11px] font-medium text-muted-foreground">Hour</p>
@@ -116,7 +120,7 @@ function TimePicker({
               value={String(hour12)}
               onValueChange={(v) => commit({ hour12: Number(v) })}
             >
-              <SelectTrigger className="h-9 bg-secondary/40">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[110] max-h-56">
@@ -134,7 +138,7 @@ function TimePicker({
               value={String(minute).padStart(2, "0")}
               onValueChange={(v) => commit({ minute: Number(v) })}
             >
-              <SelectTrigger className="h-9 bg-secondary/40">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[110] max-h-56">
@@ -160,8 +164,8 @@ function TimePicker({
                 type="button"
                 variant={period === p ? "default" : "outline"}
                 className={cn(
-                  "h-9",
-                  period !== p && "bg-secondary/40 hover:bg-secondary/50",
+                  "h-11",
+                  period !== p && "bg-rail hover:bg-[color-mix(in_oklab,var(--rail)_88%,white)]",
                 )}
                 onClick={() => commit({ period: p })}
               >

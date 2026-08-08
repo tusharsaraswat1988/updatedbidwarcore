@@ -130,6 +130,24 @@ async function parseError(r: Response): Promise<string> {
   }
 }
 
+export class ScoringApiError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ScoringApiError";
+    this.code = code;
+  }
+}
+
+async function parseErrorWithCode(r: Response): Promise<ScoringApiError> {
+  try {
+    const data = await r.json();
+    return new ScoringApiError(data.error ?? r.statusText, data.code);
+  } catch {
+    return new ScoringApiError(r.statusText);
+  }
+}
+
 export async function getScoringLive(tournamentId: number): Promise<ScoringLiveDisplay> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/live`);
   if (!r.ok) throw new Error(await parseError(r));
@@ -156,7 +174,22 @@ export async function createScoringMatch(
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(await parseError(r));
+  if (!r.ok) throw await parseErrorWithCode(r);
+  return r.json();
+}
+
+/** Auction → Sports participant handoff (idempotent). Owned by Auction API. */
+export async function handoffAuctionParticipantsToSports(tournamentId: number): Promise<{
+  teamsReady: number;
+  playersReady: number;
+  readyForMatches: boolean;
+  message: string;
+}> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/auction/handoff-to-sports`, {
+    method: "POST",
+    body: "{}",
+  });
+  if (!r.ok) throw await parseErrorWithCode(r);
   return r.json();
 }
 

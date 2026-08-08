@@ -888,7 +888,7 @@ export default function Teams() {
       </div>
 
       <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) { setDeleteTarget(null); setDeleteError(""); } }}>
-        <DialogContent className="max-w-sm dark">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Are you sure?</DialogTitle>
           </DialogHeader>
@@ -918,7 +918,7 @@ export default function Teams() {
       </Dialog>
 
       <Dialog open={regenerateTarget !== null} onOpenChange={(open) => { if (!open) setRegenerateTarget(null); }}>
-        <DialogContent className="max-w-sm dark">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Regenerate owner access code?</DialogTitle>
           </DialogHeader>
@@ -943,7 +943,7 @@ export default function Teams() {
       </Dialog>
 
       <Dialog open={unlockTarget !== null} onOpenChange={(open) => { if (!open) { setUnlockTarget(null); setUnlockError(""); } }}>
-        <DialogContent className="max-w-sm dark">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Unlock owner access?</DialogTitle>
           </DialogHeader>

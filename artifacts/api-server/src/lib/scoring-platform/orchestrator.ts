@@ -15,10 +15,11 @@ import {
   type ScoringSportSlug,
   type CricketScoreboardState,
 } from "@workspace/scoring-core";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { broadcastScoringState } from "../scoring-broadcast";
 import { ScoringPlatformError } from "./errors";
 import {
+  findMatchEventByCorrelationId,
   getNextEventSequence,
   loadMatchEvents,
   persistScoringEvent,
@@ -58,6 +59,10 @@ export type AppendEventBatchInput = {
   priorState?: unknown;
   matchMeta: unknown;
 };
+
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string })?.code === "23505";
+}
 
 async function persistDlsCalculation(
   matchId: number,
@@ -109,19 +114,24 @@ async function ensureNoOtherLiveCricketMatch(
   }
 }
 
+type MatchProjection = {
+  matchStatus: string;
+  sessionStatus?: string;
+  winnerTeamId?: number | null;
+  resultSummary?: string | null;
+  summaryJson?: Record<string, unknown> | null;
+  setStartedAt?: boolean;
+  setCompletedAt?: boolean;
+  lastEventSeq?: number;
+};
+
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 async function updateCricketMatchAndSession(
   match: typeof scoringMatchesTable.$inferSelect,
   state: unknown,
-  projection: {
-    matchStatus: string;
-    sessionStatus?: string;
-    winnerTeamId?: number | null;
-    resultSummary?: string | null;
-    summaryJson?: Record<string, unknown> | null;
-    setStartedAt?: boolean;
-    setCompletedAt?: boolean;
-    lastEventSeq?: number;
-  },
+  projection: MatchProjection,
+  tx: DbTx | typeof db = db,
 ) {
   const matchPatch: Partial<typeof scoringMatchesTable.$inferInsert> = {
     status: projection.matchStatus,
@@ -138,13 +148,13 @@ async function updateCricketMatchAndSession(
     matchPatch.summaryJson = projection.summaryJson ?? null;
   }
 
-  const [updatedMatch] = await db
+  const [updatedMatch] = await tx
     .update(scoringMatchesTable)
     .set(matchPatch)
     .where(eq(scoringMatchesTable.id, match.id))
     .returning();
 
-  await db
+  await tx
     .update(scoringSessionsTable)
     .set({
       status: projection.sessionStatus ?? "idle",
@@ -180,6 +190,7 @@ function publishCricketState(
 
 /**
  * Generic single-event append — cricket optimistic sequence path.
+ * Event insert + match/session projection commit atomically.
  */
 export async function appendSingleMatchEvent(
   input: AppendSingleEventInput,
@@ -210,78 +221,147 @@ export async function appendSingleMatchEvent(
     throw new ScoringPlatformError(adapterValidation.error, 409, adapterValidation.code);
   }
 
-  const [session] = await db
-    .select()
-    .from(scoringSessionsTable)
-    .where(eq(scoringSessionsTable.matchId, input.matchId))
-    .limit(1);
-
-  const currentSeq = getCurrentSequence(session?.lastEventSeq);
-  try {
-    assertExpectedSequence(input.expectedSequence, currentSeq);
-  } catch {
-    throw new ScoringPlatformError(
-      `Sequence conflict: expected ${input.expectedSequence}, current is ${currentSeq}`,
-      409,
-      "SEQUENCE_CONFLICT",
-    );
-  }
-
-  const events = await loadMatchEvents(input.matchId);
-  const currentState = replayScoringMatchState(input.sportSlug, input.matchMeta, events);
-  const newSeq = nextSequence(currentSeq);
-
-  const trialEvent: ScoringEventEnvelope = {
-    matchId: input.matchId,
-    tournamentId: input.tournamentId,
-    fixtureId: match.fixtureId,
-    sportSlug: input.sportSlug,
-    eventType: input.eventType,
-    eventVersion: 1,
-    sequence: newSeq,
-    actorType: input.actor.type as ScoringEventEnvelope["actorType"],
-    actorId: input.actor.id ?? null,
-    correlationId: input.correlationId ?? null,
-    causationId: null,
-    payload: parsed.payload,
-  };
-
-  try {
-    adapter.processEvent(currentState, trialEvent, { enforceLiveRules: true });
-  } catch (err) {
-    if (err instanceof InvalidEventPayloadError) {
-      throw new ScoringPlatformError(err.message, 400, "INVALID_PAYLOAD");
+  // Idempotent replay of offline-queued events (same correlationId).
+  if (input.correlationId) {
+    const existing = await findMatchEventByCorrelationId(input.matchId, input.correlationId);
+    if (existing) {
+      const events = await loadMatchEvents(input.matchId);
+      const replayedState = replayScoringMatchState(input.sportSlug, input.matchMeta, events);
+      const lastSeq = events.length > 0 ? events[events.length - 1]!.sequence : 0;
+      const state = {
+        ...(replayedState as Record<string, unknown>),
+        lastSequence: lastSeq,
+      };
+      const [session] = await db
+        .select()
+        .from(scoringSessionsTable)
+        .where(eq(scoringSessionsTable.matchId, input.matchId))
+        .limit(1);
+      const [freshMatch] = await db
+        .select()
+        .from(scoringMatchesTable)
+        .where(eq(scoringMatchesTable.id, input.matchId))
+        .limit(1);
+      return {
+        event: existing,
+        state: session?.stateJson ?? state,
+        match: freshMatch ?? match,
+        idempotentReplay: true as const,
+      };
     }
-    throw err;
   }
 
   if (input.eventType === CricketEventType.MATCH_STARTED) {
     await ensureNoOtherLiveCricketMatch(input.tournamentId, input.matchId);
   }
 
-  const eventRow = await persistScoringEvent({
-    matchId: input.matchId,
-    tournamentId: input.tournamentId,
-    fixtureId: match.fixtureId,
-    sportSlug: input.sportSlug,
-    eventType: input.eventType,
-    sequence: newSeq,
-    actorType: input.actor.type,
-    actorId: input.actor.id,
-    correlationId: input.correlationId,
-    payload: parsed.payload,
-  });
+  let eventRow: ScoringEventEnvelope;
+  let state: Record<string, unknown>;
+  let updatedMatch: typeof scoringMatchesTable.$inferSelect;
+  let projection: MatchProjection;
 
-  const allEvents = await loadMatchEvents(input.matchId);
-  const replayedState = replayScoringMatchState(input.sportSlug, input.matchMeta, allEvents);
-  const state = {
-    ...(replayedState as Record<string, unknown>),
-    lastSequence: newSeq,
-  };
-  const projection = adapter.projectMatchFromState(replayedState);
-  projection.lastEventSeq = newSeq;
+  try {
+    const committed = await db.transaction(async (tx) => {
+      // Serialize concurrent appends for this match.
+      await tx.execute(
+        sql`SELECT id FROM scoring_sessions WHERE match_id = ${input.matchId} FOR UPDATE`,
+      );
 
-  const updatedMatch = await updateCricketMatchAndSession(match, state, projection);
+      const [session] = await tx
+        .select()
+        .from(scoringSessionsTable)
+        .where(eq(scoringSessionsTable.matchId, input.matchId))
+        .limit(1);
+
+      const currentSeq = getCurrentSequence(session?.lastEventSeq);
+      try {
+        assertExpectedSequence(input.expectedSequence, currentSeq);
+      } catch {
+        throw new ScoringPlatformError(
+          `Sequence conflict: expected ${input.expectedSequence}, current is ${currentSeq}`,
+          409,
+          "SEQUENCE_CONFLICT",
+        );
+      }
+
+      const events = await loadMatchEvents(input.matchId, undefined, tx);
+      const currentState = replayScoringMatchState(input.sportSlug, input.matchMeta, events);
+      const newSeq = nextSequence(currentSeq);
+
+      const trialEvent: ScoringEventEnvelope = {
+        matchId: input.matchId,
+        tournamentId: input.tournamentId,
+        fixtureId: match.fixtureId,
+        sportSlug: input.sportSlug,
+        eventType: input.eventType,
+        eventVersion: 1,
+        sequence: newSeq,
+        actorType: input.actor.type as ScoringEventEnvelope["actorType"],
+        actorId: input.actor.id ?? null,
+        correlationId: input.correlationId ?? null,
+        causationId: null,
+        payload: parsed.payload,
+      };
+
+      try {
+        adapter.processEvent(currentState, trialEvent, { enforceLiveRules: true });
+      } catch (err) {
+        if (err instanceof InvalidEventPayloadError) {
+          throw new ScoringPlatformError(err.message, 400, "INVALID_PAYLOAD");
+        }
+        throw err;
+      }
+
+      const persisted = await persistScoringEvent(
+        {
+          matchId: input.matchId,
+          tournamentId: input.tournamentId,
+          fixtureId: match.fixtureId,
+          sportSlug: input.sportSlug,
+          eventType: input.eventType,
+          sequence: newSeq,
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          correlationId: input.correlationId,
+          payload: parsed.payload,
+        },
+        tx,
+      );
+
+      const allEvents = await loadMatchEvents(input.matchId, undefined, tx);
+      const replayedState = replayScoringMatchState(input.sportSlug, input.matchMeta, allEvents);
+      const nextState = {
+        ...(replayedState as Record<string, unknown>),
+        lastSequence: newSeq,
+      };
+      const nextProjection = adapter.projectMatchFromState(replayedState);
+      nextProjection.lastEventSeq = newSeq;
+
+      const nextMatch = await updateCricketMatchAndSession(match, nextState, nextProjection, tx);
+
+      return {
+        eventRow: persisted,
+        state: nextState,
+        updatedMatch: nextMatch,
+        projection: nextProjection,
+      };
+    });
+
+    eventRow = committed.eventRow;
+    state = committed.state;
+    updatedMatch = committed.updatedMatch;
+    projection = committed.projection;
+  } catch (err) {
+    if (err instanceof ScoringPlatformError) throw err;
+    if (isUniqueViolation(err)) {
+      throw new ScoringPlatformError(
+        `Sequence conflict: expected ${input.expectedSequence}`,
+        409,
+        "SEQUENCE_CONFLICT",
+      );
+    }
+    throw err;
+  }
 
   const summary =
     projection.summaryJson ??
@@ -363,3 +443,6 @@ export async function appendMatchEventBatch(input: AppendEventBatchInput) {
 
   return { state, startSequence, envelopes };
 }
+
+// Re-export for tests that may reference row mapping through orchestrator path.
+export { rowToEnvelope };

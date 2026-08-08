@@ -70,11 +70,12 @@ router.get("/squads/:auctionTeamId", async (req, res) => {
   res.json(items);
 });
 
-/** POST sync auction teams + roster → master layer — moved to Auction module. */
+/** POST sync auction teams + roster → master layer — use Auction handoff. */
 router.post("/sync-roster", async (_req, res) => {
   res.status(410).json({
-    error: "Auction roster sync belongs to the Auction module. Cricket reads Player Registry only.",
+    error: "Make teams & players available from Auction (handoff-to-sports).",
     code: "AUCTION_SYNC_REMOVED",
+    handoffPath: "/api/tournaments/:id/auction/handoff-to-sports",
   });
 });
 

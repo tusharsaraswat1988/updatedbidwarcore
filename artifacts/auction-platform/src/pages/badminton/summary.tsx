@@ -484,7 +484,7 @@ export default function BadmintonSummaryPage() {
       </div>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-sm bg-zinc-950 border-white/10">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-foreground">Tournament Summary</DialogTitle>
           </DialogHeader>
