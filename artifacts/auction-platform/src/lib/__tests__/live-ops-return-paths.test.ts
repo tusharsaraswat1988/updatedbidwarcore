@@ -42,11 +42,11 @@ describe("Live Ops return + cricket path helpers", () => {
     assert.match(returnPathBackLabel(AUCTION_OVERVIEW), /Auction Overview/i);
   });
 
-  it("returnPathBackLabel names Mission Control for Sports home paths", () => {
-    assert.match(returnPathBackLabel(SPORTS_TMC), /Mission Control/i);
+  it("returnPathBackLabel names Tournament Dashboard for Sports home paths", () => {
+    assert.match(returnPathBackLabel(SPORTS_TMC), /Tournament Dashboard/i);
   });
 
-  it("setupAreaPath aliases Auction Overview (not Sports Mission Control)", () => {
+  it("setupAreaPath aliases Auction Overview (not Sports Tournament Dashboard)", () => {
     assert.equal(setupAreaPath(TID), AUCTION_OVERVIEW);
     assert.equal(tournamentMissionControlPath(TID), AUCTION_OVERVIEW);
     assert.notEqual(setupAreaPath(TID), SPORTS_TMC);
@@ -59,12 +59,12 @@ describe("Live Ops return + cricket path helpers", () => {
 });
 
 describe("Product boundary — badminton hub is not Sports home", () => {
-  it("hub root back nav returns to Sports Mission Control", () => {
+  it("hub root back nav returns to Tournament Dashboard", () => {
     const back = getBadmintonHubBackNav(TID, HUB);
     assert.equal(back.kind, "link");
     if (back.kind === "link") {
       assert.equal(back.href, SPORTS_TMC);
-      assert.match(back.label, /Mission Control/i);
+      assert.match(back.label, /Tournament Dashboard/i);
     }
   });
 

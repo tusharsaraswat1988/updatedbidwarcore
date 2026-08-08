@@ -1067,7 +1067,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <SelectContent className="dark">
               {(sportRoles.length > 0
                 ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
-                : ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => ({ value: r, label: r }))
+                : [{ value: "Player", label: "Player" }]
               ).map(r => (
                 <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
               ))}
@@ -2739,7 +2739,7 @@ export default function Players() {
     setExportingTarget("excel");
     try {
       const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`);
+      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport);
       toast({ title: "Excel exported", description: `${filtered.length} players downloaded.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not export players.";
@@ -2754,7 +2754,7 @@ export default function Players() {
     setExportingTarget("csv");
     try {
       const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      exportPlayersToCsv(filtered, catMap, teamMap, `${fileStem}_Players_Master`);
+      exportPlayersToCsv(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport);
       toast({ title: "CSV exported", description: `${filtered.length} players downloaded.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not export players.";
@@ -2902,7 +2902,7 @@ export default function Players() {
         </div>
 
         <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
-          <DialogContent className="max-w-lg dark">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Share registration link</DialogTitle>
             </DialogHeader>
@@ -3453,7 +3453,7 @@ export default function Players() {
 
       {/* Bulk Upload Dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-xl dark">
+        <DialogContent className="max-w-xl">
           <OrganizerFormDialogHeader
             tournament={tournament}
             title={<span className="flex items-center gap-2"><Upload className="w-5 h-5" /> Bulk Player Upload</span>}
@@ -3469,7 +3469,7 @@ export default function Players() {
 
       {/* Import Players Dialog */}
       <Dialog open={importOpen} onOpenChange={v => { setImportOpen(v); }}>
-        <DialogContent className="max-w-2xl dark max-h-[92vh]">
+        <DialogContent className="max-w-2xl max-h-[92vh]">
           <OrganizerFormDialogHeader
             tournament={tournament}
             title={<span className="flex items-center gap-2"><Upload className="w-5 h-5" /> Import Players from Other Tournaments</span>}
@@ -3515,7 +3515,7 @@ export default function Players() {
       </Sheet>
 
       <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
-        <DialogContent className="max-w-sm dark">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Are you sure?</DialogTitle>
           </DialogHeader>

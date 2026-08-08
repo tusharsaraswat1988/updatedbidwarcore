@@ -101,17 +101,17 @@ export default function BadmintonTournamentHub() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-base font-display font-bold text-foreground">
-                    Tournament Mission Control
+                    Tournament Dashboard
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Competition, Teams, Fixtures, Scheduling, Matches, Runtime, and Live Operations live on Mission Control — the operator home.
+                    Set up competition, teams, fixtures, and schedule — then open Matches & Scoring when you are ready.
                   </p>
                 </div>
               </div>
               <Link href={missionControlHref} className="w-full sm:w-auto shrink-0">
                 <BtnSecondary className="w-full sm:w-auto">
                   <Activity className="w-4 h-4" />
-                  Open Mission Control
+                  Open Tournament Dashboard
                 </BtnSecondary>
               </Link>
             </div>

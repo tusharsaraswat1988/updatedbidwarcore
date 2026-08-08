@@ -167,7 +167,7 @@ export default function CricketDashboardPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link href={sportsMissionControlPath(tournamentId)}>Mission Control</Link>
+              <Link href={sportsMissionControlPath(tournamentId)}>Tournament Dashboard</Link>
             </Button>
             <Button size="sm" asChild>
               <Link href={cricketScoreHubPath(tournamentId)}>Open Matches</Link>
@@ -323,7 +323,7 @@ export default function CricketDashboardPage() {
 
             <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {[
-                { label: "Mission Control", href: sportsMissionControlPath(tournamentId) },
+                { label: "Tournament Dashboard", href: sportsMissionControlPath(tournamentId) },
                 { label: "Fixtures", href: cricketFixturesPath(tournamentId) },
                 { label: "Schedule", href: cricketScheduleOpsPath(tournamentId) },
                 { label: "Stats", href: cricketStatsOpsPath(tournamentId) },

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -32,8 +32,13 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
-import { createScoringMatch, getCricketMasterTeams } from "@/lib/scoring-api";
+import { useScoringMatches, useSquadReadiness, scoringSquadsQueryKey } from "@/hooks/use-scoring-match";
+import {
+  createScoringMatch,
+  getCricketMasterTeams,
+  handoffAuctionParticipantsToSports,
+  ScoringApiError,
+} from "@/lib/scoring-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -46,10 +51,11 @@ import {
   Radio,
   CheckCircle2,
   Trophy,
+  Users,
 } from "lucide-react";
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
-import { cricketPublicPath, openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
+import { cricketPublicPath, openScoreDisplay, scoringSchedulePath, auctionRoomPath } from "@/lib/tournament-navigation";
 import { CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
 import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { cn } from "@/lib/utils";
@@ -80,6 +86,7 @@ export default function ScoringMatchListPage() {
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -89,7 +96,7 @@ export default function ScoringMatchListPage() {
   const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId, scoringActive);
   const { data: squadData } = useSquadReadiness(tournamentId, scoringActive);
 
-  const { data: masterTeams } = useQuery({
+  const { data: masterTeams, refetch: refetchTeams } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],
     queryFn: () => getCricketMasterTeams(tournamentId),
     enabled: scoringActive && !!tournamentId,
@@ -99,6 +106,43 @@ export default function ScoringMatchListPage() {
     () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
     [masterTeams],
   );
+
+  const playersReady = useMemo(
+    () => (masterTeams ?? []).reduce((sum, t) => sum + (t.squadCount ?? 0), 0),
+    [masterTeams],
+  );
+  const teamsWithSquad = useMemo(
+    () => (masterTeams ?? []).filter((t) => (t.squadCount ?? 0) > 0).length,
+    [masterTeams],
+  );
+  const rosterReady = teams.length >= 2 && teamsWithSquad >= 2;
+
+  const [handoffBusy, setHandoffBusy] = useState(false);
+
+  async function handleHandoffToSports() {
+    setHandoffBusy(true);
+    try {
+      const result = await handoffAuctionParticipantsToSports(tournamentId);
+      await Promise.all([
+        refetchTeams(),
+        queryClient.invalidateQueries({ queryKey: ["cricket-roster", tournamentId] }),
+        queryClient.invalidateQueries({ queryKey: scoringSquadsQueryKey(tournamentId) }),
+      ]);
+      toast({
+        title: result.readyForMatches ? "Teams & players ready" : "Setup incomplete",
+        description: result.message,
+        variant: result.readyForMatches ? "default" : "destructive",
+      });
+    } catch (e) {
+      toast({
+        title: "Could not make teams & players available",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setHandoffBusy(false);
+    }
+  }
 
   const stats = useMemo(() => {
     const list = matches ?? [];
@@ -157,11 +201,13 @@ export default function ScoringMatchListPage() {
       setCreateOpen(false);
       navigate(`/tournament/${tournamentId}/score/${detail.match.id}`);
     } catch (e) {
+      const rosterBlocked = e instanceof ScoringApiError && e.code === "ROSTER_NOT_READY";
       toast({
-        title: "Could not create match",
+        title: rosterBlocked ? "Teams & players not ready" : "Could not create match",
         description: e instanceof Error ? e.message : "Unknown error",
         variant: "destructive",
       });
+      if (rosterBlocked) setCreateOpen(false);
     } finally {
       setCreating(false);
     }
@@ -189,7 +235,20 @@ export default function ScoringMatchListPage() {
         <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
         Refresh
       </Button>
-      <BtnPrimary onClick={() => setCreateOpen(true)} disabled={!scoringActive}>
+      <BtnPrimary
+        onClick={() => {
+          if (!rosterReady) {
+            toast({
+              title: "Teams & players not ready",
+              description: "Make teams & players available before creating matches.",
+              variant: "destructive",
+            });
+            return;
+          }
+          setCreateOpen(true);
+        }}
+        disabled={!scoringActive}
+      >
         <Plus className="w-4 h-4 mr-1.5 inline" />
         New match
       </BtnPrimary>
@@ -228,6 +287,51 @@ export default function ScoringMatchListPage() {
           />
         ) : (
           <>
+            {!rosterReady ? (
+              <div className={cn(hubCardClass, "p-4 border-primary/30 bg-primary/5 space-y-3")}>
+                <div className="flex items-start gap-3">
+                  <Users className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-semibold text-foreground">Teams & players not ready</p>
+                    <p className="text-sm text-muted-foreground">
+                      Finish the Auction participant handoff before creating matches.
+                      {playersReady > 0
+                        ? ` Currently ${playersReady} player${playersReady === 1 ? "" : "s"} across ${teams.length} team${teams.length === 1 ? "" : "s"}.`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <BtnPrimary disabled={handoffBusy} onClick={() => void handleHandoffToSports()}>
+                    {handoffBusy ? "Working…" : "Make teams & players available"}
+                  </BtnPrimary>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(auctionRoomPath(tournamentId))}
+                  >
+                    Open Auction
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/40 px-4 py-3 text-sm">
+                <p className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Teams & players</span>
+                  {" — "}
+                  {playersReady} player{playersReady === 1 ? "" : "s"} ready
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={handoffBusy}
+                  onClick={() => void handleHandoffToSports()}
+                >
+                  {handoffBusy ? "Refreshing…" : "Refresh from Auction"}
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <HubKpiCard label="Live now" value={stats.live} icon={Radio} tint="red" pulse={stats.live > 0} />
               <HubKpiCard label="Scheduled" value={stats.scheduled} icon={Calendar} tint="muted" />
@@ -321,7 +425,14 @@ export default function ScoringMatchListPage() {
                       ? "Create your first match to open the live scorer."
                       : "Try another filter or create a new match."
                   }
-                  action={{ label: "New match", onClick: () => setCreateOpen(true) }}
+                  action={
+                    rosterReady
+                      ? { label: "New match", onClick: () => setCreateOpen(true) }
+                      : {
+                          label: "Make teams & players available",
+                          onClick: () => void handleHandoffToSports(),
+                        }
+                  }
                 />
               )}
             </section>

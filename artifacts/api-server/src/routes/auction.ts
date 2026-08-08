@@ -85,8 +85,11 @@ import { invalidateTournamentInsightsCache } from "../lib/tournament-insights";
 import { parseAuditReason, defaultManualSellReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import {
   onAuctionPlayerSoldAsync,
-  syncAllAuctionPlayersAsync,
 } from "../lib/master-sports/sync";
+import {
+  handoffAuctionParticipantsToSports,
+  handoffAuctionParticipantsToSportsAsync,
+} from "../lib/master-sports/cricket-roster";
 import { snapshotPlayer, snapshotTeam } from "../lib/audit-snapshots";
 import {
   acquireOperatorLock,
@@ -284,6 +287,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         .where(eq(auctionSessionsTable.tournamentId, tid));
       await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
     });
+    handoffAuctionParticipantsToSportsAsync(tid);
     return;
   }
 
@@ -324,6 +328,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
       .where(eq(auctionSessionsTable.tournamentId, tid));
     await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
   });
+  handoffAuctionParticipantsToSportsAsync(tid);
 }
 
 function rejectIfAuctionPaused(
@@ -3023,10 +3028,47 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
     metadata: { soldPlayersCount: soldCount, unsoldPlayersCount: unsoldCount, forced: body.data.force },
   });
 
-  syncAllAuctionPlayersAsync(tid);
+  // Full Auction → Sports participant handoff (PTA + teams), not identity-only.
+  handoffAuctionParticipantsToSportsAsync(tid);
 
   bumpTournamentInsights(tid);
   res.json(await broadcastState(tid, ["players"]));
+});
+
+/**
+ * Organiser retry / Sports-triggered handoff.
+ * Idempotent Auction → Sports participant availability (no scoring / UI coupling).
+ */
+router.post("/tournaments/:tournamentId/auction/handoff-to-sports", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  try {
+    const result = await handoffAuctionParticipantsToSports(tid);
+    auditLog(req, {
+      category: "auction",
+      action: "auction.handoff_to_sports",
+      summary: "Auction participants made available for Sports",
+      tournamentId: tid,
+      resource: { type: "tournament", id: tid },
+      metadata: result,
+    });
+    res.json({
+      teamsReady: result.teamsReady,
+      playersReady: result.playersReady,
+      readyForMatches: result.readyForMatches,
+      message: result.readyForMatches
+        ? `${result.playersReady} players ready across ${result.teamsReady} teams.`
+        : "Teams & players are still incomplete. Finish selling players in Auction, then try again.",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Handoff failed";
+    res.status(400).json({ error: message, code: "HANDOFF_FAILED" });
+  }
 });
 
 // POST break-timer (start, extend, or cancel a break countdown on the LED display)

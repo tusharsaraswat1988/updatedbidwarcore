@@ -73,12 +73,22 @@ describe("Team Members", () => {
 });
 
 describe("Team Validation", () => {
-  it("requires captain from catalog constraints", () => {
+  it("requires captain from catalog constraints for cricket", () => {
     const config = mapAuctionTeamToConfiguration(baseTeam);
     const members = mapAuctionSignalsToMembers(baseTeam, []);
-    const result = validateTeam(config, members);
+    const result = validateTeam(config, members, { sportId: "cricket" });
     expect(result.issues.some((i) => i.code === "TEAM_ROLE_REQUIRED")).toBe(true);
     expect(result.errorCount).toBeGreaterThan(0);
+  });
+
+  it("does not require captain for badminton", () => {
+    const config = mapAuctionTeamToConfiguration(baseTeam);
+    const members = mapAuctionSignalsToMembers(baseTeam, []);
+    const result = validateTeam(config, members, { sportId: "badminton" });
+    expect(result.issues.some((i) => i.code === "TEAM_ROLE_REQUIRED")).toBe(false);
+    expect(
+      result.issues.some((i) => i.message.toLowerCase().includes("captain")),
+    ).toBe(false);
   });
 
   it("passes when captain present and checks competition squad max", () => {
@@ -102,6 +112,7 @@ describe("Team Validation", () => {
       },
     ]);
     const result = validateTeam(config, members, {
+      sportId: "cricket",
       competitionSquadRules: { maxPlayers: 2 },
     });
     expect(result.issues.some((i) => i.code === "TEAM_ABOVE_MAX_SQUAD")).toBe(true);
@@ -117,7 +128,7 @@ describe("Team Validation", () => {
         tags: ["captain"],
       },
     ]);
-    const validation = validateTeam(config, members);
+    const validation = validateTeam(config, members, { sportId: "cricket" });
     const payload = buildTeamConfigurationHistoryPayload(
       config,
       validation,

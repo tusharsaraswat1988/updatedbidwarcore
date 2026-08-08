@@ -5,6 +5,7 @@
 
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { normalizeJerseySize, type JerseySize } from "@workspace/api-base/jersey-size";
+import { getSportCapabilities } from "@workspace/platform-core";
 
 export type SpecGroupDef = {
   id: number;
@@ -203,19 +204,22 @@ function slugifyHeader(name: string): string {
 }
 
 export function isCricketSport(sportSlug: string | null | undefined): boolean {
-  return (sportSlug?.trim().toLowerCase() || "cricket") === "cricket";
+  return getSportCapabilities(sportSlug).hasLegacyCricketSpecs;
 }
 
 export function buildBaseCsvHeaders(sportSlug: string | null | undefined): string[] {
   const headers: string[] = [...BASE_HEADERS];
-  if (isCricketSport(sportSlug)) {
+  if (getSportCapabilities(sportSlug).hasLegacyCricketSpecs) {
     headers.push(...CRICKET_ONLY_HEADERS);
   }
   return headers;
 }
 
 export async function fetchSportSpecCatalog(sportSlug: string): Promise<SportSpecCatalog> {
-  const sport = sportSlug.trim().toLowerCase() || "cricket";
+  const sport = sportSlug.trim().toLowerCase();
+  if (!sport) {
+    return { sportSlug: "", roles: [], groupsByRole: new Map(), allGroupNames: [] };
+  }
   const rolesRes = await fetch(`/api/sports/by-slug/${encodeURIComponent(sport)}/roles`);
   if (!rolesRes.ok) throw new Error(`Failed to load roles for ${sport}`);
   const roles = (await rolesRes.json()) as { id: number; roleName: string }[];
@@ -256,16 +260,18 @@ export async function fetchSportSpecCatalog(sportSlug: string): Promise<SportSpe
 }
 
 export function buildCsvTemplateHeaders(catalog: SportSpecCatalog | null): string {
-  const sportSlug = catalog?.sportSlug ?? "cricket";
+  const sportSlug = catalog?.sportSlug ?? "";
+  const caps = getSportCapabilities(sportSlug);
   const base = buildBaseCsvHeaders(sportSlug);
-  const specCols = catalog?.allGroupNames.map(slugifyHeader) ?? [
-    ...LEGACY_CRICKET_SPEC_HEADERS,
-  ];
+  const specCols = catalog?.allGroupNames.map(slugifyHeader) ?? (
+    caps.hasLegacyCricketSpecs ? [...LEGACY_CRICKET_SPEC_HEADERS] : []
+  );
   return [...base, ...specCols].join(",");
 }
 
 export function buildCsvTemplateExampleRow(catalog: SportSpecCatalog | null): string {
-  const sportSlug = catalog?.sportSlug ?? "cricket";
+  const sportSlug = catalog?.sportSlug ?? "";
+  const caps = getSportCapabilities(sportSlug);
   const example =
     EXAMPLE_BY_SPORT[sportSlug] ?? EXAMPLE_BY_SPORT.other!;
 
@@ -284,7 +290,7 @@ export function buildCsvTemplateExampleRow(catalog: SportSpecCatalog | null): st
     example.availabilityDates,
   ];
 
-  if (isCricketSport(sportSlug)) {
+  if (caps.hasLegacyCricketSpecs) {
     cells.push(example.cricheroUrl ?? "");
   }
 
@@ -293,7 +299,7 @@ export function buildCsvTemplateExampleRow(catalog: SportSpecCatalog | null): st
       const slug = slugifyHeader(groupName);
       cells.push(example.specs?.[slug] ?? "");
     }
-  } else if (isCricketSport(sportSlug)) {
+  } else if (caps.hasLegacyCricketSpecs) {
     cells.push(
       example.specs?.battingstyle ?? "Right Hand",
       example.specs?.bowlingstyle ?? "Right Arm Medium",
@@ -354,7 +360,7 @@ export function parsePlayerCsv(
   if (lines.length < 2) return [];
 
   const headers = lines[0]!.split(",").map(normalizeHeader);
-  const allowCrichero = isCricketSport(catalog?.sportSlug);
+  const allowCrichero = getSportCapabilities(catalog?.sportSlug).hasLegacyCricketSpecs;
 
   return lines.slice(1).map((line) => {
     const vals = line.split(",").map((v) => v.trim());

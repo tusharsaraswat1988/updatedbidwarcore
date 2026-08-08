@@ -17,6 +17,12 @@ import { validateCompetitionConfiguration } from "@workspace/platform-core/compe
 const router: IRouter = Router();
 
 const patchSchema = z.object({
+  competitionTypeId: z.string().min(1).nullable().optional(),
+  variantId: z.string().min(1).nullable().optional(),
+  ruleProfileId: z.string().min(1).nullable().optional(),
+  ruleProfileVersion: z.string().min(1).nullable().optional(),
+  presentationProfileId: z.string().min(1).nullable().optional(),
+  presentationProfileVersion: z.string().min(1).nullable().optional(),
   registrationModeId: z.string().min(1).nullable().optional(),
   teamFormationStrategyId: z.string().min(1).nullable().optional(),
   squadRules: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -102,6 +108,16 @@ router.patch("/tournaments/:id/competition/configuration", async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
+  if (parsed.data.competitionTypeId) {
+    if (!CatalogRegistry.getCompetitionType(parsed.data.competitionTypeId)) {
+      return res.status(400).json({ error: "Unknown competitionTypeId" });
+    }
+  }
+  if (parsed.data.variantId) {
+    if (!CatalogRegistry.getVariant(parsed.data.variantId)) {
+      return res.status(400).json({ error: "Unknown variantId" });
+    }
+  }
   if (parsed.data.registrationModeId) {
     if (!CatalogRegistry.getRegistrationMode(parsed.data.registrationModeId)) {
       return res.status(400).json({ error: "Unknown registrationModeId" });

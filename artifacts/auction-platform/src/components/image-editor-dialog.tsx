@@ -260,7 +260,7 @@ export function ImageEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="dark p-0 gap-0 flex flex-col overflow-hidden w-[calc(100vw-0.5rem)] max-w-3xl max-h-[95dvh] fixed inset-x-1 bottom-0 top-auto translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-h-[90vh] sm:rounded-lg z-[100]">
+      <DialogContent className="p-0 gap-0 flex flex-col overflow-hidden w-[calc(100vw-0.5rem)] max-w-3xl max-h-[95dvh] fixed inset-x-1 bottom-0 top-auto translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-h-[90vh] sm:rounded-lg z-[100]">
         <DialogHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4 border-b border-border bg-card/50 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CropIcon className="w-5 h-5 text-primary" /> {title}

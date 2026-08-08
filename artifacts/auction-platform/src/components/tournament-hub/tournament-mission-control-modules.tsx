@@ -16,13 +16,28 @@ import {
   TMC_PIPELINE_ORDER,
 } from "@/lib/tournament-mission-control";
 import { collectModuleHealthFromSnapshots } from "@/lib/module-workspace-utils";
+import { cn } from "@/lib/utils";
 
+/**
+ * Keeps all foundation modules mounted so ModuleRegistry snapshots stay
+ * authoritative. Visual presentation is controlled by the Mission Control
+ * experience layer (focus / setup-details), not by stacking cards as the
+ * primary organiser dashboard.
+ */
 export function TournamentMissionControlModules({
   tournamentId,
   sport,
+  focusModuleId = null,
+  showAll = false,
+  className,
 }: {
   tournamentId: number;
   sport?: string | null;
+  /** When set (and showAll is false), only this module is visually shown. */
+  focusModuleId?: ModuleWorkspaceId | null;
+  /** Show the full advanced module stack (View setup details). */
+  showAll?: boolean;
+  className?: string;
 }) {
   const [peekModuleId, setPeekModuleId] = useState<ModuleWorkspaceId | null>(null);
   const snapshots = useModuleSnapshots();
@@ -30,20 +45,43 @@ export function TournamentMissionControlModules({
 
   const peekSnapshot = peekModuleId ? snapshots[peekModuleId] : null;
 
+  const visible = (id: ModuleWorkspaceId) => {
+    if (showAll) return true;
+    if (focusModuleId) return focusModuleId === id;
+    return false;
+  };
+
   return (
     <>
-      <div className="space-y-6">
-        <CompetitionSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("competition")} />
-        <TeamSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("teams")} />
-        <FixtureSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("fixtures")} />
-        <SchedulingSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("scheduling")} />
-        <MatchSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("matches")} />
-        <RuntimePreparationCard tournamentId={tournamentId} onQuickPeek={openPeek("runtime")} />
-        <LiveOperationsModule
-          tournamentId={tournamentId}
-          sport={sport}
-          onQuickPeek={openPeek("live_operations")}
-        />
+      <div className={cn("space-y-6", className)}>
+        <div className={cn(!visible("competition") && "hidden")} aria-hidden={!visible("competition")}>
+          <CompetitionSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("competition")} />
+        </div>
+        <div className={cn(!visible("teams") && "hidden")} aria-hidden={!visible("teams")}>
+          <TeamSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("teams")} />
+        </div>
+        <div className={cn(!visible("fixtures") && "hidden")} aria-hidden={!visible("fixtures")}>
+          <FixtureSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("fixtures")} />
+        </div>
+        <div className={cn(!visible("scheduling") && "hidden")} aria-hidden={!visible("scheduling")}>
+          <SchedulingSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("scheduling")} />
+        </div>
+        <div className={cn(!visible("matches") && "hidden")} aria-hidden={!visible("matches")}>
+          <MatchSetupCard tournamentId={tournamentId} onQuickPeek={openPeek("matches")} />
+        </div>
+        <div className={cn(!visible("runtime") && "hidden")} aria-hidden={!visible("runtime")}>
+          <RuntimePreparationCard tournamentId={tournamentId} onQuickPeek={openPeek("runtime")} />
+        </div>
+        <div
+          className={cn(!visible("live_operations") && "hidden")}
+          aria-hidden={!visible("live_operations")}
+        >
+          <LiveOperationsModule
+            tournamentId={tournamentId}
+            sport={sport}
+            onQuickPeek={openPeek("live_operations")}
+          />
+        </div>
       </div>
 
       <ModuleQuickPeek
@@ -114,5 +152,5 @@ export function useTournamentModuleOrchestration(input: {
     return collectModuleHealthFromSnapshots(snapshots, TMC_PIPELINE_ORDER);
   }, [snapshots, input.isSetupPhase, input.readinessComplete]);
 
-  return { attentionItems, moduleHealth, scrollToModule };
+  return { attentionItems, moduleHealth, scrollToModule, snapshots };
 }

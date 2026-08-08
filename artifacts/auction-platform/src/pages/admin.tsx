@@ -247,7 +247,7 @@ export function CreateTournamentModal({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl dark max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="w-5 h-5 text-primary" /> Create Tournament
@@ -1665,7 +1665,7 @@ function DetailPanel({
       <AnimatePresence>
         {confirmReset && (
           <Dialog open onOpenChange={() => setConfirmReset(false)}>
-            <DialogContent className="dark max-w-md border-red-500/40">
+            <DialogContent className="max-w-md border-red-500/40">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-red-400">
                   <RefreshCw className="w-5 h-5" /> Reset Auction Data
@@ -1769,7 +1769,7 @@ function DetailPanel({
       <AnimatePresence>
         {confirmDelete && (
           <Dialog open onOpenChange={() => setConfirmDelete(false)}>
-            <DialogContent className="dark max-w-sm">
+            <DialogContent className="max-w-sm">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-destructive">
                   <Trash2 className="w-5 h-5" /> Delete Tournament
@@ -2109,7 +2109,7 @@ function OrganizerDetailPanel({
       <AnimatePresence>
         {confirmDelete && (
           <Dialog open onOpenChange={() => setConfirmDelete(false)}>
-            <DialogContent className="dark max-w-sm">
+            <DialogContent className="max-w-sm">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-destructive">
                   <Trash2 className="w-5 h-5" /> Delete Organizer Account
@@ -2978,7 +2978,7 @@ function DisplayAuctionForm({
 
   return (
     <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-2xl dark max-h-[90vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{initial ? "Edit Display Auction" : "Add Display Auction"}</DialogTitle>
         </DialogHeader>
@@ -3341,7 +3341,7 @@ export function DisplayAuctionsPanel() {
 
       {/* Delete confirm */}
       <Dialog open={deleteId !== null} onOpenChange={v => { if (!v) setDeleteId(null); }}>
-        <DialogContent className="max-w-sm dark">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Remove Display Entry</DialogTitle>
           </DialogHeader>

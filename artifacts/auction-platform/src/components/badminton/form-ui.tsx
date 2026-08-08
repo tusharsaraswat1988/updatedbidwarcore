@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
 
 import { SportsShell, useInSportsShell } from "@/components/sports-shell";
 import { getBadmintonSportNav } from "@/lib/badminton-sport-nav";
@@ -344,13 +345,13 @@ export function FormModal({
 
   return (
 
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md ${PORTAL_THEME_CLASS}`}>
 
       <div
 
         className={cn(
 
-          "w-full rounded-xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[90vh]",
+          "w-full rounded-xl border border-border bg-card text-card-foreground shadow-2xl overflow-hidden flex flex-col max-h-[90vh]",
 
           maxW,
 

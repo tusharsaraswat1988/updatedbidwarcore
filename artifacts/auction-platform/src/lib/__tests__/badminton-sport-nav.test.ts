@@ -15,20 +15,20 @@ function activeIds(pathname: string): string[] {
 }
 
 describe("getBadmintonSportNav — VNBL Phase 1 IA", () => {
-  it("exposes Mission Control plus 7 operational sidebar items", () => {
+  it("exposes Tournament Dashboard plus 7 operational sidebar items", () => {
     const nav = getBadmintonSportNav();
     const items = nav.sections.flatMap((s) => s.items);
     assert.equal(items.length, 8);
     assert.deepEqual(
       items.map((i) => i.label),
       [
-        "Mission Control",
+        "Tournament Dashboard",
         "Operations",
-        "Tournament Setup",
-        "Participants",
-        "Tournament Structure",
+        "Setup",
+        "Teams & Players",
+        "Fixtures",
         "Schedule",
-        "Operator Controls",
+        "Live Operations",
         "Results",
       ],
     );

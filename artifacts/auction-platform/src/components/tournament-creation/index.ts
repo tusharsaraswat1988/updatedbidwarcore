@@ -3,6 +3,10 @@ export {
   type TournamentCreationPayload,
 } from "./tournament-creation-wizard";
 export {
+  resolveAuctionCreateCatalogBindings,
+  type AuctionCreateCatalogBindings,
+} from "./auction-create-bindings";
+export {
   emptyTournamentCreationDraft,
   WIZARD_STEPS,
   type TournamentCreationDraft,

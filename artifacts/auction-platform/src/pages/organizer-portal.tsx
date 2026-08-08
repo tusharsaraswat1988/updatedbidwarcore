@@ -132,8 +132,8 @@ function CreateTournamentModal({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-lg dark max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(92dvh,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-4 sm:w-full sm:p-6">
+        <DialogHeader className="shrink-0 space-y-1.5 pb-3 pr-8 text-left">
           <DialogTitle className="flex items-center gap-2">
             <Gavel className="w-4 h-4 text-primary" />
             {createdCode ? "Tournament Created" : "New Tournament"}
@@ -141,12 +141,12 @@ function CreateTournamentModal({
         </DialogHeader>
 
         {createdCode ? (
-          <div className="space-y-4 mt-2 text-center">
+          <div className="space-y-4 mt-2 text-center px-0.5">
             <CheckCheck className="w-10 h-10 text-green-400 mx-auto" />
             <p className="text-sm text-muted-foreground">Your tournament has been created.</p>
             <div className="flex flex-col items-center gap-1">
               <span className="text-xs text-muted-foreground uppercase tracking-wide">LED Screen Code</span>
-              <span className="font-mono text-2xl font-black tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-4 py-2">
+              <span className="font-mono text-2xl font-black tracking-widest text-primary bg-primary/10 border border-primary/25 rounded-lg px-4 py-2">
                 {createdCode}
               </span>
               <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
@@ -168,27 +168,29 @@ function CreateTournamentModal({
             </Button>
           </div>
         ) : (
-          <TournamentCreationWizard
-            mode="dialog"
-            onCancel={handleClose}
-            submit={async (payload) => {
-              const r = await createOrganizerTournament(payload);
-              if (!r.success) return { success: false as const, error: r.error || "Create failed" };
-              return {
-                success: true as const,
-                tournament: {
-                  id: r.tournament!.id,
-                  name: r.tournament!.name,
-                  auctionCode: r.tournament?.auctionCode ?? null,
-                },
-              };
-            }}
-            onCreated={(tournament) => {
-              setCreatedCode(tournament.auctionCode ?? null);
-              setCreatedTournamentId(tournament.id);
-              onCreated(tournament.id);
-            }}
-          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <TournamentCreationWizard
+              mode="dialog"
+              onCancel={handleClose}
+              submit={async (payload) => {
+                const r = await createOrganizerTournament(payload);
+                if (!r.success) return { success: false as const, error: r.error || "Create failed" };
+                return {
+                  success: true as const,
+                  tournament: {
+                    id: r.tournament!.id,
+                    name: r.tournament!.name,
+                    auctionCode: r.tournament?.auctionCode ?? null,
+                  },
+                };
+              }}
+              onCreated={(tournament) => {
+                setCreatedCode(tournament.auctionCode ?? null);
+                setCreatedTournamentId(tournament.id);
+                onCreated(tournament.id);
+              }}
+            />
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -1684,7 +1686,7 @@ function OrganizerDashboard({
 
       {/* In-Person Consent Declaration Dialog */}
       <Dialog open={declareOpen} onOpenChange={v => { if (!v) { setDeclareOpen(false); setDeclareResult(null); } }}>
-        <DialogContent className="max-w-sm dark">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCheck className="w-4 h-4 text-primary" /> Record In-Person Consent
@@ -1694,7 +1696,7 @@ function OrganizerDashboard({
             {!declareResult ? (
               <>
                 <p>I confirm that I have obtained verbal or written consent from all players and team owners in this tournament to receive WhatsApp auction updates from BidWar.</p>
-                <p className="text-[11px] text-amber-400 bg-amber-500/10 rounded px-3 py-2">
+                <p className="text-[11px] text-primary bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
                   This declaration is logged with your account and timestamp. Only declare if you have actually obtained consent in person.
                 </p>
               </>

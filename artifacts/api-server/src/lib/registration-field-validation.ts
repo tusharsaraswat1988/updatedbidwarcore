@@ -38,6 +38,10 @@ export function sanitizeRegistrationInputByVisibility(
 
 export function resolveRegistrationFieldVisibilityFromTournament(
   raw: unknown,
+  sportId?: string | null,
 ): Record<RegistrationOptionalFieldKey, boolean> {
-  return buildRegistrationFieldVisibility(raw as RegistrationFieldsConfig | null | undefined);
+  return buildRegistrationFieldVisibility(
+    raw as RegistrationFieldsConfig | null | undefined,
+    sportId,
+  );
 }

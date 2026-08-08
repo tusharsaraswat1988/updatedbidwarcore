@@ -9,6 +9,7 @@ import {
   buildCricketMatchSummary,
   buildMatchMetaFromRules,
   createInitialCricketState,
+  deriveCricketMatchResult,
   type MatchMeta,
   type CricketScoreboardState,
   type CricketMatchSummary,
@@ -23,6 +24,7 @@ import { ScoringPlatformError } from "./scoring-platform/errors";
 import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
 import { loadMatchEvents } from "./scoring-platform/event-store";
 import { cricketFranchiseTeamExists } from "./master-sports/cricket-franchise-registry";
+import { listCricketMasterTeams } from "./master-sports/cricket-roster";
 
 export type { ScoringActor };
 
@@ -103,7 +105,24 @@ async function ensureTournamentScoring(tournamentId: number) {
 async function ensureTeamInTournament(tournamentId: number, teamId: number) {
   const ok = await cricketFranchiseTeamExists(tournamentId, teamId);
   if (!ok) {
-    throw new ScoringServiceError(`Team ${teamId} not found in tournament`, 400, "INVALID_TEAM");
+    throw new ScoringServiceError(
+      "That team is not available for Sports yet. Make teams & players available before creating matches.",
+      400,
+      "ROSTER_NOT_READY",
+    );
+  }
+}
+
+/** Block match create when Auction → Sports handoff has not produced a usable roster. */
+export async function assertCricketSportsRosterReady(tournamentId: number): Promise<void> {
+  const teams = await listCricketMasterTeams(tournamentId);
+  const withSquad = teams.filter((t) => t.squadCount > 0);
+  if (teams.length < 2 || withSquad.length < 2) {
+    throw new ScoringServiceError(
+      "Teams & players are not ready yet. Make teams & players available before creating matches.",
+      400,
+      "ROSTER_NOT_READY",
+    );
   }
 }
 
@@ -123,6 +142,7 @@ export async function createScoringMatch(
   if (input.homeTeamId === input.awayTeamId) {
     throw new ScoringServiceError("Home and away teams must differ", 400, "INVALID_TEAMS");
   }
+  await assertCricketSportsRosterReady(tournamentId);
   await ensureTeamInTournament(tournamentId, input.homeTeamId);
   await ensureTeamInTournament(tournamentId, input.awayTeamId);
 
@@ -326,6 +346,37 @@ export async function appendScoringEvent(
       ...input.payload,
       oversLimit: matchMeta.oversLimit,
     };
+  }
+
+  // Authoritative innings totals / match result — never trust client-computed scoreboard maths.
+  if (
+    input.eventType === CricketEventType.INNINGS_ENDED ||
+    input.eventType === CricketEventType.MATCH_COMPLETED
+  ) {
+    const currentState = await projectMatchState(match);
+    if (input.eventType === CricketEventType.INNINGS_ENDED) {
+      const inn = currentState.innings.find((i) => i.innings === currentState.currentInnings);
+      if (!inn) {
+        throw new ScoringServiceError("No active innings to end", 400, "INVALID_INNINGS");
+      }
+      payload = {
+        ...input.payload,
+        innings: currentState.currentInnings,
+        runs: inn.runs,
+        wickets: inn.wickets,
+        overs: `${inn.over}.${inn.ball}`,
+      };
+    } else {
+      // Ensure second innings is marked completed before deriving result when chase finished.
+      const derived = deriveCricketMatchResult(currentState);
+      payload = {
+        ...input.payload,
+        winnerTeamId: derived.winnerTeamId,
+        margin: derived.margin,
+        resultText: derived.resultText,
+        isTie: derived.isTie,
+      };
+    }
   }
 
   if (input.eventType === CricketEventType.LINEUP_SET) {

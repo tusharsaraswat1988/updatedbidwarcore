@@ -61,8 +61,10 @@ router.get("/catalog/team-types", (_req, res) => {
   res.json({ types: CatalogRegistry.listTeamTypes() });
 });
 
-router.get("/catalog/team-roles", (_req, res) => {
-  res.json({ roles: CatalogRegistry.listTeamRoles() });
+router.get("/catalog/team-roles", (req, res) => {
+  const sportId =
+    typeof req.query.sportId === "string" ? req.query.sportId : null;
+  res.json({ roles: CatalogRegistry.listTeamRoles(false, sportId) });
 });
 
 router.get("/catalog/match-types", (_req, res) => {

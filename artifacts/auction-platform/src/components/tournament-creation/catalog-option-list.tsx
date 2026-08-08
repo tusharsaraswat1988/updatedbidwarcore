@@ -49,8 +49,8 @@ export function CatalogOptionList<T extends CatalogEntryBase>({
         className={cn(
           "w-full text-left rounded-xl border px-4 py-3.5 min-h-[56px] transition-colors",
           selected
-            ? "border-primary bg-primary/10"
-            : "border-border/60 bg-card/40 hover:border-primary/40",
+            ? "border-primary bg-primary/15 shadow-[inset_0_1px_0_0_oklch(1_0_0_/_0.06)]"
+            : "border-border bg-rail hover:border-primary/45 hover:bg-[color-mix(in_oklab,var(--rail)_90%,white)]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -61,7 +61,7 @@ export function CatalogOptionList<T extends CatalogEntryBase>({
             </p>
           </div>
           {entry.recommendation === "recommended" ? (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">
               Recommended
             </span>
           ) : entry.status === "beta" ? (

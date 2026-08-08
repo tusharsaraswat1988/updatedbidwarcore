@@ -1,3 +1,5 @@
+import { getSportCapabilities } from "@workspace/platform-core";
+
 /** Always shown on public registration — organizer cannot disable these. */
 export const REGISTRATION_MANDATORY_FIELD_KEYS = [
   "name",
@@ -25,6 +27,17 @@ export const REGISTRATION_OPTIONAL_FIELD_KEYS = [
 
 export type RegistrationOptionalFieldKey =
   (typeof REGISTRATION_OPTIONAL_FIELD_KEYS)[number];
+
+/** Optional fields available for a sport (hides CricHero unless supported). */
+export function registrationOptionalFieldKeysForSport(
+  sportId: string | null | undefined,
+): RegistrationOptionalFieldKey[] {
+  const caps = getSportCapabilities(sportId);
+  return REGISTRATION_OPTIONAL_FIELD_KEYS.filter((key) => {
+    if (key === "cricheroUrl") return caps.hasLegacyCricketSpecs;
+    return true;
+  });
+}
 
 export interface RegistrationFieldsConfig {
   /** Optional field keys hidden from the public registration form. */
@@ -64,18 +77,24 @@ export function parseRegistrationFieldsConfig(
 
 export function buildRegistrationFieldVisibility(
   config: RegistrationFieldsConfig | null | undefined,
+  sportId?: string | null,
 ): Record<RegistrationOptionalFieldKey, boolean> {
   const hidden = new Set(config?.hidden ?? []);
+  const allowed = new Set(registrationOptionalFieldKeysForSport(sportId));
   return Object.fromEntries(
-    REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => [key, !hidden.has(key)]),
+    REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => [
+      key,
+      allowed.has(key) && !hidden.has(key),
+    ]),
   ) as Record<RegistrationOptionalFieldKey, boolean>;
 }
 
 export function isRegistrationFieldVisible(
   key: RegistrationOptionalFieldKey,
   config: RegistrationFieldsConfig | null | undefined,
+  sportId?: string | null,
 ): boolean {
-  return buildRegistrationFieldVisibility(config)[key];
+  return buildRegistrationFieldVisibility(config, sportId)[key];
 }
 
 export function serializeRegistrationFieldsConfig(

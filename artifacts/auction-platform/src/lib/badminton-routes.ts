@@ -246,7 +246,7 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
     return {
       kind: "link",
       href: tmc,
-      label: "Back to Tournament Mission Control",
+      label: "Back to Tournament Dashboard",
     };
   }
 

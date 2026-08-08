@@ -127,12 +127,12 @@ function preloadNav(id: string) {
 
 /**
  * Primary organizer destinations — Sports home + lifecycle ops.
- * Mission Control is Sports product home; remaining items are operational.
+ * Tournament Dashboard is Sports product home; remaining items are operational.
  */
 export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   {
     id: "mission-control",
-    label: "Mission Control",
+    label: "Tournament Dashboard",
     href: sportsHomePath,
     isActive: (path, tid) => isMissionControlPath(path, tid),
     icon: ClipboardList,
@@ -148,7 +148,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "setup",
-    label: "Tournament Setup",
+    label: "Setup",
     href: (tid) => `${badmintonHubPath(tid)}/branding`,
     isActive: (path) =>
       sectionPath(path, "branding") ||
@@ -182,7 +182,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "participants",
-    label: "Participants",
+    label: "Teams & Players",
     href: (tid) => `${badmintonHubPath(tid)}/players`,
     isActive: (path) => sectionPath(path, "players") || sectionPath(path, "scorers"),
     icon: Users,
@@ -206,7 +206,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "structure",
-    label: "Tournament Structure",
+    label: "Fixtures",
     href: (tid) => `${badmintonHubPath(tid)}/fixtures`,
     isActive: (path) =>
       sectionPath(path, "fixtures") || sectionPath(path, "categories"),
@@ -239,7 +239,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "live",
-    label: "Operator Controls",
+    label: "Live Operations",
     href: (tid) => `${badmintonHubPath(tid)}/control`,
     isActive: (path) =>
       isControlPath(path) ||
@@ -258,7 +258,7 @@ export const BADMINTON_PRIMARY_NAV: SportNavItem[] = [
       },
       {
         id: "live-matches",
-        label: "Matches",
+        label: "Matches & Scoring",
         href: (tid) => `${badmintonHubPath(tid)}/matches`,
         isActive: (path) => isMatchesListPath(path) || isMatchControlPath(path),
         preload: () => preloadNav("matches"),

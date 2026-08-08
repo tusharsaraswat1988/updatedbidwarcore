@@ -87,7 +87,7 @@ export function BroadcastLinkCard({
       </article>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-sm bg-zinc-950 border-white/10">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-foreground">{title}</DialogTitle>
           </DialogHeader>

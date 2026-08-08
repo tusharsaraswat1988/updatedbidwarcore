@@ -15,12 +15,13 @@ export function exportPlayersToCsv(
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
   fileName: string,
+  sportId?: string | null,
 ): void {
   if (players.length === 0) {
     throw new Error("No players to export.");
   }
 
-  const rows = buildPlayerExportRows(players, catMap, teamMap);
+  const rows = buildPlayerExportRows(players, catMap, teamMap, sportId);
   const headers = Object.keys(rows[0] ?? {});
   const lines = [
     headers.map(escapeCsvCell).join(","),

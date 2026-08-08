@@ -34,7 +34,7 @@
   --stage: oklch(0.22 0.13 265);
   --panel: oklch(0.28 0.11 265);
   --panel-2: oklch(0.32 0.1 265);
-  --rail: oklch(0.36 0.09 265);
+  --rail: oklch(0.40 0.08 265);
 
   --card: oklch(0.28 0.11 265);
   --card-foreground: oklch(0.98 0.005 90);
@@ -61,8 +61,8 @@
   --destructive: oklch(0.66 0.25 20);
   --destructive-foreground: oklch(0.98 0.005 90);
 
-  --border: oklch(0.42 0.1 265);
-  --input: oklch(0.32 0.1 265);
+  --border: oklch(0.48 0.08 265);
+  --input: oklch(0.48 0.08 265);
   --ring: oklch(0.85 0.17 88);
 
   --gradient-gold: linear-gradient(135deg, oklch(0.9 0.17 90), oklch(0.75 0.19 65));
@@ -149,6 +149,9 @@
 :is(.lovable-home, .lovable-theme) .bg-muted { background-color: var(--muted) !important; }
 :is(.lovable-home, .lovable-theme) .bg-accent { background-color: var(--accent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-card { background-color: var(--card) !important; }
+:is(.lovable-home, .lovable-theme) .bg-rail { background-color: var(--rail) !important; }
+:is(.lovable-home, .lovable-theme) .bg-panel { background-color: var(--panel) !important; }
+:is(.lovable-home, .lovable-theme) .bg-panel-2 { background-color: var(--panel-2) !important; }
 :is(.lovable-home, .lovable-theme) .bg-card\/20 { background-color: color-mix(in oklab, var(--card) 20%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-card\/25 { background-color: color-mix(in oklab, var(--card) 25%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-card\/30 { background-color: color-mix(in oklab, var(--card) 30%, transparent) !important; }

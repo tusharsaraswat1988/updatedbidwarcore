@@ -122,6 +122,7 @@ export function LiveScoringPad({
   const canTap = useDebounceTap();
   const innings = getActiveInnings(state);
   const [wicketSheet, setWicketSheet] = useState(false);
+  const [runOutPick, setRunOutPick] = useState(false);
   const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
@@ -207,13 +208,18 @@ export function LiveScoringPad({
     }
   }
 
-  async function recordWicket(type: BallInput["wicket"] extends infer W ? (W extends { type: infer T } ? T : never) : never) {
-    if (!strikerId) return;
+  async function recordWicket(
+    type: BallInput["wicket"] extends infer W ? (W extends { type: infer T } ? T : never) : never,
+    dismissedPlayerId?: number,
+  ) {
+    const outId = dismissedPlayerId ?? strikerId;
+    if (!outId) return;
     setWicketSheet(false);
+    setRunOutPick(false);
     await recordBall({
       runsOffBat: 0,
       extras: { type: null, runs: 0 },
-      wicket: { type, dismissedPlayerId: strikerId },
+      wicket: { type, dismissedPlayerId: outId },
       isLegalDelivery: true,
     });
   }
@@ -356,6 +362,34 @@ export function LiveScoringPad({
             })
           }
         />
+        <ScoreButton
+          label="Bye"
+          sublabel="1 bye"
+          variant="extra"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 0,
+              extras: { type: "bye", runs: 1 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="LB"
+          sublabel="leg bye"
+          variant="extra"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 0,
+              extras: { type: "leg_bye", runs: 1 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
         <ScoreButton label="W" sublabel="wicket" variant="wicket" disabled={busy || pendingNewBatsman} onClick={() => setWicketSheet(true)} className="col-span-2" />
         <ScoreButton label="↩" sublabel="undo" variant="undo" disabled={busy} onClick={() => { if (canTap()) void onUndo(); }} className="col-span-2" />
       </div>
@@ -369,23 +403,50 @@ export function LiveScoringPad({
         </Button>
       </div>
 
-      <Sheet open={wicketSheet} onOpenChange={setWicketSheet}>
+      <Sheet open={wicketSheet} onOpenChange={(open) => { setWicketSheet(open); if (!open) setRunOutPick(false); }}>
         <SheetContent side="bottom" className="rounded-t-2xl">
           <SheetHeader>
-            <SheetTitle>Wicket — how out?</SheetTitle>
+            <SheetTitle>{runOutPick ? "Run out — who is out?" : "Wicket — how out?"}</SheetTitle>
           </SheetHeader>
-          <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
-            {dismissalOptions.map((type) => (
+          {runOutPick ? (
+            <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
               <Button
-                key={type}
                 variant="outline"
-                className="h-12 capitalize"
-                onClick={() => void recordWicket(type)}
+                className="h-12"
+                disabled={!strikerId}
+                onClick={() => void recordWicket("run_out", strikerId ?? undefined)}
               >
-                {type.replace("_", " ")}
+                Striker out
               </Button>
-            ))}
-          </div>
+              <Button
+                variant="outline"
+                className="h-12"
+                disabled={!nonStrikerId}
+                onClick={() => void recordWicket("run_out", nonStrikerId ?? undefined)}
+              >
+                Non-striker out
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
+              {dismissalOptions.map((type) => (
+                <Button
+                  key={type}
+                  variant="outline"
+                  className="h-12 capitalize"
+                  onClick={() => {
+                    if (type === "run_out") {
+                      setRunOutPick(true);
+                      return;
+                    }
+                    void recordWicket(type);
+                  }}
+                >
+                  {type.replace("_", " ")}
+                </Button>
+              ))}
+            </div>
+          )}
         </SheetContent>
       </Sheet>
 

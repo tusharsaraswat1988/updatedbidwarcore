@@ -6,6 +6,7 @@ import {
   resolvePlayerSpecifications,
   type PlayerSpecSource,
 } from "./player-spec-export";
+import { getSportCapabilities } from "@workspace/platform-core";
 
 export type ExportCategoryMap = Record<number, { name: string; colorCode?: string | null }>;
 export type ExportTeamMap = Record<number, { name: string; color?: string | null }>;
@@ -40,6 +41,7 @@ function buildRow(
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
   specColumns: string[],
+  includeCrichero: boolean,
 ) {
   const categoryId = player.categoryId as number | null | undefined;
   const teamId = player.teamId as number | null | undefined;
@@ -72,7 +74,13 @@ function buildRow(
     "Jersey Size": (player.jerseySize ?? "") as string,
     Achievements: (player.achievements ?? "") as string,
     "Availability Dates": (player.availabilityDates ?? "") as string,
-    "CricHero URL": (player.cricheroUrl ?? "") as string,
+  };
+
+  if (includeCrichero) {
+    row["CricHero URL"] = (player.cricheroUrl ?? "") as string;
+  }
+
+  Object.assign(row, {
     "Photo URL": (player.photoUrl ?? "") as string,
     "Registration Payment Status": (player.registrationPaymentStatus ?? "") as string,
     "UTR Number": (player.utrNumber ?? "") as string,
@@ -84,7 +92,7 @@ function buildRow(
     "Global Player ID": (player.globalPlayerId ?? "") as string,
     "Created At": formatDate(player.createdAt as string | null | undefined),
     "Updated At": formatDate(player.updatedAt as string | null | undefined),
-  };
+  });
 
   for (const label of specColumns) {
     row[label] = specByLabel.get(label) ?? "";
@@ -97,14 +105,18 @@ export function buildPlayerExportRows(
   players: Record<string, unknown>[],
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
+  sportId?: string | null,
 ): Record<string, string | number>[] {
+  const includeCrichero = getSportCapabilities(sportId).hasLegacyCricketSpecs;
   const specColumns = collectSpecColumnLabels(players as PlayerSpecSource[]);
-  return players.map((player) => buildRow(player, catMap, teamMap, specColumns));
+  return players.map((player) =>
+    buildRow(player, catMap, teamMap, specColumns, includeCrichero),
+  );
 }
 
 export function playerExportRowsToSheetValues(rows: Record<string, string | number>[]): string[][] {
   if (rows.length === 0) {
-    return [Object.keys(buildRow({}, {}, {}, []))];
+    return [Object.keys(buildRow({}, {}, {}, [], false))];
   }
 
   const headers = Object.keys(rows[0]!);
@@ -123,6 +135,9 @@ export function buildPlayerExportSheetValues(
   players: Record<string, unknown>[],
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
+  sportId?: string | null,
 ): string[][] {
-  return playerExportRowsToSheetValues(buildPlayerExportRows(players, catMap, teamMap));
+  return playerExportRowsToSheetValues(
+    buildPlayerExportRows(players, catMap, teamMap, sportId),
+  );
 }

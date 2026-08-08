@@ -9,12 +9,13 @@ export async function exportPlayersToExcel(
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
   fileName: string,
+  sportId?: string | null,
 ): Promise<void> {
   if (players.length === 0) {
     throw new Error("No players to export.");
   }
 
-  const rows = buildPlayerExportRows(players, catMap, teamMap);
+  const rows = buildPlayerExportRows(players, catMap, teamMap, sportId);
   const XLSX = await import("xlsx");
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();

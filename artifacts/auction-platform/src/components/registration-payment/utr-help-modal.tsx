@@ -9,7 +9,7 @@ interface UtrHelpModalProps {
 export function UtrHelpModal({ open, onOpenChange }: UtrHelpModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-[#111113] border-white/10">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <HelpCircle className="w-5 h-5 text-primary" />
@@ -24,13 +24,13 @@ export function UtrHelpModal({ open, onOpenChange }: UtrHelpModalProps) {
             You can find it in PhonePe, Google Pay, Paytm, BHIM, or your banking app under transaction details.
           </p>
 
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-green-400">Payment Successful</p>
             <div className="space-y-1.5 text-sm">
-              <p><span className="text-white/50">Amount:</span> <span className="text-white">₹1,200</span></p>
-              <p><span className="text-white/50">Transaction ID:</span> <span className="font-mono text-white/80">T240615183746283</span></p>
+              <p><span className="text-muted-foreground">Amount:</span> <span className="text-foreground">₹1,200</span></p>
+              <p><span className="text-muted-foreground">Transaction ID:</span> <span className="font-mono text-foreground/80">T240615183746283</span></p>
               <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-primary/80 mb-0.5">UTR Number</p>
+                <p className="text-[10px] uppercase tracking-wider text-primary mb-0.5">UTR Number</p>
                 <p className="font-mono text-base font-bold text-primary">415672839102</p>
               </div>
             </div>

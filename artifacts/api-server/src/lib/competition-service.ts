@@ -8,6 +8,7 @@ import {
   playersTable,
   tournamentsTable,
 } from "@workspace/db";
+import { CatalogRegistry } from "@workspace/platform-core/catalog";
 import {
   buildCompetitionPlanPayload,
   buildCompetitionStatus,
@@ -291,6 +292,12 @@ export async function lockCompetitionSetup(
 export async function patchCompetitionConfiguration(
   tournamentId: number,
   patch: {
+    competitionTypeId?: string | null;
+    variantId?: string | null;
+    ruleProfileId?: string | null;
+    ruleProfileVersion?: string | null;
+    presentationProfileId?: string | null;
+    presentationProfileVersion?: string | null;
     registrationModeId?: string | null;
     teamFormationStrategyId?: string | null;
     squadRules?: Record<string, unknown> | null;
@@ -312,14 +319,129 @@ export async function patchCompetitionConfiguration(
     return { ok: false, status: 404, error: "Tournament not found" };
   }
 
+  const nextCompetitionTypeId =
+    patch.competitionTypeId !== undefined
+      ? patch.competitionTypeId
+      : tournament.competitionTypeId;
+  const nextVariantId =
+    patch.variantId !== undefined ? patch.variantId : tournament.variantId;
+
+  let nextRegistrationModeId =
+    patch.registrationModeId !== undefined
+      ? patch.registrationModeId
+      : tournament.registrationModeId;
+  let nextTeamFormationStrategyId =
+    patch.teamFormationStrategyId !== undefined
+      ? patch.teamFormationStrategyId
+      : tournament.teamFormationStrategyId;
+
+  // Drop incompatible entry choices when competition type changes.
+  if (nextCompetitionTypeId) {
+    const modes = CatalogRegistry.listRegistrationModes(nextCompetitionTypeId);
+    if (
+      nextRegistrationModeId &&
+      !modes.some((m) => m.id === nextRegistrationModeId)
+    ) {
+      if (patch.registrationModeId !== undefined) {
+        return {
+          ok: false,
+          status: 400,
+          error: "registrationModeId is not compatible with competitionTypeId",
+        };
+      }
+      nextRegistrationModeId = null;
+    }
+    const strategies = CatalogRegistry.listTeamFormationStrategies(nextCompetitionTypeId);
+    if (
+      nextTeamFormationStrategyId &&
+      !strategies.some((s) => s.id === nextTeamFormationStrategyId)
+    ) {
+      if (patch.teamFormationStrategyId !== undefined) {
+        return {
+          ok: false,
+          status: 400,
+          error: "teamFormationStrategyId is not compatible with competitionTypeId",
+        };
+      }
+      nextTeamFormationStrategyId = null;
+    }
+  }
+
+  let nextRuleProfileId =
+    patch.ruleProfileId !== undefined ? patch.ruleProfileId : tournament.ruleProfileId;
+  let nextRuleProfileVersion =
+    patch.ruleProfileVersion !== undefined
+      ? patch.ruleProfileVersion
+      : tournament.ruleProfileVersion;
+  let nextPresentationProfileId =
+    patch.presentationProfileId !== undefined
+      ? patch.presentationProfileId
+      : tournament.presentationProfileId;
+  let nextPresentationProfileVersion =
+    patch.presentationProfileVersion !== undefined
+      ? patch.presentationProfileVersion
+      : tournament.presentationProfileVersion;
+
+  const sportId = tournament.sport ?? "cricket";
+  if (sportId && nextVariantId && nextCompetitionTypeId) {
+    const ruleStillValid =
+      nextRuleProfileId &&
+      CatalogRegistry.listRuleProfiles({
+        sportId,
+        variantId: nextVariantId,
+        competitionTypeId: nextCompetitionTypeId,
+      }).some((p) => p.id === nextRuleProfileId);
+    const presentationStillValid =
+      nextPresentationProfileId &&
+      CatalogRegistry.listPresentationProfiles({
+        sportId,
+        variantId: nextVariantId,
+        competitionTypeId: nextCompetitionTypeId,
+      }).some((p) => p.id === nextPresentationProfileId);
+
+    if (!ruleStillValid || !presentationStillValid) {
+      const suggested = CatalogRegistry.suggestDefaults({
+        sportId,
+        variantId: nextVariantId,
+        competitionTypeId: nextCompetitionTypeId,
+      });
+      if (!ruleStillValid && suggested.ruleProfile) {
+        nextRuleProfileId = suggested.ruleProfile.id;
+        nextRuleProfileVersion = suggested.ruleProfile.version;
+      }
+      if (!presentationStillValid && suggested.presentationProfile) {
+        nextPresentationProfileId = suggested.presentationProfile.id;
+        nextPresentationProfileVersion = suggested.presentationProfile.version;
+      }
+    }
+  }
+
   const [updated] = await db
     .update(tournamentsTable)
     .set({
-      ...(patch.registrationModeId !== undefined
-        ? { registrationModeId: patch.registrationModeId }
+      ...(patch.competitionTypeId !== undefined
+        ? { competitionTypeId: patch.competitionTypeId }
         : {}),
-      ...(patch.teamFormationStrategyId !== undefined
-        ? { teamFormationStrategyId: patch.teamFormationStrategyId }
+      ...(patch.variantId !== undefined ? { variantId: patch.variantId } : {}),
+      ...(nextRuleProfileId !== tournament.ruleProfileId ||
+      nextRuleProfileVersion !== tournament.ruleProfileVersion
+        ? {
+            ruleProfileId: nextRuleProfileId,
+            ruleProfileVersion: nextRuleProfileVersion,
+          }
+        : {}),
+      ...(nextPresentationProfileId !== tournament.presentationProfileId ||
+      nextPresentationProfileVersion !== tournament.presentationProfileVersion
+        ? {
+            presentationProfileId: nextPresentationProfileId,
+            presentationProfileVersion: nextPresentationProfileVersion,
+          }
+        : {}),
+      ...(nextRegistrationModeId !== tournament.registrationModeId
+        ? { registrationModeId: nextRegistrationModeId }
+        : {}),
+      ...(nextTeamFormationStrategyId !== tournament.teamFormationStrategyId
+        ? { teamFormationStrategyId: nextTeamFormationStrategyId }
         : {}),
       ...(patch.squadRules !== undefined ? { squadRulesJson: patch.squadRules } : {}),
       ...(patch.participantConstraints !== undefined

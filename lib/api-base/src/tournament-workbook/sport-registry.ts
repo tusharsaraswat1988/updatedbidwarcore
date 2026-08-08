@@ -148,7 +148,7 @@ export const SPORT_REGISTRY: Record<string, SportConfig> = {
 };
 
 export function normalizeSportId(raw: unknown): string {
-  const s = String(raw ?? "cricket").trim().toLowerCase();
+  const s = String(raw ?? "").trim().toLowerCase();
   const aliases: Record<string, string> = {
     "table tennis": "table_tennis",
     tabletennis: "table_tennis",

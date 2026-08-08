@@ -145,7 +145,7 @@ export default function TournamentHub() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Sports product</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Competition, fixtures, runtime, and live ops live in Sports Mission Control.
+                Competition, fixtures, and live scoring live on the Tournament Dashboard.
               </p>
             </div>
             <Button

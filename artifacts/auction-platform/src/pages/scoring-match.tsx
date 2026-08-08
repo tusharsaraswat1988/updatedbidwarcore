@@ -87,8 +87,36 @@ export default function ScoringMatchPage() {
   const sendInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (data) sequenceRef.current = data.state.lastSequence;
-  }, [data?.state.lastSequence]);
+    if (!data) return;
+    // Authoritative sequence only — never advance locally for offline guesses.
+    sequenceRef.current = data.state.lastSequence;
+    if (data.state.matchStatus !== "live" || data.state.innings.length === 0) return;
+
+    const strikerVacant = data.state.strikerId == null;
+    const nonStrikerVacant = data.state.nonStrikerId == null;
+    if (!strikerVacant && !nonStrikerVacant) {
+      // Crease filled on server — drop local override + gate.
+      setPendingNewBatsman(false);
+      setLocalStrikerId(null);
+      setLocalNonStrikerId(null);
+      return;
+    }
+
+    // Restore replacement gate after refresh when vacancy is still unfilled locally.
+    // Do not re-open the gate after the scorer already picked a local replacement.
+    const filledLocally =
+      (!strikerVacant || localStrikerId != null) &&
+      (!nonStrikerVacant || localNonStrikerId != null);
+    setPendingNewBatsman(!filledLocally);
+  }, [
+    data?.state.lastSequence,
+    data?.state.strikerId,
+    data?.state.nonStrikerId,
+    data?.state.matchStatus,
+    data?.state.innings.length,
+    localStrikerId,
+    localNonStrikerId,
+  ]);
 
   const refreshQueueDepth = useCallback(async () => {
     if (!matchId) return;
@@ -116,33 +144,40 @@ export default function ScoringMatchPage() {
     setBusy(true);
     try {
       for (const item of queued) {
-        try {
-          const result = await appendScoringEvent(tournamentId, matchId, {
-            eventType: item.eventType,
-            payload: item.payload,
-            expectedSequence: sequenceRef.current,
-            correlationId: item.correlationId,
-          });
-          sequenceRef.current = result.state.lastSequence;
-          await removeQueuedScoringEvent(item.id);
-          applyDetail({
-            match: result.match,
-            state: result.state,
-            eventCount: data.eventCount + 1,
-            lastSequence: result.state.lastSequence,
-          });
-        } catch (e) {
-          const err = e as Error & { status?: number };
-          if (err.status === 409) {
-            const refreshed = await refetch();
-            if (refreshed.data) {
-              sequenceRef.current = refreshed.data.state.lastSequence;
+        let synced = false;
+        for (let attempt = 0; attempt < 2 && !synced; attempt++) {
+          try {
+            const result = await appendScoringEvent(tournamentId, matchId, {
+              eventType: item.eventType,
+              payload: item.payload,
+              expectedSequence: sequenceRef.current,
+              correlationId: item.correlationId,
+            });
+            sequenceRef.current = result.state.lastSequence;
+            await removeQueuedScoringEvent(item.id);
+            applyDetail({
+              match: result.match,
+              state: result.state,
+              eventCount: (data.eventCount ?? 0) + 1,
+              lastSequence: result.state.lastSequence,
+            });
+            synced = true;
+          } catch (e) {
+            const err = e as Error & { status?: number };
+            if (err.status === 409) {
+              const refreshed = await refetch();
+              if (refreshed.data) {
+                sequenceRef.current = refreshed.data.state.lastSequence;
+              }
+              continue;
             }
-            break;
+            if (isNetworkScoringError(e)) {
+              return;
+            }
+            throw e;
           }
-          if (isNetworkScoringError(e)) break;
-          throw e;
         }
+        if (!synced) break;
       }
     } finally {
       sendInFlightRef.current = false;
@@ -162,11 +197,13 @@ export default function ScoringMatchPage() {
       if (!data || sendInFlightRef.current) return;
       sendInFlightRef.current = true;
       setBusy(true);
+      const correlationId = crypto.randomUUID();
       try {
         const result = await appendScoringEvent(tournamentId, matchId, {
           eventType,
           payload,
           expectedSequence: sequenceRef.current,
+          correlationId,
         });
         sequenceRef.current = result.state.lastSequence;
         applyDetail({
@@ -177,6 +214,9 @@ export default function ScoringMatchPage() {
         });
         setLocalStrikerId(null);
         setLocalNonStrikerId(null);
+        if (result.state.strikerId == null || result.state.nonStrikerId == null) {
+          setPendingNewBatsman(true);
+        }
         await drainQueue();
       } catch (e) {
         const err = e as Error & { status?: number };
@@ -186,8 +226,9 @@ export default function ScoringMatchPage() {
             sequenceRef.current = refreshed.data.state.lastSequence;
           }
           toast({
-            title: "Already saved",
-            description: "Match synced — continue from the latest step.",
+            title: "Score conflict",
+            description: "Match refreshed to the latest score. Re-enter the ball only if it is missing.",
+            variant: "destructive",
           });
         } else if (isNetworkScoringError(e)) {
           await enqueueScoringEvent({
@@ -196,12 +237,13 @@ export default function ScoringMatchPage() {
             eventType,
             payload,
             expectedSequence: sequenceRef.current,
+            correlationId,
           });
-          sequenceRef.current += 1;
+          // Do not advance sequenceRef — server is still at the prior sequence.
           await refreshQueueDepth();
           toast({
-            title: "Saved offline",
-            description: "Ball queued — will sync when connection returns.",
+            title: "Queued offline",
+            description: "Will sync when online. Do not tap the same ball again until synced.",
           });
         } else {
           toast({
@@ -222,12 +264,26 @@ export default function ScoringMatchPage() {
   const away = teams.find((t) => t.id === data?.match.awayTeamId);
   const subtitle = home && away ? `${home.shortCode} vs ${away.shortCode}` : undefined;
 
+  const needsCreaseFill =
+    !!data &&
+    data.state.matchStatus === "live" &&
+    data.state.innings.length > 0 &&
+    (data.state.strikerId == null || data.state.nonStrikerId == null);
+
+  const creaseFilledForScoring =
+    !!data &&
+    (data.state.strikerId != null || localStrikerId != null) &&
+    (data.state.nonStrikerId != null || localNonStrikerId != null);
+
   const readyToScore =
     data &&
     data.state.tossWinnerTeamId != null &&
-    data.state.strikerId != null &&
-    data.state.nonStrikerId != null &&
-    (localBowlerId != null || data.state.bowlerId != null);
+    data.state.innings.length > 0 &&
+    (localBowlerId != null || data.state.bowlerId != null) &&
+    (
+      pendingNewBatsman ||
+      creaseFilledForScoring
+    );
 
   const isFinished =
     data?.state.matchStatus === "completed" || data?.state.matchStatus === "abandoned";
@@ -333,7 +389,7 @@ export default function ScoringMatchPage() {
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-center gap-2 text-sm text-amber-100">
             <WifiOff className="w-4 h-4 shrink-0" />
             <span>
-              {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — will sync when online.
+              {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — scoring paused until synced.
             </span>
             <Button
               size="sm"
@@ -383,28 +439,32 @@ export default function ScoringMatchPage() {
               players={players}
                 rules={data.match.rules}
                 bowlerId={localBowlerId}
-                busy={busy}
-                pendingNewBatsman={pendingNewBatsman}
+                busy={busy || queueDepth > 0}
+                pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
                 localStrikerId={localStrikerId}
                 localNonStrikerId={localNonStrikerId}
                 onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
                 onEvent={sendEvent}
                 onUndo={async () => {
-                  if (!data) return;
+                  if (!data || sendInFlightRef.current || queueDepth > 0) return;
+                  sendInFlightRef.current = true;
                   setBusy(true);
                   try {
                     const result = await undoScoringEvent(
                       tournamentId,
                       matchId,
-                      data.state.lastSequence,
+                      sequenceRef.current,
                     );
+                    sequenceRef.current = result.state.lastSequence;
                     applyDetail({
                       match: result.match,
                       state: result.state,
                       eventCount: data.eventCount + 1,
                       lastSequence: result.state.lastSequence,
                     });
-                    setPendingNewBatsman(false);
+                    setPendingNewBatsman(
+                      result.state.strikerId == null || result.state.nonStrikerId == null,
+                    );
                   } catch (e) {
                     toast({
                       title: "Undo failed",
@@ -412,6 +472,7 @@ export default function ScoringMatchPage() {
                       variant: "destructive",
                     });
                   } finally {
+                    sendInFlightRef.current = false;
                     setBusy(false);
                   }
                 }}
@@ -429,7 +490,13 @@ export default function ScoringMatchPage() {
                     setPendingNewBatsman(true);
                     return;
                   }
-                  setLocalStrikerId(playerId);
+                  if (data.state.strikerId == null) {
+                    setLocalStrikerId(playerId);
+                  } else if (data.state.nonStrikerId == null) {
+                    setLocalNonStrikerId(playerId);
+                  } else {
+                    setLocalStrikerId(playerId);
+                  }
                   setPendingNewBatsman(false);
                 }}
               />

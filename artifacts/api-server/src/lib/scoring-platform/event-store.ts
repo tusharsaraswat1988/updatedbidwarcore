@@ -3,6 +3,8 @@ import { scoringEventsTable } from "@workspace/db";
 import type { ScoringEventEnvelope, ScoringSportSlug } from "@workspace/scoring-core";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
+type EventStoreTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export function rowToEnvelope(
   row: typeof scoringEventsTable.$inferSelect,
 ): ScoringEventEnvelope {
@@ -27,13 +29,14 @@ export function rowToEnvelope(
 export async function loadMatchEvents(
   matchId: number,
   sportSlug?: ScoringSportSlug,
+  tx: EventStoreTx | typeof db = db,
 ): Promise<ScoringEventEnvelope[]> {
   const conditions = [eq(scoringEventsTable.matchId, matchId)];
   if (sportSlug) {
     conditions.push(eq(scoringEventsTable.sportSlug, sportSlug));
   }
 
-  const rows = await db
+  const rows = await tx
     .select()
     .from(scoringEventsTable)
     .where(and(...conditions))
@@ -65,8 +68,6 @@ export type PersistEventInput = {
   correlationId?: string | null;
   payload: Record<string, unknown>;
 };
-
-type EventStoreTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export async function persistScoringEvent(
   input: PersistEventInput,
@@ -158,6 +159,29 @@ export async function findMatchEventByIdempotencyKey(
       and(
         eq(scoringEventsTable.matchId, matchId),
         sql`${scoringEventsTable.payloadJson}->>'idempotencyKey' = ${key}`,
+      ),
+    )
+    .orderBy(asc(scoringEventsTable.sequence))
+    .limit(1);
+
+  return row ? rowToEnvelope(row) : null;
+}
+
+/** Cricket offline-queue idempotency via event correlation_id. */
+export async function findMatchEventByCorrelationId(
+  matchId: number,
+  correlationId: string,
+): Promise<ScoringEventEnvelope | null> {
+  const key = correlationId.trim();
+  if (!key) return null;
+
+  const [row] = await db
+    .select()
+    .from(scoringEventsTable)
+    .where(
+      and(
+        eq(scoringEventsTable.matchId, matchId),
+        eq(scoringEventsTable.correlationId, key),
       ),
     )
     .orderBy(asc(scoringEventsTable.sequence))

@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import {
-  BMW_SHEETS,
+  bmwSheetsForSport,
   INSTRUCTIONS_SHEET,
   SUMMARY_SHEET,
   BMW_MANIFEST_SHEET,
@@ -461,7 +461,8 @@ function fillStyleCell(ws: ExcelJS.Worksheet, row: number, col: number, color: s
 function addDashboardSheet(wb: ExcelJS.Workbook, ctx: ExportContext): void {
   const ws = wb.addWorksheet(INSTRUCTIONS_SHEET, { views: [{ showGridLines: false }] });
   const tName = String(ctx.tournament.name ?? "Tournament");
-  const sport = normalizeSportId(String(ctx.tournament.sport ?? "cricket"));
+  const sport = normalizeSportId(String(ctx.tournament.sport ?? ""));
+  const sheets = bmwSheetsForSport(sport);
   const generatedAt = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 
   ws.mergeCells("A1:F1");
@@ -551,7 +552,7 @@ function addDashboardSheet(wb: ExcelJS.Workbook, ctx: ExportContext): void {
   ws.getCell(row, 1).value = "Data Sheets";
   ws.getCell(row, 1).font = { bold: true, size: 13 };
   row++;
-  for (const sheet of BMW_SHEETS) {
+  for (const sheet of sheets) {
     ws.getCell(row, 1).value = sheet.name;
     ws.getCell(row, 1).font = { bold: true, color: { argb: BRAND.link } };
     ws.getCell(row, 2).value = sheet.title;
@@ -630,8 +631,9 @@ function fillSummarySheet(
   let row = 5;
   let totalCompletion = 0;
   let completionSheets = 0;
+  const sheets = bmwSheetsForSport(ctx.tournament.sport);
 
-  for (const sheetDef of BMW_SHEETS) {
+  for (const sheetDef of sheets) {
     const dataWs = wb.getWorksheet(sheetDef.name);
     const lastRow = sheetRowCounts.get(sheetDef.name) ?? 1;
     const recordCount = Math.max(0, lastRow - 1);
@@ -709,7 +711,7 @@ function addManifestSheet(wb: ExcelJS.Workbook, sport: string): void {
 }
 
 function addReferenceSheets(wb: ExcelJS.Workbook, ctx: ExportContext): RefRanges {
-  const sport = normalizeSportId(ctx.tournament.sport ?? "cricket");
+  const sport = normalizeSportId(ctx.tournament.sport ?? "");
 
   const catWs = wb.addWorksheet(REF_SHEET_CATEGORIES);
   catWs.addRow(["Category Name"]);
@@ -854,7 +856,8 @@ export async function buildTournamentWorkbookExcel(ctx: ExportContext): Promise<
   wb.created = new Date();
   wb.modified = new Date();
   wb.properties.date1904 = false;
-  const sport = String(ctx.tournament.sport ?? "cricket");
+  const sport = String(ctx.tournament.sport ?? "");
+  const sheets = bmwSheetsForSport(sport);
 
   addDashboardSheet(wb, ctx);
   wb.addWorksheet(SUMMARY_SHEET, { views: [{ showGridLines: false }] });
@@ -863,7 +866,7 @@ export async function buildTournamentWorkbookExcel(ctx: ExportContext): Promise<
 
   const sheetRowCounts = new Map<string, number>();
 
-  for (const sheetDef of BMW_SHEETS) {
+  for (const sheetDef of sheets) {
     const ws = wb.addWorksheet(sheetDef.name);
     const lastRow = populateDataSheet(ws, sheetDef, ctx);
     sheetRowCounts.set(sheetDef.name, lastRow);

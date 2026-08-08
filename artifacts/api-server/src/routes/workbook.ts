@@ -11,7 +11,7 @@ import { requireMasterAdmin } from "../middleware/require-admin";
 import { auditLog } from "../lib/audit-service";
 import {
   WORKBOOK_IMPORT_MODES,
-  BMW_SHEETS,
+  bmwSheetsForSport,
   buildTargetFieldCatalog,
   suggestMappingProfile,
   type WorkbookImportMode,
@@ -477,7 +477,7 @@ router.delete("/mappings/:profileId", requireMasterAdmin, async (req: Request, r
 router.post("/mappings/suggest", requireMasterAdmin, async (req: Request, res: Response) => {
   const { headers } = req.body as { headers?: string[] };
   if (!Array.isArray(headers)) { res.status(400).json({ error: "headers array required" }); return; }
-  const catalog = buildTargetFieldCatalog(BMW_SHEETS);
+  const catalog = buildTargetFieldCatalog(bmwSheetsForSport(null));
   const suggestions = suggestMappingProfile(headers, catalog);
   res.json({ suggestions });
 });

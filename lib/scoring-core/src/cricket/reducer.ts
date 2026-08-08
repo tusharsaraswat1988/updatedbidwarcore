@@ -139,6 +139,61 @@ function applyBallRecorded(
     );
   }
 
+  if (payload.strikerId === payload.nonStrikerId) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.BALL_RECORDED,
+      "striker and non-striker must be different players",
+    );
+  }
+
+  const currentInn = getCurrentInnings(state);
+  if (enforceLiveRules && currentInn) {
+    if (currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "innings is not in progress",
+      );
+    }
+    if (currentInn.wickets >= state.maxWickets) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "innings is all out — end innings before recording more balls",
+      );
+    }
+    if (state.target != null && currentInn.runs >= state.target) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "target already reached — end innings or complete the match",
+      );
+    }
+    if (payload.isLegalDelivery && payload.over >= currentInn.oversLimit) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        `overs limit (${currentInn.oversLimit}) already complete`,
+      );
+    }
+    // Crease must be fully filled after a wicket/retire until a replacement is chosen.
+    // Replacement is accepted when the empty slot is filled by a different player id in the payload.
+    if (state.strikerId == null && state.nonStrikerId == null) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "select openers before recording balls",
+      );
+    }
+    if (state.strikerId == null && payload.strikerId === state.nonStrikerId) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "select a new batter before recording balls",
+      );
+    }
+    if (state.nonStrikerId == null && payload.nonStrikerId === state.strikerId) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "select a new batter before recording balls",
+      );
+    }
+  }
+
   if (enforceLiveRules && state.freeHitActive && payload.wicket) {
     const allowed = FREE_HIT_DISMISSALS.includes(payload.wicket.type);
     if (!allowed) {
@@ -150,8 +205,8 @@ function applyBallRecorded(
   }
 
   const runs = totalRunsOnBall(payload);
-  let strikerId = payload.strikerId;
-  let nonStrikerId = payload.nonStrikerId;
+  let strikerId: number | null = payload.strikerId;
+  let nonStrikerId: number | null = payload.nonStrikerId;
   let freeHitActive = state.freeHitActive;
 
   if (payload.extras.type === "no_ball") {
@@ -178,6 +233,14 @@ function applyBallRecorded(
   }
   if (payload.isLegalDelivery && payload.ball === 6) {
     [strikerId, nonStrikerId] = [nonStrikerId, strikerId];
+  }
+
+  // Vacate the crease for the dismissed batter so a replacement is required
+  // (survives refresh; next ball must supply the new batter id).
+  if (payload.wicket) {
+    const dismissed = payload.wicket.dismissedPlayerId;
+    if (strikerId === dismissed) strikerId = null;
+    if (nonStrikerId === dismissed) nonStrikerId = null;
   }
 
   const ballDisplay = toBallDisplay(payload);

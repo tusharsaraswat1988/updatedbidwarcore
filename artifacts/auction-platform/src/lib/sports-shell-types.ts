@@ -48,8 +48,10 @@ export type SportLiveOpsLink = {
 
 /**
  * Declared capabilities for a sport module.
+ * Flag/label contract is owned by `@workspace/platform-core`.
  * Shared SportsShell / Mission Control chrome must branch on these —
  * never assume cricket concepts in generic Sports UI.
+ * Live Ops links are UI-host decorations attached in sport-capabilities.ts.
  */
 export type SportCapabilities = {
   sportId: string;
@@ -114,6 +116,19 @@ export type SportCapabilities = {
   liveOpsLinks: SportLiveOpsLink[];
   /** Summary lines for Live Operations quick-peek when sports is active. */
   liveOpsPeekLines: string[];
+  /**
+   * Optional Mission Control Hybrid Continue destinations for management-heavy
+   * journey steps. Shared MC must consume these — never hard-code sport routes.
+   */
+  missionControlDestinations?: {
+    /** First-time / tournament identity setup (e.g. badminton branding). */
+    tournament?: (tournamentId: number) => string;
+    teams?: (tournamentId: number) => string;
+    fixtures?: (tournamentId: number) => string;
+    schedule?: (tournamentId: number) => string;
+    /** Primary Matches & Scoring destination for ready-state Open Scoring. */
+    scoring?: (tournamentId: number) => string;
+  };
 };
 
 /**

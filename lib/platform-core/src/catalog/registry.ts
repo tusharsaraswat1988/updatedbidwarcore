@@ -35,6 +35,11 @@ import { SCHEDULING_STRATEGY_CATALOG } from "./scheduling-strategies/index.ts";
 import { TEAM_ROLE_CATALOG } from "./team-roles/index.ts";
 import { TEAM_TYPE_CATALOG } from "./team-types/index.ts";
 import {
+  getSportCapabilities,
+  isTeamFormationSupportedByCapabilities,
+  isTeamRoleSupportedByCapabilities,
+} from "../sport-capabilities.ts";
+import {
   LEGACY_COMPETITION_TYPE_ID,
   LEGACY_PROFILE,
   LEGACY_VARIANT_ID,
@@ -545,10 +550,14 @@ export const CatalogRegistry = {
   listTeamFormationStrategies(
     competitionTypeId?: string,
     includeDeprecated = false,
+    sportId?: string | null,
   ): TeamFormationStrategyCatalogEntry[] {
-    const entries = TEAM_FORMATION_STRATEGY_CATALOG.filter((e) =>
-      isActiveForPicker(e, includeDeprecated),
-    );
+    const caps = sportId != null ? getSportCapabilities(sportId) : null;
+    const entries = TEAM_FORMATION_STRATEGY_CATALOG.filter((e) => {
+      if (!isActiveForPicker(e, includeDeprecated)) return false;
+      if (caps && !isTeamFormationSupportedByCapabilities(e.id, caps)) return false;
+      return true;
+    });
     if (!competitionTypeId) return sortForWizard([...entries]);
     return sortForWizard(
       entries.filter((e) => supportsToken(e.supportedCompetitionTypes, competitionTypeId)),
@@ -588,8 +597,16 @@ export const CatalogRegistry = {
     return TEAM_TYPE_CATALOG.find((e) => e.id === id);
   },
 
-  listTeamRoles(includeDeprecated = false): TeamRoleCatalogEntry[] {
-    return TEAM_ROLE_CATALOG.filter((e) => isActiveForPicker(e, includeDeprecated));
+  listTeamRoles(
+    includeDeprecated = false,
+    sportId?: string | null,
+  ): TeamRoleCatalogEntry[] {
+    const caps = sportId != null ? getSportCapabilities(sportId) : null;
+    return TEAM_ROLE_CATALOG.filter((e) => {
+      if (!isActiveForPicker(e, includeDeprecated)) return false;
+      if (caps && !isTeamRoleSupportedByCapabilities(e.id, caps)) return false;
+      return true;
+    });
   },
 
   getTeamRole(id: string): TeamRoleCatalogEntry | undefined {

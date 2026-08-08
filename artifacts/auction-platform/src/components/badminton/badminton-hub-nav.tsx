@@ -237,7 +237,7 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
             aria-label="Breadcrumb"
           >
             <a href={back.href} className="text-primary hover:text-primary/80 font-semibold">
-              Tournament Mission Control
+              Tournament Dashboard
             </a>
             <span aria-hidden="true"> / </span>
             <span>Live Operations</span>
@@ -245,7 +245,7 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
             <span className="text-foreground font-semibold">
               {/focus=broadcast/.test(search) || /\/badminton\/broadcast/.test(location)
                 ? "Broadcast"
-                : "Badminton Mission Control"}
+                : "Operator Controls"}
             </span>
           </p>
         ) : null}

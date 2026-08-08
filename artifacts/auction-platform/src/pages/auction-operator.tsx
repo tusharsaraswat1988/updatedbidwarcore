@@ -2568,7 +2568,7 @@ export default function AuctionOperator() {
 
         {/* Manual Sell dialog */}
         <Dialog open={manualSellOpen} onOpenChange={setManualSellOpen}>
-          <DialogContent className="dark max-w-sm">
+          <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Settings2 className="w-4 h-4" /> Manual Sell
@@ -2654,7 +2654,7 @@ export default function AuctionOperator() {
 
         {/* Category filter dialog */}
         <Dialog open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
-          <DialogContent className="dark max-w-sm">
+          <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Tag className="w-4 h-4" /> Filter by Category</DialogTitle>
             </DialogHeader>
@@ -2688,7 +2688,7 @@ export default function AuctionOperator() {
 
         {/* Pre Auction & Break Timer dialog */}
         <Dialog open={countdownDialogOpen} onOpenChange={setCountdownDialogOpen}>
-          <DialogContent className="dark max-w-sm">
+          <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Coffee className="w-4 h-4 text-amber-400" />
@@ -2770,7 +2770,7 @@ export default function AuctionOperator() {
 
         {/* Resume current bid — after Pause Current Bid */}
         <Dialog open={resumeBidDialogOpen} onOpenChange={setResumeBidDialogOpen}>
-          <DialogContent className="dark max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Resume bidding</DialogTitle>
             </DialogHeader>
@@ -2811,7 +2811,7 @@ export default function AuctionOperator() {
 
         {/* Auction readiness gate */}
         <Dialog open={readinessModalOpen} onOpenChange={setReadinessModalOpen}>
-          <DialogContent className="dark max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400" /> Auction is not ready
@@ -2873,7 +2873,7 @@ export default function AuctionOperator() {
             }
           }}
         >
-          <DialogContent className="dark max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <RotateCcw className="w-4 h-4 text-orange-400" /> Prepare Re-auction
@@ -2957,7 +2957,7 @@ export default function AuctionOperator() {
 
         {/* Conclude auction */}
         <Dialog open={concludeDialogOpen} onOpenChange={setConcludeDialogOpen}>
-          <DialogContent className="dark max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-400" /> Conclude Auction

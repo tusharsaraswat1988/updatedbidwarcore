@@ -708,7 +708,7 @@ export default function AdminCommunicate() {
 
       {/* ── Log Detail Dialog ─────────────────────────────────────────── */}
       <Dialog open={!!selectedLog} onOpenChange={open => { if (!open) setSelectedLog(null); }}>
-        <DialogContent className="dark max-w-lg">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <MessageSquare className="w-4 h-4 text-primary" />
