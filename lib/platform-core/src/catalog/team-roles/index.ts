@@ -10,7 +10,7 @@ export const TEAM_ROLE_CATALOG: readonly TeamRoleCatalogEntry[] = [
     id: "captain",
     version: "1.0.0",
     displayName: "Captain",
-    description: "Team captain. Exactly one required.",
+    description: "Team captain. Exactly one required when the sport supports captains.",
     supportedCompetitionTypes: ["*"],
     supportedVariants: ["*"],
     status: "active",

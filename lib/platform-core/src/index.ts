@@ -41,6 +41,15 @@ export {
 } from "./tournament-identity.ts";
 
 export {
+  type SportCapabilityFlags,
+  getSportCapabilities,
+  filterPlayerTagOptions,
+  isTeamRoleSupportedByCapabilities,
+  isTeamFormationSupportedByCapabilities,
+  playingTeamRoleIds,
+} from "./sport-capabilities.ts";
+
+export {
   OWNER_APP_BASE,
   ownerJoinPath,
   ownerJoinAppPath,

@@ -7,11 +7,16 @@ import {
 } from "../registration-fields";
 
 describe("registration-fields", () => {
-  it("defaults all optional fields to visible", () => {
-    const visibility = buildRegistrationFieldVisibility(null);
+  it("defaults optional fields to visible for cricket including CricHero", () => {
+    const visibility = buildRegistrationFieldVisibility(null, "cricket");
     expect(visibility.email).toBe(true);
     expect(visibility.city).toBe(true);
     expect(visibility.whatsappConsent).toBe(true);
+    expect(visibility.cricheroUrl).toBe(true);
+  });
+
+  it("hides CricHero for badminton even when organizer did not hide it", () => {
+    expect(buildRegistrationFieldVisibility(null, "badminton").cricheroUrl).toBe(false);
   });
 
   it("parses hidden optional fields", () => {
@@ -19,8 +24,8 @@ describe("registration-fields", () => {
       hidden: ["email", "city", "invalid"],
     });
     expect(config.hidden).toEqual(["email", "city"]);
-    expect(buildRegistrationFieldVisibility(config).email).toBe(false);
-    expect(buildRegistrationFieldVisibility(config).age).toBe(true);
+    expect(buildRegistrationFieldVisibility(config, "cricket").email).toBe(false);
+    expect(buildRegistrationFieldVisibility(config, "cricket").age).toBe(true);
   });
 
   it("serializes hidden field list", () => {

@@ -81,7 +81,7 @@ function preloadNav(id: string) {
 export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   {
     id: "mission-control",
-    label: "Mission Control",
+    label: "Tournament Dashboard",
     href: sportsMissionControlPath,
     isActive: (path, tid) => isMissionControlPath(path, tid),
     icon: ClipboardList,
@@ -97,7 +97,7 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "matches",
-    label: "Matches",
+    label: "Matches & Scoring",
     href: cricketScoreHubPath,
     isActive: (path, tid) => isMatchesListPath(path, tid),
     icon: Radio,

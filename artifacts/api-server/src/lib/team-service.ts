@@ -126,7 +126,8 @@ export async function loadTeamMembers(
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
-  const sportId = (tournament?.sport ?? "cricket").toLowerCase();
+  // Never default missing sport to cricket — capability registry treats unknown safely.
+  const sportId = (tournament?.sport ?? "").toLowerCase();
 
   const players = await db
     .select({
@@ -183,6 +184,7 @@ export async function loadCompetitionSquadRules(
   squadRules: SquadRules;
   competitionTypeId: string | null;
   registrationModeId: string | null;
+  sportId: string | null;
 } | null> {
   const [tournament] = await db
     .select()
@@ -195,6 +197,7 @@ export async function loadCompetitionSquadRules(
     squadRules: configuration.squadRules,
     competitionTypeId: configuration.competitionTypeId,
     registrationModeId: configuration.registrationModeId,
+    sportId: tournament.sport ?? null,
   };
 }
 
@@ -210,6 +213,7 @@ export async function buildTeamValidation(
     competitionSquadRules: competition?.squadRules,
     competitionTypeId: competition?.competitionTypeId,
     registrationModeId: competition?.registrationModeId,
+    sportId: competition?.sportId ?? null,
   });
 }
 

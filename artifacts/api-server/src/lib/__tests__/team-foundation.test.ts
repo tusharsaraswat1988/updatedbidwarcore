@@ -81,7 +81,7 @@ describe("EPIC-04 team foundation", () => {
         },
       ],
     );
-    const validation = validateTeam(config, members);
+    const validation = validateTeam(config, members, { sportId: "cricket" });
     const payload = buildTeamConfigurationHistoryPayload(
       config,
       validation,

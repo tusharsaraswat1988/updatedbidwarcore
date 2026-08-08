@@ -1,12 +1,22 @@
 /**
  * Per-sport capability declarations for SportsShell / Mission Control.
  *
+ * Flag/label source of truth: `@workspace/platform-core`.
+ * This module attaches Live Ops deep links (UI routes) on top.
+ *
  * Generic Sports UI must branch on capabilities — never hard-code cricket
  * concepts (Playing XI, overs, LBW) into shared chrome.
  */
 
 import {
+  filterPlayerTagOptions as filterPlayerTagOptionsCore,
+  getSportCapabilities as getCoreSportCapabilities,
+  type SportCapabilityFlags,
+} from "@workspace/platform-core";
+import {
   cricketDashboardPath,
+  cricketFixturesPath,
+  cricketScheduleOpsPath,
   cricketScoreHubPath,
   cricketStandingsOpsPath,
   cricketStatsOpsPath,
@@ -14,6 +24,12 @@ import {
 import { badmintonHubPath } from "./badminton-routes";
 import { cricketFanHomePath } from "./tournament-navigation";
 import type { SportCapabilities, SportLiveOpsLink } from "./sports-shell-types";
+
+export {
+  isTeamFormationSupportedByCapabilities,
+  isTeamRoleSupportedByCapabilities,
+  playingTeamRoleIds,
+} from "@workspace/platform-core";
 
 const CRICKET_LIVE_OPS: SportLiveOpsLink[] = [
   {
@@ -53,7 +69,7 @@ const CRICKET_LIVE_OPS: SportLiveOpsLink[] = [
 const BADMINTON_LIVE_OPS: SportLiveOpsLink[] = [
   {
     id: "mission_control",
-    title: "Badminton Mission Control",
+    title: "Operator Controls",
     description: "Courts, queues, and live match control.",
     buildHref: ({ tournamentId, encodedReturnTo }) =>
       `${badmintonHubPath(tournamentId)}/control?from=${encodedReturnTo}`,
@@ -70,7 +86,7 @@ const BADMINTON_LIVE_OPS: SportLiveOpsLink[] = [
 function filterLiveOpsLinks(
   links: SportLiveOpsLink[],
   caps: Pick<
-    SportCapabilities,
+    SportCapabilityFlags,
     "hasMatchCenter" | "hasStandings" | "hasStatistics" | "hasPublicTournament" | "hasBroadcast"
   >,
 ): SportLiveOpsLink[] {
@@ -84,138 +100,57 @@ function filterLiveOpsLinks(
   });
 }
 
-const CRICKET_CAPABILITIES_BASE: Omit<SportCapabilities, "liveOpsLinks" | "liveOpsPeekLines"> = {
-  sportId: "cricket",
-  sportLabel: "Cricket",
-  hasPlayingXi: true,
-  hasBench: true,
-  hasOvers: true,
-  hasCaptain: true,
-  hasCourts: false,
-  hasDraw: false,
-  hasStandings: true,
-  hasStatistics: true,
-  hasMatchCenter: true,
-  hasPublicTournament: true,
-  hasBroadcast: false,
-  hasPowerplay: true,
-  hasLBW: true,
-  hasRetire: true,
-  hasSuperOver: true,
-  hasOfficials: true,
-  hasCoinToss: true,
-  hasBoundaries: true,
-  hasSets: false,
-  hasServiceSide: false,
-  hasLegacyCricketSpecs: true,
-  playingSquadLabel: "Playing XI",
-  benchLabel: "Bench",
-  statisticsDescription: "Runs, wickets, SR, economy, and more.",
-  publicTournamentDescription: "Fan-facing fixtures, standings, and stats.",
-};
-
-const CRICKET_CAPABILITIES: SportCapabilities = {
-  ...CRICKET_CAPABILITIES_BASE,
-  liveOpsLinks: filterLiveOpsLinks(CRICKET_LIVE_OPS, CRICKET_CAPABILITIES_BASE),
-  liveOpsPeekLines: [
-    "Cricket dashboard & matches",
-    "LED display",
-    "Public tournament page",
-  ],
-};
-
-const BADMINTON_CAPABILITIES_BASE: Omit<SportCapabilities, "liveOpsLinks" | "liveOpsPeekLines"> = {
-  sportId: "badminton",
-  sportLabel: "Badminton",
-  hasPlayingXi: false,
-  hasBench: false,
-  hasOvers: false,
-  hasCaptain: false,
-  hasCourts: true,
-  hasDraw: true,
-  hasStandings: true,
-  hasStatistics: true,
-  hasMatchCenter: false,
-  hasPublicTournament: false,
-  hasBroadcast: true,
-  hasPowerplay: false,
-  hasLBW: false,
-  hasRetire: false,
-  hasSuperOver: false,
-  hasOfficials: true,
-  hasCoinToss: false,
-  hasBoundaries: false,
-  hasSets: true,
-  hasServiceSide: true,
-  hasLegacyCricketSpecs: false,
-  playingSquadLabel: "Lineup",
-  benchLabel: "Reserves",
-  statisticsDescription: "Match results, head-to-head, and player form.",
-  publicTournamentDescription: "Fan-facing draws and results.",
-};
-
-const BADMINTON_CAPABILITIES: SportCapabilities = {
-  ...BADMINTON_CAPABILITIES_BASE,
-  liveOpsLinks: filterLiveOpsLinks(BADMINTON_LIVE_OPS, BADMINTON_CAPABILITIES_BASE),
-  liveOpsPeekLines: [
-    "Badminton Mission Control",
-    "LED display",
-    "Broadcast / OBS",
-  ],
-};
-
-const UNKNOWN_CAPABILITIES_BASE: Omit<SportCapabilities, "liveOpsLinks" | "liveOpsPeekLines" | "sportId"> = {
-  sportLabel: "Sports",
-  hasPlayingXi: false,
-  hasBench: false,
-  hasOvers: false,
-  hasCaptain: false,
-  hasCourts: false,
-  hasDraw: false,
-  hasStandings: false,
-  hasStatistics: false,
-  hasMatchCenter: false,
-  hasPublicTournament: false,
-  hasBroadcast: false,
-  hasPowerplay: false,
-  hasLBW: false,
-  hasRetire: false,
-  hasSuperOver: false,
-  hasOfficials: false,
-  hasCoinToss: false,
-  hasBoundaries: false,
-  hasSets: false,
-  hasServiceSide: false,
-  hasLegacyCricketSpecs: false,
-  playingSquadLabel: "Lineup",
-  benchLabel: "Reserves",
-  statisticsDescription: "Tournament statistics.",
-  publicTournamentDescription: "Public tournament page.",
-};
-
-export function getSportCapabilities(sport: string | null | undefined): SportCapabilities {
-  const key = (sport ?? "").toLowerCase();
-  if (key === "cricket") return CRICKET_CAPABILITIES;
-  if (key === "badminton") return BADMINTON_CAPABILITIES;
+function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
+  if (core.sportId === "cricket") {
+    return {
+      ...core,
+      liveOpsLinks: filterLiveOpsLinks(CRICKET_LIVE_OPS, core),
+      liveOpsPeekLines: [
+        "Cricket dashboard & matches",
+        "LED display",
+        "Public tournament page",
+      ],
+      missionControlDestinations: {
+        fixtures: cricketFixturesPath,
+        schedule: cricketScheduleOpsPath,
+        scoring: cricketScoreHubPath,
+      },
+    };
+  }
+  if (core.sportId === "badminton") {
+    return {
+      ...core,
+      liveOpsLinks: filterLiveOpsLinks(BADMINTON_LIVE_OPS, core),
+      liveOpsPeekLines: [
+        "Operator Controls",
+        "LED display",
+        "Broadcast / OBS",
+      ],
+      missionControlDestinations: {
+        teams: (tid) => `${badmintonHubPath(tid)}/players`,
+        fixtures: (tid) => `${badmintonHubPath(tid)}/fixtures`,
+        schedule: (tid) => `${badmintonHubPath(tid)}/schedule`,
+        scoring: (tid) => `${badmintonHubPath(tid)}/matches`,
+      },
+    };
+  }
   return {
-    ...UNKNOWN_CAPABILITIES_BASE,
-    sportId: key || "unknown",
+    ...core,
     liveOpsLinks: [],
     liveOpsPeekLines: ["Sport live control", "LED display"],
   };
 }
 
+export function getSportCapabilities(sport: string | null | undefined): SportCapabilities {
+  return withLiveOps(getCoreSportCapabilities(sport));
+}
+
 /** Filter player tag options to those supported by the sport. */
 export function filterPlayerTagOptions<T extends { value: string }>(
-  caps: SportCapabilities,
+  caps: Pick<SportCapabilities, "hasCaptain">,
   options: readonly T[],
 ): T[] {
-  return options.filter((opt) => {
-    if (opt.value === "captain" || opt.value === "vice_captain") {
-      return caps.hasCaptain;
-    }
-    return true;
-  });
+  return filterPlayerTagOptionsCore(caps, options);
 }
 
 /** @deprecated Prefer capability flags — shared UI must not branch on sport id. */

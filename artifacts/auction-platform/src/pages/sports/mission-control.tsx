@@ -1,31 +1,32 @@
 /**
- * Tournament Mission Control — Sports product home.
+ * Tournament Dashboard — Sports product home (organiser landing).
  *
- * Ownership: Sports (not Auction). Temporarily hosted under /scoring-app.
- * Auction Overview lives at auction-platform `/tournament/:id`.
+ * Route may remain /mission-control; visible product name is Tournament Dashboard.
+ * Module registry + readiness engines remain authoritative underneath.
  */
-import { useRoute } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useRoute } from "wouter";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AttentionCenter } from "@/components/platform/attention-center";
-import { PlatformReadinessStrip } from "@/components/platform/platform-readiness-strip";
-import { TournamentHealth } from "@/components/platform/tournament-health";
+import { MissionControlJourney } from "@/components/platform/mission-control-journey";
 import { ModuleRegistryProvider } from "@/components/tournament-hub/module-registry";
+import type { ModuleWorkspaceId } from "@/components/platform/module-workspace";
 import {
   TournamentMissionControlModules,
   useTournamentModuleOrchestration,
 } from "@/components/tournament-hub/tournament-mission-control-modules";
-import {
-  buildAttentionFromReadiness,
-  buildPlatformReadinessSteps,
-} from "@/lib/tournament-mission-control";
+import { buildAttentionFromReadiness } from "@/lib/tournament-mission-control";
+import { buildMissionControlPresenterView } from "@/lib/mission-control-presenter";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { useTournamentScoringActive } from "@/hooks/use-platform-features";
 import { AccessStateView } from "@/components/access-state-view";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
+import { sportsMissionControlPath } from "@/lib/tournament-navigation";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Radio } from "lucide-react";
 
 export default function SportsMissionControlPage() {
   const [, params] = useRoute("/tournament/:id/mission-control");
@@ -59,20 +60,15 @@ export default function SportsMissionControlPage() {
   }
 
   const isSetupPhase = tournament?.status === "setup";
-  // Sports pipeline attention is module-driven; seed empty readiness attention.
   const readinessAttention = buildAttentionFromReadiness({
     isSetupPhase: false,
     readinessComplete: true,
     readinessChecks: [],
   });
-  const readinessSteps = buildPlatformReadinessSteps({
-    isSetupPhase,
-    readinessComplete: !isSetupPhase,
-  });
 
   return (
     <ModuleRegistryProvider>
-      <SportsMissionControlBody
+      <TournamentDashboardBody
         tournamentId={tournamentId}
         tournamentName={tournament?.name}
         sportLabel={capabilities.sportLabel}
@@ -80,14 +76,13 @@ export default function SportsMissionControlPage() {
         licenseStatus={tournament?.licenseStatus}
         sport={tournament?.sport}
         isSetupPhase={isSetupPhase}
-        readinessSteps={readinessSteps}
         readinessAttention={readinessAttention}
       />
     </ModuleRegistryProvider>
   );
 }
 
-function SportsMissionControlBody({
+function TournamentDashboardBody({
   tournamentId,
   tournamentName,
   sportLabel,
@@ -95,7 +90,6 @@ function SportsMissionControlBody({
   licenseStatus,
   sport,
   isSetupPhase,
-  readinessSteps,
   readinessAttention,
 }: {
   tournamentId: number;
@@ -105,19 +99,57 @@ function SportsMissionControlBody({
   licenseStatus?: string | null;
   sport?: string | null;
   isSetupPhase: boolean;
-  readinessSteps: import("@/components/platform/platform-readiness-strip").PipelineStep[];
   readinessAttention: import("@/components/platform/attention-center").AttentionItem[];
 }) {
-  const { attentionItems, moduleHealth, scrollToModule } = useTournamentModuleOrchestration({
+  const [, setLocation] = useLocation();
+  const [focusedModuleId, setFocusedModuleId] = useState<ModuleWorkspaceId | null>(null);
+
+  const { snapshots } = useTournamentModuleOrchestration({
     isSetupPhase,
     readinessComplete: !isSetupPhase,
     readinessAttention,
   });
 
+  const capabilities = getSportCapabilities(sport);
+  const presenter = useMemo(
+    () =>
+      buildMissionControlPresenterView({
+        tournamentId,
+        snapshots,
+        capabilities,
+        encodedReturnTo: encodeURIComponent(sportsMissionControlPath(tournamentId)),
+      }),
+    [tournamentId, snapshots, capabilities],
+  );
+
+  useEffect(() => {
+    if (presenter.mode === "ready" || presenter.nextStep.continue.kind === "route") {
+      setFocusedModuleId(null);
+    }
+  }, [presenter.mode, presenter.nextStep.stepId, presenter.nextStep.continue.kind]);
+
+  function handleContinue() {
+    const target = presenter.nextStep.continue;
+    if (target.kind === "route") {
+      setFocusedModuleId(null);
+      setLocation(target.href);
+      return;
+    }
+    setFocusedModuleId(target.moduleId);
+  }
+
+  const showFocusedWorkspace =
+    presenter.mode === "setup" &&
+    focusedModuleId != null &&
+    presenter.nextStep.continue.kind === "focus-module";
+
   return (
-    <div className="org-page-content p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <div>
-        <div className="flex items-center gap-2.5 flex-wrap">
+    <div className="org-page-content p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <header>
+        <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
+          Tournament Dashboard
+        </p>
+        <div className="mt-2 flex items-center gap-2.5 flex-wrap">
           {logoUrl ? (
             <img
               src={logoUrl}
@@ -135,19 +167,126 @@ function SportsMissionControlBody({
             {sportLabel}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1.5 max-w-2xl">
-          <span className="font-semibold text-foreground/80">Tournament Mission Control</span>
-          {" — "}
-          Orchestrate competition setup, then open Live Operations when you are ready.
+        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+          {presenter.mode === "setup"
+            ? "Let's get your tournament ready."
+            : "Your tournament is ready for matches and scoring."}
         </p>
-      </div>
+      </header>
 
-      <div className="mt-4 space-y-4">
-        <PlatformReadinessStrip steps={readinessSteps} />
-        <TournamentHealth modules={moduleHealth} />
-        <AttentionCenter items={attentionItems} onModuleAction={scrollToModule} />
-        <TournamentMissionControlModules tournamentId={tournamentId} sport={sport} />
+      <div className="mt-6 space-y-5">
+        {presenter.mode === "setup" ? (
+          <section
+            className="rounded-xl border border-primary/25 bg-primary/5 px-5 py-5 sm:px-6 sm:py-6 space-y-5"
+            aria-labelledby="td-setup-heading"
+          >
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-primary">
+                Get your tournament ready
+              </p>
+              <h2
+                id="td-setup-heading"
+                className="mt-1.5 text-xl sm:text-2xl font-bold tracking-tight text-foreground"
+              >
+                {presenter.nextStep.title}
+              </h2>
+              <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
+                {presenter.nextStep.description}
+              </p>
+            </div>
+
+            <MissionControlJourney steps={presenter.journey} />
+
+            <Button type="button" onClick={handleContinue} className="gap-2">
+              {presenter.nextStep.ctaLabel}
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Button>
+          </section>
+        ) : (
+          <ReadyOverview
+            nextStepTitle={presenter.nextStep.title}
+            nextStepDescription={presenter.nextStep.description}
+            scoringHref={presenter.scoring.href}
+            scoringLabel={presenter.scoring.label}
+            liveOpsHref={presenter.liveOps.primaryHref}
+            liveOpsTitle={presenter.liveOps.primaryTitle}
+            onOpenScoring={handleContinue}
+          />
+        )}
+
+        {showFocusedWorkspace ? (
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Continue here
+          </p>
+        ) : null}
+
+        <TournamentMissionControlModules
+          tournamentId={tournamentId}
+          sport={sport}
+          focusModuleId={showFocusedWorkspace ? focusedModuleId : null}
+          showAll={false}
+          className={showFocusedWorkspace ? undefined : "sr-only"}
+        />
       </div>
     </div>
+  );
+}
+
+function ReadyOverview({
+  nextStepTitle,
+  nextStepDescription,
+  scoringHref,
+  scoringLabel,
+  liveOpsHref,
+  liveOpsTitle,
+  onOpenScoring,
+}: {
+  nextStepTitle: string;
+  nextStepDescription: string;
+  scoringHref: string | null;
+  scoringLabel: string;
+  liveOpsHref: string | null;
+  liveOpsTitle: string | null;
+  onOpenScoring: () => void;
+}) {
+  return (
+    <section
+      className="rounded-xl border border-primary/25 bg-primary/5 px-5 py-5 sm:px-6 sm:py-6 space-y-4"
+      aria-labelledby="td-ready-heading"
+    >
+      <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-primary">
+        Match Day
+      </p>
+      <h2
+        id="td-ready-heading"
+        className="text-xl sm:text-2xl font-bold tracking-tight text-foreground"
+      >
+        {nextStepTitle}
+      </h2>
+      <p className="text-sm text-muted-foreground max-w-xl">{nextStepDescription}</p>
+      <div className="flex flex-wrap gap-3 pt-1">
+        {scoringHref ? (
+          <Button asChild className="gap-2">
+            <Link href={scoringHref}>
+              {scoringLabel}
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Link>
+          </Button>
+        ) : (
+          <Button type="button" className="gap-2" onClick={onOpenScoring}>
+            {scoringLabel}
+            <ArrowRight className="w-4 h-4" aria-hidden />
+          </Button>
+        )}
+        {liveOpsHref ? (
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={liveOpsHref}>
+              <Radio className="w-4 h-4" aria-hidden />
+              {liveOpsTitle ?? "Live Operations"}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+    </section>
   );
 }

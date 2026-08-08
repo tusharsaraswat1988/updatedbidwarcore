@@ -45,6 +45,15 @@ describe("sport-capabilities", () => {
     assert.equal(ids.includes("public"), false);
   });
 
+  it("mission control destinations stay sport-scoped", () => {
+    const badminton = getSportCapabilities("badminton");
+    const cricket = getSportCapabilities("cricket");
+    assert.match(badminton.missionControlDestinations?.fixtures?.(3) ?? "", /\/badminton\/fixtures$/);
+    assert.match(cricket.missionControlDestinations?.fixtures?.(3) ?? "", /\/score\/fixtures$/);
+    assert.doesNotMatch(badminton.missionControlDestinations?.schedule?.(3) ?? "", /\/score\//);
+    assert.doesNotMatch(cricket.missionControlDestinations?.schedule?.(3) ?? "", /badminton/);
+  });
+
   it("cricket live ops links exclude badminton-only destinations", () => {
     const caps = getSportCapabilities("cricket");
     const ids = caps.liveOpsLinks.map((l) => l.id);

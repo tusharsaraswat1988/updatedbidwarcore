@@ -257,7 +257,7 @@ export default function BadmintonAnalyticsPage() {
 
             action={{
 
-              label: "Open Mission Control",
+              label: "Open Tournament Dashboard",
 
               onClick: () => {
                 window.location.assign(

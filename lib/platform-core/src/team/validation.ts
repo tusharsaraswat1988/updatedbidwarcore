@@ -1,6 +1,10 @@
 import { CatalogRegistry } from "../catalog/registry.ts";
 import type { ValidationIssue } from "../catalog/resolve/types.ts";
 import type { SquadRules } from "../competition/types.ts";
+import {
+  getSportCapabilities,
+  playingTeamRoleIds,
+} from "../sport-capabilities.ts";
 import type {
   TeamConfiguration,
   TeamMember,
@@ -28,6 +32,7 @@ function readinessFromIssues(issues: readonly ValidationIssue[]): TeamReadiness 
 /**
  * Validate Working Team Configuration + Members.
  * Squad capacity checks reference Competition SquadRules (EPIC-03) — not duplicated here.
+ * Role requirements are capability-scoped via sportId (never assume Captain for all sports).
  */
 export function validateTeam(
   configuration: TeamConfiguration,
@@ -36,16 +41,24 @@ export function validateTeam(
     competitionSquadRules?: SquadRules | null;
     competitionTypeId?: string | null;
     registrationModeId?: string | null;
+    /** Tournament sport — required for sport-agnostic role enforcement. */
+    sportId?: string | null;
   },
 ): TeamValidationResult {
   const issues: ValidationIssue[] = [];
+  const caps = getSportCapabilities(opts?.sportId);
 
   if (!configuration.name?.trim()) {
     issues.push(issue("ERROR", "TEAM_NAME_REQUIRED", "Team name is required.", "name"));
   }
   if (!configuration.shortName?.trim()) {
     issues.push(
-      issue("ERROR", "TEAM_SHORT_NAME_REQUIRED", "Team short name is required.", "shortName"),
+      issue(
+        "ERROR",
+        "TEAM_SHORT_NAME_REQUIRED",
+        "Team short name is required.",
+        "shortName",
+      ),
     );
   }
 
@@ -61,8 +74,9 @@ export function validateTeam(
     );
   }
 
-  // Role constraints from catalog (never hardcoded role matrix).
-  const roles = CatalogRegistry.listTeamRoles();
+  // Role constraints from catalog, filtered by sport capabilities.
+  // Always scope by resolved caps (missing sportId → unknown → no Captain).
+  const roles = CatalogRegistry.listTeamRoles(false, caps.sportId);
   for (const role of roles) {
     const holders = members.filter((m) => m.roleId === role.id);
     if (role.required && holders.length === 0) {
@@ -98,7 +112,7 @@ export function validateTeam(
     }
   }
 
-  // Unknown role ids on members.
+  // Unknown role ids on members (catalog vocabulary — not sport-filtered).
   for (const member of members) {
     if (!CatalogRegistry.getTeamRole(member.roleId)) {
       issues.push(
@@ -115,11 +129,10 @@ export function validateTeam(
   // Competition squad rules — single source of truth from EPIC-03.
   const squad = opts?.competitionSquadRules;
   if (squad) {
-    const playingRoles = new Set(["player", "captain", "vice_captain"]);
+    const playingRoles = playingTeamRoleIds(caps);
     const playingCount = members.filter(
       (m) => playingRoles.has(m.roleId) && m.status === "active",
     ).length;
-    // Count unique participants in playing roles.
     const uniquePlaying = new Set(
       members
         .filter((m) => playingRoles.has(m.roleId) && m.status === "active")
@@ -161,6 +174,7 @@ export function validateTeam(
   }
 
   if (
+    caps.hasCaptain &&
     opts?.registrationModeId === "team" &&
     !members.some((m) => m.roleId === "captain")
   ) {

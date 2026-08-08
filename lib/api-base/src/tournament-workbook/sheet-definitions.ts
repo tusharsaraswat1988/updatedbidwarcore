@@ -1,5 +1,6 @@
 import type { WorkbookSheetDefinition } from "./types";
 import { BMW_MANIFEST_SHEET } from "./manifest";
+import { getSportCapabilities } from "@workspace/platform-core";
 
 export const PLAYER_STATUS_VALUES = [
   "available",
@@ -213,11 +214,31 @@ export const BMW_SHEETS: WorkbookSheetDefinition[] = [
   },
 ];
 
+const CAPTAIN_FIELD_KEYS = new Set(["captain", "viceCaptain"]);
+
+/**
+ * Workbook sheets for a sport — hides Captain / Vice Captain columns when
+ * the sport does not support captains.
+ */
+export function bmwSheetsForSport(
+  sportId: string | null | undefined,
+): WorkbookSheetDefinition[] {
+  const caps = getSportCapabilities(sportId);
+  if (caps.hasCaptain) return BMW_SHEETS;
+  return BMW_SHEETS.map((sheet) => ({
+    ...sheet,
+    fields: sheet.fields.filter((f) => !CAPTAIN_FIELD_KEYS.has(f.key)),
+  }));
+}
+
 /** @deprecated Use BMW_SHEETS */
 export const TMW_SHEETS = BMW_SHEETS;
 
-export function getSheetByName(name: string): WorkbookSheetDefinition | undefined {
-  return BMW_SHEETS.find((s) => s.name === name);
+export function getSheetByName(
+  name: string,
+  sportId?: string | null,
+): WorkbookSheetDefinition | undefined {
+  return bmwSheetsForSport(sportId).find((s) => s.name === name);
 }
 
 export function getSheetFieldLabels(sheetName: string): string[] {

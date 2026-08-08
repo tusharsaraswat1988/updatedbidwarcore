@@ -305,8 +305,9 @@ export default function PlayerRegister() {
     if (fromStatus) return fromStatus;
     return buildRegistrationFieldVisibility(
       (tournament as { registrationFields?: RegistrationFieldsConfig } | null)?.registrationFields,
+      sportSlug,
     );
-  }, [status, tournament]);
+  }, [status, tournament, sportSlug]);
 
   const showEmail = fieldVisibility.email;
   const showCity = fieldVisibility.city;
@@ -1056,9 +1057,7 @@ export default function PlayerRegister() {
                                     <SelectItem key={r.id} value={r.roleName}>{r.roleName}</SelectItem>
                                   ))
                                 : (
-                                  ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => (
-                                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                                  ))
+                                  <SelectItem value="Player">Player</SelectItem>
                                 )
                               }
                             </SelectContent>

@@ -128,6 +128,7 @@ async function computeRegistrationStatus(tid: number) {
       bidValueMode: tournamentsTable.bidValueMode,
       bidValueOptions: tournamentsTable.bidValueOptions,
       registrationFieldsJson: tournamentsTable.registrationFieldsJson,
+      sport: tournamentsTable.sport,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -171,6 +172,7 @@ async function computeRegistrationStatus(tid: number) {
     bidValueOptions: parseBidValueOptions(tournament.bidValueOptions),
     registrationFieldVisibility: resolveRegistrationFieldVisibilityFromTournament(
       tournament.registrationFieldsJson,
+      tournament.sport,
     ),
   };
 }

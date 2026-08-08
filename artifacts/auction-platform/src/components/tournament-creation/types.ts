@@ -67,7 +67,7 @@ export function emptyTournamentCreationDraft(
     name: "",
     city: "",
     venue: "",
-    sportId: "cricket",
+    sportId: "",
     variantId: "",
     competitionTypeId: "",
     registrationModeId: "",

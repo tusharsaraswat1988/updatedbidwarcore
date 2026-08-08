@@ -28,15 +28,21 @@ async function buildTournamentSheetValues(tournamentId: number): Promise<string[
 
   const serializedPlayers = await serializePlayersWithSpecifications(playerRows, "private");
 
-  const [categories, teams] = await Promise.all([
+  const [categories, teams, tournament] = await Promise.all([
     db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable).where(eq(categoriesTable.tournamentId, tournamentId)),
     db.select({ id: teamsTable.id, name: teamsTable.name }).from(teamsTable).where(eq(teamsTable.tournamentId, tournamentId)),
+    db.select({ sport: tournamentsTable.sport }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId)).limit(1),
   ]);
 
   const catMap = Object.fromEntries(categories.map((c) => [c.id, { name: c.name }]));
   const teamMap = Object.fromEntries(teams.map((t) => [t.id, { name: t.name }]));
 
-  return buildPlayerExportSheetValues(serializedPlayers, catMap, teamMap);
+  return buildPlayerExportSheetValues(
+    serializedPlayers,
+    catMap,
+    teamMap,
+    tournament[0]?.sport ?? null,
+  );
 }
 
 async function markSyncStatus(

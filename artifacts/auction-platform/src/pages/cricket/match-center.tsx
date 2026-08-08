@@ -358,7 +358,7 @@ export default function CricketMatchCenterPage() {
               href={sportsMissionControlPath(tournamentId)}
               className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
             >
-              Mission Control
+              Tournament Dashboard
             </Link>
             <Link
               href={cricketDashboardPath(tournamentId)}

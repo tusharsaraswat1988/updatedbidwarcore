@@ -32,7 +32,7 @@ export function returnPathBackLabel(path: string): string {
     return "Back to Auction Overview";
   }
   if (path.includes("/mission-control")) {
-    return "Back to Tournament Mission Control";
+    return "Back to Tournament Dashboard";
   }
   return "Go back";
 }

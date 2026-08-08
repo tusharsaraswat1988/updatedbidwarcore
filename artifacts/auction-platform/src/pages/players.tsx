@@ -1067,7 +1067,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <SelectContent className="dark">
               {(sportRoles.length > 0
                 ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
-                : ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => ({ value: r, label: r }))
+                : [{ value: "Player", label: "Player" }]
               ).map(r => (
                 <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
               ))}
@@ -2739,7 +2739,7 @@ export default function Players() {
     setExportingTarget("excel");
     try {
       const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`);
+      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport);
       toast({ title: "Excel exported", description: `${filtered.length} players downloaded.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not export players.";
@@ -2754,7 +2754,7 @@ export default function Players() {
     setExportingTarget("csv");
     try {
       const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      exportPlayersToCsv(filtered, catMap, teamMap, `${fileStem}_Players_Master`);
+      exportPlayersToCsv(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport);
       toast({ title: "CSV exported", description: `${filtered.length} players downloaded.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not export players.";

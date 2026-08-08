@@ -105,28 +105,28 @@ export default function LinksPage() {
         <OrganizerSectionHeader
           tournament={tournament}
           title={<span className="flex items-center gap-3"><Link2 className="w-8 h-8 text-primary" /> Links</span>}
-          description="Share links for auction day and cricket match day — LED, stream, and fans."
+          description={`Share links for auction day and ${sportCaps.sportLabel.toLowerCase()} match day — LED, stream, and fans.`}
         />
 
         {scoringOn ? (
           <Card className="overflow-hidden panel border-none mb-6">
             <CardContent className="p-0">
               <LinkSectionHeader
-                title="Cricket public"
+                title={`${sportCaps.sportLabel} public`}
                 description="Share with fans, sponsors, and franchise owners."
               />
               <div className="p-6 pt-4">
                 <LinkRow
                   label="Tournament home (fixtures · standings · stats)"
                   url={cricketPublicUrl}
-                  description="Public cricket page — live matches, results, points table, and leaderboards."
-                  shareText={`${tournament?.name ?? "Tournament"} cricket page: ${cricketPublicUrl}`}
+                  description={sportCaps.publicTournamentDescription}
+                  shareText={`${tournament?.name ?? "Tournament"} ${sportCaps.sportLabel.toLowerCase()} page: ${cricketPublicUrl}`}
                 />
                 <LinkRow
-                  label="Cricket LED scoreboard"
+                  label={`${sportCaps.sportLabel} LED scoreboard`}
                   url={cricketScoreboardUrl}
-                  description="Venue scoreboard for live cricket matches."
-                  shareText={`Cricket scoreboard: ${cricketScoreboardUrl}`}
+                  description={`Venue scoreboard for live ${sportCaps.sportLabel.toLowerCase()} matches.`}
+                  shareText={`${sportCaps.sportLabel} scoreboard: ${cricketScoreboardUrl}`}
                 />
               </div>
             </CardContent>
