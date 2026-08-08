@@ -93,8 +93,8 @@ export function AccessCode({
 
   return (
     <div
-      className="h-full flex flex-col items-center justify-center px-6 bg-[#09090b] overscroll-none"
-      style={{ background: `radial-gradient(ellipse at top, ${teamColor}18 0%, transparent 55%), #09090b` }}
+      className="h-full flex flex-col items-center justify-center px-6 bg-background overscroll-none"
+      style={{ background: `radial-gradient(ellipse at top, ${teamColor}18 0%, transparent 55%), #1e1845` }}
     >
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -129,7 +129,7 @@ export function AccessCode({
           />
           <div>
             <h1 className="font-display font-black text-4xl text-white tracking-wide">{teamName}</h1>
-            <p className="text-[#71717a] text-lg mt-2">Enter your access code to join</p>
+            <p className="text-[#a8a0c4] text-lg mt-2">Enter your access code to join</p>
           </div>
         </div>
 
@@ -146,13 +146,13 @@ export function AccessCode({
               spellCheck={false}
               autoFocus
               disabled={lockedOut}
-              className="w-full px-6 py-6 rounded-2xl border border-[#3f3f46] text-center font-display font-bold text-3xl tracking-[0.35em] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none transition-colors"
+              className="w-full px-6 py-6 rounded-2xl border border-[#3d3670] text-center font-display font-bold text-3xl tracking-[0.35em] bg-[#2a2458] text-white placeholder:text-[#6b6490] outline-none transition-colors"
               style={{ borderColor: code ? teamColor : undefined }}
             />
             <button
               type="button"
               onClick={() => setShowCode(v => !v)}
-              className="absolute right-5 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-[#a1a1aa] transition-colors p-2"
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-[#a8a0c4] hover:text-[#a8a0c4] transition-colors p-2"
             >
               {showCode ? <EyeOff className="w-7 h-7" /> : <Eye className="w-7 h-7" />}
             </button>
@@ -190,7 +190,7 @@ export function AccessCode({
           </motion.button>
         </form>
 
-        <p className="text-sm text-[#3f3f46] uppercase tracking-widest text-center">
+        <p className="text-sm text-[#3d3670] uppercase tracking-widest text-center">
           {poweredByText}
         </p>
       </motion.div>

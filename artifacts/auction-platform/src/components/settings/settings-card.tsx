@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-/** Shared elevated surface for tournament settings cards in dark mode. */
+/** Shared elevated surface for tournament settings — lovable panel tokens only. */
 export const settingsCardSurfaceClass =
-  "border-border/80 bg-[hsl(240,10%,11%)] shadow-md shadow-black/25 ring-1 ring-inset ring-white/[0.06]";
+  "panel border-border/80 shadow-md ring-1 ring-inset ring-white/[0.06]";
 
 type SettingsCardProps = {
   title?: string;
@@ -32,7 +32,7 @@ export function SettingsCard({
       {title ? (
         <CardHeader
           className={cn(
-            "pb-3 pt-4 px-4 sm:px-5 border-b border-border/50 bg-white/[0.02]",
+            "pb-3 pt-4 px-4 sm:px-5 border-b border-border/50 bg-white/[0.03]",
             headerClassName,
           )}
         >
@@ -56,7 +56,7 @@ export function SettingsCard({
       ) : null}
       <CardContent
         className={cn(
-          title ? "px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 bg-[hsl(240,10%,9%)]/40" : "p-0",
+          title ? "px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 bg-stage/50" : "p-0",
           contentClassName,
         )}
       >
@@ -76,7 +76,7 @@ export function SettingsTabPanel({ children, className }: SettingsTabPanelProps)
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/70 bg-[hsl(240,10%,7%)] p-4 sm:p-5 shadow-lg shadow-black/20 ring-1 ring-white/[0.03]",
+        "rounded-2xl border border-border/70 bg-stage p-4 sm:p-5 shadow-lg ring-1 ring-white/[0.03]",
         className,
       )}
     >
@@ -102,7 +102,7 @@ export function SettingsInsetBlock({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/60 bg-[hsl(240,10%,13%)]/80 p-3 sm:p-4",
+        "rounded-xl border border-border/60 bg-panel-2 p-3 sm:p-4",
         className,
       )}
     >

@@ -49,6 +49,8 @@ import {
 } from "@/lib/cricket-routes";
 import {
   cricketMatchPublicPath,
+  cricketObsLivePath,
+  cricketObsMatchPath,
   cricketPublicPath,
   openScoreDisplay,
   scoreDisplayPath,
@@ -64,6 +66,7 @@ import {
   Printer,
   Radio,
   Trophy,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -242,6 +245,20 @@ export default function CricketMatchCenterPage() {
               <Monitor className="w-4 h-4 mr-1.5" />
               LED
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                window.open(
+                  cricketObsLivePath(tournamentId, tournament?.auctionCode),
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+            >
+              <Tv className="w-4 h-4 mr-1.5" />
+              Cricket OBS
+            </Button>
           </div>
         }
       />
@@ -318,6 +335,18 @@ export default function CricketMatchCenterPage() {
               href={scoreDisplayPath(tournamentId, tournament?.auctionCode)}
               label="LED / Scoreboard"
               icon={Monitor}
+              external
+            />
+            <ActionLink
+              href={cricketObsLivePath(tournamentId, tournament?.auctionCode)}
+              label="Cricket OBS"
+              icon={Tv}
+              external
+            />
+            <ActionLink
+              href={cricketObsMatchPath(tournamentId, matchId, tournament?.auctionCode)}
+              label="Cricket OBS (this match)"
+              icon={Tv}
               external
             />
             <ActionLink

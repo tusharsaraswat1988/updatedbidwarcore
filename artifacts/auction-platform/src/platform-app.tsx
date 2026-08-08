@@ -100,7 +100,7 @@ function RouteSuspenseFallback() {
   if (/^\/tournament\/\d+\/auction\/?$/.test(path)) {
     return (
       <div
-        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#0f1117] text-white"
+        className="lovable-theme dark flex min-h-screen flex-col items-center justify-center gap-3 bg-background text-foreground"
         role="status"
         aria-live="polite"
         aria-busy="true"
@@ -139,6 +139,7 @@ function PlatformRouter() {
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectToScoringApp} />
         {/* Public live viewer — no auction code gate; share /live/:id with fans */}
         <Route path="/live/:id" component={LiveViewer} />
         <Route path="/live">

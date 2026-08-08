@@ -61,7 +61,7 @@ export default function AuctionTipsPage() {
   const { brandName } = useBranding();
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pt-16">
+    <div className="lovable-theme min-h-screen bg-background text-foreground pt-16 dark">
       <title>Auction Tips for Organizers | {brandName}</title>
       <meta
         name="description"

@@ -77,7 +77,7 @@ async function bootstrap(): Promise<void> {
 /** Scoring URLs are served by the separate scoring-app bundle — never mount auction SPA here. */
 if (window.location.pathname.startsWith(SCORING_APP_BASE)) {
   root.innerHTML =
-    '<div style="font-family:system-ui,sans-serif;background:#09090b;color:#fafafa;min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center">' +
+    '<div style="font-family:system-ui,sans-serif;background:#1e1845;color:#faf8ff;min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center">' +
     "<main style=\"max-width:28rem\">" +
     "<h1 style=\"font-size:1.25rem;margin:0 0 12px\">Scoring app did not load</h1>" +
     "<p style=\"color:#a1a1aa;line-height:1.6;margin:0 0 12px\">" +

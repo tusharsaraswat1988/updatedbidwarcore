@@ -106,7 +106,7 @@ export function TeamOwnerAccessCodeScreen() {
 
   if (!entry) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+      <div className="h-full flex items-center justify-center bg-background" aria-busy="true">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -119,7 +119,7 @@ export function TeamOwnerAccessCodeScreen() {
       <div
         className="flex-1 flex flex-col items-center justify-center px-6"
         style={{
-          background: `radial-gradient(ellipse at top, ${accent}18 0%, transparent 55%), #09090b`,
+          background: `radial-gradient(ellipse at top, ${accent}18 0%, transparent 55%), #1e1845`,
         }}
       >
         <motion.div
@@ -153,7 +153,7 @@ export function TeamOwnerAccessCodeScreen() {
                 placeholder="Access code"
                 autoFocus
                 disabled={lockedOut}
-                className="w-full px-5 py-5 pr-14 rounded-2xl border border-[#3f3f46] text-center text-xl font-semibold tracking-widest bg-[#18181b] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60 disabled:opacity-50"
+                className="w-full px-5 py-5 pr-14 rounded-2xl border border-[#3d3670] text-center text-xl font-semibold tracking-widest bg-[#2a2458] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60 disabled:opacity-50"
               />
               <button
                 type="button"

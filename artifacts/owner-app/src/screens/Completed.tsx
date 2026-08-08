@@ -21,8 +21,8 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
 
   return (
     <div
-      className="h-full flex flex-col items-center justify-center px-6 bg-[#09090b]"
-      style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
+      className="h-full flex flex-col items-center justify-center px-6 bg-background"
+      style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #1e1845` }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -53,7 +53,7 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
             <h1 className="font-display font-black text-4xl text-white leading-tight">
               {tournamentName || teamName}
             </h1>
-            {date && <p className="text-lg text-[#71717a]">{date}</p>}
+            {date && <p className="text-lg text-[#a8a0c4]">{date}</p>}
           </div>
         </div>
 
@@ -66,7 +66,7 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
                 style={{ backgroundColor: `${teamColor}12`, border: `1px solid ${teamColor}30` }}
               >
                 <p className="font-display font-black text-5xl" style={{ color: teamColor }}>{playersBought}</p>
-                <p className="text-sm text-[#71717a] mt-2 uppercase tracking-wider">Players Won</p>
+                <p className="text-sm text-[#a8a0c4] mt-2 uppercase tracking-wider">Players Won</p>
               </div>
             )}
             {purseSpent != null && (
@@ -77,7 +77,7 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
                 <p className="font-display font-black text-3xl" style={{ color: teamColor }}>
                   {formatShortIndianRupee(purseSpent)}
                 </p>
-                <p className="text-sm text-[#71717a] mt-2 uppercase tracking-wider">Total Spent</p>
+                <p className="text-sm text-[#a8a0c4] mt-2 uppercase tracking-wider">Total Spent</p>
               </div>
             )}
           </div>
@@ -88,12 +88,12 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
           style={{ borderColor: `${teamColor}30`, backgroundColor: `${teamColor}08` }}
         >
           <p className="font-display font-bold text-2xl text-white">Auction Concluded</p>
-          <p className="text-base text-[#71717a] leading-relaxed">
+          <p className="text-base text-[#a8a0c4] leading-relaxed">
             Contact the tournament operator for any further queries.
           </p>
         </div>
 
-        <p className="text-sm text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+        <p className="text-sm text-[#3d3670] uppercase tracking-widest">{poweredByText}</p>
       </motion.div>
     </div>
   );

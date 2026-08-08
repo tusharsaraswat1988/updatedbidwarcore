@@ -36,7 +36,7 @@ export function TeamOwnerPanelScreen() {
 
   if (!context || context.tournamentId !== tournamentId || context.teamId !== teamId) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+      <div className="h-full flex items-center justify-center bg-background" aria-busy="true">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -46,7 +46,7 @@ export function TeamOwnerPanelScreen() {
 
   return (
     <AppShell>
-      <header className="px-5 py-4 border-b border-[#27272a] flex items-center justify-between shrink-0">
+      <header className="px-5 py-4 border-b border-[#4a4478] flex items-center justify-between shrink-0">
         <div>
           <p className="font-display font-black text-amber-400 text-lg">BidWar</p>
           <p className="text-[#a1a1aa] text-sm">Team Owner Panel</p>
@@ -54,7 +54,7 @@ export function TeamOwnerPanelScreen() {
         <button
           type="button"
           onClick={() => setLocation("/team-owner/settings")}
-          className="w-10 h-10 rounded-xl border border-[#3f3f46] flex items-center justify-center text-[#a1a1aa]"
+          className="w-10 h-10 rounded-xl border border-[#3d3670] flex items-center justify-center text-[#a1a1aa]"
           aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
@@ -65,7 +65,7 @@ export function TeamOwnerPanelScreen() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-[#27272a] bg-[#18181b] px-5 py-6"
+          className="rounded-2xl border border-[#4a4478] bg-[#2a2458] px-5 py-6"
           style={{ borderTopColor: accent, borderTopWidth: 3 }}
         >
           <p className="text-[#71717a] text-xs uppercase tracking-wider font-semibold">Team</p>

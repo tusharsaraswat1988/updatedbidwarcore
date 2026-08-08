@@ -19,6 +19,7 @@ import {
 import {
   cricketPublicPath,
   liveViewerPath,
+  cricketObsLivePath,
   scoreDisplayPath,
   sideDisplayPath,
 } from "@/lib/tournament-navigation";
@@ -96,6 +97,7 @@ export default function LinksPage() {
   const broadcastV2PreviewUrlValue = broadcastOverlayV2PreviewUrl(base, tournamentId);
   const cricketPublicUrl = `${base}${cricketPublicPath(tournamentId)}`;
   const cricketScoreboardUrl = `${base}${scoreDisplayPath(tournamentId, tournament?.auctionCode)}`;
+  const cricketObsUrl = `${base}${cricketObsLivePath(tournamentId, tournament?.auctionCode)}`;
   const sportCaps = getSportCapabilities(tournament?.sport);
   const scoringOn = Boolean(tournament?.scoringEnabled) && sportCaps.hasPublicTournament;
 
@@ -128,6 +130,14 @@ export default function LinksPage() {
                   description={`Venue scoreboard for live ${sportCaps.sportLabel.toLowerCase()} matches.`}
                   shareText={`${sportCaps.sportLabel} scoreboard: ${cricketScoreboardUrl}`}
                 />
+                {sportCaps.hasBroadcast ? (
+                  <LinkRow
+                    label="Cricket OBS"
+                    url={cricketObsUrl}
+                    description="Transparent cricket scorebug for OBS Browser Source (1920×1080). Paste into OBS over your camera."
+                    shareText={`Cricket OBS: ${cricketObsUrl}`}
+                  />
+                ) : null}
               </div>
             </CardContent>
           </Card>

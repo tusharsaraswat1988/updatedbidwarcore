@@ -26,7 +26,7 @@ Available on every login screen and in each role’s Settings.
 Native Android shell: see [ANDROID.md](./ANDROID.md).
 
 ```bash
-pnpm run android:build   # sync + debug APK + release APK/AAB
+pnpm run android:build   # sync + production release APK/AAB (bidwar.in)
 ```
 
 Package: `com.bidwar.app` · Min SDK 29 · Hosts the existing `/mobile` app (auth unchanged).

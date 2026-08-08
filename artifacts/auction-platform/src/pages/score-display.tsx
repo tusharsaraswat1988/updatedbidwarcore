@@ -27,7 +27,7 @@ export default function ScoreDisplayPage() {
   if (isLoading) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#070b14] text-white flex items-center justify-center">
+        <div className="lovable-theme dark min-h-screen bg-background text-foreground flex items-center justify-center">
           <p className="text-white/50">Loading…</p>
         </div>
       </FullscreenLayout>
@@ -37,7 +37,7 @@ export default function ScoreDisplayPage() {
   if (!scoringActive) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#070b14] text-white flex items-center justify-center px-6">
+        <div className="lovable-theme dark min-h-screen bg-background text-foreground flex items-center justify-center px-6">
           <p className="text-white/60 text-center">This page is not available for this tournament.</p>
         </div>
       </FullscreenLayout>

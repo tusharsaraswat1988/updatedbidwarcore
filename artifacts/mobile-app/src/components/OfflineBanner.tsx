@@ -40,7 +40,7 @@ export function OfflineBanner() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-[100] safe-top px-3 pt-2 pointer-events-none">
-      <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-amber-400/40 bg-[#18181b] px-4 py-3 shadow-lg">
+      <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-amber-400/40 bg-[#2a2458] px-4 py-3 shadow-lg">
         <p className="text-amber-400 text-sm font-semibold">You’re offline</p>
         <p className="text-[#a1a1aa] text-xs mt-1 leading-relaxed">
           Changes may not sync until you’re back online.

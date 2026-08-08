@@ -474,8 +474,7 @@ export function SportsShell({
     <SportsShellContext.Provider value={true}>
       <div
         className={cn(
-          "flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
-          isBadminton && "lovable-theme",
+          "lovable-theme flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
           className,
         )}
       >
@@ -592,20 +591,11 @@ export function SportsShell({
 
       <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
         <div
-          className={cn(
-            "absolute inset-0 pointer-events-none",
-            isBadminton
-              ? "opacity-100"
-              : "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/20 via-background to-background",
-          )}
-          style={
-            isBadminton
-              ? {
-                  background:
-                    "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
-                }
-              : undefined
-          }
+          className="absolute inset-0 pointer-events-none opacity-100"
+          style={{
+            background:
+              "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
+          }}
         />
         {noPadding ? (
           <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">{children}</div>

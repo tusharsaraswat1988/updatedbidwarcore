@@ -16,8 +16,8 @@ Native Android shell for the existing dual-auth web app at `/mobile/`.
 
 ```
 Android WebView (Capacitor)
-  ├─ Debug build  → https://bidwar-staging.onrender.com/mobile/
-  └─ Release build → https://bidwar.in/mobile/   (never staging)
+  ├─ Release build (default) → https://bidwar.in/mobile/
+  └─ Debug build (explicit only) → https://bidwar-staging.onrender.com/mobile/
        │
        ├─ Offline: native offline.html + in-app OfflineBanner
        ├─ Updates: soft UpdatePrompt (skipped on live auction routes)
@@ -26,6 +26,7 @@ Android WebView (Capacitor)
 ```
 
 Gradle rewrites `capacitor.config.json` `server.url` per variant during `merge*Assets`.
+**Always ship / install the release APK** — never the debug (staging) APK for production devices.
 
 ## Build commands
 
@@ -36,19 +37,23 @@ cd artifacts/mobile-app
 # Ensure keystore.properties exists for signed release
 # cp android/keystore/keystore.properties.example android/keystore/keystore.properties
 
+# Production only (bidwar.in) — default
 pnpm run android:build
+
+# Staging shell — only when explicitly needed for QA
+pnpm run android:assemble:debug
 ```
 
 | Artifact | Path |
 |----------|------|
-| Debug APK | `android/app/build/outputs/apk/debug/app-debug.apk` |
 | Release APK | `android/app/build/outputs/apk/release/app-release.apk` |
 | Release AAB | `android/app/build/outputs/bundle/release/app-release.aab` |
+| Debug APK (staging) | `android/app/build/outputs/apk/debug/app-debug.apk` |
 
 ## Install
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/release/app-release.apk
 ```
 
 ## Security (release)

@@ -57,7 +57,7 @@ export function RoleSelectionScreen() {
                   transition={{ delay: 0.08 * i }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => selectRole(role.id)}
-                  className="w-full text-left px-5 py-5 rounded-2xl border border-[#3f3f46] bg-[#18181b] hover:border-amber-400/50 transition-colors"
+                  className="w-full text-left px-5 py-5 rounded-2xl border border-[#3d3670] bg-[#2a2458] hover:border-amber-400/50 transition-colors"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-400/15 border border-amber-400/30 shrink-0">

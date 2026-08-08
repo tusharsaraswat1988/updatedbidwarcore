@@ -9,13 +9,13 @@ import {
 
 function LocalVenueBlocked() {
   return (
-    <div className="dark min-h-screen flex items-center justify-center bg-[#09090b] p-6">
-      <div className="max-w-md space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-center">
-        <div className="flex justify-center text-amber-300">
+    <div className="lovable-theme dark min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="max-w-md space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-6 text-center panel">
+        <div className="flex justify-center text-primary">
           <MonitorDown className="h-8 w-8" />
         </div>
-        <h1 className="text-lg font-semibold text-white">BidWar Local — venue mode</h1>
-        <p className="text-sm text-[#a1a1aa]">
+        <h1 className="text-lg font-semibold text-foreground">BidWar Local — venue mode</h1>
+        <p className="text-sm text-muted-foreground">
           Import a tournament in the BidWar Local desktop app, then open Auction Control from the app or connection kit.
         </p>
       </div>
@@ -72,8 +72,8 @@ export function LocalVenueGate({ children }: { children: ReactNode }) {
 
   if (!tournamentsLoaded) {
     return (
-      <div className="dark min-h-screen flex items-center justify-center bg-[#09090b]">
-        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      <div className="lovable-theme dark min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -84,8 +84,8 @@ export function LocalVenueGate({ children }: { children: ReactNode }) {
       return <LocalVenueBlocked />;
     }
     return (
-      <div className="dark min-h-screen flex items-center justify-center bg-[#09090b]">
-        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      <div className="lovable-theme dark min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

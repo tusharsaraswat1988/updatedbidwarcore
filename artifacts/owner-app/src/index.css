@@ -1,21 +1,25 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* BidWar lovable navy — never near-black product chrome */
 @theme inline {
   --font-display: "Oswald", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
-  --color-card: #18181b;
-  --color-card-foreground: #fafafa;
-  --color-border: #27272a;
-  --color-input: #3f3f46;
-  --color-muted: #27272a;
-  --color-muted-foreground: #71717a;
-  --color-primary: #f59e0b;
-  --color-primary-foreground: #000000;
+  --color-background: #1e1845;
+  --color-foreground: #faf8ff;
+  --color-card: #2a2458;
+  --color-card-foreground: #faf8ff;
+  --color-border: #4a4478;
+  --color-input: #3d3670;
+  --color-muted: #2a2458;
+  --color-muted-foreground: #a8a0c4;
+  --color-primary: #f5c518;
+  --color-primary-foreground: #1e1845;
   --color-destructive: #ef4444;
-  --color-destructive-foreground: #fafafa;
+  --color-destructive-foreground: #faf8ff;
+  --color-stage: #18123a;
+  --color-panel: #2a2458;
+  --color-panel-2: #342e66;
 }
 
 * {
@@ -35,8 +39,8 @@ html, body, #root {
 }
 
 body {
-  background: #09090b;
-  color: #fafafa;
+  background: #1e1845;
+  color: #faf8ff;
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

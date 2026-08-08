@@ -22,7 +22,7 @@ import {
   cricketStatsOpsPath,
 } from "./cricket-routes";
 import { badmintonHubPath } from "./badminton-routes";
-import { cricketFanHomePath } from "./tournament-navigation";
+import { cricketFanHomePath, cricketObsLiveAppPath } from "./tournament-navigation";
 import type { SportCapabilities, SportLiveOpsLink } from "./sports-shell-types";
 
 export {
@@ -63,6 +63,13 @@ const CRICKET_LIVE_OPS: SportLiveOpsLink[] = [
     title: "Public Cricket Page",
     description: "Fan-facing fixtures, standings, and stats.",
     buildHref: ({ tournamentId }) => cricketFanHomePath(tournamentId),
+  },
+  {
+    id: "broadcast",
+    title: "Cricket OBS",
+    description: "Transparent scorebug for OBS Browser Source.",
+    buildHref: ({ tournamentId }) => cricketObsLiveAppPath(tournamentId),
+    external: true,
   },
 ];
 
@@ -108,7 +115,7 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
       liveOpsPeekLines: [
         "Cricket dashboard & matches",
         "LED display",
-        "Public tournament page",
+        "Cricket OBS",
       ],
       missionControlDestinations: {
         fixtures: cricketFixturesPath,
