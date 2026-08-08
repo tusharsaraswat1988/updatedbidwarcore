@@ -7,6 +7,16 @@
 Phase 1 restored **product** ownership (Auction vs Sports).  
 Phase 2 restores **sport** ownership inside Sports: the shared Sports platform must be sport-agnostic.
 
+### Baseline (already on branch)
+
+Partial UI-side `SportCapabilities` already exists under `artifacts/auction-platform` (Live Ops gating, some player-tag / wizard filters, capability tests). That is **not** complete Phase 2.
+
+Still required by this design:
+- Move flag/label registry into `@workspace/platform-core` (source of truth)
+- Sport-scope team-role catalog + `validateTeam` (root cause of Badminton “Captain is required”)
+- Gate remaining shared forms / workbook / registration / export / CSV / Links copy
+- Stop defaulting missing sport to cricket in shared paths
+
 ---
 
 ## Constitutional model
