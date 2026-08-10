@@ -22,6 +22,7 @@ type OrganizerListTournamentSource = {
   bidTier2UpTo: number;
   bidTier2Increment: number;
   bidTier3Increment: number;
+  scoringEnabled?: boolean | null;
 };
 
 export function toOrganizerTournamentListItem(t: OrganizerListTournamentSource) {
@@ -39,5 +40,6 @@ export function toOrganizerTournamentListItem(t: OrganizerListTournamentSource) 
     createdAt: t.createdAt.toISOString(),
     auctionRulesPdfReady: gate.ready,
     auctionRulesPdfBlockedReason: gate.blockedReason,
+    scoringEnabled: t.scoringEnabled ?? false,
   };
 }

@@ -116,6 +116,16 @@
 }
 
 /*
+ * Portaled dialogs also get `.lovable-theme` for token inheritance.
+ * Do NOT inherit page min-height — that stretches empty modals to the viewport.
+ */
+.lovable-theme[role="dialog"],
+.lovable-theme[role="alertdialog"] {
+  min-height: 0;
+  background-attachment: scroll;
+}
+
+/*
  * BidWar Tailwind emits `color: hsl(var(--primary))` etc.
  * Lovable tokens are oklch() — hsl(oklch(...)) is invalid, so utilities
  * silently fail and inherit --foreground (everything looks white).

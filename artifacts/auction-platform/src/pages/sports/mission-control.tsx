@@ -140,7 +140,17 @@ function TournamentDashboardBody({
       return;
     }
     // Avoid focusing Runtime / Competition diagnostic cards for organisers.
+    // Never leave Start Setup / Continue as a dead click — fall back to sport routes.
     if (target.moduleId === "runtime" || target.moduleId === "competition") {
+      const fallback =
+        capabilities.missionControlDestinations?.tournament?.(tournamentId) ??
+        capabilities.missionControlDestinations?.teams?.(tournamentId) ??
+        capabilities.missionControlDestinations?.fixtures?.(tournamentId) ??
+        capabilities.missionControlDestinations?.scoring?.(tournamentId);
+      if (fallback) {
+        setFocusedModuleId(null);
+        setLocation(fallback);
+      }
       return;
     }
     setFocusedModuleId(target.moduleId);

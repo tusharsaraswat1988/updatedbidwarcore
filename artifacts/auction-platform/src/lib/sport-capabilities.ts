@@ -118,6 +118,9 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
         "Cricket OBS",
       ],
       missionControlDestinations: {
+        // Start Setup / competition → cricket dashboard (Sports-owned entry)
+        tournament: cricketDashboardPath,
+        // Teams live in Auction; fixtures is the first Sports-owned setup page
         fixtures: cricketFixturesPath,
         schedule: cricketScheduleOpsPath,
         scoring: cricketScoreHubPath,

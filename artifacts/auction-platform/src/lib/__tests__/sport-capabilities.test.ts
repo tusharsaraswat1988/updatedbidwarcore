@@ -50,6 +50,7 @@ describe("sport-capabilities", () => {
     const cricket = getSportCapabilities("cricket");
     assert.match(badminton.missionControlDestinations?.fixtures?.(3) ?? "", /\/badminton\/fixtures$/);
     assert.match(badminton.missionControlDestinations?.tournament?.(3) ?? "", /\/badminton\/branding$/);
+    assert.match(cricket.missionControlDestinations?.tournament?.(3) ?? "", /\/score\/dashboard$/);
     assert.match(cricket.missionControlDestinations?.fixtures?.(3) ?? "", /\/score\/fixtures$/);
     assert.doesNotMatch(badminton.missionControlDestinations?.schedule?.(3) ?? "", /\/score\//);
     assert.doesNotMatch(cricket.missionControlDestinations?.schedule?.(3) ?? "", /badminton/);

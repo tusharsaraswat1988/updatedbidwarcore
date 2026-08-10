@@ -18,6 +18,8 @@ export type OrganizerAccountTournament = {
   createdAt: string;
   auctionRulesPdfReady?: boolean;
   auctionRulesPdfBlockedReason?: string | null;
+  /** Admin toggle — required for Scoring entry on cricket/badminton. */
+  scoringEnabled?: boolean;
 };
 
 export type OrganizerAccountAuthState = {
