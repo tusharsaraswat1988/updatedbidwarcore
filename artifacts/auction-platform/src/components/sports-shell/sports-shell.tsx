@@ -18,6 +18,8 @@ import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import type { SportNavChild, SportNavConfig, SportNavItem } from "@/lib/sports-shell-types";
 import { cn } from "@/lib/utils";
+import { SportsUnavailableView } from "@/components/sports-unavailable-view";
+import { isTournamentScoringSport } from "@/hooks/use-platform-features";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 const COLLAPSE_STORAGE_KEY = "sports-shell-collapsed";
@@ -403,11 +405,11 @@ export function SportsShell({
 
   // Badminton: sidebar title from badminton branding only (shared intentionally).
   const { data: badmintonBranding } = useBadmintonBranding(isBadminton ? tournamentId : 0);
-  // Other sports: tournament name via standard tournament endpoint.
-  const { data: tournament } = useGetTournament(tournamentId, {
+  // Tournament row for title (non-badminton) + scoring gate (all sports in this shell).
+  const { data: tournament, isPending: tournamentPending } = useGetTournament(tournamentId, {
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
-      enabled: tournamentId > 0 && !isBadminton,
+      enabled: tournamentId > 0,
       staleTime: 60_000,
       refetchOnWindowFocus: false,
     },
@@ -415,6 +417,12 @@ export function SportsShell({
   const tournamentTitle =
     (isBadminton ? badmintonBranding?.displayName : tournament?.name)?.trim() || "Tournament";
   const localVenue = isBidWarLocalHost();
+  const sportForGate = tournament?.sport ?? nav.sportId;
+  const scoringDisabled =
+    tournamentId > 0 &&
+    !tournamentPending &&
+    isTournamentScoringSport(sportForGate) &&
+    tournament?.scoringEnabled === false;
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -598,10 +606,14 @@ export function SportsShell({
           }}
         />
         {noPadding ? (
-          <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">{children}</div>
+          <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">
+            {scoringDisabled ? <SportsUnavailableView /> : children}
+          </div>
         ) : (
           <div className="flex-1 overflow-y-auto z-0 relative">
-            <div className="p-8 max-w-7xl mx-auto">{children}</div>
+            <div className="p-8 max-w-7xl mx-auto">
+              {scoringDisabled ? <SportsUnavailableView /> : children}
+            </div>
           </div>
         )}
       </main>

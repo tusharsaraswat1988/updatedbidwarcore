@@ -16,29 +16,40 @@ const ImageEditorDialog = lazy(() =>
   import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog })),
 );
 
+type VenueBannerPatchBody = {
+  venueBannerUrl?: string | null;
+  venueBannerPublicId?: string | null;
+  venueBannerFit?: BadmintonBannerFit;
+  importAuctionBanner?: true;
+};
+
 export function VenueBannerSettingsPanel({
   tournamentId,
   branding,
+  sportLabel = "badminton",
+  brandingQueryKey,
+  patchPresentation,
 }: {
   tournamentId: number;
   branding: BadmintonBranding | undefined;
+  sportLabel?: "badminton" | "cricket";
+  brandingQueryKey?: readonly unknown[];
+  patchPresentation?: (body: VenueBannerPatchBody) => Promise<BadmintonBranding>;
 }) {
   const qc = useQueryClient();
   const [editorOpen, setEditorOpen] = useState(false);
+  const queryKey = brandingQueryKey ?? (["badminton-branding", tournamentId] as const);
 
   const patchMutation = useMutation({
-    mutationFn: (body: {
-      venueBannerUrl?: string | null;
-      venueBannerPublicId?: string | null;
-      venueBannerFit?: BadmintonBannerFit;
-      importAuctionBanner?: true;
-    }) =>
-      badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: (body: VenueBannerPatchBody) =>
+      patchPresentation
+        ? patchPresentation(body)
+        : badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          }),
     onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
+      qc.setQueryData([...queryKey], data);
     },
     onError: (e: Error) => toastError(e, "Venue banner"),
   });
@@ -48,7 +59,7 @@ export function VenueBannerSettingsPanel({
   const auctionUrl = branding?.auctionMainBannerUrl ?? null;
   const fit = branding?.resolvedVenueBannerFit ?? "cover";
   const sourceLabel = overrideUrl
-    ? "Custom banner for badminton"
+    ? `Custom banner for ${sportLabel}`
     : auctionUrl
       ? "Using auction main banner"
       : "No banner set yet";
@@ -100,7 +111,10 @@ export function VenueBannerSettingsPanel({
               { importAuctionBanner: true },
               {
                 onSuccess: () =>
-                  toastSuccess("Using auction banner", "Saved as the badminton venue banner."),
+                  toastSuccess(
+                    "Using auction banner",
+                    `Saved as the ${sportLabel} venue banner.`,
+                  ),
               },
             );
           }}

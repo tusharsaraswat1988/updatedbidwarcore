@@ -1671,7 +1671,7 @@ function OrganizerDashboard({
                             title={
                               scoringState === "active"
                                 ? "Open scoring setup"
-                                : "Open scoring setup — admin may still need to enable match scoring"
+                                : "Contact BIDWAR for enabling sport scoring module"
                             }
                             onClick={() => {
                               if (isLocked) return;
@@ -1685,7 +1685,7 @@ function OrganizerDashboard({
                       </div>
                       {scoringState === "needs-admin" ? (
                         <p className="text-[10px] text-amber-200/80 -mt-1">
-                          Ask admin to enable match scoring
+                          Contact BIDWAR for enabling sport scoring module
                         </p>
                       ) : null}
 

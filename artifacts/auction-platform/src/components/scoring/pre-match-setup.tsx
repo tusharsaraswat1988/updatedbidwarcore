@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
 import { CricketEventType, executionLimitsFromRules } from "@workspace/scoring-core";
 import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
+import { BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -125,9 +125,9 @@ export function PreMatchSetup({
             Runtime Prepare is required before Match Start. Overs, XI, and bench limits come from
             RuntimeExecutionPolicy after Prepare.
           </p>
-          <Button variant="outline" size="sm" className="h-8" asChild>
-            <Link href={sportsMissionControlPath(tournamentId)}>Open Mission Control → Prepare</Link>
-          </Button>
+          <BtnSecondary href={sportsMissionControlPath(tournamentId)} className={btnCompactClass}>
+            Open Mission Control → Prepare
+          </BtnSecondary>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">

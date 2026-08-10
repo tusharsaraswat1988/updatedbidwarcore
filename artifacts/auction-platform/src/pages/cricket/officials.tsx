@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  BtnPrimary,
   EmptyState,
   HubSectionHeader,
   PageHeader,
@@ -164,10 +165,10 @@ export default function CricketOfficialsPage() {
                   />
                 </div>
               </div>
-              <Button onClick={() => void handleAdd()} disabled={busy} className="gap-2">
+              <BtnPrimary onClick={() => void handleAdd()} disabled={busy}>
                 <Plus className="w-4 h-4" />
                 Add official
-              </Button>
+              </BtnPrimary>
             </section>
 
             <section>

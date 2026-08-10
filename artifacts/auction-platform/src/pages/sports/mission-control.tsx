@@ -5,7 +5,7 @@
  * Module registry + readiness engines remain authoritative underneath.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -22,10 +22,10 @@ import { buildAttentionFromReadiness } from "@/lib/tournament-mission-control";
 import { buildMissionControlPresenterView } from "@/lib/mission-control-presenter";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { useTournamentScoringActive } from "@/hooks/use-platform-features";
-import { AccessStateView } from "@/components/access-state-view";
+import { SportsUnavailableView } from "@/components/sports-unavailable-view";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { sportsMissionControlPath } from "@/lib/tournament-navigation";
-import { Button } from "@/components/ui/button";
+import { BtnPrimary, BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
 import { ArrowRight, Radio } from "lucide-react";
 
 export default function SportsMissionControlPage() {
@@ -49,14 +49,7 @@ export default function SportsMissionControlPage() {
   }
 
   if (!sportsActive) {
-    return (
-      <AccessStateView
-        code={403}
-        title="Sports unavailable"
-        body="Sports is not enabled for this tournament."
-        next="Enable match scoring in admin, or open Auction Overview for auction setup."
-      />
-    );
+    return <SportsUnavailableView />;
   }
 
   const isSetupPhase = tournament?.status === "setup";
@@ -214,10 +207,10 @@ function TournamentDashboardBody({
             <p className="text-sm text-muted-foreground max-w-xl">
               {presenter.nextStep.description}
             </p>
-            <Button type="button" onClick={handleContinue} className="gap-2">
+            <BtnPrimary onClick={handleContinue} className={btnCompactClass}>
               {presenter.nextStep.ctaLabel}
               <ArrowRight className="w-4 h-4" aria-hidden />
-            </Button>
+            </BtnPrimary>
           </section>
         ) : null}
 
@@ -257,10 +250,10 @@ function TournamentDashboardBody({
               </ul>
             ) : null}
 
-            <Button type="button" onClick={handleContinue} className="gap-2">
+            <BtnPrimary onClick={handleContinue} className={btnCompactClass}>
               {presenter.nextStep.ctaLabel}
               <ArrowRight className="w-4 h-4" aria-hidden />
-            </Button>
+            </BtnPrimary>
           </section>
         ) : null}
 
@@ -333,25 +326,21 @@ function ReadyOverview({
       <p className="text-sm text-muted-foreground max-w-xl">{nextStepDescription}</p>
       <div className="flex flex-wrap gap-3 pt-1">
         {scoringHref ? (
-          <Button asChild className="gap-2">
-            <Link href={scoringHref}>
-              {scoringLabel}
-              <ArrowRight className="w-4 h-4" aria-hidden />
-            </Link>
-          </Button>
-        ) : (
-          <Button type="button" className="gap-2" onClick={onOpenScoring}>
+          <BtnPrimary href={scoringHref} className={btnCompactClass}>
             {scoringLabel}
             <ArrowRight className="w-4 h-4" aria-hidden />
-          </Button>
+          </BtnPrimary>
+        ) : (
+          <BtnPrimary onClick={onOpenScoring} className={btnCompactClass}>
+            {scoringLabel}
+            <ArrowRight className="w-4 h-4" aria-hidden />
+          </BtnPrimary>
         )}
         {liveOpsHref ? (
-          <Button asChild variant="outline" className="gap-2">
-            <Link href={liveOpsHref}>
-              <Radio className="w-4 h-4" aria-hidden />
-              {liveOpsTitle ?? "Live Scoring"}
-            </Link>
-          </Button>
+          <BtnSecondary href={liveOpsHref} className={btnCompactClass}>
+            <Radio className="w-4 h-4" aria-hidden />
+            {liveOpsTitle ?? "Live Scoring"}
+          </BtnSecondary>
         ) : null}
       </div>
     </section>

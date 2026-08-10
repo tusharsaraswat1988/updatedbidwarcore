@@ -20,6 +20,8 @@ import {
   cricketScoreHubPath,
   cricketStandingsOpsPath,
   cricketStatsOpsPath,
+  cricketSettingsPath,
+  cricketTeamsPath,
 } from "./cricket-routes";
 import { badmintonHubPath } from "./badminton-routes";
 import { cricketFanHomePath, cricketObsLiveAppPath } from "./tournament-navigation";
@@ -118,9 +120,10 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
         "Cricket OBS",
       ],
       missionControlDestinations: {
-        // Start Setup / competition → cricket dashboard (Sports-owned entry)
-        tournament: cricketDashboardPath,
-        // Teams live in Auction; fixtures is the first Sports-owned setup page
+        // Start Setup / competition → cricket Tournament settings (branding)
+        tournament: cricketSettingsPath,
+        teams: cricketTeamsPath,
+        // Players step also lands on Teams first; Players is a sibling nav item
         fixtures: cricketFixturesPath,
         schedule: cricketScheduleOpsPath,
         scoring: cricketScoreHubPath,

@@ -11,14 +11,16 @@ import {
 } from "@workspace/api-client-react";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  BtnPrimary,
+  BtnSecondary,
   EmptyState,
   HubKpiCard,
   HubSectionHeader,
   PageHeader,
+  btnCompactClass,
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
@@ -166,12 +168,12 @@ export default function CricketDashboardPage() {
         badge={stats.live > 0 ? `${stats.live} Live` : undefined}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={sportsMissionControlPath(tournamentId)}>Tournament Dashboard</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href={cricketScoreHubPath(tournamentId)}>Open Matches</Link>
-            </Button>
+            <BtnSecondary href={sportsMissionControlPath(tournamentId)} className={btnCompactClass}>
+              Tournament Dashboard
+            </BtnSecondary>
+            <BtnPrimary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
+              Open Matches
+            </BtnPrimary>
           </div>
         }
       />

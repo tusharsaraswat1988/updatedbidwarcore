@@ -270,6 +270,55 @@ export async function getCricketMasterTeams(
   return r.json();
 }
 
+/** Cricket Sports branding (same overlay shape as badminton LED/OBS branding). */
+export async function getCricketBranding<T = unknown>(tournamentId: number): Promise<T> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/branding`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function patchCricketBranding<T = unknown>(
+  tournamentId: number,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/branding`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function patchCricketBroadcastPresentation<T = unknown>(
+  tournamentId: number,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/broadcast-presentation`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function importCricketTournamentBranding<T = unknown>(
+  tournamentId: number,
+): Promise<T> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/import-tournament-branding`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export function cricketBrandingQueryKey(tournamentId: number) {
+  return ["cricket-branding", tournamentId] as const;
+}
+
 export type ScoringLeaderboardRow = {
   playerId: number;
   teamId: number;

@@ -39,6 +39,9 @@ const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
 const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
 
 const CricketDashboard = lazy(() => import("@/pages/cricket/dashboard"));
+const CricketSettings = lazy(() => import("@/pages/cricket/settings"));
+const CricketTeams = lazy(() => import("@/pages/cricket/teams"));
+const CricketPlayers = lazy(() => import("@/pages/cricket/players"));
 const CricketFixtures = lazy(() => import("@/pages/cricket/fixtures"));
 const CricketStandings = lazy(() => import("@/pages/cricket/standings"));
 const CricketStats = lazy(() => import("@/pages/cricket/stats"));
@@ -187,6 +190,9 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Switch>
               <Route path="/tournament/:id/score/dashboard" component={CricketDashboard} />
+              <Route path="/tournament/:id/score/settings" component={CricketSettings} />
+              <Route path="/tournament/:id/score/teams" component={CricketTeams} />
+              <Route path="/tournament/:id/score/players" component={CricketPlayers} />
               <Route path="/tournament/:id/score/fixtures" component={CricketFixtures} />
               <Route path="/tournament/:id/score/standings" component={CricketStandings} />
               <Route path="/tournament/:id/score/stats" component={CricketStats} />

@@ -95,7 +95,7 @@ describe("mission-control-presenter", () => {
     assert.equal(assertNoForbiddenOrganiserTerms(collectOrganiserText(view)).length, 0);
   });
 
-  it("cricket empty tournament Start Setup routes to cricket dashboard (not a dead CTA)", () => {
+  it("cricket empty tournament Start Setup routes to cricket Tournament settings (not a dead CTA)", () => {
     const snapshots = {
       competition: snap("competition"),
       teams: snap("teams"),
@@ -114,7 +114,7 @@ describe("mission-control-presenter", () => {
     assert.equal(view.nextStep.ctaLabel, "Start Setup");
     assert.equal(view.nextStep.continue.kind, "route");
     if (view.nextStep.continue.kind === "route") {
-      assert.equal(view.nextStep.continue.href, "/tournament/25/score/dashboard");
+      assert.equal(view.nextStep.continue.href, "/tournament/25/score/settings");
     }
   });
 

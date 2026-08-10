@@ -1,6 +1,7 @@
 import { Copy, MessageCircle, Share2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 type ShareButtonsProps = {
   url: string;
@@ -11,6 +12,7 @@ type ShareButtonsProps = {
 export function ShareButtons({ url, shareText, compact }: ShareButtonsProps) {
   const { toast } = useToast();
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${url}`)}`;
+  const sizeClass = compact ? cn(btnCompactClass, "h-8 min-h-8") : btnCompactClass;
 
   async function copyLink() {
     try {
@@ -36,36 +38,32 @@ export function ShareButtons({ url, shareText, compact }: ShareButtonsProps) {
   if (compact) {
     return (
       <div className="flex gap-2">
-        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-border" onClick={() => void nativeShare()}>
+        <BtnSecondary className={sizeClass} onClick={() => void nativeShare()}>
           <Share2 className="h-3.5 w-3.5" />
           Share
-        </Button>
-        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-border" asChild>
-          <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-            <MessageCircle className="h-3.5 w-3.5" />
-            WhatsApp
-          </a>
-        </Button>
+        </BtnSecondary>
+        <BtnSecondary href={whatsappHref} className={sizeClass}>
+          <MessageCircle className="h-3.5 w-3.5" />
+          WhatsApp
+        </BtnSecondary>
       </div>
     );
   }
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-border" onClick={() => void copyLink()}>
+      <BtnSecondary className={sizeClass} onClick={() => void copyLink()}>
         <Copy className="h-3.5 w-3.5" />
         Copy link
-      </Button>
-      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-border" asChild>
-        <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-          <MessageCircle className="h-3.5 w-3.5" />
-          WhatsApp
-        </a>
-      </Button>
-      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-border" onClick={() => void nativeShare()}>
+      </BtnSecondary>
+      <BtnSecondary href={whatsappHref} className={sizeClass}>
+        <MessageCircle className="h-3.5 w-3.5" />
+        WhatsApp
+      </BtnSecondary>
+      <BtnSecondary className={sizeClass} onClick={() => void nativeShare()}>
         <Share2 className="h-3.5 w-3.5" />
         Share
-      </Button>
+      </BtnSecondary>
     </div>
   );
 }
