@@ -75,6 +75,9 @@ COPY --from=builder /deploy/node_modules ./node_modules
 # Playwright Chromium binaries (installed during build)
 COPY --from=builder /app/.playwright-browsers ./.playwright-browsers
 
+# Monorepo root marker — loadAppEnv/findRepoRoot walks up from dist/ looking for this
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+
 # API server bundle (esbuild output + pino worker threads)
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 
