@@ -55,7 +55,7 @@ export default function WaConsent() {
   if (loading) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+        <div className="min-h-screen flex items-center justify-center bg-background">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       </FullscreenLayout>
@@ -64,7 +64,7 @@ export default function WaConsent() {
 
   return (
     <FullscreenLayout>
-      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center px-6 py-12">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             {tokenData?.tournamentLogoUrl ? (

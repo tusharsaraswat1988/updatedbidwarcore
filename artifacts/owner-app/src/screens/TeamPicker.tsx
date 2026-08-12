@@ -29,7 +29,7 @@ function StatusBadge({ entry }: { entry: OwnerOnboardingEntry }) {
     );
   }
   return (
-    <span className="text-xs px-2.5 py-1 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider font-semibold flex items-center gap-1">
+    <span className="text-xs px-2.5 py-1 rounded-full bg-[#4a4478] text-[#a8a0c4] uppercase tracking-wider font-semibold flex items-center gap-1">
       <Clock className="w-3 h-3" />
       Upcoming
     </span>
@@ -48,8 +48,8 @@ function TeamCard({ entry, onSelect }: { entry: OwnerOnboardingEntry; onSelect: 
       onClick={onSelect}
       className="w-full text-left p-4 rounded-2xl border transition-all active:scale-[0.98]"
       style={{
-        borderColor: live ? `${color}60` : "#27272a",
-        backgroundColor: live ? `${color}12` : "#18181b",
+        borderColor: live ? `${color}60` : "#4a4478",
+        backgroundColor: live ? `${color}12` : "#2a2458",
       }}
     >
       <div className="flex items-center gap-3">
@@ -63,7 +63,7 @@ function TeamCard({ entry, onSelect }: { entry: OwnerOnboardingEntry; onSelect: 
         />
         <div className="flex-1 min-w-0">
           <p className="font-display font-bold text-lg text-white truncate">{entry.teamName}</p>
-          <p className="text-sm text-[#71717a] truncate">{entry.tournamentName}</p>
+          <p className="text-sm text-[#a8a0c4] truncate">{entry.tournamentName}</p>
           {entry.licenseStatus === "trial" && (
             <p className="text-xs text-amber-400/80 mt-0.5 font-semibold uppercase tracking-wide">Trial</p>
           )}
@@ -101,7 +101,7 @@ export function TeamPicker() {
 
   if (entries.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]">
+      <div className="h-full flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -110,12 +110,12 @@ export function TeamPicker() {
   const liveCount = entries.filter(e => e.auctionStatus === "active").length;
 
   return (
-    <div className="h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom">
-      <div className="px-5 pt-5 pb-4 flex-shrink-0 border-b border-[#27272a]">
+    <div className="h-full flex flex-col bg-background overflow-hidden safe-top safe-bottom">
+      <div className="px-5 pt-5 pb-4 flex-shrink-0 border-b border-[#4a4478]">
         <button
           type="button"
           onClick={() => { clearOnboardingEntries(); setLocation("/join"); }}
-          className="flex items-center gap-2 text-[#71717a] hover:text-[#a1a1aa] text-sm font-semibold mb-4 transition-colors"
+          className="flex items-center gap-2 text-[#a8a0c4] hover:text-[#a8a0c4] text-sm font-semibold mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Change number
@@ -131,7 +131,7 @@ export function TeamPicker() {
           <span className="font-display font-black text-lg text-white">{brandName}</span>
         </div>
         <h1 className="font-display font-black text-2xl text-white">Select your team</h1>
-        <p className="text-sm text-[#71717a] mt-1">
+        <p className="text-sm text-[#a8a0c4] mt-1">
           {liveCount > 0
             ? `${liveCount} auction${liveCount === 1 ? "" : "s"} live right now`
             : `${entries.length} active tournament${entries.length === 1 ? "" : "s"} found`}

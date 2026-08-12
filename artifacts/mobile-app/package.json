@@ -12,7 +12,7 @@
     "android:sync": "pnpm run build && cap sync android",
     "android:assemble:debug": "cd android && ./gradlew assembleDebug",
     "android:assemble:release": "cd android && ./gradlew assembleRelease bundleRelease",
-    "android:build": "pnpm run android:sync && pnpm run android:assemble:debug && pnpm run android:assemble:release"
+    "android:build": "pnpm run android:sync && pnpm run android:assemble:release"
   },
   "devDependencies": {
     "@capacitor/android": "^8.4.1",

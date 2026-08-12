@@ -82,7 +82,7 @@ const CRICKET_CAPABILITIES: SportCapabilityFlags = {
   hasStatistics: true,
   hasMatchCenter: true,
   hasPublicTournament: true,
-  hasBroadcast: false,
+  hasBroadcast: true,
   hasPowerplay: true,
   hasLBW: true,
   hasRetire: true,

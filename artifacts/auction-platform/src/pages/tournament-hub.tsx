@@ -18,10 +18,9 @@ import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle, ExternalLink,
+  CheckCircle2, Circle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { PlatformSurface } from "@/components/platform/platform-surface";
 import { ProgressHeader } from "@/components/platform/progress-header";
 import {
@@ -34,9 +33,6 @@ import {
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
-import { useTournamentScoringActive } from "@/hooks/use-platform-features";
-import { sportsMissionControlAppPath } from "@/lib/tournament-navigation";
-import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
@@ -57,8 +53,6 @@ export default function TournamentHub() {
     tournamentId,
     tournament,
   );
-  const sportsActive = useTournamentScoringActive(tournament?.sport, tournament?.scoringEnabled);
-  const localVenue = isBidWarLocalHost();
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
@@ -139,28 +133,6 @@ export default function TournamentHub() {
               : "Prepare teams, players, and auction settings for auction day."}
           </p>
         </div>
-
-        {sportsActive && !localVenue ? (
-          <PlatformSurface className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">Sports product</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Competition, fixtures, and live scoring live on the Tournament Dashboard.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0 gap-2"
-              onClick={() => {
-                window.location.assign(sportsMissionControlAppPath(tournamentId));
-              }}
-            >
-              Open Sports
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Button>
-          </PlatformSurface>
-        ) : null}
 
         <div className="org-stat-grid">
           {isSetupPhase ? (

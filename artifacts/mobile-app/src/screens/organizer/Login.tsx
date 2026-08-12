@@ -244,16 +244,16 @@ export function OrganizerLoginScreen() {
           <button
             type="button"
             onClick={handleGoogle}
-            className="w-full py-4 rounded-2xl border border-[#3f3f46] bg-[#18181b] text-white font-semibold flex items-center justify-center gap-3 hover:border-amber-400/40 transition-colors"
+            className="w-full py-4 rounded-2xl border border-[#3d3670] bg-[#2a2458] text-white font-semibold flex items-center justify-center gap-3 hover:border-amber-400/40 transition-colors"
           >
             <GoogleIcon />
             Continue with Google
           </button>
 
           <div className="flex items-center gap-3 text-[#52525b] text-xs font-semibold uppercase tracking-wider">
-            <div className="flex-1 h-px bg-[#27272a]" />
+            <div className="flex-1 h-px bg-[#4a4478]" />
             or
-            <div className="flex-1 h-px bg-[#27272a]" />
+            <div className="flex-1 h-px bg-[#4a4478]" />
           </div>
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
@@ -267,7 +267,7 @@ export function OrganizerLoginScreen() {
                 setError("");
               }}
               placeholder="Mobile or email"
-              className="w-full px-4 py-4 rounded-2xl border border-[#3f3f46] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60"
+              className="w-full px-4 py-4 rounded-2xl border border-[#3d3670] bg-[#2a2458] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60"
             />
             <div className="relative">
               <input
@@ -279,7 +279,7 @@ export function OrganizerLoginScreen() {
                   setError("");
                 }}
                 placeholder="Password"
-                className="w-full px-4 py-4 pr-12 rounded-2xl border border-[#3f3f46] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60"
+                className="w-full px-4 py-4 pr-12 rounded-2xl border border-[#3d3670] bg-[#2a2458] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60"
               />
               <button
                 type="button"
@@ -292,7 +292,7 @@ export function OrganizerLoginScreen() {
             </div>
 
             {captchaRequired && loginGuard?.captcha && !turnstileSiteKey ? (
-              <div className="space-y-2 rounded-2xl border border-[#3f3f46] bg-[#18181b] p-4">
+              <div className="space-y-2 rounded-2xl border border-[#3d3670] bg-[#2a2458] p-4">
                 <p className="text-sm text-[#a1a1aa]">{loginGuard.captcha.question}</p>
                 <input
                   value={captchaAnswer}
@@ -300,7 +300,7 @@ export function OrganizerLoginScreen() {
                   placeholder="Your answer"
                   inputMode="numeric"
                   autoComplete="off"
-                  className="w-full px-4 py-3 rounded-xl border border-[#3f3f46] bg-[#09090b] text-white outline-none focus:border-amber-400/60"
+                  className="w-full px-4 py-3 rounded-xl border border-[#3d3670] bg-background text-white outline-none focus:border-amber-400/60"
                 />
               </div>
             ) : null}
@@ -327,7 +327,7 @@ export function OrganizerLoginScreen() {
             </AnimatePresence>
 
             {redirectUriHint ? (
-              <p className="text-[11px] text-[#71717a] break-all rounded-xl border border-[#27272a] bg-[#18181b] px-3 py-2 font-mono">
+              <p className="text-[11px] text-[#71717a] break-all rounded-xl border border-[#4a4478] bg-[#2a2458] px-3 py-2 font-mono">
                 {redirectUriHint}
               </p>
             ) : null}

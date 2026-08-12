@@ -15,9 +15,12 @@ import {
 import { buildCricketMatchSummary } from "@workspace/scoring-core";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  BtnPrimary,
+  BtnSecondary,
   EmptyState,
   HubSectionHeader,
   PageHeader,
+  btnCompactClass,
   hubCardClass,
   hubPanelClass,
 } from "@/components/badminton/page-chrome";
@@ -25,7 +28,6 @@ import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { ScorecardView } from "@/components/scoring/scorecard-view";
 import { ShareButtons } from "@/components/scoring/share-buttons";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatch } from "@/hooks/use-scoring-match";
 import {
@@ -49,6 +51,8 @@ import {
 } from "@/lib/cricket-routes";
 import {
   cricketMatchPublicPath,
+  cricketObsLivePath,
+  cricketObsMatchPath,
   cricketPublicPath,
   openScoreDisplay,
   scoreDisplayPath,
@@ -64,6 +68,7 @@ import {
   Printer,
   Radio,
   Trophy,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -228,20 +233,30 @@ export default function CricketMatchCenterPage() {
         badge={isLive ? "LIVE" : undefined}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" asChild>
-              <Link href={liveHref}>
-                <Radio className="w-4 h-4 mr-1.5" />
-                Open Live Control
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+            <BtnPrimary href={liveHref} className={btnCompactClass}>
+              <Radio className="w-4 h-4" />
+              Open Live Control
+            </BtnPrimary>
+            <BtnSecondary
+              className={btnCompactClass}
               onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
             >
-              <Monitor className="w-4 h-4 mr-1.5" />
+              <Monitor className="w-4 h-4" />
               LED
-            </Button>
+            </BtnSecondary>
+            <BtnSecondary
+              className={btnCompactClass}
+              onClick={() =>
+                window.open(
+                  cricketObsLivePath(tournamentId, tournament?.auctionCode),
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+            >
+              <Tv className="w-4 h-4" />
+              Cricket OBS
+            </BtnSecondary>
           </div>
         }
       />
@@ -318,6 +333,18 @@ export default function CricketMatchCenterPage() {
               href={scoreDisplayPath(tournamentId, tournament?.auctionCode)}
               label="LED / Scoreboard"
               icon={Monitor}
+              external
+            />
+            <ActionLink
+              href={cricketObsLivePath(tournamentId, tournament?.auctionCode)}
+              label="Cricket OBS"
+              icon={Tv}
+              external
+            />
+            <ActionLink
+              href={cricketObsMatchPath(tournamentId, matchId, tournament?.auctionCode)}
+              label="Cricket OBS (this match)"
+              icon={Tv}
               external
             />
             <ActionLink

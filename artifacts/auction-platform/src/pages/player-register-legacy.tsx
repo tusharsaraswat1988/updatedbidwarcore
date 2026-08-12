@@ -6,7 +6,7 @@ import { Link2Off } from "lucide-react";
 export default function PlayerRegisterLegacy() {
   return (
     <FullscreenLayout>
-      <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4 py-8">
+      <div className="lovable-theme dark min-h-[100dvh] bg-background flex flex-col items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md border-border">
           <CardContent className="p-8 text-center space-y-3">
             <Link2Off className="w-12 h-12 text-muted-foreground mx-auto" />

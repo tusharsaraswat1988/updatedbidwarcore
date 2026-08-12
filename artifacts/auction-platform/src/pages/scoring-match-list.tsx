@@ -8,13 +8,14 @@ import {
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
   BtnPrimary,
+  BtnSecondary,
   EmptyState,
   HubKpiCard,
   HubSectionHeader,
   PageHeader,
+  btnCompactClass,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -215,27 +216,24 @@ export default function ScoringMatchListPage() {
 
   const pageActions = (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2"
+      <BtnSecondary
+        className={btnCompactClass}
         disabled={!scoringActive}
         onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
       >
         <Monitor className="w-4 h-4" />
         LED display
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2"
+      </BtnSecondary>
+      <BtnSecondary
+        className={btnCompactClass}
         disabled={isFetching}
         onClick={() => void refetch()}
       >
         <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
         Refresh
-      </Button>
+      </BtnSecondary>
       <BtnPrimary
+        className={btnCompactClass}
         onClick={() => {
           if (!rosterReady) {
             toast({
@@ -249,7 +247,7 @@ export default function ScoringMatchListPage() {
         }}
         disabled={!scoringActive}
       >
-        <Plus className="w-4 h-4 mr-1.5 inline" />
+        <Plus className="w-4 h-4" />
         New match
       </BtnPrimary>
     </div>
@@ -305,13 +303,12 @@ export default function ScoringMatchListPage() {
                   <BtnPrimary disabled={handoffBusy} onClick={() => void handleHandoffToSports()}>
                     {handoffBusy ? "Working…" : "Make teams & players available"}
                   </BtnPrimary>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <BtnSecondary
+                    className={btnCompactClass}
                     onClick={() => navigate(auctionRoomPath(tournamentId))}
                   >
                     Open Auction
-                  </Button>
+                  </BtnSecondary>
                 </div>
               </div>
             ) : (
@@ -321,14 +318,13 @@ export default function ScoringMatchListPage() {
                   {" — "}
                   {playersReady} player{playersReady === 1 ? "" : "s"} ready
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <BtnSecondary
+                  className={btnCompactClass}
                   disabled={handoffBusy}
                   onClick={() => void handleHandoffToSports()}
                 >
                   {handoffBusy ? "Refreshing…" : "Refresh from Auction"}
-                </Button>
+                </BtnSecondary>
               </div>
             )}
 
@@ -340,18 +336,14 @@ export default function ScoringMatchListPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" className="gap-2" asChild>
-                <Link href={scoringSchedulePath(tournamentId)}>
-                  <Calendar className="w-4 h-4" />
-                  Schedule
-                </Link>
-              </Button>
-              <Button variant="secondary" size="sm" className="gap-2" asChild>
-                <Link href={cricketPublicPath(tournamentId)}>
-                  <Globe className="w-4 h-4" />
-                  Fan page
-                </Link>
-              </Button>
+              <BtnSecondary href={scoringSchedulePath(tournamentId)} className={btnCompactClass}>
+                <Calendar className="w-4 h-4" />
+                Schedule
+              </BtnSecondary>
+              <BtnSecondary href={cricketPublicPath(tournamentId)} className={btnCompactClass}>
+                <Globe className="w-4 h-4" />
+                Fan page
+              </BtnSecondary>
             </div>
 
             <section>
@@ -454,11 +446,12 @@ export default function ScoringMatchListPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {teams.map((t) => {
+                    const master = masterTeams?.find((m) => m.auctionTeamId === t.id);
                     const squad = squadData?.squads.find((s) => s.teamId === t.id);
+                    const count = squad?.eligibleCount ?? master?.squadCount ?? 0;
                     return (
                       <SelectItem key={t.id} value={String(t.id)}>
-                        {t.name}
-                        {squad ? ` (${squad.eligibleCount} players)` : ""}
+                        {t.name} ({count} player{count === 1 ? "" : "s"})
                       </SelectItem>
                     );
                   })}
@@ -473,17 +466,27 @@ export default function ScoringMatchListPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {teams.map((t) => {
+                    const master = masterTeams?.find((m) => m.auctionTeamId === t.id);
                     const squad = squadData?.squads.find((s) => s.teamId === t.id);
+                    const count = squad?.eligibleCount ?? master?.squadCount ?? 0;
                     return (
                       <SelectItem key={t.id} value={String(t.id)} disabled={homeTeamId === String(t.id)}>
-                        {t.name}
-                        {squad ? ` (${squad.eligibleCount} players)` : ""}
+                        {t.name} ({count} player{count === 1 ? "" : "s"})
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
             </div>
+            {teams.some((t) => {
+              const master = masterTeams?.find((m) => m.auctionTeamId === t.id);
+              return (master?.squadCount ?? 0) === 0;
+            }) ? (
+              <p className="text-xs text-amber-300">
+                Teams with 0 players need a Sports roster — assign players on Players, or use
+                &quot;Make teams &amp; players available&quot; / Import from Auction.
+              </p>
+            ) : null}
             {squadData?.squads.some((s) => !s.ready) ? (
               <p className="text-xs text-primary">
                 Some teams have a thin roster — Playing XI / bench limits come from

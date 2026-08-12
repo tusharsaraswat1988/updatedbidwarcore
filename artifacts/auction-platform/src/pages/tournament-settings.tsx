@@ -1576,7 +1576,7 @@ export default function TournamentSettings() {
                       />
                       <button
                         type="button"
-                        className="absolute top-1.5 right-1.5 h-7 w-7 bg-black/70 hover:bg-black/90 text-white/80 hover:text-white rounded flex items-center justify-center transition-colors z-10"
+                        className="absolute top-1.5 right-1.5 h-7 w-7 bg-stage/80 hover:bg-stage text-white/80 hover:text-white rounded flex items-center justify-center transition-colors z-10"
                         onClick={() => setEditForm(f => ({ ...f, mainBannerUrl: "", mainBannerPublicId: "" }))}
                         title="Remove banner"
                       >

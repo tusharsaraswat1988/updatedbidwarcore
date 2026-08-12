@@ -3,7 +3,7 @@
  * Route: /tournament/:id/score/fixtures
  */
 import { useMemo, useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetTournament,
@@ -11,12 +11,13 @@ import {
 } from "@workspace/api-client-react";
 import { CricketOrganizerPageShell, CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
 import {
+  BtnPrimary,
   EmptyState,
   HubSectionHeader,
   PageHeader,
+  btnCompactClass,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useScoringMatches } from "@/hooks/use-scoring-match";
@@ -104,12 +105,10 @@ export default function CricketFixturesPage() {
         title="Fixture Browser"
         subtitle={`${fixtures?.length ?? 0} fixture${(fixtures?.length ?? 0) === 1 ? "" : "s"} · ${matches?.length ?? 0} match${(matches?.length ?? 0) === 1 ? "" : "es"}`}
         actions={
-          <Button variant="outline" size="sm" className="gap-2" asChild>
-            <Link href={cricketScheduleOpsPath(tournamentId)}>
-              <Calendar className="w-4 h-4" />
-              Schedule & generate
-            </Link>
-          </Button>
+          <BtnPrimary href={cricketScheduleOpsPath(tournamentId)} className={btnCompactClass}>
+            <Calendar className="w-4 h-4" />
+            Schedule & generate
+          </BtnPrimary>
         }
       />
 

@@ -57,6 +57,12 @@ export {
 
   BtnSecondary,
 
+  btnPrimaryClass,
+
+  btnSecondaryClass,
+
+  btnCompactClass,
+
 } from "@/components/badminton/form-ui";
 
 

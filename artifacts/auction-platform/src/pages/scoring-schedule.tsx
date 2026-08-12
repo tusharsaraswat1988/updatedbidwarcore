@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,11 +6,16 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
-import { PageHeader } from "@/components/badminton/page-chrome";
+import {
+  BtnPrimary,
+  BtnSecondary,
+  PageHeader,
+  btnCompactClass,
+} from "@/components/badminton/page-chrome";
 import { CityAutocomplete } from "@/components/city-autocomplete";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -28,12 +33,17 @@ import {
   listFixtures,
   listVenues,
 } from "@/lib/scoring-foundation-api";
-import { getCricketMasterTeams } from "@/lib/scoring-api";
+import {
+  cricketBrandingQueryKey,
+  getCricketBranding,
+  getCricketMasterTeams,
+} from "@/lib/scoring-api";
+import type { BadmintonBranding } from "@/hooks/use-badminton-branding";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
-import { cricketFixturesPath } from "@/lib/cricket-routes";
+import { cricketFixturesPath, cricketSettingsPath } from "@/lib/cricket-routes";
 import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
 
 export default function ScoringSchedulePage() {
@@ -69,11 +79,21 @@ export default function ScoringSchedulePage() {
     enabled: scoringActive,
   });
 
-  const { data: venues, refetch: refetchVenues } = useQuery({
+  const { data: venues, refetch: refetchVenues, isLoading: venuesLoading } = useQuery({
     queryKey: ["scoring-venues", tournamentId],
     queryFn: () => listVenues(tournamentId),
     enabled: scoringActive,
   });
+
+  const { data: branding } = useQuery({
+    queryKey: cricketBrandingQueryKey(tournamentId),
+    queryFn: () => getCricketBranding<BadmintonBranding>(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+  });
+
+  const settingsVenueName =
+    branding?.venue?.trim() || tournament?.venue?.trim() || "";
+  const settingsCity = tournament?.city?.trim() || "";
 
   const teamMap = useMemo(
     () => new Map(teams.map((t) => [t.id, t])),
@@ -90,9 +110,56 @@ export default function ScoringSchedulePage() {
   const [busy, setBusy] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
   const [newVenueCity, setNewVenueCity] = useState("");
+  const [showAddVenue, setShowAddVenue] = useState(false);
+  const seededVenueRef = useRef(false);
 
   const [groupA, setGroupA] = useState<number[]>([]);
   const [groupB, setGroupB] = useState<number[]>([]);
+
+  // Prefer Tournament settings venue — auto-create scoring venue once when list is empty.
+  useEffect(() => {
+    if (!scoringActive || venuesLoading || seededVenueRef.current) return;
+    if (venues == null) return;
+    if (venues.length > 0) {
+      seededVenueRef.current = true;
+      return;
+    }
+    if (!settingsVenueName) {
+      seededVenueRef.current = true;
+      return;
+    }
+    seededVenueRef.current = true;
+    void (async () => {
+      try {
+        await createVenue(tournamentId, {
+          name: settingsVenueName,
+          city: settingsCity || null,
+        });
+        await refetchVenues();
+        toast({
+          title: "Venue ready",
+          description: `Using “${settingsVenueName}” from Tournament settings.`,
+        });
+      } catch {
+        seededVenueRef.current = false;
+      }
+    })();
+  }, [
+    scoringActive,
+    venuesLoading,
+    venues,
+    settingsVenueName,
+    settingsCity,
+    tournamentId,
+    refetchVenues,
+    toast,
+  ]);
+
+  useEffect(() => {
+    if (!showAddVenue) return;
+    if (!newVenueName && settingsVenueName) setNewVenueName(settingsVenueName);
+    if (!newVenueCity && settingsCity) setNewVenueCity(settingsCity);
+  }, [showAddVenue, settingsVenueName, settingsCity, newVenueName, newVenueCity]);
 
   function setTeamSelected(id: number, selected: boolean) {
     setSelectedTeams((prev) => {
@@ -205,21 +272,21 @@ export default function ScoringSchedulePage() {
         subtitle="Venues, draws, and batch fixture generation"
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" asChild>
-              <Link href={cricketFixturesPath(tournamentId)}>Fixture browser</Link>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <a href={cricketPublicPath(tournamentId)}>Public page</a>
-            </Button>
+            <BtnSecondary href={cricketFixturesPath(tournamentId)} className={btnCompactClass}>
+              Fixture browser
+            </BtnSecondary>
+            <BtnSecondary href={cricketPublicPath(tournamentId)} className={btnCompactClass} external>
+              Public page
+            </BtnSecondary>
           </div>
         }
       />
       <div className="flex flex-col gap-4 max-w-3xl mx-auto px-4 sm:px-6 pb-10">
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={openGenerateDialog}>
-            <Plus className="h-4 w-4 mr-1" />
+          <BtnPrimary onClick={openGenerateDialog} className={btnCompactClass}>
+            <Plus className="h-4 w-4" />
             Generate schedule
-          </Button>
+          </BtnPrimary>
         </div>
 
         <section className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
@@ -227,35 +294,77 @@ export default function ScoringSchedulePage() {
             <MapPin className="h-4 w-4" />
             Venues
           </h2>
-          <ul className="text-sm space-y-1">
-            {(venues ?? []).map((v) => (
-              <li key={v.id} className="text-muted-foreground">
-                {v.name}
-                {v.city ? ` · ${v.city}` : ""}
-              </li>
-            ))}
-            {venues?.length === 0 ? (
-              <li className="text-muted-foreground">No venues yet</li>
-            ) : null}
-          </ul>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Venue name"
-              value={newVenueName}
-              onChange={(e) => setNewVenueName(e.target.value)}
-              className="h-9"
-            />
-            <CityAutocomplete
-              value={newVenueCity}
-              onChange={setNewVenueCity}
-              placeholder="City"
-              className="h-9 min-w-[7rem] flex-1"
-              showHint={false}
-            />
-            <Button size="sm" variant="secondary" onClick={handleAddVenue}>
-              Add
-            </Button>
-          </div>
+
+          {venuesLoading ? (
+            <Skeleton className="h-8 w-full" />
+          ) : (venues?.length ?? 0) > 0 ? (
+            <>
+              <ul className="text-sm space-y-1">
+                {(venues ?? []).map((v) => {
+                  const fromSettings =
+                    settingsVenueName &&
+                    v.name.trim().toLowerCase() === settingsVenueName.toLowerCase();
+                  return (
+                    <li key={v.id} className="text-muted-foreground">
+                      {v.name}
+                      {v.city ? ` · ${v.city}` : ""}
+                      {fromSettings ? (
+                        <span className="ml-2 text-[11px] text-primary/80">from settings</span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+              {!showAddVenue ? (
+                <BtnSecondary className={cn(btnCompactClass, "h-8 min-h-8")} onClick={() => setShowAddVenue(true)}>
+                  + Add another venue
+                </BtnSecondary>
+              ) : null}
+            </>
+          ) : settingsVenueName ? (
+            <p className="text-sm text-muted-foreground">
+              Using <span className="text-foreground font-medium">{settingsVenueName}</span>
+              {settingsCity ? ` · ${settingsCity}` : ""} from{" "}
+              <Link href={cricketSettingsPath(tournamentId)} className="text-primary underline-offset-2 hover:underline">
+                Tournament settings
+              </Link>
+              …
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No venue in{" "}
+              <Link href={cricketSettingsPath(tournamentId)} className="text-primary underline-offset-2 hover:underline">
+                Tournament settings
+              </Link>
+              yet — add one here or set it in settings.
+            </p>
+          )}
+
+          {(showAddVenue || ((venues?.length ?? 0) === 0 && !settingsVenueName)) ? (
+            <div className="flex gap-2 pt-1">
+              <Input
+                placeholder="Venue name"
+                value={newVenueName}
+                onChange={(e) => setNewVenueName(e.target.value)}
+                className="h-9"
+              />
+              <CityAutocomplete
+                value={newVenueCity}
+                onChange={setNewVenueCity}
+                placeholder="City"
+                className="h-9 min-w-[7rem] flex-1"
+                showHint={false}
+              />
+              <BtnPrimary
+                className={btnCompactClass}
+                onClick={() => {
+                  void handleAddVenue().then(() => setShowAddVenue(false));
+                }}
+              >
+                Add
+              </BtnPrimary>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
@@ -466,12 +575,10 @@ export default function ScoringSchedulePage() {
               ) : null}
 
               <div className="flex gap-2 pt-2">
-                <Button className="flex-1 h-11" disabled={busy} onClick={handleGenerate}>
+                <BtnPrimary className="flex-1" disabled={busy} onClick={handleGenerate}>
                   Generate
-                </Button>
-                <Button className="h-11" variant="outline" onClick={() => setShowGenerate(false)}>
-                  Cancel
-                </Button>
+                </BtnPrimary>
+                <BtnSecondary onClick={() => setShowGenerate(false)}>Cancel</BtnSecondary>
               </div>
             </div>
           </div>

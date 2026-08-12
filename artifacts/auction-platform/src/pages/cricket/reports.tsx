@@ -12,12 +12,14 @@ import {
 } from "@workspace/api-client-react";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  BtnPrimary,
+  BtnSecondary,
   EmptyState,
   HubSectionHeader,
   PageHeader,
+  btnCompactClass,
   hubCardClass,
 } from "@/components/badminton/page-chrome";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
@@ -133,14 +135,14 @@ export default function CricketReportsPage() {
         subtitle="Tournament summary, standings export, print views"
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
-            <Button variant="outline" size="sm" className="gap-2" onClick={handleExportCsv}>
+            <BtnSecondary onClick={handleExportCsv} className={btnCompactClass}>
               <Download className="w-4 h-4" />
               Standings CSV
-            </Button>
-            <Button size="sm" className="gap-2" onClick={handlePrint}>
+            </BtnSecondary>
+            <BtnPrimary onClick={handlePrint} className={btnCompactClass}>
               <Printer className="w-4 h-4" />
               Print / PDF
-            </Button>
+            </BtnPrimary>
           </div>
         }
       />

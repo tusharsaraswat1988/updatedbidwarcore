@@ -4,8 +4,11 @@ import {
   LayoutDashboard,
   ListOrdered,
   Radio,
+  Settings,
+  Shield,
   Table2,
   Trophy,
+  UserRound,
   Users,
 } from "lucide-react";
 import {
@@ -13,11 +16,14 @@ import {
   cricketDashboardPath,
   cricketFixturesPath,
   cricketOfficialsPath,
+  cricketPlayersPath,
   cricketReportsPath,
   cricketScheduleOpsPath,
   cricketScoreHubPath,
+  cricketSettingsPath,
   cricketStandingsOpsPath,
   cricketStatsOpsPath,
+  cricketTeamsPath,
 } from "./cricket-routes";
 import type { SportNavConfig, SportNavItem, SportNavSection } from "./sports-shell-types";
 import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
@@ -53,6 +59,9 @@ function isMissionControlPath(path: string, tournamentId: number): boolean {
 const PRELOAD: Record<string, () => Promise<unknown>> = {
   missionControl: () => import("../pages/sports/mission-control"),
   dashboard: () => import("../pages/cricket/dashboard"),
+  settings: () => import("../pages/cricket/settings"),
+  teams: () => import("../pages/cricket/teams"),
+  players: () => import("../pages/cricket/players"),
   matches: () => import("../pages/scoring-match-list"),
   matchCenter: () => import("../pages/cricket/match-center"),
   schedule: () => import("../pages/scoring-schedule"),
@@ -75,8 +84,8 @@ function preloadNav(id: string) {
 }
 
 /**
- * Primary cricket organizer destinations — Sports product only.
- * No Auction deep links (Teams / Players / Settings stay in Auction).
+ * Primary cricket organizer destinations — Sports product.
+ * Teams / Players live here (import from Auction or add manually), like badminton.
  */
 export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   {
@@ -96,15 +105,28 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     preload: () => preloadNav("dashboard"),
   },
   {
-    id: "matches",
-    label: "Matches & Scoring",
-    href: cricketScoreHubPath,
-    isActive: (path, tid) => isMatchesListPath(path, tid),
-    icon: Radio,
-    preload: () => {
-      preloadNav("matches");
-      preloadNav("matchCenter");
-    },
+    id: "settings",
+    label: "Tournament settings",
+    href: cricketSettingsPath,
+    isActive: (path) => scoreSection(path, "settings"),
+    icon: Settings,
+    preload: () => preloadNav("settings"),
+  },
+  {
+    id: "teams",
+    label: "Teams",
+    href: cricketTeamsPath,
+    isActive: (path) => scoreSection(path, "teams"),
+    icon: Shield,
+    preload: () => preloadNav("teams"),
+  },
+  {
+    id: "players",
+    label: "Players",
+    href: cricketPlayersPath,
+    isActive: (path) => scoreSection(path, "players"),
+    icon: UserRound,
+    preload: () => preloadNav("players"),
   },
   {
     id: "fixtures",
@@ -130,6 +152,17 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
         preload: () => preloadNav("schedule"),
       },
     ],
+  },
+  {
+    id: "matches",
+    label: "Matches & Scoring",
+    href: cricketScoreHubPath,
+    isActive: (path, tid) => isMatchesListPath(path, tid),
+    icon: Radio,
+    preload: () => {
+      preloadNav("matches");
+      preloadNav("matchCenter");
+    },
   },
   {
     id: "standings",

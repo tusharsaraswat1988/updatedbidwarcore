@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
 
@@ -658,114 +659,137 @@ export function PickerTrigger({
 
 
 
-export function BtnPrimary({
+/** Primary CTA — filled gold surface; always reads as clickable. */
+export const btnPrimaryClass =
+  "gold-button gold-button-hover inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 disabled:pointer-events-none transition-all";
 
-  children,
+/**
+ * Secondary CTA — solid raised chip (not ghost/outline).
+ * Do NOT use `.ghost-button` here — that class forces a near-transparent fill.
+ */
+export const btnSecondaryClass =
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-muted text-foreground min-h-11 px-4 py-2.5 font-semibold text-sm shadow-sm hover:bg-muted/80 hover:border-foreground/25 active:bg-muted/70 disabled:opacity-50 disabled:pointer-events-none transition-colors";
 
-  onClick,
+/** Compact toolbar / card action size. */
+export const btnCompactClass = "min-h-9 h-9 px-3.5 text-xs";
 
-  disabled,
-
+function BtnLink({
+  href,
   className,
-
-  type = "button",
-
+  title,
+  external,
+  children,
 }: {
-
+  href: string;
+  className: string;
+  title?: string;
+  external?: boolean;
   children: React.ReactNode;
-
-  onClick?: () => void;
-
-  disabled?: boolean;
-
-  className?: string;
-
-  type?: "button" | "submit";
-
 }) {
-
+  const isHttp = /^https?:\/\//i.test(href);
+  if (external || isHttp) {
+    return (
+      <a
+        href={href}
+        className={className}
+        title={title}
+        {...(isHttp ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {children}
+      </a>
+    );
+  }
   return (
-
-    <button
-
-      type={type}
-
-      onClick={onClick}
-
-      disabled={disabled}
-
-      className={cn(
-
-        "gold-button gold-button-hover inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground border border-primary-border min-h-11 px-4 py-2.5 font-semibold text-sm shadow-[var(--shadow-glow)] hover-elevate active-elevate-2 disabled:opacity-50 transition-all",
-
-        className,
-
-      )}
-
-    >
-
+    <Link href={href} className={className} title={title}>
       {children}
-
-    </button>
-
+    </Link>
   );
-
 }
 
-
+export function BtnPrimary({
+  children,
+  onClick,
+  disabled,
+  className,
+  type = "button",
+  href,
+  title,
+  external,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  type?: "button" | "submit";
+  /** When set, renders a link with the same primary styles. */
+  href?: string;
+  title?: string;
+  /** Force native <a> (e.g. public pages / new tab). Auto for http(s) hrefs. */
+  external?: boolean;
+}) {
+  const classes = cn(btnPrimaryClass, className);
+  if (href) {
+    if (disabled) {
+      return (
+        <span className={cn(classes, "opacity-50 pointer-events-none")} title={title} aria-disabled>
+          {children}
+        </span>
+      );
+    }
+    return (
+      <BtnLink href={href} className={classes} title={title} external={external}>
+        {children}
+      </BtnLink>
+    );
+  }
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} className={classes} title={title}>
+      {children}
+    </button>
+  );
+}
 
 export function BtnSecondary({
-
   children,
-
   onClick,
-
   disabled,
-
   className,
-
   type = "button",
-
+  href,
+  title,
+  external,
 }: {
-
   children: React.ReactNode;
-
   onClick?: () => void;
-
   disabled?: boolean;
-
   className?: string;
-
   type?: "button" | "submit";
-
+  /** When set, renders a link with the same secondary styles. */
+  href?: string;
+  title?: string;
+  /** Force native <a> (e.g. public pages / new tab). Auto for http(s) hrefs. */
+  external?: boolean;
 }) {
-
+  const classes = cn(btnSecondaryClass, className);
+  if (href) {
+    if (disabled) {
+      return (
+        <span className={cn(classes, "opacity-50 pointer-events-none")} title={title} aria-disabled>
+          {children}
+        </span>
+      );
+    }
+    return (
+      <BtnLink href={href} className={classes} title={title} external={external}>
+        {children}
+      </BtnLink>
+    );
+  }
   return (
-
-    <button
-
-      type={type}
-
-      onClick={onClick}
-
-      disabled={disabled}
-
-      className={cn(
-
-        "ghost-button ghost-button-hover inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary text-secondary-foreground min-h-11 px-4 py-2.5 font-semibold text-sm hover-elevate active-elevate-2 disabled:opacity-50 transition-colors",
-
-        className,
-
-      )}
-
-    >
-
+    <button type={type} onClick={onClick} disabled={disabled} className={classes} title={title}>
       {children}
-
     </button>
-
   );
-
 }
 
 

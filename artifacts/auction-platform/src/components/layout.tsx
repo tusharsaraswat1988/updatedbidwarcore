@@ -450,7 +450,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
       {/* Mobile sidebar backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 md:hidden"
+          className="fixed inset-0 z-20 bg-stage/70 md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />

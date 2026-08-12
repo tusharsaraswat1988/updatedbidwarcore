@@ -30,7 +30,7 @@ export function Toast({ message, onDismiss, durationMs = 3500 }: Props) {
           role="status"
           aria-live="polite"
         >
-          <div className="mx-auto max-w-md rounded-2xl border border-[#3f3f46] bg-[#18181b]/95 px-4 py-3.5 shadow-2xl backdrop-blur-md">
+          <div className="mx-auto max-w-md rounded-2xl border border-[#3d3670] bg-[#2a2458]/95 px-4 py-3.5 shadow-2xl backdrop-blur-md">
             <p className="text-sm font-semibold text-[#e4e4e7] text-center leading-snug">{message}</p>
           </div>
         </motion.div>

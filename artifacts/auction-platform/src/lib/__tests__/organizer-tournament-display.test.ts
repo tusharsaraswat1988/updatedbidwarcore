@@ -4,6 +4,7 @@ import {
   getOrganizerLicenseBadgeKind,
   isOrganizerTournamentActive,
   isOrganizerTournamentCompleted,
+  resolveOrganizerScoringCta,
 } from "../organizer-tournament-display";
 
 describe("getOrganizerLicenseBadgeKind", () => {
@@ -55,5 +56,41 @@ describe("getOrganizerAuctionStatusLabel", () => {
     expect(getOrganizerAuctionStatusLabel("active")).toBe("Auction Running");
     expect(getOrganizerAuctionStatusLabel("paused")).toBe("Paused");
     expect(getOrganizerAuctionStatusLabel("completed")).toBe("Completed");
+  });
+});
+
+describe("resolveOrganizerScoringCta", () => {
+  it("asks admin only when scoringEnabled is explicitly false", () => {
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "cricket",
+        scoringEnabled: true,
+      }),
+    ).toBe("active");
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "cricket",
+        scoringEnabled: false,
+      }),
+    ).toBe("needs-admin");
+    // Older /me payloads omit the field — do not show a false admin warning
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "cricket",
+        scoringEnabled: undefined,
+      }),
+    ).toBe("active");
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "badminton",
+        scoringEnabled: null,
+      }),
+    ).toBe("active");
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "football",
+        scoringEnabled: true,
+      }),
+    ).toBe("coming-soon");
   });
 });

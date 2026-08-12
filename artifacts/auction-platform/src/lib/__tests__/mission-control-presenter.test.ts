@@ -95,6 +95,29 @@ describe("mission-control-presenter", () => {
     assert.equal(assertNoForbiddenOrganiserTerms(collectOrganiserText(view)).length, 0);
   });
 
+  it("cricket empty tournament Start Setup routes to cricket Tournament settings (not a dead CTA)", () => {
+    const snapshots = {
+      competition: snap("competition"),
+      teams: snap("teams"),
+      fixtures: snap("fixtures"),
+      scheduling: snap("scheduling"),
+      matches: snap("matches"),
+      runtime: snap("runtime"),
+    };
+    assert.equal(isFreshTournamentSetup(snapshots), true);
+    const view = buildMissionControlPresenterView({
+      tournamentId: 25,
+      snapshots,
+      capabilities: getSportCapabilities("cricket"),
+    });
+    assert.equal(view.mode, "onboarding");
+    assert.equal(view.nextStep.ctaLabel, "Start Setup");
+    assert.equal(view.nextStep.continue.kind, "route");
+    if (view.nextStep.continue.kind === "route") {
+      assert.equal(view.nextStep.continue.href, "/tournament/25/score/settings");
+    }
+  });
+
   it("badminton journey uses Players & Teams and Courts & Schedule", () => {
     const snapshots = allCompleteSnapshots();
     snapshots.scheduling = snap("scheduling", { entityCount: 1, lockedCount: 0 });

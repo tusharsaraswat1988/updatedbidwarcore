@@ -36,7 +36,7 @@ const BRANDING_FALLBACK = {
   primaryColor: "#F59E0B",
   secondaryColor: "#1E293B",
   accentColor: "#3B82F6",
-  backgroundColor: "#080A0F",
+  backgroundColor: "#1E1845",
   successColor: "#22C55E",
   dangerColor: "#EF4444",
   headingFont: "Space Grotesk",

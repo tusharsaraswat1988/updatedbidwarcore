@@ -36,7 +36,7 @@ export function JerseySizeSelect({
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder="Select size" />
         </SelectTrigger>
-        <SelectContent className="dark">
+        <SelectContent position="popper" className="max-h-60">
           <SelectItem value="none">Not specified</SelectItem>
           {JERSEY_SIZE_VALUES.map(size => (
             <SelectItem key={size} value={size}>{size}</SelectItem>

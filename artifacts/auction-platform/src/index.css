@@ -122,45 +122,56 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * Fallback HSL channels (navy, not near-black). Exact lovable oklch tokens
+ * still win under `.lovable-theme` / `.lovable-home` — this prevents any
+ * product surface outside that class from regressing to pure black.
+ */
 :root, .dark {
-  --background: 240 10% 4%;
-  --foreground: 0 0% 98%;
+  --background: 243 48% 12%;
+  --foreground: 45 20% 98%;
 
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 240 10% 12%;
+  --card: 243 42% 16%;
+  --card-foreground: 45 20% 98%;
+  --card-border: 243 30% 24%;
 
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 240 10% 12%;
+  --popover: 243 42% 16%;
+  --popover-foreground: 45 20% 98%;
+  --popover-border: 243 30% 24%;
 
   --primary: 43 96% 56%; /* Amber/Gold for primary brand */
-  --primary-foreground: 240 10% 4%;
+  --primary-foreground: 243 48% 12%;
   
-  --secondary: 240 10% 12%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: 243 35% 20%;
+  --secondary-foreground: 45 20% 98%;
 
-  --muted: 240 10% 12%;
-  --muted-foreground: 240 5% 65%;
+  --muted: 243 35% 20%;
+  --muted-foreground: 240 15% 70%;
 
-  --accent: 240 10% 16%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 243 32% 22%;
+  --accent-foreground: 45 20% 98%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 240 10% 16%;
-  --input: 240 10% 22%;
+  --border: 243 28% 28%;
+  --input: 243 28% 32%;
   --ring: 43 96% 56%;
 
-  --sidebar: 240 10% 6%;
-  --sidebar-foreground: 240 5% 85%;
+  --sidebar: 243 45% 14%;
+  --sidebar-foreground: 240 15% 88%;
   --sidebar-primary: 43 96% 56%;
-  --sidebar-primary-foreground: 240 10% 4%;
-  --sidebar-accent: 240 10% 12%;
-  --sidebar-accent-foreground: 240 5% 96%;
-  --sidebar-border: 240 10% 12%;
+  --sidebar-primary-foreground: 243 48% 12%;
+  --sidebar-accent: 243 35% 20%;
+  --sidebar-accent-foreground: 240 15% 96%;
+  --sidebar-border: 243 30% 22%;
   --sidebar-ring: 43 96% 56%;
+
+  /* Broadcast surface aliases (used when lovable class is absent) */
+  --stage: oklch(0.22 0.13 265);
+  --panel: oklch(0.28 0.11 265);
+  --panel-2: oklch(0.32 0.1 265);
+  --rail: oklch(0.40 0.08 265);
 
   --chart-1: 43 96% 56%;
   --chart-2: 142 71% 45%;

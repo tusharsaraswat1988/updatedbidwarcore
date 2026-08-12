@@ -166,7 +166,10 @@ function resolveContinue(input: {
   const destinations = caps.missionControlDestinations;
 
   if (stepId === "onboarding" || stepId === "competition") {
-    const href = destinations?.tournament?.(tournamentId) ?? destinations?.teams?.(tournamentId);
+    const href =
+      destinations?.tournament?.(tournamentId) ??
+      destinations?.teams?.(tournamentId) ??
+      destinations?.fixtures?.(tournamentId);
     if (href) return { kind: "route", href };
     // Prefer not to dump organisers into the technical competition card when a
     // sport destination exists; only focus as last resort.
@@ -174,7 +177,9 @@ function resolveContinue(input: {
   }
 
   if (stepId === "teams") {
-    const href = destinations?.teams?.(tournamentId);
+    const href =
+      destinations?.teams?.(tournamentId) ??
+      destinations?.fixtures?.(tournamentId);
     if (href) return { kind: "route", href };
     return {
       kind: "route",

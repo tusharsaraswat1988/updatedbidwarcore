@@ -265,21 +265,71 @@ export function onAuctionPlayerRosterChangedAsync(
   });
 }
 
-/** List Player Registry franchise teams with squad counts for cricket scorer UI. */
+/**
+ * List franchise teams for cricket scorer UI (match create, fixtures, etc.).
+ *
+ * Includes every tournament team from Sports/Auction identity — not only teams that
+ * already have active Player Registry (PTA) rows. Empty squads still appear so
+ * organizers can pick all franchises; `squadCount` reflects PTA readiness.
+ */
 export async function listCricketMasterTeams(
   tournamentId: number,
 ): Promise<CricketMasterTeamItem[]> {
-  const teams = await listCricketFranchiseTeams(tournamentId);
-  return teams.map((t) => ({
-    auctionTeamId: t.teamId,
-    masterTeamId: t.masterTeamId,
-    name: t.name,
-    shortName: t.shortCode,
-    logoUrl: t.logoUrl,
-    primaryColor: t.color,
-    squadCount: t.squadCount,
-    syncedToMaster: Boolean(t.masterTeamId),
-  }));
+  const franchise = await listCricketFranchiseTeams(tournamentId);
+  const byAuctionId = new Map<number, CricketMasterTeamItem>();
+
+  for (const t of franchise) {
+    byAuctionId.set(t.teamId, {
+      auctionTeamId: t.teamId,
+      masterTeamId: t.masterTeamId,
+      name: t.name,
+      shortName: t.shortCode,
+      logoUrl: t.logoUrl,
+      primaryColor: t.color,
+      squadCount: t.squadCount,
+      syncedToMaster: Boolean(t.masterTeamId),
+    });
+  }
+
+  const tournamentTeams = await db
+    .select({
+      id: teamsTable.id,
+      name: teamsTable.name,
+      shortCode: teamsTable.shortCode,
+      logoUrl: teamsTable.logoUrl,
+      color: teamsTable.color,
+      masterTeamId: teamsTable.masterTeamId,
+    })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tournamentId));
+
+  for (const t of tournamentTeams) {
+    const existing = byAuctionId.get(t.id);
+    if (existing) {
+      byAuctionId.set(t.id, {
+        ...existing,
+        name: t.name || existing.name,
+        shortName: t.shortCode || existing.shortName,
+        logoUrl: t.logoUrl ?? existing.logoUrl,
+        primaryColor: t.color ?? existing.primaryColor,
+        masterTeamId: existing.masterTeamId ?? t.masterTeamId,
+        syncedToMaster: Boolean(existing.masterTeamId ?? t.masterTeamId),
+      });
+      continue;
+    }
+    byAuctionId.set(t.id, {
+      auctionTeamId: t.id,
+      masterTeamId: t.masterTeamId,
+      name: t.name,
+      shortName: t.shortCode,
+      logoUrl: t.logoUrl,
+      primaryColor: t.color,
+      squadCount: 0,
+      syncedToMaster: Boolean(t.masterTeamId),
+    });
+  }
+
+  return [...byAuctionId.values()].sort((a, b) => a.auctionTeamId - b.auctionTeamId);
 }
 
 /** List players for cricket scorer from Player Registry — optional filter by opaque team id. */

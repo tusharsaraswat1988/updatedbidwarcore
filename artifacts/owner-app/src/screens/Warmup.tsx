@@ -45,8 +45,8 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
 
   return (
     <div
-      className="h-full flex flex-col items-center justify-center bg-[#09090b] px-6"
-      style={{ background: `radial-gradient(ellipse at center, ${teamColor}18 0%, transparent 60%), #09090b` }}
+      className="h-full flex flex-col items-center justify-center bg-background px-6"
+      style={{ background: `radial-gradient(ellipse at center, ${teamColor}18 0%, transparent 60%), #1e1845` }}
     >
       <div className="w-full max-w-sm text-center space-y-10">
         {/* Brand logo */}
@@ -102,7 +102,7 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
             key={step}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-[#a1a1aa] text-lg"
+            className="text-[#a8a0c4] text-lg"
           >
             {STEPS[step]}
           </motion.p>
@@ -115,7 +115,7 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
         />
       </div>
 
-      <p className="absolute bottom-8 text-sm text-[#3f3f46] uppercase tracking-widest">
+      <p className="absolute bottom-8 text-sm text-[#3d3670] uppercase tracking-widest">
         {poweredByText}
       </p>
     </div>

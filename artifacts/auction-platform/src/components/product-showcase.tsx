@@ -16,9 +16,9 @@ function hasRealScreenshot(media: ProductShowcaseSurface["media"]): boolean {
 
 function OperatorScreen() {
   return (
-    <div className="bg-[#09090b] rounded-xl border border-border overflow-hidden text-white font-sans select-none">
+    <div className="bg-stage rounded-xl border border-border overflow-hidden text-white font-sans select-none">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-[#0f0f12]">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-panel">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span className="text-[11px] font-mono text-green-400 uppercase tracking-widest">Live · Round 3 of 8</span>
@@ -32,7 +32,7 @@ function OperatorScreen() {
       <div className="p-4 grid grid-cols-[1fr_1.2fr] gap-4">
         {/* Player card */}
         <div className="space-y-3">
-          <div className="rounded-xl border border-border bg-[#111113] overflow-hidden">
+          <div className="rounded-xl border border-border bg-panel-2 overflow-hidden">
             <div className="h-24 bg-gradient-to-br from-primary/20 to-transparent flex items-center justify-center">
               <div className="w-16 h-16 rounded-full bg-primary/30 border-2 border-primary/50 flex items-center justify-center">
                 <span className="text-primary font-black text-xl">AM</span>
@@ -52,7 +52,7 @@ function OperatorScreen() {
           </div>
           <div className="grid grid-cols-3 gap-1.5 text-center">
             {[["Avg", "42.3"], ["SR", "138"], ["Wkts", "24"]].map(([k, v]) => (
-              <div key={k} className="rounded-lg border border-border bg-[#0f0f12] py-2">
+              <div key={k} className="rounded-lg border border-border bg-panel py-2">
                 <p className="text-primary font-black text-sm">{v}</p>
                 <p className="text-[9px] text-muted-foreground uppercase">{k}</p>
               </div>
@@ -71,7 +71,7 @@ function OperatorScreen() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-[#0f0f12] p-3">
+          <div className="rounded-xl border border-border bg-panel p-3">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Recent Bids</p>
             <div className="space-y-1.5">
               {[
@@ -234,7 +234,7 @@ function OwnerScreen() {
     <div className="max-w-xs mx-auto">
       <div
         className="rounded-2xl overflow-hidden border border-white/10 select-none"
-        style={{ background: "linear-gradient(180deg, #0f0f12 0%, #09090b 100%)" }}
+        style={{ background: "linear-gradient(180deg, oklch(0.28 0.11 265) 0%, oklch(0.22 0.13 265) 100%)" }}
       >
         {/* Header */}
         <div className="px-5 pt-5 pb-4 border-b border-border/50" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.1), transparent)" }}>
@@ -262,7 +262,7 @@ function OwnerScreen() {
         </div>
 
         {/* Current player */}
-        <div className="mx-4 my-4 p-4 rounded-xl border border-border bg-[#111113]">
+        <div className="mx-4 my-4 p-4 rounded-xl border border-border bg-panel-2">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Up for Bid</p>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
@@ -321,7 +321,7 @@ function ReportsScreen() {
   const maxSpent = Math.max(...teams.map(t => t.spent));
 
   return (
-    <div className="bg-[#09090b] rounded-xl border border-border overflow-hidden select-none">
+    <div className="bg-stage rounded-xl border border-border overflow-hidden select-none">
       {/* Header stats */}
       <div className="grid grid-cols-4 divide-x divide-border/50 border-b border-border/50">
         {[

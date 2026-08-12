@@ -50,6 +50,8 @@ describe("sport-capabilities", () => {
     const cricket = getSportCapabilities("cricket");
     assert.match(badminton.missionControlDestinations?.fixtures?.(3) ?? "", /\/badminton\/fixtures$/);
     assert.match(badminton.missionControlDestinations?.tournament?.(3) ?? "", /\/badminton\/branding$/);
+    assert.match(cricket.missionControlDestinations?.tournament?.(3) ?? "", /\/score\/settings$/);
+    assert.match(cricket.missionControlDestinations?.teams?.(3) ?? "", /\/score\/teams$/);
     assert.match(cricket.missionControlDestinations?.fixtures?.(3) ?? "", /\/score\/fixtures$/);
     assert.doesNotMatch(badminton.missionControlDestinations?.schedule?.(3) ?? "", /\/score\//);
     assert.doesNotMatch(cricket.missionControlDestinations?.schedule?.(3) ?? "", /badminton/);
@@ -60,8 +62,11 @@ describe("sport-capabilities", () => {
     const ids = caps.liveOpsLinks.map((l) => l.id);
     assert.ok(ids.includes("dashboard"));
     assert.ok(ids.includes("match_center"));
+    assert.ok(ids.includes("broadcast"));
     assert.equal(ids.includes("mission_control"), false);
-    assert.equal(ids.includes("broadcast"), false);
+    const broadcast = caps.liveOpsLinks.find((l) => l.id === "broadcast");
+    assert.match(broadcast?.buildHref({ tournamentId: 3, encodedReturnTo: "" }) ?? "", /\/cricket\/obs\/live$/);
+    assert.doesNotMatch(broadcast?.buildHref({ tournamentId: 3, encodedReturnTo: "" }) ?? "", /\/obs$/);
   });
 
   it("filterPlayerTagOptions hides captain tags when sport lacks hasCaptain", () => {

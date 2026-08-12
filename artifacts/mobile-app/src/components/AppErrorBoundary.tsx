@@ -24,7 +24,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] px-6 text-center safe-top safe-bottom">
+      <div className="h-full flex flex-col items-center justify-center bg-background px-6 text-center safe-top safe-bottom">
         <p className="font-display font-black text-amber-400 text-2xl">BidWar</p>
         <h1 className="font-display font-bold text-xl text-white mt-4">Something went wrong</h1>
         <p className="text-[#a1a1aa] text-sm mt-2 max-w-sm leading-relaxed">{this.state.message}</p>

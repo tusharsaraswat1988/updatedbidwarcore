@@ -16,7 +16,7 @@ export function OrganizerSettingsScreen() {
 
   if (isLoading || (!isLoggedIn && !serverError)) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+      <div className="h-full flex items-center justify-center bg-background" aria-busy="true">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -29,7 +29,7 @@ export function OrganizerSettingsScreen() {
 
   return (
     <AppShell>
-      <header className="px-5 py-4 border-b border-[#27272a] flex items-center gap-3 shrink-0">
+      <header className="px-5 py-4 border-b border-[#4a4478] flex items-center gap-3 shrink-0">
         <button
           type="button"
           onClick={() => setLocation("/organizer/dashboard")}
@@ -49,7 +49,7 @@ export function OrganizerSettingsScreen() {
 
         <section className="space-y-2">
           <p className="text-xs uppercase tracking-wider text-[#52525b] font-semibold">Account</p>
-          <div className="rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-4">
+          <div className="rounded-2xl border border-[#4a4478] bg-[#2a2458] px-4 py-4">
             <p className="text-white font-semibold">{organizer?.name ?? "Organizer"}</p>
             <p className="text-[#71717a] text-sm mt-1">{organizer?.email || organizer?.mobile}</p>
           </div>
@@ -57,7 +57,7 @@ export function OrganizerSettingsScreen() {
 
         <section className="space-y-3">
           <p className="text-xs uppercase tracking-wider text-[#52525b] font-semibold">Role</p>
-          <div className="rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-4 flex items-center justify-between">
+          <div className="rounded-2xl border border-[#4a4478] bg-[#2a2458] px-4 py-4 flex items-center justify-between">
             <div>
               <p className="text-white font-semibold">Switch Role</p>
               <p className="text-[#71717a] text-sm mt-1">

@@ -99,14 +99,14 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
 function TournamentCard({ t }: { t: UpcomingTournament }) {
   return (
     <div
-      className="relative bg-[#111113] border rounded-2xl overflow-hidden transition-all duration-200 hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.6)] flex flex-col"
+      className="relative bg-panel border rounded-2xl overflow-hidden transition-all duration-200 hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.6)] flex flex-col"
       style={{ borderColor: `${t.accent}18` }}
     >
       {/* Logo area */}
       <div
         className="relative flex items-center justify-center"
         style={{
-          background: `radial-gradient(ellipse at 50% 30%, ${t.primary}cc 0%, ${t.primary}55 60%, #0d0d10 100%)`,
+          background: `radial-gradient(ellipse at 50% 30%, ${t.primary}cc 0%, ${t.primary}55 60%, oklch(0.22 0.13 265) 100%)`,
           height: "160px",
         }}
       >
@@ -195,7 +195,7 @@ export default function UpcomingAuctions() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pt-16">
+    <div className="lovable-theme min-h-screen bg-background text-foreground pt-16 dark">
       <title>Upcoming Auctions | {brandName}</title>
 
       {/* Nav */}

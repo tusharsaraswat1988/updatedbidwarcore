@@ -125,7 +125,7 @@ export function TournamentCodeGate({
 
   if (status === "error") {
     return (
-      <div className="dark min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b]">
+      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background">
         <div className="w-full max-w-sm space-y-6 text-center">
           <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
             <AlertTriangle className="w-8 h-8 text-red-400" />
@@ -147,7 +147,7 @@ export function TournamentCodeGate({
 
   // status === "locked"
   return (
-    <div className="dark min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b] selection:bg-yellow-400 selection:text-black">
+    <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/10 via-transparent to-transparent pointer-events-none" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}

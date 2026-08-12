@@ -36,7 +36,7 @@ export function BootRouter() {
 
   if (!ready) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+      <div className="h-full flex items-center justify-center bg-background" aria-busy="true">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );

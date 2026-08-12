@@ -28,7 +28,7 @@ export function OrganizerDashboardScreen() {
 
   if (isLoading || (!isLoggedIn && !serverError)) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]" aria-busy="true">
+      <div className="h-full flex items-center justify-center bg-background" aria-busy="true">
         <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -36,7 +36,7 @@ export function OrganizerDashboardScreen() {
 
   return (
     <AppShell>
-      <header className="px-5 py-4 border-b border-[#27272a] flex items-center justify-between shrink-0">
+      <header className="px-5 py-4 border-b border-[#4a4478] flex items-center justify-between shrink-0">
         <div>
           <p className="font-display font-black text-amber-400 text-lg">BidWar</p>
           <p className="text-[#a1a1aa] text-sm">Organizer Dashboard</p>
@@ -44,7 +44,7 @@ export function OrganizerDashboardScreen() {
         <button
           type="button"
           onClick={() => setLocation("/organizer/settings")}
-          className="w-10 h-10 rounded-xl border border-[#3f3f46] flex items-center justify-center text-[#a1a1aa] hover:text-white"
+          className="w-10 h-10 rounded-xl border border-[#3d3670] flex items-center justify-center text-[#a1a1aa] hover:text-white"
           aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
@@ -62,7 +62,7 @@ export function OrganizerDashboardScreen() {
         </div>
 
         {tournaments.length === 0 ? (
-          <div className="rounded-2xl border border-[#27272a] bg-[#18181b] px-5 py-8 text-center">
+          <div className="rounded-2xl border border-[#4a4478] bg-[#2a2458] px-5 py-8 text-center">
             <p className="text-[#a1a1aa] text-sm">No tournaments yet.</p>
             <a
               href="/organizer"
@@ -82,7 +82,7 @@ export function OrganizerDashboardScreen() {
               >
                 <a
                   href={`/tournament/${t.id}`}
-                  className="block rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-4 hover:border-amber-400/40 transition-colors"
+                  className="block rounded-2xl border border-[#4a4478] bg-[#2a2458] px-4 py-4 hover:border-amber-400/40 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>

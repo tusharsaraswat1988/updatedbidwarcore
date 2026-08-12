@@ -144,7 +144,7 @@ export function TeamOwnerMobileEntryScreen() {
               }}
               placeholder="Mobile number"
               autoFocus
-              className="w-full px-5 py-5 rounded-2xl border border-[#3f3f46] text-center text-xl font-semibold bg-[#18181b] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60"
+              className="w-full px-5 py-5 rounded-2xl border border-[#3d3670] text-center text-xl font-semibold bg-[#2a2458] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60"
             />
 
             <AnimatePresence>

@@ -990,90 +990,74 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
         )}
       </div>
-      {/* Row 2: Mobile (required) | Role */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Mobile Number <span className="text-destructive">*</span></Label>
-          <div className="relative">
-            <Input
-              value={form.mobileNumber}
-              onChange={e => handleMobileChange(e.target.value)}
-              required
-              placeholder="10-digit mobile (e.g. 9876543210)"
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              className="pr-8"
-            />
-            {!player && mobileLookupLoading && (
-              <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
-            )}
-            {!player && !mobileLookupLoading && mobileLookedUp && (
-              <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${pendingMobileProfile ? "text-green-500" : "text-muted-foreground"}`} />
-            )}
-          </div>
+      {/* Row 2: Mobile (required) — full width so lookup card doesn't stretch sibling selects */}
+      <div className="space-y-2">
+        <Label>Mobile Number <span className="text-destructive">*</span></Label>
+        <div className="relative">
+          <Input
+            value={form.mobileNumber}
+            onChange={e => handleMobileChange(e.target.value)}
+            required
+            placeholder="10-digit mobile (e.g. 9876543210)"
+            type="tel"
+            inputMode="numeric"
+            maxLength={10}
+            className="pr-8"
+          />
           {!player && mobileLookupLoading && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-              Looking up mobile number in player database…
-            </p>
+            <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
           )}
-          {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
-          {!player && matchedTournamentPlayer && (
-            <p className="text-xs text-amber-400 mt-1">
-              This mobile is already registered as <span className="font-semibold">{matchedTournamentPlayer.name}</span>.
-              Saving will update that player — no duplicate will be created.
-            </p>
+          {!player && !mobileLookupLoading && mobileLookedUp && (
+            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${pendingMobileProfile ? "text-green-500" : "text-muted-foreground"}`} />
           )}
-          {!player && pendingMobileProfile && !matchedTournamentPlayer && (
-            <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 space-y-3">
-              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Existing profile found</p>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
-                  {pendingMobileProfile.photoUrl ? (
-                    <img
-                      src={cldUrl(pendingMobileProfile.photoUrl, "thumbnail")}
-                      alt={pendingMobileProfile.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-5 h-5 text-muted-foreground/50" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold truncate">{pendingMobileProfile.name}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{pendingMobileProfile.mobileNumber}</p>
-                  {pendingMobileProfile.appearanceCount > 1 && (
-                    <p className="text-[10px] text-primary mt-0.5">
-                      Seen in {pendingMobileProfile.appearanceCount} tournaments
-                    </p>
-                  )}
-                </div>
+        </div>
+        {!player && mobileLookupLoading && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+            Looking up mobile number in player database…
+          </p>
+        )}
+        {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
+        {!player && matchedTournamentPlayer && (
+          <p className="text-xs text-amber-400 mt-1">
+            This mobile is already registered as <span className="font-semibold">{matchedTournamentPlayer.name}</span>.
+            Saving will update that player — no duplicate will be created.
+          </p>
+        )}
+        {!player && pendingMobileProfile && !matchedTournamentPlayer && (
+          <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 space-y-3">
+            <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Existing profile found</p>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
+                {pendingMobileProfile.photoUrl ? (
+                  <img
+                    src={cldUrl(pendingMobileProfile.photoUrl, "thumbnail")}
+                    alt={pendingMobileProfile.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-5 h-5 text-muted-foreground/50" />
+                )}
               </div>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" className="h-8 gap-1.5" onClick={applyMobileProfile}>
-                  <Sparkles className="w-3.5 h-3.5" /> Use this profile
-                </Button>
-                <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setPendingMobileProfile(null)}>
-                  Dismiss
-                </Button>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{pendingMobileProfile.name}</p>
+                <p className="text-xs font-mono text-muted-foreground">{pendingMobileProfile.mobileNumber}</p>
+                {pendingMobileProfile.appearanceCount > 1 && (
+                  <p className="text-[10px] text-primary mt-0.5">
+                    Seen in {pendingMobileProfile.appearanceCount} tournaments
+                  </p>
+                )}
               </div>
             </div>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label>Role</Label>
-          <Select value={form.role} onValueChange={v => f("role", v)}>
-            <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-            <SelectContent className="dark">
-              {(sportRoles.length > 0
-                ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
-                : [{ value: "Player", label: "Player" }]
-              ).map(r => (
-                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" className="h-8 gap-1.5" onClick={applyMobileProfile}>
+                <Sparkles className="w-3.5 h-3.5" /> Use this profile
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setPendingMobileProfile(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
       <OptionalEmailField
         id="player-email"
@@ -1082,7 +1066,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         error={emailError || undefined}
       />
       {/* Row 3: City | Age | Gender */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
         <div className="space-y-2">
           <Label>City</Label>
           <CityAutocomplete value={form.city} onChange={v => f("city", v)} />
@@ -1097,7 +1081,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         />
       </div>
       {/* Row 4: Jersey No | Jersey Size */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
         <div className="space-y-2">
           <Label>Jersey No.</Label>
           <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} />
@@ -1160,6 +1144,21 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <p className="text-[10px] text-muted-foreground">Base price is locked after the auction starts.</p>
           </div>
         )}
+      </div>
+      {/* Role drives the specification fields below — keep them adjacent */}
+      <div className="space-y-2">
+        <Label>Role</Label>
+        <Select value={form.role} onValueChange={v => f("role", v)}>
+          <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+          <SelectContent position="popper" className="max-h-60">
+            {(sportRoles.length > 0
+              ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
+              : [{ value: "Player", label: "Player" }]
+            ).map(r => (
+              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {/* Dynamic spec groups: loaded from sport master per selected role */}
       {sortedSpecGroups.length > 0 ? (

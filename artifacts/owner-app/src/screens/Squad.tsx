@@ -83,13 +83,13 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
 
   return (
     <div
-      className="auction-surface h-full min-h-0 flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
-      style={{ background: `radial-gradient(ellipse at top, ${teamColor}10 0%, transparent 50%), #09090b` }}
+      className="auction-surface h-full min-h-0 flex flex-col bg-background overflow-hidden safe-top safe-bottom select-none"
+      style={{ background: `radial-gradient(ellipse at top, ${teamColor}10 0%, transparent 50%), #1e1845` }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Header */}
-      <div className="border-b border-[#27272a] flex-shrink-0">
-        <div className="flex items-center justify-center px-4 py-2.5 bg-[#0a0a0c] border-b border-[#27272a]/70">
+      <div className="border-b border-[#4a4478] flex-shrink-0">
+        <div className="flex items-center justify-center px-4 py-2.5 bg-[#18123a] border-b border-[#4a4478]/70">
           <img
             src={brandLogoSrc}
             alt={brandName}
@@ -100,7 +100,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         <div className="flex items-center gap-4 px-4 pt-3 pb-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1 text-[#71717a] hover:text-white transition-colors p-2 -ml-2 rounded-xl hover:bg-[#18181b] active:scale-95"
+            className="flex items-center gap-1 text-[#a8a0c4] hover:text-white transition-colors p-2 -ml-2 rounded-xl hover:bg-[#2a2458] active:scale-95"
             title="Back to bidding"
           >
             <ChevronLeft className="w-7 h-7" />
@@ -117,48 +117,48 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
             <p className="font-display font-bold text-xl leading-none truncate" style={{ color: teamColor }}>
               {team.name}
             </p>
-            <p className="text-sm text-[#71717a] mt-0.5">My Squad</p>
+            <p className="text-sm text-[#a8a0c4] mt-0.5">My Squad</p>
           </div>
           <ShieldUser className="w-7 h-7 flex-shrink-0" style={{ color: teamColor }} strokeWidth={2.25} />
         </div>
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-3 border-b border-[#27272a] flex-shrink-0">
+      <div className="grid grid-cols-3 border-b border-[#4a4478] flex-shrink-0">
         {[
           { label: "Players", value: String(count) },
           { label: "Spent",   value: formatShortIndianRupee(purseUsed) },
           { label: "Max Bid", value: formatShortIndianRupee(maxAllowedBid) },
         ].map(({ label, value }) => (
-          <div key={label} className="text-center py-4 border-r border-[#27272a] last:border-r-0">
+          <div key={label} className="text-center py-4 border-r border-[#4a4478] last:border-r-0">
             <p
               className="font-display font-black text-3xl leading-none"
               style={{ color: teamColor }}
             >
               {value}
             </p>
-            <p className="text-xs text-[#52525b] uppercase tracking-wider mt-1.5">{label}</p>
+            <p className="text-xs text-[#6b6490] uppercase tracking-wider mt-1.5">{label}</p>
           </div>
         ))}
       </div>
 
-      <div className="px-4 py-3 border-b border-[#27272a] flex-shrink-0">
-        <div className="rounded-xl border border-[#27272a] bg-[#18181b] p-4 grid grid-cols-3 gap-3 text-center">
+      <div className="px-4 py-3 border-b border-[#4a4478] flex-shrink-0">
+        <div className="rounded-xl border border-[#4a4478] bg-[#2a2458] p-4 grid grid-cols-3 gap-3 text-center">
           <div>
-            <p className="text-[10px] text-[#52525b] uppercase tracking-wider">Original</p>
+            <p className="text-[10px] text-[#6b6490] uppercase tracking-wider">Original</p>
             <p className="text-sm font-mono font-semibold mt-1" style={{ color: teamColor }}>{formatShortIndianRupee(originalPurse)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-[#52525b] uppercase tracking-wider">Boosters</p>
+            <p className="text-[10px] text-[#6b6490] uppercase tracking-wider">Boosters</p>
             <p className="text-sm font-mono font-semibold mt-1" style={{ color: BIDWAR_AMBER }}>+{formatShortIndianRupee(boosterTotal)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-[#52525b] uppercase tracking-wider">Total Purse</p>
+            <p className="text-[10px] text-[#6b6490] uppercase tracking-wider">Total Purse</p>
             <p className="text-sm font-mono font-semibold mt-1" style={{ color: teamColor }}>{formatShortIndianRupee(capacity)}</p>
           </div>
         </div>
         {reserve > 0 && (
-          <p className="text-[10px] text-[#71717a] mt-2 text-center">
+          <p className="text-[10px] text-[#a8a0c4] mt-2 text-center">
             {formatShortIndianRupee(reserve)} reserved after next purchase · {formatShortIndianRupee(maxAllowedBid)} max bid
           </p>
         )}
@@ -174,17 +174,17 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
             />
           </div>
         ) : myPlayers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#52525b] px-8 text-center">
+          <div className="flex flex-col items-center justify-center h-64 text-[#6b6490] px-8 text-center">
             <User className="w-16 h-16 mb-4 opacity-20" />
             <p className="text-lg font-semibold">No players yet</p>
-            <p className="text-sm text-[#3f3f46] mt-1">Players you win will appear here</p>
+            <p className="text-sm text-[#3d3670] mt-1">Players you win will appear here</p>
           </div>
         ) : (
           <ul className="py-2">
             {myPlayers.map((player, idx) => (
               <li
                 key={player.id}
-                className="squad-player-row flex items-center gap-4 px-5 py-4 border-b border-[#18181b] active:bg-[#18181b] transition-colors"
+                className="squad-player-row flex items-center gap-4 px-5 py-4 border-b border-[#2a2458] active:bg-[#2a2458] transition-colors"
               >
                 {/* Rank */}
                 <div
@@ -195,7 +195,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
                 </div>
 
                 {/* Photo placeholder or initial */}
-                <div className="w-12 h-14 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+                <div className="w-12 h-14 rounded-xl bg-[#4a4478] border border-[#3d3670] flex-shrink-0 overflow-hidden flex items-center justify-center">
                   {(player as { photoUrl?: string | null }).photoUrl ? (
                     <img
                       src={(player as { photoUrl?: string | null }).photoUrl!}
@@ -203,7 +203,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="font-display font-black text-lg text-[#52525b]">
+                    <span className="font-display font-black text-lg text-[#6b6490]">
                       {player.name?.charAt(0) || "?"}
                     </span>
                   )}
@@ -212,7 +212,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-lg font-bold text-white truncate leading-tight">{player.name}</p>
-                  <p className="text-sm text-[#71717a] capitalize mt-0.5 flex items-center gap-2">
+                  <p className="text-sm text-[#a8a0c4] capitalize mt-0.5 flex items-center gap-2">
                     {player.role || "Player"}
                     {player.status === "retained" && (
                       <span className="text-xs font-bold text-amber-400 uppercase tracking-wide bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
@@ -236,7 +236,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         )}
       </div>
 
-      <p className="text-center text-sm text-[#3f3f46] uppercase tracking-widest py-4 flex-shrink-0 border-t border-[#27272a]">
+      <p className="text-center text-sm text-[#3d3670] uppercase tracking-widest py-4 flex-shrink-0 border-t border-[#4a4478]">
         {poweredByText}
       </p>
     </div>

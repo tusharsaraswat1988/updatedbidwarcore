@@ -15,6 +15,7 @@ describe("getSportCapabilities", () => {
     expect(caps.hasOvers).toBe(true);
     expect(caps.hasCaptain).toBe(true);
     expect(caps.hasLBW).toBe(true);
+    expect(caps.hasBroadcast).toBe(true);
     expect(caps.hasSets).toBe(false);
     expect(caps.hasCourts).toBe(false);
     expect(caps.playingSquadLabel).toBe("Playing XI");

@@ -522,6 +522,15 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
 
+  // Sports / manual create with a team must also write PTA — otherwise the franchise
+  // never appears on master-teams / match Home–Away pickers until a later update/handoff.
+  if (
+    player.teamId != null &&
+    (player.status === "sold" || player.status === "retained")
+  ) {
+    onAuctionPlayerRosterChangedAsync(player, null, tid);
+  }
+
   await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
   afterPlayerDataChanged(tid, req.log);

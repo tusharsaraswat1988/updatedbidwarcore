@@ -172,7 +172,7 @@ function TimerBar({
 
   return (
     <div className="flex items-center gap-4 px-1">
-      <div className="flex-1 h-3 bg-[#27272a] rounded-full overflow-hidden">
+      <div className="flex-1 h-3 bg-[#4a4478] rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
           style={{ backgroundColor: color }}
@@ -231,31 +231,31 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
-      className={`flex items-start rounded-2xl border bg-[#18181b] ${cardPad}`}
+      className={`flex items-start rounded-2xl border bg-[#2a2458] ${cardPad}`}
       style={
         tagTheme
           ? {
               borderColor: tagTheme.color,
               boxShadow: `0 0 16px ${tagTheme.glow}`,
             }
-          : { borderColor: "#27272a" }
+          : { borderColor: "#4a4478" }
       }
     >
       <div
-        className={`${photoClass} relative rounded-xl bg-[#27272a] flex-shrink-0 overflow-hidden flex items-center justify-center`}
+        className={`${photoClass} relative rounded-xl bg-[#4a4478] flex-shrink-0 overflow-hidden flex items-center justify-center`}
         style={
           tagTheme
             ? {
                 border: `2px solid ${tagTheme.color}`,
                 boxShadow: `0 0 14px ${tagTheme.glow}, inset 0 0 20px ${tagTheme.glow}`,
               }
-            : { border: "1px solid #3f3f46" }
+            : { border: "1px solid #3d3670" }
         }
       >
         {player.photoUrl ? (
           <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
         ) : (
-          <User className="w-10 h-10 text-[#52525b]" />
+          <User className="w-10 h-10 text-[#6b6490]" />
         )}
         {player.playerTag ? (
           <div className="absolute left-1 top-1 z-10 max-w-[calc(100%-0.25rem)]">
@@ -265,7 +265,7 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-          <span className="font-mono text-sm text-[#71717a] shrink-0">#{player.serialNo ?? player.id}</span>
+          <span className="font-mono text-sm text-[#a8a0c4] shrink-0">#{player.serialNo ?? player.id}</span>
           <h2 className={`font-display font-black leading-tight text-white truncate ${nameClass}`}>{player.name}</h2>
           {player.playerTag ? <PlayerTagBadge tagKey={player.playerTag} size="md" className="shrink-0" /> : null}
         </div>
@@ -274,7 +274,7 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
           <div className={`grid ${metaCols} gap-x-4 gap-y-1.5 mt-3`}>
             {metaItems.map(({ label, value }) => (
               <div key={label} className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#52525b]">{label}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6490]">{label}</p>
                 <p className="text-sm text-[#d4d4d8] capitalize truncate">{value}</p>
               </div>
             ))}
@@ -282,10 +282,10 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
         )}
 
         {specs.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#27272a]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#4a4478]">
             {specs.map((spec) => (
               <div key={`${spec.specGroupId ?? spec.label}-${spec.value}`} className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#52525b]">{spec.label}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6490]">{spec.label}</p>
                 <p className="text-sm text-white font-semibold truncate">{spec.value}</p>
               </div>
             ))}
@@ -293,13 +293,13 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
         )}
 
         {player.achievements?.trim() && (
-          <p className="text-sm text-[#a1a1aa] mt-3 pt-3 border-t border-[#27272a] line-clamp-2">
+          <p className="text-sm text-[#a8a0c4] mt-3 pt-3 border-t border-[#4a4478] line-clamp-2">
             {player.achievements.trim()}
           </p>
         )}
 
         {player.basePrice != null && (
-          <p className="text-sm text-[#71717a] mt-3">
+          <p className="text-sm text-[#a8a0c4] mt-3">
             Base <span className="text-white font-bold text-base">{formatIndianRupee(player.basePrice, unit)}</span>
           </p>
         )}
@@ -378,16 +378,16 @@ function TeamSquadSnapshot({
   const statLabelClass = tier === "mobile" ? "text-[10px]" : "text-[11px]";
 
   return (
-    <div className="rounded-2xl border border-[#27272a] bg-[#18181b] overflow-hidden">
-      <div className="grid grid-cols-3 divide-x divide-[#27272a]">
+    <div className="rounded-2xl border border-[#4a4478] bg-[#2a2458] overflow-hidden">
+      <div className="grid grid-cols-3 divide-x divide-[#4a4478]">
         <div className="px-3 py-3 text-center">
           <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
             {maxSquad > 0 ? maxSquad : totalInSquad}
           </p>
-          <p className={`font-bold uppercase tracking-wider text-[#52525b] mt-1.5 ${statLabelClass}`}>
+          <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
             Squad Target
           </p>
-          <p className="text-[10px] text-[#71717a] mt-0.5">
+          <p className="text-[10px] text-[#a8a0c4] mt-0.5">
             {maxSquad > 0
               ? stillNeed != null && stillNeed > 0
                 ? `${stillNeed} more needed`
@@ -400,32 +400,32 @@ function TeamSquadSnapshot({
           type="button"
           onClick={() => toggleCategory("retained")}
           className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
-            expanded === "retained" ? "bg-[#27272a]" : "hover:bg-[#1f1f23]"
+            expanded === "retained" ? "bg-[#4a4478]" : "hover:bg-[#1f1f23]"
           }`}
         >
           <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: teamColor }}>
             {retainedCount}
           </p>
-          <p className={`font-bold uppercase tracking-wider text-[#52525b] mt-1.5 ${statLabelClass}`}>
+          <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
             Retained
           </p>
-          <p className="text-[10px] text-[#71717a] mt-0.5">Tap to view</p>
+          <p className="text-[10px] text-[#a8a0c4] mt-0.5">Tap to view</p>
         </button>
 
         <button
           type="button"
           onClick={() => toggleCategory("bought")}
           className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
-            expanded === "bought" ? "bg-[#27272a]" : "hover:bg-[#1f1f23]"
+            expanded === "bought" ? "bg-[#4a4478]" : "hover:bg-[#1f1f23]"
           }`}
         >
           <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: teamColor }}>
             {boughtCount}
           </p>
-          <p className={`font-bold uppercase tracking-wider text-[#52525b] mt-1.5 ${statLabelClass}`}>
+          <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
             Bought
           </p>
-          <p className="text-[10px] text-[#71717a] mt-0.5">Tap to view</p>
+          <p className="text-[10px] text-[#a8a0c4] mt-0.5">Tap to view</p>
         </button>
       </div>
 
@@ -437,23 +437,23 @@ function TeamSquadSnapshot({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-[#27272a]"
+            className="overflow-hidden border-t border-[#4a4478]"
           >
             <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#141416]">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">{expandedTitle}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#a8a0c4]">{expandedTitle}</p>
               <button
                 type="button"
                 onClick={() => setExpanded(null)}
-                className="p-1 rounded-lg text-[#71717a] hover:text-white hover:bg-[#27272a] transition-colors"
+                className="p-1 rounded-lg text-[#a8a0c4] hover:text-white hover:bg-[#4a4478] transition-colors"
                 aria-label="Close player list"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             {expandedPlayers.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-[#52525b]">No players yet</p>
+              <p className="px-4 py-3 text-sm text-[#6b6490]">No players yet</p>
             ) : (
-              <ul className={`overflow-y-auto overscroll-contain divide-y divide-[#27272a] [-webkit-overflow-scrolling:touch] ${
+              <ul className={`overflow-y-auto overscroll-contain divide-y divide-[#4a4478] [-webkit-overflow-scrolling:touch] ${
                 tier === "mobile" ? "max-h-36" : tier === "tablet" ? "max-h-44" : "max-h-52"
               }`}>
                 {expandedPlayers.map((player) => (
@@ -544,7 +544,7 @@ function TeamPurseFooter({
 
   const items = useMemo(() => {
     const teamNum = teamColor;
-    const bidwarNum = (active = true) => (active ? BIDWAR_AMBER : "#71717a");
+    const bidwarNum = (active = true) => (active ? BIDWAR_AMBER : "#a8a0c4");
 
     const cols: {
       key: string;
@@ -628,7 +628,7 @@ function TeamPurseFooter({
 
   return (
     <div
-      className={`grid divide-x divide-[#27272a] transition-shadow duration-500 ${highlightBoost ? "rounded-xl ring-2 ring-amber-400/70" : ""}`}
+      className={`grid divide-x divide-[#4a4478] transition-shadow duration-500 ${highlightBoost ? "rounded-xl ring-2 ring-amber-400/70" : ""}`}
       style={{
         gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
         ...(highlightBoost ? { boxShadow: `0 0 24px ${BIDWAR_AMBER}40` } : {}),
@@ -648,7 +648,7 @@ function TeamPurseFooter({
           >
             {value}
           </motion.p>
-          <p className={`text-[#a1a1aa] font-bold uppercase tracking-wide leading-tight ${labelClass}`}>
+          <p className={`text-[#a8a0c4] font-bold uppercase tracking-wide leading-tight ${labelClass}`}>
             {label}
           </p>
         </div>
@@ -668,7 +668,7 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam, unit, tier }: {
   const amountClass = tier === "mobile" ? "text-5xl" : tier === "tablet" ? "text-6xl" : "text-7xl";
   return (
     <div className="text-center py-2">
-      <p className={`font-bold text-[#71717a] uppercase tracking-widest mb-2 ${tier === "mobile" ? "text-xs" : "text-sm"}`}>
+      <p className={`font-bold text-[#a8a0c4] uppercase tracking-widest mb-2 ${tier === "mobile" ? "text-xs" : "text-sm"}`}>
         {isLeading ? "Your Bid — You Are Leading" : "Current Bid"}
       </p>
       <motion.p
@@ -681,7 +681,7 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam, unit, tier }: {
         {formatIndianRupee(amount || 0, unit)}
       </motion.p>
       {!isLeading && leadingTeam && (
-        <p className="text-base text-[#71717a] mt-2">
+        <p className="text-base text-[#a8a0c4] mt-2">
           Leading: <span className="font-bold text-white text-lg">{leadingTeam}</span>
         </p>
       )}
@@ -761,11 +761,11 @@ function getBidDisabledHint(params: {
 function BidDisabledMessage({ hint, compact }: { hint: BidDisabledHint; compact?: boolean }) {
   return (
     <div
-      className={`text-center rounded-xl border border-[#27272a] bg-[#18181b] ${compact ? "px-2 py-1.5" : "px-3 py-2.5"}`}
+      className={`text-center rounded-xl border border-[#4a4478] bg-[#2a2458] ${compact ? "px-2 py-1.5" : "px-3 py-2.5"}`}
     >
       <p className={`font-semibold text-[#d4d4d8] ${compact ? "text-xs" : "text-sm"}`}>{hint.headline}</p>
       {hint.subline && (
-        <p className={`text-[#71717a] mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>{hint.subline}</p>
+        <p className={`text-[#a8a0c4] mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>{hint.subline}</p>
       )}
     </div>
   );
@@ -900,7 +900,7 @@ function BidButton({
         <Trophy className={dock ? "w-10 h-10" : "w-16 h-16"} style={{ color: teamColor }} />
         <div className="text-center">
           <p className={`font-display font-black ${dock ? "text-xl" : "text-3xl"}`} style={{ color: teamColor }}>HIGHEST BIDDER</p>
-          {!dock && <p className="text-base text-[#71717a] mt-2">Waiting for other teams...</p>}
+          {!dock && <p className="text-base text-[#a8a0c4] mt-2">Waiting for other teams...</p>}
         </div>
       </motion.div>
     );
@@ -917,7 +917,7 @@ function BidButton({
         <AlertTriangle className={`${dock ? "w-10 h-10" : "w-14 h-14"} text-red-400`} />
         <div className="text-center">
           <p className={`font-display font-black text-red-400 ${dock ? "text-xl" : "text-3xl"}`}>BIDDING CLOSED</p>
-          {!dock && <p className="text-base text-[#71717a] mt-2">Timer expired — awaiting operator</p>}
+          {!dock && <p className="text-base text-[#a8a0c4] mt-2">Timer expired — awaiting operator</p>}
         </div>
       </motion.div>
     );
@@ -931,10 +931,10 @@ function BidButton({
           key="timer-waiting-dock"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-1 px-4`}
+          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-1 px-4`}
         >
-          <p className={`font-display font-black text-[#52525b] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
-          <p className="text-xs text-[#71717a] font-medium text-center">{idleMessage}</p>
+          <p className={`font-display font-black text-[#6b6490] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
+          <p className="text-xs text-[#a8a0c4] font-medium text-center">{idleMessage}</p>
         </motion.div>
       );
     }
@@ -943,10 +943,10 @@ function BidButton({
         key="timer-waiting"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-3`}
+        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-3`}
       >
-        <div className="w-10 h-10 border-2 border-[#3f3f46] border-t-[#71717a] rounded-full animate-spin" />
-        <p className="text-base text-[#71717a] font-semibold">{idleMessage}</p>
+        <div className="w-10 h-10 border-2 border-[#3d3670] border-t-[#a8a0c4] rounded-full animate-spin" />
+        <p className="text-base text-[#a8a0c4] font-semibold">{idleMessage}</p>
       </motion.div>
     );
   }
@@ -963,10 +963,10 @@ function BidButton({
           key="waiting-dock"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-1 px-4`}
+          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-1 px-4`}
         >
-          <p className={`font-display font-black text-[#52525b] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
-          <p className="text-xs text-[#71717a] font-medium text-center">{idleMessage}</p>
+          <p className={`font-display font-black text-[#6b6490] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
+          <p className="text-xs text-[#a8a0c4] font-medium text-center">{idleMessage}</p>
         </motion.div>
       );
     }
@@ -975,10 +975,10 @@ function BidButton({
         key="waiting"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-3`}
+        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-3`}
       >
-        <div className="w-10 h-10 border-2 border-[#3f3f46] border-t-[#71717a] rounded-full animate-spin" />
-        <p className="text-base text-[#71717a] font-semibold">
+        <div className="w-10 h-10 border-2 border-[#3d3670] border-t-[#a8a0c4] rounded-full animate-spin" />
+        <p className="text-base text-[#a8a0c4] font-semibold">
           {isPaused
             ? "Auction paused by operator."
             : isIdle
@@ -1041,7 +1041,7 @@ function UnsoldOverlay({ name }: { name: string }) {
         <XCircle className="w-14 h-14 text-red-400 mx-auto" />
         <p className="font-display font-black text-3xl sm:text-4xl text-red-400 mt-3">UNSOLD</p>
         <p className="text-lg sm:text-xl font-bold text-white mt-2 truncate">{name}</p>
-        <p className="text-sm text-[#71717a] mt-1">Player goes to UNSOLD Pool</p>
+        <p className="text-sm text-[#a8a0c4] mt-1">Player goes to UNSOLD Pool</p>
       </motion.div>
     </motion.div>
   );
@@ -1055,20 +1055,20 @@ function UnsoldPlayerCard({ name, photoUrl }: { name: string; photoUrl?: string 
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#18181b] relative overflow-hidden"
+      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#2a2458] relative overflow-hidden"
       style={{ borderColor: "rgba(239,68,68,0.35)" }}
     >
-      <div className="w-20 h-28 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+      <div className="w-20 h-28 rounded-xl bg-[#4a4478] border border-[#3d3670] flex-shrink-0 overflow-hidden flex items-center justify-center">
         {photoUrl ? (
           <img src={photoUrl} alt={name} className="w-full h-full object-cover opacity-70 grayscale" />
         ) : (
-          <User className="w-10 h-10 text-[#52525b]" />
+          <User className="w-10 h-10 text-[#6b6490]" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold uppercase tracking-widest mb-1 text-red-400">Unsold</p>
         <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{name}</h2>
-        <p className="text-sm text-[#71717a] mt-1">Player goes to UNSOLD Pool</p>
+        <p className="text-sm text-[#a8a0c4] mt-1">Player goes to UNSOLD Pool</p>
       </div>
       <div className="text-right flex-shrink-0">
         <div className="inline-flex items-center px-2 py-1 rounded-lg mt-1 border text-xs font-black uppercase tracking-wider bg-red-500/15 border-red-500/35 text-red-400">
@@ -1093,14 +1093,14 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#18181b] relative overflow-hidden"
+      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#2a2458] relative overflow-hidden"
       style={{ borderColor: `${soldColor}40` }}
     >
-      <div className="w-20 h-28 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+      <div className="w-20 h-28 rounded-xl bg-[#4a4478] border border-[#3d3670] flex-shrink-0 overflow-hidden flex items-center justify-center">
         {player.photoUrl ? (
           <img src={player.photoUrl} alt={player.name ?? ""} className="w-full h-full object-cover opacity-70" />
         ) : (
-          <User className="w-10 h-10 text-[#52525b]" />
+          <User className="w-10 h-10 text-[#6b6490]" />
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -1108,9 +1108,9 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
           {wonByThisTeam ? "Your team won!" : "Last sold"}
         </p>
         <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{player.name}</h2>
-        {player.role && <p className="text-sm text-[#71717a] capitalize mt-1">{player.role}</p>}
+        {player.role && <p className="text-sm text-[#a8a0c4] capitalize mt-1">{player.role}</p>}
         {!wonByThisTeam && player.soldToTeamName && (
-          <p className="text-sm text-[#71717a] mt-1">
+          <p className="text-sm text-[#a8a0c4] mt-1">
             Won by <span className="text-white font-bold">{player.soldToTeamName}</span>
           </p>
         )}
@@ -1232,7 +1232,7 @@ function PurseBoosterCelebration({
         <p className={`font-display font-black uppercase tracking-wider ${titleClass}`} style={{ color: accentColor }}>
           Purse Booster!
         </p>
-        <p className="text-sm text-[#a1a1aa] mt-2">
+        <p className="text-sm text-[#a8a0c4] mt-2">
           {isPeer
             ? (
               <>
@@ -1243,7 +1243,7 @@ function PurseBoosterCelebration({
             : "Your team budget just increased"}
         </p>
         {isPeer ? (
-          <p className="text-[11px] text-[#71717a] mt-1">Purse bar below shows your team only</p>
+          <p className="text-[11px] text-[#a8a0c4] mt-1">Purse bar below shows your team only</p>
         ) : null}
 
         <motion.p
@@ -1255,8 +1255,8 @@ function PurseBoosterCelebration({
         </motion.p>
 
         <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-2">
-          <div className="rounded-xl border border-[#27272a] bg-[#141416] px-3 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-[#71717a]">Before</p>
+          <div className="rounded-xl border border-[#4a4478] bg-[#141416] px-3 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-[#a8a0c4]">Before</p>
             <p className="text-lg font-mono text-white mt-1">{fmt(banner.previousCapacity)}</p>
           </div>
           <span className="font-black text-xl" style={{ color: accentColor }}>→</span>
@@ -1477,8 +1477,8 @@ function HeaderActionButton({
         compact ? "min-w-[38px] px-1 py-1" : "min-w-[44px] px-1.5 py-1.5"
       } ${
         blocked
-          ? "border-[#27272a] bg-[#141416] text-[#52525b] opacity-50 cursor-not-allowed"
-          : "border-[#3f3f46] bg-[#18181b] text-[#d4d4d8] hover:text-white hover:border-[#52525b] hover:bg-[#27272a] shadow-sm"
+          ? "border-[#4a4478] bg-[#141416] text-[#6b6490] opacity-50 cursor-not-allowed"
+          : "border-[#3d3670] bg-[#2a2458] text-[#d4d4d8] hover:text-white hover:border-[#6b6490] hover:bg-[#4a4478] shadow-sm"
       }`}
     >
       {children}
@@ -1562,7 +1562,7 @@ function LiveBidHeader({
                 ? "bg-green-500/20 text-green-400"
                 : isPaused
                   ? "bg-amber-500/20 text-amber-400"
-                  : "bg-[#27272a] text-[#71717a]"
+                  : "bg-[#4a4478] text-[#a8a0c4]"
             }`}
           >
             {statusLabel}
@@ -1574,7 +1574,7 @@ function LiveBidHeader({
           />
         </div>
         {showTournamentLine && (
-          <p className="text-xs text-[#71717a] mt-0.5 truncate">{tournament?.name || "Auction"}</p>
+          <p className="text-xs text-[#a8a0c4] mt-0.5 truncate">{tournament?.name || "Auction"}</p>
         )}
       </div>
     </div>
@@ -1611,8 +1611,8 @@ function LiveBidHeader({
 
   if (layout === "stacked") {
     return (
-      <div className="border-b border-[#27272a] flex-shrink-0">
-        <div className="flex items-center justify-center px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0a0a0c] border-b border-[#27272a]/70">
+      <div className="border-b border-[#4a4478] flex-shrink-0">
+        <div className="flex items-center justify-center px-3 sm:px-4 py-2.5 sm:py-3 bg-[#18123a] border-b border-[#4a4478]/70">
           <HeaderBrandLogo
             logos={logos}
             brandName={brandName}
@@ -1630,7 +1630,7 @@ function LiveBidHeader({
   }
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-3 sm:px-4 py-2 border-b border-[#27272a] flex-shrink-0">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-3 sm:px-4 py-2 border-b border-[#4a4478] flex-shrink-0">
       {teamBlock}
       <div className="flex items-center justify-center px-1 sm:px-2 shrink-0">
         <HeaderBrandLogo
@@ -1912,8 +1912,8 @@ export function LiveBid({
   if (!isSplit) {
     return (
       <div
-        className="auction-surface relative h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
-        style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
+        className="auction-surface relative h-full flex flex-col bg-background overflow-hidden safe-top safe-bottom select-none"
+        style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #1e1845` }}
         onContextMenu={(e) => e.preventDefault()}
       >
         <LiveBidHeader
@@ -1994,9 +1994,9 @@ export function LiveBid({
                 key="no-player"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center justify-center p-10 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
+                className="flex items-center justify-center p-10 rounded-2xl border border-dashed border-[#3d3670] bg-[#2a2458]"
               >
-                <div className="text-center text-[#52525b]">
+                <div className="text-center text-[#6b6490]">
                   <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p className="text-base">Waiting for next player...</p>
                 </div>
@@ -2027,7 +2027,7 @@ export function LiveBid({
         </div>
 
         {/* Bottom bid dock — always pinned visible */}
-        <div className={`sticky bottom-0 z-20 flex-shrink-0 px-3 sm:px-4 pt-2.5 sm:pt-3 pb-3 sm:pb-4 border-t border-[#27272a] space-y-2 safe-bottom bg-[#09090b] ${tier === "tablet" ? "pb-5" : ""}`}>
+        <div className={`sticky bottom-0 z-20 flex-shrink-0 px-3 sm:px-4 pt-2.5 sm:pt-3 pb-3 sm:pb-4 border-t border-[#4a4478] space-y-2 safe-bottom bg-background ${tier === "tablet" ? "pb-5" : ""}`}>
           <TeamPurseFooter
             teamColor={teamColor}
             teamPurse={teamPurse}
@@ -2076,7 +2076,7 @@ export function LiveBid({
           )}
 
           {showPoweredBy && (
-            <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+            <p className="text-center text-xs text-[#3d3670] uppercase tracking-widest">{poweredByText}</p>
           )}
         </div>
 
@@ -2101,7 +2101,7 @@ export function LiveBid({
                 <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
                 <p className="text-2xl font-bold text-white mt-3">{wonBanner.name}</p>
                 {wonBanner.soldAmount != null && (
-                  <p className="text-xl text-[#a1a1aa] mt-2">{fmt(wonBanner.soldAmount)}</p>
+                  <p className="text-xl text-[#a8a0c4] mt-2">{fmt(wonBanner.soldAmount)}</p>
                 )}
               </div>
             </motion.div>
@@ -2137,28 +2137,28 @@ export function LiveBid({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-8 z-[60] px-8"
+              className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center gap-8 z-[60] px-8"
             >
               <button
                 onClick={() => setShowSignOutConfirm(false)}
-                className="absolute top-5 right-5 p-2 text-[#52525b] hover:text-white transition-colors"
+                className="absolute top-5 right-5 p-2 text-[#6b6490] hover:text-white transition-colors"
               >
                 <X className="w-7 h-7" />
               </button>
               <div className="text-center space-y-3">
                 <p className="font-display font-bold text-2xl text-white">Leave this auction?</p>
-                <p className="text-base text-[#71717a]">You will need to re-enter your access code.</p>
+                <p className="text-base text-[#a8a0c4]">You will need to re-enter your access code.</p>
               </div>
               <div className="flex gap-4 w-full max-w-xs">
                 <button
                   onClick={() => setShowSignOutConfirm(false)}
-                  className="flex-1 py-4 rounded-2xl border border-[#27272a] text-[#a1a1aa] font-bold text-base hover:bg-[#18181b] transition-colors"
+                  className="flex-1 py-4 rounded-2xl border border-[#4a4478] text-[#a8a0c4] font-bold text-base hover:bg-[#2a2458] transition-colors"
                 >
                   Stay
                 </button>
                 <button
                   onClick={() => { setShowSignOutConfirm(false); onSignOut(); }}
-                  className="flex-1 py-4 rounded-2xl bg-[#27272a] text-white font-bold text-base hover:bg-[#3f3f46] transition-colors"
+                  className="flex-1 py-4 rounded-2xl bg-[#4a4478] text-white font-bold text-base hover:bg-[#3d3670] transition-colors"
                 >
                   Yes, Leave
                 </button>
@@ -2175,12 +2175,12 @@ export function LiveBid({
   // ── Split layout (tablet landscape + laptop) ─────────────────────────────────
   return (
     <div
-      className="auction-surface relative h-full flex flex-row bg-[#09090b] overflow-hidden select-none"
-      style={{ background: `radial-gradient(ellipse at center left, ${teamColor}12 0%, transparent 55%), #09090b` }}
+      className="auction-surface relative h-full flex flex-row bg-background overflow-hidden select-none"
+      style={{ background: `radial-gradient(ellipse at center left, ${teamColor}12 0%, transparent 55%), #1e1845` }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Left: player info — 60% */}
-      <div className="w-[60%] flex flex-col overflow-hidden border-r border-[#27272a] min-w-0">
+      <div className="w-[60%] flex flex-col overflow-hidden border-r border-[#4a4478] min-w-0">
         <LiveBidHeader
           team={team}
           teamColor={teamColor}
@@ -2254,9 +2254,9 @@ export function LiveBid({
                 key="no-player-ls"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
+                className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-[#3d3670] bg-[#2a2458]"
               >
-                <div className="text-center text-[#52525b]">
+                <div className="text-center text-[#6b6490]">
                   <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p className="text-base">Waiting for next player...</p>
                 </div>
@@ -2282,7 +2282,7 @@ export function LiveBid({
           <MaxSquadNotice maxSquadReached={maxSquadReached} />
         </div>
 
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-[#27272a] flex-shrink-0">
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-[#4a4478] flex-shrink-0">
           <TeamPurseFooter
             teamColor={teamColor}
             teamPurse={teamPurse}
@@ -2335,7 +2335,7 @@ export function LiveBid({
         {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact={tier !== "laptop"} />}
 
         {showPoweredBy && (
-          <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest flex-shrink-0">
+          <p className="text-center text-xs text-[#3d3670] uppercase tracking-widest flex-shrink-0">
             {poweredByText}
           </p>
         )}
@@ -2355,7 +2355,7 @@ export function LiveBid({
             <div className="text-center">
               <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
               <p className="text-2xl font-bold text-white mt-2">{wonBanner.name}</p>
-              {wonBanner.soldAmount != null && <p className="text-xl text-[#a1a1aa] mt-1">{fmt(wonBanner.soldAmount)}</p>}
+              {wonBanner.soldAmount != null && <p className="text-xl text-[#a8a0c4] mt-1">{fmt(wonBanner.soldAmount)}</p>}
             </div>
           </motion.div>
         )}
@@ -2388,20 +2388,20 @@ export function LiveBid({
         {showSignOutConfirm && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-6 z-[60] px-8"
+            className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center gap-6 z-[60] px-8"
           >
-            <button onClick={() => setShowSignOutConfirm(false)} className="absolute top-5 right-5 p-2 text-[#52525b] hover:text-white transition-colors">
+            <button onClick={() => setShowSignOutConfirm(false)} className="absolute top-5 right-5 p-2 text-[#6b6490] hover:text-white transition-colors">
               <X className="w-7 h-7" />
             </button>
             <div className="text-center space-y-2">
               <p className="font-display font-bold text-2xl text-white">Leave this auction?</p>
-              <p className="text-base text-[#71717a]">You will need to re-enter your access code.</p>
+              <p className="text-base text-[#a8a0c4]">You will need to re-enter your access code.</p>
             </div>
             <div className="flex gap-4 w-full max-w-xs">
-              <button onClick={() => setShowSignOutConfirm(false)} className="flex-1 py-4 rounded-2xl border border-[#27272a] text-[#a1a1aa] font-bold text-base hover:bg-[#18181b] transition-colors">
+              <button onClick={() => setShowSignOutConfirm(false)} className="flex-1 py-4 rounded-2xl border border-[#4a4478] text-[#a8a0c4] font-bold text-base hover:bg-[#2a2458] transition-colors">
                 Stay
               </button>
-              <button onClick={() => { setShowSignOutConfirm(false); onSignOut(); }} className="flex-1 py-4 rounded-2xl bg-[#27272a] text-white font-bold text-base hover:bg-[#3f3f46] transition-colors">
+              <button onClick={() => { setShowSignOutConfirm(false); onSignOut(); }} className="flex-1 py-4 rounded-2xl bg-[#4a4478] text-white font-bold text-base hover:bg-[#3d3670] transition-colors">
                 Yes, Leave
               </button>
             </div>

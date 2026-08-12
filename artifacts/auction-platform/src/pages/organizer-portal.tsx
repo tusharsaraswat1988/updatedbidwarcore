@@ -43,7 +43,7 @@ import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
-  Download, Loader2,
+  Download, Loader2, Radio,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
@@ -58,7 +58,9 @@ import {
   getOrganizerLicenseBadgeKind,
   isOrganizerTournamentActive,
   isOrganizerTournamentCompleted,
+  resolveOrganizerScoringCta,
 } from "@/lib/organizer-tournament-display";
+import { scoringAppHomePath } from "@workspace/api-base/scoring-urls";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
@@ -73,6 +75,7 @@ type Tournament = {
   licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string;
   auctionRulesPdfReady?: boolean;
   auctionRulesPdfBlockedReason?: string | null;
+  scoringEnabled?: boolean;
 };
 
 // ─── Tournament License Badge ─────────────────────────────────────────────────
@@ -1592,30 +1595,25 @@ function OrganizerDashboard({
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTournaments.map((t, i) => (
+              {filteredTournaments.map((t, i) => {
+                const scoringState = resolveOrganizerScoringCta({
+                  sport: t.sport,
+                  scoringEnabled: t.scoringEnabled,
+                });
+                return (
                 <motion.div
                   key={t.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                   whileHover={{ y: -3 }}
-                  whileTap={{ scale: 0.985, y: 0 }}
                 >
                   <Card
-                    role={isLocked ? undefined : "button"}
-                    tabIndex={isLocked ? -1 : 0}
-                    onClick={isLocked ? undefined : () => navigate(`/tournament/${t.id}`)}
-                    onKeyDown={isLocked ? undefined : e => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        navigate(`/tournament/${t.id}`);
-                      }
-                    }}
                     aria-disabled={isLocked}
-                    className={`group panel border-none h-full select-none transition-all duration-200 focus-visible:outline-none ${
+                    className={`group panel border-none h-full transition-all duration-200 ${
                       isLocked
-                        ? "cursor-not-allowed opacity-50"
-                        : "cursor-pointer hover:border-primary/40 hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.35)] focus-visible:ring-2 focus-visible:ring-primary/40"
+                        ? "opacity-50"
+                        : "hover:border-primary/40 hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.35)]"
                     }`}
                   >
                     <CardContent className="p-5 space-y-3">
@@ -1624,10 +1622,9 @@ function OrganizerDashboard({
                           <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
                           <TournamentLicenseBadge licenseStatus={t.licenseStatus} auctionStatus={t.status} />
                         </div>
-                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary flex-shrink-0 mt-0.5 transition-colors" />
                       </div>
                       <div>
-                        <p className="font-bold text-base leading-snug group-hover:text-primary transition-colors">{t.name}</p>
+                        <p className="font-bold text-base leading-snug">{t.name}</p>
                         <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
                           {getOrganizerAuctionStatusLabel(t.status)}
                         </p>
@@ -1635,6 +1632,63 @@ function OrganizerDashboard({
                       <p className="text-xs text-muted-foreground">
                         {[t.city, t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
                       </p>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9 gap-1.5 px-2"
+                          disabled={isLocked}
+                          onClick={() => navigate(`/tournament/${t.id}`)}
+                        >
+                          <Gavel className="h-3.5 w-3.5 shrink-0" />
+                          Auction
+                        </Button>
+                        {scoringState === "coming-soon" ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            aria-disabled="true"
+                            className="h-9 gap-1.5 px-2 border-dashed opacity-45 cursor-not-allowed"
+                            title="Scoring coming soon for this sport"
+                          >
+                            <Radio className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                            Coming soon
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={isLocked}
+                            className={
+                              scoringState === "active"
+                                ? "h-9 gap-1.5 px-2 border-primary/50 bg-primary/15 text-primary hover:bg-primary/25 hover:text-primary cursor-pointer shadow-[0_0_0_1px_oklch(0.85_0.17_88_/_0.25)]"
+                                : "h-9 gap-1.5 px-2 border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15 cursor-pointer"
+                            }
+                            title={
+                              scoringState === "active"
+                                ? "Open scoring setup"
+                                : "Contact BIDWAR for enabling sport scoring module"
+                            }
+                            onClick={() => {
+                              if (isLocked) return;
+                              window.location.assign(scoringAppHomePath(t.id, t.sport));
+                            }}
+                          >
+                            <Radio className="h-3.5 w-3.5 shrink-0" />
+                            Scoring
+                          </Button>
+                        )}
+                      </div>
+                      {scoringState === "needs-admin" ? (
+                        <p className="text-[10px] text-amber-200/80 -mt-1">
+                          Contact BIDWAR for enabling sport scoring module
+                        </p>
+                      ) : null}
+
                       <div className="pt-2 border-t border-border/40 space-y-1">
                         <button
                           type="button"
@@ -1646,10 +1700,7 @@ function OrganizerDashboard({
                                 || "Complete Auction Rules in Settings first")
                           }
                           className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={e => {
-                            e.stopPropagation();
-                            void handleDownloadAuctionRules(t);
-                          }}
+                          onClick={() => { void handleDownloadAuctionRules(t); }}
                         >
                           {downloadingRulesTid === t.id
                             ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -1660,7 +1711,7 @@ function OrganizerDashboard({
                           type="button"
                           disabled={isLocked}
                           className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={e => { e.stopPropagation(); setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
+                          onClick={() => { setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
                         >
                           <CheckCheck className="w-3 h-3" />
                           Record in-person consent
@@ -1669,7 +1720,8 @@ function OrganizerDashboard({
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

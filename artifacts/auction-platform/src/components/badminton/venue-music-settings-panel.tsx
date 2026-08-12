@@ -21,12 +21,26 @@ function trackLabelFromUrl(url: string | null | undefined): string | null {
   }
 }
 
+type VenueMusicPatchBody = {
+  venueMusicUrl?: string | null;
+  venueMusicFileName?: string | null;
+  venueMusicVolume?: number;
+  importAuctionMusic?: true;
+};
+
 export function VenueMusicSettingsPanel({
   tournamentId,
   branding,
+  sportLabel = "badminton",
+  brandingQueryKey,
+  patchPresentation,
 }: {
   tournamentId: number;
   branding: BadmintonBranding | undefined;
+  /** Surface name in helper copy (badminton | cricket). */
+  sportLabel?: "badminton" | "cricket";
+  brandingQueryKey?: readonly unknown[];
+  patchPresentation?: (body: VenueMusicPatchBody) => Promise<BadmintonBranding>;
 }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -36,6 +50,7 @@ export function VenueMusicSettingsPanel({
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [volumeDraft, setVolumeDraft] = useState(branding?.venueMusicVolume ?? 80);
+  const queryKey = brandingQueryKey ?? (["badminton-branding", tournamentId] as const);
 
   useEffect(() => {
     setVolumeDraft(branding?.venueMusicVolume ?? 80);
@@ -53,18 +68,15 @@ export function VenueMusicSettingsPanel({
   }, []);
 
   const patchMutation = useMutation({
-    mutationFn: (body: {
-      venueMusicUrl?: string | null;
-      venueMusicFileName?: string | null;
-      venueMusicVolume?: number;
-      importAuctionMusic?: true;
-    }) =>
-      badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: (body: VenueMusicPatchBody) =>
+      patchPresentation
+        ? patchPresentation(body)
+        : badmintonFetch<BadmintonBranding>(tournamentId, `/broadcast-presentation`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          }),
     onSuccess: (data) => {
-      qc.setQueryData(["badminton-branding", tournamentId], data);
+      qc.setQueryData([...queryKey], data);
     },
     onError: (e: Error) => toastError(e, "Venue music"),
   });
@@ -78,7 +90,7 @@ export function VenueMusicSettingsPanel({
     || trackLabelFromUrl(resolvedUrl);
 
   const sourceLabel = overrideUrl
-    ? "Custom song for badminton"
+    ? `Custom song for ${sportLabel}`
     : resolvedUrl
       ? "Using auction / platform music"
       : "No song set yet";
@@ -246,7 +258,10 @@ export function VenueMusicSettingsPanel({
               { importAuctionMusic: true },
               {
                 onSuccess: () =>
-                  toastSuccess("Using auction break music", "Saved as the badminton venue song."),
+                  toastSuccess(
+                    "Using auction break music",
+                    `Saved as the ${sportLabel} venue song.`,
+                  ),
               },
             );
           }}

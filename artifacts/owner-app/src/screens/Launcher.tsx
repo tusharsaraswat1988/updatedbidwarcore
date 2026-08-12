@@ -62,7 +62,7 @@ async function fetchAuctionStatus(tournamentId: number): Promise<AuctionStatusRa
 // ── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ state }: { state: AuctionStatusRaw }) {
   if (!state) return (
-    <span className="text-sm px-3 py-1 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider font-semibold">
+    <span className="text-sm px-3 py-1 rounded-full bg-[#4a4478] text-[#a8a0c4] uppercase tracking-wider font-semibold">
       Unknown
     </span>
   );
@@ -79,7 +79,7 @@ function StatusBadge({ state }: { state: AuctionStatusRaw }) {
     </span>
   );
   return (
-    <span className="text-sm px-3 py-1 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider font-semibold flex items-center gap-1.5">
+    <span className="text-sm px-3 py-1 rounded-full bg-[#4a4478] text-[#a8a0c4] uppercase tracking-wider font-semibold flex items-center gap-1.5">
       <Clock className="w-3.5 h-3.5" />
       Upcoming
     </span>
@@ -109,8 +109,8 @@ function AuctionCard({ auction, state, onClick, onRemove }: {
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onClick(); }}
         className="w-full text-left p-5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer"
         style={{
-          borderColor:     live ? `${color}60` : "#27272a",
-          backgroundColor: live ? `${color}12` : "#18181b",
+          borderColor:     live ? `${color}60` : "#4a4478",
+          backgroundColor: live ? `${color}12` : "#2a2458",
           boxShadow:       live ? `0 0 24px ${color}20` : "none",
         }}
       >
@@ -129,7 +129,7 @@ function AuctionCard({ auction, state, onClick, onRemove }: {
             <p className="font-display font-bold text-xl text-white leading-tight truncate">
               {auction.teamName || `Team ${auction.teamId}`}
             </p>
-            <p className="text-base text-[#71717a] truncate">
+            <p className="text-base text-[#a8a0c4] truncate">
               {auction.tournamentName || `Tournament ${auction.tournamentId}`}
             </p>
           </div>
@@ -151,7 +151,7 @@ function AuctionCard({ auction, state, onClick, onRemove }: {
       {/* Remove button */}
       <button
         onClick={e => { e.stopPropagation(); onRemove(); }}
-        className="absolute top-3 right-3 p-1.5 rounded-full text-[#52525b] hover:text-[#a1a1aa] opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-3 right-3 p-1.5 rounded-full text-[#6b6490] hover:text-[#a8a0c4] opacity-0 group-hover:opacity-100 transition-opacity"
         title="Remove"
       >
         <X className="w-4 h-4" />
@@ -240,7 +240,7 @@ export function Launcher() {
   // Loading spinner
   if (loading) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] gap-8">
+      <div className="h-full flex flex-col items-center justify-center bg-background gap-8">
         <BrandLogo splashSize="splash" />
         <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
       </div>
@@ -250,7 +250,7 @@ export function Launcher() {
   // Empty state — acts as the splash/welcome screen
   if (!loading && visible.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] px-8">
+      <div className="h-full flex flex-col items-center justify-center bg-background px-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -258,10 +258,10 @@ export function Launcher() {
         >
           <BrandLogo splashSize="splash" />
           <div className="space-y-3">
-            <p className="text-xl text-[#a1a1aa] leading-relaxed">
+            <p className="text-xl text-[#a8a0c4] leading-relaxed">
               Open your owner link to join an auction.
             </p>
-            <p className="text-base text-[#52525b] leading-relaxed">
+            <p className="text-base text-[#6b6490] leading-relaxed">
               Your tournament operator will send you a unique link.
             </p>
           </div>
@@ -274,7 +274,7 @@ export function Launcher() {
             <Phone className="w-5 h-5" />
             Join with mobile number
           </button>
-          <p className="text-sm text-[#3f3f46] uppercase tracking-widest">
+          <p className="text-sm text-[#3d3670] uppercase tracking-widest">
             {poweredByText}
           </p>
         </motion.div>
@@ -283,9 +283,9 @@ export function Launcher() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom">
+    <div className="h-full flex flex-col bg-background overflow-hidden safe-top safe-bottom">
       {/* Header */}
-      <div className="px-5 pt-6 pb-4 flex-shrink-0 border-b border-[#27272a]">
+      <div className="px-5 pt-6 pb-4 flex-shrink-0 border-b border-[#4a4478]">
         <div className="flex items-center gap-3 mb-3">
           {logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-8 w-auto object-contain" />
@@ -310,7 +310,7 @@ export function Launcher() {
             {liveAuctions.length === 1 ? "1 auction is live — tap to join" : `${liveAuctions.length} auctions live`}
           </p>
         ) : (
-          <p className="text-base text-[#71717a] mt-1">No auctions are live right now</p>
+          <p className="text-base text-[#a8a0c4] mt-1">No auctions are live right now</p>
         )}
       </div>
 
@@ -319,7 +319,7 @@ export function Launcher() {
         <AnimatePresence>
           {liveAuctions.length > 0 && (
             <>
-              <p className="text-sm text-[#52525b] uppercase tracking-widest font-semibold">Live Now</p>
+              <p className="text-sm text-[#6b6490] uppercase tracking-widest font-semibold">Live Now</p>
               {liveAuctions.map(s => (
                 <AuctionCard
                   key={`${s.tournamentId}-${s.teamId}`}
@@ -334,7 +334,7 @@ export function Launcher() {
 
           {visible.filter(s => !isLive(states[`${s.tournamentId}-${s.teamId}`])).length > 0 && (
             <>
-              <p className="text-sm text-[#52525b] uppercase tracking-widest font-semibold pt-2">Upcoming</p>
+              <p className="text-sm text-[#6b6490] uppercase tracking-widest font-semibold pt-2">Upcoming</p>
               {visible
                 .filter(s => !isLive(states[`${s.tournamentId}-${s.teamId}`]))
                 .map(s => (
@@ -351,7 +351,7 @@ export function Launcher() {
         </AnimatePresence>
       </div>
 
-      <p className="text-center text-sm text-[#3f3f46] uppercase tracking-widest pb-5 flex-shrink-0">
+      <p className="text-center text-sm text-[#3d3670] uppercase tracking-widest pb-5 flex-shrink-0">
         {poweredByText}
       </p>
     </div>

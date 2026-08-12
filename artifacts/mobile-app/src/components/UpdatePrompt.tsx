@@ -65,7 +65,7 @@ export function UpdatePrompt() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[100] safe-bottom px-3 pb-3 pointer-events-none">
-      <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-[#3f3f46] bg-[#18181b] px-4 py-3 flex items-center gap-3">
+      <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-[#3d3670] bg-[#2a2458] px-4 py-3 flex items-center gap-3">
         <p className="text-sm text-[#e4e4e7] flex-1 leading-snug">
           A new BidWar update is available.
         </p>

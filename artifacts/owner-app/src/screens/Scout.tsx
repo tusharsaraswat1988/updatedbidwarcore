@@ -50,7 +50,7 @@ function TeamRow({
   return (
     <div
       className="rounded-2xl border overflow-hidden"
-      style={{ borderColor: isOwn ? `${color}40` : "#27272a" }}
+      style={{ borderColor: isOwn ? `${color}40` : "#4a4478" }}
     >
       <button
         className="w-full text-left px-4 py-3.5 flex items-center gap-3"
@@ -79,7 +79,7 @@ function TeamRow({
               </span>
             )}
           </div>
-          <p className="text-xs text-[#52525b] mt-0.5">
+          <p className="text-xs text-[#6b6490] mt-0.5">
             {team.playersBought} bought
             {(team.futureSlotsRequired ?? team.slotsRequired) > 0
               ? ` · ${team.futureSlotsRequired ?? team.slotsRequired} more to buy`
@@ -93,14 +93,14 @@ function TeamRow({
           <p className="font-display font-black text-sm" style={{ color: isOwn ? color : "#e4e4e7" }}>
             {formatShortIndianRupee(team.maxBidCapacity)}
           </p>
-          <p className="text-[10px] text-[#52525b] uppercase tracking-wide">max bid per player</p>
+          <p className="text-[10px] text-[#6b6490] uppercase tracking-wide">max bid per player</p>
         </div>
 
         <div className="ml-2 flex-shrink-0">
           {expanded ? (
-            <ChevronDown className="w-4 h-4 text-[#52525b]" />
+            <ChevronDown className="w-4 h-4 text-[#6b6490]" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-[#52525b]" />
+            <ChevronRight className="w-4 h-4 text-[#6b6490]" />
           )}
         </div>
       </button>
@@ -115,16 +115,16 @@ function TeamRow({
             className="overflow-hidden"
           >
             {/* Purse breakdown */}
-            <div className="px-4 py-3 border-t border-[#27272a] bg-[#09090b]">
+            <div className="px-4 py-3 border-t border-[#4a4478] bg-background">
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {[
                   { label: "Total", value: formatShortIndianRupee(team.purse) },
                   { label: "Spent", value: formatShortIndianRupee(purseUsed) },
                   { label: "Reserved", value: formatShortIndianRupee(team.futureReservePurse ?? team.reservePurse) },
                 ].map(({ label, value }) => (
-                  <div key={label} className="text-center rounded-xl bg-[#18181b] py-2">
+                  <div key={label} className="text-center rounded-xl bg-[#2a2458] py-2">
                     <p className="font-display font-bold text-sm text-[#e4e4e7]">{value}</p>
-                    <p className="text-[10px] text-[#52525b] uppercase tracking-wide">{label}</p>
+                    <p className="text-[10px] text-[#6b6490] uppercase tracking-wide">{label}</p>
                   </div>
                 ))}
               </div>
@@ -140,19 +140,19 @@ function TeamRow({
 
               {/* Squad list */}
               {team.players.length === 0 ? (
-                <p className="text-xs text-[#3f3f46] text-center py-2">No players yet</p>
+                <p className="text-xs text-[#3d3670] text-center py-2">No players yet</p>
               ) : (
                 <div className="space-y-1.5">
                   {team.players.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-[#18181b]">
+                    <div key={p.id} className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-[#2a2458]">
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                       <span className="text-sm text-[#e4e4e7] font-medium flex-1 min-w-0 truncate">{p.name}</span>
-                      {p.role && <span className="text-[10px] text-[#52525b] flex-shrink-0">{p.role}</span>}
+                      {p.role && <span className="text-[10px] text-[#6b6490] flex-shrink-0">{p.role}</span>}
                       {p.isNonPlayingMember && (
-                        <span className="text-[10px] text-[#52525b] flex-shrink-0">NPM</span>
+                        <span className="text-[10px] text-[#6b6490] flex-shrink-0">NPM</span>
                       )}
                       {p.soldPrice != null && (
-                        <span className="text-[11px] font-semibold text-[#a1a1aa] flex-shrink-0">
+                        <span className="text-[11px] font-semibold text-[#a8a0c4] flex-shrink-0">
                           {formatShortIndianRupee(p.soldPrice)}
                         </span>
                       )}
@@ -203,7 +203,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
 
   return (
     <div
-      className="auction-surface h-full min-h-0 flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
+      className="auction-surface h-full min-h-0 flex flex-col bg-background overflow-hidden safe-top safe-bottom select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Auto-return banner */}
@@ -222,8 +222,8 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
       </AnimatePresence>
 
       {/* Header */}
-      <div className="border-b border-[#27272a] flex-shrink-0">
-        <div className="flex items-center justify-center px-4 py-2.5 bg-[#0a0a0c] border-b border-[#27272a]/70">
+      <div className="border-b border-[#4a4478] flex-shrink-0">
+        <div className="flex items-center justify-center px-4 py-2.5 bg-[#18123a] border-b border-[#4a4478]/70">
           <img
             src={brandLogoSrc}
             alt={brandName}
@@ -234,13 +234,13 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
         <div className="flex items-center gap-3 px-4 pt-3 pb-3">
           <button
             onClick={onBack}
-            className="p-2 -ml-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90 flex-shrink-0"
+            className="p-2 -ml-2 text-[#a8a0c4] hover:text-white transition-colors rounded-xl hover:bg-[#2a2458] active:scale-90 flex-shrink-0"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1 min-w-0">
             <p className="font-display font-bold text-lg text-white leading-none">Scout</p>
-            <p className="text-xs text-[#52525b] mt-0.5">Rival intelligence</p>
+            <p className="text-xs text-[#6b6490] mt-0.5">Rival intelligence</p>
           </div>
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -252,13 +252,13 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
       </div>
 
       {/* Tab bar */}
-      <div className="flex flex-shrink-0 border-b border-[#27272a] bg-[#09090b]">
+      <div className="flex flex-shrink-0 border-b border-[#4a4478] bg-background">
         {(["teams", "unsold"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${
-              tab === t ? "text-white border-b-2" : "text-[#52525b] border-b-2 border-transparent"
+              tab === t ? "text-white border-b-2" : "text-[#6b6490] border-b-2 border-transparent"
             }`}
             style={tab === t ? { borderColor: teamColor, color: teamColor } : {}}
           >
@@ -282,15 +282,15 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
         {isLoading && (
           <div className="px-4 py-4 space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-3.5 flex items-center gap-3 animate-pulse">
-                <div className="w-10 h-10 rounded-xl bg-[#27272a] flex-shrink-0" />
+              <div key={i} className="rounded-2xl border border-[#4a4478] bg-[#2a2458] px-4 py-3.5 flex items-center gap-3 animate-pulse">
+                <div className="w-10 h-10 rounded-xl bg-[#4a4478] flex-shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 rounded-full bg-[#27272a]" style={{ width: `${45 + i * 12}%` }} />
-                  <div className="h-2.5 rounded-full bg-[#27272a] w-1/3" />
+                  <div className="h-3.5 rounded-full bg-[#4a4478]" style={{ width: `${45 + i * 12}%` }} />
+                  <div className="h-2.5 rounded-full bg-[#4a4478] w-1/3" />
                 </div>
                 <div className="space-y-1.5 items-end flex flex-col flex-shrink-0">
-                  <div className="h-3.5 w-14 rounded-full bg-[#27272a]" />
-                  <div className="h-2 w-10 rounded-full bg-[#27272a]" />
+                  <div className="h-3.5 w-14 rounded-full bg-[#4a4478]" />
+                  <div className="h-2 w-10 rounded-full bg-[#4a4478]" />
                 </div>
               </div>
             ))}
@@ -298,10 +298,10 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
         )}
         {isError && (
           <div className="flex flex-col items-center justify-center gap-4 h-48 px-6 text-center">
-            <p className="text-sm text-[#52525b]">Failed to load scout data.</p>
+            <p className="text-sm text-[#6b6490]">Failed to load scout data.</p>
             <button
               onClick={() => void refetch()}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold border border-[#3f3f46] text-[#a1a1aa] hover:bg-[#18181b] hover:text-white transition-colors active:scale-95"
+              className="px-5 py-2.5 rounded-xl text-sm font-bold border border-[#3d3670] text-[#a8a0c4] hover:bg-[#2a2458] hover:text-white transition-colors active:scale-95"
             >
               Retry
             </button>
@@ -312,7 +312,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
         {!isLoading && !isError && tab === "teams" && (
           <div className="px-4 py-4 space-y-3">
             {sortedTeams.length === 0 && (
-              <p className="text-center text-sm text-[#52525b] py-10">No teams in this tournament yet.</p>
+              <p className="text-center text-sm text-[#6b6490] py-10">No teams in this tournament yet.</p>
             )}
             {sortedTeams.map((team) => (
               <TeamRow
@@ -329,7 +329,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
         {!isLoading && !isError && tab === "unsold" && (
           <div className="px-4 py-4 space-y-5">
             {data?.unsoldPlayers.length === 0 && (
-              <p className="text-center text-sm text-[#52525b] py-10">No unsold players.</p>
+              <p className="text-center text-sm text-[#6b6490] py-10">No unsold players.</p>
             )}
             {categoryGroups.map((grp) => (
               <div key={grp.name ?? "other"}>
@@ -339,21 +339,21 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
                     <p className="text-xs font-bold uppercase tracking-widest" style={{ color: grp.color || "#6b7280" }}>
                       {grp.name}
                     </p>
-                    <div className="flex-1 h-px bg-[#27272a]" />
-                    <span className="text-xs text-[#52525b]">{grp.players.length}</span>
+                    <div className="flex-1 h-px bg-[#4a4478]" />
+                    <span className="text-xs text-[#6b6490]">{grp.players.length}</span>
                   </div>
                 )}
                 <div className="space-y-1.5">
                   {grp.players.map((pl) => (
                     <div
                       key={pl.id}
-                      className="scout-player-row flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#18181b] border border-[#27272a]"
+                      className="scout-player-row flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#2a2458] border border-[#4a4478]"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[#e4e4e7] truncate">{pl.name}</p>
-                        {pl.role && <p className="text-[10px] text-[#52525b] mt-0.5">{pl.role}</p>}
+                        {pl.role && <p className="text-[10px] text-[#6b6490] mt-0.5">{pl.role}</p>}
                       </div>
-                      <p className="text-sm font-bold text-[#a1a1aa] flex-shrink-0">
+                      <p className="text-sm font-bold text-[#a8a0c4] flex-shrink-0">
                         {formatShortIndianRupee(pl.basePrice)}
                       </p>
                     </div>

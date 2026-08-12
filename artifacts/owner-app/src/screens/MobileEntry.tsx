@@ -43,7 +43,7 @@ export function MobileEntry() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#09090b] safe-top safe-bottom">
+    <div className="h-full flex flex-col bg-background safe-top safe-bottom">
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8 pt-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -69,7 +69,7 @@ export function MobileEntry() {
             </div>
             <div>
               <h1 className="font-display font-black text-3xl text-white">Join your auction</h1>
-              <p className="text-[#71717a] text-base mt-2 leading-relaxed">
+              <p className="text-[#a8a0c4] text-base mt-2 leading-relaxed">
                 Enter the mobile number registered with your team
               </p>
               {deepLink ? (
@@ -89,7 +89,7 @@ export function MobileEntry() {
               onChange={e => { setMobile(e.target.value); setError(""); }}
               placeholder="Mobile number"
               autoFocus
-              className="w-full px-5 py-5 rounded-2xl border border-[#3f3f46] text-center text-xl font-semibold bg-[#18181b] text-white placeholder:text-[#52525b] outline-none focus:border-amber-400/60 transition-colors"
+              className="w-full px-5 py-5 rounded-2xl border border-[#3d3670] text-center text-xl font-semibold bg-[#2a2458] text-white placeholder:text-[#6b6490] outline-none focus:border-amber-400/60 transition-colors"
             />
 
             <AnimatePresence>
@@ -119,7 +119,7 @@ export function MobileEntry() {
             </motion.button>
           </form>
 
-          <p className="text-sm text-[#3f3f46] uppercase tracking-widest text-center">
+          <p className="text-sm text-[#3d3670] uppercase tracking-widest text-center">
             {poweredByText}
           </p>
         </motion.div>

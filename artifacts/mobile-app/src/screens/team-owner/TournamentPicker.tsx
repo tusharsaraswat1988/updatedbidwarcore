@@ -53,7 +53,7 @@ export function TeamOwnerTournamentPickerScreen() {
 
   return (
     <AppShell>
-      <header className="px-5 py-4 border-b border-[#27272a] shrink-0">
+      <header className="px-5 py-4 border-b border-[#4a4478] shrink-0">
         <p className="font-display font-black text-amber-400 text-lg">BidWar</p>
         <h1 className="font-display font-bold text-xl text-white mt-1">Select Tournament</h1>
         <p className="text-[#71717a] text-sm mt-1">Choose the team you want to join</p>
@@ -72,7 +72,7 @@ export function TeamOwnerTournamentPickerScreen() {
               transition={{ delay: i * 0.04 }}
               disabled={loadingId != null}
               onClick={() => void selectEntry(entry)}
-              className="w-full text-left rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-4 disabled:opacity-50"
+              className="w-full text-left rounded-2xl border border-[#4a4478] bg-[#2a2458] px-4 py-4 disabled:opacity-50"
               style={{ borderLeftWidth: 4, borderLeftColor: accent }}
             >
               <p className="font-semibold text-white">{entry.tournamentName}</p>
@@ -92,7 +92,7 @@ export function TeamOwnerTournamentPickerScreen() {
         ) : null}
       </div>
 
-      <div className="px-5 py-4 border-t border-[#27272a] text-center shrink-0">
+      <div className="px-5 py-4 border-t border-[#4a4478] text-center shrink-0">
         <SwitchRoleButton />
       </div>
     </AppShell>

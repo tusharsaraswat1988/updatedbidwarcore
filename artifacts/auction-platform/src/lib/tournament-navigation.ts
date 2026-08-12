@@ -241,6 +241,44 @@ export function scoreDisplayPath(
   return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
 }
 
+/** In-app Cricket OBS path (tournament live follow). */
+export function cricketObsLiveAppPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/live`;
+}
+
+/** In-app Cricket OBS path (match pin). */
+export function cricketObsMatchAppPath(tournamentId: number, matchId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/${matchId}`;
+}
+
+/** Absolute Cricket OBS Browser Source URL (scoring-app + optional code). */
+export function cricketObsLivePath(
+  tournamentId: number,
+  auctionCode?: string | null,
+): string {
+  const base = scoringAppPath(cricketObsLiveAppPath(tournamentId));
+  if (!auctionCode?.trim()) return base;
+  return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
+}
+
+/** Absolute match-pinned Cricket OBS URL. */
+export function cricketObsMatchPath(
+  tournamentId: number,
+  matchId: number,
+  auctionCode?: string | null,
+): string {
+  const base = scoringAppPath(cricketObsMatchAppPath(tournamentId, matchId));
+  if (!auctionCode?.trim()) return base;
+  return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
+}
+
+export function openCricketObsLive(
+  tournamentId: number,
+  auctionCode?: string | null,
+): void {
+  window.open(cricketObsLivePath(tournamentId, auctionCode), "_blank", "noopener,noreferrer");
+}
+
 export function openScoreDisplay(
   tournamentId: number,
   auctionCode?: string | null,

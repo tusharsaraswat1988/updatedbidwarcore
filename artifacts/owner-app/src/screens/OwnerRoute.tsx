@@ -273,7 +273,7 @@ export function OwnerRoute() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (screen === "loading" || !team) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] gap-6">
+      <div className="h-full flex flex-col items-center justify-center bg-background gap-6">
         {splashSrc ? (
           <img src={splashSrc} alt={brandName} className="h-16 w-auto max-w-[240px] object-contain" />
         ) : logos.mini ? (

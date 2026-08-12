@@ -116,6 +116,16 @@
 }
 
 /*
+ * Portaled dialogs also get `.lovable-theme` for token inheritance.
+ * Do NOT inherit page min-height — that stretches empty modals to the viewport.
+ */
+.lovable-theme[role="dialog"],
+.lovable-theme[role="alertdialog"] {
+  min-height: 0;
+  background-attachment: scroll;
+}
+
+/*
  * BidWar Tailwind emits `color: hsl(var(--primary))` etc.
  * Lovable tokens are oklch() — hsl(oklch(...)) is invalid, so utilities
  * silently fail and inherit --foreground (everything looks white).
@@ -182,6 +192,11 @@
 :is(.lovable-home, .lovable-theme) .border-input { border-color: var(--input) !important; }
 :is(.lovable-home, .lovable-theme) .ring-ring { --tw-ring-color: var(--ring) !important; }
 :is(.lovable-home, .lovable-theme) .bg-stage { background-color: var(--stage) !important; }
+:is(.lovable-home, .lovable-theme) .bg-stage\/40 { background-color: color-mix(in oklab, var(--stage) 40%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-stage\/50 { background-color: color-mix(in oklab, var(--stage) 50%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-stage\/70 { background-color: color-mix(in oklab, var(--stage) 70%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-stage\/80 { background-color: color-mix(in oklab, var(--stage) 80%, transparent) !important; }
+:is(.lovable-home, .lovable-theme) .bg-panel-2\/80 { background-color: color-mix(in oklab, var(--panel-2) 80%, transparent) !important; }
 
 /* Homepage-only: Anton uppercase display type.
    .lovable-theme (badminton app) keeps readable product headings. */
@@ -247,7 +262,8 @@
 }
 
 :is(.lovable-home, .lovable-theme) .panel {
-  background: linear-gradient(180deg, oklch(0.3 0.11 265), oklch(0.24 0.12 265));
+  /* !important beats Card's .bg-card remap so settings/product panels stay navy */
+  background: linear-gradient(180deg, oklch(0.3 0.11 265), oklch(0.24 0.12 265)) !important;
   border: 1px solid oklch(1 0 0 / 0.08);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);

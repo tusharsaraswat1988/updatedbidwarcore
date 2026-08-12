@@ -33,6 +33,19 @@ export function cricketStatsOpsPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/stats`;
 }
 
+export function cricketTeamsPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/teams`;
+}
+
+export function cricketPlayersPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/players`;
+}
+
+/** Identity, sponsors, venue music/banner (Sports overlay). */
+export function cricketSettingsPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/settings`;
+}
+
 export function cricketOfficialsPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/officials`;
 }
@@ -63,6 +76,9 @@ export function cricketLiveControlPath(tournamentId: number, matchId: number): s
 /** Reserved score subpaths — not numeric match IDs. */
 export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "dashboard",
+  "settings",
+  "teams",
+  "players",
   "fixtures",
   "schedule",
   "standings",

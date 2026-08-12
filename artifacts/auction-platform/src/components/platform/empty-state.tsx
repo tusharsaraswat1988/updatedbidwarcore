@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import { Link } from "wouter";
 import { BtnPrimary } from "@/components/badminton/form-ui";
 
 /**
@@ -32,15 +31,9 @@ export function EmptyState({
       <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">{desc}</p>
       {action ? (
         <div className="mt-6">
-          {action.href ? (
-            <Link href={action.href}>
-              <BtnPrimary type="button">{action.label}</BtnPrimary>
-            </Link>
-          ) : (
-            <BtnPrimary type="button" onClick={action.onClick}>
-              {action.label}
-            </BtnPrimary>
-          )}
+          <BtnPrimary href={action.href} onClick={action.onClick}>
+            {action.label}
+          </BtnPrimary>
         </div>
       ) : null}
     </div>

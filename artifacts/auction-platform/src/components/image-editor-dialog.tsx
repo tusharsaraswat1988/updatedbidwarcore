@@ -272,7 +272,7 @@ export function ImageEditorDialog({
           <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-4">
             {/* Cropper or empty state */}
             <div
-              className={`relative w-full h-[min(42dvh,280px)] sm:h-[320px] rounded-lg border overflow-hidden transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border bg-black/40"}`}
+              className={`relative w-full h-[min(42dvh,280px)] sm:h-[320px] rounded-lg border overflow-hidden transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border bg-stage/40"}`}
               onDragOver={handleDragOver}
               onDragEnter={handleDragOver}
               onDragLeave={handleDragLeave}

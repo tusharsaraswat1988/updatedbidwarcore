@@ -1322,7 +1322,7 @@ export default function LiveViewerPage() {
   const anySound = Object.values(soundSettings).some(Boolean);
 
   return (
-    <div className="h-[100dvh] bg-[#09090b] relative flex flex-col overflow-hidden">
+    <div className="lovable-theme dark h-[100dvh] bg-background relative flex flex-col overflow-hidden">
       {isCompleted ? (
         <CompletedScreen
           tournament={tournament}

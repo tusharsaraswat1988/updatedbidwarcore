@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useRoute, useLocation } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
-import { EmptyState, PageHeader } from "@/components/badminton/page-chrome";
+import {
+  BtnPrimary,
+  BtnSecondary,
+  EmptyState,
+  PageHeader,
+  btnCompactClass,
+} from "@/components/badminton/page-chrome";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
@@ -30,11 +36,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { openScoreDisplay } from "@/lib/tournament-navigation";
 import { cricketMatchCenterPath, cricketScoreHubPath } from "@/lib/cricket-routes";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft, Monitor, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
+import { cn } from "@/lib/utils";
 
 export default function ScoringMatchPage() {
   const [, params] = useRoute("/tournament/:id/score/:matchId/live");
@@ -355,31 +361,25 @@ export default function ScoringMatchPage() {
         badge={data?.match.status === "live" ? "LIVE" : undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2" asChild>
-              <Link href={matchCenterHref}>
-                <ArrowLeft className="w-4 h-4" />
-                Match Center
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
+            <BtnSecondary href={matchCenterHref} className={btnCompactClass}>
+              <ArrowLeft className="w-4 h-4" />
+              Match Center
+            </BtnSecondary>
+            <BtnSecondary
+              className={btnCompactClass}
               disabled={isFetching}
               onClick={() => void refetch()}
             >
               <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
               Refresh
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
+            </BtnSecondary>
+            <BtnSecondary
+              className={btnCompactClass}
               onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
             >
               <Monitor className="w-4 h-4" />
               LED display
-            </Button>
+            </BtnSecondary>
           </div>
         }
       />
@@ -391,14 +391,9 @@ export default function ScoringMatchPage() {
             <span>
               {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — scoring paused until synced.
             </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="ml-auto h-8 text-xs"
-              onClick={() => void drainQueue()}
-            >
+            <BtnPrimary className={cn(btnCompactClass, "ml-auto")} onClick={() => void drainQueue()}>
               Sync now
-            </Button>
+            </BtnPrimary>
           </div>
         ) : null}
 
