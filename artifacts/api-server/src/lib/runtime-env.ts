@@ -83,6 +83,15 @@ function resolvePublicOrigin(
   return appUrlOrigin ?? `${publicScheme}://${canonicalHost}`;
 }
 
+/**
+ * Railway validation deploy during Render → Railway migration.
+ * Must stay allowed so the Railway public origin can load same-origin JS/CSS/fonts
+ * through the global credentials CORS middleware without replacing Render/production hosts.
+ */
+const RAILWAY_MIGRATION_CORS_ORIGINS = [
+  "https://updatedbidwarcore-production.up.railway.app",
+] as const;
+
 function buildCorsOrigins(
   hosts: string[],
   scheme: "http" | "https",
@@ -95,7 +104,14 @@ function buildCorsOrigins(
   const devExtras = isProduction
     ? []
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
-  return [...new Set([...explicit, ...fromHosts, ...devExtras])];
+  return [
+    ...new Set([
+      ...explicit,
+      ...fromHosts,
+      ...devExtras,
+      ...RAILWAY_MIGRATION_CORS_ORIGINS,
+    ]),
+  ];
 }
 
 function buildCachedConfig(): RuntimeConfig {
