@@ -25,7 +25,7 @@ RUN pnpm install --frozen-lockfile
 
 # Build TypeScript libs → API esbuild bundle → Vite frontends → Playwright Chromium
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
-RUN pnpm run build
+RUN pnpm run build:deploy
 
 # Create a clean production deploy directory for the api-server:
 # pnpm deploy produces a flat node_modules/ (no devDeps, no pnpm symlinks)
