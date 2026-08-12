@@ -137,6 +137,8 @@ export const tournamentsTable = pgTable("tournaments", {
   registrationModeId: text("registration_mode_id"),
   teamFormationStrategyId: text("team_formation_strategy_id"),
   squadRulesJson: jsonb("squad_rules_json").$type<Record<string, unknown>>(),
+  /** Sparse tournament rule overrides on top of rule profile (`{ values: { defId: value } }`). */
+  ruleOverridesJson: jsonb("rule_overrides_json").$type<Record<string, unknown>>(),
   participantConstraintsJson: jsonb("participant_constraints_json").$type<Record<string, unknown>>(),
   businessStageId: text("business_stage_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

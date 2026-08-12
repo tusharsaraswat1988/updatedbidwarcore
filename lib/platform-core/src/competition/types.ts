@@ -1,4 +1,5 @@
 import type { ValidationIssue, ValidationSeverity } from "../catalog/resolve/types.ts";
+import type { RuleOverridesDocument } from "./rule-overrides.ts";
 
 export type ParticipantKindId = "individual" | "team" | "organization" | "mixed" | "guest";
 
@@ -40,6 +41,8 @@ export type CompetitionConfiguration = {
   registrationModeId: string | null;
   teamFormationStrategyId: string | null;
   squadRules: SquadRules;
+  /** Sparse organiser overrides on top of ruleProfile (definitionId → value). */
+  ruleOverrides: RuleOverridesDocument | null;
   participantConstraints: ParticipantConstraints;
   businessStageId: string;
   locked: boolean;
@@ -59,6 +62,7 @@ export type CompetitionPlanPayload = {
   participantConstraints: ParticipantConstraints;
   ruleProfileId: string | null;
   ruleProfileVersion: string | null;
+  ruleOverrides: RuleOverridesDocument | null;
   presentationProfileId: string | null;
   presentationProfileVersion: string | null;
   businessStageId: string;

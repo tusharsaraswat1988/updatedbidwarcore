@@ -1,4 +1,5 @@
 import { DEFAULT_BUSINESS_STAGE_ID } from "../catalog/business-stages/index.ts";
+import { parseRuleOverrides, type RuleOverridesDocument } from "./rule-overrides.ts";
 import type {
   CompetitionConfiguration,
   ParticipantConstraints,
@@ -17,6 +18,7 @@ export type TournamentCompetitionColumns = {
   registrationModeId?: string | null;
   teamFormationStrategyId?: string | null;
   squadRulesJson?: SquadRules | Record<string, unknown> | null;
+  ruleOverridesJson?: RuleOverridesDocument | Record<string, unknown> | null;
   participantConstraintsJson?: ParticipantConstraints | Record<string, unknown> | null;
   businessStageId?: string | null;
 };
@@ -64,6 +66,7 @@ export function resolveCompetitionConfiguration(
     registrationModeId: tournament.registrationModeId ?? null,
     teamFormationStrategyId: tournament.teamFormationStrategyId ?? null,
     squadRules: asSquadRules(tournament.squadRulesJson),
+    ruleOverrides: parseRuleOverrides(tournament.ruleOverridesJson),
     participantConstraints: asParticipantConstraints(tournament.participantConstraintsJson),
     businessStageId: tournament.businessStageId ?? DEFAULT_BUSINESS_STAGE_ID,
     locked: options?.locked ?? false,

@@ -12,7 +12,10 @@ import {
   lockCompetitionSetup,
   patchCompetitionConfiguration,
 } from "../lib/competition-service";
-import { validateCompetitionConfiguration } from "@workspace/platform-core/competition";
+import {
+  validateCompetitionConfiguration,
+  validateCricketKeyRuleOverrides,
+} from "@workspace/platform-core/competition";
 
 const router: IRouter = Router();
 
@@ -26,6 +29,12 @@ const patchSchema = z.object({
   registrationModeId: z.string().min(1).nullable().optional(),
   teamFormationStrategyId: z.string().min(1).nullable().optional(),
   squadRules: z.record(z.string(), z.unknown()).nullable().optional(),
+  ruleOverrides: z
+    .object({
+      values: z.record(z.string(), z.union([z.number(), z.boolean(), z.string(), z.null()])),
+    })
+    .nullable()
+    .optional(),
   participantConstraints: z.record(z.string(), z.unknown()).nullable().optional(),
   businessStageId: z.string().min(1).nullable().optional(),
 });
@@ -127,6 +136,21 @@ router.patch("/tournaments/:id/competition/configuration", async (req, res) => {
     if (!CatalogRegistry.getTeamFormationStrategy(parsed.data.teamFormationStrategyId)) {
       return res.status(400).json({ error: "Unknown teamFormationStrategyId" });
     }
+  }
+  if (parsed.data.ruleOverrides !== undefined) {
+    const overrides = validateCricketKeyRuleOverrides(parsed.data.ruleOverrides);
+    if (!overrides.ok) return res.status(400).json({ error: overrides.error });
+    const result = await patchCompetitionConfiguration(tid, {
+      ...parsed.data,
+      ruleOverrides: overrides.document,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    const validation = validateCompetitionConfiguration(result.configuration);
+    return res.json({
+      configuration: result.configuration,
+      validation,
+      status: buildCompetitionStatus(result.configuration, validation),
+    });
   }
 
   const result = await patchCompetitionConfiguration(tid, parsed.data);

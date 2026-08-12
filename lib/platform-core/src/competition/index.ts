@@ -9,6 +9,14 @@ export {
   type TournamentCompetitionColumns,
 } from "./configuration.ts";
 export { buildCompetitionPlanPayload } from "./plan.ts";
+export {
+  CRICKET_KEY_RULE_OVERRIDE_IDS,
+  parseRuleOverrides,
+  sparseRuleOverrides,
+  validateCricketKeyRuleOverrides,
+  type CricketKeyRuleOverrideId,
+  type RuleOverridesDocument,
+} from "./rule-overrides.ts";
 export { resolveTransitionRequest } from "./transition-rules.ts";
 export {
   validateCompetitionConfiguration,
