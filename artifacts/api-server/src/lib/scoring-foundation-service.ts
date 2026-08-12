@@ -28,6 +28,7 @@ import {
   cricketFranchiseTeamExists,
   listCricketFranchiseTeams,
 } from "./master-sports/cricket-franchise-registry";
+import { prepareRuntimeMatch } from "./runtime-match-service";
 
 async function ensureScoringTournament(tournamentId: number) {
   const [tournament] = await db
@@ -378,6 +379,9 @@ export async function generateScoringDraw(input: {
         stateJson: initialState,
         lastEventSeq: 0,
       });
+
+      // Best-effort: freeze tournament rules at create so Match Start isn't blocked.
+      await prepareRuntimeMatch(input.tournamentId, match.id, null);
     }
   }
 

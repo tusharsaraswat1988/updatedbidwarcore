@@ -424,6 +424,9 @@ export default function ScoringMatchPage() {
               busy={busy}
               onEvent={sendEvent}
               onBowlerSelected={setLocalBowlerId}
+              onPrepared={async () => {
+                await refetch();
+              }}
             />
 
             {readyToScore && data.state.matchStatus !== "completed" ? (

@@ -346,13 +346,13 @@ export function FormModal({
 
   return (
 
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md ${PORTAL_THEME_CLASS}`}>
+    <div className={`fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-4 sm:items-center bg-black/75 backdrop-blur-md ${PORTAL_THEME_CLASS}`}>
 
       <div
 
         className={cn(
 
-          "w-full rounded-xl border border-border bg-card text-card-foreground shadow-2xl overflow-hidden flex flex-col max-h-[90vh]",
+          "my-auto flex w-full max-h-[min(90vh,100%)] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl",
 
           maxW,
 
@@ -360,7 +360,7 @@ export function FormModal({
 
       >
 
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-card/95 px-6 py-4 backdrop-blur-sm">
+        <div className="z-10 flex shrink-0 items-start justify-between gap-4 border-b border-border bg-card px-6 py-4">
 
           <div className="min-w-0">
 
@@ -390,14 +390,13 @@ export function FormModal({
 
 
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-5">{children}</div>
 
 
 
         {footer && (
 
-          <div className="sticky bottom-0 border-t border-border bg-card/95 px-6 py-4 backdrop-blur-sm">
-
+          <div className="z-10 shrink-0 border-t border-border bg-card px-6 py-4">
             {footer}
 
           </div>

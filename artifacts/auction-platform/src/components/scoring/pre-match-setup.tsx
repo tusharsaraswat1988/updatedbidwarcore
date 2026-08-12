@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
 import { CricketEventType, executionLimitsFromRules } from "@workspace/scoring-core";
-import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
-import { BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -22,6 +21,7 @@ import { getActiveInnings } from "@/lib/scoring-ball";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
 import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
+import { Loader2 } from "lucide-react";
 
 type PreMatchSetupProps = {
   tournamentId: number;
@@ -33,6 +33,8 @@ type PreMatchSetupProps = {
   busy: boolean;
   onEvent: (eventType: string, payload: Record<string, unknown>) => Promise<void>;
   onBowlerSelected: (bowlerId: number) => void;
+  /** Refresh match after Runtime Prepare so Start match unlocks. */
+  onPrepared?: () => void | Promise<void>;
 };
 
 /** Limits from RuntimeExecutionPolicy via prepared rulesJson (Phase 2). */
@@ -74,11 +76,15 @@ export function PreMatchSetup({
   busy,
   onEvent,
   onBowlerSelected,
+  onPrepared,
 }: PreMatchSetupProps) {
   const [tossWinner, setTossWinner] = useState<string>(
     String(state.tossWinnerTeamId ?? match.homeTeamId),
   );
   const [electedTo, setElectedTo] = useState<"bat" | "bowl">("bat");
+  const [preparing, setPreparing] = useState(false);
+  const [prepareError, setPrepareError] = useState<string | null>(null);
+  const autoPrepareTried = useRef(false);
   const limits = executionLimitsFromMatch(match);
   // MATCH_STARTED overs originate from RuntimeExecutionPolicy-derived rules only.
   const oversLimit = limits.oversLimit ?? state.oversLimit;
@@ -89,6 +95,47 @@ export function PreMatchSetup({
     typeof limits.benchSize === "number";
   const playingSquadSize = limits.playingSquadSize;
   const benchSize = limits.benchSize;
+
+  async function handlePrepare() {
+    if (preparing || busy) return;
+    setPreparing(true);
+    setPrepareError(null);
+    try {
+      const res = await apiFetch(
+        `/tournaments/${tournamentId}/runtime-matches/${match.id}/prepare`,
+        { method: "POST" },
+      );
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        validation?: { issues?: Array<{ severity: string; message: string }> };
+      };
+      if (!res.ok) {
+        const blockers = (body.validation?.issues ?? [])
+          .filter((i) => i.severity === "ERROR")
+          .map((i) => i.message)
+          .slice(0, 3);
+        throw new Error(
+          blockers.length > 0
+            ? `${body.error ?? "Could not lock tournament rules"}: ${blockers.join(" · ")}`
+            : body.error || "Could not lock tournament rules for this match",
+        );
+      }
+      await onPrepared?.();
+    } catch (e) {
+      setPrepareError(e instanceof Error ? e.message : "Could not lock tournament rules");
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  // Existing matches: apply tournament rules automatically — no Mission Control detour.
+  useEffect(() => {
+    if (limits.fromPolicy || autoPrepareTried.current) return;
+    autoPrepareTried.current = true;
+    void handlePrepare();
+    // Intentionally once per match mount when policy is missing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto prepare
+  }, [limits.fromPolicy, match.id]);
 
   const { battingId, bowlingId } = resolveCricketSideTeamIds(state, match);
   const needsToss =
@@ -122,12 +169,32 @@ export function PreMatchSetup({
       {!limits.fromPolicy ? (
         <div className="text-xs text-amber-200/90 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 space-y-2">
           <p>
-            Runtime Prepare is required before Match Start. Overs, XI, and bench limits come from
-            RuntimeExecutionPolicy after Prepare.
+            {preparing
+              ? "Applying tournament rules to this match…"
+              : "Tournament rules still need to lock onto this match before Start."}
           </p>
-          <BtnSecondary href={sportsMissionControlPath(tournamentId)} className={btnCompactClass}>
-            Open Mission Control → Prepare
-          </BtnSecondary>
+          {prepareError ? (
+            <p className="text-amber-100/95">{prepareError}</p>
+          ) : null}
+          {!preparing ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9"
+              disabled={busy}
+              onClick={() => {
+                autoPrepareTried.current = true;
+                void handlePrepare();
+              }}
+            >
+              Apply tournament rules
+            </Button>
+          ) : (
+            <p className="flex items-center gap-1.5 text-amber-100/80">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+              Locking rules…
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
@@ -149,7 +216,8 @@ export function PreMatchSetup({
           electedTo={electedTo}
           setElectedTo={setElectedTo}
           oversLimit={oversLimit}
-          busy={busy || !policyReady}
+          busy={busy || preparing}
+          policyReady={policyReady}
           onStart={() =>
             onEvent(CricketEventType.MATCH_STARTED, {
               tossWinnerTeamId: parseInt(tossWinner, 10),
@@ -239,6 +307,7 @@ function TossStep({
   setElectedTo,
   oversLimit,
   busy,
+  policyReady,
   onStart,
 }: {
   match: ScoringMatchJson;
@@ -249,17 +318,19 @@ function TossStep({
   setElectedTo: (v: "bat" | "bowl") => void;
   oversLimit: number;
   busy: boolean;
+  policyReady: boolean;
   onStart: () => void | Promise<void>;
 }) {
   const home = teams.find((t) => t.id === match.homeTeamId);
   const away = teams.find((t) => t.id === match.awayTeamId);
+  const startBlocked = busy || !policyReady;
 
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
       <h2 className="text-sm font-semibold">Toss</h2>
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Toss winner</Label>
-        <Select value={tossWinner} onValueChange={setTossWinner}>
+        <Select value={tossWinner} onValueChange={setTossWinner} disabled={!policyReady || busy}>
           <SelectTrigger className="h-11">
             <SelectValue />
           </SelectTrigger>
@@ -278,6 +349,7 @@ function TossStep({
           type="button"
           variant={electedTo === "bat" ? "default" : "outline"}
           className="h-11"
+          disabled={!policyReady || busy}
           onClick={() => setElectedTo("bat")}
         >
           Bat first
@@ -286,21 +358,24 @@ function TossStep({
           type="button"
           variant={electedTo === "bowl" ? "default" : "outline"}
           className="h-11"
+          disabled={!policyReady || busy}
           onClick={() => setElectedTo("bowl")}
         >
           Bowl first
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">{oversLimit}-over match</p>
+      <p className="text-xs text-muted-foreground">
+        {policyReady ? `${oversLimit}-over match` : "Using tournament rules"}
+      </p>
       <Button
         className="w-full h-12 text-base"
-        disabled={busy}
+        disabled={startBlocked}
         onClick={() => {
-          if (busy) return;
+          if (startBlocked) return;
           void onStart();
         }}
       >
-        {busy ? "Starting…" : "Start match"}
+        {!policyReady ? "Applying rules…" : busy ? "Starting…" : "Start match"}
       </Button>
     </section>
   );

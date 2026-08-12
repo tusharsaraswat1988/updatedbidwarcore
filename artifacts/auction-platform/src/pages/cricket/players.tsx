@@ -35,7 +35,7 @@ import {
   hubPanelClass,
   inputClass,
 } from "@/components/badminton/page-chrome";
-import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
+import { formatPlayerGender } from "@/components/player-gender-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -164,6 +164,10 @@ export default function CricketPlayersPage() {
   const [form, setForm] = useState<SportsPlayerForm>(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [sportRoles, setSportRoles] = useState<string[]>([...FALLBACK_ROLES]);
+  const [assignPlayer, setAssignPlayer] = useState<Player | null>(null);
+  const [assignTeamId, setAssignTeamId] = useState("");
+  const [assignError, setAssignError] = useState("");
+  const [assignBusy, setAssignBusy] = useState(false);
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -349,6 +353,61 @@ export default function CricketPlayersPage() {
     setFormOpen(false);
     setEditing(null);
     setFormError("");
+  }
+
+  function openAssignTeam(player: Player) {
+    if (teams.length === 0) return;
+    setAssignError("");
+    setAssignPlayer(player);
+    setAssignTeamId(
+      player.teamId != null
+        ? String(player.teamId)
+        : String(teams[0]?.id ?? ""),
+    );
+  }
+
+  function closeAssignTeam() {
+    if (assignBusy) return;
+    setAssignPlayer(null);
+    setAssignTeamId("");
+    setAssignError("");
+  }
+
+  async function handleAssignTeam() {
+    if (!assignPlayer || !assignTeamId) {
+      setAssignError("Select a team");
+      return;
+    }
+    const nextTeamId = Number(assignTeamId);
+    if (!Number.isFinite(nextTeamId)) {
+      setAssignError("Select a team");
+      return;
+    }
+    if (assignPlayer.teamId === nextTeamId) {
+      closeAssignTeam();
+      return;
+    }
+
+    setAssignBusy(true);
+    setAssignError("");
+    try {
+      await updatePlayer.mutateAsync({
+        tournamentId,
+        playerId: assignPlayer.id,
+        data: { teamId: nextTeamId, status: "sold" },
+      });
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      toast({
+        title: assignPlayer.teamId != null ? "Team re-assigned" : "Team assigned",
+        description: assignPlayer.name,
+      });
+      setAssignPlayer(null);
+      setAssignTeamId("");
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "Could not update team");
+    } finally {
+      setAssignBusy(false);
+    }
   }
 
   async function handleImport() {
@@ -694,13 +753,40 @@ export default function CricketPlayersPage() {
                                     </p>
                                   ) : null}
                                 </div>
-                                <BtnSecondary
-                                  className={cn(btnCompactClass, "h-8 min-h-8 shrink-0")}
-                                  onClick={() => openEdit(p)}
+                                <div
+                                  className="flex flex-col items-stretch gap-1.5 shrink-0 w-[7.75rem]"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
                                 >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                  Edit
-                                </BtnSecondary>
+                                  <BtnSecondary
+                                    className={cn(btnCompactClass, "h-8 min-h-8 w-full justify-center")}
+                                    onClick={() => openEdit(p)}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    Edit
+                                  </BtnSecondary>
+                                  {teams.length === 0 ? (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="rounded-md border border-border/50 bg-muted/40 px-1.5 py-1 text-[10px] leading-tight text-muted-foreground cursor-not-allowed"
+                                    >
+                                      no teams are defined
+                                    </button>
+                                  ) : (
+                                    <BtnSecondary
+                                      className={cn(
+                                        btnCompactClass,
+                                        "h-auto min-h-8 w-full justify-center px-1.5 py-1 text-[10px] leading-tight whitespace-normal text-center",
+                                      )}
+                                      onClick={() => openAssignTeam(p)}
+                                    >
+                                      {p.teamId != null
+                                        ? "Re-assign to different team"
+                                        : "Assign team"}
+                                    </BtnSecondary>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -721,6 +807,15 @@ export default function CricketPlayersPage() {
           subtitle="Sports scoring fields only"
           onClose={closeForm}
           size="lg"
+          footer={
+            <FormActions
+              onCancel={closeForm}
+              onSubmit={() => void handleSave()}
+              submitLabel={saving ? "Saving…" : editing ? "Update player" : "Save player"}
+              saving={saving}
+              disabled={saving}
+            />
+          }
         >
           <div className="space-y-3">
             <FormField label="Name" required>
@@ -729,6 +824,7 @@ export default function CricketPlayersPage() {
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Player name"
+                autoFocus
               />
             </FormField>
             <FormField label="Mobile" required>
@@ -744,9 +840,12 @@ export default function CricketPlayersPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Role">
                 <DarkSelect
-                  value={form.role || sportRoles[0] || FALLBACK_ROLES[0]}
+                  value={form.role || roleOptions[0] || FALLBACK_ROLES[0]}
                   onValueChange={(role) => setForm((f) => ({ ...f, role }))}
-                  options={sportRoles.map((r) => ({ value: r, label: r }))}
+                  options={(form.role && !roleOptions.includes(form.role)
+                    ? [form.role, ...roleOptions]
+                    : roleOptions
+                  ).map((r) => ({ value: r, label: r }))}
                 />
               </FormField>
               <FormField label="Team">
@@ -778,11 +877,19 @@ export default function CricketPlayersPage() {
                 />
               </FormField>
             </div>
-            <PlayerGenderSelect
-              value={form.gender}
-              onChange={(gender) => setForm((f) => ({ ...f, gender }))}
-              triggerClassName={inputClass}
-            />
+            <FormField label="Gender">
+              <DarkSelect
+                value={form.gender || "none"}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, gender: v === "none" ? "" : v }))
+                }
+                options={[
+                  { value: "none", label: "Not specified" },
+                  { value: "M", label: "Male" },
+                  { value: "F", label: "Female" },
+                ]}
+              />
+            </FormField>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Batting">
                 <DarkSelect
@@ -807,13 +914,62 @@ export default function CricketPlayersPage() {
               </FormField>
             </div>
             {formError ? <FormError message={formError} /> : null}
+          </div>
+        </FormModal>
+      ) : null}
+
+      {assignPlayer ? (
+        <FormModal
+          title={assignPlayer.teamId != null ? "Re-assign team" : "Assign team"}
+          subtitle={assignPlayer.name}
+          onClose={closeAssignTeam}
+          size="sm"
+          footer={
             <FormActions
-              onCancel={closeForm}
-              onSubmit={() => void handleSave()}
-              submitLabel={saving ? "Saving…" : editing ? "Update player" : "Save player"}
-              saving={saving}
-              disabled={saving}
+              onCancel={closeAssignTeam}
+              onSubmit={() => void handleAssignTeam()}
+              submitLabel={assignBusy ? "Saving…" : "Confirm"}
+              saving={assignBusy}
+              disabled={assignBusy || !assignTeamId}
             />
+          }
+        >
+          <div className="space-y-3">
+            <FormField label="Team" required>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                {teams.map((t) => {
+                  const selected = assignTeamId === String(t.id);
+                  const accent = normalizeTeamColor(t.color);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={assignBusy}
+                      onClick={() => setAssignTeamId(String(t.id))}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        selected
+                          ? "border-primary/60 bg-primary/10"
+                          : "border-border/60 bg-muted/20 hover:border-primary/35",
+                      )}
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: accent }}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 truncate font-medium">{t.name}</span>
+                      {t.shortCode ? (
+                        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">
+                          {t.shortCode}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </FormField>
+            {assignError ? <FormError message={assignError} /> : null}
           </div>
         </FormModal>
       ) : null}
