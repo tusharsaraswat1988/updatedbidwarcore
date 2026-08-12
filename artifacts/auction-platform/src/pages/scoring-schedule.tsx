@@ -449,9 +449,24 @@ export default function ScoringSchedulePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="round_robin">Round Robin (League)</SelectItem>
-                    <SelectItem value="knockout">Knockout</SelectItem>
-                    <SelectItem value="league_knockout">Groups (League stage)</SelectItem>
+                    <SelectItem
+                      value="round_robin"
+                      description="Every team plays every other team. Standings by points."
+                    >
+                      Round Robin (League)
+                    </SelectItem>
+                    <SelectItem
+                      value="knockout"
+                      description="Single-elimination — lose once and you're out."
+                    >
+                      Knockout
+                    </SelectItem>
+                    <SelectItem
+                      value="league_knockout"
+                      description="Play in groups first; top teams advance later."
+                    >
+                      Groups (League stage)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

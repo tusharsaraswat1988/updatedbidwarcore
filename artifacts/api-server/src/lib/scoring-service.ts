@@ -25,6 +25,7 @@ import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/or
 import { loadMatchEvents } from "./scoring-platform/event-store";
 import { cricketFranchiseTeamExists } from "./master-sports/cricket-franchise-registry";
 import { listCricketMasterTeams } from "./master-sports/cricket-roster";
+import { prepareRuntimeMatch } from "./runtime-match-service";
 
 export type { ScoringActor };
 
@@ -182,6 +183,27 @@ export async function createScoringMatch(
     stateJson: initialState,
     lastEventSeq: 0,
   });
+
+  // Organiser mental model: tournament rules already exist at match create.
+  // Best-effort Runtime Prepare freezes those rules so Match Start is not blocked
+  // by a separate "Mission Control → Prepare" step. Create still succeeds if
+  // Prepare cannot run yet (e.g. competition profile not locked).
+  const prepared = await prepareRuntimeMatch(tournamentId, match.id, null);
+  if (prepared.ok) {
+    const [refreshed] = await db
+      .select()
+      .from(scoringMatchesTable)
+      .where(eq(scoringMatchesTable.id, match.id))
+      .limit(1);
+    if (refreshed) {
+      const preparedState = createInitialCricketState(matchMetaFromRow(refreshed));
+      await db
+        .update(scoringSessionsTable)
+        .set({ stateJson: preparedState })
+        .where(eq(scoringSessionsTable.matchId, match.id));
+      return { match: refreshed, state: preparedState };
+    }
+  }
 
   return { match, state: initialState };
 }

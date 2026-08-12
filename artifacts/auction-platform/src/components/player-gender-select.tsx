@@ -40,7 +40,7 @@ export function PlayerGenderSelect({
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder="Select gender" />
         </SelectTrigger>
-        <SelectContent position="popper" className="max-h-60">
+        <SelectContent position="popper" className="max-h-60 w-[var(--radix-select-trigger-width)]">
           <SelectItem value="none">Not specified</SelectItem>
           <SelectItem value="M">Male</SelectItem>
           <SelectItem value="F">Female</SelectItem>
