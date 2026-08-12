@@ -292,7 +292,7 @@ export default function ScoringMatchListPage() {
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-semibold text-foreground">Teams & players not ready</p>
                     <p className="text-sm text-muted-foreground">
-                      Finish the Auction participant handoff before creating matches.
+                      Assign players to at least two franchise teams, then make them available for matches.
                       {playersReady > 0
                         ? ` Currently ${playersReady} player${playersReady === 1 ? "" : "s"} across ${teams.length} team${teams.length === 1 ? "" : "s"}.`
                         : ""}

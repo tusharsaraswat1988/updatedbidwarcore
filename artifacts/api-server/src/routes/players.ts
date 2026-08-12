@@ -524,10 +524,8 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   // Sports / manual create with a team must also write PTA — otherwise the franchise
   // never appears on master-teams / match Home–Away pickers until a later update/handoff.
-  if (
-    player.teamId != null &&
-    (player.status === "sold" || player.status === "retained")
-  ) {
+  // teamId is enough (sold/retained or direct assign); handoff uses the same rule.
+  if (player.teamId != null) {
     onAuctionPlayerRosterChangedAsync(player, null, tid);
   }
 
