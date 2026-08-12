@@ -21,6 +21,8 @@ import { getActiveInnings } from "@/lib/scoring-ball";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
 import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
+import { cricketRulesPath } from "@/lib/cricket-routes";
+import { BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
 import { Loader2 } from "lucide-react";
 
 type PreMatchSetupProps = {
@@ -177,18 +179,23 @@ export function PreMatchSetup({
             <p className="text-amber-100/95">{prepareError}</p>
           ) : null}
           {!preparing ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-9"
-              disabled={busy}
-              onClick={() => {
-                autoPrepareTried.current = true;
-                void handlePrepare();
-              }}
-            >
-              Apply tournament rules
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9"
+                disabled={busy}
+                onClick={() => {
+                  autoPrepareTried.current = true;
+                  void handlePrepare();
+                }}
+              >
+                Retry apply
+              </Button>
+              <BtnSecondary href={cricketRulesPath(tournamentId)} className={btnCompactClass}>
+                Open Rules & format
+              </BtnSecondary>
+            </div>
           ) : (
             <p className="flex items-center gap-1.5 text-amber-100/80">
               <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />

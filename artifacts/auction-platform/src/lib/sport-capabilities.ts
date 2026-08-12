@@ -16,11 +16,11 @@ import {
 import {
   cricketDashboardPath,
   cricketFixturesPath,
+  cricketRulesPath,
   cricketScheduleOpsPath,
   cricketScoreHubPath,
   cricketStandingsOpsPath,
   cricketStatsOpsPath,
-  cricketSettingsPath,
   cricketTeamsPath,
 } from "./cricket-routes";
 import { badmintonHubPath } from "./badminton-routes";
@@ -120,8 +120,8 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
         "Cricket OBS",
       ],
       missionControlDestinations: {
-        // Start Setup / competition → cricket Tournament settings (branding)
-        tournament: cricketSettingsPath,
+        // Start Setup / competition → cricket Rules & format
+        tournament: cricketRulesPath,
         teams: cricketTeamsPath,
         // Players step also lands on Teams first; Players is a sibling nav item
         fixtures: cricketFixturesPath,
