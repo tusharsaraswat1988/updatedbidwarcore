@@ -81,7 +81,7 @@ function DatePicker({
           {value ? formatDateLabel(value) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="z-[100] w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
           selected={selected}

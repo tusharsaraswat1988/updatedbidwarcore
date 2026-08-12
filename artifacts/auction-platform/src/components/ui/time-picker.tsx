@@ -112,7 +112,7 @@ function TimePicker({
           {value && parsed ? formatTimeLabel(value) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="z-[100] w-[min(260px,calc(100vw-2rem))] space-y-3 p-3" align="start">
+      <PopoverContent className="w-[min(260px,calc(100vw-2rem))] space-y-3 p-3" align="start">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <p className="text-[11px] font-medium text-muted-foreground">Hour</p>
@@ -123,7 +123,7 @@ function TimePicker({
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="z-[110] max-h-56">
+              <SelectContent className="max-h-56">
                 {HOURS_12.map((h) => (
                   <SelectItem key={h} value={String(h)}>
                     {h}
@@ -141,7 +141,7 @@ function TimePicker({
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="z-[110] max-h-56">
+              <SelectContent className="max-h-56">
                 {MINUTES.map((m) => {
                   const label = String(m).padStart(2, "0");
                   return (

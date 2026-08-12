@@ -36,8 +36,7 @@ export const selectTriggerClass =
 
 
 export const selectContentClass =
-
-  "z-[200] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden";
+  "z-[300] max-h-[min(18rem,var(--radix-select-content-available-height))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg";
 
 
 
