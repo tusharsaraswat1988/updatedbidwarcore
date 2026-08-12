@@ -84,13 +84,41 @@ function resolvePublicOrigin(
 }
 
 /**
- * Railway validation deploy during Render → Railway migration.
- * Must stay allowed so the Railway public origin can load same-origin JS/CSS/fonts
- * through the global credentials CORS middleware without replacing Render/production hosts.
+ * Platform-injected public origins (Railway / Render) for CORS.
+ * Does not replace APP_DOMAIN / CORS_ORIGINS — merged as extras.
  */
-const RAILWAY_MIGRATION_CORS_ORIGINS = [
-  "https://updatedbidwarcore-production.up.railway.app",
-] as const;
+function resolvePlatformPublicOrigins(
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const origins: string[] = [];
+
+  const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (
+    railwayDomain &&
+    !railwayDomain.includes("://") &&
+    !railwayDomain.includes("/")
+  ) {
+    origins.push(`https://${railwayDomain}`);
+  }
+
+  for (const key of ["RAILWAY_STATIC_URL", "RAILWAY_PUBLIC_URL"] as const) {
+    const raw = env[key]?.trim();
+    if (!raw) continue;
+    try {
+      const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+      if (url.hostname) {
+        origins.push(`${url.protocol}//${url.host}`.replace(/\/+$/, ""));
+      }
+    } catch {
+      /* ignore malformed */
+    }
+  }
+
+  const renderOrigin = resolveRenderExternalOrigin(env);
+  if (renderOrigin) origins.push(renderOrigin);
+
+  return origins;
+}
 
 function buildCorsOrigins(
   hosts: string[],
@@ -104,12 +132,13 @@ function buildCorsOrigins(
   const devExtras = isProduction
     ? []
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
+  const platformOrigins = resolvePlatformPublicOrigins();
   return [
     ...new Set([
       ...explicit,
       ...fromHosts,
       ...devExtras,
-      ...RAILWAY_MIGRATION_CORS_ORIGINS,
+      ...platformOrigins,
     ]),
   ];
 }

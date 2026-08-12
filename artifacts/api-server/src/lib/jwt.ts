@@ -1,6 +1,10 @@
 import jwt from "jsonwebtoken";
 import type { Response } from "express";
-import { getRuntimeConfig, getSessionSecret } from "./runtime-env";
+import { getSessionSecret } from "./runtime-env";
+import {
+  authCookieBaseOptions,
+  clearAuthCookieVariants,
+} from "./auth-cookie-options";
 
 const COOKIE_NAME = "bidwar_auth";
 const OAUTH_COOKIE_NAME = "bidwar_oauth";
@@ -183,56 +187,19 @@ export function verifyNativeGoogleHandoffJwt(token: string): NativeGoogleHandoff
   }
 }
 
-function isProd(): boolean {
-  return getRuntimeConfig().isProduction;
-}
-
-/** Shared parent domain when APP_DOMAIN lists apex + www (production only). */
-function sharedCookieDomain(): string | undefined {
-  const explicit = process.env.COOKIE_DOMAIN?.trim();
-  if (explicit) {
-    return explicit.startsWith(".") ? explicit : `.${explicit}`;
-  }
-
-  const { appHosts, isProduction } = getRuntimeConfig();
-  // Dev (Vite proxy on localhost): never set Domain — host-only cookies only.
-  if (!isProduction || appHosts.length <= 1) return undefined;
-
-  const apex = appHosts.find((h) => !h.toLowerCase().startsWith("www.")) ?? appHosts[0]!;
-  return apex.startsWith(".") ? apex : `.${apex}`;
-}
-
-function baseCookieOpts(maxAgeSec: number) {
-  const domain = sharedCookieDomain();
-  return {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: isProd(),
-    path: "/",
-    maxAge: maxAgeSec * 1000,
-    ...(domain ? { domain } : {}),
-  };
+function baseCookieOpts(res: Response, maxAgeSec: number) {
+  return authCookieBaseOptions(res, maxAgeSec);
 }
 
 /** Remove auth/oauth cookies (host-only and shared-domain variants). */
 function clearCookieAllVariants(res: Response, name: string): void {
-  const domain = sharedCookieDomain();
-  const base = {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: isProd(),
-    path: "/",
-  };
-  res.clearCookie(name, { ...base, maxAge: 0 });
-  if (domain) {
-    res.clearCookie(name, { ...base, domain, maxAge: 0 });
-  }
+  clearAuthCookieVariants(res, name);
 }
 
 export function setAuthCookie(res: Response, claims: AuthClaims): void {
   clearCookieAllVariants(res, COOKIE_NAME);
   const token = signAuthJwt(claims);
-  res.cookie(COOKIE_NAME, token, baseCookieOpts(JWT_EXPIRY));
+  res.cookie(COOKIE_NAME, token, baseCookieOpts(res, JWT_EXPIRY));
 }
 
 export function clearAuthCookie(res: Response): void {
@@ -242,7 +209,7 @@ export function clearAuthCookie(res: Response): void {
 export function setOAuthCookie(res: Response, state: OAuthState): void {
   clearCookieAllVariants(res, OAUTH_COOKIE_NAME);
   const token = signOAuthJwt(state);
-  res.cookie(OAUTH_COOKIE_NAME, token, baseCookieOpts(OAUTH_EXPIRY));
+  res.cookie(OAUTH_COOKIE_NAME, token, baseCookieOpts(res, OAUTH_EXPIRY));
 }
 
 export function clearOAuthCookie(res: Response): void {
@@ -252,7 +219,7 @@ export function clearOAuthCookie(res: Response): void {
 export function setOwnerSessionCookie(res: Response, claims: OwnerSessionClaims): void {
   clearCookieAllVariants(res, OWNER_COOKIE_NAME);
   const token = signOwnerSessionJwt(claims);
-  res.cookie(OWNER_COOKIE_NAME, token, baseCookieOpts(OWNER_SESSION_EXPIRY));
+  res.cookie(OWNER_COOKIE_NAME, token, baseCookieOpts(res, OWNER_SESSION_EXPIRY));
 }
 
 export function clearOwnerSessionCookie(res: Response): void {

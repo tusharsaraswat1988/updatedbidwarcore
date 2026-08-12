@@ -19,6 +19,8 @@ const ENV_KEYS = [
   "APP_URL",
   "CORS_ORIGINS",
   "SERVE_STATIC",
+  "RAILWAY_PUBLIC_DOMAIN",
+  "RENDER_EXTERNAL_HOSTNAME",
 ] as const;
 
 const saved: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
@@ -41,7 +43,7 @@ function clearEnv() {
   for (const key of ENV_KEYS) delete process.env[key];
 }
 
-describe("Railway migration CORS origins", () => {
+describe("platform-aware CORS origins", () => {
   stashEnv();
 
   afterEach(() => {
@@ -50,7 +52,7 @@ describe("Railway migration CORS origins", () => {
     restoreEnv();
   });
 
-  it("allows the Railway validation origin while preserving Render/production hosts", () => {
+  it("merges RAILWAY_PUBLIC_DOMAIN while preserving Render/production hosts", () => {
     clearEnv();
     process.env.NODE_ENV = "production";
     process.env.BIDWAR_ENV = "production";
@@ -65,6 +67,8 @@ describe("Railway migration CORS origins", () => {
     process.env.APP_URL = "https://bidwar.in";
     process.env.CORS_ORIGINS = "http://localhost:5000,http://localhost:3000";
     process.env.SERVE_STATIC = "true";
+    process.env.RAILWAY_PUBLIC_DOMAIN =
+      "updatedbidwarcore-production.up.railway.app";
 
     assertRuntimeEnv();
     const origins = getCorsOrigins();
