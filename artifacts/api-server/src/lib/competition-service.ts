@@ -23,6 +23,7 @@ import {
   type CompetitionPlanPayload,
   type CompetitionValidationResult,
   type Participant,
+  type RuleOverridesDocument,
   type TournamentTransitionRequest,
 } from "@workspace/platform-core/competition";
 
@@ -301,6 +302,7 @@ export async function patchCompetitionConfiguration(
     registrationModeId?: string | null;
     teamFormationStrategyId?: string | null;
     squadRules?: Record<string, unknown> | null;
+    ruleOverrides?: RuleOverridesDocument | null;
     participantConstraints?: Record<string, unknown> | null;
     businessStageId?: string | null;
   },
@@ -416,6 +418,18 @@ export async function patchCompetitionConfiguration(
     }
   }
 
+  const profileChanged =
+    nextRuleProfileId !== tournament.ruleProfileId ||
+    nextRuleProfileVersion !== tournament.ruleProfileVersion;
+
+  // Spec: changing playing-rules profile clears overrides unless this PATCH sets new ones.
+  let nextRuleOverridesJson: RuleOverridesDocument | null | undefined;
+  if (patch.ruleOverrides !== undefined) {
+    nextRuleOverridesJson = patch.ruleOverrides;
+  } else if (profileChanged) {
+    nextRuleOverridesJson = null;
+  }
+
   const [updated] = await db
     .update(tournamentsTable)
     .set({
@@ -423,8 +437,7 @@ export async function patchCompetitionConfiguration(
         ? { competitionTypeId: patch.competitionTypeId }
         : {}),
       ...(patch.variantId !== undefined ? { variantId: patch.variantId } : {}),
-      ...(nextRuleProfileId !== tournament.ruleProfileId ||
-      nextRuleProfileVersion !== tournament.ruleProfileVersion
+      ...(profileChanged
         ? {
             ruleProfileId: nextRuleProfileId,
             ruleProfileVersion: nextRuleProfileVersion,
@@ -444,6 +457,9 @@ export async function patchCompetitionConfiguration(
         ? { teamFormationStrategyId: nextTeamFormationStrategyId }
         : {}),
       ...(patch.squadRules !== undefined ? { squadRulesJson: patch.squadRules } : {}),
+      ...(nextRuleOverridesJson !== undefined
+        ? { ruleOverridesJson: nextRuleOverridesJson }
+        : {}),
       ...(patch.participantConstraints !== undefined
         ? { participantConstraintsJson: patch.participantConstraints }
         : {}),

@@ -155,6 +155,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_mode_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_formation_strategy_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS squad_rules_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_overrides_json jsonb;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS participant_constraints_json jsonb;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS business_stage_id text;
 

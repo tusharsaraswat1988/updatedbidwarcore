@@ -46,6 +46,7 @@ import {
   ruleEngineResultOk,
   type RuntimeExecutionPolicy,
 } from "@workspace/platform-core/rule-engine";
+import { parseRuleOverrides } from "@workspace/platform-core/competition";
 import {
   PresentationEngine,
   buildPreparePresentationEngineInput,
@@ -532,7 +533,11 @@ export async function prepareRuntimeMatch(
       };
     }
 
-    const engineInput = buildPrepareRuleEngineInput(snapshot, bindings);
+    const engineInput = buildPrepareRuleEngineInput(
+      snapshot,
+      bindings,
+      parseRuleOverrides(tournament.ruleOverridesJson),
+    );
     const engineResult = RuleEngine.resolve(engineInput);
 
     if (!ruleEngineResultOk(engineResult) || !engineResult.resolvedRuntimeRules) {

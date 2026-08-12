@@ -27,6 +27,9 @@ export function buildCompetitionPlanPayload(
     },
     ruleProfileId: config.ruleProfileId,
     ruleProfileVersion: config.ruleProfileVersion,
+    ruleOverrides: config.ruleOverrides
+      ? { values: { ...config.ruleOverrides.values } }
+      : null,
     presentationProfileId: config.presentationProfileId,
     presentationProfileVersion: config.presentationProfileVersion,
     businessStageId: "configuration_locked",

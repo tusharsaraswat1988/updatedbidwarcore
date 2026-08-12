@@ -40,7 +40,7 @@ export {
   buildPrepareRuleEngineInput,
   resolvePrepareCatalogBindings,
 } from "./prepare-resolve.ts";
-export type { PrepareResolveBindings } from "./prepare-resolve.ts";
+export type { PrepareResolveBindings, PrepareTournamentRuleOverrides } from "./prepare-resolve.ts";
 
 export type {
   RuleEngineInput,

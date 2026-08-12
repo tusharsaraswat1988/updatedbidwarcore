@@ -151,6 +151,7 @@ void systemCQuery(`
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_version text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_version text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_overrides_json jsonb;
   `)
   .catch((err) => {
     console.error("[db] failed to ensure registration payment columns:", err);

@@ -4,9 +4,11 @@
  */
 
 import { CatalogRegistry } from "../catalog/registry.ts";
+import type { ConcreteRuleValue } from "../catalog/types.ts";
 import type { RuntimeSnapshot } from "../runtime-match/types.ts";
 import { buildRuleResolutionContextFromParts } from "./context-builder.ts";
-import type { RuleEngineInput } from "./types.ts";
+import { overrideDocKey } from "./hash.ts";
+import type { RuleEngineInput, RuleOverrideDocument } from "./types.ts";
 import { RULE_ENGINE_INPUT_VERSION } from "./versions.ts";
 
 export type PrepareResolveBindings = {
@@ -17,6 +19,10 @@ export type PrepareResolveBindings = {
   ruleProfileVersion: string | null | undefined;
   presentationProfileId?: string | null | undefined;
   presentationProfileVersion?: string | null | undefined;
+};
+
+export type PrepareTournamentRuleOverrides = {
+  values: Readonly<Record<string, ConcreteRuleValue>>;
 };
 
 /**
@@ -38,11 +44,24 @@ export function resolvePrepareCatalogBindings(row: PrepareResolveBindings) {
 /**
  * Build RuleEngineInput for PREPARE against an already-built Runtime Snapshot.
  * Snapshot ruleProfile ref MUST match context.ruleProfile (verified by engine).
+ * Optional tournamentOverrides attach the EPIC-09 tournament_override layer.
  */
 export function buildPrepareRuleEngineInput(
   snapshot: RuntimeSnapshot,
   bindings: ReturnType<typeof resolvePrepareCatalogBindings>,
+  tournamentOverrides?: PrepareTournamentRuleOverrides | null,
 ): RuleEngineInput {
+  const hasOverrides =
+    tournamentOverrides?.values && Object.keys(tournamentOverrides.values).length > 0;
+
+  const overrideDocuments: Record<string, RuleOverrideDocument> | undefined = hasOverrides
+    ? {
+        [overrideDocKey("__inline_tournament__", "1.0.0")]: {
+          values: tournamentOverrides!.values,
+        },
+      }
+    : undefined;
+
   const context = buildRuleResolutionContextFromParts({
     sportId: bindings.sportId,
     variantId: bindings.variantId,
@@ -52,6 +71,9 @@ export function buildPrepareRuleEngineInput(
       version: bindings.ruleProfileVersion,
     },
     profileFamilyId: bindings.ruleProfileId,
+    tournamentOverrideRef: hasOverrides
+      ? { id: "__inline_tournament__", version: "1.0.0" }
+      : undefined,
     resolutionMode: "PREPARE",
   });
 
@@ -59,6 +81,7 @@ export function buildPrepareRuleEngineInput(
     inputVersion: RULE_ENGINE_INPUT_VERSION,
     snapshot,
     context,
+    overrideDocuments,
     // PREPARE auto-compiles; explicit for clarity at the sole cutover site.
     compile: true,
   };
