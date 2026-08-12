@@ -1,5 +1,5 @@
 /**
- * Cricket Rules & format — competition, formation, profiles, lock, apply to matches.
+ * Cricket Rules & format — complete linear form (no empty “select first” stubs).
  * Route: /tournament/:id/score/rules
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,14 @@ import {
   hubPanelClass,
   inputClass,
 } from "@/components/badminton/page-chrome";
-import { CatalogOptionList } from "@/components/tournament-creation/catalog-option-list";
 import { RuleProfileCatalogPanel } from "@/components/tournament-creation/rule-profile-catalog-panel";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -68,14 +74,105 @@ type SquadDraft = {
   retentions: string;
 };
 
+type Option = { id: string; version?: string; label: string; description?: string };
+
 function squadFromConfig(
   squadRules?: CompetitionAggregate["configuration"]["squadRules"],
 ): SquadDraft {
   return {
-    minPlayers: squadRules?.minPlayers != null ? String(squadRules.minPlayers) : "",
-    maxPlayers: squadRules?.maxPlayers != null ? String(squadRules.maxPlayers) : "",
-    substitutes: squadRules?.substitutes != null ? String(squadRules.substitutes) : "",
+    minPlayers: squadRules?.minPlayers != null ? String(squadRules.minPlayers) : "11",
+    maxPlayers: squadRules?.maxPlayers != null ? String(squadRules.maxPlayers) : "15",
+    substitutes: squadRules?.substitutes != null ? String(squadRules.substitutes) : "4",
     retentions: squadRules?.retentions != null ? String(squadRules.retentions) : "",
+  };
+}
+
+function OptionSelect({
+  label,
+  value,
+  options,
+  disabled,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Option[];
+  disabled?: boolean;
+  placeholder: string;
+  onChange: (id: string, version?: string) => void;
+}) {
+  return (
+    <FormField label={label}>
+      <Select
+        value={value || undefined}
+        disabled={disabled || options.length === 0}
+        onValueChange={(id) => {
+          const match = options.find((o) => o.id === id);
+          onChange(id, match?.version);
+        }}
+      >
+        <SelectTrigger className="h-11 w-full bg-background">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={`${o.id}@${o.version ?? "v"}`} value={o.id}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {value ? (
+        <p className="text-xs text-muted-foreground mt-1.5">
+          {options.find((o) => o.id === value)?.description ?? null}
+        </p>
+      ) : null}
+      {options.length === 0 ? (
+        <p className="text-xs text-muted-foreground mt-1.5">No options available for this sport.</p>
+      ) : null}
+    </FormField>
+  );
+}
+
+function seedCricketDefaults(sportId: string): {
+  variantId: string;
+  competitionTypeId: string;
+  registrationModeId: string;
+  teamFormationStrategyId: string;
+  ruleProfileId: string;
+  ruleProfileVersion: string;
+  presentationProfileId: string;
+  presentationProfileVersion: string;
+} {
+  const variants = CatalogRegistry.listVariants(sportId);
+  const competitions = CatalogRegistry.listCompetitionTypes(sportId);
+  const variantId =
+    variants.find((v) => v.id === "cricket.outdoor")?.id ?? variants[0]?.id ?? "";
+  const competitionTypeId =
+    competitions.find((c) => c.id === "auction")?.id ?? competitions[0]?.id ?? "";
+  const registrationModeId =
+    CatalogRegistry.suggestRegistrationModeId(competitionTypeId) ??
+    CatalogRegistry.listRegistrationModes(competitionTypeId)[0]?.id ??
+    "";
+  const teamFormationStrategyId =
+    CatalogRegistry.suggestTeamFormationStrategyId(competitionTypeId) ??
+    CatalogRegistry.listTeamFormationStrategies(competitionTypeId)[0]?.id ??
+    "";
+  const suggested = CatalogRegistry.suggestDefaults({
+    sportId,
+    variantId,
+    competitionTypeId,
+  });
+  return {
+    variantId,
+    competitionTypeId,
+    registrationModeId,
+    teamFormationStrategyId,
+    ruleProfileId: suggested.ruleProfile?.id ?? "",
+    ruleProfileVersion: suggested.ruleProfile?.version ?? "",
+    presentationProfileId: suggested.presentationProfile?.id ?? "",
+    presentationProfileVersion: suggested.presentationProfile?.version ?? "",
   };
 }
 
@@ -106,6 +203,9 @@ export default function CricketRulesPage() {
   const [presentationProfileVersion, setPresentationProfileVersion] = useState("");
   const [squadRules, setSquadRules] = useState<SquadDraft>(squadFromConfig());
 
+  const sportId = (data?.configuration.sportId || tournament?.sport || "cricket").toLowerCase();
+  const locked = Boolean(data?.summary.status.locked || data?.plan || data?.configuration.locked);
+
   const load = useCallback(async () => {
     if (!tournamentId) return;
     setLoading(true);
@@ -117,15 +217,24 @@ export default function CricketRulesPage() {
       };
       if (!res.ok) throw new Error(body.error || "Failed to load rules");
       setData(body);
-      setCompetitionTypeId(body.configuration.competitionTypeId ?? "");
-      setVariantId(body.configuration.variantId ?? "");
-      setRegistrationModeId(body.configuration.registrationModeId ?? "");
-      setTeamFormationStrategyId(body.configuration.teamFormationStrategyId ?? "");
-      setRuleProfileId(body.configuration.ruleProfileId ?? "");
-      setRuleProfileVersion(body.configuration.ruleProfileVersion ?? "");
-      setPresentationProfileId(body.configuration.presentationProfileId ?? "");
-      setPresentationProfileVersion(body.configuration.presentationProfileVersion ?? "");
-      setSquadRules(squadFromConfig(body.configuration.squadRules));
+
+      const sid = (body.configuration.sportId || "cricket").toLowerCase();
+      const seeded = seedCricketDefaults(sid);
+      const cfg = body.configuration;
+
+      setVariantId(cfg.variantId || seeded.variantId);
+      setCompetitionTypeId(cfg.competitionTypeId || seeded.competitionTypeId);
+      setRegistrationModeId(cfg.registrationModeId || seeded.registrationModeId);
+      setTeamFormationStrategyId(
+        cfg.teamFormationStrategyId || seeded.teamFormationStrategyId,
+      );
+      setRuleProfileId(cfg.ruleProfileId || seeded.ruleProfileId);
+      setRuleProfileVersion(cfg.ruleProfileVersion || seeded.ruleProfileVersion);
+      setPresentationProfileId(cfg.presentationProfileId || seeded.presentationProfileId);
+      setPresentationProfileVersion(
+        cfg.presentationProfileVersion || seeded.presentationProfileVersion,
+      );
+      setSquadRules(squadFromConfig(cfg.squadRules));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load rules");
     } finally {
@@ -137,69 +246,139 @@ export default function CricketRulesPage() {
     void load();
   }, [load]);
 
-  const sportId = data?.configuration.sportId ?? "cricket";
-  const locked = Boolean(data?.summary.status.locked || data?.plan || data?.configuration.locked);
-
-  const competitions = useMemo(
-    () => CatalogRegistry.listCompetitionTypes(sportId),
+  const variantOptions: Option[] = useMemo(
+    () =>
+      CatalogRegistry.listVariants(sportId).map((v) => ({
+        id: v.id,
+        version: v.version,
+        label: v.displayName,
+        description: v.description,
+      })),
     [sportId],
   );
-  const variants = useMemo(() => CatalogRegistry.listVariants(sportId), [sportId]);
-  const registrationModes = useMemo(
-    () => (competitionTypeId ? CatalogRegistry.listRegistrationModes(competitionTypeId) : []),
+
+  const competitionOptions: Option[] = useMemo(
+    () =>
+      CatalogRegistry.listCompetitionTypes(sportId).map((c) => ({
+        id: c.id,
+        version: c.version,
+        label: c.displayName,
+        description: c.description,
+      })),
+    [sportId],
+  );
+
+  const registrationOptions: Option[] = useMemo(
+    () =>
+      (competitionTypeId
+        ? CatalogRegistry.listRegistrationModes(competitionTypeId)
+        : []
+      ).map((r) => ({
+        id: r.id,
+        version: r.version,
+        label: r.displayName,
+        description: r.description,
+      })),
     [competitionTypeId],
   );
-  const teamFormationStrategies = useMemo(() => {
+
+  const formationOptions: Option[] = useMemo(() => {
     const entries = competitionTypeId
       ? CatalogRegistry.listTeamFormationStrategies(competitionTypeId)
       : [];
     const caps = getSportCapabilities(sportId);
-    if (caps.hasCaptain) return entries;
-    return entries.filter((entry) => entry.id !== "captain_pick");
+    return entries
+      .filter((entry) => (caps.hasCaptain ? true : entry.id !== "captain_pick"))
+      .map((f) => ({
+        id: f.id,
+        version: f.version,
+        label: f.displayName,
+        description: f.description,
+      }));
   }, [competitionTypeId, sportId]);
 
-  const ruleProfiles = useMemo(() => {
+  const ruleProfileOptions: Option[] = useMemo(() => {
     if (!variantId || !competitionTypeId) return [];
     return CatalogRegistry.listRuleProfiles({
       sportId,
       variantId,
       competitionTypeId,
-    });
+    }).map((p) => ({
+      id: p.id,
+      version: p.version,
+      label: p.displayName,
+      description: p.description,
+    }));
   }, [sportId, variantId, competitionTypeId]);
 
-  const presentationProfiles = useMemo(() => {
+  const presentationOptions: Option[] = useMemo(() => {
     if (!variantId || !competitionTypeId) return [];
     return CatalogRegistry.listPresentationProfiles({
       sportId,
       variantId,
       competitionTypeId,
-    });
+    }).map((p) => ({
+      id: p.id,
+      version: p.version,
+      label: p.displayName,
+      description: p.description,
+    }));
   }, [sportId, variantId, competitionTypeId]);
 
   const selectedRuleProfile = useMemo(
     () =>
-      ruleProfiles.find((p) => p.id === ruleProfileId && p.version === ruleProfileVersion) ??
-      ruleProfiles.find((p) => p.id === ruleProfileId) ??
+      CatalogRegistry.getRuleProfile(ruleProfileId, ruleProfileVersion) ??
+      CatalogRegistry.getRuleProfile(ruleProfileId) ??
       null,
-    [ruleProfiles, ruleProfileId, ruleProfileVersion],
+    [ruleProfileId, ruleProfileVersion],
   );
 
-  // Suggest defaults when sport/competition/variant known but profiles empty.
+  // Keep dependent fields valid when parent selection changes.
+  useEffect(() => {
+    if (locked || !competitionTypeId) return;
+    if (!registrationOptions.some((o) => o.id === registrationModeId)) {
+      const next =
+        CatalogRegistry.suggestRegistrationModeId(competitionTypeId) ??
+        registrationOptions[0]?.id ??
+        "";
+      setRegistrationModeId(next);
+    }
+    if (!formationOptions.some((o) => o.id === teamFormationStrategyId)) {
+      const next =
+        CatalogRegistry.suggestTeamFormationStrategyId(competitionTypeId) ??
+        formationOptions[0]?.id ??
+        "";
+      setTeamFormationStrategyId(next);
+    }
+  }, [
+    locked,
+    competitionTypeId,
+    registrationModeId,
+    teamFormationStrategyId,
+    registrationOptions,
+    formationOptions,
+  ]);
+
   useEffect(() => {
     if (locked || !variantId || !competitionTypeId) return;
-    if (ruleProfileId && presentationProfileId) return;
     const suggested = CatalogRegistry.suggestDefaults({
       sportId,
       variantId,
       competitionTypeId,
     });
-    if (!ruleProfileId && suggested.ruleProfile) {
-      setRuleProfileId(suggested.ruleProfile.id);
-      setRuleProfileVersion(suggested.ruleProfile.version);
+    if (!ruleProfileOptions.some((o) => o.id === ruleProfileId)) {
+      setRuleProfileId(suggested.ruleProfile?.id ?? ruleProfileOptions[0]?.id ?? "");
+      setRuleProfileVersion(
+        suggested.ruleProfile?.version ?? ruleProfileOptions[0]?.version ?? "",
+      );
     }
-    if (!presentationProfileId && suggested.presentationProfile) {
-      setPresentationProfileId(suggested.presentationProfile.id);
-      setPresentationProfileVersion(suggested.presentationProfile.version);
+    if (!presentationOptions.some((o) => o.id === presentationProfileId)) {
+      setPresentationProfileId(
+        suggested.presentationProfile?.id ?? presentationOptions[0]?.id ?? "",
+      );
+      setPresentationProfileVersion(
+        suggested.presentationProfile?.version ?? presentationOptions[0]?.version ?? "",
+      );
     }
   }, [
     locked,
@@ -208,6 +387,8 @@ export default function CricketRulesPage() {
     competitionTypeId,
     ruleProfileId,
     presentationProfileId,
+    ruleProfileOptions,
+    presentationOptions,
   ]);
 
   async function persistSetup(): Promise<boolean> {
@@ -225,24 +406,24 @@ export default function CricketRulesPage() {
       if (min != null && max != null && min > max) {
         throw new Error("Minimum players cannot exceed maximum players.");
       }
-      if (!competitionTypeId || !registrationModeId) {
-        throw new Error("Choose competition type and registration mode.");
+      if (!variantId || !competitionTypeId || !registrationModeId || !teamFormationStrategyId) {
+        throw new Error("Complete format, registration, and formation.");
       }
       if (!ruleProfileId || !presentationProfileId) {
-        throw new Error("Choose rule and presentation profiles.");
+        throw new Error("Choose playing rules and display look.");
       }
 
       const res = await apiFetch(`/tournaments/${tournamentId}/competition/configuration`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          competitionTypeId: competitionTypeId || null,
-          variantId: variantId || null,
-          registrationModeId: registrationModeId || null,
-          teamFormationStrategyId: teamFormationStrategyId || null,
-          ruleProfileId: ruleProfileId || null,
+          competitionTypeId,
+          variantId,
+          registrationModeId,
+          teamFormationStrategyId,
+          ruleProfileId,
           ruleProfileVersion: ruleProfileVersion || null,
-          presentationProfileId: presentationProfileId || null,
+          presentationProfileId,
           presentationProfileVersion: presentationProfileVersion || null,
           squadRules: Object.keys(squadPayload).length > 0 ? squadPayload : null,
         }),
@@ -320,7 +501,14 @@ export default function CricketRulesPage() {
 
   const canLock =
     !locked &&
-    Boolean(competitionTypeId && registrationModeId && ruleProfileId && presentationProfileId);
+    Boolean(
+      variantId &&
+        competitionTypeId &&
+        registrationModeId &&
+        teamFormationStrategyId &&
+        ruleProfileId &&
+        presentationProfileId,
+    );
 
   if (!scoringActive && !tournamentLoading) {
     return <CricketScoringSportRedirect tournamentId={tournamentId} />;
@@ -330,7 +518,7 @@ export default function CricketRulesPage() {
     <CricketOrganizerPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Rules & format"
-        subtitle="Competition type, formation, rule profiles — lock once, then apply to matches."
+        subtitle="Set how this cricket tournament plays, then lock and apply to matches."
         tournamentId={tournamentId}
       />
 
@@ -340,7 +528,7 @@ export default function CricketRulesPage() {
           <Skeleton className="h-48 w-full rounded-xl" />
         </div>
       ) : (
-        <div className="space-y-5 max-w-3xl">
+        <div className="space-y-5 max-w-2xl pb-24">
           {error ? (
             <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
               {error}
@@ -353,7 +541,7 @@ export default function CricketRulesPage() {
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">Rules are locked</p>
                 <p className="text-xs text-muted-foreground">
-                  Apply them to existing matches so Start match can use overs, XI, and bench limits.
+                  Apply them to matches so Start match gets overs, XI, and bench limits.
                 </p>
               </div>
             </div>
@@ -362,76 +550,44 @@ export default function CricketRulesPage() {
           <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <Scale className="w-4 h-4 text-primary" />
-              Format & competition
+              1. Format
             </h2>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Variant
-              </p>
-              <CatalogOptionList
-                entries={variants}
-                value={variantId}
-                onSelect={(entry) => {
-                  if (locked) return;
-                  setVariantId(entry.id);
-                  setRuleProfileId("");
-                  setRuleProfileVersion("");
-                  setPresentationProfileId("");
-                  setPresentationProfileVersion("");
-                }}
-              />
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Competition type
-              </p>
-              <CatalogOptionList
-                entries={competitions}
-                value={competitionTypeId}
-                onSelect={(entry) => {
-                  if (locked) return;
-                  setCompetitionTypeId(entry.id);
-                  setRegistrationModeId("");
-                  setTeamFormationStrategyId("");
-                  setRuleProfileId("");
-                  setRuleProfileVersion("");
-                  setPresentationProfileId("");
-                  setPresentationProfileVersion("");
-                }}
-              />
-            </div>
+            <OptionSelect
+              label="Cricket type"
+              value={variantId}
+              options={variantOptions}
+              disabled={locked}
+              placeholder="Choose cricket type"
+              onChange={(id) => setVariantId(id)}
+            />
+            <OptionSelect
+              label="Competition type"
+              value={competitionTypeId}
+              options={competitionOptions}
+              disabled={locked}
+              placeholder="Choose competition type"
+              onChange={(id) => setCompetitionTypeId(id)}
+            />
           </section>
 
           <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold">Formation & squad</h2>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Registration mode
-              </p>
-              <CatalogOptionList
-                entries={registrationModes}
-                value={registrationModeId}
-                onSelect={(entry) => {
-                  if (locked) return;
-                  setRegistrationModeId(entry.id);
-                }}
-                emptyLabel="Select a competition type first."
-              />
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Team formation
-              </p>
-              <CatalogOptionList
-                entries={teamFormationStrategies}
-                value={teamFormationStrategyId}
-                onSelect={(entry) => {
-                  if (locked) return;
-                  setTeamFormationStrategyId(entry.id);
-                }}
-                emptyLabel="Select a competition type first."
-              />
-            </div>
+            <h2 className="text-sm font-semibold">2. Formation & squad</h2>
+            <OptionSelect
+              label="Player registration"
+              value={registrationModeId}
+              options={registrationOptions}
+              disabled={locked}
+              placeholder="Choose registration mode"
+              onChange={(id) => setRegistrationModeId(id)}
+            />
+            <OptionSelect
+              label="Team formation"
+              value={teamFormationStrategyId}
+              options={formationOptions}
+              disabled={locked}
+              placeholder="Choose how teams are formed"
+              onChange={(id) => setTeamFormationStrategyId(id)}
+            />
             <div className="grid grid-cols-2 gap-3">
               {(
                 [
@@ -457,38 +613,32 @@ export default function CricketRulesPage() {
           </section>
 
           <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold">Rule & presentation profiles</h2>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Rule profile
-              </p>
-              <CatalogOptionList
-                entries={ruleProfiles}
-                value={ruleProfileId}
-                onSelect={(entry) => {
-                  if (locked) return;
-                  setRuleProfileId(entry.id);
-                  setRuleProfileVersion(entry.version);
-                }}
-                emptyLabel="Select variant and competition type first."
-              />
+            <h2 className="text-sm font-semibold">3. Playing & display rules</h2>
+            <OptionSelect
+              label="Playing rules"
+              value={ruleProfileId}
+              options={ruleProfileOptions}
+              disabled={locked}
+              placeholder="Choose playing rules"
+              onChange={(id, version) => {
+                setRuleProfileId(id);
+                setRuleProfileVersion(version ?? "");
+              }}
+            />
+            {selectedRuleProfile ? (
               <RuleProfileCatalogPanel profile={selectedRuleProfile} />
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Presentation profile
-              </p>
-              <CatalogOptionList
-                entries={presentationProfiles}
-                value={presentationProfileId}
-                onSelect={(entry) => {
-                  if (locked) return;
-                  setPresentationProfileId(entry.id);
-                  setPresentationProfileVersion(entry.version);
-                }}
-                emptyLabel="Select variant and competition type first."
-              />
-            </div>
+            ) : null}
+            <OptionSelect
+              label="LED / screen look"
+              value={presentationProfileId}
+              options={presentationOptions}
+              disabled={locked}
+              placeholder="Choose display look"
+              onChange={(id, version) => {
+                setPresentationProfileId(id);
+                setPresentationProfileVersion(version ?? "");
+              }}
+            />
           </section>
 
           <div className="flex flex-col sm:flex-row gap-2 sticky bottom-3 z-10">
