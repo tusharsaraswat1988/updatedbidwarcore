@@ -46,6 +46,10 @@ export function cricketSettingsPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/settings`;
 }
 
+export function cricketRulesPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/rules`;
+}
+
 export function cricketOfficialsPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/officials`;
 }
@@ -77,6 +81,7 @@ export function cricketLiveControlPath(tournamentId: number, matchId: number): s
 export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "dashboard",
   "settings",
+  "rules",
   "teams",
   "players",
   "fixtures",

@@ -34,6 +34,7 @@ import {
 } from "../lib/scoring-public-service";
 import { getGlobalCricketLeaderboard } from "../lib/scoring-global-stats-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
+import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
 
 const router = Router();
 
@@ -420,6 +421,31 @@ router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     }
     throw err;
   }
+});
+
+/** Lock Rules & format → ready draws + prepare all cricket matches for Start. */
+router.post("/tournaments/:tournamentId/scoring/rules/apply-to-matches", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const actor =
+    req.jwtUser?.email ||
+    (req.jwtUser?.organizerAccountId != null
+      ? `organizer:${req.jwtUser.organizerAccountId}`
+      : req.jwtUser?.isAdmin
+        ? "admin"
+        : null);
+
+  const result = await applyCricketRulesToMatches(tournamentId, actor);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(result);
 });
 
 router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, res) => {
