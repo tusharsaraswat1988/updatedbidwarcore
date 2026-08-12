@@ -87,6 +87,14 @@ COPY --from=builder /app/artifacts/owner-app/dist/public        ./artifacts/owne
 COPY --from=builder /app/artifacts/scoring-app/dist/public      ./artifacts/scoring-app/dist/public
 COPY --from=builder /app/artifacts/mobile-app/dist/public       ./artifacts/mobile-app/dist/public
 
+# Buzz Studio SSR reads this CSS at module load via import.meta.url relative to
+# artifacts/api-server/dist → /app/artifacts/auction-platform/src/.../top-buy-chrome.css
+# (only runtime FS asset required by @workspace/buzz-studio-render).
+COPY --from=builder \
+  /app/artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css \
+  ./artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css
+RUN test -f /app/artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css
+
 EXPOSE 3000
 
 CMD ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
