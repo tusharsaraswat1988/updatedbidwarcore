@@ -64,10 +64,23 @@ export type CricketMasterPlayerItem = {
 /** End the current active franchise assignment for a master player in a tournament. */
 export { endActiveRosterAssignment, assignPlayerToFranchiseRoster } from "@workspace/player-registry/roster-assignments";
 
-function rosterTypeFromPlayer(player: Player): RosterAssignmentType {
+/**
+ * PTA assignment type for a franchise-assigned auction/Sports player.
+ * Sold/retained keep auction semantics; any other status with a team is a direct assign.
+ */
+export function rosterTypeFromPlayer(
+  player: Pick<Player, "status">,
+): RosterAssignmentType {
   if (player.status === "retained") return "retained";
   if (player.status === "sold") return "auction_sale";
   return "transfer";
+}
+
+/** True when the player belongs on a Sports franchise squad (team assigned, playing). */
+export function isFranchiseRosterEligible(
+  player: Pick<Player, "teamId" | "isNonPlayingMember">,
+): boolean {
+  return player.teamId != null && !player.isNonPlayingMember;
 }
 
 /** Sync one auction player's current team into master roster assignments. */
@@ -76,8 +89,8 @@ export async function syncAuctionPlayerRosterAssignment(
   tournamentId: number,
   assignmentType?: RosterAssignmentType,
 ): Promise<string | null> {
-  if (!auctionPlayer.teamId) return null;
-  if (auctionPlayer.status !== "sold" && auctionPlayer.status !== "retained") {
+  // Unassigned / non-playing: clear any active PTA, then stop.
+  if (!isFranchiseRosterEligible(auctionPlayer) || !auctionPlayer.teamId) {
     const syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId);
     if (syncResult?.masterPlayerId) {
       await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId, "cricket");
@@ -129,7 +142,11 @@ export async function syncAuctionPlayerRosterAssignment(
   return syncResult.masterPlayerId;
 }
 
-/** Full roster sync: all auction teams + sold/retained players → master layer. */
+/**
+ * Full roster sync: all auction/Sports teams + franchise-assigned players → master layer.
+ * Players with a teamId are Sports-ready even without auction sold/retained status
+ * (corporate / manual assign paths).
+ */
 export async function syncCricketRosterFromAuction(tournamentId: number): Promise<{
   teamsSynced: number;
   playersSynced: number;
@@ -157,10 +174,8 @@ export async function syncCricketRosterFromAuction(tournamentId: number): Promis
 
   let playersSynced = 0;
   for (const p of rosterPlayers) {
-    if (p.status === "sold" || p.status === "retained") {
-      const masterId = await syncAuctionPlayerRosterAssignment(p, tournamentId);
-      if (masterId) playersSynced++;
-    }
+    const masterId = await syncAuctionPlayerRosterAssignment(p, tournamentId);
+    if (masterId && isFranchiseRosterEligible(p)) playersSynced++;
   }
 
   await logSync("cricket_roster_sync", "tournament", String(tournamentId), null, null, {

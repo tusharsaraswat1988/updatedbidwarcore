@@ -3063,7 +3063,9 @@ router.post("/tournaments/:tournamentId/auction/handoff-to-sports", async (req, 
       readyForMatches: result.readyForMatches,
       message: result.readyForMatches
         ? `${result.playersReady} players ready across ${result.teamsReady} teams.`
-        : "Teams & players are still incomplete. Finish selling players in Auction, then try again.",
+        : result.playersReady === 0
+          ? "Assign players to at least two franchise teams, then try again."
+          : "Need players on at least two franchise teams before matches can start.",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Handoff failed";
