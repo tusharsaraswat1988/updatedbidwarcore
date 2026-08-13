@@ -4,6 +4,7 @@ import type { IncomingHttpHeaders } from "node:http";
 import {
   isCorsOriginAllowed as checkCorsOrigin,
   mergeDevCorsOrigins,
+  normalizeOrigin,
   parseOriginList,
 } from "@workspace/api-base/dev-cors";
 import {
@@ -84,6 +85,53 @@ function resolvePublicOrigin(
 }
 
 /**
+ * Railway-generated public origin for this production service.
+ *
+ * Once a custom domain is attached, Railway sets RAILWAY_PUBLIC_DOMAIN to that
+ * custom host (bidwar.in) and does not also inject the generated
+ * *.up.railway.app hostname. Direct service access, health checks, and
+ * fallback browsing still hit that generated origin, so it must stay on the
+ * CORS allowlist independently of APP_DOMAIN (which must remain bidwar.in for
+ * cookie apex behavior).
+ */
+const KNOWN_RAILWAY_GENERATED_ORIGINS = [
+  "https://bidwarlive.up.railway.app",
+] as const;
+
+const RAILWAY_PUBLIC_ORIGIN_KEYS = [
+  "RAILWAY_PUBLIC_DOMAIN",
+  "RAILWAY_STATIC_URL",
+  "RAILWAY_PUBLIC_URL",
+] as const;
+
+function isDisallowedCorsHostname(host: string): boolean {
+  const h = host.toLowerCase();
+  return (
+    h === "localhost"
+    || h === "127.0.0.1"
+    || h === "0.0.0.0"
+    || h.endsWith(".localhost")
+    || h.endsWith(".railway.internal")
+    || h.endsWith(".rlwy.net")
+  );
+}
+
+/** Parse a hostname or absolute URL into a canonical origin, or null if unusable. */
+function originFromHostOrUrl(raw: string | undefined): string | null {
+  const normalized = raw ? normalizeOrigin(raw) : "";
+  if (!normalized) return null;
+  try {
+    const url = new URL(
+      normalized.includes("://") ? normalized : `https://${normalized}`,
+    );
+    if (!url.hostname || isDisallowedCorsHostname(url.hostname)) return null;
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Platform-injected public origins (Railway / Render) for CORS.
  * Does not replace APP_DOMAIN / CORS_ORIGINS — merged as extras.
  */
@@ -92,30 +140,22 @@ function resolvePlatformPublicOrigins(
 ): string[] {
   const origins: string[] = [];
 
-  const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
-  if (
-    railwayDomain &&
-    !railwayDomain.includes("://") &&
-    !railwayDomain.includes("/")
-  ) {
-    origins.push(`https://${railwayDomain}`);
+  for (const key of RAILWAY_PUBLIC_ORIGIN_KEYS) {
+    const origin = originFromHostOrUrl(env[key]);
+    if (origin) origins.push(origin);
   }
 
-  for (const key of ["RAILWAY_STATIC_URL", "RAILWAY_PUBLIC_URL"] as const) {
-    const raw = env[key]?.trim();
-    if (!raw) continue;
-    try {
-      const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
-      if (url.hostname) {
-        origins.push(`${url.protocol}//${url.host}`.replace(/\/+$/, ""));
-      }
-    } catch {
-      /* ignore malformed */
-    }
+  for (const [key, value] of Object.entries(env)) {
+    if (!key.startsWith("RAILWAY_") || !value) continue;
+    if (!value.toLowerCase().includes("up.railway.app")) continue;
+    const origin = originFromHostOrUrl(value);
+    if (origin) origins.push(origin);
   }
+
+  origins.push(...KNOWN_RAILWAY_GENERATED_ORIGINS);
 
   const renderOrigin = resolveRenderExternalOrigin(env);
-  if (renderOrigin) origins.push(renderOrigin);
+  if (renderOrigin) origins.push(normalizeOrigin(renderOrigin));
 
   return origins;
 }
@@ -126,7 +166,7 @@ function buildCorsOrigins(
   isProduction: boolean,
 ): string[] {
   const explicit = parseOriginList(process.env.CORS_ORIGINS);
-  const fromHosts = hosts.map((h) => `${scheme}://${h}`);
+  const fromHosts = hosts.map((h) => normalizeOrigin(`${scheme}://${h}`));
   // Development: loopback origins on any port are allowed via isCorsOriginAllowed().
   // EXTRA_CORS_ORIGINS adds non-loopback dev hosts (LAN, tunnels).
   const devExtras = isProduction
@@ -134,12 +174,11 @@ function buildCorsOrigins(
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
   const platformOrigins = resolvePlatformPublicOrigins();
   return [
-    ...new Set([
-      ...explicit,
-      ...fromHosts,
-      ...devExtras,
-      ...platformOrigins,
-    ]),
+    ...new Set(
+      [...explicit, ...fromHosts, ...devExtras, ...platformOrigins]
+        .map((origin) => normalizeOrigin(origin))
+        .filter(Boolean),
+    ),
   ];
 }
 

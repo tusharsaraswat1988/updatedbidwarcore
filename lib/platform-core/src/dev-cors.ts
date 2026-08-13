@@ -9,8 +9,17 @@
 const DEV_LOOPBACK_ORIGIN =
   /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/;
 
+/** Trim, strip trailing slashes, and lowercase scheme/host so allowlist matches are stable. */
 export function normalizeOrigin(origin: string): string {
-  return origin.trim().replace(/\/+$/, "");
+  const trimmed = origin.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  try {
+    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    if (!url.hostname) return trimmed;
+    return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}`;
+  } catch {
+    return trimmed;
+  }
 }
 
 /** True for http loopback origins with any TCP port (development only). */
