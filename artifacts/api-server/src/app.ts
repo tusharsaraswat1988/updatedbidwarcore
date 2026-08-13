@@ -14,8 +14,8 @@ import { organizerAccountStatusMiddleware } from "./middleware/organizer-account
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
 import {
   assertServeStaticBuild,
+  corsOriginDelegate,
   getRuntimeConfig,
-  isCorsOriginAllowed,
 } from "./lib/runtime-env";
 import { getPageMeta } from "./lib/page-meta.js";
 import { isCricketPublicPath, resolveCricketPageMeta } from "./lib/cricket-page-meta.js";
@@ -170,10 +170,7 @@ app.use(
 
 app.use(
   cors({
-    origin(origin, callback) {
-      if (isCorsOriginAllowed(origin)) return callback(null, true);
-      callback(new Error(`CORS: origin not allowed: ${origin}`));
-    },
+    origin: corsOriginDelegate,
     credentials: true,
   }),
 );

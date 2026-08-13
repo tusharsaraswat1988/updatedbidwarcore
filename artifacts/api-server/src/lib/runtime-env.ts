@@ -85,16 +85,20 @@ function resolvePublicOrigin(
 }
 
 /**
- * Railway-generated public origin for this production service.
+ * Production site origins that must always be allowed when BIDWAR_ENV=production.
  *
- * Once a custom domain is attached, Railway sets RAILWAY_PUBLIC_DOMAIN to that
- * custom host (bidwar.in) and does not also inject the generated
- * *.up.railway.app hostname. Direct service access, health checks, and
- * fallback browsing still hit that generated origin, so it must stay on the
- * CORS allowlist independently of APP_DOMAIN (which must remain bidwar.in for
- * cookie apex behavior).
+ * These are independent of APP_DOMAIN / RAILWAY_PUBLIC_DOMAIN:
+ * - APP_DOMAIN stays bidwar.in (cookie apex) and may omit www.
+ * - After a custom domain is attached, Railway sets RAILWAY_PUBLIC_DOMAIN to
+ *   bidwar.in and no longer injects the generated *.up.railway.app host.
+ * Direct Railway access, health checks, and fallback browsing still use
+ * https://bidwarlive.up.railway.app, so it remains on this production list.
+ *
+ * Development and staging do not receive this list.
  */
-const KNOWN_RAILWAY_GENERATED_ORIGINS = [
+const PRODUCTION_SITE_ORIGINS = [
+  "https://bidwar.in",
+  "https://www.bidwar.in",
   "https://bidwarlive.up.railway.app",
 ] as const;
 
@@ -152,8 +156,6 @@ function resolvePlatformPublicOrigins(
     if (origin) origins.push(origin);
   }
 
-  origins.push(...KNOWN_RAILWAY_GENERATED_ORIGINS);
-
   const renderOrigin = resolveRenderExternalOrigin(env);
   if (renderOrigin) origins.push(normalizeOrigin(renderOrigin));
 
@@ -164,6 +166,7 @@ function buildCorsOrigins(
   hosts: string[],
   scheme: "http" | "https",
   isProduction: boolean,
+  bidwarEnv: string,
 ): string[] {
   const explicit = parseOriginList(process.env.CORS_ORIGINS);
   const fromHosts = hosts.map((h) => normalizeOrigin(`${scheme}://${h}`));
@@ -173,9 +176,17 @@ function buildCorsOrigins(
     ? []
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
   const platformOrigins = resolvePlatformPublicOrigins();
+  const productionSiteOrigins =
+    bidwarEnv === "production" ? [...PRODUCTION_SITE_ORIGINS] : [];
   return [
     ...new Set(
-      [...explicit, ...fromHosts, ...devExtras, ...platformOrigins]
+      [
+        ...explicit,
+        ...fromHosts,
+        ...devExtras,
+        ...platformOrigins,
+        ...productionSiteOrigins,
+      ]
         .map((origin) => normalizeOrigin(origin))
         .filter(Boolean),
     ),
@@ -185,6 +196,7 @@ function buildCorsOrigins(
 function buildCachedConfig(): RuntimeConfig {
   const nodeEnv = process.env.NODE_ENV!.trim();
   const isProduction = nodeEnv === "production";
+  const bidwarEnv = process.env.BIDWAR_ENV!.trim().toLowerCase();
 
   const port = Number(process.env.PORT!.trim());
   const databaseUrl =
@@ -238,7 +250,12 @@ function buildCachedConfig(): RuntimeConfig {
     canonicalHost,
     publicScheme,
     publicOrigin,
-    corsOrigins: buildCorsOrigins(appHosts, publicScheme, isProduction),
+    corsOrigins: buildCorsOrigins(
+      appHosts,
+      publicScheme,
+      isProduction,
+      bidwarEnv,
+    ),
     serveStatic,
     redisUrl: process.env.REDIS_URL?.trim() || undefined,
   };
@@ -380,6 +397,12 @@ export function assertRuntimeEnv(): RuntimeConfig {
 
   cached = buildCachedConfig();
 
+  if (!process.env.VITEST) {
+    console.info(
+      `[bidwar] CORS allowlist (${cached.corsOrigins.length}): ${cached.corsOrigins.join(", ")}`,
+    );
+  }
+
   if (cached.isProduction && !cached.publicOrigin.startsWith("https://")) {
     console.error(
       `[bidwar] Production public origin must be https (got: ${cached.publicOrigin}). ` +
@@ -471,6 +494,21 @@ export function getCorsOrigins(): string[] {
 export function isCorsOriginAllowed(origin: string | undefined): boolean {
   const { corsOrigins, isProduction } = getRuntimeConfig();
   return checkCorsOrigin(origin, corsOrigins, { isProduction });
+}
+
+/**
+ * Express `cors` origin delegate — single allowlist used by REST, SSE, and static.
+ * Reflects the request origin when allowed; never uses a wildcard.
+ */
+export function corsOriginDelegate(
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void,
+): void {
+  if (isCorsOriginAllowed(origin)) {
+    callback(null, true);
+    return;
+  }
+  callback(new Error(`CORS: origin not allowed: ${origin}`));
 }
 
 export function getSessionSecret(): string {
