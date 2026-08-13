@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isCorsOriginAllowed,
   isDevLocalhostOrigin,
+  normalizeOrigin,
 } from "@workspace/api-base/dev-cors";
 
 describe("isDevLocalhostOrigin", () => {
@@ -41,5 +42,33 @@ describe("isCorsOriginAllowed", () => {
         isProduction: true,
       }),
     ).toBe(true);
+  });
+
+  it("treats trailing slashes, whitespace, and host case as the same origin", () => {
+    expect(
+      isCorsOriginAllowed("https://bidwar.in/", allowlist, {
+        isProduction: true,
+      }),
+    ).toBe(true);
+    expect(
+      isCorsOriginAllowed(" https://BIDWAR.IN ", allowlist, {
+        isProduction: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows requests with no Origin header", () => {
+    expect(
+      isCorsOriginAllowed(undefined, allowlist, { isProduction: true }),
+    ).toBe(true);
+  });
+});
+
+describe("normalizeOrigin", () => {
+  it("strips whitespace and trailing slashes and lowercases the host", () => {
+    expect(normalizeOrigin(" https://BidWar.in/ ")).toBe("https://bidwar.in");
+    expect(normalizeOrigin("http://localhost:3000/")).toBe(
+      "http://localhost:3000",
+    );
   });
 });

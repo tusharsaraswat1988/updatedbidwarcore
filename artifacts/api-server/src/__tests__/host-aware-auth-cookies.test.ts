@@ -26,6 +26,7 @@ const ENV_KEYS = [
   "APP_PUBLIC_SCHEME",
   "APP_URL",
   "CORS_ORIGINS",
+  "EXTRA_CORS_ORIGINS",
   "COOKIE_DOMAIN",
   "SERVE_STATIC",
   "RAILWAY_PUBLIC_DOMAIN",
@@ -215,5 +216,7 @@ describe("host-aware auth cookies + platform CORS", () => {
     expect(origins).not.toContain(
       "https://updatedbidwarcore-production.up.railway.app",
     );
+    expect(origins).toContain("https://bidwarlive.up.railway.app");
+    expect(isCorsOriginAllowed("https://bidwarlive.up.railway.app")).toBe(true);
   });
 });
