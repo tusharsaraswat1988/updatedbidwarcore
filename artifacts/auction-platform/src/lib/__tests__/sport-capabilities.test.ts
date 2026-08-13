@@ -60,10 +60,16 @@ describe("sport-capabilities", () => {
   it("cricket live ops links exclude badminton-only destinations", () => {
     const caps = getSportCapabilities("cricket");
     const ids = caps.liveOpsLinks.map((l) => l.id);
+    assert.ok(ids.includes("live_control"));
     assert.ok(ids.includes("dashboard"));
     assert.ok(ids.includes("match_center"));
     assert.ok(ids.includes("broadcast"));
     assert.equal(ids.includes("mission_control"), false);
+    const liveControl = caps.liveOpsLinks.find((l) => l.id === "live_control");
+    assert.match(
+      liveControl?.buildHref({ tournamentId: 3, encodedReturnTo: "" }) ?? "",
+      /\/score\/live-control/,
+    );
     const broadcast = caps.liveOpsLinks.find((l) => l.id === "broadcast");
     assert.match(broadcast?.buildHref({ tournamentId: 3, encodedReturnTo: "" }) ?? "", /\/cricket\/obs\/live$/);
     assert.doesNotMatch(broadcast?.buildHref({ tournamentId: 3, encodedReturnTo: "" }) ?? "", /\/obs$/);

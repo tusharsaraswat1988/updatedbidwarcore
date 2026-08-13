@@ -16,6 +16,7 @@ import {
 import {
   cricketDashboardPath,
   cricketFixturesPath,
+  cricketLiveControlPath,
   cricketRulesPath,
   cricketScheduleOpsPath,
   cricketScoreHubPath,
@@ -34,6 +35,13 @@ export {
 } from "@workspace/platform-core";
 
 const CRICKET_LIVE_OPS: SportLiveOpsLink[] = [
+  {
+    id: "live_control",
+    title: "Live Control",
+    description: "Scoreboard, OBS, and match queues. Scoring stays on Scorer.",
+    buildHref: ({ tournamentId, encodedReturnTo }) =>
+      `${cricketLiveControlPath(tournamentId)}?from=${encodedReturnTo}`,
+  },
   {
     id: "dashboard",
     title: "Cricket Dashboard",
@@ -115,7 +123,7 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
       ...core,
       liveOpsLinks: filterLiveOpsLinks(CRICKET_LIVE_OPS, core),
       liveOpsPeekLines: [
-        "Cricket dashboard & matches",
+        "Live Control",
         "LED display",
         "Cricket OBS",
       ],
@@ -126,7 +134,7 @@ function withLiveOps(core: SportCapabilityFlags): SportCapabilities {
         // Players step also lands on Teams first; Players is a sibling nav item
         fixtures: cricketFixturesPath,
         schedule: cricketScheduleOpsPath,
-        scoring: cricketScoreHubPath,
+        scoring: cricketLiveControlPath,
       },
     };
   }

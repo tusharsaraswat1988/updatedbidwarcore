@@ -118,7 +118,7 @@ export default function CricketOfficialsPage() {
         tournamentId={tournamentId}
         eyebrow="Cricket Operations"
         title="Officials"
-        subtitle="Umpires, scorers, and match referees"
+        subtitle="Roster of umpires, scorers, and referees. Scorer PIN login (like badminton) ships next."
       />
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-10 space-y-8">

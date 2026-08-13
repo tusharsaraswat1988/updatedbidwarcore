@@ -2,7 +2,8 @@
  * Corporate Match Center — single operational page for one match.
  * Route: /tournament/:id/score/:matchId
  *
- * Live Control (scorer) remains at /tournament/:id/score/:matchId/live
+ * Scorer pad remains at /tournament/:id/score/:matchId/live
+ * Organizer Live Control is /tournament/:id/score/live-control
  * Reuses: MatchSummaryCard, ScorecardView, ShareButtons, scoring APIs.
  */
 import { useMemo } from "react";
@@ -48,6 +49,7 @@ import {
   cricketDashboardPath,
   cricketLiveControlPath,
   cricketScoreHubPath,
+  cricketScorerPath,
 } from "@/lib/cricket-routes";
 import {
   cricketMatchPublicPath,
@@ -69,6 +71,7 @@ import {
   Radio,
   Trophy,
   Tv,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -174,7 +177,8 @@ export default function CricketMatchCenterPage() {
       ? `${window.location.origin}${cricketMatchPublicPath(tournamentId, matchId)}`
       : cricketMatchPublicPath(tournamentId, matchId);
 
-  const liveHref = cricketLiveControlPath(tournamentId, matchId);
+  const scorerHref = cricketScorerPath(tournamentId, matchId);
+  const liveControlHref = cricketLiveControlPath(tournamentId);
 
   if (tournament?.sport === "badminton") {
     return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
@@ -233,10 +237,14 @@ export default function CricketMatchCenterPage() {
         badge={isLive ? "LIVE" : undefined}
         actions={
           <div className="flex flex-wrap gap-2">
-            <BtnPrimary href={liveHref} className={btnCompactClass}>
+            <BtnPrimary href={scorerHref} className={btnCompactClass}>
               <Radio className="w-4 h-4" />
-              Open Live Control
+              Open Scorer
             </BtnPrimary>
+            <BtnSecondary href={liveControlHref} className={btnCompactClass}>
+              <Tv className="w-4 h-4" />
+              Live Control
+            </BtnSecondary>
             <BtnSecondary
               className={btnCompactClass}
               onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
@@ -328,7 +336,8 @@ export default function CricketMatchCenterPage() {
         <section>
           <HubSectionHeader title="Quick actions" subtitle="Everything you need for this match" />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-3">
-            <ActionLink href={liveHref} label="Live Control" icon={Radio} primary />
+            <ActionLink href={scorerHref} label="Open Scorer" icon={Radio} primary />
+            <ActionLink href={liveControlHref} label="Live Control" icon={Tv} />
             <ActionLink
               href={scoreDisplayPath(tournamentId, tournament?.auctionCode)}
               label="LED / Scoreboard"
@@ -407,7 +416,7 @@ export default function CricketMatchCenterPage() {
           <HubSectionHeader title="Timeline" subtitle="From existing match state and scorecard" />
           {timeline.length === 0 ? (
             <p className="text-sm text-muted-foreground mt-3">
-              Timeline fills as toss, XI, and balls are recorded in Live Control.
+              Timeline fills as toss, XI, and balls are recorded on Scorer.
             </p>
           ) : (
             <ol className="mt-3 space-y-2 border-l border-border ml-2 pl-4">
@@ -638,7 +647,7 @@ function ActionLink({
 }: {
   href: string;
   label: string;
-  icon: typeof Radio;
+  icon: LucideIcon;
   external?: boolean;
   primary?: boolean;
 }) {
