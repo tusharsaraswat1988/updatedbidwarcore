@@ -299,7 +299,7 @@ export default function ScoringMatchPage() {
 
   const matchTitle =
     data?.match.status === "live"
-      ? "Live Control"
+      ? "Scorer"
       : data?.match.status === "completed"
         ? "Match result"
         : "Match setup";
@@ -355,7 +355,7 @@ export default function ScoringMatchPage() {
     <CricketOrganizerPageShell tournamentId={tournamentId}>
       <PageHeader
         tournamentId={tournamentId}
-        eyebrow="Live Control"
+        eyebrow="Scorer"
         title={matchTitle}
         subtitle={subtitle ?? tournament?.name}
         badge={data?.match.status === "live" ? "LIVE" : undefined}

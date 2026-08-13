@@ -57,6 +57,7 @@ import {
 import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath, openScoreDisplay, scoringSchedulePath, auctionRoomPath } from "@/lib/tournament-navigation";
+import { cricketLiveControlPath } from "@/lib/cricket-routes";
 import { CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
 import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { cn } from "@/lib/utils";
@@ -216,6 +217,10 @@ export default function ScoringMatchListPage() {
 
   const pageActions = (
     <div className="flex flex-wrap items-center gap-2">
+      <BtnSecondary href={cricketLiveControlPath(tournamentId)} className={btnCompactClass}>
+        <Monitor className="w-4 h-4" />
+        Live Control
+      </BtnSecondary>
       <BtnSecondary
         className={btnCompactClass}
         disabled={!scoringActive}

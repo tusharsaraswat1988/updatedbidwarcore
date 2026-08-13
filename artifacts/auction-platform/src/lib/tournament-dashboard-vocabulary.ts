@@ -191,6 +191,13 @@ const CRICKET_VOCAB: SportOrganiserVocabulary = {
     schedule: "Schedule",
     matches: "Match Setup",
   },
+  ready: {
+    title: "Your tournament is ready",
+    description: "Open Live Control for scoreboard and OBS. Umpires score on Scorer.",
+    ctaLabel: "Open Live Control",
+  },
+  openScoringLabel: "Open Live Control",
+  liveOpsFallbackTitle: "Live Control",
 };
 
 export function getSportOrganiserVocabulary(

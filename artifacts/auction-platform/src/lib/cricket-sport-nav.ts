@@ -3,6 +3,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   ListOrdered,
+  Monitor,
   Radio,
   Scale,
   Settings,
@@ -16,6 +17,7 @@ import {
   cricketAwardsPath,
   cricketDashboardPath,
   cricketFixturesPath,
+  cricketLiveControlPath,
   cricketOfficialsPath,
   cricketPlayersPath,
   cricketReportsPath,
@@ -44,6 +46,7 @@ function isMatchesListPath(path: string, tournamentId: number): boolean {
   const pathname = navPathname(path);
   const base = cricketScoreHubPath(tournamentId);
   if (pathname === base || pathname === `${base}/`) return true;
+  if (scoreSection(path, "live-control")) return false;
   return new RegExp(`^${base}/\\d+(/live)?/?$`).test(pathname);
 }
 
@@ -67,6 +70,7 @@ const PRELOAD: Record<string, () => Promise<unknown>> = {
   players: () => import("../pages/cricket/players"),
   matches: () => import("../pages/scoring-match-list"),
   matchCenter: () => import("../pages/cricket/match-center"),
+  liveControl: () => import("../pages/cricket/live-control"),
   schedule: () => import("../pages/scoring-schedule"),
   fixtures: () => import("../pages/cricket/fixtures"),
   standings: () => import("../pages/cricket/standings"),
@@ -174,6 +178,14 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
       preloadNav("matches");
       preloadNav("matchCenter");
     },
+  },
+  {
+    id: "live-control",
+    label: "Live Control",
+    href: cricketLiveControlPath,
+    isActive: (path) => scoreSection(path, "live-control"),
+    icon: Monitor,
+    preload: () => preloadNav("liveControl"),
   },
   {
     id: "standings",

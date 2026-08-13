@@ -72,8 +72,13 @@ export function cricketMatchOpsPath(tournamentId: number, matchId: number): stri
   return cricketMatchCenterPath(tournamentId, matchId);
 }
 
-/** Live Control (scorer pad) — launched from Match Center. */
-export function cricketLiveControlPath(tournamentId: number, matchId: number): string {
+/** Organizer Live Control — scoreboard, OBS, match queues. Not the scoring pad. */
+export function cricketLiveControlPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/live-control`;
+}
+
+/** Scorer pad (umpire / assigned scorer). URL kept as /live for existing bookmarks. */
+export function cricketScorerPath(tournamentId: number, matchId: number): string {
   return `${cricketMatchCenterPath(tournamentId, matchId)}/live`;
 }
 
@@ -91,6 +96,7 @@ export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "officials",
   "awards",
   "reports",
+  "live-control",
 ]);
 
 export const CRICKET_ROUTE_LOADING_CLASS = "min-h-screen bg-background";
