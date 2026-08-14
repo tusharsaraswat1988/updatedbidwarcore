@@ -42,13 +42,13 @@ export async function emitAuctionStateEvent(
     ? invalidate.filter((key) => key !== "purses")
     : invalidate;
 
-  await publishAuctionEvent(tournamentId, {
+  const envelope = await publishAuctionEvent(tournamentId, {
     type: "auction_state",
     state: compactAuctionStateForSse(state),
     invalidate: sseInvalidate,
   });
 
-  return state;
+  return { ...state, eventVersion: envelope.version };
 }
 
 export async function emitBidEvent(

@@ -32,6 +32,13 @@ import {
   type SoldDeltaFields,
 } from "../lib/auction-broadcast";
 import {
+  applyRememberedLedOverlayPatch,
+  ledOverlaySessionPatch,
+  overlayModeFromPresentationContext,
+  rememberLedOverlayPatch,
+  type LedOverlaySessionPatch,
+} from "../lib/led-overlay-patch";
+import {
   EVENT_BUFFER_MAX,
   formatSseFrame,
   getCurrentEventVersion,
@@ -1008,8 +1015,34 @@ async function getCachedOrBuildState(tournamentId: number): Promise<AuctionState
     );
   }
 
+  applyRememberedLedOverlayPatch(tournamentId, data as Record<string, unknown>);
   _stateCache.set(tournamentId, { data, cachedAt: Date.now() });
   return data;
+}
+
+function peekAuctionStateCache(tournamentId: number): AuctionState | null {
+  return _stateCache.get(tournamentId)?.data ?? null;
+}
+
+function writeAuctionStateCache(tournamentId: number, data: AuctionState): void {
+  _stateCache.set(tournamentId, { data, cachedAt: Date.now() });
+}
+
+/** Patch LED overlay onto cached state and emit immediately — skip a full rebuild. */
+async function broadcastLedOverlayPatch(
+  tournamentId: number,
+  patch: LedOverlaySessionPatch,
+  extra?: Record<string, unknown>,
+): Promise<AuctionState> {
+  rememberLedOverlayPatch(tournamentId, patch);
+  const cached = peekAuctionStateCache(tournamentId);
+  const state = Object.assign(
+    cached ?? (await getCachedOrBuildState(tournamentId)),
+    patch,
+    extra ?? {},
+  ) as AuctionState;
+  writeAuctionStateCache(tournamentId, state);
+  return emitAuctionStateEvent(tournamentId, state, []);
 }
 
 // Log cache hit rate every 5 minutes
@@ -2740,7 +2773,7 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
-// POST set LED display overlay mode (off | team | player | top5)
+// POST set LED display overlay mode (off | team | player | top5 | banner)
 router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -2748,26 +2781,12 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
   const body = z.object({ mode: z.enum(["off", "team", "player", "top5", "banner"]) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
-  const overlay = body.data.mode === "off" ? null : body.data.mode;
+  const overlayPatch = ledOverlaySessionPatch(body.data.mode);
   await db
     .update(auctionSessionsTable)
-    .set({
-      displayOverlay: overlay,
-      teamPurseViewActive: overlay !== null,
-      fortuneWheelActive: false,
-      wheelSpinning: false,
-    })
+    .set(overlayPatch)
     .where(eq(auctionSessionsTable.tournamentId, tid));
-  invalidateStateCache(tid);
-  const state = await getCachedOrBuildState(tid);
-  Object.assign(state, {
-    displayOverlay: overlay,
-    teamPurseViewActive: overlay !== null,
-    fortuneWheelActive: false,
-    wheelSpinning: false,
-  });
-  await emitAuctionStateEvent(tid, state, []);
-  res.json(state);
+  res.json(await broadcastLedOverlayPatch(tid, overlayPatch));
 });
 
 // POST set explicit on-air presentation context (OBS / future displays)
@@ -2810,11 +2829,15 @@ router.post("/tournaments/:tournamentId/auction/presentation-context", async (re
     selectedTeamId:
       body.data.selectedTeamId !== undefined ? body.data.selectedTeamId : current.selectedTeamId,
   };
+  const overlayPatch = ledOverlaySessionPatch(overlayModeFromPresentationContext(next.context));
   await db
     .update(auctionSessionsTable)
-    .set({ obsContextJson: JSON.stringify(next) })
+    .set({
+      obsContextJson: JSON.stringify(next),
+      ...overlayPatch,
+    })
     .where(eq(auctionSessionsTable.tournamentId, tid));
-  res.json(await broadcastState(tid));
+  res.json(await broadcastLedOverlayPatch(tid, overlayPatch, { presentationContext: next }));
 });
 
 // POST set Player View filter (status/category/team) shown on LED display

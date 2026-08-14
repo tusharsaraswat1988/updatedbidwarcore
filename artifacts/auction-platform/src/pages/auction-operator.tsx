@@ -313,6 +313,7 @@ export default function AuctionOperator() {
   const [playerFilterStatusPicked, setPlayerFilterStatusPicked] = useState(false);
   const [playerFilterTeamPicked, setPlayerFilterTeamPicked] = useState(false);
   const playerFilterContainerRef = useRef<HTMLDivElement>(null);
+  const ledOverlayEpochRef = useRef(0);
   // Per-team bid debounce
   const bidDebounce = useRef<Map<number, number>>(new Map());
   /** Local bid gate — never rely solely on placeBid.isPending (can stick if fetch hangs). */
@@ -450,11 +451,25 @@ export default function AuctionOperator() {
   }
 
   async function handleLedOverlay(mode: "off" | "team" | "player" | "top5" | "banner") {
-    if (operatorReadOnly || setDisplayOverlay.isPending) return;
+    if (operatorReadOnly) return;
+    const epoch = ++ledOverlayEpochRef.current;
+    const overlay = mode === "off" ? null : mode;
+    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), (prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        displayOverlay: overlay,
+        teamPurseViewActive: overlay !== null,
+        fortuneWheelActive: false,
+        wheelSpinning: false,
+      };
+    });
     try {
       const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode } });
+      if (epoch !== ledOverlayEpochRef.current) return;
       applyMutationResult(result);
     } catch (err: unknown) {
+      if (epoch !== ledOverlayEpochRef.current) return;
       toast({
         title: "LED screen did not change",
         description: err instanceof Error ? err.message : "Could not switch the display. Try again.",
@@ -482,7 +497,7 @@ export default function AuctionOperator() {
   }
 
   async function handlePlayerFilterStatus(opt: typeof playerFilterStatus) {
-    if (operatorReadOnly || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
+    if (operatorReadOnly || setDisplayPlayerFilterMut.isPending) return;
     setPlayerFilterStatus(opt);
     setPlayerFilterStatusPicked(true);
 
@@ -504,7 +519,7 @@ export default function AuctionOperator() {
   }
 
   async function handlePlayerFilterTeam(teamId: number | null) {
-    if (operatorReadOnly || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
+    if (operatorReadOnly || setDisplayPlayerFilterMut.isPending) return;
     setPlayerFilterTeamId(teamId);
     setPlayerFilterTeamPicked(true);
     if (playerFilterStatusPicked || playerLedActive) {
@@ -1807,7 +1822,7 @@ export default function AuctionOperator() {
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/30 pr-1.5 border-r border-white/10 mr-0.5 leading-tight">LED<br/>SCREEN</span>
             <button
               onClick={() => { void handleLedOverlay("off"); }}
-              disabled={operatorReadOnly || setDisplayOverlay.isPending}
+              disabled={operatorReadOnly}
               className={`flex items-center gap-1.5 h-7 px-3 rounded text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                 !state?.displayOverlay
                   ? "bg-green-600 text-white shadow-md ring-1 ring-white/20"
@@ -1826,7 +1841,7 @@ export default function AuctionOperator() {
                       title={
                         active
                           ? "Player view active — click to filter"
-                          : "Choose a status and team — then the list appears on the LED screen"
+                          : "Show the player list on the LED screen"
                       }
                       onClick={() => {
                         if (operatorReadOnly) return;
@@ -1834,10 +1849,11 @@ export default function AuctionOperator() {
                         if (opening && !active) {
                           setPlayerFilterStatusPicked(false);
                           setPlayerFilterTeamPicked(false);
+                          void handleLedOverlay("player");
                         }
                         setPlayerFilterOpen(opening);
                       }}
-                      disabled={operatorReadOnly || setDisplayOverlay.isPending}
+                      disabled={operatorReadOnly}
                       className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                         active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
                       }`}
@@ -1916,7 +1932,7 @@ export default function AuctionOperator() {
                 <button key={mode}
                   title={active ? `Showing ${label} on LED — click to return to live` : `Show ${label} on LED screen`}
                   onClick={() => { void handleLedOverlay(active ? "off" : mode); }}
-                  disabled={operatorReadOnly || setDisplayOverlay.isPending}
+                  disabled={operatorReadOnly}
                   className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                     active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
                   }`}
@@ -2285,7 +2301,7 @@ export default function AuctionOperator() {
                           const nextMode = mode === "off" ? "off" : active ? "off" : mode;
                           void handleLedOverlay(nextMode);
                         }}
-                        disabled={operatorReadOnly || setDisplayOverlay.isPending}
+                        disabled={operatorReadOnly}
                         className={`flex flex-col items-center justify-center gap-1 min-h-[48px] py-2 rounded-lg border font-bold text-[11px] transition-colors disabled:opacity-40 ${
                           active
                             ? "bg-green-600/20 border-green-500/50 text-green-400"

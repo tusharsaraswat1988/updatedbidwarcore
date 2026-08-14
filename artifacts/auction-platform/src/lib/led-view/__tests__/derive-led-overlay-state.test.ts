@@ -19,6 +19,12 @@ describe("derivedStateFromOverlayKey", () => {
   it("returns null when overlay is off", () => {
     expect(derivedStateFromOverlayKey(null, false)).toBeNull();
   });
+
+  it("keeps Team / Banner / Player distinct from Top 5", () => {
+    expect(derivedStateFromOverlayKey("team", true)).toBe("teamWise");
+    expect(derivedStateFromOverlayKey("banner", true)).toBe("banner");
+    expect(derivedStateFromOverlayKey("player", true)).toBe("playerWise");
+  });
 });
 
 describe("applyBreakTimingToDerivedState", () => {

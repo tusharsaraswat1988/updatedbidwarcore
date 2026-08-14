@@ -1594,7 +1594,15 @@ export function createAuctionRouter(db: LocalDb) {
       fortuneWheelActive: false,
       wheelSpinning: false,
     }).where(eq(auctionSessionsTable.tournamentId, tid));
-    res.json(await broadcastState(tid));
+    const state = await buildAuctionState(tid);
+    Object.assign(state, {
+      displayOverlay: overlay,
+      teamPurseViewActive: overlay !== null,
+      fortuneWheelActive: false,
+      wheelSpinning: false,
+    });
+    broadcastToTournament(tid, { type: "auction_state", state, invalidate: [] });
+    res.json(state);
   });
 
   router.post("/tournaments/:tournamentId/auction/presentation-context", async (req, res) => {
@@ -1640,8 +1648,21 @@ export function createAuctionRouter(db: LocalDb) {
     };
     await db.update(auctionSessionsTable).set({
       obsContextJson: JSON.stringify(next),
+      displayOverlay: next.context === "auction" ? null : next.context,
+      teamPurseViewActive: next.context !== "auction",
+      fortuneWheelActive: false,
+      wheelSpinning: false,
     }).where(eq(auctionSessionsTable.tournamentId, tid));
-    res.json(await broadcastState(tid));
+    const state = await buildAuctionState(tid);
+    Object.assign(state, {
+      displayOverlay: next.context === "auction" ? null : next.context,
+      teamPurseViewActive: next.context !== "auction",
+      fortuneWheelActive: false,
+      wheelSpinning: false,
+      presentationContext: next,
+    });
+    broadcastToTournament(tid, { type: "auction_state", state, invalidate: [] });
+    res.json(state);
   });
 
   // POST set Player View filter shown on LED display
