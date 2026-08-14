@@ -34,9 +34,12 @@ export function drawPdfPageWatermark(
       width: maxWidth,
     });
   } else {
-    doc.rotate(-25, { origin: [w / 2, h / 2] });
-    doc.fillColor("#000000", branding.watermarkOpacity).font("Helvetica-Bold").fontSize(120)
-      .text(branding.watermarkText, 0, h / 2 - 60, { width: w, align: "center" });
+    const label = branding.watermarkText || "BidWar";
+    doc.translate(w / 2, h / 2);
+    doc.rotate(-25);
+    doc.fillColor("#000000", branding.watermarkOpacity).font("Helvetica-Bold").fontSize(64);
+    const tw = doc.widthOfString(label);
+    doc.text(label, -tw / 2, -24, { lineBreak: false });
   }
 
   doc.opacity(1);

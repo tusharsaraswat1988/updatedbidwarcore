@@ -44,6 +44,7 @@ router.get("/tournaments/:tournamentId/auction-rules.pdf", async (req: Request, 
       minBid: categoriesTable.minBid,
       bidIncrement: categoriesTable.bidIncrement,
       bidTiers: categoriesTable.bidTiers,
+      maxPlayers: categoriesTable.maxPlayers,
     })
     .from(categoriesTable)
     .where(eq(categoriesTable.tournamentId, tid))
@@ -52,6 +53,7 @@ router.get("/tournaments/:tournamentId/auction-rules.pdf", async (req: Request, 
   const model = buildAuctionRulesPdfDocumentModel({
     name: tournament.name,
     sport: tournament.sport,
+    organizerName: tournament.organizerName,
     city: tournament.city,
     venue: tournament.venue,
     auctionDate: tournament.auctionDate,
@@ -60,6 +62,7 @@ router.get("/tournaments/:tournamentId/auction-rules.pdf", async (req: Request, 
     basePurse: tournament.basePurse,
     minBid: tournament.minBid,
     bidValueMode: tournament.bidValueMode,
+    bidValueOptions: tournament.bidValueOptions,
     timerSeconds: tournament.timerSeconds,
     bidTimerSeconds: tournament.bidTimerSeconds,
     bidExtensionEnabled: tournament.bidExtensionEnabled,
@@ -80,14 +83,9 @@ router.get("/tournaments/:tournamentId/auction-rules.pdf", async (req: Request, 
   });
 
   const branding = await brandingService.resolvePdfWatermarkBranding();
-  const [reverseLogo, primaryLogo] = await Promise.all([
-    brandingService.getAsset("REVERSE_LOGO"),
-    brandingService.getAsset("PRIMARY_LOGO"),
-  ]);
-  const headerLogoUrl = reverseLogo?.fileUrl ?? primaryLogo?.fileUrl ?? null;
-  const headerLogoBuffer = headerLogoUrl
-    ? await fetchImageBuffer(headerLogoUrl)
-    : branding.footerLogoBuffer;
+  const reverseLogo = await brandingService.getAsset("REVERSE_LOGO");
+  const headerLogoUrl = reverseLogo?.fileUrl ?? null;
+  const headerLogoBuffer = headerLogoUrl ? await fetchImageBuffer(headerLogoUrl) : null;
 
   const fileName = `${model.tournamentName.replace(/[^a-zA-Z0-9]+/g, "_")}_Auction_Rules.pdf`;
   pipeAuctionRulesPdf(

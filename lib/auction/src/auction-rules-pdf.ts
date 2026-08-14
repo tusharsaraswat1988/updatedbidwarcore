@@ -3,15 +3,16 @@
  * Unlock does not require teams/players — only identity + core auction rule fields.
  */
 
+import { parseAuctionDateString } from "./auction-date";
 import { parseBidTiers, type AuctionReadinessInput } from "./auction-readiness";
 import { MIN_AUCTION_TIMER_SECONDS } from "./auction-timer";
 import {
-  formatShortAuctionAmount,
+  formatPdfSafeAuctionAmount,
   normalizeAuctionUnit,
   type AuctionUnit,
 } from "./auction-unit";
-import { describeBidIncrementRules, buildTeamReportAuctionRules } from "./team-report-rules";
-import { isPlayerBidValueMode } from "./bid-value";
+import { describeBidIncrementRules } from "./team-report-rules";
+import { getOrganizerBidOptions, isPlayerBidValueMode } from "./bid-value";
 
 export type AuctionRulesPdfGateInput = {
   name?: string | null;
@@ -35,9 +36,9 @@ export type AuctionRulesPdfGateResult = {
 };
 
 const PLAYER_MODE_LABELS: Record<string, string> = {
-  sequential: "In order — players come up one by one as added",
+  sequential: "In order - players come up one by one as added",
   random: "Random draw",
-  manual: "Manual — operator picks from the queue list",
+  manual: "Manual - operator picks from the queue list",
 };
 
 export function evaluateAuctionRulesPdfReady(
@@ -92,6 +93,7 @@ export type AuctionRulesPdfCategoryInput = {
   minBid: number | null;
   bidIncrement: number | null;
   bidTiers: string | null;
+  maxPlayers?: number | null;
 };
 
 export type AuctionRulesPdfCategoryOverride = {
@@ -102,15 +104,19 @@ export type AuctionRulesPdfCategoryOverride = {
 export type AuctionRulesPdfDocumentModel = {
   tournamentName: string;
   sport: string;
+  organizerName: string | null;
   city: string | null;
   venue: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
   auctionUnit: AuctionUnit;
-  basePurse: number;
-  minBid: number;
+  auctionUnitLabel: string;
+  basePurseLabel: string;
+  minBidLabel: string;
   bidIncrementLines: string[];
+  openingBidNote: string;
   playersChooseBaseValue: boolean;
+  allowedBaseValuesLabel: string | null;
   timerSeconds: number;
   bidTimerSeconds: number;
   bidExtensionEnabled: boolean;
@@ -119,19 +125,51 @@ export type AuctionRulesPdfDocumentModel = {
   playerSelectionModeLabel: string;
   minimumSquadSize: number;
   maximumSquadSize: number | null;
+  squadReserveNote: string | null;
   categoryOverrides: AuctionRulesPdfCategoryOverride[];
 };
+
+export function formatSportLabel(sport: string | null | undefined): string {
+  const trimmed = (sport ?? "").trim();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+const PDF_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function formatAuctionDateForPdf(date: string | null | undefined): string | null {
+  const trimmed = date?.trim();
+  if (!trimmed) return null;
+  const parsed = parseAuctionDateString(trimmed);
+  if (!parsed) return trimmed;
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const month = PDF_MONTHS[parsed.getMonth()] ?? "";
+  return `${day} ${month} ${parsed.getFullYear()}`;
+}
+
+export function formatAuctionTimeForPdf(time: string | null | undefined): string | null {
+  const trimmed = time?.trim();
+  if (!trimmed) return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(trimmed);
+  if (!match) return trimmed;
+  const hours = Number(match[1]);
+  const minutes = match[2];
+  if (!Number.isFinite(hours) || hours < 0 || hours > 23) return trimmed;
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes} ${suffix}`;
+}
 
 function categoryIncrementLines(
   category: AuctionRulesPdfCategoryInput,
   unit: AuctionUnit,
 ): string[] {
   if (category.bidTiers) {
-    return describeBidIncrementRules({ bidTiers: category.bidTiers }, unit);
+    return describeBidIncrementRules({ bidTiers: category.bidTiers }, unit, formatPdfSafeAuctionAmount);
   }
   if (category.bidIncrement != null && category.bidIncrement > 0) {
     return [
-      `Each bid must increase by ${formatShortAuctionAmount(category.bidIncrement, unit)} or more.`,
+      `Each raise must be exactly ${formatPdfSafeAuctionAmount(category.bidIncrement, unit)}.`,
     ];
   }
   return [];
@@ -147,9 +185,12 @@ export function buildAuctionRulesPdfCategoryOverrides(
   for (const category of categories) {
     const lines: string[] = [];
     if (category.minBid != null && category.minBid > 0 && category.minBid !== tournamentMinBid) {
-      lines.push(`Minimum player value: ${formatShortAuctionAmount(category.minBid, unit)}`);
+      lines.push(`Minimum player value: ${formatPdfSafeAuctionAmount(category.minBid, unit)}`);
     }
     lines.push(...categoryIncrementLines(category, unit));
+    if (category.maxPlayers != null && category.maxPlayers > 0) {
+      lines.push(`Maximum players per team: ${category.maxPlayers}`);
+    }
     if (lines.length > 0) {
       overrides.push({ name: category.name, lines });
     }
@@ -166,6 +207,7 @@ export function playerSelectionModeLabel(mode: string | null | undefined): strin
 export function buildAuctionRulesPdfDocumentModel(input: {
   name: string;
   sport: string;
+  organizerName?: string | null;
   city?: string | null;
   venue?: string | null;
   auctionDate?: string | null;
@@ -174,6 +216,7 @@ export function buildAuctionRulesPdfDocumentModel(input: {
   basePurse: number;
   minBid: number;
   bidValueMode?: string | null;
+  bidValueOptions?: string | number[] | null;
   timerSeconds: number;
   bidTimerSeconds: number;
   bidExtensionEnabled?: boolean | null;
@@ -194,28 +237,31 @@ export function buildAuctionRulesPdfDocumentModel(input: {
   >;
 }): AuctionRulesPdfDocumentModel {
   const unit = normalizeAuctionUnit(input.auctionUnit);
-  const reportRules = buildTeamReportAuctionRules({
-    minBid: input.minBid,
-    auctionUnit: unit,
-    bidValueMode: input.bidValueMode,
-    minimumSquadSize: input.minimumSquadSize,
-    maximumSquadSize: input.maximumSquadSize ?? 0,
-    categories: input.categories.map((c) => ({ name: c.name, minBid: c.minBid })),
-    tournament: input.tournament,
-  });
+  const playersChooseBaseValue = isPlayerBidValueMode({ bidValueMode: input.bidValueMode });
+  const allowedValues = playersChooseBaseValue
+    ? getOrganizerBidOptions({ bidValueOptions: input.bidValueOptions })
+    : [];
 
   return {
     tournamentName: input.name.trim(),
-    sport: input.sport,
+    sport: formatSportLabel(input.sport),
+    organizerName: input.organizerName?.trim() || null,
     city: input.city?.trim() || null,
     venue: input.venue?.trim() || null,
-    auctionDate: input.auctionDate ?? null,
-    auctionTime: input.auctionTime ?? null,
+    auctionDate: formatAuctionDateForPdf(input.auctionDate),
+    auctionTime: formatAuctionTimeForPdf(input.auctionTime),
     auctionUnit: unit,
-    basePurse: input.basePurse,
-    minBid: input.minBid,
-    bidIncrementLines: reportRules.bidIncrementLines,
-    playersChooseBaseValue: isPlayerBidValueMode({ bidValueMode: input.bidValueMode }),
+    auctionUnitLabel: unit === "points" ? "Points (Pt.)" : "Rupee (Rs.)",
+    basePurseLabel: formatPdfSafeAuctionAmount(input.basePurse, unit),
+    minBidLabel: formatPdfSafeAuctionAmount(input.minBid, unit),
+    bidIncrementLines: describeBidIncrementRules(input.tournament, unit, formatPdfSafeAuctionAmount),
+    openingBidNote:
+      "The first bid on a player must match that player's minimum value exactly. Later raises must match the increment in force at that price - not a larger jump.",
+    playersChooseBaseValue,
+    allowedBaseValuesLabel:
+      allowedValues.length > 0
+        ? allowedValues.map((value) => formatPdfSafeAuctionAmount(value, unit)).join(", ")
+        : null,
     timerSeconds: input.timerSeconds,
     bidTimerSeconds: input.bidTimerSeconds,
     bidExtensionEnabled: !!input.bidExtensionEnabled,
@@ -226,6 +272,10 @@ export function buildAuctionRulesPdfDocumentModel(input: {
     maximumSquadSize:
       input.maximumSquadSize != null && input.maximumSquadSize > 0
         ? input.maximumSquadSize
+        : null,
+    squadReserveNote:
+      input.minimumSquadSize > 0
+        ? `Until a team reaches ${input.minimumSquadSize} players, the system reserves ${formatPdfSafeAuctionAmount(input.minBid, unit)} for each empty slot. That reserved amount cannot be spent on a more expensive player.`
         : null,
     categoryOverrides: buildAuctionRulesPdfCategoryOverrides(
       input.minBid,

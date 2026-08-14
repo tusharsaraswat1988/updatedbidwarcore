@@ -10,7 +10,7 @@ describe("describeBidIncrementRules", () => {
     const lines = describeBidIncrementRules({
       bidTiers: JSON.stringify([{ increment: 100000 }]),
     });
-    expect(lines).toEqual(["Each bid must increase by ₹1.00L or more."]);
+    expect(lines).toEqual(["Each raise must be exactly ₹1.00L."]);
   });
 
   it("formats tiered increments", () => {
