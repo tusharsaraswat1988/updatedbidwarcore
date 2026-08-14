@@ -449,6 +449,20 @@ export default function AuctionOperator() {
     applyMutationResult(result);
   }
 
+  async function handleLedOverlay(mode: "off" | "team" | "player" | "top5" | "banner") {
+    if (operatorReadOnly || setDisplayOverlay.isPending) return;
+    try {
+      const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode } });
+      applyMutationResult(result);
+    } catch (err: unknown) {
+      toast({
+        title: "LED screen did not change",
+        description: err instanceof Error ? err.message : "Could not switch the display. Try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   async function pushPlayerFilterToLed(
     status: typeof playerFilterStatus,
     teamId: number | null,
@@ -468,7 +482,7 @@ export default function AuctionOperator() {
   }
 
   async function handlePlayerFilterStatus(opt: typeof playerFilterStatus) {
-    if (controlsLocked || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
+    if (operatorReadOnly || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
     setPlayerFilterStatus(opt);
     setPlayerFilterStatusPicked(true);
 
@@ -490,7 +504,7 @@ export default function AuctionOperator() {
   }
 
   async function handlePlayerFilterTeam(teamId: number | null) {
-    if (controlsLocked || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
+    if (operatorReadOnly || setDisplayPlayerFilterMut.isPending || setDisplayOverlay.isPending) return;
     setPlayerFilterTeamId(teamId);
     setPlayerFilterTeamPicked(true);
     if (playerFilterStatusPicked || playerLedActive) {
@@ -1792,12 +1806,8 @@ export default function AuctionOperator() {
           <div className="hidden lg:flex items-center gap-0.5 px-1.5 py-1 rounded-lg border border-white/10 bg-white/4 flex-shrink-0">
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/30 pr-1.5 border-r border-white/10 mr-0.5 leading-tight">LED<br/>SCREEN</span>
             <button
-              onClick={async () => {
-                if (controlsLocked) return;
-                const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
-                applyMutationResult(result);
-              }}
-              disabled={timerActive || setDisplayOverlay.isPending}
+              onClick={() => { void handleLedOverlay("off"); }}
+              disabled={operatorReadOnly || setDisplayOverlay.isPending}
               className={`flex items-center gap-1.5 h-7 px-3 rounded text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                 !state?.displayOverlay
                   ? "bg-green-600 text-white shadow-md ring-1 ring-white/20"
@@ -1819,7 +1829,7 @@ export default function AuctionOperator() {
                           : "Choose a status and team — then the list appears on the LED screen"
                       }
                       onClick={() => {
-                        if (controlsLocked) return;
+                        if (operatorReadOnly) return;
                         const opening = !playerFilterOpen;
                         if (opening && !active) {
                           setPlayerFilterStatusPicked(false);
@@ -1827,7 +1837,7 @@ export default function AuctionOperator() {
                         }
                         setPlayerFilterOpen(opening);
                       }}
-                      disabled={timerActive || setDisplayOverlay.isPending}
+                      disabled={operatorReadOnly || setDisplayOverlay.isPending}
                       className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                         active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
                       }`}
@@ -1905,13 +1915,8 @@ export default function AuctionOperator() {
               return (
                 <button key={mode}
                   title={active ? `Showing ${label} on LED — click to return to live` : `Show ${label} on LED screen`}
-                  onClick={async () => {
-                    if (controlsLocked) return;
-                    const nextMode = active ? "off" : mode;
-                    const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
-                    applyMutationResult(result);
-                  }}
-                  disabled={timerActive || setDisplayOverlay.isPending}
+                  onClick={() => { void handleLedOverlay(active ? "off" : mode); }}
+                  disabled={operatorReadOnly || setDisplayOverlay.isPending}
                   className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                     active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
                   }`}
@@ -2276,13 +2281,11 @@ export default function AuctionOperator() {
                     return (
                       <button
                         key={mode}
-                        onClick={async () => {
-                          if (controlsLocked) return;
+                        onClick={() => {
                           const nextMode = mode === "off" ? "off" : active ? "off" : mode;
-                          const r = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: nextMode } });
-                          applyMutationResult(r);
+                          void handleLedOverlay(nextMode);
                         }}
-                        disabled={timerActive || setDisplayOverlay.isPending}
+                        disabled={operatorReadOnly || setDisplayOverlay.isPending}
                         className={`flex flex-col items-center justify-center gap-1 min-h-[48px] py-2 rounded-lg border font-bold text-[11px] transition-colors disabled:opacity-40 ${
                           active
                             ? "bg-green-600/20 border-green-500/50 text-green-400"

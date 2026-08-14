@@ -28,7 +28,15 @@ export function LedStageContent({ view }: { view: LedView }) {
     view.derivedState === "preAuction" ||
     view.derivedState === "paused";
 
-  if (!view.currentPlayer && view.derivedState !== "awaitingNext" && !overlayActive) {
+  if (overlayActive) {
+    return (
+      <StageFrame>
+        <EffectsLayer view={view} />
+      </StageFrame>
+    );
+  }
+
+  if (!view.currentPlayer && view.derivedState !== "awaitingNext") {
     return (
       <StageFrame>
         <div className={`absolute inset-0 grid ${STAGE_GRID_ROWS} font-['Barlow_Condensed']`}>

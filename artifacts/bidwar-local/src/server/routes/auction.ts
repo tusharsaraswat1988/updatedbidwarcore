@@ -1591,6 +1591,8 @@ export function createAuctionRouter(db: LocalDb) {
     await db.update(auctionSessionsTable).set({
       displayOverlay: overlay,
       teamPurseViewActive: overlay !== null,
+      fortuneWheelActive: false,
+      wheelSpinning: false,
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid));
   });

@@ -32,6 +32,19 @@ export function formatAuctionAmount(
   return unit === "points" ? `${formatted} Pt.` : `₹${formatted}`;
 }
 
+/**
+ * Helvetica / WinAnsi cannot draw ₹ — it becomes a blank or black box in PDFs.
+ * Use Indian grouping with "Rs." so printed auction-rules documents stay readable.
+ */
+export function formatPdfSafeAuctionAmount(
+  amount: number | null | undefined,
+  unit: AuctionUnit = "rupee",
+): string {
+  if (amount == null) return unit === "points" ? "0 Pt." : "Rs. 0";
+  const formatted = Math.round(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return unit === "points" ? `${formatted} Pt.` : `Rs. ${formatted}`;
+}
+
 export function formatShortAuctionAmount(
   amount: number | null | undefined,
   unit: AuctionUnit = "rupee",

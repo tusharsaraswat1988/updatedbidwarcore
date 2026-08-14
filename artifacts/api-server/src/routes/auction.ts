@@ -2754,9 +2754,20 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
     .set({
       displayOverlay: overlay,
       teamPurseViewActive: overlay !== null,
+      fortuneWheelActive: false,
+      wheelSpinning: false,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
-  res.json(await broadcastState(tid));
+  invalidateStateCache(tid);
+  const state = await getCachedOrBuildState(tid);
+  Object.assign(state, {
+    displayOverlay: overlay,
+    teamPurseViewActive: overlay !== null,
+    fortuneWheelActive: false,
+    wheelSpinning: false,
+  });
+  await emitAuctionStateEvent(tid, state, []);
+  res.json(state);
 });
 
 // POST set explicit on-air presentation context (OBS / future displays)

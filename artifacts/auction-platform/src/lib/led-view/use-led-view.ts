@@ -28,6 +28,10 @@ import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { formatINR, formatINRFull, nextIncrement } from "./format-inr";
 import { useCountdownSeconds } from "./use-countdown-seconds";
 import {
+  applyBreakTimingToDerivedState,
+  derivedStateFromOverlayKey,
+} from "./derive-led-overlay-state";
+import {
   mapApiPlayerFilter,
   formatLedPlayerFilterLabel,
   type DerivedState,
@@ -269,13 +273,11 @@ function applyLiveTiming(
   breakCountdown: number,
   breakMeta: BreakMeta,
 ): LedView {
-  let derivedState = base.derivedState;
-
-  if (breakCountdown > 0 && breakMeta.type === "pre-auction") {
-    derivedState = "preAuction";
-  } else if (breakCountdown > 0 && (breakMeta.type === "break" || breakMeta.isBreakFlag)) {
-    derivedState = "break";
-  }
+  const derivedState = applyBreakTimingToDerivedState(
+    base.derivedState,
+    breakCountdown,
+    breakMeta,
+  );
 
   const breakActive =
     derivedState === "break" || derivedState === "preAuction";
@@ -570,8 +572,11 @@ export function useLedView(
       playerBids.map((b) => String(b.teamId)),
     ).size;
 
+    const overlayState = derivedStateFromOverlayKey(overlayKey, teamPurseViewActive);
+
     let derivedState: DerivedState = "idle";
-    if (fortuneWheelActive) derivedState = "fortuneWheel";
+    if (overlayState) derivedState = overlayState;
+    else if (fortuneWheelActive) derivedState = "fortuneWheel";
     else if (isBreakFlag) derivedState = "break";
     else if (
       state?.status === "paused" ||
@@ -580,36 +585,6 @@ export function useLedView(
       overlayKey === "pause_bidding"
     )
       derivedState = "paused";
-    else if (overlayKey === "banner" || overlayKey === "main_banner") derivedState = "banner";
-    else if (
-      overlayKey === "team_wise" ||
-      overlayKey === "teams" ||
-      overlayKey === "team_view" ||
-      overlayKey === "team"
-    )
-      derivedState = "teamWise";
-    else if (
-      overlayKey === "player_wise" ||
-      overlayKey === "players" ||
-      overlayKey === "player_view" ||
-      overlayKey === "player_list" ||
-      overlayKey === "player"
-    )
-      derivedState = "playerWise";
-    else if (
-      overlayKey === "top_sold" ||
-      overlayKey === "top5" ||
-      overlayKey === "top_5" ||
-      overlayKey === "top_5_sold"
-    )
-      derivedState = "topSold";
-    else if (
-      overlayKey === "team_purse" ||
-      overlayKey === "purse" ||
-      overlayKey === "team_purses" ||
-      teamPurseViewActive
-    )
-      derivedState = "teamPurse";
     else if (
       outcome?.type === "sold" &&
       currentPlayer &&

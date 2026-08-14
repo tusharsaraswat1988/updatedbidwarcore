@@ -23,40 +23,41 @@ export function describeBidIncrementRules(
     | "bidTier3Increment"
   >,
   unit: AuctionUnit = "rupee",
+  formatAmount: (amount: number, unit: AuctionUnit) => string = formatShortAuctionAmount,
 ): string[] {
   const tiers = parseBidTiers(tournament).filter((tier) => tier.increment > 0);
   if (tiers.length === 0) return [];
 
   if (tiers.length === 1 && tiers[0].upTo == null) {
     return [
-      `Each bid must increase by ${formatShortAuctionAmount(tiers[0].increment, unit)} or more.`,
+      `Each raise must be exactly ${formatAmount(tiers[0].increment, unit)}.`,
     ];
   }
 
   const lines: string[] = [];
   tiers.forEach((tier, index) => {
-    const increment = formatShortAuctionAmount(tier.increment, unit);
+    const increment = formatAmount(tier.increment, unit);
     const isLast = index === tiers.length - 1;
 
     if (isLast && tier.upTo == null) {
       const previousUpTo = tiers[index - 1]?.upTo;
       if (previousUpTo != null && previousUpTo > 0) {
         lines.push(
-          `Above ${formatShortAuctionAmount(previousUpTo, unit)}: raise by ${increment} or more.`,
+          `Above ${formatAmount(previousUpTo, unit)}: each raise is exactly ${increment}.`,
         );
       } else {
-        lines.push(`Each bid must increase by ${increment} or more.`);
+        lines.push(`Each raise must be exactly ${increment}.`);
       }
       return;
     }
 
     if (tier.upTo != null && tier.upTo > 0) {
       if (index === 0) {
-        lines.push(`Up to ${formatShortAuctionAmount(tier.upTo, unit)}: raise by ${increment} or more.`);
+        lines.push(`Up to ${formatAmount(tier.upTo, unit)}: each raise is exactly ${increment}.`);
       } else {
         const previousUpTo = tiers[index - 1]?.upTo ?? 0;
         lines.push(
-          `Above ${formatShortAuctionAmount(previousUpTo, unit)} up to ${formatShortAuctionAmount(tier.upTo, unit)}: raise by ${increment} or more.`,
+          `Above ${formatAmount(previousUpTo, unit)} up to ${formatAmount(tier.upTo, unit)}: each raise is exactly ${increment}.`,
         );
       }
     }

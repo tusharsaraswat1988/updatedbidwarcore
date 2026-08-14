@@ -3,6 +3,7 @@ import {
   formatAuctionAmount,
   formatAuctionAmountWords,
   formatLedAuctionAmount,
+  formatPdfSafeAuctionAmount,
   formatShortAuctionAmount,
   formatSoldForBroadcast,
   normalizeAuctionUnit,
@@ -18,6 +19,8 @@ describe("auction-unit", () => {
   it("formats rupee amounts", () => {
     expect(formatAuctionAmount(100000, "rupee")).toBe("₹1,00,000");
     expect(formatShortAuctionAmount(10000000, "rupee")).toBe("₹1.00Cr");
+    expect(formatPdfSafeAuctionAmount(10000000, "rupee")).toBe("Rs. 1,00,00,000");
+    expect(formatPdfSafeAuctionAmount(100000, "points")).toBe("1,00,000 Pt.");
   });
 
   it("formats points amounts", () => {
