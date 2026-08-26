@@ -506,12 +506,15 @@ function SoundSettingsDialog({
           </p>
           <div className="space-y-0.5">
             {(Object.keys(SOUND_LABELS) as SoundKey[]).map((key) => (
-              <div
+              <label
                 key={key}
-                className="flex items-center justify-between py-3 border-b border-border/30 last:border-0"
+                className="flex items-center justify-between py-3 border-b border-border/30 last:border-0 cursor-pointer"
               >
                 <span className="text-sm">{SOUND_LABELS[key]}</span>
                 <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings[key]}
                   onClick={() => toggle(key)}
                   aria-label={settings[key] ? "Disable" : "Enable"}
                   className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${settings[key] ? "bg-primary" : "bg-muted"}`}
@@ -522,7 +525,7 @@ function SoundSettingsDialog({
                     }`}
                   />
                 </button>
-              </div>
+              </label>
             ))}
           </div>
         </div>
@@ -1848,7 +1851,7 @@ export default function LiveViewerPage() {
               }
             }}
             whileTap={{ scale: 0.92 }}
-            className="flex items-center gap-2 px-8 py-3.5 md:px-7 md:py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-base md:text-sm tracking-wider shadow-lg"
+            className="flex items-center gap-2 px-8 py-3.5 md:px-7 md:py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-base md:text-sm tracking-wider shadow-lg cursor-pointer"
             style={{ boxShadow: "0 0 30px rgba(245,158,11,0.45), 0 4px 18px rgba(0,0,0,0.55)" }}
           >
             <Flame className="w-5 h-5 md:w-4 md:h-4" />
@@ -1922,7 +1925,7 @@ export default function LiveViewerPage() {
                       key={i}
                       onClick={() => sendCheer(i)}
                       disabled={cheerCooldown}
-                      className="rounded-2xl border border-white/15 bg-white/5 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none py-4 px-4 text-sm text-white/90 text-left transition-transform leading-snug"
+                      className="rounded-2xl border border-white/15 bg-white/5 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none py-4 px-4 text-sm text-white/90 text-left transition-transform leading-snug cursor-pointer"
                     >
                       {preset}
                     </button>
@@ -1981,7 +1984,7 @@ export default function LiveViewerPage() {
                           setShowTeamSelector(false);
                           setTimeout(() => setCheerOpen(true), 80);
                         }}
-                        className="flex items-center gap-3 rounded-2xl border p-4 text-left transition-all active:scale-[0.97]"
+                        className="flex items-center gap-3 rounded-2xl border p-4 text-left transition-all active:scale-[0.97] cursor-pointer"
                         style={{
                           borderColor: isSelected ? `${tc}88` : "rgba(255,255,255,0.1)",
                           backgroundColor: isSelected ? `${tc}18` : "transparent",

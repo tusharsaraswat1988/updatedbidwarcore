@@ -190,6 +190,19 @@
 :is(.lovable-home, .lovable-theme) .border-primary\/40 { border-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-primary\/50 { border-color: color-mix(in oklab, var(--primary) 50%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-input { border-color: var(--input) !important; }
+:is(.lovable-home, .lovable-theme) .bg-input { background-color: var(--input) !important; }
+
+/* Radix Switch uses data-[state=*]:bg-* classes, not plain .bg-primary / .bg-input.
+   Those utilities emit hsl(var(--token)) which is invalid for oklch tokens, so the
+   track is transparent and the control looks missing / frozen. */
+:is(.lovable-home, .lovable-theme) button[role="switch"][data-state="unchecked"] {
+  background-color: var(--rail) !important;
+  border-color: color-mix(in oklab, var(--foreground) 28%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) button[role="switch"][data-state="checked"] {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
 :is(.lovable-home, .lovable-theme) .ring-ring { --tw-ring-color: var(--ring) !important; }
 :is(.lovable-home, .lovable-theme) .bg-stage { background-color: var(--stage) !important; }
 :is(.lovable-home, .lovable-theme) .bg-stage\/40 { background-color: color-mix(in oklab, var(--stage) 40%, transparent) !important; }

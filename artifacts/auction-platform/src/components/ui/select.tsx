@@ -21,7 +21,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex w-full items-center justify-between gap-2 whitespace-nowrap ring-offset-background data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1",
+      "flex w-full cursor-pointer items-center justify-between gap-2 whitespace-nowrap ring-offset-background data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1",
       fieldControlClass,
       fieldControlSizeClass,
       "py-2",
@@ -130,7 +130,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-pointer select-none rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
       description ? "items-start" : "items-center",
       className
     )}

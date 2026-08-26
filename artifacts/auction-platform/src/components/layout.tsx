@@ -59,7 +59,7 @@ function navLinkCls(path: string, currentLocation: string, expanded: boolean, to
   if (!active && tournamentId && path === mediaCenterPath(tournamentId)) {
     active = currentLocation === mediaCenterTournamentPath(tournamentId);
   }
-  return `relative flex items-center rounded-md transition-colors ${
+  return `relative flex items-center rounded-md transition-colors cursor-pointer ${
     !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
   } ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"}`;
 }

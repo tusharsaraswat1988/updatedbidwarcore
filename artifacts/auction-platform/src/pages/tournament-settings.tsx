@@ -1003,7 +1003,7 @@ export default function TournamentSettings() {
                         return (
                           <label
                             key={key}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card px-3 py-2.5 hover:bg-white/[0.04] transition-colors"
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer"
                           >
                             <span className="text-sm">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
                             <Switch
@@ -1174,8 +1174,8 @@ export default function TournamentSettings() {
                   <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
                 </div>
                 <div id="settings-field-registration-payments" className="space-y-3">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
-                    <div>
+                  <label className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5 cursor-pointer">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">Collect Registration Fee</p>
                       <p className="text-[10px] text-muted-foreground">Players pay via UPI and submit proof during registration.</p>
                     </div>
@@ -1183,7 +1183,7 @@ export default function TournamentSettings() {
                       checked={editForm.enableRegistrationPayment === true}
                       onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
                     />
-                  </div>
+                  </label>
 
                   <Collapsible open={editForm.enableRegistrationPayment === true}>
                     <CollapsibleContent className="space-y-3 pt-1">
@@ -1243,8 +1243,8 @@ export default function TournamentSettings() {
                   </p>
                 </div>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
-                    <div>
+                  <label className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5 cursor-pointer">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">Require declaration acceptance</p>
                       <p className="text-[10px] text-muted-foreground">Players must accept your declaration before the form can be submitted.</p>
                     </div>
@@ -1252,7 +1252,7 @@ export default function TournamentSettings() {
                       checked={editForm.enableRegistrationDeclaration === true}
                       onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationDeclaration: v }))}
                     />
-                  </div>
+                  </label>
 
                   <Collapsible open={editForm.enableRegistrationDeclaration === true}>
                     <CollapsibleContent className="space-y-3 pt-1">
@@ -1442,13 +1442,13 @@ export default function TournamentSettings() {
                   </div>
                 </div>
                 <div id="settings-field-bidExtension" className="space-y-2 pt-1 border-t border-border/50">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label className="flex items-center gap-1">
+                  <label className="flex items-center justify-between gap-3 cursor-pointer">
+                    <span className="text-sm font-medium leading-none flex items-center gap-1">
                       Bid Extension
                       <FieldTooltip text="When the timer is in its last few seconds and a new bid arrives, add extra seconds instead of only resetting to the full bid timer." />
-                    </Label>
+                    </span>
                     <Switch checked={editForm.bidExtensionEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, bidExtensionEnabled: v }))} />
-                  </div>
+                  </label>
                   {editForm.bidExtensionEnabled ? (
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
@@ -1555,10 +1555,10 @@ export default function TournamentSettings() {
               description="Main banner and display mode for the big screen. Pick the LED colour theme on the live display."
               icon={<Monitor className="w-4 h-4 text-muted-foreground" />}
             >
-              <div className="flex items-center justify-between gap-3">
-                <Label className="text-xs flex items-center gap-1.5"><Clapperboard className="w-3.5 h-3.5" /> Main Banner</Label>
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <span className="text-xs font-medium leading-none flex items-center gap-1.5"><Clapperboard className="w-3.5 h-3.5" /> Main Banner</span>
                 <Switch checked={editForm.mainBannerEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, mainBannerEnabled: v }))} />
-              </div>
+              </label>
               <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
                 <input
                   ref={bannerFileInputRef}
@@ -1655,17 +1655,17 @@ export default function TournamentSettings() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {/* Countdown Sound */}
                   <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
                         <Timer className="w-3.5 h-3.5 text-muted-foreground" />
                         Countdown Sound
                         <span className="text-[10px] text-muted-foreground font-normal">last 5 seconds</span>
-                      </Label>
+                      </span>
                       <Switch
                         checked={editForm.countdownSoundEnabled === true}
                         onCheckedChange={(v) => setEditForm(f => ({ ...f, countdownSoundEnabled: v }))}
                       />
-                    </div>
+                    </label>
                     {editForm.countdownSoundEnabled === true && (
                       <div className="space-y-2.5">
                         <div className="space-y-1.5">
@@ -1716,17 +1716,17 @@ export default function TournamentSettings() {
 
                   {/* Sold Sound */}
                   <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
                         <Gavel className="w-3.5 h-3.5 text-muted-foreground" />
                         Sold Sound
                         <span className="text-[10px] text-muted-foreground font-normal">on player sold</span>
-                      </Label>
+                      </span>
                       <Switch
                         checked={editForm.soldSoundEnabled === true}
                         onCheckedChange={(v) => setEditForm(f => ({ ...f, soldSoundEnabled: v }))}
                       />
-                    </div>
+                    </label>
                     {editForm.soldSoundEnabled === true && (
                       <div className="space-y-2.5">
                         <div className="space-y-1.5">
@@ -1777,17 +1777,17 @@ export default function TournamentSettings() {
 
                   {/* Break Music */}
                   <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
                         <Coffee className="w-3.5 h-3.5 text-muted-foreground" />
                         Break Music
                         <span className="text-[10px] text-muted-foreground font-normal">loops on LED during break</span>
-                      </Label>
+                      </span>
                       <Switch
                         checked={editForm.breakEndMusicEnabled === true}
                         onCheckedChange={(v) => setEditForm(f => ({ ...f, breakEndMusicEnabled: v }))}
                       />
-                    </div>
+                    </label>
                     {editForm.breakEndMusicEnabled === true && (
                       <div className="space-y-2.5">
                         <div className="space-y-1.5">

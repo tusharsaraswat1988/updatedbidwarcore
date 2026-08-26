@@ -1,0 +1,122 @@
+/**
+ * Auction / organizer chrome under .lovable-theme.
+ *
+ * Tailwind still emits hsl(var(--token)) for many utilities. Lovable tokens are
+ * oklch(), so those colors are invalid and controls look missing or "frozen".
+ * Re-bind interactive states here, and show a pointer on clickable targets.
+ */
+
+:is(.lovable-home, .lovable-theme) :is(
+  a[href],
+  button,
+  summary,
+  select,
+  label,
+  [role="button"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="combobox"],
+  [role="slider"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  input[type="color"],
+  input[type="range"]
+):not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+  cursor: pointer;
+}
+
+:is(.lovable-home, .lovable-theme) :is(
+  :disabled,
+  [disabled],
+  [aria-disabled="true"],
+  [data-disabled]
+) {
+  cursor: not-allowed;
+}
+
+:is(.lovable-home, .lovable-theme) :is(
+  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]),
+  textarea
+):not(:disabled) {
+  cursor: text;
+}
+
+:is(.lovable-home, .lovable-theme) .bg-muted\/5 {
+  background-color: color-mix(in oklab, var(--muted) 5%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .bg-muted\/10 {
+  background-color: color-mix(in oklab, var(--muted) 10%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .bg-muted\/50 {
+  background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .bg-muted\/60 {
+  background-color: color-mix(in oklab, var(--muted) 60%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .bg-muted\/80 {
+  background-color: color-mix(in oklab, var(--muted) 80%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .hover\:bg-muted\/60:hover {
+  background-color: color-mix(in oklab, var(--muted) 60%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .hover\:bg-muted\/80:hover {
+  background-color: color-mix(in oklab, var(--muted) 80%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .hover\:bg-muted\/50:hover {
+  background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) .focus\:bg-accent:focus {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+:is(.lovable-home, .lovable-theme) [data-highlighted],
+:is(.lovable-home, .lovable-theme) [data-selected="true"] {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+:is(.lovable-home, .lovable-theme) .hover\:bg-white\/\[0\.04\]:hover,
+:is(.lovable-home, .lovable-theme) .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: oklch(1 0 0 / 0.05) !important;
+}
+:is(.lovable-home, .lovable-theme) .fill-primary {
+  fill: var(--primary) !important;
+}
+
+:is(.lovable-home, .lovable-theme) button[role="switch"][data-state="unchecked"] {
+  background-color: var(--rail) !important;
+  border-color: color-mix(in oklab, var(--foreground) 28%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) button[role="switch"][data-state="checked"] {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+:is(.lovable-home, .lovable-theme) button[role="checkbox"][data-state="unchecked"],
+:is(.lovable-home, .lovable-theme) button[role="radio"][data-state="unchecked"] {
+  background-color: var(--panel-2) !important;
+  border-color: color-mix(in oklab, var(--primary) 55%, transparent) !important;
+}
+:is(.lovable-home, .lovable-theme) button[role="checkbox"][data-state="checked"],
+:is(.lovable-home, .lovable-theme) button[role="radio"][data-state="checked"] {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+:is(.lovable-home, .lovable-theme) [role="tab"][data-state="active"] {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+:is(.lovable-home, .lovable-theme) button[data-state="on"] {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
