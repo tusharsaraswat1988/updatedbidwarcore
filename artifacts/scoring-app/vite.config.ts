@@ -18,6 +18,7 @@ function apiBaseAliases(dirname: string): Record<string, string> {
     "@workspace/api-base/owner-auth": path.join(src, "owner-auth.ts"),
     "@workspace/api-base/owner-urls": path.join(src, "owner-urls.ts"),
     "@workspace/api-base/scoring-urls": path.join(src, "scoring-urls.ts"),
+    "@workspace/api-base/player-registration-mode": path.join(src, "player-registration-mode.ts"),
     "@workspace/api-base/mobile": path.join(src, "mobile.ts"),
     "@workspace/api-base/email": path.join(src, "email.ts"),
     "@workspace/api-base/player-gender": path.join(src, "player-gender.ts"),
