@@ -45,6 +45,15 @@ export type MatchMeta = {
   lbwEnabled?: boolean;
   freeHitEnabled?: boolean;
   retireAtRuns?: number | null;
+  cricketFormat?: "standard" | "box" | string;
+  playingXiEnforced?: boolean;
+  legByeEnabled?: boolean;
+  superBallEnabled?: boolean;
+  superOverEnabled?: boolean;
+  superOverOvers?: number;
+  superOverWickets?: number;
+  superOverTrigger?: "manual" | "knockout_tie" | string;
+  matchTypeId?: string | null;
   /** Prepare bind — session knows identity without importing Rule Engine. */
   resolutionId?: string | null;
   rulesHash?: string | null;

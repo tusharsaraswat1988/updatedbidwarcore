@@ -2,7 +2,13 @@ import type { CricketBallRecordedPayload } from "../events/cricket";
 import type { BallDisplayOutcome } from "./state";
 
 export function totalRunsOnBall(payload: CricketBallRecordedPayload): number {
-  return payload.runsOffBat + payload.extras.runs;
+  const batRuns =
+    payload.isSuperBall && payload.runsOffBat === 4
+      ? 8
+      : payload.isSuperBall && payload.runsOffBat === 6
+        ? 12
+        : payload.runsOffBat;
+  return batRuns + payload.extras.runs;
 }
 
 export function formatBallLabel(payload: CricketBallRecordedPayload): string {
@@ -16,16 +22,24 @@ export function formatBallLabel(payload: CricketBallRecordedPayload): string {
   return String(runs);
 }
 
-export function toBallDisplay(payload: CricketBallRecordedPayload): BallDisplayOutcome {
+export function toBallDisplay(
+  payload: CricketBallRecordedPayload,
+): BallDisplayOutcome {
   return {
     over: payload.over,
     ball: payload.ball,
-    runsOffBat: payload.runsOffBat,
+    runsOffBat:
+      payload.isSuperBall && payload.runsOffBat === 4
+        ? 8
+        : payload.isSuperBall && payload.runsOffBat === 6
+          ? 12
+          : payload.runsOffBat,
     extrasType: payload.extras.type,
     extrasRuns: payload.extras.runs,
     isWicket: !!payload.wicket,
     isLegalDelivery: payload.isLegalDelivery,
     label: formatBallLabel(payload),
+    isSuperBall: payload.isSuperBall,
   };
 }
 
@@ -33,7 +47,9 @@ export function toBallDisplay(payload: CricketBallRecordedPayload): BallDisplayO
  * Runs that rotate the strike (batter-completed running), excluding automatic
  * wide/no-ball penalty extras. Bye/leg-bye rotate from extras.runs only.
  */
-export function strikeRotatingRuns(payload: CricketBallRecordedPayload): number {
+export function strikeRotatingRuns(
+  payload: CricketBallRecordedPayload,
+): number {
   const extra = payload.extras.type;
   if (extra === "bye" || extra === "leg_bye") {
     return payload.extras.runs;

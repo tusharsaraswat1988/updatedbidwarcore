@@ -4,7 +4,11 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRoute } from "wouter";
-import { CatalogRegistry, type ConcreteRuleValue, type RuleProfileCatalogEntry } from "@workspace/platform-core/catalog";
+import {
+  CatalogRegistry,
+  type ConcreteRuleValue,
+  type RuleProfileCatalogEntry,
+} from "@workspace/platform-core/catalog";
 import {
   CRICKET_KEY_RULE_OVERRIDE_IDS,
   sparseRuleOverrides,
@@ -24,7 +28,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
-import { getGetTournamentQueryKey, useGetTournament } from "@workspace/api-client-react";
+import {
+  getGetTournamentQueryKey,
+  useGetTournament,
+} from "@workspace/api-client-react";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, Lock, Scale } from "lucide-react";
@@ -72,7 +79,12 @@ type SquadDraft = {
   retentions: string;
 };
 
-type Option = { id: string; version?: string; label: string; description?: string };
+type Option = {
+  id: string;
+  version?: string;
+  label: string;
+  description?: string;
+};
 
 type KeyRulesDraft = {
   overs: string;
@@ -81,27 +93,48 @@ type KeyRulesDraft = {
   benchSize: string;
   retireAtRuns: string;
   lbwEnabled: boolean;
+  legByeEnabled: boolean;
   freeHitEnabled: boolean;
+  playingXiEnforced: boolean;
+  superBallEnabled: boolean;
+  superOverEnabled: boolean;
+  superOverOvers: string;
+  superOverWickets: string;
+  superOverTrigger: string;
 };
 
-const KEY_RULE_LABELS: Record<(typeof CRICKET_KEY_RULE_OVERRIDE_IDS)[number], string> = {
+const KEY_RULE_LABELS: Record<
+  (typeof CRICKET_KEY_RULE_OVERRIDE_IDS)[number],
+  string
+> = {
   "cricket.match.overs_per_innings": "Overs per innings",
   "cricket.match.max_wickets": "Max wickets",
   "cricket.match.playing_squad_size": "Playing squad size",
+  "cricket.match.playing_xi_enforced": "Exact Playing XI",
   "cricket.match.bench_size": "Bench size",
   "cricket.batting.retire_at_runs": "Retire at runs",
   "cricket.dismissal.lbw_enabled": "LBW",
+  "cricket.extras.leg_bye_enabled": "Leg bye",
   "cricket.bowling.free_hit_enabled": "Free hit",
+  "cricket.special.super_ball_enabled": "Super Ball",
+  "cricket.tie_break.super_over_enabled": "Super Over",
+  "cricket.tie_break.super_over_overs": "Super Over overs",
+  "cricket.tie_break.super_over_wickets": "Super Over wickets",
+  "cricket.tie_break.super_over_trigger": "Super Over trigger",
 };
 
 function squadFromConfig(
   squadRules?: CompetitionAggregate["configuration"]["squadRules"],
 ): SquadDraft {
   return {
-    minPlayers: squadRules?.minPlayers != null ? String(squadRules.minPlayers) : "11",
-    maxPlayers: squadRules?.maxPlayers != null ? String(squadRules.maxPlayers) : "15",
-    substitutes: squadRules?.substitutes != null ? String(squadRules.substitutes) : "4",
-    retentions: squadRules?.retentions != null ? String(squadRules.retentions) : "",
+    minPlayers:
+      squadRules?.minPlayers != null ? String(squadRules.minPlayers) : "11",
+    maxPlayers:
+      squadRules?.maxPlayers != null ? String(squadRules.maxPlayers) : "15",
+    substitutes:
+      squadRules?.substitutes != null ? String(squadRules.substitutes) : "4",
+    retentions:
+      squadRules?.retentions != null ? String(squadRules.retentions) : "",
   };
 }
 
@@ -146,26 +179,56 @@ function draftFromProfileAndOverrides(
     benchSize: num("cricket.match.bench_size", 4),
     retireAtRuns: retire === null || retire === undefined ? "" : String(retire),
     lbwEnabled: bool("cricket.dismissal.lbw_enabled", true),
+    legByeEnabled: bool("cricket.extras.leg_bye_enabled", true),
     freeHitEnabled: bool("cricket.bowling.free_hit_enabled", true),
+    playingXiEnforced: bool("cricket.match.playing_xi_enforced", false),
+    superBallEnabled: bool("cricket.special.super_ball_enabled", false),
+    superOverEnabled: bool("cricket.tie_break.super_over_enabled", true),
+    superOverOvers: num("cricket.tie_break.super_over_overs", 1),
+    superOverWickets: num("cricket.tie_break.super_over_wickets", 2),
+    superOverTrigger:
+      typeof merged["cricket.tie_break.super_over_trigger"] === "string"
+        ? String(merged["cricket.tie_break.super_over_trigger"])
+        : "manual",
   };
 }
 
-function draftToEffectiveValues(draft: KeyRulesDraft): Record<string, ConcreteRuleValue> {
+function draftToEffectiveValues(
+  draft: KeyRulesDraft,
+): Record<string, ConcreteRuleValue> {
   const overs = parseInt(draft.overs, 10);
   const maxWickets = parseInt(draft.maxWickets, 10);
   const playingSquadSize = parseInt(draft.playingSquadSize, 10);
   const benchSize = parseInt(draft.benchSize, 10);
+  const superOverOvers = parseInt(draft.superOverOvers, 10);
+  const superOverWickets = parseInt(draft.superOverWickets, 10);
   const retireRaw = draft.retireAtRuns.trim();
   const retireAtRuns = retireRaw === "" ? null : parseInt(retireRaw, 10);
   return {
     "cricket.match.overs_per_innings": Number.isFinite(overs) ? overs : 20,
     "cricket.match.max_wickets": Number.isFinite(maxWickets) ? maxWickets : 10,
-    "cricket.match.playing_squad_size": Number.isFinite(playingSquadSize) ? playingSquadSize : 11,
+    "cricket.match.playing_squad_size": Number.isFinite(playingSquadSize)
+      ? playingSquadSize
+      : 11,
+    "cricket.match.playing_xi_enforced": draft.playingXiEnforced,
     "cricket.match.bench_size": Number.isFinite(benchSize) ? benchSize : 4,
     "cricket.batting.retire_at_runs":
-      retireAtRuns != null && Number.isFinite(retireAtRuns) ? retireAtRuns : null,
+      retireAtRuns != null && Number.isFinite(retireAtRuns)
+        ? retireAtRuns
+        : null,
     "cricket.dismissal.lbw_enabled": draft.lbwEnabled,
+    "cricket.extras.leg_bye_enabled": draft.legByeEnabled,
     "cricket.bowling.free_hit_enabled": draft.freeHitEnabled,
+    "cricket.special.super_ball_enabled": draft.superBallEnabled,
+    "cricket.tie_break.super_over_enabled": draft.superOverEnabled,
+    "cricket.tie_break.super_over_overs": Number.isFinite(superOverOvers)
+      ? superOverOvers
+      : 1,
+    "cricket.tie_break.super_over_wickets": Number.isFinite(superOverWickets)
+      ? superOverWickets
+      : 2,
+    "cricket.tie_break.super_over_trigger":
+      draft.superOverTrigger === "knockout_tie" ? "knockout_tie" : "manual",
   };
 }
 
@@ -185,7 +248,9 @@ function OptionChips({
   return (
     <FormField label={label}>
       {options.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No options available for this sport.</p>
+        <p className="text-xs text-muted-foreground">
+          No options available for this sport.
+        </p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {options.map((o) => {
@@ -232,9 +297,13 @@ function seedCricketDefaults(sportId: string): {
   const variants = CatalogRegistry.listVariants(sportId);
   const competitions = CatalogRegistry.listCompetitionTypes(sportId);
   const variantId =
-    variants.find((v) => v.id === "cricket.outdoor")?.id ?? variants[0]?.id ?? "";
+    variants.find((v) => v.id === "cricket.outdoor")?.id ??
+    variants[0]?.id ??
+    "";
   const competitionTypeId =
-    competitions.find((c) => c.id === "auction")?.id ?? competitions[0]?.id ?? "";
+    competitions.find((c) => c.id === "auction")?.id ??
+    competitions[0]?.id ??
+    "";
   const registrationModeId =
     CatalogRegistry.suggestRegistrationModeId(competitionTypeId) ??
     CatalogRegistry.listRegistrationModes(competitionTypeId)[0]?.id ??
@@ -265,10 +334,19 @@ export default function CricketRulesPage() {
   const tournamentId = parseInt(params?.id || "0", 10);
   const { toast } = useToast();
 
-  const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
-  });
-  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
+  const { data: tournament, isLoading: tournamentLoading } = useGetTournament(
+    tournamentId,
+    {
+      query: {
+        queryKey: getGetTournamentQueryKey(tournamentId),
+        enabled: !!tournamentId,
+      },
+    },
+  );
+  const scoringActive = useCricketScoringActive(
+    tournament?.sport,
+    tournament?.scoringEnabled,
+  );
 
   const [data, setData] = useState<CompetitionAggregate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -284,14 +362,21 @@ export default function CricketRulesPage() {
   const [ruleProfileId, setRuleProfileId] = useState("");
   const [ruleProfileVersion, setRuleProfileVersion] = useState("");
   const [presentationProfileId, setPresentationProfileId] = useState("");
-  const [presentationProfileVersion, setPresentationProfileVersion] = useState("");
+  const [presentationProfileVersion, setPresentationProfileVersion] =
+    useState("");
   const [squadRules, setSquadRules] = useState<SquadDraft>(squadFromConfig());
   const [keyRules, setKeyRules] = useState<KeyRulesDraft>(() =>
     draftFromProfileAndOverrides(null, null),
   );
 
-  const sportId = (data?.configuration.sportId || tournament?.sport || "cricket").toLowerCase();
-  const locked = Boolean(data?.summary.status.locked || data?.plan || data?.configuration.locked);
+  const sportId = (
+    data?.configuration.sportId ||
+    tournament?.sport ||
+    "cricket"
+  ).toLowerCase();
+  const locked = Boolean(
+    data?.summary.status.locked || data?.plan || data?.configuration.locked,
+  );
 
   const load = useCallback(async () => {
     if (!tournamentId) return;
@@ -299,7 +384,9 @@ export default function CricketRulesPage() {
     setError("");
     try {
       const res = await apiFetch(`/tournaments/${tournamentId}/competition`);
-      const body = (await res.json().catch(() => ({}))) as CompetitionAggregate & {
+      const body = (await res
+        .json()
+        .catch(() => ({}))) as CompetitionAggregate & {
         error?: string;
       };
       if (!res.ok) throw new Error(body.error || "Failed to load rules");
@@ -310,16 +397,21 @@ export default function CricketRulesPage() {
       const cfg = body.configuration;
 
       const nextRuleId = cfg.ruleProfileId || seeded.ruleProfileId;
-      const nextRuleVersion = cfg.ruleProfileVersion || seeded.ruleProfileVersion;
+      const nextRuleVersion =
+        cfg.ruleProfileVersion || seeded.ruleProfileVersion;
       setVariantId(cfg.variantId || seeded.variantId);
       setCompetitionTypeId(cfg.competitionTypeId || seeded.competitionTypeId);
-      setRegistrationModeId(cfg.registrationModeId || seeded.registrationModeId);
+      setRegistrationModeId(
+        cfg.registrationModeId || seeded.registrationModeId,
+      );
       setTeamFormationStrategyId(
         cfg.teamFormationStrategyId || seeded.teamFormationStrategyId,
       );
       setRuleProfileId(nextRuleId);
       setRuleProfileVersion(nextRuleVersion);
-      setPresentationProfileId(cfg.presentationProfileId || seeded.presentationProfileId);
+      setPresentationProfileId(
+        cfg.presentationProfileId || seeded.presentationProfileId,
+      );
       setPresentationProfileVersion(
         cfg.presentationProfileVersion || seeded.presentationProfileVersion,
       );
@@ -328,7 +420,9 @@ export default function CricketRulesPage() {
         CatalogRegistry.getRuleProfile(nextRuleId, nextRuleVersion) ??
         CatalogRegistry.getRuleProfile(nextRuleId) ??
         null;
-      setKeyRules(draftFromProfileAndOverrides(profile, cfg.ruleOverrides ?? null));
+      setKeyRules(
+        draftFromProfileAndOverrides(profile, cfg.ruleOverrides ?? null),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load rules");
     } finally {
@@ -431,7 +525,10 @@ export default function CricketRulesPage() {
     () => profileBaselineValues(selectedRuleProfile),
     [selectedRuleProfile],
   );
-  const effectiveValues = useMemo(() => draftToEffectiveValues(keyRules), [keyRules]);
+  const effectiveValues = useMemo(
+    () => draftToEffectiveValues(keyRules),
+    [keyRules],
+  );
   const pendingOverrides = useMemo(
     () => sparseRuleOverrides(baseline, effectiveValues),
     [baseline, effectiveValues],
@@ -482,7 +579,8 @@ export default function CricketRulesPage() {
       competitionTypeId,
     });
     if (!ruleProfileOptions.some((o) => o.id === ruleProfileId)) {
-      const nextId = suggested.ruleProfile?.id ?? ruleProfileOptions[0]?.id ?? "";
+      const nextId =
+        suggested.ruleProfile?.id ?? ruleProfileOptions[0]?.id ?? "";
       const nextVersion =
         suggested.ruleProfile?.version ?? ruleProfileOptions[0]?.version ?? "";
       setRuleProfileId(nextId);
@@ -498,7 +596,9 @@ export default function CricketRulesPage() {
         suggested.presentationProfile?.id ?? presentationOptions[0]?.id ?? "",
       );
       setPresentationProfileVersion(
-        suggested.presentationProfile?.version ?? presentationOptions[0]?.version ?? "",
+        suggested.presentationProfile?.version ??
+          presentationOptions[0]?.version ??
+          "",
       );
     }
   }, [
@@ -516,7 +616,9 @@ export default function CricketRulesPage() {
     setRuleProfileId(id);
     setRuleProfileVersion(version ?? "");
     const profile =
-      CatalogRegistry.getRuleProfile(id, version) ?? CatalogRegistry.getRuleProfile(id) ?? null;
+      CatalogRegistry.getRuleProfile(id, version) ??
+      CatalogRegistry.getRuleProfile(id) ??
+      null;
     // Spec: changing profile clears overrides — reset draft to profile defaults.
     setKeyRules(draftFromProfileAndOverrides(profile, null));
   }
@@ -536,7 +638,12 @@ export default function CricketRulesPage() {
       if (min != null && max != null && min > max) {
         throw new Error("Minimum players cannot exceed maximum players.");
       }
-      if (!variantId || !competitionTypeId || !registrationModeId || !teamFormationStrategyId) {
+      if (
+        !variantId ||
+        !competitionTypeId ||
+        !registrationModeId ||
+        !teamFormationStrategyId
+      ) {
         throw new Error("Complete format, registration, and formation.");
       }
       if (!ruleProfileId || !presentationProfileId) {
@@ -547,10 +654,14 @@ export default function CricketRulesPage() {
       const maxWickets = parseInt(keyRules.maxWickets, 10);
       const xi = parseInt(keyRules.playingSquadSize, 10);
       const bench = parseInt(keyRules.benchSize, 10);
-      if (!Number.isFinite(overs) || overs < 1) throw new Error("Overs per innings must be ≥ 1");
-      if (!Number.isFinite(maxWickets) || maxWickets < 1) throw new Error("Max wickets must be ≥ 1");
-      if (!Number.isFinite(xi) || xi < 0) throw new Error("Playing squad size must be ≥ 0");
-      if (!Number.isFinite(bench) || bench < 0) throw new Error("Bench size must be ≥ 0");
+      if (!Number.isFinite(overs) || overs < 1)
+        throw new Error("Overs per innings must be ≥ 1");
+      if (!Number.isFinite(maxWickets) || maxWickets < 1)
+        throw new Error("Max wickets must be ≥ 1");
+      if (!Number.isFinite(xi) || xi < 0)
+        throw new Error("Playing squad size must be ≥ 0");
+      if (!Number.isFinite(bench) || bench < 0)
+        throw new Error("Bench size must be ≥ 0");
       if (keyRules.retireAtRuns.trim() !== "") {
         const retire = parseInt(keyRules.retireAtRuns, 10);
         if (!Number.isFinite(retire) || retire < 1) {
@@ -558,22 +669,26 @@ export default function CricketRulesPage() {
         }
       }
 
-      const res = await apiFetch(`/tournaments/${tournamentId}/competition/configuration`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          competitionTypeId,
-          variantId,
-          registrationModeId,
-          teamFormationStrategyId,
-          ruleProfileId,
-          ruleProfileVersion: ruleProfileVersion || null,
-          presentationProfileId,
-          presentationProfileVersion: presentationProfileVersion || null,
-          squadRules: Object.keys(squadPayload).length > 0 ? squadPayload : null,
-          ruleOverrides: pendingOverrides,
-        }),
-      });
+      const res = await apiFetch(
+        `/tournaments/${tournamentId}/competition/configuration`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            competitionTypeId,
+            variantId,
+            registrationModeId,
+            teamFormationStrategyId,
+            ruleProfileId,
+            ruleProfileVersion: ruleProfileVersion || null,
+            presentationProfileId,
+            presentationProfileVersion: presentationProfileVersion || null,
+            squadRules:
+              Object.keys(squadPayload).length > 0 ? squadPayload : null,
+            ruleOverrides: pendingOverrides,
+          }),
+        },
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Could not save rules");
       await load();
@@ -592,13 +707,19 @@ export default function CricketRulesPage() {
     try {
       const saved = await persistSetup();
       if (!saved) return;
-      const res = await apiFetch(`/tournaments/${tournamentId}/competition/ready`, {
-        method: "POST",
-      });
+      const res = await apiFetch(
+        `/tournaments/${tournamentId}/competition/ready`,
+        {
+          method: "POST",
+        },
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Could not lock rules");
       await load();
-      toast({ title: "Rules locked", description: "Next: apply them to matches." });
+      toast({
+        title: "Rules locked",
+        description: "Next: apply them to matches.",
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lock failed");
     } finally {
@@ -615,13 +736,14 @@ export default function CricketRulesPage() {
         { method: "POST" },
       );
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Could not apply rules to matches");
+      if (!res.ok)
+        throw new Error(body.error || "Could not apply rules to matches");
       const prepared = body.preparedCount ?? 0;
       const failed = body.failedCount ?? 0;
       if (failed > 0) {
-        const firstError = (body.matchResults as Array<{ error?: string }> | undefined)?.find(
-          (r) => r.error,
-        )?.error;
+        const firstError = (
+          body.matchResults as Array<{ error?: string }> | undefined
+        )?.find((r) => r.error)?.error;
         toast({
           title: `Applied to ${prepared} match${prepared === 1 ? "" : "es"}`,
           description: firstError
@@ -631,7 +753,8 @@ export default function CricketRulesPage() {
         });
       } else {
         toast({
-          title: prepared > 0 ? "Matches ready to start" : "No cricket matches yet",
+          title:
+            prepared > 0 ? "Matches ready to start" : "No cricket matches yet",
           description:
             prepared > 0
               ? "Open Matches & Scoring and start the match."
@@ -649,15 +772,20 @@ export default function CricketRulesPage() {
     !locked &&
     Boolean(
       variantId &&
-        competitionTypeId &&
-        registrationModeId &&
-        teamFormationStrategyId &&
-        ruleProfileId &&
-        presentationProfileId,
+      competitionTypeId &&
+      registrationModeId &&
+      teamFormationStrategyId &&
+      ruleProfileId &&
+      presentationProfileId,
     );
 
   if (!scoringActive && !tournamentLoading) {
-    return <CricketScoringSportRedirect tournamentId={tournamentId} />;
+    return (
+      <CricketScoringSportRedirect
+        tournamentId={tournamentId}
+        sport={tournament?.sport}
+      />
+    );
   }
 
   return (
@@ -685,9 +813,12 @@ export default function CricketRulesPage() {
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">Rules are locked</p>
+                <p className="text-sm font-semibold text-foreground">
+                  Rules are locked
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Apply them to matches so Start match gets overs, XI, and bench limits.
+                  Apply them to matches so Start match gets overs, XI, and bench
+                  limits.
                 </p>
               </div>
             </div>
@@ -746,7 +877,10 @@ export default function CricketRulesPage() {
                     disabled={locked}
                     value={squadRules[key]}
                     onChange={(e) =>
-                      setSquadRules((prev) => ({ ...prev, [key]: e.target.value }))
+                      setSquadRules((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
                     }
                   />
                 </FormField>
@@ -755,7 +889,9 @@ export default function CricketRulesPage() {
           </section>
 
           <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold">3. Playing & display rules</h2>
+            <h2 className="text-sm font-semibold">
+              3. Playing & display rules
+            </h2>
             <OptionChips
               label="Playing rules preset"
               value={ruleProfileId}
@@ -767,7 +903,9 @@ export default function CricketRulesPage() {
             {selectedRuleProfile ? (
               <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold">{selectedRuleProfile.displayName}</p>
+                  <p className="text-sm font-semibold">
+                    {selectedRuleProfile.displayName}
+                  </p>
                   {isCustomised ? (
                     <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">
                       Customised from preset
@@ -775,47 +913,70 @@ export default function CricketRulesPage() {
                   ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <FormField label={KEY_RULE_LABELS["cricket.match.overs_per_innings"]}>
+                  <FormField
+                    label={KEY_RULE_LABELS["cricket.match.overs_per_innings"]}
+                  >
                     <input
                       className={inputClass}
                       inputMode="numeric"
                       disabled={locked}
                       value={keyRules.overs}
-                      onChange={(e) => setKeyRules((p) => ({ ...p, overs: e.target.value }))}
+                      onChange={(e) =>
+                        setKeyRules((p) => ({ ...p, overs: e.target.value }))
+                      }
                     />
                   </FormField>
-                  <FormField label={KEY_RULE_LABELS["cricket.match.max_wickets"]}>
+                  <FormField
+                    label={KEY_RULE_LABELS["cricket.match.max_wickets"]}
+                  >
                     <input
                       className={inputClass}
                       inputMode="numeric"
                       disabled={locked}
                       value={keyRules.maxWickets}
                       onChange={(e) =>
-                        setKeyRules((p) => ({ ...p, maxWickets: e.target.value }))
+                        setKeyRules((p) => ({
+                          ...p,
+                          maxWickets: e.target.value,
+                        }))
                       }
                     />
                   </FormField>
-                  <FormField label={KEY_RULE_LABELS["cricket.match.playing_squad_size"]}>
+                  <FormField
+                    label={KEY_RULE_LABELS["cricket.match.playing_squad_size"]}
+                  >
                     <input
                       className={inputClass}
                       inputMode="numeric"
                       disabled={locked}
                       value={keyRules.playingSquadSize}
                       onChange={(e) =>
-                        setKeyRules((p) => ({ ...p, playingSquadSize: e.target.value }))
+                        setKeyRules((p) => ({
+                          ...p,
+                          playingSquadSize: e.target.value,
+                        }))
                       }
                     />
                   </FormField>
-                  <FormField label={KEY_RULE_LABELS["cricket.match.bench_size"]}>
+                  <FormField
+                    label={KEY_RULE_LABELS["cricket.match.bench_size"]}
+                  >
                     <input
                       className={inputClass}
                       inputMode="numeric"
                       disabled={locked}
                       value={keyRules.benchSize}
-                      onChange={(e) => setKeyRules((p) => ({ ...p, benchSize: e.target.value }))}
+                      onChange={(e) =>
+                        setKeyRules((p) => ({
+                          ...p,
+                          benchSize: e.target.value,
+                        }))
+                      }
                     />
                   </FormField>
-                  <FormField label={KEY_RULE_LABELS["cricket.batting.retire_at_runs"]}>
+                  <FormField
+                    label={KEY_RULE_LABELS["cricket.batting.retire_at_runs"]}
+                  >
                     <input
                       className={inputClass}
                       inputMode="numeric"
@@ -823,7 +984,10 @@ export default function CricketRulesPage() {
                       placeholder="None"
                       value={keyRules.retireAtRuns}
                       onChange={(e) =>
-                        setKeyRules((p) => ({ ...p, retireAtRuns: e.target.value }))
+                        setKeyRules((p) => ({
+                          ...p,
+                          retireAtRuns: e.target.value,
+                        }))
                       }
                     />
                   </FormField>
@@ -832,7 +996,9 @@ export default function CricketRulesPage() {
                   <button
                     type="button"
                     disabled={locked}
-                    onClick={() => setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled }))}
+                    onClick={() =>
+                      setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled }))
+                    }
                     className={cn(
                       "rounded-lg border px-3 py-2 text-xs font-semibold",
                       keyRules.lbwEnabled
@@ -847,7 +1013,10 @@ export default function CricketRulesPage() {
                     type="button"
                     disabled={locked}
                     onClick={() =>
-                      setKeyRules((p) => ({ ...p, freeHitEnabled: !p.freeHitEnabled }))
+                      setKeyRules((p) => ({
+                        ...p,
+                        freeHitEnabled: !p.freeHitEnabled,
+                      }))
                     }
                     className={cn(
                       "rounded-lg border px-3 py-2 text-xs font-semibold",
@@ -859,6 +1028,140 @@ export default function CricketRulesPage() {
                   >
                     Free hit {keyRules.freeHitEnabled ? "On" : "Off"}
                   </button>
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() =>
+                      setKeyRules((p) => ({
+                        ...p,
+                        legByeEnabled: !p.legByeEnabled,
+                      }))
+                    }
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-xs font-semibold",
+                      keyRules.legByeEnabled
+                        ? "border-primary/50 bg-primary/15 text-primary"
+                        : "border-border/70 text-muted-foreground",
+                      locked && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    Leg bye {keyRules.legByeEnabled ? "On" : "Off"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() =>
+                      setKeyRules((p) => ({
+                        ...p,
+                        playingXiEnforced: !p.playingXiEnforced,
+                      }))
+                    }
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-xs font-semibold",
+                      keyRules.playingXiEnforced
+                        ? "border-primary/50 bg-primary/15 text-primary"
+                        : "border-border/70 text-muted-foreground",
+                      locked && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    Exact XI {keyRules.playingXiEnforced ? "On" : "Off"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() =>
+                      setKeyRules((p) => ({
+                        ...p,
+                        superBallEnabled: !p.superBallEnabled,
+                      }))
+                    }
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-xs font-semibold",
+                      keyRules.superBallEnabled
+                        ? "border-amber-500/50 bg-amber-500/15 text-amber-500"
+                        : "border-border/70 text-muted-foreground",
+                      locked && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    Super Ball {keyRules.superBallEnabled ? "On" : "Off"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() =>
+                      setKeyRules((p) => ({
+                        ...p,
+                        superOverEnabled: !p.superOverEnabled,
+                      }))
+                    }
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-xs font-semibold",
+                      keyRules.superOverEnabled
+                        ? "border-primary/50 bg-primary/15 text-primary"
+                        : "border-border/70 text-muted-foreground",
+                      locked && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    Super Over {keyRules.superOverEnabled ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <FormField
+                    label={
+                      KEY_RULE_LABELS["cricket.tie_break.super_over_overs"]
+                    }
+                  >
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      disabled={locked}
+                      value={keyRules.superOverOvers}
+                      onChange={(e) =>
+                        setKeyRules((p) => ({
+                          ...p,
+                          superOverOvers: e.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    label={
+                      KEY_RULE_LABELS["cricket.tie_break.super_over_wickets"]
+                    }
+                  >
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      disabled={locked}
+                      value={keyRules.superOverWickets}
+                      onChange={(e) =>
+                        setKeyRules((p) => ({
+                          ...p,
+                          superOverWickets: e.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    label={
+                      KEY_RULE_LABELS["cricket.tie_break.super_over_trigger"]
+                    }
+                  >
+                    <select
+                      className={inputClass}
+                      disabled={locked}
+                      value={keyRules.superOverTrigger}
+                      onChange={(e) =>
+                        setKeyRules((p) => ({
+                          ...p,
+                          superOverTrigger: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="manual">Manual</option>
+                      <option value="knockout_tie">Knockout tie only</option>
+                    </select>
+                  </FormField>
                 </div>
                 {otherPresetRules.length > 0 ? (
                   <details className="text-xs text-muted-foreground">
@@ -878,7 +1181,9 @@ export default function CricketRulesPage() {
                           >
                             <span>{def?.name ?? entry.definitionId}</span>
                             <span className="font-mono shrink-0">
-                              {entry.value === null ? "null" : String(entry.value)}
+                              {entry.value === null
+                                ? "null"
+                                : String(entry.value)}
                             </span>
                           </li>
                         );

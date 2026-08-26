@@ -14,6 +14,34 @@ export type CricketDerivedMatchResult = {
 export function deriveCricketMatchResult(
   state: CricketScoreboardState,
 ): CricketDerivedMatchResult {
+  const superOvers = state.innings.filter((i) => i.kind === "super_over");
+  if (superOvers.length >= 2) {
+    const firstSuper = superOvers[superOvers.length - 2]!;
+    const secondSuper = superOvers[superOvers.length - 1]!;
+    if (secondSuper.runs > firstSuper.runs) {
+      return {
+        winnerTeamId: secondSuper.battingTeamId,
+        margin: "Super Over",
+        resultText: "Won in Super Over",
+        isTie: false,
+      };
+    }
+    if (firstSuper.runs > secondSuper.runs) {
+      return {
+        winnerTeamId: firstSuper.battingTeamId,
+        margin: "Super Over",
+        resultText: "Won in Super Over",
+        isTie: false,
+      };
+    }
+    return {
+      winnerTeamId: null,
+      margin: "tie",
+      resultText: "Super Over tied",
+      isTie: true,
+    };
+  }
+
   const first = state.innings.find((i) => i.innings === 1);
   const second = state.innings.find((i) => i.innings === 2);
 

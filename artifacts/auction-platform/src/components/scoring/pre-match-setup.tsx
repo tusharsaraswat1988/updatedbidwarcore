@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
-import { CricketEventType, executionLimitsFromRules } from "@workspace/scoring-core";
+import {
+  CricketEventType,
+  executionLimitsFromRules,
+} from "@workspace/scoring-core";
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,7 +25,10 @@ import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
 import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
 import { cricketRulesPath } from "@/lib/cricket-routes";
-import { BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
+import {
+  BtnSecondary,
+  btnCompactClass,
+} from "@/components/badminton/page-chrome";
 import { Loader2 } from "lucide-react";
 
 type PreMatchSetupProps = {
@@ -33,7 +39,10 @@ type PreMatchSetupProps = {
   players: CricketScorerPlayer[];
   localBowlerId: number | null;
   busy: boolean;
-  onEvent: (eventType: string, payload: Record<string, unknown>) => Promise<void>;
+  onEvent: (
+    eventType: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
   onBowlerSelected: (bowlerId: number) => void;
   /** Refresh match after Runtime Prepare so Start match unlocks. */
   onPrepared?: () => void | Promise<void>;
@@ -59,7 +68,9 @@ export function resolveCricketSideTeamIds(
   }
   if (state.tossWinnerTeamId != null && state.electedTo != null) {
     const other =
-      state.tossWinnerTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId;
+      state.tossWinnerTeamId === match.homeTeamId
+        ? match.awayTeamId
+        : match.homeTeamId;
     return {
       battingId: state.electedTo === "bat" ? state.tossWinnerTeamId : other,
       bowlingId: state.electedTo === "bat" ? other : state.tossWinnerTeamId,
@@ -124,7 +135,9 @@ export function PreMatchSetup({
       }
       await onPrepared?.();
     } catch (e) {
-      setPrepareError(e instanceof Error ? e.message : "Could not lock tournament rules");
+      setPrepareError(
+        e instanceof Error ? e.message : "Could not lock tournament rules",
+      );
     } finally {
       setPreparing(false);
     }
@@ -162,7 +175,13 @@ export function PreMatchSetup({
     state.bowlerId == null &&
     localBowlerId == null;
 
-  if (!needsToss && !needsBattingLineup && !needsBowlingLineup && !needsOpeners && !needsBowler) {
+  if (
+    !needsToss &&
+    !needsBattingLineup &&
+    !needsBowlingLineup &&
+    !needsOpeners &&
+    !needsBowler
+  ) {
     return null;
   }
 
@@ -192,7 +211,10 @@ export function PreMatchSetup({
               >
                 Retry apply
               </Button>
-              <BtnSecondary href={cricketRulesPath(tournamentId)} className={btnCompactClass}>
+              <BtnSecondary
+                href={cricketRulesPath(tournamentId)}
+                className={btnCompactClass}
+              >
                 Open Rules & format
               </BtnSecondary>
             </div>
@@ -205,8 +227,8 @@ export function PreMatchSetup({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Policy: {limits.oversLimit} overs · XI {limits.playingSquadSize ?? "—"} · Bench{" "}
-          {limits.benchSize ?? "—"}
+          Policy: {limits.oversLimit} overs · XI{" "}
+          {limits.playingSquadSize ?? "—"} · Bench {limits.benchSize ?? "—"}
           {match.rules?.lbwEnabled === false ? " · LBW off" : ""}
           {match.rules?.retireAtRuns != null
             ? ` · Retire at ${match.rules.retireAtRuns}`
@@ -230,12 +252,18 @@ export function PreMatchSetup({
               tossWinnerTeamId: parseInt(tossWinner, 10),
               electedTo,
               oversLimit,
+              powerplayOvers:
+                match.rules?.powerplayOvers ??
+                (match.rules?.superBallEnabled ? [1] : undefined),
             })
           }
         />
       ) : null}
 
-      {needsBattingLineup && battingId && playingSquadSize != null && benchSize != null ? (
+      {needsBattingLineup &&
+      battingId &&
+      playingSquadSize != null &&
+      benchSize != null ? (
         <SquadLineupPicker
           title={`${teamName(teams, battingId)} — squad & XI`}
           teamId={battingId}
@@ -258,7 +286,10 @@ export function PreMatchSetup({
         />
       ) : null}
 
-      {needsBowlingLineup && bowlingId && playingSquadSize != null && benchSize != null ? (
+      {needsBowlingLineup &&
+      bowlingId &&
+      playingSquadSize != null &&
+      benchSize != null ? (
         <SquadLineupPicker
           title={`${teamName(teams, bowlingId)} — squad & XI`}
           teamId={bowlingId}
@@ -271,7 +302,10 @@ export function PreMatchSetup({
               playingXi,
               bench,
             });
-            await onEvent(CricketEventType.LINEUP_SET, { teamId: bowlingId, playerIds: playingXi });
+            await onEvent(CricketEventType.LINEUP_SET, {
+              teamId: bowlingId,
+              playerIds: playingXi,
+            });
           }}
         />
       ) : null}
@@ -337,7 +371,11 @@ function TossStep({
       <h2 className="text-sm font-semibold">Toss</h2>
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Toss winner</Label>
-        <Select value={tossWinner} onValueChange={setTossWinner} disabled={!policyReady || busy}>
+        <Select
+          value={tossWinner}
+          onValueChange={setTossWinner}
+          disabled={!policyReady || busy}
+        >
           <SelectTrigger className="h-11">
             <SelectValue />
           </SelectTrigger>
@@ -403,9 +441,16 @@ function SquadLineupPicker({
   playingSquadSize: number;
   benchSize: number;
   busy: boolean;
-  onConfirm: (playingXi: number[], bench: number[], battingOrder?: number[]) => void | Promise<void>;
+  onConfirm: (
+    playingXi: number[],
+    bench: number[],
+    battingOrder?: number[],
+  ) => void | Promise<void>;
 }) {
-  const squad = useMemo(() => squadPlayersForTeam(players, teamId), [players, teamId]);
+  const squad = useMemo(
+    () => squadPlayersForTeam(players, teamId),
+    [players, teamId],
+  );
   const [playingXi, setPlayingXi] = useState<number[]>([]);
   const [bench, setBench] = useState<number[]>([]);
 
@@ -435,12 +480,14 @@ function SquadLineupPicker({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">{title}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">
-          XI {playingXi.length}/{playingSquadSize} · Bench {bench.length}/{benchSize}
+          XI {playingXi.length}/{playingSquadSize} · Bench {bench.length}/
+          {benchSize}
         </span>
       </div>
       {squad.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No eligible players for this team. Add players via Player Registry first.
+          No eligible players for this team. Add players via Player Registry
+          first.
         </p>
       ) : (
         <ul className="max-h-56 overflow-y-auto space-y-1">
@@ -448,10 +495,21 @@ function SquadLineupPicker({
             const inXi = playingXi.includes(p.id);
             const onBench = bench.includes(p.id);
             return (
-              <li key={p.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/40">
+              <li
+                key={p.id}
+                className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/40"
+              >
                 <label className="flex flex-1 items-center gap-2 cursor-pointer min-w-0">
-                  <Checkbox checked={inXi} onCheckedChange={() => toggleXi(p.id)} />
-                  <ScoringPlayerLabel name={p.name} photoUrl={p.photoUrl} gender={p.gender} role={p.role} />
+                  <Checkbox
+                    checked={inXi}
+                    onCheckedChange={() => toggleXi(p.id)}
+                  />
+                  <ScoringPlayerLabel
+                    name={p.name}
+                    photoUrl={p.photoUrl}
+                    gender={p.gender}
+                    role={p.role}
+                  />
                 </label>
                 {!inXi ? (
                   <Button
@@ -464,7 +522,9 @@ function SquadLineupPicker({
                     {onBench ? "Bench" : "+Bench"}
                   </Button>
                 ) : (
-                  <span className="text-[10px] uppercase text-primary font-medium px-1">XI</span>
+                  <span className="text-[10px] uppercase text-primary font-medium px-1">
+                    XI
+                  </span>
                 )}
               </li>
             );
@@ -496,8 +556,12 @@ function OpenersPicker({
   onConfirm: (strikerId: number, nonStrikerId: number) => void;
 }) {
   const squad = useMemo(() => {
-    const map = new Map(squadPlayersForTeam(players, teamId).map((p) => [p.id, p]));
-    return lineup.map((id) => map.get(id)).filter(Boolean) as CricketScorerPlayer[];
+    const map = new Map(
+      squadPlayersForTeam(players, teamId).map((p) => [p.id, p]),
+    );
+    return lineup
+      .map((id) => map.get(id))
+      .filter(Boolean) as CricketScorerPlayer[];
   }, [players, teamId, lineup]);
 
   const [striker, setStriker] = useState<string>("");
@@ -514,7 +578,11 @@ function OpenersPicker({
           </SelectTrigger>
           <SelectContent>
             {squad.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)} disabled={nonStriker === String(p.id)}>
+              <SelectItem
+                key={p.id}
+                value={String(p.id)}
+                disabled={nonStriker === String(p.id)}
+              >
                 {p.name}
               </SelectItem>
             ))}
@@ -529,7 +597,11 @@ function OpenersPicker({
           </SelectTrigger>
           <SelectContent>
             {squad.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)} disabled={striker === String(p.id)}>
+              <SelectItem
+                key={p.id}
+                value={String(p.id)}
+                disabled={striker === String(p.id)}
+              >
                 {p.name}
               </SelectItem>
             ))}
@@ -539,7 +611,9 @@ function OpenersPicker({
       <Button
         className="w-full h-11"
         disabled={busy || !striker || !nonStriker || striker === nonStriker}
-        onClick={() => onConfirm(parseInt(striker, 10), parseInt(nonStriker, 10))}
+        onClick={() =>
+          onConfirm(parseInt(striker, 10), parseInt(nonStriker, 10))
+        }
       >
         Confirm openers
       </Button>
@@ -561,8 +635,12 @@ function BowlerPicker({
   onSelect: (bowlerId: number) => void;
 }) {
   const squad = useMemo(() => {
-    const map = new Map(squadPlayersForTeam(players, teamId).map((p) => [p.id, p]));
-    return lineup.map((id) => map.get(id)).filter(Boolean) as CricketScorerPlayer[];
+    const map = new Map(
+      squadPlayersForTeam(players, teamId).map((p) => [p.id, p]),
+    );
+    return lineup
+      .map((id) => map.get(id))
+      .filter(Boolean) as CricketScorerPlayer[];
   }, [players, teamId, lineup]);
 
   const [bowler, setBowler] = useState<string>("");
