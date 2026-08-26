@@ -293,6 +293,9 @@ export default function Teams() {
                         <div>
                           <h3 className="font-bold text-lg leading-tight">{team.name}</h3>
                           <p className="text-xs text-muted-foreground">{team.ownerName}</p>
+                          {team.coachName ? (
+                            <p className="text-xs text-muted-foreground">Coach: {team.coachName}{team.coachMobile ? ` · ${team.coachMobile}` : ""}</p>
+                          ) : null}
                           {team.ownerMobile && <p className="text-xs text-muted-foreground font-mono">{team.ownerMobile}</p>}
                           {team.ownerEmail && <p className="text-xs text-muted-foreground break-all">{team.ownerEmail}</p>}
                         </div>

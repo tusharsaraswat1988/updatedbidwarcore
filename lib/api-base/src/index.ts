@@ -178,3 +178,25 @@ export {
   apiFetch,
   type ApiFetchOptions,
 } from "./api-fetch";
+
+export {
+  PLAYER_REGISTRATION_MODES,
+  DEFAULT_PLAYER_REGISTRATION_MODE,
+  REGISTRATION_CATEGORY_MODES,
+  DEFAULT_REGISTRATION_CATEGORY_MODE,
+  parsePlayerRegistrationMode,
+  isScoringPlayerRegistration,
+  isAuctionPlayerRegistration,
+  parseRegistrationCategoryMode,
+  shouldShowPublicCategorySelect,
+  shouldAcceptPublicCategoryId,
+  shouldAcceptPublicRegistrationCategoryId,
+  shouldShowOrganizerCategoryControls,
+  coerceScoringModePlayerStatus,
+  resolvePlayerRosterAssignmentType,
+  publicRegistrationCategoryIdPayload,
+  resolvePublicRegistrationBidFields,
+  type PlayerRegistrationMode,
+  type RegistrationCategoryMode,
+  type PlayerRosterAssignmentType,
+} from "./player-registration-mode";

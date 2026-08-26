@@ -62,12 +62,15 @@ export function squadPlayersForTeam(
     (p) =>
       p.teamId === teamId &&
       !p.isNonPlayingMember &&
+      p.status !== "withdrawn" &&
+      p.status !== "unsold" &&
       (p.status === "sold" ||
         p.status === "retained" ||
         p.status === "transfer" ||
         p.status === "unsold_replacement" ||
         p.status === "interchange" ||
-        p.status === "auction_sale"),
+        p.status === "auction_sale" ||
+        p.status === "available"),
   );
 }
 

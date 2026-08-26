@@ -145,6 +145,10 @@ void systemCQuery(`
     ALTER TABLE players ADD COLUMN IF NOT EXISTS selected_bid_value integer;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS bid_value_source text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fields_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS player_registration_mode text NOT NULL DEFAULT 'auction';
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_category_mode text NOT NULL DEFAULT 'hidden';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_name text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_mobile text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS variant_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS competition_type_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_id text;

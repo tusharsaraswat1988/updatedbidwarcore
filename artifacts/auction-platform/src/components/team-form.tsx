@@ -105,6 +105,8 @@ export function TeamForm({
     purse: team?.purse || basePurse,
     logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
     logoPublicId: team?.logoPublicId ?? "",
+    coachName: team?.coachName || "",
+    coachMobile: team?.coachMobile ? sanitizeMobileInput(team.coachMobile) : "",
   });
   const [shortCodeManuallyEdited, setShortCodeManuallyEdited] = useState(!isNew);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
@@ -137,11 +139,13 @@ export function TeamForm({
       purse: team?.purse || basePurse,
       logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
       logoPublicId: team?.logoPublicId ?? "",
+      coachName: team?.coachName || "",
+      coachMobile: team?.coachMobile ? sanitizeMobileInput(team.coachMobile) : "",
     });
     setShortCodeManuallyEdited(!isNew);
     setError("");
     setOwnerEmailError("");
-  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, basePurse, isNew, existingTeamColors]);
+  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, team?.coachName, team?.coachMobile, basePurse, isNew, existingTeamColors]);
 
   const shortCodeDuplicate = takenCodes.has(form.shortCode.toUpperCase());
 
@@ -159,6 +163,13 @@ export function TeamForm({
       setOwnerEmailError(ownerEmailResult.error);
       return;
     }
+    if (form.coachMobile.trim()) {
+      const coachMobileResult = parseIndianMobile(form.coachMobile);
+      if (!coachMobileResult.ok) {
+        setError(coachMobileResult.error);
+        return;
+      }
+    }
     if (shortCodeDuplicate) {
       setError(`Short code "${form.shortCode.toUpperCase()}" is already taken by another team`);
       return;
@@ -174,6 +185,8 @@ export function TeamForm({
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
       logoPublicId: form.logoPublicId.trim() || undefined,
+      coachName: form.coachName.trim() || null,
+      coachMobile: form.coachMobile.trim() || null,
       // Sports: omit purse — create defaults from tournament; update leaves purse untouched.
       ...(showPurse ? { purse: form.purse } : {}),
     };
@@ -288,6 +301,29 @@ export function TeamForm({
         onChange={v => { setForm(f => ({ ...f, ownerEmail: v })); if (ownerEmailError) setOwnerEmailError(""); }}
         error={ownerEmailError || undefined}
       />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Coach / Mentor Name <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+          <Input
+            value={form.coachName}
+            onChange={e => setForm(f => ({ ...f, coachName: e.target.value }))}
+            placeholder="Rahul Sharma"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Coach / Mentor Mobile <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+          <Input
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            value={form.coachMobile}
+            onChange={e => setForm(f => ({ ...f, coachMobile: sanitizeMobileInput(e.target.value) }))}
+            placeholder="10-digit mobile (e.g. 9876543210)"
+            maxLength={10}
+          />
+        </div>
+      </div>
 
       <div className="space-y-2">
         <Label>Owner Photo <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>

@@ -344,7 +344,7 @@ export default function Categories() {
           titleExtra={
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted/60 text-muted-foreground border border-border/50 tracking-wide">OPTIONAL</span>
           }
-          description="Group players into tiers (e.g. Platinum, Gold, Silver) and set different minimum values or bid increments per tier. Skip this section if all players have the same rules."
+          description="Group players into tournament divisions (for example U-14, Men's Singles, or Open). For auctions you can also set different minimum values or bid increments per category. Skip this section if you don't need divisions."
           actions={
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
@@ -374,7 +374,7 @@ export default function Categories() {
             </div>
             <h3 className="font-display font-bold text-lg mb-2">No categories yet — and that is fine</h3>
             <p className="text-muted-foreground text-sm mb-1">
-              Categories let you group players into tiers (e.g. Platinum, Gold, Silver) with different minimum values and bid increments.
+              Categories are tournament divisions (U-14, Men's Singles, Open). Auction tournaments can also use them as bid tiers with different minimum values.
             </p>
             <p className="text-xs text-muted-foreground mb-6">
               This step is optional. If you skip it, all players will use the tournament-level defaults.

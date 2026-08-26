@@ -2,6 +2,10 @@ import { parseBidValueOptions } from "@workspace/api-base/bid-value";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { parseRegistrationFieldsConfig } from "@workspace/api-base/registration-fields";
 import {
+  parsePlayerRegistrationMode,
+  parseRegistrationCategoryMode,
+} from "@workspace/api-base/player-registration-mode";
+import {
   resolveBroadcastAudioUrl,
   type PlatformAudioDefaults,
 } from "@workspace/api-base/platform-audio";
@@ -82,6 +86,8 @@ export function publicTournamentSerializer(
     mainBannerFit: t.mainBannerFit ?? "cover",
     matchDates: t.matchDates ?? null,
     registrationFields: parseRegistrationFieldsConfig(t.registrationFieldsJson),
+    playerRegistrationMode: parsePlayerRegistrationMode(t.playerRegistrationMode),
+    registrationCategoryMode: parseRegistrationCategoryMode(t.registrationCategoryMode),
     scoringEnabled: t.scoringEnabled ?? false,
     scoringPhase: t.scoringPhase ?? "disabled",
     features: resolveTournamentFeatures(t.featuresJson),

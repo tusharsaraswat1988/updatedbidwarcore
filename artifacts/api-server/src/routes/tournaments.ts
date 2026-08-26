@@ -7,6 +7,12 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import {
+  PLAYER_REGISTRATION_MODES,
+  REGISTRATION_CATEGORY_MODES,
+  isScoringPlayerRegistration,
+  parsePlayerRegistrationMode,
+} from "@workspace/api-base/player-registration-mode";
+import {
   REGISTRATION_OPTIONAL_FIELD_KEYS,
   serializeRegistrationFieldsConfig,
 } from "@workspace/api-base/registration-fields";
@@ -339,6 +345,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     registrationDeclarationText: z.string().nullable().optional(),
     bidValueMode: z.enum(["system", "player"]).optional(),
     bidValueOptions: z.array(z.number().int().positive()).optional(),
+    playerRegistrationMode: z.enum(PLAYER_REGISTRATION_MODES).optional(),
+    registrationCategoryMode: z.enum(REGISTRATION_CATEGORY_MODES).optional(),
     registrationFields: z
       .object({
         hidden: z.array(z.enum(REGISTRATION_OPTIONAL_FIELD_KEYS)).optional(),
@@ -390,7 +398,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const nextBidValueOptionsRaw = d.bidValueOptions !== undefined
     ? serializeBidValueOptions(d.bidValueOptions)
     : beforeTournament.bidValueOptions;
-  if (nextBidValueMode === "player" && parseBidValueOptions(nextBidValueOptionsRaw).length === 0) {
+  const nextPlayerRegistrationMode = parsePlayerRegistrationMode(
+    d.playerRegistrationMode ?? beforeTournament.playerRegistrationMode,
+  );
+  if (
+    !isScoringPlayerRegistration(nextPlayerRegistrationMode)
+    && nextBidValueMode === "player"
+    && parseBidValueOptions(nextBidValueOptionsRaw).length === 0
+  ) {
     res.status(400).json({ error: "Add at least one allowed bid value when using Player Selected mode." });
     return;
   }
@@ -495,6 +510,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidValueOptions !== undefined) {
     updates.bidValueOptions = serializeBidValueOptions(d.bidValueOptions);
   }
+  if (d.playerRegistrationMode !== undefined) updates.playerRegistrationMode = d.playerRegistrationMode;
+  if (d.registrationCategoryMode !== undefined) updates.registrationCategoryMode = d.registrationCategoryMode;
   if (d.registrationFields !== undefined) {
     updates.registrationFieldsJson = serializeRegistrationFieldsConfig(
       d.registrationFields.hidden ?? [],
@@ -548,7 +565,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
         ? d.paymentVerificationMethod
         : (beforeTournament?.paymentVerificationMethod ?? null),
   };
-  const paymentSettingsValidation = validateTournamentPaymentSettings(mergedPaymentSettings);
+  const paymentSettingsValidation = isScoringPlayerRegistration(nextPlayerRegistrationMode)
+    ? { ok: true as const }
+    : validateTournamentPaymentSettings(mergedPaymentSettings);
   if (!paymentSettingsValidation.ok) {
     res.status(400).json({ error: paymentSettingsValidation.error, field: paymentSettingsValidation.field });
     return;

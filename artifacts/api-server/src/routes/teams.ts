@@ -111,6 +111,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     logoUrl: cloudinaryLogoUrl,
     logoPublicId: z.string().optional().nullable(),
     purse: z.number().int().min(0).optional(),
+    coachName: z.string().optional().nullable(),
+    coachMobile: z.string().optional().nullable(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" }); return; }
@@ -124,6 +126,17 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   if (!ownerEmailParsed.ok) {
     res.status(400).json({ error: ownerEmailParsed.error, field: "ownerEmail" });
     return;
+  }
+
+  const coachName = d.coachName?.trim() || null;
+  let coachMobile: string | null = null;
+  if (d.coachMobile?.trim()) {
+    const coachMobileParsed = parseIndianMobile(d.coachMobile);
+    if (!coachMobileParsed.ok) {
+      res.status(400).json({ error: coachMobileParsed.error, field: "coachMobile" });
+      return;
+    }
+    coachMobile = coachMobileParsed.normalized;
   }
 
   const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
@@ -174,6 +187,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         purseUsed: 0,
         isBiddingEnabled: true,
         accessCode: genAccessCode(),
+        coachName,
+        coachMobile,
       })
       .returning();
   } catch (err) {
@@ -340,6 +355,8 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     purse: z.number().int().optional(),
     isBiddingEnabled: z.boolean().optional(),
     regenerateCode: z.boolean().optional(),
+    coachName: z.string().optional().nullable(),
+    coachMobile: z.string().optional().nullable(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -388,6 +405,20 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
       return;
     }
     updates.ownerEmail = ownerEmailParsed.email;
+  }
+  if (d.coachName !== undefined) updates.coachName = d.coachName?.trim() || null;
+  if (d.coachMobile !== undefined) {
+    const rawCoachMobile = d.coachMobile?.trim() ?? "";
+    if (!rawCoachMobile) {
+      updates.coachMobile = null;
+    } else {
+      const coachMobileParsed = parseIndianMobile(rawCoachMobile);
+      if (!coachMobileParsed.ok) {
+        res.status(400).json({ error: coachMobileParsed.error, field: "coachMobile" });
+        return;
+      }
+      updates.coachMobile = coachMobileParsed.normalized;
+    }
   }
   queueImageFieldChange(imageChanges, updates, {
     label: "ownerPhotoUrl",

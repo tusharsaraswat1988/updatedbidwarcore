@@ -31,6 +31,12 @@ import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import {
+  parsePlayerRegistrationMode,
+  publicRegistrationCategoryIdPayload,
+  shouldShowPublicCategorySelect,
+  type RegistrationCategoryMode,
+} from "@workspace/api-base/player-registration-mode";
+import {
   buildRegistrationFieldVisibility,
   type RegistrationFieldsConfig,
   type RegistrationOptionalFieldKey,
@@ -64,6 +70,7 @@ interface GlobalPlayerLookup {
   achievements?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
+  categoryId?: number | null;
   appearanceCount?: number;
 }
 
@@ -137,6 +144,7 @@ export default function PlayerRegister() {
     battingStyle: "",
     bowlingStyle: "",
     specialization: "",
+    categoryId: "",
   });
 
   // Spec group selections: groupId → chosen optionName
@@ -265,8 +273,18 @@ export default function PlayerRegister() {
   const closedReason = status?.reason;
   const remaining = status?.limit != null ? Math.max(0, status.limit - status.currentCount) : null;
 
-  const paymentEnabled =
-    status?.enableRegistrationPayment === true || tournament?.enableRegistrationPayment === true;
+  const scoringMode = parsePlayerRegistrationMode(
+    status?.playerRegistrationMode ?? tournament?.playerRegistrationMode,
+  ) === "scoring";
+  const categoryMode = (status?.registrationCategoryMode
+    ?? tournament?.registrationCategoryMode) as RegistrationCategoryMode | undefined;
+  const publicCategories = status?.categories ?? [];
+  const showCategorySelect = scoringMode && shouldShowPublicCategorySelect(categoryMode ?? "hidden")
+    && publicCategories.length > 0;
+
+  const paymentEnabled = !scoringMode && (
+    status?.enableRegistrationPayment === true || tournament?.enableRegistrationPayment === true
+  );
   const registrationFee = status?.registrationFee ?? tournament?.registrationFee ?? 0;
   const upiId = status?.upiId ?? tournament?.upiId ?? "";
   const verificationMethod = (
@@ -274,9 +292,10 @@ export default function PlayerRegister() {
   ) as PaymentVerificationMethod;
   const paymentConfigured = paymentEnabled && registrationFee > 0 && !!upiId.trim() && !!verificationMethod;
 
-  const playerBidValueMode =
+  const playerBidValueMode = !scoringMode && (
     (status as { bidValueMode?: string } | undefined)?.bidValueMode === "player"
-    || (tournament as { bidValueMode?: string } | undefined)?.bidValueMode === "player";
+    || (tournament as { bidValueMode?: string } | undefined)?.bidValueMode === "player"
+  );
   const bidValueOptions = (
     (status as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
     ?? (tournament as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
@@ -392,6 +411,7 @@ export default function PlayerRegister() {
                 achievements: tp.achievements ?? prev.achievements,
                 cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
                 availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
+                categoryId: tp.categoryId != null ? String(tp.categoryId) : prev.categoryId,
               }));
             } else if (match) {
               setForm(prev => ({
@@ -435,6 +455,7 @@ export default function PlayerRegister() {
                 achievements: tp.achievements ?? prev.achievements,
                 cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
                 availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
+                categoryId: tp.categoryId != null ? String(tp.categoryId) : prev.categoryId,
               }));
             }
           }
@@ -449,7 +470,9 @@ export default function PlayerRegister() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (closedUpdateReadOnly) {
-      setErrorMsg("Profile updates are locked because the auction has started. Contact your organiser.");
+      setErrorMsg(scoringMode
+        ? "Profile updates are locked. Contact your organiser."
+        : "Profile updates are locked because the auction has started. Contact your organiser.");
       return;
     }
     const mobileResult = parseIndianMobile(form.mobileNumber);
@@ -561,8 +584,9 @@ export default function PlayerRegister() {
             cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
             photoUrl: form.photoUrl || undefined,
             photoPublicId: form.photoPublicId || undefined,
-            basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
-            selectedBidValue: playerBidValueMode && !existingRegistration
+            categoryId: publicRegistrationCategoryIdPayload(showCategorySelect, form.categoryId),
+            basePrice: scoringMode ? undefined : (playerBidValueMode ? undefined : (tournament?.minBid ?? 100000)),
+            selectedBidValue: !scoringMode && playerBidValueMode && !existingRegistration
               ? parseInt(selectedBidValue, 10)
               : undefined,
             whatsappConsent: showWhatsappConsent ? waConsent : undefined,
@@ -666,6 +690,8 @@ export default function PlayerRegister() {
             brandNameFallback={brandName}
             registeredCount={status.currentCount}
             registrationLimit={status.limit}
+            subtitle="Player Registration"
+            tagline={scoringMode ? "Register for this tournament" : undefined}
           />
 
           <AnimatePresence mode="wait">
@@ -744,7 +770,9 @@ export default function PlayerRegister() {
                         <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
                         <h2 className="text-2xl font-bold text-green-400 mb-2">Registration Updated</h2>
                         <p className="text-muted-foreground">
-                          Your profile details have been saved. Your auction status was not changed.
+                          {scoringMode
+                            ? "Your profile details have been saved."
+                            : "Your profile details have been saved. Your auction status was not changed."}
                         </p>
                       </>
                     ) : paymentConfigured ? (
@@ -764,7 +792,9 @@ export default function PlayerRegister() {
                         <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
                         <h2 className="text-2xl font-bold text-green-400 mb-2">Registration Successful!</h2>
                         <p className="text-muted-foreground">
-                          Your registration has been received. The organizer will contact you with further details.
+                          {scoringMode
+                            ? "You're registered for this tournament. The organizer will assign teams and share match details."
+                            : "Your registration has been received. The organizer will contact you with further details."}
                         </p>
                       </>
                     )}
@@ -792,7 +822,7 @@ export default function PlayerRegister() {
                         setForm({
                           name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
-                          cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "",
+                          cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "", categoryId: "",
                         });
                         setSpecSelections({});
                       }}
@@ -826,7 +856,9 @@ export default function PlayerRegister() {
                       Registration is closed. You can {closedUpdateEditable ? "update your photo, role, and sports specs" : "view your registration"}.
                       {closedUpdateEditable
                         ? " Other details are locked — contact your organiser to change them."
-                        : " Profile edits are locked because the auction has started — contact your organiser."}
+                        : scoringMode
+                          ? " Profile edits are locked — contact your organiser."
+                          : " Profile edits are locked because the auction has started — contact your organiser."}
                     </div>
                   </div>
                 )}
@@ -837,7 +869,11 @@ export default function PlayerRegister() {
                       <div className="flex items-center gap-2 mb-2">
                         <User className="w-5 h-5 text-primary" />
                         <h2 className="font-bold text-lg">
-                          {closedSelfUpdateMode ? "Your Registration" : "Your Details"}
+                          {closedSelfUpdateMode
+                            ? "Your Registration"
+                            : scoringMode
+                              ? "Player Details"
+                              : "Your Details"}
                         </h2>
                       </div>
 
@@ -899,7 +935,9 @@ export default function PlayerRegister() {
                               ? closedUpdateEditable
                                 ? "You're already registered. Update photo, role, and sports specs below."
                                 : "You're already registered. Profile is view-only — contact your organiser to make changes."
-                              : "You're already registered in this tournament. Update your profile below — auction status and team assignment won't change."}
+                              : scoringMode
+                                ? "You're already registered in this tournament. Update your profile below — team assignment won't change."
+                                : "You're already registered in this tournament. Update your profile below — auction status and team assignment won't change."}
                           </p>
                         ) : foundProfile ? (
                           <p className="text-xs text-green-400">
@@ -936,6 +974,7 @@ export default function PlayerRegister() {
                                 achievements: "",
                                 cricheroUrl: "",
                                 availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
+                                categoryId: "",
                               }));
                               setSpecSelections({});
                             }}
@@ -1040,7 +1079,11 @@ export default function PlayerRegister() {
                       <div className={`space-y-3 p-3 sm:p-4 rounded-lg border ${closedUpdateEditable ? "border-primary/40 bg-primary/5" : "border-border bg-muted/20"}`}>
                         {closedSelfUpdateMode && (
                           <p className="text-xs font-medium text-primary">
-                            {closedUpdateEditable ? "Editable — photo, role & sports specs" : "View only — auction has started"}
+                            {closedUpdateEditable
+                              ? "Editable — photo, role & sports specs"
+                              : scoringMode
+                                ? "View only"
+                                : "View only — auction has started"}
                           </p>
                         )}
                         <div className="space-y-2">
@@ -1191,7 +1234,7 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      {showMatchAvailability && (() => {
+                      {!scoringMode && showMatchAvailability && (() => {
                         const matchDates: string[] = ((tournament as { matchDates?: string | null } | undefined)?.matchDates || "").split(",").filter(Boolean);
                         if (matchDates.length === 0) return null;
                         const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean);
@@ -1363,6 +1406,86 @@ export default function PlayerRegister() {
                         />
                       </div>
 
+                      {scoringMode && (showCategorySelect || showMatchAvailability) && (
+                        <div className="pt-1 space-y-4">
+                          <h3 className="font-bold text-base">Tournament Details</h3>
+                          {showCategorySelect && (
+                            <div className="space-y-2">
+                              <Label>Category</Label>
+                              <Select
+                                value={form.categoryId || "none"}
+                                onValueChange={(v) => f("categoryId", v === "none" ? "" : v)}
+                                disabled={identityFieldsLocked}
+                              >
+                                <SelectTrigger className="h-11 sm:h-9">
+                                  <SelectValue placeholder="Select category (optional)" />
+                                </SelectTrigger>
+                                <SelectContent className="dark">
+                                  <SelectItem value="none">Assign later</SelectItem>
+                                  {publicCategories.map((cat) => (
+                                    <SelectItem key={cat.id} value={String(cat.id)}>
+                                      {cat.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">
+                                Optional. Leave blank if the organizer will assign your division later.
+                              </p>
+                            </div>
+                          )}
+                          {showMatchAvailability && (() => {
+                            const matchDates: string[] = ((tournament as { matchDates?: string | null } | undefined)?.matchDates || "").split(",").filter(Boolean);
+                            if (matchDates.length === 0) return null;
+                            const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean);
+                            const selectedSet = new Set<string>(selectedDates);
+                            function toggleAvailDate(iso: string) {
+                              if (identityFieldsLocked) return;
+                              const next = new Set<string>(selectedSet);
+                              if (next.has(iso)) next.delete(iso); else next.add(iso);
+                              const kept: string[] = [];
+                              next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
+                              f("availabilityDates", kept.join(","));
+                            }
+                            return (
+                              <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">
+                                  <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
+                                  Match Availability
+                                  {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                  {identityFieldsLocked
+                                    ? "To change availability, contact your organiser."
+                                    : "Select the match days you will be available to play."}
+                                </p>
+                                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+                                  {matchDates.map((iso: string) => {
+                                    const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                                    const checked = selectedSet.has(iso);
+                                    return (
+                                      <label
+                                        key={iso}
+                                        className={`flex items-center gap-2 text-sm px-3 py-2.5 min-h-11 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300" : "border-border hover:bg-muted/50 text-muted-foreground"} ${identityFieldsLocked ? "opacity-70 cursor-default" : "cursor-pointer"}`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => toggleAvailDate(iso)}
+                                          disabled={identityFieldsLocked}
+                                          className="accent-amber-400 h-4 w-4 shrink-0"
+                                        />
+                                        {label}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
                       {!closedSelfUpdateMode && declarationRequired && (
                         <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
                           <p className="text-sm font-semibold text-foreground">Declaration & Consent</p>
@@ -1395,7 +1518,9 @@ export default function PlayerRegister() {
                               className="mt-0.5 h-5 w-5 rounded border-border accent-primary cursor-pointer shrink-0"
                             />
                             <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                              Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
+                              {scoringMode
+                                ? "Main tournament ke WhatsApp updates chahiye? (schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain."
+                                : "Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain."}
                             </span>
                           </label>
                         </div>

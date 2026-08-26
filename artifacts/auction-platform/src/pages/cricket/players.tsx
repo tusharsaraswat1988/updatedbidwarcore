@@ -8,10 +8,12 @@ import { useRoute } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetTournamentQueryKey,
+  getListCategoriesQueryKey,
   getListPlayersQueryKey,
   getListTeamsQueryKey,
   useCreatePlayer,
   useGetTournament,
+  useListCategories,
   useListPlayers,
   useListTeams,
   useUpdatePlayer,
@@ -42,6 +44,12 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { handoffAuctionParticipantsToSports } from "@/lib/scoring-api";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import {
+  isScoringPlayerRegistration,
+  parseRegistrationCategoryMode,
+  shouldShowOrganizerCategoryControls,
+} from "@workspace/api-base/player-registration-mode";
+import { PlayerCategorySelect } from "@/components/player-category-select";
 import { Pencil, Plus, Upload, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +82,7 @@ type SportsPlayerForm = {
   gender: string;
   battingStyle: string;
   bowlingStyle: string;
+  categoryId: string;
 };
 
 const EMPTY_FORM: SportsPlayerForm = {
@@ -86,6 +95,7 @@ const EMPTY_FORM: SportsPlayerForm = {
   gender: "",
   battingStyle: "",
   bowlingStyle: "",
+  categoryId: "",
 };
 
 function formFromPlayer(player: Player): SportsPlayerForm {
@@ -99,6 +109,7 @@ function formFromPlayer(player: Player): SportsPlayerForm {
     gender: player.gender || "",
     battingStyle: player.battingStyle || "",
     bowlingStyle: player.bowlingStyle || "",
+    categoryId: player.categoryId != null ? String(player.categoryId) : "",
   };
 }
 
@@ -182,12 +193,18 @@ export default function CricketPlayersPage() {
   });
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const enabled = scoringActive && !!tournamentId;
+  const scoringMode = isScoringPlayerRegistration(tournament?.playerRegistrationMode);
+  const categoryMode = parseRegistrationCategoryMode(tournament?.registrationCategoryMode);
+  const showCategoryControls = shouldShowOrganizerCategoryControls(categoryMode);
 
   const { data: players = [], isLoading: playersLoading } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled },
   });
   const { data: teams = [] } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled },
+  });
+  const { data: categories = [] } = useListCategories(tournamentId, {
+    query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: enabled && showCategoryControls },
   });
 
   useEffect(() => {
@@ -394,7 +411,9 @@ export default function CricketPlayersPage() {
       await updatePlayer.mutateAsync({
         tournamentId,
         playerId: assignPlayer.id,
-        data: { teamId: nextTeamId, status: "sold" },
+        data: scoringMode
+          ? { teamId: nextTeamId }
+          : { teamId: nextTeamId, status: "sold" },
       });
       await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
       toast({
@@ -457,8 +476,11 @@ export default function CricketPlayersPage() {
       bowlingStyle: form.bowlingStyle && form.bowlingStyle !== "None" ? form.bowlingStyle : undefined,
       teamId: assignedTeamId,
       ...(assignedTeamId
-        ? { status: "sold" as const }
+        ? (scoringMode ? { status: "available" as const } : { status: "sold" as const })
         : { status: "available" as const }),
+      ...(showCategoryControls
+        ? { categoryId: form.categoryId ? Number(form.categoryId) : null }
+        : {}),
     };
 
     try {
@@ -744,6 +766,21 @@ export default function CricketPlayersPage() {
                                   <p className="text-xs text-muted-foreground">
                                     {meta.length > 0 ? meta.join(" · ") : "No role set"}
                                   </p>
+                                  {showCategoryControls ? (
+                                    <div
+                                      onClick={(e) => e.stopPropagation()}
+                                      onKeyDown={(e) => e.stopPropagation()}
+                                    >
+                                      <PlayerCategorySelect
+                                        tournamentId={tournamentId}
+                                        playerId={p.id}
+                                        categoryId={p.categoryId}
+                                        categories={categories}
+                                        noneLabel="No category"
+                                        triggerClassName="max-w-full w-full"
+                                      />
+                                    </div>
+                                  ) : null}
                                   {p.mobileNumber ? (
                                     <p className="text-xs text-muted-foreground font-mono">{p.mobileNumber}</p>
                                   ) : null}
@@ -859,6 +896,18 @@ export default function CricketPlayersPage() {
                 />
               </FormField>
             </div>
+            {showCategoryControls ? (
+              <FormField label="Category">
+                <DarkSelect
+                  value={form.categoryId || "none"}
+                  onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v === "none" ? "" : v }))}
+                  options={[
+                    { value: "none", label: "Assign later" },
+                    ...categories.map((c) => ({ value: String(c.id), label: c.name })),
+                  ]}
+                />
+              </FormField>
+            ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Jersey number">
                 <input

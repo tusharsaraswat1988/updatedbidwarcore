@@ -2318,6 +2318,16 @@ components:
           items:
             type: integer
           description: Allowed bid values when bidValueMode is player
+        playerRegistrationMode:
+          type: string
+          enum: [auction, scoring]
+          default: auction
+          description: Public player registration purpose — auction pool or scoring/tournament participation
+        registrationCategoryMode:
+          type: string
+          enum: [hidden, player_select, organizer_assign]
+          default: hidden
+          description: How existing tournament categories (divisions) appear on public registration
         resetCount:
           type: integer
         lastResetAt:
@@ -2591,6 +2601,12 @@ components:
           type: array
           items:
             type: integer
+        playerRegistrationMode:
+          type: string
+          enum: [auction, scoring]
+        registrationCategoryMode:
+          type: string
+          enum: [hidden, player_select, organizer_assign]
         minimumSquadSize:
           type: integer
         maximumSquadSize:
@@ -2672,6 +2688,12 @@ components:
           type: boolean
         accessCode:
           type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
+          description: Team coach or mentor name
+        coachMobile:
+          type: ["string", "null"]
+          description: Team coach or mentor mobile (organizer-only)
         createdAt:
           type: string
 
@@ -2697,6 +2719,10 @@ components:
           type: string
         purse:
           type: integer
+        coachName:
+          type: ["string", "null"]
+        coachMobile:
+          type: ["string", "null"]
 
     TeamUpdate:
       type: object
@@ -2723,6 +2749,10 @@ components:
           type: boolean
         regenerateCode:
           type: boolean
+        coachName:
+          type: ["string", "null"]
+        coachMobile:
+          type: ["string", "null"]
         reason:
           type: string
           description: Mandatory audit reason for critical team changes (min 10 characters)
@@ -3731,6 +3761,29 @@ components:
           items:
             type: integer
           description: Allowed bid values when bidValueMode is player
+        playerRegistrationMode:
+          type: string
+          enum: [auction, scoring]
+        registrationCategoryMode:
+          type: string
+          enum: [hidden, player_select, organizer_assign]
+        categories:
+          type: array
+          description: Public category/division options when registrationCategoryMode is player_select
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              colorCode:
+                type: ["string", "null"]
+              sortOrder:
+                type: integer
+        sport:
+          type: string
 
     TournamentSummary:
       type: object

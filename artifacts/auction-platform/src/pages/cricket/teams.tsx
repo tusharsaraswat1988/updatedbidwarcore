@@ -182,6 +182,9 @@ export default function CricketTeamsPage() {
                       <div className="min-w-0">
                         <h3 className="font-bold text-base leading-tight truncate">{team.name}</h3>
                         <p className="text-xs text-muted-foreground">{team.ownerName}</p>
+                        {team.coachName ? (
+                          <p className="text-xs text-muted-foreground">Coach: {team.coachName}{team.coachMobile ? ` · ${team.coachMobile}` : ""}</p>
+                        ) : null}
                         {team.ownerMobile ? (
                           <p className="text-xs text-muted-foreground font-mono">{team.ownerMobile}</p>
                         ) : null}

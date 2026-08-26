@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
 import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
@@ -45,6 +45,17 @@ import {
   resolvePlayerBidFields,
   serializeBidValueOptions,
 } from "@workspace/api-base/bid-value";
+import {
+  coerceScoringModePlayerStatus,
+  isScoringPlayerRegistration,
+  parsePlayerRegistrationMode,
+  parseRegistrationCategoryMode,
+  resolvePlayerRosterAssignmentType,
+  resolvePublicRegistrationBidFields,
+  shouldAcceptPublicRegistrationCategoryId,
+  shouldShowPublicCategorySelect,
+} from "@workspace/api-base/player-registration-mode";
+import { afterScoringPlayerRegistered } from "../lib/scoring-registration-handoff";
 import { resolveRetainedPriceForSave } from "@workspace/api-base/retained-price";
 import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
 import { loadTournamentByRegistrationCode } from "../lib/registration-context-service.js";
@@ -107,10 +118,30 @@ async function fetchTournamentBidConfig(tid: number) {
       minBid: tournamentsTable.minBid,
       bidValueOptions: tournamentsTable.bidValueOptions,
       status: tournamentsTable.status,
+      playerRegistrationMode: tournamentsTable.playerRegistrationMode,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
   return tournament ?? null;
+}
+
+async function completeScoringHandoffOrFail(
+  res: Response,
+  playerId: number,
+  tournamentId: number,
+  sport: string | null | undefined,
+): Promise<boolean> {
+  try {
+    await afterScoringPlayerRegistered(playerId, tournamentId, sport);
+    return true;
+  } catch (err) {
+    console.error("[scoring-registration] handoff failed:", err);
+    res.status(500).json({
+      error: "Player could not be prepared for scoring. Please try again or contact the organizer.",
+      code: "SCORING_HANDOFF_FAILED",
+    });
+    return false;
+  }
 }
 
 async function computeRegistrationStatus(tid: number) {
@@ -129,6 +160,8 @@ async function computeRegistrationStatus(tid: number) {
       bidValueOptions: tournamentsTable.bidValueOptions,
       registrationFieldsJson: tournamentsTable.registrationFieldsJson,
       sport: tournamentsTable.sport,
+      playerRegistrationMode: tournamentsTable.playerRegistrationMode,
+      registrationCategoryMode: tournamentsTable.registrationCategoryMode,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -137,6 +170,9 @@ async function computeRegistrationStatus(tid: number) {
   const deadline = tournament.deadline ?? null;
   const limit = tournament.limit ?? null;
   const tournamentStatus = tournament.status ?? "setup";
+  const playerRegistrationMode = parsePlayerRegistrationMode(tournament.playerRegistrationMode);
+  const registrationCategoryMode = parseRegistrationCategoryMode(tournament.registrationCategoryMode);
+  const scoring = playerRegistrationMode === "scoring";
   let reason: string | null = null;
   let open = true;
   if (deadline) {
@@ -150,6 +186,24 @@ async function computeRegistrationStatus(tid: number) {
     open = false;
     reason = "limit_reached";
   }
+  const categories = shouldShowPublicCategorySelect(registrationCategoryMode)
+    ? (await db
+        .select({
+          id: categoriesTable.id,
+          name: categoriesTable.name,
+          colorCode: categoriesTable.colorCode,
+          sortOrder: categoriesTable.sortOrder,
+        })
+        .from(categoriesTable)
+        .where(eq(categoriesTable.tournamentId, tid))
+        .orderBy(asc(categoriesTable.sortOrder), asc(categoriesTable.id)))
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          colorCode: c.colorCode ?? null,
+          sortOrder: c.sortOrder,
+        }))
+    : [];
   return {
     open,
     reason,
@@ -158,18 +212,22 @@ async function computeRegistrationStatus(tid: number) {
     deadline,
     tournamentStatus,
     profileUpdatesAllowed: profileUpdatesAllowedForTournamentStatus(tournamentStatus),
-    enableRegistrationPayment: tournament.enableRegistrationPayment ?? false,
-    registrationFee: tournament.registrationFee ?? null,
-    upiId: tournament.upiId ?? null,
-    paymentVerificationMethod: tournament.paymentVerificationMethod ?? null,
+    playerRegistrationMode,
+    registrationCategoryMode,
+    categories,
+    sport: tournament.sport,
+    enableRegistrationPayment: scoring ? false : (tournament.enableRegistrationPayment ?? false),
+    registrationFee: scoring ? null : (tournament.registrationFee ?? null),
+    upiId: scoring ? null : (tournament.upiId ?? null),
+    paymentVerificationMethod: scoring ? null : (tournament.paymentVerificationMethod ?? null),
     enableRegistrationDeclaration: tournament.enableRegistrationDeclaration ?? false,
     registrationDeclarationText: tournament.registrationDeclarationText ?? null,
     registrationDeclarationPoints:
       tournament.enableRegistrationDeclaration && tournament.registrationDeclarationText
         ? parseRegistrationDeclarationPoints(tournament.registrationDeclarationText)
         : [],
-    bidValueMode: tournament.bidValueMode ?? "system",
-    bidValueOptions: parseBidValueOptions(tournament.bidValueOptions),
+    bidValueMode: scoring ? "system" : (tournament.bidValueMode ?? "system"),
+    bidValueOptions: scoring ? [] : parseBidValueOptions(tournament.bidValueOptions),
     registrationFieldVisibility: resolveRegistrationFieldVisibilityFromTournament(
       tournament.registrationFieldsJson,
       tournament.sport,
@@ -340,7 +398,7 @@ const playerSpecificationInputSchema = z.object({
 });
 
 const playerInputSchema = z.object({
-  categoryId: z.number().int().optional(),
+  categoryId: z.number().int().nullable().optional(),
   teamId: z.number().int().nullable().optional(),
   name: z.string().min(1),
   city: z.string().optional(),
@@ -448,7 +506,10 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   const bidConfig = await fetchTournamentBidConfig(tid);
   if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
-  const bidResolved = resolvePlayerBidFields(bidConfig, d);
+  const scoringMode = isScoringPlayerRegistration(bidConfig.playerRegistrationMode);
+  const bidResolved = scoringMode
+    ? resolvePublicRegistrationBidFields("scoring", bidConfig, {})
+    : resolvePlayerBidFields(bidConfig, d);
   if (!bidResolved.ok) {
     res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
     return;
@@ -456,15 +517,19 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
 
-  const playerStatus = (d.status ?? "available") as "available" | "sold" | "unsold" | "retained";
-  if (playerStatus === "retained" && !d.teamId) {
+  const playerStatus = (scoringMode
+    ? coerceScoringModePlayerStatus(d.status, "available")
+    : (d.status ?? "available")) as "available" | "sold" | "unsold" | "retained";
+  if (!scoringMode && playerStatus === "retained" && !d.teamId) {
     res.status(400).json({ error: "A retained player must be assigned to a team" });
     return;
   }
-  const retainedPrice = playerStatus === "retained"
-    ? resolveRetainedPriceForSave(d.retainedPrice, bidResolved.fields.basePrice)
-    : (d.retainedPrice ?? null);
-  if (playerStatus === "retained" && retainedPrice == null) {
+  const retainedPrice = scoringMode
+    ? null
+    : playerStatus === "retained"
+      ? resolveRetainedPriceForSave(d.retainedPrice, bidResolved.fields.basePrice)
+      : (d.retainedPrice ?? null);
+  if (!scoringMode && playerStatus === "retained" && retainedPrice == null) {
     res.status(400).json({ error: "A retained player must have a retained price or base price" });
     return;
   }
@@ -526,7 +591,12 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
   // never appears on master-teams / match Home–Away pickers until a later update/handoff.
   // teamId is enough (sold/retained or direct assign); handoff uses the same rule.
   if (player.teamId != null) {
-    onAuctionPlayerRosterChangedAsync(player, null, tid);
+    onAuctionPlayerRosterChangedAsync(
+      player,
+      null,
+      tid,
+      scoringMode ? "transfer" : undefined,
+    );
   }
 
   await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
@@ -664,9 +734,13 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     return;
   }
 
+  const scoring = isScoringPlayerRegistration(status.playerRegistrationMode);
+  const categoryMode = parseRegistrationCategoryMode(status.registrationCategoryMode);
+
   // Payment + declaration only apply to open registration (new signup or full profile update).
+  // Scoring registration never collects auction-style registration fees.
   // Closed self-updates are photo/role/specs only and skip these gates.
-  const paymentConfig = status.open ? await fetchTournamentPaymentConfig(tid) : null;
+  const paymentConfig = !scoring && status.open ? await fetchTournamentPaymentConfig(tid) : null;
   if (status.open && paymentConfig?.enableRegistrationPayment) {
     const method = paymentConfig.paymentVerificationMethod;
     if (!method) {
@@ -712,7 +786,9 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     if (!status.open) {
       if (!status.profileUpdatesAllowed) {
         res.status(403).json({
-          error: "Profile updates are locked because the auction has started. Contact your organiser.",
+          error: scoring
+            ? "Profile updates are locked. Contact your organiser."
+            : "Profile updates are locked because the auction has started. Contact your organiser.",
           code: "PROFILE_UPDATES_LOCKED",
           ...status,
         });
@@ -755,7 +831,12 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
         },
       });
 
-      syncAuctionPlayerToMasterAsync(player.id, tid);
+      if (scoring) {
+        const handoffOk = await completeScoringHandoffOrFail(res, player.id, tid, status.sport);
+        if (!handoffOk) return;
+      } else {
+        syncAuctionPlayerToMasterAsync(player.id, tid);
+      }
       await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
       res.status(200).json({
@@ -767,6 +848,15 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     }
 
     const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+    const categoryIdForUpdate = shouldAcceptPublicRegistrationCategoryId(
+      parsePlayerRegistrationMode(status.playerRegistrationMode),
+      categoryMode,
+    )
+      ? d.categoryId
+      : undefined;
+    if (categoryIdForUpdate !== undefined && !await rejectInvalidCategory(res, tid, categoryIdForUpdate)) {
+      return;
+    }
     const updates = {
       ...buildPublicRegistrationProfileUpdates(
         d,
@@ -778,6 +868,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       battingStyle: legacySpecFields.battingStyle,
       bowlingStyle: legacySpecFields.bowlingStyle,
       specialization: legacySpecFields.specialization,
+      ...(categoryIdForUpdate !== undefined ? { categoryId: categoryIdForUpdate } : {}),
     };
 
     const imageChanges: ImageFieldChange[] = [{
@@ -860,7 +951,12 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       });
     }
 
-    syncAuctionPlayerToMasterAsync(finalPlayer.id, tid);
+    if (scoring) {
+      const handoffOk = await completeScoringHandoffOrFail(res, finalPlayer.id, tid, status.sport);
+      if (!handoffOk) return;
+    } else {
+      syncAuctionPlayerToMasterAsync(finalPlayer.id, tid);
+    }
     await persistPlayerSpecificationsDualWrite(tid, finalPlayer.id, finalPlayer.role, d);
 
     res.status(200).json({
@@ -873,11 +969,21 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
 
   if (!status.open) { res.status(403).json(status); return; }
 
-  if (!await rejectInvalidCategory(res, tid, d.categoryId)) return;
+  const publicCategoryId = shouldAcceptPublicRegistrationCategoryId(
+    parsePlayerRegistrationMode(status.playerRegistrationMode),
+    categoryMode,
+  )
+    ? (d.categoryId ?? null)
+    : null;
+  if (!await rejectInvalidCategory(res, tid, publicCategoryId)) return;
 
   const bidConfig = await fetchTournamentBidConfig(tid);
   if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
-  const bidResolved = resolvePlayerBidFields(bidConfig, d);
+  const bidResolved = resolvePublicRegistrationBidFields(
+    parsePlayerRegistrationMode(status.playerRegistrationMode),
+    bidConfig,
+    scoring ? {} : d,
+  );
   if (!bidResolved.ok) {
     res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
     return;
@@ -890,7 +996,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     .values({
       tournamentId: tid,
       serialNo: await allocateNextPlayerSerialNo(tid),
-      categoryId: d.categoryId ?? null,
+      categoryId: publicCategoryId,
       name: d.name,
       city: d.city ?? null,
       role: d.role ?? null,
@@ -911,7 +1017,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       email: emailParsed.email,
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
-      retainedPrice: d.retainedPrice ?? null,
+      retainedPrice: scoring ? null : (d.retainedPrice ?? null),
       status: "available" as const,
       whatsappConsent: d.whatsappConsent ?? false,
       whatsappConsentAt: d.whatsappConsent ? new Date() : null,
@@ -930,7 +1036,17 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     });
   }
 
-  syncAuctionPlayerToMasterAsync(player.id, tid);
+  if (scoring) {
+    const handoffOk = await completeScoringHandoffOrFail(
+      res,
+      player.id,
+      tid,
+      status.sport ?? bidConfig.sport,
+    );
+    if (!handoffOk) return;
+  } else {
+    syncAuctionPlayerToMasterAsync(player.id, tid);
+  }
   await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
   const [tournamentInfo] = await db
@@ -1128,9 +1244,11 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
 
   const bidConfig = await fetchTournamentBidConfig(tid);
   if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+  const scoringMode = isScoringPlayerRegistration(bidConfig.playerRegistrationMode);
 
   if (
-    (d.basePrice !== undefined || d.selectedBidValue !== undefined)
+    !scoringMode
+    && (d.basePrice !== undefined || d.selectedBidValue !== undefined)
     && !canEditPlayerBidValue(bidConfig.status)
   ) {
     res.status(409).json({ error: "Bid value cannot be changed after the auction has started." });
@@ -1178,9 +1296,11 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   }
 
   // Validate: retained status requires a team + price
-  const newStatus = d.status ?? existing.status;
+  const newStatus = scoringMode
+    ? coerceScoringModePlayerStatus(d.status, existing.status)
+    : (d.status ?? existing.status);
   const newTeamId = d.teamId !== undefined ? d.teamId : existing.teamId;
-  if (newStatus === "retained") {
+  if (!scoringMode && newStatus === "retained") {
     if (!newTeamId) { res.status(400).json({ error: "A retained player must be assigned to a team" }); return; }
   }
   if (newTeamId != null) {
@@ -1231,7 +1351,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     nextPublicId: d.photoPublicId,
   });
 
-  if (d.selectedBidValue !== undefined || d.basePrice !== undefined) {
+  if (!scoringMode && (d.selectedBidValue !== undefined || d.basePrice !== undefined)) {
     const bidResolved = resolvePlayerBidFields(bidConfig, {
       basePrice: d.basePrice ?? existing.basePrice,
       selectedBidValue: d.selectedBidValue ?? undefined,
@@ -1252,8 +1372,12 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (normalizedEmail !== undefined) updates.email = normalizedEmail;
   if (d.cricheroUrl !== undefined) updates.cricheroUrl = d.cricheroUrl;
   if (d.availabilityDates !== undefined) updates.availabilityDates = d.availabilityDates;
-  if (d.retainedPrice !== undefined) updates.retainedPrice = d.retainedPrice;
-  if (d.status !== undefined) updates.status = d.status;
+  if (d.retainedPrice !== undefined && !scoringMode) updates.retainedPrice = d.retainedPrice;
+  if (scoringMode && (d.status !== undefined || d.teamId !== undefined)) {
+    updates.status = coerceScoringModePlayerStatus(d.status, existing.status);
+  } else if (d.status !== undefined) {
+    updates.status = d.status;
+  }
   if (d.teamId !== undefined) updates.teamId = d.teamId;
   if (d.playerTag !== undefined) updates.playerTag = d.playerTag;
   if (d.playerTagTeamId !== undefined) updates.playerTagTeamId = d.playerTagTeamId;
@@ -1261,7 +1385,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
 
   const finalStatus = (updates.status as string | undefined) ?? existing.status;
   const finalBasePrice = (updates.basePrice as number | undefined) ?? existing.basePrice;
-  if (finalStatus === "retained") {
+  if (!scoringMode && finalStatus === "retained") {
     const explicitRetained = d.retainedPrice !== undefined
       ? d.retainedPrice
       : existing.retainedPrice;
@@ -1278,7 +1402,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
       }
       updates.retainedPrice = resolvedRetained;
     }
-  } else if (existing.status === "retained" || existing.status === "sold") {
+  } else if (!scoringMode && (existing.status === "retained" || existing.status === "sold")) {
     // Leaving roster — clear team assignment and acquisition prices.
     updates.teamId = null;
     if (existing.status === "retained") updates.retainedPrice = null;
@@ -1370,7 +1494,12 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     alertKey: isCriticalPlayerPatch(d) ? "player_critical_edit" : null,
   });
 
-  syncAuctionPlayerToMasterAsync(player.id, tid);
+  if (scoringMode) {
+    const handoffOk = await completeScoringHandoffOrFail(res, player.id, tid, bidConfig.sport);
+    if (!handoffOk) return;
+  } else {
+    syncAuctionPlayerToMasterAsync(player.id, tid);
+  }
 
   if (specFieldsChanged) {
     await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, {
@@ -1382,12 +1511,13 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   }
 
   if (d.teamId !== undefined || d.status !== undefined) {
-    const assignmentType =
-      d.status === "sold" && existing.status !== "sold"
-        ? "unsold_replacement"
-        : d.teamId !== undefined && existing.teamId !== d.teamId
-          ? "transfer"
-          : undefined;
+    const assignmentType = resolvePlayerRosterAssignmentType({
+      registrationMode: scoringMode ? "scoring" : "auction",
+      requestedStatus: d.status,
+      existingStatus: existing.status,
+      existingTeamId: existing.teamId,
+      nextTeamId: d.teamId,
+    });
     onAuctionPlayerRosterChangedAsync(
       player,
       existing.teamId,

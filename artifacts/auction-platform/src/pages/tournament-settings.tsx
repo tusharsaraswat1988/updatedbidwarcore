@@ -20,6 +20,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,6 +67,12 @@ import {
   serializeRegistrationFieldsConfig,
   type RegistrationOptionalFieldKey,
 } from "@workspace/api-base/registration-fields";
+import {
+  parsePlayerRegistrationMode,
+  parseRegistrationCategoryMode,
+  type PlayerRegistrationMode,
+  type RegistrationCategoryMode,
+} from "@workspace/api-base/player-registration-mode";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 
@@ -177,6 +184,12 @@ export default function TournamentSettings() {
       enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
       registrationDeclarationText: t.registrationDeclarationText || "",
       bidValueMode: (t as { bidValueMode?: string }).bidValueMode || "system",
+      playerRegistrationMode: parsePlayerRegistrationMode(
+        (t as { playerRegistrationMode?: string }).playerRegistrationMode,
+      ),
+      registrationCategoryMode: parseRegistrationCategoryMode(
+        (t as { registrationCategoryMode?: string }).registrationCategoryMode,
+      ),
       minimumSquadSize: String(t.minimumSquadSize ?? 0),
       maximumSquadSize: String(t.maximumSquadSize ?? 0),
       audioEnabled:
@@ -527,7 +540,7 @@ export default function TournamentSettings() {
     if (audioUploadingField) {
       return "Wait for audio upload to finish";
     }
-    if (editForm.enableRegistrationPayment === true) {
+    if (editForm.enableRegistrationPayment === true && editForm.playerRegistrationMode !== "scoring") {
       const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
       const upi = (editForm.upiId as string).trim();
       if (!Number.isFinite(fee) || fee <= 0) {
@@ -546,7 +559,11 @@ export default function TournamentSettings() {
         return "Add at least one declaration point or turn off the declaration";
       }
     }
-    if (editForm.bidValueMode === "player" && bidValueOptions.filter((n) => n > 0).length === 0) {
+    if (
+      editForm.playerRegistrationMode !== "scoring"
+      && editForm.bidValueMode === "player"
+      && bidValueOptions.filter((n) => n > 0).length === 0
+    ) {
       return "Add at least one allowed bid value for Player Selected mode";
     }
     const sponsorValidation = validateSponsorList(sponsorLogos.filter((l) => l.url.trim()));
@@ -610,6 +627,8 @@ export default function TournamentSettings() {
           registrationDeclarationText: ((editForm.registrationDeclarationText as string).trim() || null),
           bidValueMode: (editForm.bidValueMode as "system" | "player") || "system",
           bidValueOptions: bidValueOptions.filter((n) => n > 0),
+          playerRegistrationMode: parsePlayerRegistrationMode(editForm.playerRegistrationMode as string),
+          registrationCategoryMode: parseRegistrationCategoryMode(editForm.registrationCategoryMode as string),
           audioEnabled:
             editForm.countdownSoundEnabled === true
             || editForm.soldSoundEnabled === true
@@ -969,6 +988,76 @@ export default function TournamentSettings() {
               </p>
             </div>
 
+            <SettingsCard
+              title="Registration Mode"
+              description="Choose whether this public link is for the auction player pool or tournament/scoring participation."
+              icon={<UserPlus className="w-4 h-4 text-muted-foreground" />}
+              className="lg:col-span-2"
+            >
+              <RadioGroup
+                value={(editForm.playerRegistrationMode as string) || "auction"}
+                onValueChange={(v) => setEditForm((f) => ({
+                  ...f,
+                  playerRegistrationMode: parsePlayerRegistrationMode(v) as PlayerRegistrationMode,
+                }))}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              >
+                <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-card px-3 py-3 cursor-pointer hover:bg-white/[0.04]">
+                  <RadioGroupItem value="auction" className="mt-0.5" />
+                  <span>
+                    <span className="block text-sm font-medium">Auction Registration</span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      Players join the auction pool. Bid value, payments, and auction workflow stay available.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-card px-3 py-3 cursor-pointer hover:bg-white/[0.04]">
+                  <RadioGroupItem value="scoring" className="mt-0.5" />
+                  <span>
+                    <span className="block text-sm font-medium">Tournament / Scoring Registration</span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      Players register for scoring. No bid value, sold/unsold, or auction payment flow.
+                    </span>
+                  </span>
+                </label>
+              </RadioGroup>
+              {editForm.playerRegistrationMode === "scoring" ? (
+                <p className="mt-3 text-[11px] text-muted-foreground rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                  Players registered here will be available for the Scoring module. Make sure Scoring is enabled for this tournament.
+                </p>
+              ) : null}
+            </SettingsCard>
+
+            {editForm.playerRegistrationMode === "scoring" && (
+              <SettingsCard
+                title="Categories / Divisions"
+                description="Reuse existing tournament categories as divisions (U-14, Men's Singles, Open). Not a separate age-group system."
+                icon={<ClipboardList className="w-4 h-4 text-muted-foreground" />}
+                className="lg:col-span-2"
+              >
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Public registration policy</Label>
+                  <Select
+                    value={(editForm.registrationCategoryMode as string) || "hidden"}
+                    onValueChange={(v) => setEditForm((f) => ({
+                      ...f,
+                      registrationCategoryMode: parseRegistrationCategoryMode(v) as RegistrationCategoryMode,
+                    }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="dark">
+                      <SelectItem value="hidden">Disabled — hide category on the public form</SelectItem>
+                      <SelectItem value="player_select">Player selects category (optional)</SelectItem>
+                      <SelectItem value="organizer_assign">Organizer assigns category later</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Create divisions on the Categories page. Players can skip the field so you can assign it afterward.
+                  </p>
+                </div>
+              </SettingsCard>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SettingsCard
                 title="Registration Form Fields"
@@ -1058,6 +1147,8 @@ export default function TournamentSettings() {
                 </div>
               </SettingsCard>
 
+              {editForm.playerRegistrationMode !== "scoring" && (
+              <>
               <SettingsCard
                 title="Bid Value Mode"
                 description="Choose whether base values are set by the organizer or selected by players during registration."
@@ -1229,6 +1320,8 @@ export default function TournamentSettings() {
                   </Collapsible>
                 </div>
               </SettingsCard>
+              </>
+              )}
 
               <SettingsCard
                 title="Declaration & Consent"

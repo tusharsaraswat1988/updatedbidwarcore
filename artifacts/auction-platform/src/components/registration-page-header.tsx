@@ -75,6 +75,8 @@ type RegistrationPageHeaderProps = {
   brandNameFallback?: string;
   registeredCount?: number;
   registrationLimit?: number | null;
+  subtitle?: string;
+  tagline?: string;
 };
 
 export function RegistrationPageHeader({
@@ -84,6 +86,8 @@ export function RegistrationPageHeader({
   brandNameFallback = "BidWar",
   registeredCount,
   registrationLimit,
+  subtitle = "Player Registration",
+  tagline,
 }: RegistrationPageHeaderProps) {
   const sponsorLogos = useMemo(
     () => getSponsorsByPriority(parseSponsorLogos(sponsorLogosJson)),
@@ -120,7 +124,10 @@ export function RegistrationPageHeader({
         <h1 className="text-2xl sm:text-3xl font-display font-black text-white leading-tight px-1">
           {tournamentName || brandNameFallback}
         </h1>
-        <p className="text-muted-foreground mt-1">Player Registration</p>
+        <p className="text-muted-foreground mt-1">{subtitle}</p>
+        {tagline ? (
+          <p className="text-sm text-white/70 mt-1">{tagline}</p>
+        ) : null}
         {registeredCount != null ? (
           <p className="text-sm text-white/70 mt-1.5 flex items-center justify-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />

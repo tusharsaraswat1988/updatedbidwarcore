@@ -67,7 +67,7 @@ describe("rosterTypeFromPlayer", () => {
     expect(rosterTypeFromPlayer({ status: "sold" })).toBe("auction_sale");
   });
 
-  it("maps direct Sports / available assignments to transfer", () => {
+  it("maps scoring-mode available team assignment to transfer PTA", () => {
     expect(rosterTypeFromPlayer({ status: "available" })).toBe("transfer");
     expect(rosterTypeFromPlayer({ status: "unsold" })).toBe("transfer");
   });

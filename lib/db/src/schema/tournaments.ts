@@ -112,6 +112,16 @@ export const tournamentsTable = pgTable("tournaments", {
   registrationFieldsJson: jsonb("registration_fields_json").$type<{
     hidden?: string[];
   }>(),
+  /**
+   * Public player registration purpose: `auction` (default) or `scoring`.
+   * Independent of catalog `registration_mode_id`.
+   */
+  playerRegistrationMode: text("player_registration_mode").notNull().default("auction"),
+  /**
+   * How existing `categories` (tournament divisions) appear on public registration.
+   * `hidden` | `player_select` | `organizer_assign`
+   */
+  registrationCategoryMode: text("registration_category_mode").notNull().default("hidden"),
   // Scoring module (orthogonal to auction status)
   scoringEnabled: boolean("scoring_enabled").notNull().default(false),
   scoringPhase: text("scoring_phase").notNull().default("disabled"),

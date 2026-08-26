@@ -19,6 +19,8 @@ export function privateTeamSerializer(t: TeamRow) {
     purseUsed: t.purseUsed,
     isBiddingEnabled: t.isBiddingEnabled,
     accessCode: t.accessCode,
+    coachName: t.coachName ?? null,
+    coachMobile: t.coachMobile ?? null,
     createdAt: t.createdAt.toISOString(),
   };
 }
@@ -36,6 +38,7 @@ export function publicTeamSerializer(t: TeamRow) {
     purseUsed: t.purseUsed,
     isBiddingEnabled: t.isBiddingEnabled,
     requiresAccessCode: !!t.accessCode,
+    coachName: t.coachName ?? null,
     createdAt: t.createdAt.toISOString(),
   };
 }
