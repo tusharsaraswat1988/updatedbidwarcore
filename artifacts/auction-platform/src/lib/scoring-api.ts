@@ -21,7 +21,15 @@ export type ScoringMatchRulesJson = {
   freeHitEnabled?: boolean;
   retireAtRuns?: number | null;
   powerplayEnabled?: boolean;
+  powerplayOvers?: number[];
   superOverEnabled?: boolean;
+  superBallEnabled?: boolean;
+  playingXiEnforced?: boolean;
+  legByeEnabled?: boolean;
+  cricketFormat?: string;
+  superOverOvers?: number;
+  superOverWickets?: number;
+  superOverTrigger?: string;
   tiesAllowed?: boolean;
   source?: string;
 };
@@ -148,13 +156,17 @@ async function parseErrorWithCode(r: Response): Promise<ScoringApiError> {
   }
 }
 
-export async function getScoringLive(tournamentId: number): Promise<ScoringLiveDisplay> {
+export async function getScoringLive(
+  tournamentId: number,
+): Promise<ScoringLiveDisplay> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/live`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
 
-export async function listScoringMatches(tournamentId: number): Promise<ScoringMatchJson[]> {
+export async function listScoringMatches(
+  tournamentId: number,
+): Promise<ScoringMatchJson[]> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
@@ -179,16 +191,21 @@ export async function createScoringMatch(
 }
 
 /** Auction → Sports participant handoff (idempotent). Owned by Auction API. */
-export async function handoffAuctionParticipantsToSports(tournamentId: number): Promise<{
+export async function handoffAuctionParticipantsToSports(
+  tournamentId: number,
+): Promise<{
   teamsReady: number;
   playersReady: number;
   readyForMatches: boolean;
   message: string;
 }> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/auction/handoff-to-sports`, {
-    method: "POST",
-    body: "{}",
-  });
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/auction/handoff-to-sports`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
   if (!r.ok) throw await parseErrorWithCode(r);
   return r.json();
 }
@@ -197,7 +214,9 @@ export async function getScoringMatch(
   tournamentId: number,
   matchId: number,
 ): Promise<ScoringMatchDetail> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches/${matchId}`);
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}`,
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
@@ -211,11 +230,18 @@ export async function appendScoringEvent(
     expectedSequence: number;
     correlationId?: string;
   },
-): Promise<ScoringMatchDetail & { event: { id: number; eventType: string; sequence: number } }> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches/${matchId}/events`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+): Promise<
+  ScoringMatchDetail & {
+    event: { id: number; eventType: string; sequence: number };
+  }
+> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}/events`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
   if (!r.ok) {
     const msg = await parseError(r);
     const err = new Error(msg) as Error & { status?: number };
@@ -225,7 +251,9 @@ export async function appendScoringEvent(
   return r.json();
 }
 
-export async function getScoringStandings(tournamentId: number): Promise<ScoringStandingRow[]> {
+export async function getScoringStandings(
+  tournamentId: number,
+): Promise<ScoringStandingRow[]> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/standings`);
   if (!r.ok) throw new Error(await parseError(r));
   const data = await r.json();
@@ -246,7 +274,9 @@ export async function getCricketTournamentRoster(
   teamId?: number,
 ): Promise<CricketTournamentRosterPlayer[]> {
   const teamFilter = Number.isFinite(teamId) ? `?teamId=${teamId}` : "";
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/roster${teamFilter}`);
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/roster${teamFilter}`,
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
@@ -271,7 +301,9 @@ export async function getCricketMasterTeams(
 }
 
 /** Cricket Sports branding (same overlay shape as badminton LED/OBS branding). */
-export async function getCricketBranding<T = unknown>(tournamentId: number): Promise<T> {
+export async function getCricketBranding<T = unknown>(
+  tournamentId: number,
+): Promise<T> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/branding`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
@@ -294,11 +326,14 @@ export async function patchCricketBroadcastPresentation<T = unknown>(
   tournamentId: number,
   body: Record<string, unknown>,
 ): Promise<T> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/broadcast-presentation`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/broadcast-presentation`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
@@ -306,11 +341,14 @@ export async function patchCricketBroadcastPresentation<T = unknown>(
 export async function importCricketTournamentBranding<T = unknown>(
   tournamentId: number,
 ): Promise<T> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/import-tournament-branding`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/import-tournament-branding`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
@@ -379,7 +417,9 @@ export type ScoringAwardRow = {
   shortCode: string;
 };
 
-export async function listScoringAwards(tournamentId: number): Promise<ScoringAwardRow[]> {
+export async function listScoringAwards(
+  tournamentId: number,
+): Promise<ScoringAwardRow[]> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/awards`);
   if (!r.ok) throw new Error(await parseError(r));
   const data = await r.json();
@@ -405,7 +445,12 @@ export type TournamentPlayerProfile = {
     photoUrl: string | null;
     globalPlayerId: string | null;
   };
-  team: { id: number; name: string; shortCode: string; color: string | null } | null;
+  team: {
+    id: number;
+    name: string;
+    shortCode: string;
+    color: string | null;
+  } | null;
   stats: {
     matches: number;
     runs: number;
@@ -415,7 +460,11 @@ export type TournamentPlayerProfile = {
     sixes: number;
     economy: number;
   } | null;
-  manOfTheMatchAwards: Array<{ matchId: number; reason: string | null; awardedAt: string }>;
+  manOfTheMatchAwards: Array<{
+    matchId: number;
+    reason: string | null;
+    awardedAt: string;
+  }>;
   recentMatches: Array<{
     id: number;
     homeTeamId: number;
@@ -430,13 +479,21 @@ export async function getTournamentPlayerProfile(
   tournamentId: number,
   playerId: number,
 ): Promise<TournamentPlayerProfile> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/public/players/${playerId}`);
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/public/players/${playerId}`,
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
 
 export type TournamentTeamProfile = {
-  team: { id: number; name: string; shortCode: string; color: string | null; logoUrl: string | null };
+  team: {
+    id: number;
+    name: string;
+    shortCode: string;
+    color: string | null;
+    logoUrl: string | null;
+  };
   standing: {
     played: number;
     won: number;
@@ -446,7 +503,13 @@ export type TournamentTeamProfile = {
     points: number;
     netRunRate: number;
   } | null;
-  squad: Array<{ id: number; name: string; role: string | null; status: string; soldPrice: number | null }>;
+  squad: Array<{
+    id: number;
+    name: string;
+    role: string | null;
+    status: string;
+    soldPrice: number | null;
+  }>;
   recentResults: Array<{
     id: number;
     homeTeamId: number;
@@ -456,14 +519,22 @@ export type TournamentTeamProfile = {
     completedAt: string | null;
     won: boolean;
   }>;
-  topBatsmen: Array<{ playerId: number; playerName: string; runs: number; matches: number; strikeRate: number }>;
+  topBatsmen: Array<{
+    playerId: number;
+    playerName: string;
+    runs: number;
+    matches: number;
+    strikeRate: number;
+  }>;
 };
 
 export async function getTournamentTeamProfile(
   tournamentId: number,
   teamId: number,
 ): Promise<TournamentTeamProfile> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/public/teams/${teamId}`);
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/public/teams/${teamId}`,
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
@@ -498,7 +569,9 @@ export async function getGlobalCricketLeaderboard(
   category: LeaderboardCategory,
   limit = 20,
 ): Promise<GlobalLeaderboardRow[]> {
-  const r = await apiFetch(`/cricket/global-leaderboards/${category}?limit=${limit}`);
+  const r = await apiFetch(
+    `/cricket/global-leaderboards/${category}?limit=${limit}`,
+  );
   if (!r.ok) throw new Error(await parseError(r));
   const data = await r.json();
   return data.rows ?? [];
@@ -508,11 +581,18 @@ export async function undoScoringEvent(
   tournamentId: number,
   matchId: number,
   expectedSequence: number,
-): Promise<ScoringMatchDetail & { event: { id: number; eventType: string; sequence: number } }> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches/${matchId}/undo`, {
-    method: "POST",
-    body: JSON.stringify({ expectedSequence }),
-  });
+): Promise<
+  ScoringMatchDetail & {
+    event: { id: number; eventType: string; sequence: number };
+  }
+> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}/undo`,
+    {
+      method: "POST",
+      body: JSON.stringify({ expectedSequence }),
+    },
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }

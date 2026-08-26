@@ -15,14 +15,20 @@ export type CompatibilityRulesJson = {
   overs: number;
   maxWickets: number;
   playingSquadSize: number;
+  playingXiEnforced: boolean;
   benchSize: number;
   ballsPerOver: number;
   ballType: string;
   lbwEnabled: boolean;
+  legByeEnabled: boolean;
   freeHitEnabled: boolean;
   retireAtRuns: number | null;
   powerplayEnabled: boolean;
   superOverEnabled: boolean;
+  superBallEnabled: boolean;
+  superOverOvers: number;
+  superOverWickets: number;
+  superOverTrigger: string;
   tiesAllowed: boolean;
   /** Marker — never treat as gameplay authority. */
   source: "runtime_execution_policy";
@@ -44,14 +50,20 @@ export function projectRuntimeExecutionPolicyToRulesJson(
     overs: c.oversLimit,
     maxWickets: c.maxWickets,
     playingSquadSize: c.playingSquadSize,
+    playingXiEnforced: c.playingXiEnforced,
     benchSize: c.benchSize,
     ballsPerOver: c.ballsPerOver,
     ballType: c.ballType,
     lbwEnabled: c.lbwEnabled,
+    legByeEnabled: c.legByeEnabled,
     freeHitEnabled: c.freeHitEnabled,
     retireAtRuns: c.retireAtRuns,
     powerplayEnabled: c.powerplayEnabled,
     superOverEnabled: c.superOverEnabled,
+    superBallEnabled: c.superBallEnabled,
+    superOverOvers: c.superOverOvers,
+    superOverWickets: c.superOverWickets,
+    superOverTrigger: c.superOverTrigger,
     tiesAllowed: c.tiesAllowed,
     source: "runtime_execution_policy" as const,
   });

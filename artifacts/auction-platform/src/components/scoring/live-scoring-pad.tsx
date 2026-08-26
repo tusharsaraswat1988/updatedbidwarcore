@@ -65,7 +65,10 @@ type LiveScoringPadProps = {
   bowlerId: number | null;
   busy: boolean;
   onBall: (payload: Record<string, unknown>) => Promise<void>;
-  onEvent: (eventType: string, payload: Record<string, unknown>) => Promise<void>;
+  onEvent: (
+    eventType: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
   onUndo: () => Promise<void>;
   onInningsEnd: (payload: Record<string, unknown>) => Promise<void>;
   onMatchComplete: (payload: Record<string, unknown>) => Promise<void>;
@@ -106,13 +109,17 @@ export function LiveScoringPad({
 }: LiveScoringPadProps) {
   const lbwEnabled = rules?.lbwEnabled !== false;
   const freeHitEnabled = rules?.freeHitEnabled !== false;
+  const superBallEnabled = rules?.superBallEnabled === true;
+  const superOverEnabled = rules?.superOverEnabled !== false;
   const retireAtRuns =
     typeof rules?.retireAtRuns === "number" ? rules.retireAtRuns : null;
   const dismissalOptions = availableDismissalTypes(lbwEnabled) as WicketType[];
 
   // Local batter runs accumulator for retire-at-N prompts (existing Retire sheet UX).
   const [batterRuns, setBatterRuns] = useState<Record<number, number>>({});
-  const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<number | null>(null);
+  const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     // Reset when innings changes.
@@ -152,24 +159,43 @@ export function LiveScoringPad({
   const bowlingTeam = teams.find((t) => t.id === bowlingId);
 
   const battingLineup = battingId ? (state.lineups[battingId] ?? []) : [];
+  const onlyOneBatsmanAvailable =
+    !!innings &&
+    battingLineup.length > 0 &&
+    battingLineup.length - innings.wickets <= 1;
 
   const availableBatsmen = useMemo(() => {
     if (!battingId) return [];
     const squad = squadPlayersForTeam(players, battingId);
     const inXi = new Set(battingLineup);
-    const atCrease = new Set([strikerId, nonStrikerId].filter(Boolean) as number[]);
+    const atCrease = new Set(
+      [strikerId, nonStrikerId].filter(Boolean) as number[],
+    );
     return squad.filter((p) => inXi.has(p.id) && !atCrease.has(p.id));
   }, [players, battingId, battingLineup, strikerId, nonStrikerId]);
 
   const bowlingSquad = useMemo(() => {
     if (!bowlingId) return [];
     const lineup = state.lineups[bowlingId] ?? [];
-    const map = new Map(squadPlayersForTeam(players, bowlingId).map((p) => [p.id, p]));
-    return lineup.map((id) => map.get(id)).filter(Boolean) as CricketScorerPlayer[];
+    const map = new Map(
+      squadPlayersForTeam(players, bowlingId).map((p) => [p.id, p]),
+    );
+    return lineup
+      .map((id) => map.get(id))
+      .filter(Boolean) as CricketScorerPlayer[];
   }, [players, bowlingId, state.lineups]);
 
   async function recordBall(input: BallInput) {
-    if (!canTap() || busy || isPaused || !innings || !strikerId || !nonStrikerId || !activeBowlerId) return;
+    if (
+      !canTap() ||
+      busy ||
+      isPaused ||
+      !innings ||
+      !strikerId ||
+      (!nonStrikerId && !onlyOneBatsmanAvailable) ||
+      !activeBowlerId
+    )
+      return;
 
     const pos = input.isLegalDelivery
       ? nextLegalBallPosition(innings)
@@ -180,7 +206,7 @@ export function LiveScoringPad({
       over: pos.over,
       ball: pos.ball,
       strikerId,
-      nonStrikerId,
+      nonStrikerId: onlyOneBatsmanAvailable ? null : nonStrikerId,
       bowlerId: activeBowlerId,
       runsOffBat: input.runsOffBat,
       extras: input.extras,
@@ -209,7 +235,11 @@ export function LiveScoringPad({
   }
 
   async function recordWicket(
-    type: BallInput["wicket"] extends infer W ? (W extends { type: infer T } ? T : never) : never,
+    type: BallInput["wicket"] extends infer W
+      ? W extends { type: infer T }
+        ? T
+        : never
+      : never,
     dismissedPlayerId?: number,
   ) {
     const outId = dismissedPlayerId ?? strikerId;
@@ -224,10 +254,16 @@ export function LiveScoringPad({
     });
   }
 
-  if (!innings || state.matchStatus === "completed" || state.matchStatus === "abandoned") {
+  if (
+    !innings ||
+    state.matchStatus === "completed" ||
+    state.matchStatus === "abandoned"
+  ) {
     return (
       <div className="p-6 text-center space-y-2">
-        <p className="text-lg font-semibold">{state.resultText ?? "Match ended"}</p>
+        <p className="text-lg font-semibold">
+          {state.resultText ?? "Match ended"}
+        </p>
         {state.winnerTeamId ? (
           <p className="text-sm text-muted-foreground">
             Winner: {teams.find((t) => t.id === state.winnerTeamId)?.name}
@@ -239,7 +275,13 @@ export function LiveScoringPad({
 
   const rr = runRate(innings.runs, innings.over, innings.ball);
   const req = state.target
-    ? requiredRate(state.target, innings.runs, state.oversLimit, innings.over, innings.ball)
+    ? requiredRate(
+        state.target,
+        innings.runs,
+        state.oversLimit,
+        innings.over,
+        innings.ball,
+      )
     : null;
 
   return (
@@ -248,7 +290,9 @@ export function LiveScoringPad({
         <div className="mx-4 mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 flex items-center gap-2 text-sm text-sky-100">
           <CloudRain className="w-4 h-4 shrink-0" />
           <span>
-            Rain delay{state.interruptionReason ? ` — ${state.interruptionReason}` : ""}. Resume play or apply DLS.
+            Rain delay
+            {state.interruptionReason ? ` — ${state.interruptionReason}` : ""}.
+            Resume play or apply DLS.
           </span>
         </div>
       ) : null}
@@ -263,7 +307,9 @@ export function LiveScoringPad({
           </p>
         ) : null}
         {!lbwEnabled ? (
-          <p className="text-xs text-muted-foreground mb-2">LBW disabled by match policy</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            LBW disabled by match policy
+          </p>
         ) : null}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -271,7 +317,9 @@ export function LiveScoringPad({
               Inn {state.currentInnings}
               {state.target ? ` · Target ${state.target}` : ""}
               {state.freeHitActive ? (
-                <span className="ml-2 text-primary font-semibold">FREE HIT</span>
+                <span className="ml-2 text-primary font-semibold">
+                  FREE HIT
+                </span>
               ) : null}
             </p>
             <p className="text-3xl font-bold tabular-nums tracking-tight">
@@ -286,7 +334,10 @@ export function LiveScoringPad({
             </p>
           </div>
           <div className="text-right text-xs space-y-1 shrink-0">
-            <p className="font-medium truncate max-w-[8rem]" style={{ color: battingTeam?.color ?? undefined }}>
+            <p
+              className="font-medium truncate max-w-[8rem]"
+              style={{ color: battingTeam?.color ?? undefined }}
+            >
               {battingTeam?.shortCode ?? "BAT"}
             </p>
             <p className="text-muted-foreground truncate max-w-[8rem]">
@@ -298,11 +349,15 @@ export function LiveScoringPad({
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div className="rounded-lg bg-muted/30 px-2.5 py-2">
             <span className="text-muted-foreground">Striker </span>
-            <span className="font-medium">{playerNameById(players, strikerId)} *</span>
+            <span className="font-medium">
+              {playerNameById(players, strikerId)} *
+            </span>
           </div>
           <div className="rounded-lg bg-muted/30 px-2.5 py-2">
             <span className="text-muted-foreground">Non-str </span>
-            <span className="font-medium">{playerNameById(players, nonStrikerId)}</span>
+            <span className="font-medium">
+              {playerNameById(players, nonStrikerId)}
+            </span>
           </div>
         </div>
 
@@ -341,13 +396,98 @@ export function LiveScoringPad({
 
       {/* Scoring pad */}
       <div className="p-3 grid grid-cols-4 gap-2">
-        <ScoreButton label="0" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 0, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
-        <ScoreButton label="1" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 1, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
-        <ScoreButton label="2" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 2, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
-        <ScoreButton label="3" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 3, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
-        <ScoreButton label="4" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 4, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
-        <ScoreButton label="6" variant="run" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 6, extras: { type: null, runs: 0 }, wicket: null, isLegalDelivery: true })} />
-        <ScoreButton label="Wd" sublabel="wide" variant="extra" disabled={busy || pendingNewBatsman} onClick={() => recordBall({ runsOffBat: 0, extras: { type: "wide", runs: 1 }, wicket: null, isLegalDelivery: false })} />
+        <ScoreButton
+          label="0"
+          variant="run"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 0,
+              extras: { type: null, runs: 0 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="1"
+          variant="run"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 1,
+              extras: { type: null, runs: 0 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="2"
+          variant="run"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 2,
+              extras: { type: null, runs: 0 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="3"
+          variant="run"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 3,
+              extras: { type: null, runs: 0 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="4"
+          variant="run"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 4,
+              extras: { type: null, runs: 0 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="6"
+          variant="run"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 6,
+              extras: { type: null, runs: 0 },
+              wicket: null,
+              isLegalDelivery: true,
+            })
+          }
+        />
+        <ScoreButton
+          label="Wd"
+          sublabel="wide"
+          variant="extra"
+          disabled={busy || pendingNewBatsman}
+          onClick={() =>
+            recordBall({
+              runsOffBat: 0,
+              extras: { type: "wide", runs: 1 },
+              wicket: null,
+              isLegalDelivery: false,
+            })
+          }
+        />
         <ScoreButton
           label="Nb"
           sublabel={freeHitEnabled ? "no ball" : "no ball (no FH)"}
@@ -390,23 +530,57 @@ export function LiveScoringPad({
             })
           }
         />
-        <ScoreButton label="W" sublabel="wicket" variant="wicket" disabled={busy || pendingNewBatsman} onClick={() => setWicketSheet(true)} className="col-span-2" />
-        <ScoreButton label="↩" sublabel="undo" variant="undo" disabled={busy} onClick={() => { if (canTap()) void onUndo(); }} className="col-span-2" />
+        <ScoreButton
+          label="W"
+          sublabel="wicket"
+          variant="wicket"
+          disabled={busy || pendingNewBatsman}
+          onClick={() => setWicketSheet(true)}
+          className="col-span-2"
+        />
+        <ScoreButton
+          label="↩"
+          sublabel="undo"
+          variant="undo"
+          disabled={busy}
+          onClick={() => {
+            if (canTap()) void onUndo();
+          }}
+          className="col-span-2"
+        />
       </div>
 
       <div className="px-3 pb-4 flex gap-2">
-        <Button variant="outline" className="flex-1 h-11" disabled={busy} onClick={() => setBowlerSheet(true)}>
+        <Button
+          variant="outline"
+          className="flex-1 h-11"
+          disabled={busy}
+          onClick={() => setBowlerSheet(true)}
+        >
           Change bowler
         </Button>
-        <Button variant="outline" className="flex-1 h-11" disabled={busy} onClick={() => setSecondaryOpen(true)}>
+        <Button
+          variant="outline"
+          className="flex-1 h-11"
+          disabled={busy}
+          onClick={() => setSecondaryOpen(true)}
+        >
           More…
         </Button>
       </div>
 
-      <Sheet open={wicketSheet} onOpenChange={(open) => { setWicketSheet(open); if (!open) setRunOutPick(false); }}>
+      <Sheet
+        open={wicketSheet}
+        onOpenChange={(open) => {
+          setWicketSheet(open);
+          if (!open) setRunOutPick(false);
+        }}
+      >
         <SheetContent side="bottom" className="rounded-t-2xl">
           <SheetHeader>
-            <SheetTitle>{runOutPick ? "Run out — who is out?" : "Wicket — how out?"}</SheetTitle>
+            <SheetTitle>
+              {runOutPick ? "Run out — who is out?" : "Wicket — how out?"}
+            </SheetTitle>
           </SheetHeader>
           {runOutPick ? (
             <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
@@ -414,7 +588,9 @@ export function LiveScoringPad({
                 variant="outline"
                 className="h-12"
                 disabled={!strikerId}
-                onClick={() => void recordWicket("run_out", strikerId ?? undefined)}
+                onClick={() =>
+                  void recordWicket("run_out", strikerId ?? undefined)
+                }
               >
                 Striker out
               </Button>
@@ -422,7 +598,9 @@ export function LiveScoringPad({
                 variant="outline"
                 className="h-12"
                 disabled={!nonStrikerId}
-                onClick={() => void recordWicket("run_out", nonStrikerId ?? undefined)}
+                onClick={() =>
+                  void recordWicket("run_out", nonStrikerId ?? undefined)
+                }
               >
                 Non-striker out
               </Button>
@@ -451,7 +629,10 @@ export function LiveScoringPad({
       </Sheet>
 
       <Sheet open={bowlerSheet} onOpenChange={setBowlerSheet}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[70dvh] overflow-y-auto">
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl max-h-[70dvh] overflow-y-auto"
+        >
           <SheetHeader>
             <SheetTitle>Select bowler</SheetTitle>
           </SheetHeader>
@@ -486,7 +667,9 @@ export function LiveScoringPad({
                 disabled={busy}
                 onClick={async () => {
                   setSecondaryOpen(false);
-                  await onEvent(CricketEventType.MATCH_INTERRUPTED, { reason: "Rain" });
+                  await onEvent(CricketEventType.MATCH_INTERRUPTED, {
+                    reason: "Rain",
+                  });
                 }}
               >
                 <CloudRain className="w-4 h-4 mr-2" />
@@ -542,23 +725,42 @@ export function LiveScoringPad({
             >
               Retired batter
             </Button>
-            <Button
-              variant="outline"
-              className="h-12"
-              disabled={busy}
-              onClick={async () => {
-                if (!battingId || !bowlingId) return;
-                setSecondaryOpen(false);
-                await onEvent(CricketEventType.SUPER_OVER_STARTED, {
-                  innings: Math.max(state.innings.length + 1, 3),
-                  battingTeamId: battingId,
-                  bowlingTeamId: bowlingId,
-                  oversLimit: 1,
-                });
-              }}
-            >
-              Start super over
-            </Button>
+            {superBallEnabled ? (
+              <Button
+                variant="outline"
+                className="h-12 border-amber-500/50"
+                disabled={busy || !battingId || !!state.superBallPending}
+                onClick={async () => {
+                  if (!battingId) return;
+                  setSecondaryOpen(false);
+                  await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
+                    innings: state.currentInnings,
+                    battingTeamId: battingId,
+                  });
+                }}
+              >
+                Declare Super Ball
+              </Button>
+            ) : null}
+            {superOverEnabled ? (
+              <Button
+                variant="outline"
+                className="h-12"
+                disabled={busy}
+                onClick={async () => {
+                  if (!battingId || !bowlingId) return;
+                  setSecondaryOpen(false);
+                  await onEvent(CricketEventType.SUPER_OVER_STARTED, {
+                    innings: Math.max(state.innings.length + 1, 3),
+                    battingTeamId: battingId,
+                    bowlingTeamId: bowlingId,
+                    oversLimit: rules?.superOverOvers ?? 1,
+                  });
+                }}
+              >
+                Start super over
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               className="h-12"
@@ -600,7 +802,9 @@ export function LiveScoringPad({
               disabled={busy}
               onClick={async () => {
                 setSecondaryOpen(false);
-                await onEvent(CricketEventType.MATCH_ABANDONED, { reason: "Rain — no result" });
+                await onEvent(CricketEventType.MATCH_ABANDONED, {
+                  reason: "Rain — no result",
+                });
               }}
             >
               Abandon (no result)
@@ -616,7 +820,9 @@ export function LiveScoringPad({
           </SheetHeader>
           <div className="mt-4 space-y-4 pb-6">
             <div>
-              <label className="text-xs text-muted-foreground">Overs per innings (revised)</label>
+              <label className="text-xs text-muted-foreground">
+                Overs per innings (revised)
+              </label>
               <Input
                 type="number"
                 min={1}
@@ -671,7 +877,9 @@ export function LiveScoringPad({
             <Button
               variant="outline"
               className="h-12"
-              disabled={busy || !(retirePromptPlayerId ?? strikerId) || !battingId}
+              disabled={
+                busy || !(retirePromptPlayerId ?? strikerId) || !battingId
+              }
               onClick={async () => {
                 const playerId = retirePromptPlayerId ?? strikerId;
                 setRetireSheet(false);
@@ -690,7 +898,9 @@ export function LiveScoringPad({
             <Button
               variant="outline"
               className="h-12"
-              disabled={busy || !(retirePromptPlayerId ?? strikerId) || !battingId}
+              disabled={
+                busy || !(retirePromptPlayerId ?? strikerId) || !battingId
+              }
               onClick={async () => {
                 const playerId = retirePromptPlayerId ?? strikerId;
                 setRetireSheet(false);

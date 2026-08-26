@@ -21,7 +21,10 @@ import { verifyMatchStartContract } from "@workspace/platform-core/rule-engine";
 import { verifyPresentationMatchStartContract } from "@workspace/platform-core/presentation-engine";
 import { replayScoringMatchState } from "./scoring-platform";
 import { ScoringPlatformError } from "./scoring-platform/errors";
-import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
+import {
+  appendSingleMatchEvent,
+  type ScoringActor,
+} from "./scoring-platform/orchestrator";
 import { loadMatchEvents } from "./scoring-platform/event-store";
 import { cricketFranchiseTeamExists } from "./master-sports/cricket-franchise-registry";
 import { listCricketMasterTeams } from "./master-sports/cricket-roster";
@@ -47,7 +50,9 @@ function mapPlatformError<T>(fn: () => Promise<T>): Promise<T> {
 
 const CRICKET_SPORT_SLUG = "cricket" as const;
 
-function matchMetaFromRow(match: typeof scoringMatchesTable.$inferSelect): MatchMeta {
+function matchMetaFromRow(
+  match: typeof scoringMatchesTable.$inferSelect,
+): MatchMeta {
   const rules = (match.rulesJson ?? {}) as CricketMatchRulesJson;
   const prep = match.runtimePrepMetadataJson as
     | { ruleResolution?: Record<string, unknown> }
@@ -69,6 +74,7 @@ function matchMetaFromRow(match: typeof scoringMatchesTable.$inferSelect): Match
     awayTeamId: match.awayTeamId,
     rules,
     ruleResolution: bind ?? null,
+    matchTypeId: match.matchTypeId,
   });
 }
 
@@ -92,13 +98,25 @@ async function ensureTournamentScoring(tournamentId: number) {
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
   if (!tournament) {
-    throw new ScoringServiceError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");
+    throw new ScoringServiceError(
+      "Tournament not found",
+      404,
+      "TOURNAMENT_NOT_FOUND",
+    );
   }
   if (!tournament.scoringEnabled) {
-    throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
+    throw new ScoringServiceError(
+      "Scoring is not enabled for this tournament",
+      403,
+      "SCORING_DISABLED",
+    );
   }
   if (tournament.sport !== CRICKET_SPORT_SLUG) {
-    throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
+    throw new ScoringServiceError(
+      "Only cricket scoring is supported in V1",
+      400,
+      "UNSUPPORTED_SPORT",
+    );
   }
   return tournament;
 }
@@ -115,7 +133,9 @@ async function ensureTeamInTournament(tournamentId: number, teamId: number) {
 }
 
 /** Block match create when Auction → Sports handoff has not produced a usable roster. */
-export async function assertCricketSportsRosterReady(tournamentId: number): Promise<void> {
+export async function assertCricketSportsRosterReady(
+  tournamentId: number,
+): Promise<void> {
   const teams = await listCricketMasterTeams(tournamentId);
   const withSquad = teams.filter((t) => t.squadCount > 0);
   if (teams.length < 2 || withSquad.length < 2) {
@@ -141,7 +161,11 @@ export async function createScoringMatch(
 ) {
   const tournament = await ensureTournamentScoring(tournamentId);
   if (input.homeTeamId === input.awayTeamId) {
-    throw new ScoringServiceError("Home and away teams must differ", 400, "INVALID_TEAMS");
+    throw new ScoringServiceError(
+      "Home and away teams must differ",
+      400,
+      "INVALID_TEAMS",
+    );
   }
   await assertCricketSportsRosterReady(tournamentId);
   await ensureTeamInTournament(tournamentId, input.homeTeamId);
@@ -196,7 +220,9 @@ export async function createScoringMatch(
       .where(eq(scoringMatchesTable.id, match.id))
       .limit(1);
     if (refreshed) {
-      const preparedState = createInitialCricketState(matchMetaFromRow(refreshed));
+      const preparedState = createInitialCricketState(
+        matchMetaFromRow(refreshed),
+      );
       await db
         .update(scoringSessionsTable)
         .set({ stateJson: preparedState })
@@ -334,14 +360,20 @@ export async function appendScoringEvent(
   if (input.eventType === CricketEventType.MATCH_STARTED) {
     const verified = verifyMatchStartContract({
       currentRuntimeVersion: match.currentRuntimeVersion,
-      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<string, unknown> | null,
+      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<
+        string,
+        unknown
+      > | null,
     });
     if (!verified.ok) {
       throw new ScoringServiceError(verified.error, 409, verified.code);
     }
     const presentationVerified = verifyPresentationMatchStartContract({
       currentRuntimeVersion: match.currentRuntimeVersion,
-      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<string, unknown> | null,
+      runtimePrepMetadata: match.runtimePrepMetadataJson as Record<
+        string,
+        unknown
+      > | null,
     });
     if (!presentationVerified.ok) {
       throw new ScoringServiceError(
@@ -377,9 +409,15 @@ export async function appendScoringEvent(
   ) {
     const currentState = await projectMatchState(match);
     if (input.eventType === CricketEventType.INNINGS_ENDED) {
-      const inn = currentState.innings.find((i) => i.innings === currentState.currentInnings);
+      const inn = currentState.innings.find(
+        (i) => i.innings === currentState.currentInnings,
+      );
       if (!inn) {
-        throw new ScoringServiceError("No active innings to end", 400, "INVALID_INNINGS");
+        throw new ScoringServiceError(
+          "No active innings to end",
+          400,
+          "INVALID_INNINGS",
+        );
       }
       payload = {
         ...input.payload,
@@ -416,7 +454,22 @@ export async function appendScoringEvent(
       );
     }
     const maxXi = matchMeta.playingSquadSize;
-    if (typeof maxXi === "number" && playerIds.length > maxXi) {
+    if (
+      typeof maxXi === "number" &&
+      matchMeta.playingXiEnforced &&
+      playerIds.length !== maxXi
+    ) {
+      throw new ScoringServiceError(
+        `Playing XI must have exactly playingSquadSize (${maxXi}) from RuntimeExecutionPolicy.`,
+        400,
+        "INVALID_XI",
+      );
+    }
+    if (
+      typeof maxXi === "number" &&
+      !matchMeta.playingXiEnforced &&
+      playerIds.length > maxXi
+    ) {
       throw new ScoringServiceError(
         `Playing XI cannot exceed playingSquadSize (${maxXi}) from RuntimeExecutionPolicy.`,
         400,
@@ -461,7 +514,8 @@ export async function undoLastScoringEvent(
     .reverse()
     .find(
       (e) =>
-        e.eventType === CricketEventType.BALL_RECORDED && !undoneSequences.has(e.sequence),
+        e.eventType === CricketEventType.BALL_RECORDED &&
+        !undoneSequences.has(e.sequence),
     );
 
   if (!lastBall) {
