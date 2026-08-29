@@ -29,4 +29,14 @@ describe("lovable-theme portal chrome", () => {
       /\.lovable-home,[\s\S]*?min-height:\s*100vh/,
     );
   });
+
+  it("rebinds bg-popover on the portal root itself (not only descendants)", () => {
+    // SelectContent is `class="lovable-theme ... bg-popover"` — same node.
+    expect(css).toMatch(
+      /:is\(\.lovable-home,\s*\.lovable-theme\)\.bg-popover/,
+    );
+    expect(css).toMatch(
+      /:is\(\.lovable-home,\s*\.lovable-theme\)\.bg-popover[\s\S]*?background-color:\s*var\(--popover\)/,
+    );
+  });
 });
