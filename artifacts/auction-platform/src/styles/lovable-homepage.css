@@ -131,6 +131,10 @@
  * Portaled overlays get `.lovable-theme` for token inheritance.
  * Force content-sized boxes — min-height wins over max-height when both
  * apply, which previously locked Select menus at ~100vh.
+ *
+ * Do not set background-color here: portal roots use Tailwind `bg-popover` /
+ * `bg-card` on the SAME node as `.lovable-theme`. Those are rebound below
+ * (including same-element selectors) so menus stay opaque.
  */
 .lovable-theme[data-state],
 .lovable-theme[role="dialog"],
@@ -163,6 +167,8 @@
 :is(.lovable-home, .lovable-theme) .text-accent-foreground { color: var(--accent-foreground) !important; }
 :is(.lovable-home, .lovable-theme) .text-destructive { color: var(--destructive) !important; }
 :is(.lovable-home, .lovable-theme) .text-card-foreground { color: var(--card-foreground) !important; }
+/* Same-element variants: portaled Select/Dialog roots put theme + bg-* together */
+:is(.lovable-home, .lovable-theme).bg-background,
 :is(.lovable-home, .lovable-theme) .bg-background { background-color: var(--background) !important; }
 :is(.lovable-home, .lovable-theme) .bg-foreground { background-color: var(--foreground) !important; }
 :is(.lovable-home, .lovable-theme) .bg-primary { background-color: var(--primary) !important; }
@@ -175,6 +181,7 @@
 :is(.lovable-home, .lovable-theme) .bg-secondary { background-color: var(--secondary) !important; }
 :is(.lovable-home, .lovable-theme) .bg-muted { background-color: var(--muted) !important; }
 :is(.lovable-home, .lovable-theme) .bg-accent { background-color: var(--accent) !important; }
+:is(.lovable-home, .lovable-theme).bg-card,
 :is(.lovable-home, .lovable-theme) .bg-card { background-color: var(--card) !important; }
 :is(.lovable-home, .lovable-theme) .bg-rail { background-color: var(--rail) !important; }
 :is(.lovable-home, .lovable-theme) .bg-panel { background-color: var(--panel) !important; }
@@ -196,6 +203,7 @@
 :is(.lovable-home, .lovable-theme) .bg-background\/80 { background-color: color-mix(in oklab, var(--background) 80%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-background\/95 { background-color: color-mix(in oklab, var(--background) 95%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-destructive { background-color: var(--destructive) !important; }
+:is(.lovable-home, .lovable-theme).border-border,
 :is(.lovable-home, .lovable-theme) .border-border { border-color: var(--border) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/40 { border-color: color-mix(in oklab, var(--border) 40%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/50 { border-color: color-mix(in oklab, var(--border) 50%, transparent) !important; }
@@ -545,7 +553,14 @@
 :is(.lovable-home, .lovable-theme) .border-border\/40 { border-color: color-mix(in oklab, var(--border) 40%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/50 { border-color: color-mix(in oklab, var(--border) 50%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/60 { border-color: color-mix(in oklab, var(--border) 60%, transparent) !important; }
+/*
+ * Portal menus (Select/Dropdown) apply `lovable-theme bg-popover` on one node.
+ * Descendant-only `.lovable-theme .bg-popover` never matched, so after removing
+ * the stage gradient the menu looked fully transparent over the form.
+ */
+:is(.lovable-home, .lovable-theme).bg-popover,
 :is(.lovable-home, .lovable-theme) .bg-popover { background-color: var(--popover) !important; }
+:is(.lovable-home, .lovable-theme).text-popover-foreground,
 :is(.lovable-home, .lovable-theme) .text-popover-foreground { color: var(--popover-foreground) !important; }
 
 /*
