@@ -106,22 +106,39 @@
   --color-sold: var(--sold);
   --color-unsold: var(--unsold);
 
-  background: var(--gradient-stage);
-  background-attachment: fixed;
+  /* Tokens + typography only. Page chrome (gradient / min-height) is below —
+   * portals also use `.lovable-theme` for token inheritance and must NOT get
+   * full-viewport min-height or the stage gradient (that stretched Select /
+   * menu overlays into tall empty panels on registration). */
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Full-page surfaces only. Exclude Radix portal roots that carry
+ * `.lovable-theme` for tokens (`data-state`, dialog/menu/listbox roles).
+ */
+.lovable-home,
+.lovable-theme:not([data-state]):not([role="dialog"]):not([role="alertdialog"]):not([role="menu"]):not([role="listbox"]) {
+  background: var(--gradient-stage);
+  background-attachment: fixed;
   min-height: 100vh;
 }
 
 /*
- * Portaled dialogs also get `.lovable-theme` for token inheritance.
- * Do NOT inherit page min-height — that stretches empty modals to the viewport.
+ * Portaled overlays get `.lovable-theme` for token inheritance.
+ * Force content-sized boxes — min-height wins over max-height when both
+ * apply, which previously locked Select menus at ~100vh.
  */
+.lovable-theme[data-state],
 .lovable-theme[role="dialog"],
-.lovable-theme[role="alertdialog"] {
+.lovable-theme[role="alertdialog"],
+.lovable-theme[role="menu"],
+.lovable-theme[role="listbox"] {
   min-height: 0;
+  background-image: none;
   background-attachment: scroll;
 }
 
