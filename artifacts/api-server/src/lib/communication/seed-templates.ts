@@ -388,10 +388,14 @@ async function upgradePlayerRegistrationTemplateIfNeeded(existing: {
   id: string;
   htmlBody: string;
 }): Promise<void> {
-  const alreadyUpgraded =
+  const hasSeparatedDateRows =
+    existing.htmlBody.includes("Tournament / Match Dates") &&
+    existing.htmlBody.includes(">Auction Date<");
+  const hasPremiumLayout =
     existing.htmlBody.includes("Support BidWar") ||
     existing.htmlBody.includes("What happens next?");
-  if (alreadyUpgraded) return;
+  // Re-seed when premium layout is missing, or when auction/match dates are still merged.
+  if (hasPremiumLayout && hasSeparatedDateRows) return;
 
   const [latest] = await db
     .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
@@ -417,7 +421,8 @@ async function upgradePlayerRegistrationTemplateIfNeeded(existing: {
     subject: PLAYER_REGISTRATION_SUBJECT,
     htmlBody: PLAYER_REGISTRATION_HTML,
     createdBy: "system",
-    changeNote: "Premium onboarding email redesign",
+    changeNote:
+      "Player registration email — separate Auction Date and Tournament / Match Dates",
   });
 
   logger.info(

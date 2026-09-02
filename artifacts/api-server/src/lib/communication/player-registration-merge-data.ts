@@ -8,7 +8,12 @@ import {
 import { resolvePlatformPrimaryLogoUrl } from "@workspace/api-base/branding-assets";
 import { eq } from "drizzle-orm";
 import { brandingService } from "../branding-service.js";
-import { buildPublicUrl, getPublicOrigin } from "../runtime-env.js";
+import { getPublicOrigin } from "../runtime-env.js";
+import {
+  formatAuctionDateTimeDisplay,
+  formatMatchDatesDdMmYyyy,
+  formatRegistrationDateDdMmYyyy,
+} from "./player-registration-dates.js";
 
 function appUrl(): string {
   return process.env.APP_URL?.trim() || getPublicOrigin();
@@ -44,29 +49,6 @@ function formatSportName(sport: string | null | undefined): string {
   if (!sport?.trim()) return "";
   const normalized = sport.trim().replace(/_/g, " ");
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
-function formatDisplayDate(value: Date | string | null | undefined): string {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatTournamentDates(
-  auctionDate: string | null | undefined,
-  auctionTime: string | null | undefined,
-): string {
-  const datePart = auctionDate?.trim() ?? "";
-  const timePart = auctionTime?.trim() ?? "";
-  if (datePart && timePart) return `${datePart} at ${timePart}`;
-  return datePart || timePart;
 }
 
 function stringOrEmpty(value: unknown): string {
@@ -127,17 +109,18 @@ export async function buildPlayerRegistrationMergeData(
     ? buildLogoImgHtml(tournamentLogoUrl, tournament?.name ?? "Tournament", 72, 72)
     : "";
 
-  const tournamentDates = formatTournamentDates(
+  const auctionDateDisplay = formatAuctionDateTimeDisplay(
     tournament?.auctionDate,
     tournament?.auctionTime,
   );
+  const tournamentDates = formatMatchDatesDdMmYyyy(tournament?.matchDates);
 
   return {
     player_name: player.name,
     tournament_name: tournament?.name ?? "",
     sport_name: formatSportName(tournament?.sport),
     registration_id: player.serialNo != null ? `#${player.serialNo}` : "",
-    registration_date: formatDisplayDate(player.createdAt),
+    registration_date: formatRegistrationDateDdMmYyyy(player.createdAt),
     venue: stringOrEmpty(tournament?.venue),
     tournament_dates: tournamentDates,
     organiser_name: stringOrEmpty(tournament?.organizerName),
@@ -153,7 +136,7 @@ export async function buildPlayerRegistrationMergeData(
     support_number: "+91 8707488250",
     login_link: baseUrl,
     auction_name: tournament?.name ?? "",
-    auction_date: stringOrEmpty(tournament?.auctionDate),
+    auction_date: auctionDateDisplay,
     phone: stringOrEmpty(player.mobileNumber),
   };
 }

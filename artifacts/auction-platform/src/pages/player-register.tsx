@@ -47,6 +47,35 @@ import {
   buildSpecificationsPayload,
 } from "@/lib/player-specifications";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
+import { formatTimeLabel } from "@/components/ui/time-picker";
+
+/** Format YYYY-MM-DD as DD-MM-YYYY without timezone shifting. */
+function formatIsoDateDdMmYyyy(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  if (!match) return trimmed;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function formatAuctionDateTimeForDisplay(
+  auctionDate: string | null | undefined,
+  auctionTime: string | null | undefined,
+): string {
+  const datePart = formatIsoDateDdMmYyyy(auctionDate);
+  const timePart = auctionTime?.trim() ? formatTimeLabel(auctionTime.trim()) : "";
+  if (datePart && timePart) return `${datePart} at ${timePart}`;
+  return datePart || timePart;
+}
+
+function formatMatchDatesForDisplay(matchDates: string | null | undefined): string {
+  if (!matchDates?.trim()) return "";
+  return matchDates
+    .split(",")
+    .map((part) => formatIsoDateDdMmYyyy(part))
+    .filter(Boolean)
+    .join(", ");
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -798,6 +827,32 @@ export default function PlayerRegister() {
                         </p>
                       </>
                     )}
+                    {(() => {
+                      const auctionDateLine = formatAuctionDateTimeForDisplay(
+                        tournament?.auctionDate,
+                        (tournament as { auctionTime?: string | null } | undefined)?.auctionTime,
+                      );
+                      const matchDatesLine = formatMatchDatesForDisplay(
+                        (tournament as { matchDates?: string | null } | undefined)?.matchDates,
+                      );
+                      if (!auctionDateLine && !matchDatesLine) return null;
+                      return (
+                        <div className="mt-5 text-left rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 space-y-2 text-sm">
+                          {auctionDateLine ? (
+                            <div className="flex flex-col sm:flex-row sm:gap-2">
+                              <span className="text-muted-foreground shrink-0">Auction Date</span>
+                              <span className="font-medium text-foreground">{auctionDateLine}</span>
+                            </div>
+                          ) : null}
+                          {matchDatesLine ? (
+                            <div className="flex flex-col sm:flex-row sm:gap-2">
+                              <span className="text-muted-foreground shrink-0">Tournament / Match Dates</span>
+                              <span className="font-medium text-foreground">{matchDatesLine}</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                     {waConsent && waLink && (
                       <div className="mt-6 p-4 rounded-xl border border-green-500/30 bg-green-500/8 text-sm space-y-3">
                         <p className="font-semibold text-green-300">WhatsApp updates activate karein</p>
