@@ -12,7 +12,7 @@ import { useBidLifecycle } from "@/hooks/use-bid-lifecycle";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
-import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction, resolveOwnerLiveBidFooterPurse } from "@workspace/api-base";
+import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction, resolveOwnerLiveBidFooterPurse, resolveOwnerPlayingSquadTotal, resolveOwnerSquadRequirement, ownerSquadMinSubline, ownerSquadMaxSubline } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PlayerTagBadge } from "@/components/PlayerTagBadge";
@@ -127,6 +127,7 @@ interface TeamPurse {
   maxAllowedBid?: number;
   playersBought?: number;
   retainedCount?: number;
+  minimumSquadSize?: number;
   maximumSquadSize?: number;
   lowestBasePrice?: number;
   purseUsed?: number;
@@ -361,11 +362,19 @@ function TeamSquadSnapshot({
     };
   }, [allPlayers, teamId]);
 
-  const maxSquad = teamPurse?.maximumSquadSize ?? 0;
-  const totalInSquad = teamPurse?.playersBought ?? retainedPlayers.length + boughtPlayers.length;
+  const totalInSquad = resolveOwnerPlayingSquadTotal({
+    playersBought: teamPurse?.playersBought,
+    retainedPlayingCount: retainedPlayers.length,
+    boughtPlayingCount: boughtPlayers.length,
+    rosterLoaded: allPlayers != null,
+  });
   const retainedCount = teamPurse?.retainedCount ?? retainedPlayers.length;
   const boughtCount = boughtPlayers.length;
-  const stillNeed = maxSquad > 0 ? Math.max(0, maxSquad - totalInSquad) : null;
+  const squadDue = resolveOwnerSquadRequirement({
+    minimumSquadSize: teamPurse != null ? (teamPurse.minimumSquadSize ?? 0) : null,
+    maximumSquadSize: teamPurse != null ? (teamPurse.maximumSquadSize ?? 0) : null,
+    totalInSquad,
+  });
 
   const expandedPlayers = expanded === "retained" ? retainedPlayers : boughtPlayers;
   const expandedTitle = expanded === "retained" ? "Retained Players" : "Bought Players";
@@ -376,30 +385,44 @@ function TeamSquadSnapshot({
 
   const statValueClass = tier === "mobile" ? "text-xl" : tier === "tablet" ? "text-2xl" : "text-2xl";
   const statLabelClass = tier === "mobile" ? "text-[10px]" : "text-[11px]";
+  const cellPad = tier === "mobile" ? "px-1.5 py-3" : "px-3 py-3";
+  const squadCols =
+    2 + (squadDue.minDue != null ? 1 : 0) + (squadDue.maxDue != null ? 1 : 0);
 
   return (
     <div className="rounded-2xl border border-[#4a4478] bg-[#2a2458] overflow-hidden">
-      <div className="grid grid-cols-3 divide-x divide-[#4a4478]">
-        <div className="px-3 py-3 text-center">
-          <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
-            {maxSquad > 0 ? maxSquad : totalInSquad}
-          </p>
-          <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
-            Squad Target
-          </p>
-          <p className="text-[10px] text-[#a8a0c4] mt-0.5">
-            {maxSquad > 0
-              ? stillNeed != null && stillNeed > 0
-                ? `${stillNeed} more needed`
-                : `${totalInSquad}/${maxSquad} filled`
-              : `${totalInSquad} in squad`}
-          </p>
-        </div>
+      <div
+        className="grid divide-x divide-[#4a4478]"
+        style={{ gridTemplateColumns: `repeat(${squadCols}, minmax(0, 1fr))` }}
+      >
+        {squadDue.minDue != null ? (
+          <div className={`${cellPad} text-center min-w-0`}>
+            <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
+              {squadDue.minDue}
+            </p>
+            <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
+              Min Squad
+            </p>
+            <p className="text-[10px] text-[#a8a0c4] mt-0.5">{ownerSquadMinSubline(squadDue.minDue)}</p>
+          </div>
+        ) : null}
+
+        {squadDue.maxDue != null ? (
+          <div className={`${cellPad} text-center min-w-0`}>
+            <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
+              {squadDue.maxDue}
+            </p>
+            <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
+              Max Squad
+            </p>
+            <p className="text-[10px] text-[#a8a0c4] mt-0.5">{ownerSquadMaxSubline(squadDue.maxDue)}</p>
+          </div>
+        ) : null}
 
         <button
           type="button"
           onClick={() => toggleCategory("retained")}
-          className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
+          className={`${cellPad} text-center min-w-0 transition-colors active:scale-[0.98] ${
             expanded === "retained" ? "bg-[#4a4478]" : "hover:bg-[#1f1f23]"
           }`}
         >
@@ -415,7 +438,7 @@ function TeamSquadSnapshot({
         <button
           type="button"
           onClick={() => toggleCategory("bought")}
-          className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
+          className={`${cellPad} text-center min-w-0 transition-colors active:scale-[0.98] ${
             expanded === "bought" ? "bg-[#4a4478]" : "hover:bg-[#1f1f23]"
           }`}
         >

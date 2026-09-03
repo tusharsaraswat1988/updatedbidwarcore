@@ -58,8 +58,13 @@ export {
   shouldPreferEmbeddedTeamPurses,
   selectAuthoritativeTeamPurse,
   resolveOwnerLiveBidFooterPurse,
+  resolveOwnerPlayingSquadTotal,
+  resolveOwnerSquadRequirement,
+  ownerSquadMinSubline,
+  ownerSquadMaxSubline,
   type PurseSnapshotLike,
   type OwnerLiveBidFooterPurse,
+  type OwnerSquadRequirement,
 } from "./purse-protection-expect";
 
 export {
