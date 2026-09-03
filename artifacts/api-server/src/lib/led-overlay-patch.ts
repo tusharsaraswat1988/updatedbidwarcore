@@ -38,6 +38,58 @@ export function overlayModeFromPresentationContext(
   return "off";
 }
 
+export type PresentationContextState = {
+  context: "auction" | "top5" | "team";
+  selectedTeamId: number | null;
+};
+
+export const DEFAULT_PRESENTATION_CONTEXT_STATE: PresentationContextState = {
+  context: "auction",
+  selectedTeamId: null,
+};
+
+/** Parse persisted `obsContextJson` (current or legacy `{ screen }` payloads). */
+export function parsePersistedPresentationContext(raw: unknown): PresentationContextState {
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw) as unknown;
+    } catch {
+      return { ...DEFAULT_PRESENTATION_CONTEXT_STATE };
+    }
+  }
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_PRESENTATION_CONTEXT_STATE };
+  }
+  const parsed = value as Record<string, unknown>;
+  const selectedTeamId = typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null;
+  if (typeof parsed.context === "string") {
+    return {
+      context: parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
+      selectedTeamId,
+    };
+  }
+  const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
+  return {
+    context: screen === "top5" || screen === "team" ? screen : "auction",
+    selectedTeamId,
+  };
+}
+
+/**
+ * LED TEAM / PLAYER / TOP 5 / BANNER stay independent of OBS.
+ * LED MAIN VIEW is the canonical live-auction screen — OBS must follow it back.
+ */
+export function presentationContextAfterLedOverlay(
+  mode: LedOverlayMode,
+  current: PresentationContextState,
+): PresentationContextState {
+  if (mode === "off") {
+    return { context: "auction", selectedTeamId: current.selectedTeamId };
+  }
+  return current;
+}
+
 export function rememberLedOverlayPatch(
   tournamentId: number,
   patch: LedOverlayRememberedPatch,

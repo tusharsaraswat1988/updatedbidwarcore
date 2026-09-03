@@ -456,12 +456,23 @@ export default function AuctionOperator() {
     const overlay = mode === "off" ? null : mode;
     qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), (prev) => {
       if (!prev) return prev;
+      const currentPresentation = parsePresentationContext(
+        (prev as { presentationContext?: unknown }).presentationContext,
+      );
       return {
         ...prev,
         displayOverlay: overlay,
         teamPurseViewActive: overlay !== null,
         fortuneWheelActive: false,
         wheelSpinning: false,
+        ...(mode === "off"
+          ? {
+              presentationContext: {
+                context: "auction" as const,
+                selectedTeamId: currentPresentation.selectedTeamId,
+              },
+            }
+          : {}),
       };
     });
     try {

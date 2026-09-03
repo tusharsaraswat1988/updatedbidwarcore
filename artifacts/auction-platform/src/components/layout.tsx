@@ -22,7 +22,7 @@ import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
-import { TrialLicenseBadge } from "@/components/trial-license-badge";
+import { CurrentTournamentContext } from "@/components/current-tournament-context";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
@@ -140,22 +140,19 @@ function SidebarNav({
 
       {tournamentId && (
         <>
-          {expanded && (
-            <div className="px-4 mt-7 mb-1 flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {tournament?.name || "Tournament"}
-              </span>
-              {tournament?.licenseStatus && tournament.licenseStatus !== "active" && tournament.licenseStatus !== "completed" ? (
-                <TrialLicenseBadge className="shrink-0" />
-              ) : null}
-            </div>
-          )}
+          <CurrentTournamentContext
+            tournamentId={tournamentId}
+            name={tournament?.name}
+            status={tournament?.status}
+            licenseStatus={tournament?.licenseStatus}
+            expanded={expanded}
+          />
           {expanded && (
             <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider">
               Setup
             </div>
           )}
-          {!expanded && <div className="mt-6 mb-2 border-t border-border mx-2" />}
+          {!expanded && <div className="mb-2 border-t border-border mx-2" />}
           <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
             <SidebarLink href={`/tournament/${tournamentId}`} title="Overview" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
               <Activity className="w-5 h-5 flex-shrink-0" />

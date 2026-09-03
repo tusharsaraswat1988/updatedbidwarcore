@@ -35,6 +35,8 @@ import {
   applyRememberedLedOverlayPatch,
   ledOverlaySessionPatch,
   overlayModeFromPresentationContext,
+  parsePersistedPresentationContext,
+  presentationContextAfterLedOverlay,
   rememberLedOverlayPatch,
   type LedOverlaySessionPatch,
 } from "../lib/led-overlay-patch";
@@ -2782,11 +2784,32 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
   const overlayPatch = ledOverlaySessionPatch(body.data.mode);
-  await db
-    .update(auctionSessionsTable)
-    .set(overlayPatch)
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-  res.json(await broadcastLedOverlayPatch(tid, overlayPatch));
+  let presentationExtra: { presentationContext: ReturnType<typeof presentationContextAfterLedOverlay> } | undefined;
+  if (body.data.mode === "off") {
+    const [session] = await db
+      .select({ obsContextJson: auctionSessionsTable.obsContextJson })
+      .from(auctionSessionsTable)
+      .where(eq(auctionSessionsTable.tournamentId, tid))
+      .limit(1);
+    const next = presentationContextAfterLedOverlay(
+      "off",
+      parsePersistedPresentationContext(session?.obsContextJson),
+    );
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        ...overlayPatch,
+        obsContextJson: JSON.stringify(next),
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    presentationExtra = { presentationContext: next };
+  } else {
+    await db
+      .update(auctionSessionsTable)
+      .set(overlayPatch)
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+  }
+  res.json(await broadcastLedOverlayPatch(tid, overlayPatch, presentationExtra));
 });
 
 // POST set explicit on-air presentation context (OBS / future displays)
