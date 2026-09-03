@@ -14,11 +14,7 @@ import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
 } from "@workspace/db-local";
-import {
-  computeEffectiveCapacity,
-  getActiveBoosterTotalsForTeams,
-} from "../lib/purse-capacity.js";
-import { computeScoutPurseProtection } from "../lib/scout-purse.js";
+import { buildLocalTeamPurseSnapshot } from "../lib/team-purse-snapshot.js";
 
 import {
   resolveOfflineUrl,
@@ -253,68 +249,7 @@ export function createTournamentsRouter(db: LocalDb) {
   });
 
   async function respondTeamPurses(tournamentId: number, res: import("express").Response) {
-    const [tournamentRow] = await db
-      .select({
-        minimumSquadSize: tournamentsTable.minimumSquadSize,
-        maximumSquadSize: tournamentsTable.maximumSquadSize,
-        minBid: tournamentsTable.minBid,
-      })
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tournamentId));
-
-    const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tournamentId));
-    const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tournamentId));
-    const boosterTotals = await getActiveBoosterTotalsForTeams(db, tournamentId, teams.map(t => t.id));
-
-    const purseOpts = {
-      minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
-      maximumSquadSize: tournamentRow?.maximumSquadSize ?? 0,
-      minBid: tournamentRow?.minBid ?? 0,
-    };
-
-    res.json(teams.map(t => {
-      const boosterTotal = boosterTotals.get(t.id) ?? 0;
-      const p = computeScoutPurseProtection(t, boosterTotal, players, t.id, purseOpts);
-      const teamSoldRetained = players.filter(
-        pRow => pRow.teamId === t.id && (pRow.status === "sold" || pRow.status === "retained"),
-      );
-      const playersBought = p.playersBought;
-      const retainedCount = players.filter(p => p.teamId === t.id && p.status === "retained").length;
-      const topPlayer = teamSoldRetained.reduce<typeof teamSoldRetained[0] | null>((best, p) => {
-        const pAmt = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
-        const bAmt = best
-          ? (best.status === "retained" ? (best.retainedPrice ?? 0) : (best.soldPrice ?? 0))
-          : -1;
-        return pAmt > bAmt ? p : best;
-      }, null);
-
-      return {
-        teamId: t.id, teamName: t.name, shortCode: t.shortCode, ownerName: t.ownerName,
-        color: t.color, logoUrl: resolveOfflineUrl(t.logoUrl),
-        originalPurse: t.purse,
-        boosterTotal,
-        effectiveCapacity: p.effectiveCapacity,
-        purse: p.effectiveCapacity,
-        purseUsed: t.purseUsed,
-        purseRemaining: p.purseRemaining,
-        playersBought: p.playersBought,
-        retainedCount,
-        reservePurse: p.reservePurse,
-        spendablePurse: p.spendablePurse,
-        slotsRequired: p.slotsRequired,
-        futurePlayersBought: p.futurePlayersBought,
-        futureSlotsRequired: p.futureSlotsRequired,
-        futureReservePurse: p.futureReservePurse,
-        maxAllowedBid: p.maxAllowedBid,
-        lowestBasePrice: p.lowestBasePrice,
-        minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
-        maximumSquadSize: tournamentRow?.maximumSquadSize ?? 0,
-        topPlayerName: topPlayer?.name ?? null,
-        topPlayerAmount: topPlayer
-          ? (topPlayer.status === "retained" ? (topPlayer.retainedPrice ?? null) : (topPlayer.soldPrice ?? null))
-          : null,
-      };
-    }));
+    res.json(await buildLocalTeamPurseSnapshot(db, tournamentId));
   }
 
   router.get("/tournaments/:tournamentId/team-purses", async (req, res) => {

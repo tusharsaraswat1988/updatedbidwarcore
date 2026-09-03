@@ -32,6 +32,7 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { useBranding } from "@/hooks/useBranding";
 import { resolveSplashLogoUrl } from "@/lib/brand-assets";
 import { breakCountdownEndsAt, isAuctionPausedForBreak } from "@/lib/break-countdown";
+import { selectAuthoritativeTeamPurse, shouldPreferEmbeddedTeamPurses } from "@workspace/api-base";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -219,23 +220,23 @@ export function OwnerRoute() {
 
   const isCompleted = state?.licenseStatus === "completed" || state?.status === "completed";
   const embeddedPurses = state?.teamPurses;
+  const preferEmbeddedPurses = shouldPreferEmbeddedTeamPurses(embeddedPurses);
 
   const { data: allPursesFromQuery } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey:       getGetTeamPursesQueryKey(tournamentId),
-      enabled:        !!tournamentId && (screen === "live" || screen === "completed") && !embeddedPurses?.length,
+      enabled:        !!tournamentId && (screen === "live" || screen === "completed") && !preferEmbeddedPurses,
       refetchInterval: isCompleted
         ? false
         : sseAwareRefetchInterval(connectionStatus, 10000),
     },
   });
-  const allPurses = embeddedPurses ?? allPursesFromQuery;
+  const teamPurse = selectAuthoritativeTeamPurse(teamId, embeddedPurses, allPursesFromQuery) ?? null;
 
   const placeBid = usePlaceBid();
   const [lastBidError, setLastBidError] = useState("");
 
   const teamColor = team?.color || "#F59E0B";
-  const teamPurse = allPurses?.find((t) => t.teamId === teamId);
 
   // ── Sync / recover handler ────────────────────────────────────────────────
   function handleSync() {

@@ -31,6 +31,7 @@ import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
+import { invalidateAuctionBuildCache } from "../lib/auction-state-build-cache";
 import { validateExportToken } from "../lib/export-token";
 import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
 import { notifyAsync } from "../lib/notifications";
@@ -642,6 +643,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   });
   // Broadcast settings change so connected operator panels refresh immediately
   broadcastToTournament(id, { type: "settings_changed" });
+  if (
+    d.minBid !== undefined ||
+    d.minimumSquadSize !== undefined ||
+    d.maximumSquadSize !== undefined ||
+    d.basePurse !== undefined
+  ) {
+    invalidateAuctionBuildCache(id, "all");
+  }
   const platformDefaults = await getPlatformDefaultAudioCached();
   res.json(tournamentToJson(tournament, { includeScoringPin: true, platformDefaults }));
 });

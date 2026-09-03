@@ -73,4 +73,42 @@ describe("auction state build cache", () => {
     invalidateAuctionBuildCache(1, "static");
     expect(getCachedStatic(1)).toBeNull();
   });
+
+  it("all-scope invalidation drops cached purses so min-squad settings cannot stick at reserve=0", () => {
+    setCachedRoster(1, {
+      teams: [],
+      counts: { soldCount: 0, unsoldCount: 0, availableCount: 10 },
+      rosterPlayers: [],
+      purses: [{
+        teamId: 1,
+        teamName: "A",
+        shortCode: "A",
+        color: null,
+        logoUrl: null,
+        originalPurse: 1_500_000,
+        boosterTotal: 0,
+        effectiveCapacity: 1_500_000,
+        purse: 1_500_000,
+        purseUsed: 0,
+        purseRemaining: 1_500_000,
+        playersBought: 0,
+        retainedCount: 0,
+        reservePurse: 0,
+        spendablePurse: 1_500_000,
+        slotsRequired: 0,
+        futurePlayersBought: 1,
+        futureSlotsRequired: 0,
+        futureReservePurse: 0,
+        maxAllowedBid: 1_500_000,
+        lowestBasePrice: 0,
+        minimumSquadSize: 0,
+        maximumSquadSize: 0,
+        topPlayerName: null,
+        topPlayerAmount: null,
+      }],
+    });
+    invalidateAuctionBuildCache(1, "all");
+    expect(getCachedRoster(1)).toBeNull();
+    expect(getCachedStatic(1)).toBeNull();
+  });
 });

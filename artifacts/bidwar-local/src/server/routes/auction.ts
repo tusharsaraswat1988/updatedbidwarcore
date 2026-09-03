@@ -33,6 +33,7 @@ import {
   type LedPurseBoosterTeamLine,
 } from "@workspace/api-base";
 import { computeScoutPurseProtection } from "../lib/scout-purse.js";
+import { buildLocalTeamPurseSnapshot } from "../lib/team-purse-snapshot.js";
 import { formatPurseProtectionBidError } from "@workspace/api-base/purse-protection";
 import { mirrorStateToCloud } from "../mirror.js";
 import { fetchCloudVenueGuard, releaseVenueAuctionOnCloud } from "../lib/venue-guard.js";
@@ -396,6 +397,8 @@ export function createAuctionRouter(db: LocalDb) {
       };
     }
 
+    const teamPurses = await buildLocalTeamPurseSnapshot(db, tournamentId);
+
     return {
       tournamentId, status: session.status, currentPlayer,
       currentBid: session.currentBid, currentBidTeamId: session.currentBidTeamId,
@@ -421,6 +424,7 @@ export function createAuctionRouter(db: LocalDb) {
       ledPurseToast,
       ledPurseBoosterOverlay,
       lastAuctionActivityAt: session.updatedAt ?? null,
+      teamPurses,
       presentationContext: (() => {
         if (!session.obsContextJson) {
           return { context: "auction" as const, selectedTeamId: null };

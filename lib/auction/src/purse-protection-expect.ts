@@ -172,6 +172,116 @@ export function uiBiddingLimit(row: PurseSnapshotRow): number {
   return row.maxAllowedBid;
 }
 
+/** Owner/Organizer reserve column must show current reservePurse, not futureReservePurse. */
+export function uiReserveDisplay(row: Pick<PurseSnapshotRow, "reservePurse">): number {
+  return row.reservePurse;
+}
+
+/** Live snapshot row as seen by Owner/Organizer clients (0 is a valid calculated reserve). */
+export type PurseSnapshotLike = {
+  teamId: number;
+  purseRemaining?: number;
+  reservePurse?: number;
+  maxAllowedBid?: number;
+  spendablePurse?: number;
+  slotsRequired?: number;
+  futureReservePurse?: number;
+  futureSlotsRequired?: number;
+  purseUsed?: number;
+  effectiveCapacity?: number;
+  purse?: number;
+  originalPurse?: number;
+  boosterTotal?: number;
+};
+
+/**
+ * True when the snapshot carries calculated purse-protection fields.
+ * `reservePurse = 0` is a real value (minimum squad already filled) — not "missing".
+ */
+export function hasAuthoritativePurseFields(
+  row: PurseSnapshotLike | null | undefined,
+): row is PurseSnapshotLike & {
+  reservePurse: number;
+  maxAllowedBid: number;
+  purseRemaining: number;
+} {
+  return (
+    row != null &&
+    typeof row.reservePurse === "number" &&
+    typeof row.maxAllowedBid === "number" &&
+    typeof row.purseRemaining === "number"
+  );
+}
+
+/** Embedded auction-state purses are usable only when they carry protection fields. */
+export function shouldPreferEmbeddedTeamPurses(
+  embedded: PurseSnapshotLike[] | null | undefined,
+): boolean {
+  return Array.isArray(embedded) && embedded.length > 0 && embedded.some(hasAuthoritativePurseFields);
+}
+
+/**
+ * Prefer embedded live purses when they carry protection fields; otherwise use
+ * the analytics query. An empty embedded array must not hide query data.
+ */
+export function selectAuthoritativeTeamPurse<T extends PurseSnapshotLike>(
+  teamId: number,
+  embedded: T[] | null | undefined,
+  queried: T[] | null | undefined,
+): T | undefined {
+  const embeddedRow = embedded?.find((t) => t.teamId === teamId);
+  const queriedRow = queried?.find((t) => t.teamId === teamId);
+  if (hasAuthoritativePurseFields(embeddedRow)) return embeddedRow;
+  if (hasAuthoritativePurseFields(queriedRow)) return queriedRow;
+  return embeddedRow ?? queriedRow;
+}
+
+export type OwnerLiveBidFooterPurse = {
+  totalPurse: number;
+  totalSpent: number;
+  boosterTotal: number;
+  purseRemaining: number;
+  /** null = snapshot not loaded; 0 = calculated empty reserve. */
+  reservePurse: number | null;
+  /** null = snapshot not loaded; do not substitute purseRemaining. */
+  maxAllowedBid: number | null;
+};
+
+/**
+ * Owner LiveBid footer mapping. Reserve = current reservePurse.
+ * Max Bid = maxAllowedBid. Missing snapshot is null, not a silent 0 / full-purse fallback.
+ */
+export function resolveOwnerLiveBidFooterPurse(
+  teamPurse: PurseSnapshotLike | null | undefined,
+  team: { purse: number; purseUsed?: number },
+  override?: { totalPurse?: number; boosterTotal?: number; maxAllowedBid?: number } | null,
+): OwnerLiveBidFooterPurse {
+  const totalPurse = override?.totalPurse ?? teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
+  const totalSpent = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
+  const boosterTotal = override?.boosterTotal ?? teamPurse?.boosterTotal ?? 0;
+  const derivedRemaining = Math.max(0, totalPurse - totalSpent);
+
+  if (!hasAuthoritativePurseFields(teamPurse)) {
+    return {
+      totalPurse,
+      totalSpent,
+      boosterTotal,
+      purseRemaining: derivedRemaining,
+      reservePurse: null,
+      maxAllowedBid: override?.maxAllowedBid ?? null,
+    };
+  }
+
+  return {
+    totalPurse,
+    totalSpent,
+    boosterTotal,
+    purseRemaining: teamPurse.purseRemaining,
+    reservePurse: teamPurse.reservePurse,
+    maxAllowedBid: override?.maxAllowedBid ?? teamPurse.maxAllowedBid,
+  };
+}
+
 /** SSE cache fingerprint — must change when bid ceiling changes. */
 export function ssePurseFingerprint(rows: PurseSnapshotRow[]): string {
   return JSON.stringify(rows.map((t) => `${t.teamId}:${t.playersBought}:${t.maxAllowedBid}`));

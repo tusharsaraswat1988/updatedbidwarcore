@@ -12,7 +12,7 @@ import { useBidLifecycle } from "@/hooks/use-bid-lifecycle";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
-import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction } from "@workspace/api-base";
+import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction, resolveOwnerLiveBidFooterPurse } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PlayerTagBadge } from "@/components/PlayerTagBadge";
@@ -523,19 +523,21 @@ function TeamPurseFooter({
     [allPlayers, teamId],
   );
 
-  const totalPurse = purseOverride?.totalPurse ?? teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
-  const totalSpent = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
-  const purseRemaining = teamPurse?.purseRemaining ?? Math.max(0, totalPurse - totalSpent);
-  const reserve = teamPurse?.futureReservePurse ?? teamPurse?.reservePurse ?? 0;
-  const boosterTotal = purseOverride?.boosterTotal ?? teamPurse?.boosterTotal ?? 0;
-  const maxAllowedBid = purseOverride?.maxAllowedBid ?? teamPurse?.maxAllowedBid ?? purseRemaining;
-  const maxBid = maxAllowedBid;
+  const footerPurse = resolveOwnerLiveBidFooterPurse(teamPurse, team, purseOverride);
+  const totalPurse = footerPurse.totalPurse;
+  const totalSpent = footerPurse.totalSpent;
+  const purseRemaining = footerPurse.purseRemaining;
+  const reserve = footerPurse.reservePurse;
+  const boosterTotal = footerPurse.boosterTotal;
+  const maxBid = footerPurse.maxAllowedBid;
 
   const syncBoostValues = highlightBoost && purseOverride != null;
   const fmtFooter = (amount: number, synced = false) =>
     synced && syncBoostValues
       ? formatIndianRupee(amount, unit)
       : formatShortIndianRupee(amount, unit);
+  const fmtOrDash = (amount: number | null, synced = false) =>
+    amount == null ? "—" : fmtFooter(amount, synced);
 
   const valueClass =
     tier === "mobile" ? "text-sm sm:text-base" : tier === "tablet" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
@@ -588,8 +590,8 @@ function TeamPurseFooter({
       {
         key: "reserve",
         label: "Reserve",
-        value: fmtFooter(reserve),
-        accent: bidwarNum(reserve > 0),
+        value: fmtOrDash(reserve),
+        accent: bidwarNum(reserve != null && reserve > 0),
       },
     );
 
@@ -606,7 +608,7 @@ function TeamPurseFooter({
     cols.push({
       key: "max-bid",
       label: "Max Bid",
-      value: fmtFooter(maxBid, true),
+      value: fmtOrDash(maxBid, true),
       accent: teamNum,
       pulseOnBoost: true,
     });

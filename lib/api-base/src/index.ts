@@ -45,6 +45,24 @@ export {
 } from "./purse-capacity";
 
 export {
+  computePurseProtection,
+  formatPurseProtectionBidError,
+  type PurseProtectionInput,
+  type PurseProtectionResult,
+} from "./purse-protection";
+
+export {
+  uiBiddingLimit,
+  uiReserveDisplay,
+  hasAuthoritativePurseFields,
+  shouldPreferEmbeddedTeamPurses,
+  selectAuthoritativeTeamPurse,
+  resolveOwnerLiveBidFooterPurse,
+  type PurseSnapshotLike,
+  type OwnerLiveBidFooterPurse,
+} from "./purse-protection-expect";
+
+export {
   PURSE_BOOSTER_LED_DURATION_MS,
   createLedPurseBoosterOverlay,
   replayLedPurseBoosterOverlay,
