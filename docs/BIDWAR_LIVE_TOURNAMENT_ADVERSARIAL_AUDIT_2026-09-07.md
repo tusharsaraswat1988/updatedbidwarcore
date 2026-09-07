@@ -7,9 +7,15 @@
 **Production path:** `artifacts/api-server` (`start:prod` / Docker `@workspace/api-server`). Shared math: `@workspace/auction` (`lib/auction`).  
 **Not production:** `artifacts/bidwar-local` (offline Electron fork; bid path has **no** revision CAS). `lib/api-base/src/auction-bid*.ts` are deprecated shims.
 
+## Business-rule addendum (2026-09-07)
+
+Product constraints (SOLD only after timer close; re-auction + manual sell; undo = last outcome until Next Player) **supersede C1/C3/H1/H2/H3 wording below** where they assumed the operator sells during a live timer or that undo should be removed.
+
+See `docs/BIDWAR_LIVE_TOURNAMENT_AUDIT_RECLASSIFICATION_2026-09-07.md`.
+
 ## Verdict
 
-**NO-GO FOR REAL AUCTION** — competing owner bids are serialized, but sell/undo/pause/stop-timer are not, and the operator lock is UI-only. A live money auction can still award the wrong team, double-count purse, or run two controllers.
+**NO-GO FOR REAL AUCTION** — competing owner bids are serialized, but sell/undo/pause/stop-timer are not, and the operator lock is UI-only. A live money auction can still award the wrong team, double-count purse, or run two controllers. The remaining sell/bid hole is the **timer-zero in-flight bid**, not “Sold during live bidding.”
 
 Older docs such as `docs/BIDWAR_AUCTION_PRODUCTION_READINESS_AUDIT.md` are **stale**. That document claims “no revision / no transactions / empty accessCode allows bids.” Current code has revision CAS on bid/next-player, `db.transaction()` on sell/unsold/undo/re-auction, and rejects anonymous bids on codeless teams. Every finding below was re-verified against this branch.
 
