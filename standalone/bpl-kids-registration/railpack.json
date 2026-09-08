@@ -2,7 +2,13 @@
   "$schema": "https://schema.railpack.com",
   "steps": {
     "install": {
-      "commands": ["pnpm install --no-frozen-lockfile"]
+      "deployOutputs": [],
+      "commands": [
+        { "path": "/app/node_modules/.bin" },
+        { "src": "package.json", "dest": "package.json" },
+        { "src": "pnpm-workspace.yaml", "dest": "pnpm-workspace.yaml" },
+        "pnpm install --no-frozen-lockfile"
+      ]
     }
   }
 }
