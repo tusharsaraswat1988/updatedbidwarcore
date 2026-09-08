@@ -54,6 +54,7 @@ import schedulingFoundationRouter from "./scheduling-foundation";
 import runtimeMatchFoundationRouter from "./runtime-match-foundation";
 import ruleEngineRouter from "./rule-engine";
 import presentationEngineRouter from "./presentation-engine";
+import standaloneRegistrationRouter from "./standalone-registration";
 
 const router: IRouter = Router();
 
@@ -105,6 +106,7 @@ router.use(purseBoostersRouter);
 router.use(creativeJobsRouter);
 router.use(scoringRouter);
 router.use(contactRouter);
+router.use(standaloneRegistrationRouter);
 // Organizer/live sports routes MUST stay above Super-Admin-only modules.
 // A mis-mounted requireMasterAdmin on an admin router must never shadow these.
 router.use("/tournaments/:id/badminton/latency-probe", badmintonLatencyProbeRouter);
