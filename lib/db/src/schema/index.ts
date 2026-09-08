@@ -61,4 +61,3 @@ export * from "./creative_jobs";
 export * from "./intelligence_archive";
 export * from "./communication";
 export * from "./academy";
-export * from "./standalone-registration";

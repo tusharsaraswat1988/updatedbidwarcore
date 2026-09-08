@@ -228,20 +228,3 @@ export const contactFormLimiter = rateLimit({
     res.status(options.statusCode).json(options.message);
   },
 });
-
-/**
- * Standalone public registration limiter (20 submits / 15 min per IP).
- * Isolated from BidWar /register/:code traffic.
- */
-export const standaloneRegistrationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_SR_REGISTER_MAX ?? 20),
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  skip: () => disabled,
-  message: { error: "Too many registration attempts, please try again later." },
-  handler(req, res, next, options) {
-    onLimitReached(req, res, "standalone-registration");
-    res.status(options.statusCode).json(options.message);
-  },
-});
