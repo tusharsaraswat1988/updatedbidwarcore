@@ -240,6 +240,16 @@ export function PublicNavbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 ml-auto lg:pl-2">
+            <a
+              href="https://bpl.bidwar.in/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/25 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/30 hover:text-white"
+            >
+              <span className="text-amber-400">🏏</span>
+              <span className="hidden sm:inline">BPL Team Registration</span>
+              <span className="sm:hidden">BPL Reg</span>
+            </a>
             <PublicAuthCta
               variant="navbar"
               primaryColor={colors.primary || undefined}
@@ -266,6 +276,16 @@ export function PublicNavbar() {
             />
             <div className="lg:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200">
               <div className="space-y-2">
+                <a
+                  href="https://bpl.bidwar.in/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={closeMobileMenu}
+                  className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 text-sm font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/30 hover:text-white"
+                >
+                  <span>🏏</span>
+                  <span>BPL Team Registration</span>
+                </a>
                 {[
                   { label: "Features", href: "/#features", action: () => { if (isHome) document.getElementById("features")?.scrollIntoView({ behavior: "smooth" }); } },
                   { label: "Use Cases", href: "/#solutions", action: () => { if (isHome) document.getElementById("solutions")?.scrollIntoView({ behavior: "smooth" }); } },

@@ -24,6 +24,7 @@ import {
   SOLUTION_SPORT_LINKS,
   waMeUrl,
 } from "@/lib/public-site-links";
+import { BplPromoModal } from "@/components/bpl-promo-modal";
 
 const PaymentModal = lazy(() =>
   import("@/components/payment-modal").then((m) => ({ default: m.PaymentModal })),
@@ -233,6 +234,7 @@ function Home() {
         goBlog={goBlog}
         goAcademy={goAcademy}
       />
+      <BplPromoModal />
       {drawerOpen && (
         <MobileDrawer
           onClose={() => setDrawerOpen(false)}
@@ -379,7 +381,17 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
           </div>
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <a
+            href="https://bpl.bidwar.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/25 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/30 hover:text-white"
+          >
+            <span className="text-amber-400">🏏</span>
+            <span className="hidden sm:inline">BPL Team Registration</span>
+            <span className="sm:hidden">BPL Reg</span>
+          </a>
           <PublicAuthCta variant="homepage" />
           <button type="button" onClick={onOpenDrawer} className="ghost-button rounded-md p-2 lg:hidden" aria-label="Open menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/></svg>
@@ -405,6 +417,16 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
         <button type="button" onClick={onClose} className="ghost-button rounded-md px-3 py-2 text-xs" aria-label="Close menu">Close ✕</button>
       </div>
       <nav className="flex flex-col overflow-y-auto p-5 text-xl font-display">
+        <a
+          href="https://bpl.bidwar.in/"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onClose}
+          className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 text-sm font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/30 hover:text-white"
+        >
+          <span>🏏</span>
+          <span>BPL Team Registration</span>
+        </a>
         {([
           { label: "Features", href: "#features", sectionId: "features" },
           { label: "Pricing", href: "#pricing", sectionId: "pricing" },
