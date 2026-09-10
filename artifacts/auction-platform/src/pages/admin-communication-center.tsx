@@ -7,21 +7,31 @@ import {
   Activity,
   Archive,
   BarChart3,
-  Copy,
+  Check,
+  CheckCircle2,
+  Crown,
+  Eye,
   FileText,
   Image,
+  Info,
   Mail,
+  Monitor,
   RefreshCw,
   RotateCcw,
   Search,
   Send,
   Settings,
+  Shield,
+  Smartphone,
+  Sparkles,
+  User,
+  Users,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -42,13 +52,13 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Bar,
   BarChart,
@@ -72,7 +82,9 @@ type TabKey =
   | "bulk";
 
 function tabFromPath(path: string): TabKey {
-  const segment = path.split("/").pop() ?? "dashboard";
+  const clean = path.split("?")[0] ?? "";
+  const segment = clean.split("/").pop() ?? "dashboard";
+  if (segment === "send") return "bulk";
   const valid: TabKey[] = ["dashboard", "templates", "pending", "sent", "drafts", "logs", "assets", "settings", "bulk"];
   return valid.includes(segment as TabKey) ? (segment as TabKey) : "dashboard";
 }
@@ -130,19 +142,19 @@ interface DashboardData {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending: "bg-yellow-500/15 text-yellow-400",
-    ready_to_send: "bg-blue-500/15 text-blue-400",
-    queued: "bg-indigo-500/15 text-indigo-300",
-    processing: "bg-purple-500/15 text-purple-300",
-    delivered: "bg-green-500/15 text-green-400",
-    opened: "bg-emerald-500/15 text-emerald-300",
-    clicked: "bg-teal-500/15 text-teal-300",
-    failed: "bg-red-500/15 text-red-400",
-    cancelled: "bg-muted text-muted-foreground",
-    draft: "bg-slate-500/15 text-slate-300",
+    pending: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    ready_to_send: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    queued: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+    processing: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    delivered: "bg-green-500/15 text-green-400 border-green-500/30",
+    opened: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    clicked: "bg-teal-500/15 text-teal-300 border-teal-500/30",
+    failed: "bg-red-500/15 text-red-400 border-red-500/30",
+    cancelled: "bg-muted text-muted-foreground border-border",
+    draft: "bg-slate-500/15 text-slate-300 border-slate-500/30",
   };
   return (
-    <Badge className={`text-[10px] uppercase ${map[status] ?? "bg-muted text-muted-foreground"}`}>
+    <Badge variant="outline" className={`text-[10px] font-medium uppercase tracking-wider ${map[status] ?? "bg-muted text-muted-foreground"}`}>
       {status.replace(/_/g, " ")}
     </Badge>
   );
@@ -156,6 +168,8 @@ function formatDate(iso: string | null) {
     return iso;
   }
 }
+
+type RecipientCategory = "organiser" | "team_owner" | "player" | "group" | "custom";
 
 export default function AdminCommunicationCenter() {
   const { isLoggedIn, isLoading, isMaster } = useAdminPageGuard();
@@ -184,12 +198,25 @@ export default function AdminCommunicationCenter() {
   const [viewJob, setViewJob] = useState<CommJob | null>(null);
   const [editRecipient, setEditRecipient] = useState<{ jobId: string; email: string; name: string } | null>(null);
 
-  const [bulkTemplateId, setBulkTemplateId] = useState("");
-  const [bulkFilterType, setBulkFilterType] = useState("team");
+  // Send / Resend Hub State
+  const [tournaments, setTournaments] = useState<Array<{ id: number; name: string }>>([]);
   const [bulkTournamentId, setBulkTournamentId] = useState("");
+  const [recipientCategory, setRecipientCategory] = useState<RecipientCategory>("team_owner");
+  
+  // Sub-modes
+  const [organiserMode, setOrganiserMode] = useState<"bundle" | "welcome" | "created">("bundle");
+  const [teamMode, setTeamMode] = useState<"single" | "all">("single");
+  const [playerMode, setPlayerMode] = useState<"single" | "sold" | "all" | "unsold">("single");
+  const [groupFilterType, setGroupFilterType] = useState<string>("team_owners");
+  
+  // Specific targets
   const [bulkTeamId, setBulkTeamId] = useState("");
   const [bulkPlayerId, setBulkPlayerId] = useState("");
-  const [bulkRecipients, setBulkRecipients] = useState<Array<{ name: string | null; email: string; role: string }>>([]);
+  const [customName, setCustomName] = useState("");
+  const [customEmail, setCustomEmail] = useState("");
+
+  // Target data from server
+  const [bulkOrganiser, setBulkOrganiser] = useState<{ id: number | null; name: string | null; email: string | null; mobile: string | null; hasEmail: boolean } | null>(null);
   const [bulkTeams, setBulkTeams] = useState<Array<{ id: number; name: string; ownerName: string | null; ownerEmail: string | null; hasEmail: boolean }>>([]);
   const [bulkPlayers, setBulkPlayers] = useState<Array<{ id: number; name: string; email: string | null; hasEmail: boolean; status: string | null }>>([]);
   const [bulkTargetTotals, setBulkTargetTotals] = useState<{
@@ -198,6 +225,9 @@ export default function AdminCommunicationCenter() {
     players: number;
     playersWithEmail: number;
   } | null>(null);
+
+  const [bulkTemplateId, setBulkTemplateId] = useState("");
+  const [bulkRecipients, setBulkRecipients] = useState<Array<{ name: string | null; email: string; role: string }>>([]);
   const [bulkOrganiserBundle, setBulkOrganiserBundle] = useState<{
     tournamentName: string;
     teamCount: number;
@@ -205,18 +235,47 @@ export default function AdminCommunicationCenter() {
     organiserName: string | null;
     organiserEmail: string | null;
   } | null>(null);
+
+  // Live Email Preview & Actions
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [bulkEmailPreview, setBulkEmailPreview] = useState<{ subject: string; html: string } | null>(null);
   const [bulkPreviewLoading, setBulkPreviewLoading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
+  const [testSending, setTestSending] = useState(false);
+  const [testSendSuccess, setTestSendSuccess] = useState<string | null>(null);
+  const [adminTestEmail, setAdminTestEmail] = useState("");
   const [resendingId, setResendingId] = useState<string | null>(null);
-  const [tournaments, setTournaments] = useState<Array<{ id: number; name: string }>>([]);
 
   const apiBase = "/api/auth/admin/communication-center";
-  const selectedBulkTemplate = templates.find((t) => t.id === bulkTemplateId);
-  const isPlayerSoldBulkTemplate = selectedBulkTemplate?.internalKey === "player_sold";
-  const needsTournament =
-    bulkFilterType !== "organisers" &&
-    bulkFilterType !== "custom_emails" &&
-    bulkFilterType !== "csv";
+
+  // Parse initial query params (e.g. deep-link from tournament detail)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const qTournamentId = params.get("tournamentId");
+      const qTarget = params.get("target");
+      const qTeamId = params.get("teamId");
+      const qPlayerId = params.get("playerId");
+
+      if (qTournamentId) setBulkTournamentId(qTournamentId);
+      if (qTarget === "organiser" || qTarget === "team_owner" || qTarget === "player") {
+        setRecipientCategory(qTarget as RecipientCategory);
+      }
+      if (qTeamId) {
+        setRecipientCategory("team_owner");
+        setTeamMode("single");
+        setBulkTeamId(qTeamId);
+      }
+      if (qPlayerId) {
+        setRecipientCategory("player");
+        setPlayerMode("single");
+        setBulkPlayerId(qPlayerId);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchDashboard = useCallback(async () => {
     const res = await fetch(`${apiBase}/dashboard`, { credentials: "include" });
@@ -350,8 +409,10 @@ export default function AdminCommunicationCenter() {
     });
   };
 
+  // Fetch targets for selected tournament
   useEffect(() => {
     if (!bulkTournamentId) {
+      setBulkOrganiser(null);
       setBulkTeams([]);
       setBulkPlayers([]);
       setBulkTargetTotals(null);
@@ -363,190 +424,226 @@ export default function AdminCommunicationCenter() {
       tournamentId: bulkTournamentId,
       emailOnly: "true",
     });
-    // Player Sold / Specific Player: prefer sold players with email
-    if (isPlayerSoldBulkTemplate || bulkFilterType === "selected_players" || bulkFilterType === "player") {
-      if (isPlayerSoldBulkTemplate || bulkFilterType === "selected_players") {
-        params.set("playerStatus", "sold");
-      }
+    if (recipientCategory === "player" && playerMode === "sold") {
+      params.set("playerStatus", "sold");
     }
     void fetch(`${apiBase}/bulk/targets?${params}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: {
+        organiser?: typeof bulkOrganiser;
         teams?: typeof bulkTeams;
         players?: typeof bulkPlayers;
         totals?: typeof bulkTargetTotals;
       }) => {
+        setBulkOrganiser(d.organiser ?? null);
         setBulkTeams(d.teams ?? []);
         setBulkPlayers(d.players ?? []);
         setBulkTargetTotals(d.totals ?? null);
       })
       .catch(() => {
+        setBulkOrganiser(null);
         setBulkTeams([]);
         setBulkPlayers([]);
         setBulkTargetTotals(null);
       });
-  }, [apiBase, bulkTournamentId, bulkFilterType, isPlayerSoldBulkTemplate]);
+  }, [apiBase, bulkTournamentId, recipientCategory, playerMode]);
 
-  const organiserTeamsTemplate = templates.find((t) => t.internalKey === "organiser_all_teams_credentials");
-  const playerSoldTemplate = templates.find((t) => t.internalKey === "player_sold");
-
-  useEffect(() => {
-    if (bulkFilterType === "organiser_teams_credentials" && organiserTeamsTemplate) {
-      setBulkTemplateId(organiserTeamsTemplate.id);
-    }
-  }, [bulkFilterType, organiserTeamsTemplate]);
-
-  // When Player Sold template is chosen, lock recipient filter to sold players
-  useEffect(() => {
-    if (!isPlayerSoldBulkTemplate) return;
-    if (bulkFilterType !== "selected_players" && bulkFilterType !== "player") {
-      setBulkFilterType("selected_players");
-      setBulkRecipients([]);
-      setBulkOrganiserBundle(null);
-      setBulkEmailPreview(null);
-    }
-  }, [isPlayerSoldBulkTemplate, bulkFilterType]);
-
-  const handleBulkFilterChange = (value: string) => {
-    setBulkFilterType(value);
-    setBulkRecipients([]);
-    setBulkOrganiserBundle(null);
-    setBulkEmailPreview(null);
-    setBulkTeamId("");
-    setBulkPlayerId("");
-    if (value === "organiser_teams_credentials" && organiserTeamsTemplate) {
-      setBulkTemplateId(organiserTeamsTemplate.id);
-    }
-    if (value === "selected_players" && playerSoldTemplate && !bulkTemplateId) {
-      setBulkTemplateId(playerSoldTemplate.id);
-    }
-  };
-
-  const handleBulkTemplateChange = (value: string) => {
-    setBulkTemplateId(value);
-    setBulkRecipients([]);
-    setBulkEmailPreview(null);
-    const tpl = templates.find((t) => t.id === value);
-    if (tpl?.internalKey === "player_sold") {
-      setBulkFilterType("selected_players");
-      setBulkTeamId("");
-      setBulkPlayerId("");
-    }
-  };
-
-  const buildBulkFilter = useCallback(() => {
-    const filter: Record<string, unknown> = {
-      type: bulkFilterType,
-      tournamentId: bulkTournamentId ? Number(bulkTournamentId) : undefined,
-    };
-    if (bulkFilterType === "team" && bulkTeamId) filter.teamId = Number(bulkTeamId);
-    if (bulkFilterType === "player" && bulkPlayerId) filter.playerId = Number(bulkPlayerId);
-    return filter;
-  }, [bulkFilterType, bulkTournamentId, bulkTeamId, bulkPlayerId]);
-
-  const previewBulkRecipients = async () => {
-    const filter = buildBulkFilter();
-    if (needsTournament && !filter.tournamentId) {
-      alert("Please select a tournament first.");
-      return;
-    }
-    if (filter.type === "team" && !filter.teamId) {
-      alert("Please select a specific team.");
-      return;
-    }
-    if (filter.type === "player" && !filter.playerId) {
-      alert("Please select a specific player.");
-      return;
-    }
-    setBulkPreviewLoading(true);
-    try {
-      const res = await fetch(`${apiBase}/bulk/preview-recipients`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(filter),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBulkRecipients(data.recipients ?? []);
-        setBulkOrganiserBundle(data.organiserBundle ?? null);
-        setBulkEmailPreview(null);
-        if (!data.recipients?.length) {
-          alert(
-            filter.type === "organiser_teams_credentials"
-              ? "Tournament organiser email not found. Add organiser email on the tournament first."
-              : "No recipients with a valid email address found for this selection.",
-          );
-        }
+  // Compute effective filter configuration
+  const effectiveFilter = useMemo(() => {
+    const tId = bulkTournamentId ? Number(bulkTournamentId) : undefined;
+    if (recipientCategory === "organiser") {
+      if (organiserMode === "bundle") {
+        return { type: "organiser_teams_credentials", tournamentId: tId };
       }
-    } finally {
-      setBulkPreviewLoading(false);
+      return { type: "organiser", tournamentId: tId };
     }
-  };
+    if (recipientCategory === "team_owner") {
+      if (teamMode === "single") {
+        return { type: "team", tournamentId: tId, teamId: bulkTeamId ? Number(bulkTeamId) : undefined };
+      }
+      return { type: "team_owners", tournamentId: tId };
+    }
+    if (recipientCategory === "player") {
+      if (playerMode === "single") {
+        return { type: "player", tournamentId: tId, playerId: bulkPlayerId ? Number(bulkPlayerId) : undefined };
+      }
+      if (playerMode === "sold") {
+        return { type: "selected_players", tournamentId: tId };
+      }
+      if (playerMode === "unsold") {
+        return { type: "unsold_players", tournamentId: tId };
+      }
+      return { type: "players", tournamentId: tId };
+    }
+    if (recipientCategory === "group") {
+      return { type: groupFilterType, tournamentId: tId };
+    }
+    if (recipientCategory === "custom") {
+      return { type: "custom_emails", emails: customEmail ? [customEmail] : [] };
+    }
+    return { type: "team_owners", tournamentId: tId };
+  }, [recipientCategory, organiserMode, teamMode, playerMode, groupFilterType, bulkTournamentId, bulkTeamId, bulkPlayerId, customEmail]);
 
-  const previewBulkEmail = async () => {
-    if (!bulkTemplateId) {
-      alert("Please select a template.");
-      return;
-    }
-    const filter = buildBulkFilter();
-    if (needsTournament && !filter.tournamentId) {
-      alert("Please select a tournament first.");
-      return;
-    }
-    setBulkPreviewLoading(true);
-    try {
-      const res = await fetch(`${apiBase}/bulk/preview-email`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId: bulkTemplateId, filter }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBulkEmailPreview({ subject: data.subject, html: data.html });
+  // Intelligent Template Recommendation & Auto-selection
+  useEffect(() => {
+    if (!templates.length) return;
+    const activeTemplates = templates.filter((t) => !t.isDraft && !t.isArchived && t.isActive);
+
+    let recommendedKey = "";
+    if (recipientCategory === "organiser") {
+      if (organiserMode === "bundle") recommendedKey = "organiser_all_teams_credentials";
+      else if (organiserMode === "welcome") recommendedKey = "welcome_organiser";
+      else if (organiserMode === "created") recommendedKey = "tournament_created";
+    } else if (recipientCategory === "team_owner") {
+      recommendedKey = "welcome_team_owner";
+    } else if (recipientCategory === "player") {
+      if (playerMode === "sold") {
+        recommendedKey = "player_sold";
+      } else if (playerMode === "single") {
+        const selectedPlayer = bulkPlayers.find((p) => String(p.id) === bulkPlayerId);
+        recommendedKey = selectedPlayer?.status === "sold" ? "player_sold" : "player_registration";
       } else {
-        const data = await res.json().catch(() => ({}));
-        alert((data as { error?: string }).error ?? "Preview failed");
+        recommendedKey = "player_registration";
       }
-    } finally {
-      setBulkPreviewLoading(false);
     }
-  };
 
-  const queueBulk = async () => {
-    if (!bulkTemplateId) return;
-    const filter = buildBulkFilter();
-    if (needsTournament && !filter.tournamentId) {
-      alert("Please select a tournament first.");
+    if (recommendedKey) {
+      const match = activeTemplates.find((t) => t.internalKey === recommendedKey);
+      if (match && match.id !== bulkTemplateId) {
+        setBulkTemplateId(match.id);
+      }
+    } else if (!bulkTemplateId && activeTemplates[0]) {
+      setBulkTemplateId(activeTemplates[0].id);
+    }
+  }, [recipientCategory, organiserMode, playerMode, bulkPlayerId, bulkPlayers, templates]);
+
+  // Automatically refresh preview and recipients whenever configuration changes
+  useEffect(() => {
+    if (!bulkTemplateId) {
+      setBulkEmailPreview(null);
+      setBulkRecipients([]);
       return;
     }
-    if (filter.type === "team" && !filter.teamId) {
-      alert("Please select a specific team.");
+
+    const isReady =
+      (recipientCategory === "custom" && customEmail) ||
+      (recipientCategory === "organiser" && bulkTournamentId) ||
+      (recipientCategory === "team_owner" && (teamMode === "all" ? bulkTournamentId : (bulkTournamentId && bulkTeamId))) ||
+      (recipientCategory === "player" && (playerMode !== "single" ? bulkTournamentId : (bulkTournamentId && bulkPlayerId))) ||
+      (recipientCategory === "group" && bulkTournamentId);
+
+    if (!isReady) {
+      setBulkEmailPreview(null);
+      setBulkRecipients([]);
       return;
     }
-    if (filter.type === "player" && !filter.playerId) {
-      alert("Please select a specific player.");
-      return;
-    }
-    if (!bulkRecipients.length) {
-      alert("Preview recipients first to confirm who will receive this email.");
-      return;
-    }
-    await fetch(`${apiBase}/bulk/queue`, {
+
+    let isMounted = true;
+    setBulkPreviewLoading(true);
+
+    // Fetch Preview Recipients
+    fetch(`${apiBase}/bulk/preview-recipients`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        templateId: bulkTemplateId,
-        filter,
-        sendImmediately: true,
-      }),
-    });
-    setBulkRecipients([]);
-    setBulkOrganiserBundle(null);
-    setBulkEmailPreview(null);
-    changeTab("sent");
+      body: JSON.stringify(effectiveFilter),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!isMounted) return;
+        setBulkRecipients(data.recipients ?? []);
+        setBulkOrganiserBundle(data.organiserBundle ?? null);
+      })
+      .catch(() => {});
+
+    // Fetch Live Rendered Email Preview
+    fetch(`${apiBase}/bulk/preview-email`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: bulkTemplateId, filter: effectiveFilter }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data.subject && data.html) {
+          setBulkEmailPreview({ subject: data.subject, html: data.html });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setBulkPreviewLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase, bulkTemplateId, effectiveFilter, recipientCategory, teamMode, playerMode, bulkTournamentId, bulkTeamId, bulkPlayerId, customEmail]);
+
+  const handleSendEmail = async () => {
+    if (!bulkTemplateId) {
+      alert("Please select an email template.");
+      return;
+    }
+    if (!bulkRecipients.length) {
+      alert("No valid recipient with an email address is selected.");
+      return;
+    }
+
+    setSendingEmail(true);
+    setSendSuccessMessage(null);
+    try {
+      const res = await fetch(`${apiBase}/bulk/queue`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: bulkTemplateId,
+          filter: effectiveFilter,
+          sendImmediately: true,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSendSuccessMessage(`Successfully queued & sent to ${data.queued ?? bulkRecipients.length} recipient(s)!`);
+        setTimeout(() => {
+          changeTab("sent");
+        }, 1200);
+      } else {
+        alert(data.error ?? "Failed to send email");
+      }
+    } catch {
+      alert("An unexpected error occurred while sending email.");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleSendAdminTest = async () => {
+    if (!bulkTemplateId || !adminTestEmail) {
+      alert("Please enter a test email address.");
+      return;
+    }
+    setTestSending(true);
+    setTestSendSuccess(null);
+    try {
+      const res = await fetch(`${apiBase}/templates/${bulkTemplateId}/test`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: adminTestEmail }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestSendSuccess(`Test email delivered to ${adminTestEmail}!`);
+      } else {
+        alert(data.error ?? "Failed to send test email");
+      }
+    } catch {
+      alert("Error sending test email");
+    } finally {
+      setTestSending(false);
+    }
   };
 
   const resendJob = async (jobId: string) => {
@@ -578,13 +675,16 @@ export default function AdminCommunicationCenter() {
     );
   }
 
+  const selectedTournament = tournaments.find((t) => String(t.id) === bulkTournamentId);
+  const activeTemplateList = templates.filter((t) => !t.isDraft && !t.isArchived && t.isActive);
+
   return (
     <AdminShell title="Communication Center">
       <div className="space-y-6 p-4 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Communication Center</h1>
-            <p className="text-sm text-muted-foreground">Recipient & job-based email engine — nothing gets lost</p>
+            <p className="text-sm text-muted-foreground">Deliver credentials, notifications, and auction updates directly to organizers, teams, and players</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -597,25 +697,695 @@ export default function AdminCommunicationCenter() {
                 onKeyDown={(e) => e.key === "Enter" && void loadTab(tab)}
               />
             </div>
-            <Button variant="outline" size="icon" onClick={() => void loadTab(tab)}>
+            <Button variant="outline" size="icon" onClick={() => void loadTab(tab)} title="Refresh">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => changeTab(v as TabKey)}>
-          <TabsList className="flex h-auto flex-wrap gap-1">
-            <TabsTrigger value="dashboard"><BarChart3 className="mr-1 h-3.5 w-3.5" />Dashboard</TabsTrigger>
-            <TabsTrigger value="templates"><FileText className="mr-1 h-3.5 w-3.5" />Templates</TabsTrigger>
-            <TabsTrigger value="pending"><Mail className="mr-1 h-3.5 w-3.5" />Pending</TabsTrigger>
-            <TabsTrigger value="sent"><Send className="mr-1 h-3.5 w-3.5" />Sent</TabsTrigger>
-            <TabsTrigger value="drafts"><Archive className="mr-1 h-3.5 w-3.5" />Drafts</TabsTrigger>
-            <TabsTrigger value="bulk"><Copy className="mr-1 h-3.5 w-3.5" />Bulk</TabsTrigger>
-            <TabsTrigger value="logs"><Activity className="mr-1 h-3.5 w-3.5" />Logs</TabsTrigger>
-            <TabsTrigger value="assets"><Image className="mr-1 h-3.5 w-3.5" />Assets</TabsTrigger>
-            <TabsTrigger value="settings"><Settings className="mr-1 h-3.5 w-3.5" />Settings</TabsTrigger>
+          <TabsList className="flex h-auto flex-wrap gap-1 bg-card/60 p-1 border border-border">
+            <TabsTrigger value="bulk" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Send className="h-3.5 w-3.5" />Send / Resend
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="gap-1.5"><Mail className="h-3.5 w-3.5" />Sent History</TabsTrigger>
+            <TabsTrigger value="pending" className="gap-1.5"><RefreshCw className="h-3.5 w-3.5" />Pending</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Dashboard</TabsTrigger>
+            <TabsTrigger value="templates" className="gap-1.5"><FileText className="h-3.5 w-3.5" />Templates</TabsTrigger>
+            <TabsTrigger value="drafts" className="gap-1.5"><Archive className="h-3.5 w-3.5" />Drafts</TabsTrigger>
+            <TabsTrigger value="logs" className="gap-1.5"><Activity className="h-3.5 w-3.5" />Logs</TabsTrigger>
+            <TabsTrigger value="assets" className="gap-1.5"><Image className="h-3.5 w-3.5" />Assets</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5"><Settings className="h-3.5 w-3.5" />Settings</TabsTrigger>
           </TabsList>
 
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: SEND / RESEND EMAIL (IMPROVISED UI/UX)
+             ═════════════════════════════════════════════════════════════════════ */}
+          <TabsContent value="bulk" className="space-y-6">
+            {sendSuccessMessage && (
+              <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-green-400">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span className="text-sm font-medium">{sendSuccessMessage}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {/* LEFT COLUMN: GUIDED STEP-BY-STEP RECIPIENT CONFIGURATOR (5 COLS) */}
+              <div className="space-y-5 lg:col-span-5">
+                <Card className="border-border bg-card/80 backdrop-blur-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Send className="h-4 w-4 text-primary" />
+                      1. Select Tournament & Recipient
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Pick tournament context and who will receive the email
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Tournament Selection */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tournament</Label>
+                      <Select
+                        value={bulkTournamentId}
+                        onValueChange={(v) => {
+                          setBulkTournamentId(v);
+                          setBulkTeamId("");
+                          setBulkPlayerId("");
+                        }}
+                      >
+                        <SelectTrigger className="mt-1 w-full bg-background/50">
+                          <SelectValue placeholder="Select tournament..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tournaments.map((t) => (
+                            <SelectItem key={t.id} value={String(t.id)}>
+                              {t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedTournament && (
+                        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                          <Badge variant="secondary" className="text-[10px] font-normal">
+                            ID #{selectedTournament.id}
+                          </Badge>
+                          {bulkTargetTotals && (
+                            <>
+                              <Badge variant="outline" className="text-[10px] font-normal">
+                                {bulkTargetTotals.teamsWithEmail}/{bulkTargetTotals.teams} Teams with Email
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px] font-normal">
+                                {bulkTargetTotals.playersWithEmail}/{bulkTargetTotals.players} Players with Email
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recipient Category Selector */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Target Recipient Type</Label>
+                      <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/40 p-1">
+                        <button
+                          type="button"
+                          onClick={() => setRecipientCategory("organiser")}
+                          className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-all ${
+                            recipientCategory === "organiser"
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                          }`}
+                        >
+                          <Crown className="h-3.5 w-3.5" />
+                          Organiser
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRecipientCategory("team_owner")}
+                          className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-all ${
+                            recipientCategory === "team_owner"
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                          }`}
+                        >
+                          <Shield className="h-3.5 w-3.5" />
+                          Team Owner
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRecipientCategory("player")}
+                          className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-all ${
+                            recipientCategory === "player"
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                          }`}
+                        >
+                          <User className="h-3.5 w-3.5" />
+                          Player
+                        </button>
+                      </div>
+                      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setRecipientCategory("group")}
+                          className={`flex items-center justify-center gap-1.5 rounded-md border border-border py-1.5 text-xs font-medium transition-all ${
+                            recipientCategory === "group"
+                              ? "border-primary/50 bg-primary/10 text-primary"
+                              : "bg-background/40 text-muted-foreground hover:bg-background/70"
+                          }`}
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          Target Group (Bulk)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRecipientCategory("custom")}
+                          className={`flex items-center justify-center gap-1.5 rounded-md border border-border py-1.5 text-xs font-medium transition-all ${
+                            recipientCategory === "custom"
+                              ? "border-primary/50 bg-primary/10 text-primary"
+                              : "bg-background/40 text-muted-foreground hover:bg-background/70"
+                          }`}
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                          Direct Custom Email
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* DYNAMIC SUB-SELECTOR BASED ON RECIPIENT TYPE */}
+                    {recipientCategory === "organiser" && (
+                      <div className="space-y-3 rounded-lg border border-border bg-card/60 p-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold">Organiser Email Mode</Label>
+                          <span className="text-[11px] text-muted-foreground">Tournament Lead</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setOrganiserMode("bundle")}
+                            className={`flex flex-col items-start rounded-md border p-2.5 text-left transition-all ${
+                              organiserMode === "bundle"
+                                ? "border-primary bg-primary/10"
+                                : "border-border bg-background/50 hover:bg-accent"
+                            }`}
+                          >
+                            <span className="text-xs font-semibold text-foreground">📦 All Teams Credentials Bundle</span>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              Sends full team roster, access codes, owner app links, and WhatsApp copy blocks to organiser
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrganiserMode("welcome")}
+                            className={`flex flex-col items-start rounded-md border p-2.5 text-left transition-all ${
+                              organiserMode === "welcome"
+                                ? "border-primary bg-primary/10"
+                                : "border-border bg-background/50 hover:bg-accent"
+                            }`}
+                          >
+                            <span className="text-xs font-semibold text-foreground">👑 Welcome Organiser Account</span>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              Welcome email with organiser dashboard access & login link
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrganiserMode("created")}
+                            className={`flex flex-col items-start rounded-md border p-2.5 text-left transition-all ${
+                              organiserMode === "created"
+                                ? "border-primary bg-primary/10"
+                                : "border-border bg-background/50 hover:bg-accent"
+                            }`}
+                          >
+                            <span className="text-xs font-semibold text-foreground">🏆 Tournament Created Confirmation</span>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              Confirms tournament setup, venue, and auction date
+                            </span>
+                          </button>
+                        </div>
+
+                        {bulkOrganiser && (
+                          <div className="mt-2 rounded-md border border-border/80 bg-background/80 p-2.5 text-xs">
+                            <div className="flex items-center justify-between font-medium">
+                              <span>{bulkOrganiser.name || "Tournament Organiser"}</span>
+                              {bulkOrganiser.hasEmail ? (
+                                <Badge className="bg-green-500/15 text-green-400 text-[10px]">Email Valid</Badge>
+                              ) : (
+                                <Badge className="bg-red-500/15 text-red-400 text-[10px]">No Email on File</Badge>
+                              )}
+                            </div>
+                            <p className="text-muted-foreground mt-0.5">{bulkOrganiser.email || "No email available"}</p>
+                            {bulkOrganiser.mobile && <p className="text-muted-foreground text-[11px]">📱 {bulkOrganiser.mobile}</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {recipientCategory === "team_owner" && (
+                      <div className="space-y-3 rounded-lg border border-border bg-card/60 p-3">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={teamMode === "single" ? "default" : "outline"}
+                            className="flex-1 text-xs"
+                            onClick={() => setTeamMode("single")}
+                          >
+                            Single Team Owner
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={teamMode === "all" ? "default" : "outline"}
+                            className="flex-1 text-xs"
+                            onClick={() => setTeamMode("all")}
+                          >
+                            All Team Owners ({bulkTeams.length})
+                          </Button>
+                        </div>
+
+                        {teamMode === "single" && (
+                          <div>
+                            <Label className="text-xs font-semibold">Select Team (with email on file)</Label>
+                            <Select value={bulkTeamId} onValueChange={(v) => setBulkTeamId(v)}>
+                              <SelectTrigger className="mt-1 w-full bg-background/50">
+                                <SelectValue placeholder={bulkTeams.length ? "Pick a team..." : "No teams with email"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkTeams.map((t) => (
+                                  <SelectItem key={t.id} value={String(t.id)}>
+                                    {t.name} — {t.ownerName ?? "Owner"} ({t.ownerEmail ?? "No email"})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {teamMode === "all" && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            Sends individual welcome emails containing team login credentials & owner app links to all <strong className="text-foreground">{bulkTeams.length}</strong> team owners with email.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {recipientCategory === "player" && (
+                      <div className="space-y-3 rounded-lg border border-border bg-card/60 p-3">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={playerMode === "single" ? "default" : "outline"}
+                            className="text-xs"
+                            onClick={() => setPlayerMode("single")}
+                          >
+                            Single Player
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={playerMode === "sold" ? "default" : "outline"}
+                            className="text-xs"
+                            onClick={() => setPlayerMode("sold")}
+                          >
+                            Sold Players Only
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={playerMode === "all" ? "default" : "outline"}
+                            className="text-xs"
+                            onClick={() => setPlayerMode("all")}
+                          >
+                            All Players
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={playerMode === "unsold" ? "default" : "outline"}
+                            className="text-xs"
+                            onClick={() => setPlayerMode("unsold")}
+                          >
+                            Unsold Players
+                          </Button>
+                        </div>
+
+                        {playerMode === "single" && (
+                          <div>
+                            <Label className="text-xs font-semibold">Select Player</Label>
+                            <Select value={bulkPlayerId} onValueChange={(v) => setBulkPlayerId(v)}>
+                              <SelectTrigger className="mt-1 w-full bg-background/50">
+                                <SelectValue placeholder={bulkPlayers.length ? "Pick a player..." : "No players with email"} />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-72">
+                                {bulkPlayers.map((p) => (
+                                  <SelectItem key={p.id} value={String(p.id)}>
+                                    {p.name} {p.status ? `[${p.status.toUpperCase()}]` : ""} — {p.email ?? "No email"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {playerMode !== "single" && (
+                          <p className="text-xs text-muted-foreground">
+                            Target filter: <strong className="text-foreground">{playerMode.toUpperCase()} PLAYERS</strong> with valid email addresses.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {recipientCategory === "group" && (
+                      <div className="space-y-2 rounded-lg border border-border bg-card/60 p-3">
+                        <Label className="text-xs font-semibold">Select Group Filter</Label>
+                        <Select value={groupFilterType} onValueChange={setGroupFilterType}>
+                          <SelectTrigger className="w-full bg-background/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="team_owners">All Team Owners</SelectItem>
+                            <SelectItem value="selected_players">Sold Players (with email)</SelectItem>
+                            <SelectItem value="players">All Players (with email)</SelectItem>
+                            <SelectItem value="unsold_players">Unsold Players (with email)</SelectItem>
+                            <SelectItem value="men">Men Players (with email)</SelectItem>
+                            <SelectItem value="women">Women Players (with email)</SelectItem>
+                            <SelectItem value="organisers">All Organisers Platform-Wide</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {recipientCategory === "custom" && (
+                      <div className="space-y-2.5 rounded-lg border border-border bg-card/60 p-3">
+                        <div>
+                          <Label className="text-xs">Recipient Name (Optional)</Label>
+                          <Input
+                            placeholder="John Doe"
+                            className="mt-1 bg-background/50 text-xs"
+                            value={customName}
+                            onChange={(e) => setCustomName(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Email Address *</Label>
+                          <Input
+                            placeholder="recipient@example.com"
+                            className="mt-1 bg-background/50 text-xs"
+                            value={customEmail}
+                            onChange={(e) => setCustomEmail(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* TEMPLATE SELECTION CARD */}
+                <Card className="border-border bg-card/80 backdrop-blur-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      2. Select Email Template
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Template automatically matches recipient type, or choose a custom template
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <Select value={bulkTemplateId} onValueChange={setBulkTemplateId}>
+                        <SelectTrigger className="w-full bg-background/50 font-medium">
+                          <SelectValue placeholder="Select template..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeTemplateList.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name} <span className="font-mono text-[10px] text-muted-foreground">({t.internalKey})</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Recipient summary badge */}
+                    <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">Resolved Recipients:</span>
+                      <Badge variant={bulkRecipients.length > 0 ? "default" : "secondary"}>
+                        {bulkRecipients.length} Recipient{bulkRecipients.length === 1 ? "" : "s"} Ready
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* RIGHT COLUMN: LIVE INTERACTIVE SAMPLE EMAIL PREVIEW & ACTIONS (7 COLS) */}
+              <div className="space-y-5 lg:col-span-7">
+                <Card className="border-border bg-card/80 backdrop-blur-sm flex flex-col h-full">
+                  <CardHeader className="pb-3 border-b border-border/60">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-primary" />
+                          Live Email Preview
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Exact sample email as it will appear in the recipient's inbox
+                        </CardDescription>
+                      </div>
+
+                      {/* Desktop / Mobile Switcher */}
+                      <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className={`h-7 px-2.5 text-xs gap-1.5 ${previewDevice === "desktop" ? "bg-background shadow-xs font-semibold text-foreground" : "text-muted-foreground"}`}
+                          onClick={() => setPreviewDevice("desktop")}
+                        >
+                          <Monitor className="h-3.5 w-3.5" />
+                          Desktop
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className={`h-7 px-2.5 text-xs gap-1.5 ${previewDevice === "mobile" ? "bg-background shadow-xs font-semibold text-foreground" : "text-muted-foreground"}`}
+                          onClick={() => setPreviewDevice("mobile")}
+                        >
+                          <Smartphone className="h-3.5 w-3.5" />
+                          Mobile
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 pt-4 flex-1 flex flex-col">
+                    {/* EMAIL ENVELOPE METADATA */}
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 text-xs">
+                      <div className="flex gap-2">
+                        <span className="w-16 font-semibold text-muted-foreground">From:</span>
+                        <span className="text-foreground">BidWar Notifications &lt;notifications@bidwar.in&gt;</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="w-16 font-semibold text-muted-foreground">To:</span>
+                        <span className="font-medium text-foreground">
+                          {bulkRecipients.length === 1 ? (
+                            `${bulkRecipients[0].name ? `${bulkRecipients[0].name} ` : ""}<${bulkRecipients[0].email}>`
+                          ) : bulkRecipients.length > 1 ? (
+                            `${bulkRecipients.length} recipients (${bulkRecipients[0].email}, ${bulkRecipients[1].email}...)`
+                          ) : (
+                            <span className="italic text-muted-foreground">No recipient selected</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="w-16 font-semibold text-muted-foreground">Subject:</span>
+                        <span className="font-semibold text-foreground">
+                          {bulkEmailPreview?.subject || <span className="text-muted-foreground italic">Subject will appear here...</span>}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* EMAIL HTML CONTAINER */}
+                    <div className="flex-1 min-h-[420px] max-h-[580px] overflow-auto rounded-lg border border-border/80 bg-neutral-900/40 p-4 flex items-center justify-center">
+                      {bulkPreviewLoading ? (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                          <span className="text-xs">Generating realistic email sample...</span>
+                        </div>
+                      ) : bulkEmailPreview?.html ? (
+                        <div
+                          className={`transition-all duration-300 bg-white text-black shadow-lg overflow-auto ${
+                            previewDevice === "mobile"
+                              ? "w-[375px] max-w-full rounded-2xl border-4 border-neutral-800 p-3 my-2"
+                              : "w-full rounded-lg p-6"
+                          }`}
+                          dangerouslySetInnerHTML={{ __html: bulkEmailPreview.html }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-center text-muted-foreground max-w-sm">
+                          <Mail className="h-8 w-8 text-muted-foreground/40" />
+                          <p className="text-sm font-medium">No Preview Available</p>
+                          <p className="text-xs">Select a tournament, recipient target, and template on the left to see the live rendered email sample.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ACTIONS & TEST SEND DRAWER */}
+                    <div className="border-t border-border/60 pt-4 space-y-3">
+                      {testSendSuccess && (
+                        <div className="flex items-center gap-2 rounded-md bg-green-500/10 border border-green-500/30 p-2.5 text-xs text-green-400">
+                          <Check className="h-4 w-4 shrink-0" />
+                          <span>{testSendSuccess}</span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        {/* Inline Admin Test Email */}
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            placeholder="admin@yourdomain.com"
+                            className="h-9 text-xs bg-background/50 max-w-xs"
+                            value={adminTestEmail}
+                            onChange={(e) => setAdminTestEmail(e.target.value)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 text-xs shrink-0"
+                            disabled={testSending || !adminTestEmail || !bulkTemplateId}
+                            onClick={() => void handleSendAdminTest()}
+                          >
+                            {testSending ? <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+                            Send Test Email
+                          </Button>
+                        </div>
+
+                        {/* Primary Send / Resend Email Button */}
+                        <Button
+                          type="button"
+                          className="h-10 px-6 font-semibold shadow-md gap-2"
+                          disabled={sendingEmail || !bulkTemplateId || bulkRecipients.length === 0}
+                          onClick={() => void handleSendEmail()}
+                        >
+                          {sendingEmail ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                              Sending Email...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4" />
+                              Send to {bulkRecipients.length || 0} Recipient{bulkRecipients.length === 1 ? "" : "s"}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: SENT HISTORY
+             ═════════════════════════════════════════════════════════════════════ */}
+          <TabsContent value="sent" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48 bg-card"><SelectValue placeholder="Filter status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Delivered & Active</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="queued">Queued</SelectItem>
+                    <SelectItem value="opened">Opened</SelectItem>
+                    <SelectItem value="clicked">Clicked</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={() => void fetchJobs({ status: statusFilter === "all" ? undefined : statusFilter })}>
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+                </Button>
+              </div>
+            </div>
+            <JobsTable
+              jobs={jobs}
+              onSend={sendJob}
+              onView={setViewJob}
+              onResend={resendJob}
+              resendingId={resendingId}
+              showSent
+              onEditRecipient={(j) => setEditRecipient({
+                jobId: j.id,
+                email: j.recipient?.recipientEmail ?? "",
+                name: j.recipient?.recipientName ?? "",
+              })}
+            />
+          </TabsContent>
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: PENDING
+             ═════════════════════════════════════════════════════════════════════ */}
+          <TabsContent value="pending" className="space-y-4">
+            <div className="flex gap-2">
+              <Button onClick={() => void sendAllReady()}><Send className="mr-1 h-4 w-4" />Send All Ready</Button>
+              <Button variant="outline" onClick={() => void retryFailed()}><RotateCcw className="mr-1 h-4 w-4" />Retry Failed</Button>
+            </div>
+            <JobsTable
+              jobs={jobs}
+              onSend={sendJob}
+              onView={setViewJob}
+              onResend={resendJob}
+              resendingId={resendingId}
+              onEditRecipient={(j) => setEditRecipient({
+                jobId: j.id,
+                email: j.recipient?.recipientEmail ?? "",
+                name: j.recipient?.recipientName ?? "",
+              })}
+            />
+          </TabsContent>
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: TEMPLATES (CLEANED UP PRODUCTION TEMPLATES)
+             ═════════════════════════════════════════════════════════════════════ */}
+          <TabsContent value="templates" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold">Active Email Templates</h2>
+                <p className="text-xs text-muted-foreground">Standard production templates used across platform events and resending.</p>
+              </div>
+              <Button onClick={() => { setEditingTemplate(null); setTemplateForm({ name: "", internalKey: "", subject: "", htmlBody: "", autoSend: true, isActive: true }); setShowTemplateDialog(true); }}>
+                New Template
+              </Button>
+            </div>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Internal Key</TableHead>
+                      <TableHead>Auto Send</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Version</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {templates.filter((t) => !t.isDraft && !t.isArchived).map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="font-medium">{t.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{t.internalKey}</TableCell>
+                        <TableCell>
+                          <Badge variant={t.autoSend ? "default" : "secondary"} className="text-[10px]">
+                            {t.autoSend ? "AUTO" : "MANUAL"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{t.isActive ? <Badge className="bg-green-500/15 text-green-400">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
+                        <TableCell>v{t.currentVersion}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingTemplate(t); setTemplateForm({ name: t.name, internalKey: t.internalKey, subject: t.subject, htmlBody: t.htmlBody, autoSend: t.autoSend, isActive: t.isActive }); setShowTemplateDialog(true); }}>
+                            Edit
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: DASHBOARD
+             ═════════════════════════════════════════════════════════════════════ */}
           <TabsContent value="dashboard" className="space-y-4">
             {loading || !dashboard ? (
               <Skeleton className="h-64 w-full" />
@@ -706,85 +1476,9 @@ export default function AdminCommunicationCenter() {
             )}
           </TabsContent>
 
-          <TabsContent value="templates" className="space-y-4">
-            <div className="flex justify-between">
-              <h2 className="text-lg font-semibold">Email Templates</h2>
-              <Button onClick={() => { setEditingTemplate(null); setTemplateForm({ name: "", internalKey: "", subject: "", htmlBody: "", autoSend: true, isActive: true }); setShowTemplateDialog(true); }}>
-                New Template
-              </Button>
-            </div>
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Key</TableHead>
-                      <TableHead>Auto Send</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Version</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {templates.filter((t) => !t.isDraft).map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.name}</TableCell>
-                        <TableCell className="font-mono text-xs">{t.internalKey}</TableCell>
-                        <TableCell>{t.autoSend ? "ON" : "OFF"}</TableCell>
-                        <TableCell>{t.isActive ? <Badge className="bg-green-500/15 text-green-400">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
-                        <TableCell>v{t.currentVersion}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" onClick={() => { setEditingTemplate(t); setTemplateForm({ name: t.name, internalKey: t.internalKey, subject: t.subject, htmlBody: t.htmlBody, autoSend: t.autoSend, isActive: t.isActive }); setShowTemplateDialog(true); }}>
-                            Edit
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="pending" className="space-y-4">
-            <div className="flex gap-2">
-              <Button onClick={() => void sendAllReady()}><Send className="mr-1 h-4 w-4" />Send All Ready</Button>
-              <Button variant="outline" onClick={() => void retryFailed()}><RotateCcw className="mr-1 h-4 w-4" />Retry Failed</Button>
-            </div>
-            <JobsTable jobs={jobs} onSend={sendJob} onView={setViewJob} onEditRecipient={(j) => setEditRecipient({ jobId: j.id, email: j.recipient?.recipientEmail ?? "", name: j.recipient?.recipientName ?? "" })} />
-          </TabsContent>
-
-          <TabsContent value="sent">
-            <div className="mb-4">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48"><SelectValue placeholder="Filter status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="queued">Queued</SelectItem>
-                  <SelectItem value="opened">Opened</SelectItem>
-                  <SelectItem value="clicked">Clicked</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <JobsTable
-              jobs={jobs}
-              onSend={sendJob}
-              onView={setViewJob}
-              onResend={resendJob}
-              resendingId={resendingId}
-              showSent
-              onEditRecipient={(j) => setEditRecipient({
-                jobId: j.id,
-                email: j.recipient?.recipientEmail ?? "",
-                name: j.recipient?.recipientName ?? "",
-              })}
-            />
-          </TabsContent>
-
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: DRAFTS
+             ═════════════════════════════════════════════════════════════════════ */}
           <TabsContent value="drafts">
             <JobsTable jobs={templates.filter((t) => t.isDraft).map((t) => ({
               id: t.id,
@@ -803,183 +1497,9 @@ export default function AdminCommunicationCenter() {
             }))} onSend={() => {}} onView={() => {}} />
           </TabsContent>
 
-          <TabsContent value="bulk" className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle>Send Email</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <Label>Tournament</Label>
-                    <Select value={bulkTournamentId} onValueChange={(v) => { setBulkTournamentId(v); setBulkTeamId(""); setBulkPlayerId(""); setBulkRecipients([]); setBulkOrganiserBundle(null); setBulkEmailPreview(null); }}>
-                      <SelectTrigger><SelectValue placeholder="Select tournament" /></SelectTrigger>
-                      <SelectContent>
-                        {tournaments.map((t) => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Recipient Filter</Label>
-                    <Select value={bulkFilterType} onValueChange={handleBulkFilterChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="organiser_teams_credentials">Organiser — All Teams Credentials</SelectItem>
-                        <SelectItem value="team">Specific Team Owner</SelectItem>
-                        <SelectItem value="player">Specific Player (with email)</SelectItem>
-                        <SelectItem value="team_owners">All Team Owners</SelectItem>
-                        <SelectItem value="players">All Players (with email)</SelectItem>
-                        <SelectItem value="selected_players">Sold Players (with email)</SelectItem>
-                        <SelectItem value="unsold_players">Unsold Players (with email)</SelectItem>
-                        <SelectItem value="men">Men (with email)</SelectItem>
-                        <SelectItem value="women">Women (with email)</SelectItem>
-                        <SelectItem value="organisers">Organisers</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Template</Label>
-                    <Select value={bulkTemplateId} onValueChange={handleBulkTemplateChange}>
-                      <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
-                      <SelectContent>
-                        {templates.filter((t) => !t.isDraft && t.isActive).map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {isPlayerSoldBulkTemplate && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground">Player Sold email</p>
-                    <p className="mt-1">
-                      Recipients are sold players who have a valid email on file.
-                      Use <span className="font-medium text-foreground">Sold Players</span> for everyone,
-                      or <span className="font-medium text-foreground">Specific Player</span> to pick one.
-                    </p>
-                    {bulkTournamentId && bulkTargetTotals && (
-                      <p className="mt-2 text-xs">
-                        {bulkTargetTotals.playersWithEmail} of {bulkTargetTotals.players} players in this list have email
-                        {bulkFilterType === "selected_players" || bulkFilterType === "player" ? " (sold filter applied)" : ""}.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {bulkFilterType === "organiser_teams_credentials" && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground">Manual organiser email with all team credentials</p>
-                    <p className="mt-1">
-                      Sends one email to the tournament organiser with every team&apos;s name, logo, access code, owner name, and mobile — in registration order.
-                      Each team includes a WhatsApp copy-paste block. The owner app link is common for all teams.
-                    </p>
-                    <p className="mt-2">
-                      Owners who registered an email have already received their owner panel link separately.
-                    </p>
-                  </div>
-                )}
-
-                {bulkFilterType === "team" && bulkTournamentId && (
-                  <div>
-                    <Label>Team (owners with email)</Label>
-                    <Select value={bulkTeamId} onValueChange={(v) => { setBulkTeamId(v); setBulkRecipients([]); }}>
-                      <SelectTrigger><SelectValue placeholder={bulkTeams.length ? "Select team" : "No teams with email"} /></SelectTrigger>
-                      <SelectContent>
-                        {bulkTeams.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)}>
-                            {t.name} — {t.ownerName ?? "Owner"}{t.ownerEmail ? ` — ${t.ownerEmail}` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {bulkTargetTotals && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Showing {bulkTeams.length} of {bulkTargetTotals.teams} teams (email required).
-                        Team owner link (`login_link`) is auto-filled for the selected team.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {bulkFilterType === "player" && bulkTournamentId && (
-                  <div>
-                    <Label>
-                      Player
-                      {isPlayerSoldBulkTemplate ? " (sold, with email)" : " (with email)"}
-                    </Label>
-                    <Select value={bulkPlayerId} onValueChange={(v) => { setBulkPlayerId(v); setBulkRecipients([]); }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={bulkPlayers.length ? "Select player" : "No players with email"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bulkPlayers.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.name}{p.email ? ` — ${p.email}` : ""}{p.status ? ` (${p.status})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {bulkTargetTotals && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Showing {bulkPlayers.length} selectable player{bulkPlayers.length === 1 ? "" : "s"}
-                        {" "}({bulkTargetTotals.playersWithEmail} with email
-                        {isPlayerSoldBulkTemplate || bulkFilterType === "selected_players" ? " among sold" : ""}
-                        {" "}of {bulkTargetTotals.players} in filter).
-                        Players without a valid email are hidden.
-                      </p>
-                    )}
-                    {!bulkPlayers.length && bulkTargetTotals && bulkTargetTotals.players > 0 && (
-                      <p className="mt-1 text-xs text-amber-600">
-                        {bulkTargetTotals.players} player(s) match this tournament filter, but none have a valid email on file.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void previewBulkRecipients()} disabled={bulkPreviewLoading}>
-                    Preview Recipients
-                  </Button>
-                  <Button variant="outline" onClick={() => void previewBulkEmail()} disabled={bulkPreviewLoading || !bulkTemplateId}>
-                    Preview Email
-                  </Button>
-                  <Button onClick={() => void queueBulk()} disabled={!bulkTemplateId || bulkRecipients.length === 0 || bulkPreviewLoading}>
-                    Send to {bulkRecipients.length || "…"} Recipient{bulkRecipients.length === 1 ? "" : "s"}
-                  </Button>
-                </div>
-
-                {bulkOrganiserBundle && (
-                  <div className="rounded-lg border border-dashed p-3 text-sm">
-                    <p className="font-medium">{bulkOrganiserBundle.tournamentName}</p>
-                    <p className="text-muted-foreground">
-                      {bulkOrganiserBundle.teamCount} team{bulkOrganiserBundle.teamCount === 1 ? "" : "s"} · Common owner app link included
-                    </p>
-                  </div>
-                )}
-
-                {bulkRecipients.length > 0 && (
-                  <div className="rounded-lg border p-3">
-                    <p className="mb-2 text-sm font-medium">{bulkRecipients.length} recipient(s) ready</p>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {bulkRecipients.map((r) => (
-                        <li key={r.email}>{r.name ?? "—"} &lt;{r.email}&gt;</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {bulkEmailPreview && (
-                  <div className="rounded-lg border p-3">
-                    <p className="mb-2 text-sm font-medium">Email preview: {bulkEmailPreview.subject}</p>
-                    <div
-                      className="max-h-[480px] overflow-auto rounded border bg-white p-4 text-sm"
-                      dangerouslySetInnerHTML={{ __html: bulkEmailPreview.html }}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: LOGS
+             ═════════════════════════════════════════════════════════════════════ */}
           <TabsContent value="logs">
             <Card>
               <CardContent className="p-0">
@@ -1009,6 +1529,9 @@ export default function AdminCommunicationCenter() {
             </Card>
           </TabsContent>
 
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: ASSETS
+             ═════════════════════════════════════════════════════════════════════ */}
           <TabsContent value="assets">
             <Card>
               <CardContent className="p-0">
@@ -1036,6 +1559,9 @@ export default function AdminCommunicationCenter() {
             </Card>
           </TabsContent>
 
+          {/* ═════════════════════════════════════════════════════════════════════
+              TAB: SETTINGS
+             ═════════════════════════════════════════════════════════════════════ */}
           <TabsContent value="settings">
             <Card>
               <CardHeader><CardTitle>Communication Settings</CardTitle></CardHeader>
@@ -1049,6 +1575,7 @@ export default function AdminCommunicationCenter() {
         </Tabs>
       </div>
 
+      {/* TEMPLATE EDITOR DIALOG */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1079,18 +1606,66 @@ export default function AdminCommunicationCenter() {
         </DialogContent>
       </Dialog>
 
+      {/* VIEW EMAIL MODAL WITH ONE-CLICK RESEND ACTION */}
       <Dialog open={!!viewJob} onOpenChange={() => setViewJob(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Email Preview</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg">Email Job Details</DialogTitle>
+              {viewJob && <StatusBadge status={viewJob.status} />}
+            </div>
+            <DialogDescription className="text-xs">
+              Review sent email content, recipient metadata, and resend option
+            </DialogDescription>
+          </DialogHeader>
           {viewJob && (
-            <div>
-              <p className="mb-2 text-sm text-muted-foreground">Subject: {viewJob.subject}</p>
-              <div className="max-h-96 overflow-auto rounded border bg-white p-4 text-black" dangerouslySetInnerHTML={{ __html: viewJob.htmlBody ?? "" }} />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Recipient:</span>
+                  <div className="font-semibold text-foreground">
+                    {viewJob.recipient?.recipientName || "—"} ({viewJob.recipient?.recipientRole || "custom"})
+                  </div>
+                  <div className="text-muted-foreground">{viewJob.recipient?.recipientEmail || "No email"}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Template & Time:</span>
+                  <div className="font-mono text-foreground">{viewJob.templateInternalKey || "Custom"}</div>
+                  <div className="text-muted-foreground">{formatDate(viewJob.sentAt || viewJob.createdAt)}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground">Subject Line</Label>
+                <div className="font-semibold text-sm mt-0.5">{viewJob.subject}</div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Rendered Content</Label>
+                <div className="max-h-96 overflow-auto rounded-lg border bg-white p-4 text-black shadow-inner" dangerouslySetInnerHTML={{ __html: viewJob.htmlBody ?? "" }} />
+              </div>
             </div>
           )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setViewJob(null)}>Close</Button>
+            {viewJob && viewJob.recipient?.recipientEmail && (
+              <Button
+                disabled={resendingId === viewJob.id}
+                onClick={async () => {
+                  if (!viewJob) return;
+                  await resendJob(viewJob.id);
+                  setViewJob(null);
+                }}
+              >
+                <RotateCcw className={`h-4 w-4 mr-1.5 ${resendingId === viewJob.id ? "animate-spin" : ""}`} />
+                Resend Email to {viewJob.recipient.recipientName ?? "Recipient"}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* EDIT RECIPIENT DIALOG */}
       <Dialog open={!!editRecipient} onOpenChange={() => setEditRecipient(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Recipient</DialogTitle></DialogHeader>
@@ -1152,42 +1727,54 @@ function JobsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {jobs.map((j) => (
-              <TableRow key={j.id}>
-                <TableCell>
-                  <div className="text-sm font-medium">{j.recipient?.recipientName ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">{j.recipient?.recipientEmail ?? "No email"}</div>
-                </TableCell>
-                <TableCell className="text-xs">{j.recipient?.recipientRole ?? "—"}</TableCell>
-                <TableCell className="text-xs font-mono">{j.templateInternalKey ?? "—"}</TableCell>
-                <TableCell className="text-xs">{formatDate(j.createdAt)}</TableCell>
-                <TableCell className="text-xs">{j.pendingReason?.replace(/_/g, " ") ?? "—"}</TableCell>
-                <TableCell><StatusBadge status={j.status} /></TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {!showSent && (j.status === "ready_to_send" || j.status === "pending") && (
-                      <Button size="sm" variant="ghost" title="Send now" aria-label="Send now" onClick={() => onSend(j.id)}><Send className="h-3.5 w-3.5" /></Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => onView(j)}>View</Button>
-                    {showSent && onResend && j.recipient?.recipientEmail && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        title="Resend email"
-                        aria-label="Resend email"
-                        disabled={resendingId === j.id}
-                        onClick={() => onResend(j.id)}
-                      >
-                        <RotateCcw className={`h-3.5 w-3.5 ${resendingId === j.id ? "animate-spin" : ""}`} />
-                      </Button>
-                    )}
-                    {onEditRecipient && (!showSent || j.status === "failed" || !j.recipient?.recipientEmail) && (
-                      <Button size="sm" variant="ghost" title="Edit recipient" onClick={() => onEditRecipient(j)}>Edit</Button>
-                    )}
-                  </div>
+            {jobs.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
+                  No communication records found.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              jobs.map((j) => (
+                <TableRow key={j.id}>
+                  <TableCell>
+                    <div className="text-sm font-medium">{j.recipient?.recipientName ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{j.recipient?.recipientEmail ?? "No email"}</div>
+                  </TableCell>
+                  <TableCell className="text-xs capitalize">{j.recipient?.recipientRole?.replace(/_/g, " ") ?? "—"}</TableCell>
+                  <TableCell className="text-xs font-mono">{j.templateInternalKey ?? "—"}</TableCell>
+                  <TableCell className="text-xs">{formatDate(j.createdAt)}</TableCell>
+                  <TableCell className="text-xs">{j.pendingReason?.replace(/_/g, " ") ?? "—"}</TableCell>
+                  <TableCell><StatusBadge status={j.status} /></TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {!showSent && (j.status === "ready_to_send" || j.status === "pending") && (
+                        <Button size="sm" variant="ghost" title="Send now" aria-label="Send now" onClick={() => onSend(j.id)}>
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => onView(j)} title="View Details">
+                        View
+                      </Button>
+                      {showSent && onResend && j.recipient?.recipientEmail && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Resend email"
+                          aria-label="Resend email"
+                          disabled={resendingId === j.id}
+                          onClick={() => onResend(j.id)}
+                        >
+                          <RotateCcw className={`h-3.5 w-3.5 ${resendingId === j.id ? "animate-spin" : ""}`} />
+                        </Button>
+                      )}
+                      {onEditRecipient && (!showSent || j.status === "failed" || !j.recipient?.recipientEmail) && (
+                        <Button size="sm" variant="ghost" title="Edit recipient" onClick={() => onEditRecipient(j)}>Edit</Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

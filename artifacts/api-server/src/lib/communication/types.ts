@@ -73,6 +73,8 @@ export type BulkRecipientFilter = {
     | "women"
     | "team_owners"
     | "organisers"
+    | "organiser"
+    | "tournament_organiser"
     | "sponsors"
     | "operators"
     | "team"
@@ -100,6 +102,8 @@ export const KNOWN_MERGE_VARIABLES = [
   "password",
   "email",
   "phone",
+  "owner_mobile",
+  "access_code",
   "payment_link",
   "support_number",
   "organiser_name",

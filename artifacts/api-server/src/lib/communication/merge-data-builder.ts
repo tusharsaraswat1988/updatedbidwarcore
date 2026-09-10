@@ -9,6 +9,8 @@ import {
 import { eq } from "drizzle-orm";
 import { buildPublicUrl, getPublicOrigin } from "../runtime-env.js";
 import { buildPlayerRegistrationMergeData } from "./player-registration-merge-data.js";
+import { buildTeamOwnerWelcomeMergeData } from "./team-owner-welcome-merge-data.js";
+import { buildPlayerSoldMergeData } from "./player-sold-merge-data.js";
 
 function appUrl(): string {
   return process.env.APP_URL?.trim() || getPublicOrigin();
@@ -21,6 +23,7 @@ export async function buildMergeDataForRecipient(recipient: {
   entityType?: string;
   entityId?: number;
   tournamentId?: number;
+  templateKey?: string;
 }): Promise<Record<string, unknown>> {
   const base: Record<string, unknown> = {
     email: recipient.email,
@@ -41,33 +44,12 @@ export async function buildMergeDataForRecipient(recipient: {
   base.powered_by_text = branding?.poweredByText ?? "Powered by BidWar";
 
   if (recipient.entityType === "team" && recipient.entityId) {
-    const [team] = await db
-      .select()
-      .from(teamsTable)
-      .where(eq(teamsTable.id, recipient.entityId))
-      .limit(1);
-
-    if (team) {
-      const [tournament] = await db
-        .select()
-        .from(tournamentsTable)
-        .where(eq(tournamentsTable.id, team.tournamentId))
-        .limit(1);
-
-      const loginLink = buildPublicUrl(ownerJoinPath(team.tournamentId, team.id));
-
-      return {
-        ...base,
-        owner_name: team.ownerName ?? recipient.name,
-        team_name: team.name,
-        tournament_name: tournament?.name ?? "",
-        auction_name: tournament?.name ?? "",
-        auction_date: tournament?.auctionDate ?? "",
-        login_link: loginLink,
-        team_budget: team.purse != null ? String(team.purse) : "",
-        email: team.ownerEmail ?? recipient.email,
-      };
-    }
+    const teamData = await buildTeamOwnerWelcomeMergeData(recipient.entityId);
+    return {
+      ...base,
+      ...teamData,
+      email: recipient.email || (teamData.email as string),
+    };
   }
 
   if (recipient.entityType === "player" && recipient.entityId) {
@@ -78,6 +60,16 @@ export async function buildMergeDataForRecipient(recipient: {
       .limit(1);
 
     if (player) {
+      let soldData: Record<string, string> = {};
+      if ((player.status === "sold" || recipient.templateKey === "player_sold") && player.teamId && player.tournamentId) {
+        soldData = await buildPlayerSoldMergeData({
+          playerId: player.id,
+          teamId: player.teamId,
+          amount: player.soldPrice ?? player.basePrice ?? 0,
+          tournamentId: player.tournamentId,
+        });
+      }
+
       const registrationData = await buildPlayerRegistrationMergeData(player.id);
       let paymentLink = "";
       if (player.registrationPaymentStatus === "pending") {
@@ -96,8 +88,29 @@ export async function buildMergeDataForRecipient(recipient: {
       return {
         ...base,
         ...registrationData,
+        ...soldData,
         payment_link: paymentLink,
+        email: recipient.email || player.email || "",
       };
+    }
+  }
+
+  if (recipient.tournamentId) {
+    const [tournament] = await db
+      .select()
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, recipient.tournamentId))
+      .limit(1);
+
+    if (tournament) {
+      base.tournament_name = tournament.name;
+      base.auction_name = tournament.name;
+      base.auction_date = tournament.auctionDate ?? "";
+      base.city = tournament.city ?? "";
+      base.venue = tournament.venue ?? "";
+      base.organiser_name = tournament.organizerName ?? recipient.name ?? "";
+      base.organiser_email = tournament.organizerEmail ?? recipient.email;
+      base.organiser_phone = tournament.organizerMobile ?? "";
     }
   }
 

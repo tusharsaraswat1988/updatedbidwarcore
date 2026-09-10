@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw, Sparkles, Database, Gavel, Shield, Users } from "lucide-react";
+import { Activity, BadgeCheck, CircleDot, Lock, Mail, RefreshCw, Sparkles, Database, Gavel, Shield, Users } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
@@ -300,9 +300,23 @@ export default function AdminTournamentDetailPage() {
               </div>
               <div className="space-y-4">
                 <div className="rounded-xl border border-border bg-card/70 p-4">
-                  <h2 className="font-display font-black text-white">Linked Organiser</h2>
-                  <p className="mt-2 text-sm text-white">{detail.tournament.organizerName || "No organiser linked"}</p>
-                  <p className="text-xs text-muted-foreground">{detail.tournament.organizerMobile || "No mobile"} · {detail.tournament.organizerEmail || "No email"}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h2 className="font-display font-black text-white">Linked Organiser</h2>
+                      <p className="mt-2 text-sm text-white">{detail.tournament.organizerName || "No organiser linked"}</p>
+                      <p className="text-xs text-muted-foreground">{detail.tournament.organizerMobile || "No mobile"} · {detail.tournament.organizerEmail || "No email"}</p>
+                    </div>
+                    {detail.tournament.organizerEmail && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5 text-xs shrink-0"
+                        onClick={() => navigate(`/admin/communication/bulk?tournamentId=${tournamentId}&target=organiser`)}
+                      >
+                        <Mail className="h-3.5 w-3.5" /> Email Organiser
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="rounded-xl border border-border bg-card/70 p-4">
                   <h2 className="font-display font-black text-white">Access & Safety</h2>
@@ -394,21 +408,25 @@ export default function AdminTournamentDetailPage() {
                 {detail.players.length ? (
                   <>
                     <AdminListHeader
-                      gridClassName="sm:grid sm:grid-cols-[1fr_160px_120px_130px]"
+                      gridClassName="sm:grid sm:grid-cols-[1fr_140px_110px_120px_48px]"
                       columns={[
                         { label: "Player" },
                         { label: "Role" },
                         { label: "Status" },
                         { label: "Price", align: "right" },
+                        { label: "" },
                       ]}
                     />
                     <AdminScrollPanel>
                       {detail.players.map((p) => (
                         <div
                           key={p.id}
-                          className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_160px_120px_130px] sm:items-center"
+                          className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_140px_110px_120px_48px] sm:items-center"
                         >
-                          <span className="font-medium text-white">{p.name}</span>
+                          <div className="min-w-0 pr-2">
+                            <span className="font-medium text-white block truncate">{p.name}</span>
+                            {p.email && <span className="text-[11px] text-muted-foreground block truncate">{p.email}</span>}
+                          </div>
                           <span className="text-muted-foreground">{p.role || "No role"}</span>
                           <span className="mt-1 block sm:mt-0">
                             <span className="text-muted-foreground sm:hidden">Status: </span>
@@ -418,6 +436,19 @@ export default function AdminTournamentDetailPage() {
                             <span className="text-muted-foreground sm:hidden">Price: </span>
                             ₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}
                           </span>
+                          <div className="mt-1 flex justify-end sm:mt-0">
+                            {p.email ? (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                title="Send / Resend Email to Player"
+                                onClick={() => navigate(`/admin/communication/bulk?tournamentId=${tournamentId}&target=player&playerId=${p.id}`)}
+                              >
+                                <Mail className="h-3.5 w-3.5" />
+                              </Button>
+                            ) : null}
+                          </div>
                         </div>
                       ))}
                     </AdminScrollPanel>
@@ -436,29 +467,44 @@ export default function AdminTournamentDetailPage() {
               {detail.teams.length ? (
                 <>
                   <AdminListHeader
-                    gridClassName="sm:grid sm:grid-cols-[1fr_160px_160px_160px]"
+                    gridClassName="sm:grid sm:grid-cols-[1fr_140px_160px_130px_48px]"
                     columns={[
                       { label: "Team" },
                       { label: "Code" },
                       { label: "Owner" },
                       { label: "Purse used", align: "right" },
+                      { label: "" },
                     ]}
                   />
                   <AdminScrollPanel>
                     {detail.teams.map((team) => (
                       <div
                         key={team.id}
-                        className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_160px_160px_160px] sm:items-center"
+                        className="block border-b border-border px-4 py-2.5 text-sm last:border-b-0 sm:grid sm:grid-cols-[1fr_140px_160px_130px_48px] sm:items-center"
                       >
                         <span className="font-medium text-white">{team.name}</span>
                         <span className="text-muted-foreground">{team.shortCode}</span>
-                        <span className="mt-1 block sm:mt-0">
+                        <div className="min-w-0 pr-2 mt-1 sm:mt-0">
                           <span className="text-muted-foreground sm:hidden">Owner: </span>
-                          {team.ownerName || "No owner"}
-                        </span>
+                          <span className="text-white block truncate">{team.ownerName || "No owner"}</span>
+                          {team.ownerEmail && <span className="block text-[11px] text-muted-foreground truncate">{team.ownerEmail}</span>}
+                        </div>
                         <span className="mt-1 block sm:mt-0 sm:text-right">
                           ₹{team.purseUsed.toLocaleString("en-IN")} used
                         </span>
+                        <div className="mt-1 flex justify-end sm:mt-0">
+                          {team.ownerEmail ? (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              title="Send / Resend Email to Team Owner"
+                              onClick={() => navigate(`/admin/communication/bulk?tournamentId=${tournamentId}&target=team_owner&teamId=${team.id}`)}
+                            >
+                              <Mail className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     ))}
                   </AdminScrollPanel>

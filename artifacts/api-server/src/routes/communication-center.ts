@@ -427,6 +427,7 @@ router.post("/bulk/preview-email", async (req, res) => {
           entityType: recipients[0].entityType,
           entityId: recipients[0].entityId,
           tournamentId: recipients[0].tournamentId,
+          templateKey: template.internalKey,
         })),
       };
     }
