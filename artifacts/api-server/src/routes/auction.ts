@@ -290,6 +290,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
           deferredPlayerIds: null,
           randomDrawQueue: null,
           displayCountdown: null,
+          revision: sql`COALESCE(revision, 0) + 1`,
           lastAction: "Auction completed — all players sold",
           lastOutcome: null,
         })
@@ -311,6 +312,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         timerEndsAt: null,
         timerType: null,
         randomDrawQueue: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `Main round complete — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remaining`,
         lastOutcome: null,
       })
@@ -331,6 +333,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         deferredPlayerIds: null,
         randomDrawQueue: null,
         displayCountdown: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: "Auction completed",
         lastOutcome: null,
       })
@@ -1331,6 +1334,7 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
     lastAction: "Auction resumed",
     timerSeconds: timerSecs,
     displayCountdown: null,
+    revision: sql`COALESCE(revision, 0) + 1`,
   };
   if (session.status === "idle") {
     patch.fortuneWheelActive = false;
@@ -1387,7 +1391,13 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
   await db.transaction(async (tx) => {
     await tx
       .update(auctionSessionsTable)
-      .set({ status: "paused", lastAction: "Auction paused", timerEndsAt: null, pausedTimeRemaining })
+      .set({
+        status: "paused",
+        lastAction: "Auction paused",
+        timerEndsAt: null,
+        pausedTimeRemaining,
+        revision: sql`COALESCE(revision, 0) + 1`,
+      })
       .where(eq(auctionSessionsTable.tournamentId, tid));
     await tx.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
   });
@@ -1696,9 +1706,9 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   const timerDurationSecs = computeBidTimerDuration(session, tournament);
   const newTimerEndsAt = new Date(Date.now() + timerDurationSecs * 1000).toISOString();
 
-  // Optimistic concurrency: only commit if no other bid has mutated the session
+  // Optimistic concurrency: only commit if no other bid or operator action has mutated the session
   // since we read it. COALESCE handles existing rows created before this column.
-  // If 0 rows are updated, a concurrent bid won the race — return 409.
+  // If 0 rows are updated, a concurrent bid or auction state change won the race — return 409.
   const committed = await db
     .update(auctionSessionsTable)
     .set({
@@ -1713,12 +1723,14 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     .where(and(
       eq(auctionSessionsTable.tournamentId, tid),
       sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${currentRevision}`,
+      eq(auctionSessionsTable.currentPlayerId, session.currentPlayerId!),
+      eq(auctionSessionsTable.status, "active"),
     ))
     .returning({ id: auctionSessionsTable.id });
 
   if (committed.length === 0) {
     res.status(409).json({
-      error: "A concurrent bid changed the auction state — please refresh and bid again.",
+      error: "A concurrent bid or auction state change occurred — please refresh and bid again.",
       hint: "stale_bid",
     });
     return;
@@ -1763,6 +1775,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   const sellBodySchema = z.object({
     expectedBidTeamId: z.number().int().optional(),
     expectedBidAmount: z.number().int().optional(),
+    expectedRevision: z.number().int().optional(),
   });
   const sellBody = sellBodySchema.safeParse(req.body ?? {});
   const sellConfirmation = sellBody.success ? sellBody.data : {};
@@ -1801,78 +1814,127 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     });
     return;
   }
+  if (sellConfirmation.expectedRevision !== undefined &&
+      session.revision !== null && session.revision !== undefined &&
+      sellConfirmation.expectedRevision !== session.revision) {
+    res.status(409).json({
+      error: "Auction state changed — a new action occurred before your sell request. Please refresh.",
+      currentBidTeamId: session.currentBidTeamId,
+      currentBid: session.currentBid,
+      hint: "stale_sell",
+    });
+    return;
+  }
 
   const playerId = session.currentPlayerId;
   const teamId = session.currentBidTeamId;
   const soldAmount = session.currentBid ?? 0;
+  const expectedRevision = sellConfirmation.expectedRevision ?? (session.revision ?? 0);
 
-  // All four table writes are atomic: a mid-flight server failure cannot leave
-  // players sold while purse is unchanged, or bids recorded without a sold player.
-  const sellResult = await db.transaction(async (tx) => {
-    // Atomic status transition: player can only be sold if currently 'available'.
-    // If a concurrent, duplicate, or retried SELL request already transitioned the player,
-    // this update matches 0 rows and cleanly aborts before any financial mutation.
-    const updatedPlayers = await tx
-      .update(playersTable)
-      .set({ status: "sold", teamId, soldPrice: soldAmount })
-      .where(and(
-        eq(playersTable.id, playerId),
-        eq(playersTable.status, "available"),
-      ))
-      .returning();
-
-    if (updatedPlayers.length === 0) {
-      return { ok: false as const, reason: "player_not_available" as const };
+  class SellTransactionAbortError extends Error {
+    constructor(public reason: "stale_sell" | "player_not_available") {
+      super(`Sell transaction aborted: ${reason}`);
+      this.name = "SellTransactionAbortError";
     }
+  }
 
-    const txSoldPlayer = updatedPlayers[0];
+  // All four table writes are atomic: a mid-flight server failure or race cannot leave
+  // players sold while purse is unchanged, bids recorded without a sold player,
+  // or a stale SELL overwriting a newer winning bid.
+  let sellResult: { soldPlayer: any; team: any };
+  try {
+    sellResult = await db.transaction(async (tx) => {
+      const [txPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+      const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
 
-    // Phase 6: atomic purse increment — no read-modify-write, no lost update
-    await tx
-      .update(teamsTable)
-      .set({ purseUsed: sql`COALESCE(purse_used, 0) + ${soldAmount}` })
-      .where(eq(teamsTable.id, teamId));
+      // 1. Atomic session CAS guard: verify session revision, player, leader team, and amount.
+      // If a concurrent bid or operator action modified the session in-flight, 0 rows match.
+      const updatedSessions = await tx
+        .update(auctionSessionsTable)
+        .set({
+          currentPlayerId: null,
+          currentBid: null,
+          currentBidTeamId: null,
+          timerEndsAt: null,
+          pausedTimeRemaining: null,
+          // Bump revision so any in-flight bid (concurrent with this sell) returns
+          // stale_bid instead of silently overwriting the sold state.
+          revision: sql`COALESCE(revision, 0) + 1`,
+          lastAction: `SOLD: ${txPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
+          lastOutcome: JSON.stringify({
+            type: "sold",
+            playerId,
+            playerName: txPlayer?.name ?? "Player",
+            photoUrl: txPlayer?.photoUrl ?? null,
+            teamId,
+            teamName: txTeam?.name ?? null,
+            teamColor: txTeam?.color ?? null,
+            teamLogoUrl: txTeam?.logoUrl ?? null,
+            amount: soldAmount,
+            isManual: false,
+          }),
+        })
+        .where(and(
+          eq(auctionSessionsTable.tournamentId, tid),
+          sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${expectedRevision}`,
+          eq(auctionSessionsTable.currentPlayerId, playerId),
+          eq(auctionSessionsTable.currentBidTeamId, teamId),
+          eq(auctionSessionsTable.currentBid, soldAmount),
+        ))
+        .returning();
 
-    await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
+      if (updatedSessions.length === 0) {
+        throw new SellTransactionAbortError("stale_sell");
+      }
 
-    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+      // 2. Atomic status transition: player can only be sold if currently 'available'.
+      // If a concurrent, duplicate, or retried SELL request already transitioned the player,
+      // this update matches 0 rows and cleanly aborts before any financial mutation.
+      const updatedPlayers = await tx
+        .update(playersTable)
+        .set({ status: "sold", teamId, soldPrice: soldAmount })
+        .where(and(
+          eq(playersTable.id, playerId),
+          eq(playersTable.status, "available"),
+        ))
+        .returning();
 
-    await tx
-      .update(auctionSessionsTable)
-      .set({
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerEndsAt: null,
-        pausedTimeRemaining: null,
-        // Bump revision so any in-flight bid (concurrent with this sell) returns
-        // stale_bid instead of silently overwriting the sold state.
-        revision: sql`COALESCE(revision, 0) + 1`,
-        lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
-        lastOutcome: JSON.stringify({
-          type: "sold",
-          playerId,
-          playerName: txSoldPlayer?.name ?? "Player",
-          photoUrl: txSoldPlayer?.photoUrl ?? null,
-          teamId,
-          teamName: txTeam?.name ?? null,
-          teamColor: txTeam?.color ?? null,
-          teamLogoUrl: txTeam?.logoUrl ?? null,
-          amount: soldAmount,
-          isManual: false,
-        }),
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
+      if (updatedPlayers.length === 0) {
+        throw new SellTransactionAbortError("player_not_available");
+      }
 
-    return { ok: true as const, soldPlayer: txSoldPlayer, team: txTeam };
-  });
+      const txSoldPlayer = updatedPlayers[0];
 
-  if (!sellResult.ok) {
-    res.status(409).json({
-      error: "This player has already been sold or is no longer available.",
-      hint: "already_sold",
+      // 3. Phase 6: atomic purse increment — no read-modify-write, no lost update
+      await tx
+        .update(teamsTable)
+        .set({ purseUsed: sql`COALESCE(purse_used, 0) + ${soldAmount}` })
+        .where(eq(teamsTable.id, teamId));
+
+      // 4. Record winning bid
+      await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
+
+      return { soldPlayer: txSoldPlayer, team: txTeam };
     });
-    return;
+  } catch (err: any) {
+    if (err instanceof SellTransactionAbortError || err?.name === "SellTransactionAbortError") {
+      if (err.reason === "stale_sell") {
+        const freshSession = await getOrCreateSession(tid);
+        res.status(409).json({
+          error: "Auction state changed — a new bid arrived before your sell request. Please confirm the current leader.",
+          currentBidTeamId: freshSession.currentBidTeamId,
+          currentBid: freshSession.currentBid,
+          hint: "stale_sell",
+        });
+        return;
+      }
+      res.status(409).json({
+        error: "This player has already been sold or is no longer available.",
+        hint: "already_sold",
+      });
+      return;
+    }
+    throw err;
   }
 
   const { soldPlayer, team } = sellResult;
@@ -2042,6 +2104,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
         currentBidTeamId: null,
         timerEndsAt: null,
         pausedTimeRemaining: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
         lastOutcome: JSON.stringify({
           type: "sold",
@@ -2161,6 +2224,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
         currentBidTeamId: null,
         timerEndsAt: null,
         pausedTimeRemaining: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
         lastOutcome: JSON.stringify({
           type: "unsold",
@@ -2274,6 +2338,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
         timerEndsAt: null,
         timerType: null,
         randomDrawQueue: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `RE-AUCTION: ${player.name}`,
         lastOutcome: null,
       })
@@ -2371,6 +2436,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
       .set({
         randomDrawQueue: null,
         reAuctionStrategyJson: serializeReAuctionStrategy(strategyResult.strategy),
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue`,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -2645,6 +2711,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
       timerType: null,
       pausedTimeRemaining: null,
       deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
+      revision: sql`COALESCE(revision, 0) + 1`,
       lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
       lastOutcome: JSON.stringify({
         type: "deferred",
@@ -2724,7 +2791,11 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
 
       await tx
         .update(auctionSessionsTable)
-        .set({ lastAction: `Undone: ${playerBefore?.name ?? "Player"} returned to pool`, randomDrawQueue: null })
+        .set({
+          lastAction: `Undone: ${playerBefore?.name ?? "Player"} returned to pool`,
+          randomDrawQueue: null,
+          revision: sql`COALESCE(revision, 0) + 1`,
+        })
         .where(eq(auctionSessionsTable.tournamentId, tid));
 
       // Re-fetch post-transaction state for the audit "after" snapshot.
@@ -2781,7 +2852,10 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   } else {
     await db
       .update(auctionSessionsTable)
-      .set({ lastAction: "Nothing to undo" })
+      .set({
+        lastAction: "Nothing to undo",
+        revision: sql`COALESCE(revision, 0) + 1`,
+      })
       .where(eq(auctionSessionsTable.tournamentId, tid));
     auditLog(req, {
       category: "auction",
@@ -3001,7 +3075,12 @@ router.post("/tournaments/:tournamentId/auction/stop-timer", async (req, res) =>
   const session = await getOrCreateSession(tid);
   await db
     .update(auctionSessionsTable)
-    .set({ timerEndsAt: null, timerType: null, pausedTimeRemaining: null })
+    .set({
+      timerEndsAt: null,
+      timerType: null,
+      pausedTimeRemaining: null,
+      revision: sql`COALESCE(revision, 0) + 1`,
+    })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
   // Log timer stop event (fire-and-forget)
@@ -3030,7 +3109,11 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
   const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
   await db
     .update(auctionSessionsTable)
-    .set({ timerEndsAt: endsAt, timerType })
+    .set({
+      timerEndsAt: endsAt,
+      timerType,
+      revision: sql`COALESCE(revision, 0) + 1`,
+    })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
   // Log timer start/extend event (fire-and-forget)
@@ -3088,6 +3171,7 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
         randomDrawQueue: null,
         reAuctionStrategyJson: null,
         displayCountdown: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction:
           unsoldCount > 0
             ? `Auction concluded by operator — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remain`
