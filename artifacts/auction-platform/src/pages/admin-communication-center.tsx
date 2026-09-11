@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
@@ -172,15 +172,9 @@ function formatDate(iso: string | null) {
 type RecipientCategory = "organiser" | "team_owner" | "player" | "group" | "custom";
 
 export default function AdminCommunicationCenter() {
-  const { isLoggedIn, isLoading, isMaster } = useAdminPageGuard();
+  const { isLoggedIn, isLoading } = useAdminPageGuard();
   const [location, navigate] = useLocation();
   const [tab, setTab] = useState<TabKey>(() => tabFromPath(location));
-
-  useEffect(() => {
-    if (!isLoading && isLoggedIn && !isMaster) {
-      navigate("/admin");
-    }
-  }, [isLoading, isLoggedIn, isMaster, navigate]);
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -664,7 +658,7 @@ export default function AdminCommunicationCenter() {
     }
   };
 
-  if (isLoading || !isLoggedIn || !isMaster) {
+  if (isLoading || !isLoggedIn) {
     return (
       <AdminShell title="Communication Center">
         <div className="space-y-4 p-6">
