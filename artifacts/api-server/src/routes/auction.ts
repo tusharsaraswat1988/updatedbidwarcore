@@ -1808,11 +1808,24 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
 
   // All four table writes are atomic: a mid-flight server failure cannot leave
   // players sold while purse is unchanged, or bids recorded without a sold player.
-  const { soldPlayer, team } = await db.transaction(async (tx) => {
-    await tx
+  const sellResult = await db.transaction(async (tx) => {
+    // Atomic status transition: player can only be sold if currently 'available'.
+    // If a concurrent, duplicate, or retried SELL request already transitioned the player,
+    // this update matches 0 rows and cleanly aborts before any financial mutation.
+    const updatedPlayers = await tx
       .update(playersTable)
       .set({ status: "sold", teamId, soldPrice: soldAmount })
-      .where(eq(playersTable.id, playerId));
+      .where(and(
+        eq(playersTable.id, playerId),
+        eq(playersTable.status, "available"),
+      ))
+      .returning();
+
+    if (updatedPlayers.length === 0) {
+      return { ok: false as const, reason: "player_not_available" as const };
+    }
+
+    const txSoldPlayer = updatedPlayers[0];
 
     // Phase 6: atomic purse increment — no read-modify-write, no lost update
     await tx
@@ -1823,7 +1836,6 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
 
     const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
-    const [txSoldPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
 
     await tx
       .update(auctionSessionsTable)
@@ -1852,8 +1864,18 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
 
-    return { soldPlayer: txSoldPlayer, team: txTeam };
+    return { ok: true as const, soldPlayer: txSoldPlayer, team: txTeam };
   });
+
+  if (!sellResult.ok) {
+    res.status(409).json({
+      error: "This player has already been sold or is no longer available.",
+      hint: "already_sold",
+    });
+    return;
+  }
+
+  const { soldPlayer, team } = sellResult;
 
   // Tournament already loaded for trial gate; reuse for notifications.
   const tournament = sellTournament;
