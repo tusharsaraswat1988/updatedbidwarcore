@@ -37,7 +37,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import { AppLayout } from "@/components/layout";
-import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
+import { OrganizerFormDialogHeader, OrganizerSectionHeader, TournamentContextLabel } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,7 +80,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, ListOrdered } from "lucide-react";
-import { formatIndianRupee } from "@/lib/format";
+import { formatIndianRupee, normalizeAuctionUnit, type AuctionUnit } from "@/lib/format";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { cldUrl } from "@/lib/cloudinary";
 import {
@@ -1652,27 +1652,93 @@ const statusLabels: Record<string, string> = {
   withdrawn: "Withdrawn",
 };
 
-function formatPlayerBaseValue(player: {
-  basePrice?: number | null;
-}): { text: string; className: string } {
-  if (player.basePrice != null && player.basePrice > 0) {
-    return { text: formatIndianRupee(player.basePrice), className: "text-primary font-mono font-semibold" };
-  }
-  return { text: "—", className: "text-muted-foreground" };
+const statusBadgeConfig: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
+  available: {
+    label: "Available",
+    bg: "bg-blue-500/10",
+    text: "text-blue-300",
+    border: "border-blue-500/25",
+    dot: "bg-blue-400",
+  },
+  sold: {
+    label: "Sold",
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-300",
+    border: "border-emerald-500/25",
+    dot: "bg-emerald-400",
+  },
+  unsold: {
+    label: "Unsold",
+    bg: "bg-rose-500/10",
+    text: "text-rose-300",
+    border: "border-rose-500/25",
+    dot: "bg-rose-400",
+  },
+  retained: {
+    label: "Retained",
+    bg: "bg-purple-500/10",
+    text: "text-purple-300",
+    border: "border-purple-500/25",
+    dot: "bg-purple-400",
+  },
+  withdrawn: {
+    label: "Withdrawn",
+    bg: "bg-amber-500/10",
+    text: "text-amber-300",
+    border: "border-amber-500/25",
+    dot: "bg-amber-400",
+  },
+};
+
+function StatusBadge({ status, className }: { status: string; className?: string }) {
+  const cfg = statusBadgeConfig[status] || {
+    label: status,
+    bg: "bg-muted/30",
+    text: "text-muted-foreground",
+    border: "border-border/40",
+    dot: "bg-muted-foreground",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border shrink-0 tracking-wide",
+        cfg.bg,
+        cfg.text,
+        cfg.border,
+        className,
+      )}
+    >
+      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", cfg.dot)} aria-hidden />
+      <span>{cfg.label}</span>
+    </span>
+  );
 }
 
-function formatSoldAtAmount(player: {
-  status?: string | null;
-  soldPrice?: number | null;
-  retainedPrice?: number | null;
-}): { text: string; className: string } {
+function formatPlayerBaseValue(
+  player: { basePrice?: number | null },
+  unit: AuctionUnit = "rupee",
+): { text: string; className: string } {
+  if (player.basePrice != null && player.basePrice > 0) {
+    return { text: formatIndianRupee(player.basePrice, unit), className: "text-foreground font-mono font-medium" };
+  }
+  return { text: "—", className: "text-muted-foreground/50 font-mono" };
+}
+
+function formatSoldAtAmount(
+  player: {
+    status?: string | null;
+    soldPrice?: number | null;
+    retainedPrice?: number | null;
+  },
+  unit: AuctionUnit = "rupee",
+): { text: string; className: string } {
   if (player.status === "sold" && player.soldPrice) {
-    return { text: formatIndianRupee(player.soldPrice), className: "text-green-400 font-mono font-semibold" };
+    return { text: formatIndianRupee(player.soldPrice, unit), className: "text-emerald-300 font-mono font-semibold" };
   }
   if (player.status === "retained" && player.retainedPrice) {
-    return { text: formatIndianRupee(player.retainedPrice), className: "text-purple-400 font-mono font-semibold" };
+    return { text: formatIndianRupee(player.retainedPrice, unit), className: "text-purple-300 font-mono font-semibold" };
   }
-  return { text: "—", className: "text-muted-foreground" };
+  return { text: "—", className: "text-muted-foreground/50 font-mono" };
 }
 
 function playerBaseValueForSort(player: { basePrice?: number | null }) {
@@ -1926,40 +1992,87 @@ function MultiFilterPopover({
 
 type StatusFilterValue = "all" | "available" | "sold" | "retained" | "unsold" | "withdrawn";
 
-const STATUS_FILTER_CHIPS: { value: StatusFilterValue; label: string; idleClass: string; activeClass: string }[] = [
-  { value: "all", label: "All", idleClass: "text-muted-foreground", activeClass: "bg-muted/60 text-foreground border-border" },
-  { value: "available", label: "Available", idleClass: "text-blue-300/80", activeClass: "bg-blue-500/20 text-blue-200 border-blue-500/40" },
-  { value: "retained", label: "Retained", idleClass: "text-purple-300/80", activeClass: "bg-purple-500/20 text-purple-200 border-purple-500/40" },
-  { value: "sold", label: "Sold", idleClass: "text-green-300/80", activeClass: "bg-green-500/20 text-green-200 border-green-500/40" },
-  { value: "unsold", label: "Unsold", idleClass: "text-red-300/80", activeClass: "bg-red-500/20 text-red-200 border-red-500/40" },
-  { value: "withdrawn", label: "Withdrawn", idleClass: "text-amber-300/80", activeClass: "bg-amber-500/20 text-amber-200 border-amber-500/40" },
+const STATUS_FILTER_TABS: {
+  value: StatusFilterValue;
+  label: string;
+  dotClass?: string;
+  activeClass: string;
+}[] = [
+  {
+    value: "all",
+    label: "All",
+    activeClass: "bg-card border-border text-foreground font-semibold shadow-xs ring-1 ring-border",
+  },
+  {
+    value: "available",
+    label: "Available",
+    dotClass: "bg-blue-400",
+    activeClass: "bg-blue-500/15 border-blue-500/40 text-blue-200 font-semibold ring-1 ring-blue-500/30",
+  },
+  {
+    value: "retained",
+    label: "Retained",
+    dotClass: "bg-purple-400",
+    activeClass: "bg-purple-500/15 border-purple-500/40 text-purple-200 font-semibold ring-1 ring-purple-500/30",
+  },
+  {
+    value: "sold",
+    label: "Sold",
+    dotClass: "bg-emerald-400",
+    activeClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-200 font-semibold ring-1 ring-emerald-500/30",
+  },
+  {
+    value: "unsold",
+    label: "Unsold",
+    dotClass: "bg-rose-400",
+    activeClass: "bg-rose-500/15 border-rose-500/40 text-rose-200 font-semibold ring-1 ring-rose-500/30",
+  },
+  {
+    value: "withdrawn",
+    label: "Withdrawn",
+    dotClass: "bg-amber-400",
+    activeClass: "bg-amber-500/15 border-amber-500/40 text-amber-200 font-semibold ring-1 ring-amber-500/30",
+  },
 ];
 
-function StatusFilterChip({
+function StatusInventoryTab({
   label,
   count,
   active,
-  onClick,
-  idleClass,
+  dotClass,
   activeClass,
+  onClick,
 }: {
   label: string;
   count: number;
   active: boolean;
-  onClick: () => void;
-  idleClass: string;
+  dotClass?: string;
   activeClass: string;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
-        active ? activeClass : `bg-card border-border hover:bg-accent/50 ${idleClass}`
-      }`}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all shrink-0 cursor-pointer",
+        active
+          ? activeClass
+          : "bg-card/30 border-border/40 text-muted-foreground hover:bg-card/60 hover:text-foreground hover:border-border/70",
+      )}
     >
-      {label}
-      <span className={active ? "opacity-90" : "opacity-70"}>({count})</span>
+      {dotClass && (
+        <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)} aria-hidden />
+      )}
+      <span>{label}</span>
+      <span
+        className={cn(
+          "font-mono text-[11px] tabular-nums px-1.5 py-0.5 rounded-md leading-none",
+          active ? "bg-white/10 text-foreground font-semibold" : "bg-white/[0.04] text-muted-foreground/70",
+        )}
+      >
+        {count}
+      </span>
     </button>
   );
 }
@@ -1982,19 +2095,29 @@ function SortableTableHead({
   title?: string;
 }) {
   const active = activeKey === sortKey;
+  const isRight = className?.includes("text-right");
+  const isCenter = className?.includes("text-center");
   return (
     <TableHead className={className}>
       <button
         type="button"
         title={title}
-        className="inline-flex items-center gap-1 font-semibold hover:text-foreground transition-colors"
+        className={cn(
+          "inline-flex items-center gap-1 font-semibold hover:text-foreground transition-colors cursor-pointer",
+          isRight && "w-full justify-end",
+          isCenter && "w-full justify-center",
+        )}
         onClick={() => onSort(sortKey)}
       >
-        {label}
+        <span>{label}</span>
         {active ? (
-          sortDir === "asc" ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />
+          sortDir === "asc" ? (
+            <ArrowUp className="w-3.5 h-3.5 text-primary" />
+          ) : (
+            <ArrowDown className="w-3.5 h-3.5 text-primary" />
+          )
         ) : (
-          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+          <ArrowUpDown className="w-3 h-3 opacity-35" />
         )}
       </button>
     </TableHead>
@@ -2002,18 +2125,19 @@ function SortableTableHead({
 }
 
 const statusBorderAccent: Record<string, string> = {
-  available: "border-l-blue-500",
-  sold: "border-l-green-500",
-  unsold: "border-l-red-500",
-  retained: "border-l-purple-500",
+  available: "border-l-blue-500/60",
+  sold: "border-l-emerald-500/60",
+  unsold: "border-l-rose-500/60",
+  retained: "border-l-purple-500/60",
+  withdrawn: "border-l-amber-500/60",
 };
 
 function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: string | null; name: string; gender?: string | null; size?: "sm" | "lg" }) {
-  const dim = size === "lg" ? "w-16 h-16" : "w-9 h-9";
-  const iconDim = size === "lg" ? "w-7 h-7" : "w-4 h-4";
+  const dim = size === "lg" ? "w-14 h-14" : "w-8 h-8";
+  const iconDim = size === "lg" ? "w-6 h-6" : "w-3.5 h-3.5";
   const portraitGender = mapStoredGenderToPortrait(gender);
   return (
-    <div className={`${dim} rounded-full bg-card border border-border flex items-center justify-center overflow-hidden shrink-0`}>
+    <div className={`${dim} rounded-full bg-muted/20 border border-border/30 flex items-center justify-center overflow-hidden shrink-0`}>
       {photoUrl ? (
         <img
           src={cldUrl(photoUrl, "thumbnail")}
@@ -2023,9 +2147,9 @@ function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: strin
           decoding="async"
         />
       ) : portraitGender === "female" ? (
-        <UserRound className={`${iconDim} text-muted-foreground/50`} aria-hidden />
+        <UserRound className={`${iconDim} text-muted-foreground/35`} aria-hidden />
       ) : (
-        <User className={`${iconDim} text-muted-foreground/50`} aria-hidden />
+        <User className={`${iconDim} text-muted-foreground/35`} aria-hidden />
       )}
     </div>
   );
@@ -2059,6 +2183,7 @@ function PlayerDetailPanel({
   onDelete,
   onWithdraw,
   onReinstate,
+  auctionUnit = "rupee",
 }: {
   player: any;
   cat: { name: string; colorCode?: string | null } | null;
@@ -2072,6 +2197,7 @@ function PlayerDetailPanel({
   onDelete: () => void;
   onWithdraw: () => void;
   onReinstate: () => void;
+  auctionUnit?: AuctionUnit;
 }) {
   const tagTheme = getTagTheme(player.playerTag);
   const sportCaps = getSportCapabilities(tournament?.sport);
@@ -2109,9 +2235,7 @@ function PlayerDetailPanel({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            <Badge variant="outline" className={`text-[10px] font-semibold capitalize ${statusColors[player.status] || ""}`}>
-              {statusLabels[player.status] || player.status}
-            </Badge>
+            <StatusBadge status={player.status} />
             {categories && categories.length > 0 ? (
               <PlayerCategorySelect
                 tournamentId={tournamentId}
@@ -2190,7 +2314,7 @@ function PlayerDetailPanel({
         {player.basePrice != null && player.basePrice > 0 && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Base Price</p>
-            <p className="font-mono text-primary">{formatIndianRupee(player.basePrice)}</p>
+            <p className="font-mono text-primary">{formatIndianRupee(player.basePrice, auctionUnit)}</p>
           </div>
         )}
         <div>
@@ -2200,7 +2324,7 @@ function PlayerDetailPanel({
         {player.bidValueSource === "player" && player.selectedBidValue != null && player.selectedBidValue > 0 && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Selected Bid Value</p>
-            <p className="font-mono text-primary">{formatIndianRupee(player.selectedBidValue)}</p>
+            <p className="font-mono text-primary">{formatIndianRupee(player.selectedBidValue, auctionUnit)}</p>
           </div>
         )}
         {specValues.map((val, i) => {
@@ -2234,13 +2358,13 @@ function PlayerDetailPanel({
         {player.status === "sold" && player.soldPrice && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Sold For</p>
-            <p className="font-mono font-semibold text-green-400">{formatIndianRupee(player.soldPrice)}</p>
+            <p className="font-mono font-semibold text-green-400">{formatIndianRupee(player.soldPrice, auctionUnit)}</p>
           </div>
         )}
         {player.status === "retained" && player.retainedPrice && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Retained At</p>
-            <p className="font-mono font-semibold text-purple-400">{formatIndianRupee(player.retainedPrice)}</p>
+            <p className="font-mono font-semibold text-purple-400">{formatIndianRupee(player.retainedPrice, auctionUnit)}</p>
           </div>
         )}
         {player.achievements && (
@@ -2259,6 +2383,16 @@ function PlayerDetailPanel({
             >
               Crichero Profile <ExternalLink className="w-3 h-3" />
             </a>
+          </div>
+        )}
+        {tournament?.enableRegistrationPayment && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Payment</p>
+            <PlayerPaymentStatusSelect
+              tournamentId={tournamentId}
+              playerId={player.id}
+              status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+            />
           </div>
         )}
       </div>
@@ -2375,6 +2509,18 @@ function PlayerPaymentStatusSelect({
     </Select>
   );
 }
+
+const SORT_LABEL_MAP: Record<string, string> = {
+  "id:asc": "Serial #",
+  "id:desc": "Serial # ↓",
+  "name:asc": "Name A–Z",
+  "name:desc": "Name Z–A",
+  "status:asc": "Status",
+  "category:asc": "Category",
+  "baseValue:desc": "Base value ↓",
+  "amount:desc": "Sold amount ↓",
+  "team:asc": "Team",
+};
 
 // ─── Players Page ──────────────────────────────────────────────────────────────
 
@@ -2694,8 +2840,9 @@ export default function Players() {
 
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
+  const auctionUnit = normalizeAuctionUnit(tournament?.auctionUnit);
 
-  const tableColCount = 9 + (hasCategories ? 1 : 0) + (paymentEnabled ? 1 : 0);
+  const tableColCount = 9 + (hasCategories ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -2721,10 +2868,10 @@ export default function Players() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {/* Phase 4: flow guard — need 2+ teams before adding players makes sense */}
         {!isLoading && teamCount < 2 && (players?.length ?? 0) === 0 && (
-          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-5 flex items-start gap-3 max-w-xl">
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-xl">
             <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-amber-300 text-sm">Add at least 2 teams first</p>
@@ -2734,25 +2881,106 @@ export default function Players() {
             </div>
           </div>
         )}
-        <OrganizerSectionHeader
-          tournament={tournament}
-          title="Players"
-          description={
-            <>
-              {players?.length || 0} players registered
-              {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
-            </>
-          }
-        />
 
+        {/* 1. Context & Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2.5 pb-2.5 border-b border-border/30">
+          <div className="min-w-0 flex-1">
+            <TournamentContextLabel tournament={tournament} className="mb-0.5" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              Players
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage registered, retained and auction players.
+            </p>
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{players?.length || 0} registered</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-purple-300/85 font-medium">{retainedCount} retained</span>
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="h-8.5 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs sm:text-sm gap-2 shadow-xs rounded-lg cursor-pointer transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Players</span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 p-1.5 dark border-border/60 bg-popover/95 backdrop-blur-md shadow-xl">
+                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Add Players
+                </div>
+                <div className="h-px bg-border/30 my-1 -mx-1" />
+
+                <DropdownMenuItem
+                  onClick={() => { setEditing(null); setOpen(true); }}
+                  className="flex items-start gap-2.5 p-2 rounded-md cursor-pointer hover:bg-accent/60 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5 text-primary">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-xs text-foreground leading-tight">Add manually</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Enter one player&apos;s details</p>
+                  </div>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => setBulkOpen(true)}
+                  className="flex items-start gap-2.5 p-2 rounded-md cursor-pointer hover:bg-accent/60 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5 text-blue-400">
+                    <Upload className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-xs text-foreground leading-tight">Upload Excel</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Add multiple players from spreadsheet</p>
+                  </div>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => setRegSettingsOpen(true)}
+                  className="flex items-start gap-2.5 p-2 rounded-md cursor-pointer hover:bg-accent/60 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400">
+                    <ExternalLink className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-xs text-foreground leading-tight">Share registration link</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Let players register themselves</p>
+                  </div>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => setImportOpen(true)}
+                  className="flex items-start gap-2.5 p-2 rounded-md cursor-pointer hover:bg-accent/60 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5 text-amber-400">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-xs text-foreground leading-tight">Import from tournament</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Reuse players from another tournament</p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Serial gaps warning banner */}
         {!isLoading && serialGaps && (players?.length ?? 0) > 0 ? (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex items-start gap-3 min-w-0 flex-1">
-              <ListOrdered className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <ListOrdered className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-sm text-amber-100">Auction order (#) has gaps</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  After players were removed, serial numbers may show as 1, 3, 7… Renumber to continuous 1, 2, 3… (same relative order).
+                <p className="font-medium text-xs text-amber-100">Auction order (#) has gaps</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Renumber players to continuous 1, 2, 3… preserving relative order.
                 </p>
               </div>
             </div>
@@ -2760,280 +2988,153 @@ export default function Players() {
               type="button"
               variant="outline"
               size="sm"
-              className="shrink-0 border-amber-500/40 hover:bg-amber-500/15"
+              className="shrink-0 h-7 text-xs border-amber-500/40 hover:bg-amber-500/15 cursor-pointer"
               disabled={renumberingSerial}
               onClick={() => void handleCompactSerialNumbers()}
             >
               {renumberingSerial ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
               ) : (
-                <ListOrdered className="w-4 h-4 mr-2" />
+                <ListOrdered className="w-3.5 h-3.5 mr-1.5" />
               )}
               Fix serial numbers
             </Button>
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <button
-            type="button"
-            onClick={() => { setEditing(null); setOpen(true); }}
-            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                <Plus className="w-5 h-5 text-primary" />
-              </div>
-              <p className="font-semibold">Add one by one</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Enter player details manually — best for a small list or last-minute additions.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setBulkOpen(true)}
-            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                <Upload className="w-5 h-5 text-primary" />
-              </div>
-              <p className="font-semibold">Upload Excel sheet</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Bulk upload from a spreadsheet — fastest way to add 20+ players at once.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setRegSettingsOpen(true)}
-            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                <ExternalLink className="w-5 h-5 text-primary" />
-              </div>
-              <p className="font-semibold">Share registration link</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Players fill their own details — entries appear here automatically.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setImportOpen(true)}
-            className="text-left org-surface-card p-5 hover:border-primary/40 transition-colors"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                <Download className="w-5 h-5 text-primary" />
-              </div>
-              <p className="font-semibold">Import from tournament</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Copy players from a past auction — skip re-entering names and details.</p>
-          </button>
+        {/* 2. Inventory: Status Summary Controls */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 min-w-0">
+          {STATUS_FILTER_TABS.map(tabItem => (
+            <StatusInventoryTab
+              key={tabItem.value}
+              label={tabItem.label}
+              count={statusCounts[tabItem.value]}
+              active={tab === tabItem.value}
+              dotClass={tabItem.dotClass}
+              activeClass={tabItem.activeClass}
+              onClick={() => setTab(tabItem.value)}
+            />
+          ))}
+          {filtered.length !== statusCounts[tab === "all" ? "all" : tab] && (
+            <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap px-1.5 font-medium">
+              Showing {filtered.length} of {statusCounts[tab === "all" ? "all" : tab]}
+            </span>
+          )}
         </div>
 
-        <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Share registration link</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground -mt-2">
-              Share this link before auction day. Players register themselves and appear in your list automatically.
-            </p>
-            {regStatus && (
-              <div className="pt-1">
-                {regStatus.open ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
-                    <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
-                  </span>
-                ) : regStatus.reason === "deadline_passed" ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                    <CalendarX className="w-3 h-3" /> Closed — deadline passed
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                    <Lock className="w-3 h-3" /> Closed — limit reached
-                  </span>
-                )}
-              </div>
+        {/* 3. Find: Search Bar */}
+        <div className="relative w-full">
+          <Search className="absolute left-2.75 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/45 pointer-events-none" />
+          <Input
+            placeholder="Search by serial #, player name or mobile…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="h-9 pl-8.5 pr-8 text-xs sm:text-sm bg-card/25 border-border/40 hover:border-border/70 focus-visible:border-primary/50 rounded-lg w-full placeholder:text-muted-foreground/40 transition-colors"
+          />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* 4. Filter & Tools */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <MultiFilterPopover
+              label="Team"
+              options={teamOptions}
+              selected={teamIds}
+              onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
+              onClear={() => setTeamIds(new Set())}
+              disabled={!teamFilterEnabled}
+            />
+            <MultiFilterPopover
+              label="Tag"
+              options={tagOptions}
+              selected={tagFilters}
+              onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
+              onClear={() => setTagFilters(new Set())}
+            />
+            <MultiFilterPopover
+              label="Gender"
+              options={genderOptions}
+              selected={genderFilters}
+              onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
+              onClear={() => setGenderFilters(new Set())}
+            />
+            {hasCategories && (
+              <MultiFilterPopover
+                label="Category"
+                options={categoryOptions}
+                selected={categoryIds}
+                onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
+                onClear={() => setCategoryIds(new Set())}
+              />
             )}
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3">
-              {regUrl ? (
-                <>
-                  <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
-                  <CopyTextButton text={regUrl} label="Copy link" />
-                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
-                    <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="w-3 h-3" /> WhatsApp
-                    </a>
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
-                    <ExternalLink className="w-3 h-3" /> Open
-                  </Button>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Registration link is unavailable until this tournament has an auction code.
-                </p>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground border-t border-border/50 pt-3">
-              Configure registration deadline, payment, and declaration in{" "}
-              <a
-                href={settingsPath(tournamentId, "playerRegistration")}
-                className="text-primary font-medium hover:underline"
+            {hasAdvancedFilters && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-foreground cursor-pointer"
+                onClick={clearAdvancedFilters}
               >
-                Tournament Settings → Player Registration
-              </a>
-              .
-            </p>
-            <DialogFooter>
-              <Button type="button" onClick={() => setRegSettingsOpen(false)}>
-                Done
+                <X className="w-3 h-3" /> Clear
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            )}
+          </div>
 
-        <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
-          <DialogContent
-            className="max-w-lg dark"
-            onPointerDownOutside={e => e.preventDefault()}
-            onEscapeKeyDown={e => e.preventDefault()}
-          >
-            <OrganizerFormDialogHeader
-              tournament={tournament}
-              title={editing ? "Edit Player" : "Add Player"}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <Select
+              value={`${sortKey}:${sortDir}`}
+              onValueChange={v => {
+                const [k, d] = v.split(":") as [PlayerSortKey, SortDir];
+                setSortKey(k);
+                setSortDir(d);
+              }}
+            >
+              <SelectTrigger className="h-8 px-2.5 text-xs bg-card/30 border-border/40 hover:bg-card/50 hover:border-border/70 text-foreground cursor-pointer transition-colors gap-1 shrink-0 font-medium">
+                <span className="text-muted-foreground font-normal">Sort:</span>
+                <span>{SORT_LABEL_MAP[`${sortKey}:${sortDir}`] || "Serial #"}</span>
+              </SelectTrigger>
+              <SelectContent className="dark">
+                <SelectItem value="id:asc">Serial # ↑</SelectItem>
+                <SelectItem value="id:desc">Serial # ↓</SelectItem>
+                <SelectItem value="name:asc">Name A–Z</SelectItem>
+                <SelectItem value="name:desc">Name Z–A</SelectItem>
+                <SelectItem value="status:asc">Status</SelectItem>
+                {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
+                <SelectItem value="baseValue:desc">Base value ↓</SelectItem>
+                <SelectItem value="amount:desc">Sold amount ↓</SelectItem>
+                <SelectItem value="team:asc">Team → Name</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <PlayersExportMenu
+              filteredCount={filtered.length}
+              exportingTarget={exportingTarget}
+              onExportExcel={() => void handleExportExcel()}
+              onExportCsv={() => void handleExportCsv()}
+              googleSheetsStatus={googleSheetsStatus}
+              sheetsConnected={sheetsConnected}
+              sheetsNeedsReconnect={sheetsNeedsReconnect}
+              sheetsIsSyncing={sheetsIsSyncing}
+              isConnecting={isConnecting}
+              syncSuccessFlash={syncSuccessFlash}
+              showDisconnectDialog={showDisconnectDialog}
+              onShowDisconnectDialog={setShowDisconnectDialog}
+              onConnect={() => void handleConnectGoogleSheets()}
+              onSyncNow={() => void handleSyncGoogleSheetsNow()}
+              onOpenSheet={() => void handleOpenGoogleSheet()}
+              onReconnect={() => handleReconnectGoogleSheets()}
+              onConfirmDisconnect={() => void confirmDisconnectGoogleSheet()}
             />
-            <PlayerForm
-              key={editing?.id ?? "new"}
-              tournamentId={tournamentId}
-              player={editing}
-              tournamentPlayers={players || []}
-              categories={categories || []}
-              teams={teams || []}
-              tournament={tournament}
-              onClose={() => { setOpen(false); setEditing(null); }}
-            />
-          </DialogContent>
-        </Dialog>
-
-        <div className="rounded-xl border border-border/60 bg-card/25 px-2.5 py-2">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-            <div className="relative shrink-0 w-full sm:w-[220px]">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search serial, name, mobile…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
-
-            <div className="hidden sm:block w-px h-5 bg-border shrink-0" aria-hidden />
-
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 flex-1">
-              {STATUS_FILTER_CHIPS.map(chip => (
-                <StatusFilterChip
-                  key={chip.value}
-                  label={chip.label}
-                  count={statusCounts[chip.value]}
-                  active={tab === chip.value}
-                  onClick={() => setTab(chip.value)}
-                  idleClass={chip.idleClass}
-                  activeClass={chip.activeClass}
-                />
-              ))}
-              {filtered.length !== statusCounts.all && (
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap px-1">
-                  {filtered.length}/{statusCounts.all}
-                </span>
-              )}
-            </div>
-
-            <div className="hidden lg:block w-px h-5 bg-border shrink-0" aria-hidden />
-
-            <div className="flex items-center gap-1 shrink-0">
-              {hasCategories && (
-                <MultiFilterPopover
-                  label="Category"
-                  options={categoryOptions}
-                  selected={categoryIds}
-                  onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
-                  onClear={() => setCategoryIds(new Set())}
-                />
-              )}
-              <MultiFilterPopover
-                label="Team"
-                options={teamOptions}
-                selected={teamIds}
-                onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
-                onClear={() => setTeamIds(new Set())}
-                disabled={!teamFilterEnabled}
-              />
-              <MultiFilterPopover
-                label="Tag"
-                options={tagOptions}
-                selected={tagFilters}
-                onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
-                onClear={() => setTagFilters(new Set())}
-              />
-              <MultiFilterPopover
-                label="Gender"
-                options={genderOptions}
-                selected={genderFilters}
-                onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
-                onClear={() => setGenderFilters(new Set())}
-              />
-              {hasAdvancedFilters && (
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={clearAdvancedFilters}>
-                  <X className="w-3 h-3" /> Clear
-                </Button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0 sm:ml-auto">
-              <Select
-                value={`${sortKey}:${sortDir}`}
-                onValueChange={v => {
-                  const [k, d] = v.split(":") as [PlayerSortKey, SortDir];
-                  setSortKey(k);
-                  setSortDir(d);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[128px] text-xs gap-1">
-                  <SlidersHorizontal className="w-3 h-3 shrink-0" />
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="id:asc">Serial # ↑</SelectItem>
-                  <SelectItem value="id:desc">Serial # ↓</SelectItem>
-                  <SelectItem value="name:asc">Name A–Z</SelectItem>
-                  <SelectItem value="name:desc">Name Z–A</SelectItem>
-                  <SelectItem value="status:asc">Status</SelectItem>
-                  {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
-                  <SelectItem value="baseValue:desc">Base value ↓</SelectItem>
-                  <SelectItem value="amount:desc">Sold amount ↓</SelectItem>
-                  <SelectItem value="team:asc">Team → Name</SelectItem>
-                </SelectContent>
-              </Select>
-              <PlayersExportMenu
-                filteredCount={filtered.length}
-                exportingTarget={exportingTarget}
-                onExportExcel={() => void handleExportExcel()}
-                onExportCsv={() => void handleExportCsv()}
-                googleSheetsStatus={googleSheetsStatus}
-                sheetsConnected={sheetsConnected}
-                sheetsNeedsReconnect={sheetsNeedsReconnect}
-                sheetsIsSyncing={sheetsIsSyncing}
-                isConnecting={isConnecting}
-                syncSuccessFlash={syncSuccessFlash}
-                showDisconnectDialog={showDisconnectDialog}
-                onShowDisconnectDialog={setShowDisconnectDialog}
-                onConnect={() => void handleConnectGoogleSheets()}
-                onSyncNow={() => void handleSyncGoogleSheetsNow()}
-                onOpenSheet={() => void handleOpenGoogleSheet()}
-                onReconnect={() => handleReconnectGoogleSheets()}
-                onConfirmDisconnect={() => void confirmDisconnectGoogleSheet()}
-              />
-            </div>
           </div>
         </div>
 
@@ -3044,6 +3145,7 @@ export default function Players() {
           />
         ) : null}
 
+        {/* 5. Work: Player Table */}
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-12" />)}
@@ -3060,7 +3162,7 @@ export default function Players() {
             <p className="text-xs text-muted-foreground mb-6">
               Make sure you have added at least 2 teams first — players cannot be sold without teams to buy them.
             </p>
-            <Button className="gap-2" onClick={() => setOpen(true)}>
+            <Button className="gap-2 cursor-pointer" onClick={() => setOpen(true)}>
               <Plus className="w-4 h-4" /> Add First Player
             </Button>
           </div>
@@ -3077,7 +3179,7 @@ export default function Players() {
               </p>
             )}
             {hasAdvancedFilters && (
-              <Button variant="outline" size="sm" className="mt-4" onClick={clearAdvancedFilters}>
+              <Button variant="outline" size="sm" className="mt-4 cursor-pointer" onClick={clearAdvancedFilters}>
                 Clear filters
               </Button>
             )}
@@ -3086,37 +3188,37 @@ export default function Players() {
           <>
             <style>{TAG_PULSE_KEYFRAMES}</style>
             {/* Desktop: scannable table + inline expand */}
-            <div className="hidden lg:block rounded-xl border border-border/60 bg-card/20 overflow-x-auto">
+            <div className="hidden lg:block rounded-xl border border-border/40 bg-card/20 overflow-hidden shadow-xs">
               <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border/60">
+                <TableHeader className="bg-muted/25 border-b border-border/40">
+                  <TableRow className="hover:bg-transparent border-0">
                     <SortableTableHead
-                      label="Serial #"
+                      label="#"
                       sortKey="id"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="w-14 text-right"
+                      className="w-12 text-center text-xs font-mono text-muted-foreground/60"
                     />
-                    <TableHead className="w-12">Photo</TableHead>
+                    <TableHead className="w-12 text-center text-xs text-muted-foreground/60">Photo</TableHead>
                     <SortableTableHead
                       label="Player Name"
                       sortKey="name"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[160px]"
+                      className="min-w-[170px] text-xs font-semibold text-foreground/90"
                     />
-                    <TableHead className="min-w-[120px]">Mobile</TableHead>
+                    <TableHead className="min-w-[120px] text-xs text-muted-foreground/60">Mobile</TableHead>
                     {hasCategories && (
-                    <SortableTableHead
-                      label="Category"
-                      sortKey="category"
-                      activeKey={sortKey}
-                      sortDir={sortDir}
-                      onSort={handleSort}
-                      className="min-w-[140px]"
-                    />
+                      <SortableTableHead
+                        label="Category"
+                        sortKey="category"
+                        activeKey={sortKey}
+                        sortDir={sortDir}
+                        onSort={handleSort}
+                        className="min-w-[130px] text-xs text-muted-foreground/60"
+                      />
                     )}
                     <SortableTableHead
                       label="Status"
@@ -3124,11 +3226,8 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px]"
+                      className="min-w-[110px] text-xs text-muted-foreground/60"
                     />
-                    {paymentEnabled && (
-                      <TableHead className="min-w-[120px]">Payment</TableHead>
-                    )}
                     <SortableTableHead
                       label="Base value"
                       title="Starting bid value from auction settings, player selection, or category"
@@ -3136,7 +3235,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px] text-right"
+                      className="min-w-[100px] text-right text-xs text-muted-foreground/60"
                     />
                     <SortableTableHead
                       label="Sold at"
@@ -3145,7 +3244,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px] text-right"
+                      className="min-w-[100px] text-right text-xs text-muted-foreground/60"
                     />
                     <SortableTableHead
                       label="Team"
@@ -3153,9 +3252,9 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[120px]"
+                      className="min-w-[120px] text-xs text-muted-foreground/60"
                     />
-                    <TableHead className="w-20 text-right"> </TableHead>
+                    <TableHead className="w-20 text-right pr-4 text-xs text-muted-foreground/60">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3163,8 +3262,8 @@ export default function Players() {
                     const cat = player.categoryId ? catMap[player.categoryId] : null;
                     const team = player.teamId ? teamMap[player.teamId] : null;
                     const tagTeam = player.playerTagTeamId ? teamMap[player.playerTagTeamId] : null;
-                    const baseValue = formatPlayerBaseValue(player);
-                    const soldAt = formatSoldAtAmount(player);
+                    const baseValue = formatPlayerBaseValue(player, auctionUnit);
+                    const soldAt = formatSoldAtAmount(player, auctionUnit);
                     const showTeam = player.status === "sold" || player.status === "retained";
                     const isExpanded = expandedId === player.id;
                     const roleSpecGroups = roleSpecMap.get((player.role || "").toLowerCase().trim()) || [];
@@ -3172,27 +3271,31 @@ export default function Players() {
                     return (
                       <Fragment key={player.id}>
                         <TableRow
-                          className={`border-border/40 cursor-pointer border-l-2 ${statusBorderAccent[player.status] || "border-l-transparent"} ${isExpanded ? "bg-muted/20" : ""}`}
+                          className={cn(
+                            "border-b border-white/[0.04] last:border-0 hover:bg-white/[0.03] transition-colors cursor-pointer border-l-2",
+                            statusBorderAccent[player.status] || "border-l-transparent",
+                            isExpanded && "bg-white/[0.04]",
+                          )}
                           onClick={() => toggleExpand(player.id)}
                         >
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                          <TableCell className="text-center font-mono text-[11px] text-muted-foreground/45 tabular-nums py-2.5">
                             {player.serialNo ?? player.id}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-2.5">
                             <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-2.5">
                             <div className="flex flex-col gap-0.5 min-w-0">
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-semibold truncate">{player.name}</span>
+                                <span className="font-semibold text-foreground text-[13.5px] leading-snug tracking-tight truncate">{player.name}</span>
                                 {tagTheme && (
                                   <Badge
                                     variant="outline"
                                     className="text-[9px] font-bold tracking-wider shrink-0"
                                     style={{
-                                      color: tagTheme.color,
-                                      borderColor: tagTheme.border,
-                                      background: tagTheme.bg,
+                                       color: tagTheme.color,
+                                       borderColor: tagTheme.border,
+                                       background: tagTheme.bg,
                                     }}
                                   >
                                     {tagTheme.label}
@@ -3201,77 +3304,80 @@ export default function Players() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
+                          <TableCell className="font-mono text-[11px] text-muted-foreground/50 py-2.5">
                             {player.mobileNumber || "—"}
                           </TableCell>
                           {hasCategories && (
-                          <TableCell onClick={e => e.stopPropagation()}>
-                            <PlayerCategorySelect
-                              tournamentId={tournamentId}
-                              playerId={player.id}
-                              categoryId={player.categoryId}
-                              categories={categories || []}
-                            />
-                          </TableCell>
-                          )}
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] font-semibold capitalize ${statusColors[player.status] || ""}`}
-                            >
-                              {statusLabels[player.status] || player.status}
-                            </Badge>
-                          </TableCell>
-                          {paymentEnabled && (
-                            <TableCell onClick={e => e.stopPropagation()}>
-                              <PlayerPaymentStatusSelect
+                            <TableCell className="py-2.5" onClick={e => e.stopPropagation()}>
+                              <PlayerCategorySelect
                                 tournamentId={tournamentId}
                                 playerId={player.id}
-                                status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                                categoryId={player.categoryId}
+                                categories={categories || []}
                               />
                             </TableCell>
                           )}
-                          <TableCell className={`text-right text-sm ${baseValue.className}`}>
+                          <TableCell className="py-2.5">
+                            <StatusBadge status={player.status} />
+                          </TableCell>
+                          <TableCell className={`text-right text-xs sm:text-sm font-mono text-foreground/75 py-2.5 ${baseValue.className}`}>
                             {baseValue.text}
                           </TableCell>
-                          <TableCell className={`text-right text-sm ${soldAt.className}`}>
+                          <TableCell className={`text-right text-xs sm:text-sm font-mono font-semibold py-2.5 ${soldAt.className}`}>
                             {soldAt.text}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-2.5">
                             {showTeam && team ? (
                               <span className="text-sm font-medium truncate block" style={{ color: team.color || undefined }}>
                                 {team.name}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
+                              <span className="text-muted-foreground/45 text-xs">—</span>
                             )}
                           </TableCell>
-                          <TableCell onClick={e => e.stopPropagation()}>
-                            <div className="flex justify-end gap-0.5">
+                          <TableCell className="py-2.5 pr-4" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8"
+                                className="h-6.5 w-6.5 text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] cursor-pointer"
                                 onClick={() => toggleExpand(player.id)}
                                 title={isExpanded ? "Collapse details" : "Expand details"}
                               >
-                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8" title="More actions">
-                                    <MoreHorizontal className="w-4 h-4" />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6.5 w-6.5 text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] cursor-pointer"
+                                    title="More actions"
+                                  >
+                                    <MoreHorizontal className="w-3.5 h-3.5" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="dark">
                                   <DropdownMenuItem onClick={() => openEdit(player)}>
-                                    <Pencil className="w-4 h-4 mr-2" /> Edit
+                                    <Pencil className="w-3.5 h-3.5 mr-2" /> Edit player
                                   </DropdownMenuItem>
+                                  {player.status === "withdrawn" ? (
+                                    <DropdownMenuItem onClick={() => void handleReinstate({ id: player.id, name: player.name })}>
+                                      <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-400" /> Reinstate
+                                    </DropdownMenuItem>
+                                  ) : player.status !== "sold" && player.status !== "retained" ? (
+                                    <DropdownMenuItem
+                                      className="text-amber-400 focus:text-amber-400"
+                                      onClick={() => void handleWithdraw({ id: player.id, name: player.name })}
+                                    >
+                                      <CalendarX className="w-3.5 h-3.5 mr-2" /> Withdraw
+                                    </DropdownMenuItem>
+                                  ) : null}
                                   <DropdownMenuItem
                                     className="text-destructive focus:text-destructive"
                                     onClick={() => openDelete({ id: player.id, name: player.name })}
                                   >
-                                    <Trash2 className="w-4 h-4 mr-2" /> Delete
+                                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete player
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -3279,8 +3385,8 @@ export default function Players() {
                           </TableCell>
                         </TableRow>
                         {isExpanded && (
-                          <TableRow key={`${player.id}-detail`} className="border-border/40 bg-muted/10 hover:bg-muted/10">
-                            <TableCell colSpan={tableColCount} className="py-3 px-4">
+                          <TableRow key={`${player.id}-detail`} className="border-b border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.02]">
+                            <TableCell colSpan={tableColCount} className="py-3.5 px-5">
                               <PlayerDetailPanel
                                 player={player}
                                 cat={cat}
@@ -3294,6 +3400,7 @@ export default function Players() {
                                 onDelete={() => openDelete({ id: player.id, name: player.name })}
                                 onWithdraw={() => handleWithdraw({ id: player.id, name: player.name })}
                                 onReinstate={() => handleReinstate({ id: player.id, name: player.name })}
+                                auctionUnit={auctionUnit}
                               />
                             </TableCell>
                           </TableRow>
@@ -3310,8 +3417,8 @@ export default function Players() {
               {filtered.map(player => {
                 const cat = player.categoryId ? catMap[player.categoryId] : null;
                 const team = player.teamId ? teamMap[player.teamId] : null;
-                const baseValue = formatPlayerBaseValue(player);
-                const soldAt = formatSoldAtAmount(player);
+                const baseValue = formatPlayerBaseValue(player, auctionUnit);
+                const soldAt = formatSoldAtAmount(player, auctionUnit);
                 const showTeam = player.status === "sold" || player.status === "retained";
                 const tagTheme = getTagTheme(player.playerTag);
                 return (
@@ -3340,16 +3447,18 @@ export default function Players() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {[
-                            player.mobileNumber,
-                            hasCategories ? cat?.name : null,
-                            statusLabels[player.status] || player.status,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                          {showTeam && team ? ` · ${team.name}` : ""}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <StatusBadge status={player.status} />
+                          <span className="text-xs text-muted-foreground truncate">
+                            {[
+                              player.mobileNumber,
+                              hasCategories ? cat?.name : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            {showTeam && team ? ` · ${team.name}` : ""}
+                          </span>
+                        </div>
                       </div>
                       <div className="text-right shrink-0 space-y-0.5">
                         {baseValue.text !== "—" && (
@@ -3378,6 +3487,94 @@ export default function Players() {
           </>
         )}
       </div>
+
+      {/* Share Registration Link Dialog */}
+      <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Share registration link</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Share this link before auction day. Players register themselves and appear in your list automatically.
+          </p>
+          {regStatus && (
+            <div className="pt-1">
+              {regStatus.open ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
+                  <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
+                </span>
+              ) : regStatus.reason === "deadline_passed" ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                  <CalendarX className="w-3 h-3" /> Closed — deadline passed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                  <Lock className="w-3 h-3" /> Closed — limit reached
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3">
+            {regUrl ? (
+              <>
+                <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
+                <CopyTextButton text={regUrl} label="Copy link" />
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                  <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="w-3 h-3" /> WhatsApp
+                  </a>
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
+                  <ExternalLink className="w-3 h-3" /> Open
+                </Button>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Registration link is unavailable until this tournament has an auction code.
+              </p>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground border-t border-border/50 pt-3">
+            Configure registration deadline, payment, and declaration in{" "}
+            <a
+              href={settingsPath(tournamentId, "playerRegistration")}
+              className="text-primary font-medium hover:underline"
+            >
+              Tournament Settings → Player Registration
+            </a>
+            .
+          </p>
+          <DialogFooter>
+            <Button type="button" onClick={() => setRegSettingsOpen(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add / Edit Player Dialog */}
+      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
+        <DialogContent
+          className="max-w-lg dark"
+          onPointerDownOutside={e => e.preventDefault()}
+          onEscapeKeyDown={e => e.preventDefault()}
+        >
+          <OrganizerFormDialogHeader
+            tournament={tournament}
+            title={editing ? "Edit Player" : "Add Player"}
+          />
+          <PlayerForm
+            key={editing?.id ?? "new"}
+            tournamentId={tournamentId}
+            player={editing}
+            tournamentPlayers={players || []}
+            categories={categories || []}
+            teams={teams || []}
+            tournament={tournament}
+            onClose={() => { setOpen(false); setEditing(null); }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk Upload Dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
@@ -3434,6 +3631,7 @@ export default function Players() {
                   onDelete={() => openDelete({ id: drawerPlayer.id, name: drawerPlayer.name })}
                   onWithdraw={() => handleWithdraw({ id: drawerPlayer.id, name: drawerPlayer.name })}
                   onReinstate={() => handleReinstate({ id: drawerPlayer.id, name: drawerPlayer.name })}
+                  auctionUnit={auctionUnit}
                 />
                 <SheetFooter className="mt-4 sm:justify-start" />
               </>
