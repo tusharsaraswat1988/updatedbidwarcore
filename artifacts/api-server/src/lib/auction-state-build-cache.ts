@@ -21,6 +21,7 @@ export type CachedTournamentSettings = {
   maximumSquadSize: number | null;
   minBid: number | null;
   sponsorLogos: string | null;
+  ownerBiddingEnabled: boolean | null;
 };
 
 export type CachedTeamRow = {

@@ -780,6 +780,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/settings:
+    patch:
+      operationId: updateAuctionSettings
+      tags: [auction]
+      summary: Update auction settings (e.g. owner bidding enable/disable)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ownerBiddingEnabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated auction state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/start:
     post:
       operationId: startAuction
@@ -2276,6 +2304,8 @@ components:
           type: integer
         bidExtensionSeconds:
           type: integer
+        ownerBiddingEnabled:
+          type: boolean
         playerSelectionMode:
           type: string
           enum: [sequential, random, manual]
@@ -2569,6 +2599,8 @@ components:
           type: integer
         bidExtensionSeconds:
           type: integer
+        ownerBiddingEnabled:
+          type: boolean
         playerSelectionMode:
           type: string
           enum: [sequential, random, manual]
@@ -3401,6 +3433,8 @@ components:
           type: integer
         bidExtensionSeconds:
           type: integer
+        ownerBiddingEnabled:
+          type: boolean
         fortuneWheelActive:
           type: boolean
         wheelSpinning:

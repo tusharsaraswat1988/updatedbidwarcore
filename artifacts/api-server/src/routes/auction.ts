@@ -539,6 +539,7 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
         maximumSquadSize: tournamentsTable.maximumSquadSize,
         minBid: tournamentsTable.minBid,
         sponsorLogos: tournamentsTable.sponsorLogos,
+        ownerBiddingEnabled: tournamentsTable.ownerBiddingEnabled,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId));
@@ -563,6 +564,7 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
       maximumSquadSize: row?.maximumSquadSize ?? null,
       minBid: row?.minBid ?? null,
       sponsorLogos: row?.sponsorLogos ?? null,
+      ownerBiddingEnabled: row?.ownerBiddingEnabled ?? true,
     };
     tiers = parseBidTiers(tournamentRow.bidTiers, {
       bidTier1UpTo: tournamentRow.bidTier1UpTo ?? 100000,
@@ -931,6 +933,7 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
     bidExtensionEnabled: tournamentRow.bidExtensionEnabled ?? false,
     bidExtensionThresholdSeconds: tournamentRow.bidExtensionThresholdSeconds ?? 3,
     bidExtensionSeconds: tournamentRow.bidExtensionSeconds ?? 5,
+    ownerBiddingEnabled: tournamentRow.ownerBiddingEnabled ?? true,
     mainRoundExhausted:
       session.status === "active" && availableCount === 0 && unsoldCount > 0,
     lastAction: session.lastAction,
@@ -989,9 +992,14 @@ function invalidateStateCache(tournamentId: number) {
   _stateCache.delete(tournamentId);
 }
 
+function resetAuctionStateCacheForTests() {
+  _stateCache.clear();
+}
+
 function resolveBuildCacheInvalidation(invalidate: string[]): AuctionBuildCacheScope | null {
   if (invalidate.includes("purses") && invalidate.includes("players")) return "all";
   if (invalidate.includes("purses") || invalidate.includes("players")) return "roster";
+  if (invalidate.includes("static") || invalidate.includes("settings")) return "static";
   return null;
 }
 
@@ -1209,6 +1217,60 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   res.json(await getCachedOrBuildState(tid));
 });
+
+// PATCH/POST auction settings (e.g. owner bidding enable/disable)
+const handleUpdateAuctionSettings = async (req: import("express").Request, res: import("express").Response) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const schema = z.object({
+    ownerBiddingEnabled: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid settings payload", details: parsed.error.issues });
+    return;
+  }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  if (parsed.data.ownerBiddingEnabled !== undefined) {
+    const previousValue = tournament.ownerBiddingEnabled ?? true;
+    const newValue = parsed.data.ownerBiddingEnabled;
+
+    auditLog(req, {
+      category: "auction",
+      action: newValue ? "auction.owner_bidding_enabled" : "auction.owner_bidding_disabled",
+      summary: `Online owner bidding ${newValue ? "enabled" : "disabled"}`,
+      tournamentId: tid,
+      resource: { type: "tournament", id: tid },
+      metadata: {
+        previousValue,
+        newValue,
+      },
+    });
+
+    await db
+      .update(tournamentsTable)
+      .set({ ownerBiddingEnabled: newValue })
+      .where(eq(tournamentsTable.id, tid));
+
+    invalidateAuctionBuildCache(tid, "static");
+    invalidateStateCache(tid);
+  }
+
+  const state = await getCachedOrBuildState(tid);
+  await emitAuctionStateEvent(tid, state, ["static"]);
+  res.json(state);
+};
+
+router.patch("/tournaments/:tournamentId/auction/settings", handleUpdateAuctionSettings);
+router.post("/tournaments/:tournamentId/auction/settings", handleUpdateAuctionSettings);
 
 // ── Operator session lock (one controlling tab per tournament) ───────────────
 
@@ -1572,6 +1634,15 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   // bids from both succeeding on the same session state.
   const currentRevision = session.revision ?? 0;
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+
+  if (tournament && tournament.ownerBiddingEnabled === false) {
+    res.status(403).json({
+      success: false,
+      error: "OWNER_BIDDING_DISABLED",
+      message: "Online owner bidding is currently disabled by the organizer.",
+    });
+    return;
+  }
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No player currently up for bid" }); return; }
   if (session.status !== "active") { res.status(400).json({ error: "Auction is not active" }); return; }
@@ -3610,4 +3681,4 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
 });
 
 export default router;
-export { broadcastState, getOrCreateSession, invalidateStateCache, invalidateAuctionBuildCache };
+export { broadcastState, getOrCreateSession, invalidateStateCache, invalidateAuctionBuildCache, resetAuctionStateCacheForTests };

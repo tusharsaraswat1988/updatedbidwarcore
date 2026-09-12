@@ -24,6 +24,7 @@ export const tournamentsTable = sqliteTable("tournaments", {
   bidTiers: text("bid_tiers"),
   timerSeconds: integer("timer_seconds").notNull().default(30),
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(15),
+  ownerBiddingEnabled: integer("owner_bidding_enabled", { mode: "boolean" }).notNull().default(true),
   playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
   minimumSquadSize: integer("minimum_squad_size").notNull().default(0),
   maximumSquadSize: integer("maximum_squad_size").notNull().default(0),

@@ -332,6 +332,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidExtensionEnabled: z.boolean().optional(),
     bidExtensionThresholdSeconds: z.number().int().min(1).max(60).optional(),
     bidExtensionSeconds: z.number().int().min(1).max(120).optional(),
+    ownerBiddingEnabled: z.boolean().optional(),
     playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
     status: z.enum(TOURNAMENT_LIFECYCLE_STATUSES).optional(),
     registrationDeadline: z.string().nullable().optional(),
@@ -490,6 +491,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidExtensionEnabled !== undefined) updates.bidExtensionEnabled = d.bidExtensionEnabled;
   if (d.bidExtensionThresholdSeconds !== undefined) updates.bidExtensionThresholdSeconds = d.bidExtensionThresholdSeconds;
   if (d.bidExtensionSeconds !== undefined) updates.bidExtensionSeconds = d.bidExtensionSeconds;
+  if (d.ownerBiddingEnabled !== undefined) updates.ownerBiddingEnabled = d.ownerBiddingEnabled;
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.status !== undefined) updates.status = d.status;
   if (d.registrationDeadline !== undefined)
@@ -647,7 +649,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     d.minBid !== undefined ||
     d.minimumSquadSize !== undefined ||
     d.maximumSquadSize !== undefined ||
-    d.basePurse !== undefined
+    d.basePurse !== undefined ||
+    d.ownerBiddingEnabled !== undefined
   ) {
     invalidateAuctionBuildCache(id, "all");
   }

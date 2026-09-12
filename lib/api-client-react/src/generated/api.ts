@@ -92,6 +92,7 @@ import type {
   TournamentInsightsResponse,
   TournamentSummary,
   TournamentUpdate,
+  UpdateAuctionSettingsBody,
   UploadImage200,
   UploadImageBody,
   VerifyOwnerAccess200,
@@ -2919,6 +2920,94 @@ export function useGetAuctionState<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update auction settings (e.g. owner bidding enable/disable)
+ */
+export const getUpdateAuctionSettingsUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/settings`;
+};
+
+export const updateAuctionSettings = async (
+  tournamentId: number,
+  updateAuctionSettingsBody: UpdateAuctionSettingsBody,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getUpdateAuctionSettingsUrl(tournamentId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAuctionSettingsBody),
+  });
+};
+
+export const getUpdateAuctionSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAuctionSettings>>,
+    TError,
+    { tournamentId: number; data: BodyType<UpdateAuctionSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAuctionSettings>>,
+  TError,
+  { tournamentId: number; data: BodyType<UpdateAuctionSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAuctionSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAuctionSettings>>,
+    { tournamentId: number; data: BodyType<UpdateAuctionSettingsBody> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return updateAuctionSettings(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAuctionSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAuctionSettings>>
+>;
+export type UpdateAuctionSettingsMutationBody =
+  BodyType<UpdateAuctionSettingsBody>;
+export type UpdateAuctionSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update auction settings (e.g. owner bidding enable/disable)
+ */
+export const useUpdateAuctionSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAuctionSettings>>,
+    TError,
+    { tournamentId: number; data: BodyType<UpdateAuctionSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAuctionSettings>>,
+  TError,
+  { tournamentId: number; data: BodyType<UpdateAuctionSettingsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAuctionSettingsMutationOptions(options));
+};
 
 /**
  * @summary Start or resume the auction

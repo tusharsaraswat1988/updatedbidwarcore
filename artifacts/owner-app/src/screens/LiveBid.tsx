@@ -97,6 +97,7 @@ interface AuctionState {
     appliedAt: string;
   } | null;
   lastAuctionActivityAt?: string | null;
+  ownerBiddingEnabled?: boolean;
 }
 
 interface Team {
@@ -114,6 +115,7 @@ interface Tournament {
   name?: string;
   sport?: string;
   auctionUnit?: string | null;
+  ownerBiddingEnabled?: boolean;
 }
 
 interface TeamPurse {
@@ -720,6 +722,7 @@ interface BidDisabledHint {
 }
 
 function getBidDisabledHint(params: {
+  ownerBiddingEnabled?: boolean;
   isPaused: boolean;
   isActive: boolean;
   isTrialRestricted: boolean;
@@ -738,6 +741,12 @@ function getBidDisabledHint(params: {
   slotsRequired: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
 }): BidDisabledHint {
+  if (params.ownerBiddingEnabled === false) {
+    return {
+      headline: "BIDDING DISABLED",
+      subline: "Online bidding is disabled by the organizer.",
+    };
+  }
   if (params.isTrialRestricted) {
     return {
       headline: "Trial locked",
@@ -840,10 +849,12 @@ function AuctionPauseBanner({
 }
 
 function BidButton({
+  ownerBiddingEnabled = true,
   canBid, isLeading, timerExpired, timerActive, hasPlayer, isActive, isPaused, isIdle, isOnBreak,
   hasLiveCountdown, breakMins, breakSecs, breakMessage, breakLabel,
   bidding, bidFeedback, nextBidAmount, teamColor, onBid, layout, tier, unit, dock = false,
 }: {
+  ownerBiddingEnabled?: boolean;
   canBid: boolean;
   isLeading: boolean;
   timerExpired: boolean;
@@ -926,6 +937,27 @@ function BidButton({
         <div className="text-center">
           <p className={`font-display font-black ${dock ? "text-xl" : "text-3xl"}`} style={{ color: teamColor }}>HIGHEST BIDDER</p>
           {!dock && <p className="text-base text-[#a8a0c4] mt-2">Waiting for other teams...</p>}
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (ownerBiddingEnabled === false) {
+    return (
+      <motion.div
+        key="owner-bidding-disabled"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-2 px-4 text-center`}
+      >
+        <XCircle className={`${dock ? "w-8 h-8" : "w-12 h-12"} text-red-400`} />
+        <div>
+          <p className={`font-display font-black text-red-400 ${dock ? "text-lg" : "text-2xl"}`}>
+            BIDDING DISABLED
+          </p>
+          <p className={`text-[#a8a0c4] font-medium ${dock ? "text-xs" : "text-sm"} mt-1`}>
+            Online bidding is disabled by the organizer.
+          </p>
         </div>
       </motion.div>
     );
@@ -1744,8 +1776,12 @@ export function LiveBid({
     trialTeamIds: state?.trialTeamIds,
   });
 
+  const ownerBiddingEnabled =
+    state?.ownerBiddingEnabled ?? (tournament as any)?.ownerBiddingEnabled ?? true;
+
   const canBid =
     isActive && hasPlayer && timerActive && !isLeading && !isOnBreak &&
+    ownerBiddingEnabled &&
     maxAllowedBid >= nextBidAmount &&
     (team.isBiddingEnabled ?? true) &&
     !maxSquadReached && !categoryLimitReached &&
@@ -1789,6 +1825,7 @@ export function LiveBid({
   const bidDisabledHint =
     !isOnBreak && !canBid && !isLeading && !expired && hasPlayer
       ? getBidDisabledHint({
+          ownerBiddingEnabled,
           isPaused,
           isActive,
           isTrialRestricted,
@@ -2069,7 +2106,8 @@ export function LiveBid({
 
           <AnimatePresence mode="wait">
             <BidButton
-              key={`${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              key={`${ownerBiddingEnabled}-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              ownerBiddingEnabled={ownerBiddingEnabled}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}
@@ -2327,7 +2365,8 @@ export function LiveBid({
         <div className={`flex-1 flex flex-col ${tier === "mobile" ? "min-h-[42vh]" : tier === "tablet" ? "min-h-[44vh]" : "min-h-[40vh]"}`}>
           <AnimatePresence mode="wait">
             <BidButton
-              key={`split-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              key={`split-${ownerBiddingEnabled}-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              ownerBiddingEnabled={ownerBiddingEnabled}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}

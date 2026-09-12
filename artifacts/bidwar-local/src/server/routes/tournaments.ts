@@ -33,6 +33,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidTier3Increment: t.bidTier3Increment, bidTiers: t.bidTiers, timerSeconds: t.timerSeconds,
   bidTimerSeconds: t.bidTimerSeconds, playerSelectionMode: t.playerSelectionMode,
   minimumSquadSize: t.minimumSquadSize, maximumSquadSize: t.maximumSquadSize,
+  ownerBiddingEnabled: t.ownerBiddingEnabled ?? true,
   localModeEnabled: !!t.localModeEnabled,
   cheerMessagesEnabled: !!t.cheerMessagesEnabled,
   cheerMessagePresets: t.cheerMessagePresets,
@@ -140,6 +141,7 @@ export function createTournamentsRouter(db: LocalDb) {
       mainBannerEnabled: z.boolean().optional(),
       mainBannerFit: z.enum(["cover", "contain"]).optional(),
       matchDates: z.string().nullable().optional(),
+      ownerBiddingEnabled: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: zodFirstError(parsed.error) }); return; }
@@ -181,6 +183,7 @@ export function createTournamentsRouter(db: LocalDb) {
     if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
     if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
     if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
+    if (d.ownerBiddingEnabled !== undefined) updates.ownerBiddingEnabled = d.ownerBiddingEnabled;
     if (d.status !== undefined) updates.status = d.status;
 
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }

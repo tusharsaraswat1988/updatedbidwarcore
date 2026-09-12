@@ -72,6 +72,9 @@ export const TournamentBidValueMode = {
   player: "player",
 } as const;
 
+/**
+ * Public player registration purpose — auction pool or scoring/tournament participation
+ */
 export type TournamentPlayerRegistrationMode =
   (typeof TournamentPlayerRegistrationMode)[keyof typeof TournamentPlayerRegistrationMode];
 
@@ -80,6 +83,9 @@ export const TournamentPlayerRegistrationMode = {
   scoring: "scoring",
 } as const;
 
+/**
+ * How existing tournament categories (divisions) appear on public registration
+ */
 export type TournamentRegistrationCategoryMode =
   (typeof TournamentRegistrationCategoryMode)[keyof typeof TournamentRegistrationCategoryMode];
 
@@ -170,6 +176,7 @@ export interface Tournament {
   bidExtensionEnabled?: boolean;
   bidExtensionThresholdSeconds?: number;
   bidExtensionSeconds?: number;
+  ownerBiddingEnabled?: boolean;
   playerSelectionMode?: TournamentPlayerSelectionMode;
   status: TournamentStatus;
   /** @nullable */
@@ -313,7 +320,6 @@ export interface TournamentInput {
   /** City where the tournament is held (required on create) */
   city: string;
   auctionDate?: string;
-  auctionTime?: string;
   organizerName?: string;
   organizerMobile?: string;
   logoUrl?: string;
@@ -349,17 +355,6 @@ export interface TournamentInput {
   mainBannerFit?: TournamentInputMainBannerFit;
   /** Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19' */
   matchDates?: string;
-  /** Platform catalog bindings (EPIC-01) — references only */
-  variantId?: string;
-  competitionTypeId?: string;
-  ruleProfileId?: string;
-  ruleProfileVersion?: string;
-  presentationProfileId?: string;
-  presentationProfileVersion?: string;
-  registrationDeadline?: string;
-  registrationLimit?: number;
-  enableRegistrationPayment?: boolean;
-  registrationFee?: number;
 }
 
 export type TournamentUpdateAuctionUnit =
@@ -409,6 +404,23 @@ export const TournamentUpdateBidValueMode = {
   player: "player",
 } as const;
 
+export type TournamentUpdatePlayerRegistrationMode =
+  (typeof TournamentUpdatePlayerRegistrationMode)[keyof typeof TournamentUpdatePlayerRegistrationMode];
+
+export const TournamentUpdatePlayerRegistrationMode = {
+  auction: "auction",
+  scoring: "scoring",
+} as const;
+
+export type TournamentUpdateRegistrationCategoryMode =
+  (typeof TournamentUpdateRegistrationCategoryMode)[keyof typeof TournamentUpdateRegistrationCategoryMode];
+
+export const TournamentUpdateRegistrationCategoryMode = {
+  hidden: "hidden",
+  player_select: "player_select",
+  organizer_assign: "organizer_assign",
+} as const;
+
 export type TournamentUpdateMainBannerFit =
   (typeof TournamentUpdateMainBannerFit)[keyof typeof TournamentUpdateMainBannerFit];
 
@@ -453,6 +465,7 @@ export interface TournamentUpdate {
   bidExtensionEnabled?: boolean;
   bidExtensionThresholdSeconds?: number;
   bidExtensionSeconds?: number;
+  ownerBiddingEnabled?: boolean;
   playerSelectionMode?: TournamentUpdatePlayerSelectionMode;
   status?: string;
   /** @nullable */
@@ -472,8 +485,8 @@ export interface TournamentUpdate {
   registrationDeclarationText?: string | null;
   bidValueMode?: TournamentUpdateBidValueMode;
   bidValueOptions?: number[];
-  playerRegistrationMode?: TournamentPlayerRegistrationMode;
-  registrationCategoryMode?: TournamentRegistrationCategoryMode;
+  playerRegistrationMode?: TournamentUpdatePlayerRegistrationMode;
+  registrationCategoryMode?: TournamentUpdateRegistrationCategoryMode;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   audioEnabled?: boolean;
@@ -531,9 +544,15 @@ export interface Team {
   isBiddingEnabled?: boolean;
   /** @nullable */
   accessCode?: string | null;
-  /** @nullable */
+  /**
+   * Team coach or mentor name
+   * @nullable
+   */
   coachName?: string | null;
-  /** @nullable */
+  /**
+   * Team coach or mentor mobile (organizer-only)
+   * @nullable
+   */
   coachMobile?: string | null;
   createdAt: string;
 }
@@ -548,7 +567,9 @@ export interface TeamInput {
   color?: string;
   logoUrl?: string;
   purse?: number;
+  /** @nullable */
   coachName?: string | null;
+  /** @nullable */
   coachMobile?: string | null;
 }
 
@@ -564,7 +585,9 @@ export interface TeamUpdate {
   purse?: number;
   isBiddingEnabled?: boolean;
   regenerateCode?: boolean;
+  /** @nullable */
   coachName?: string | null;
+  /** @nullable */
   coachMobile?: string | null;
   /** Mandatory audit reason for critical team changes (min 10 characters) */
   reason?: string;
@@ -1427,6 +1450,7 @@ export interface AuctionState {
   bidExtensionEnabled?: boolean;
   bidExtensionThresholdSeconds?: number;
   bidExtensionSeconds?: number;
+  ownerBiddingEnabled?: boolean;
   fortuneWheelActive?: boolean;
   wheelSpinning?: boolean;
   wheelItems?: WheelItem[];
@@ -1571,6 +1595,31 @@ export const RegistrationStatusBidValueMode = {
   player: "player",
 } as const;
 
+export type RegistrationStatusPlayerRegistrationMode =
+  (typeof RegistrationStatusPlayerRegistrationMode)[keyof typeof RegistrationStatusPlayerRegistrationMode];
+
+export const RegistrationStatusPlayerRegistrationMode = {
+  auction: "auction",
+  scoring: "scoring",
+} as const;
+
+export type RegistrationStatusRegistrationCategoryMode =
+  (typeof RegistrationStatusRegistrationCategoryMode)[keyof typeof RegistrationStatusRegistrationCategoryMode];
+
+export const RegistrationStatusRegistrationCategoryMode = {
+  hidden: "hidden",
+  player_select: "player_select",
+  organizer_assign: "organizer_assign",
+} as const;
+
+export type RegistrationStatusCategoriesItem = {
+  id: number;
+  name: string;
+  /** @nullable */
+  colorCode?: string | null;
+  sortOrder?: number;
+};
+
 export interface RegistrationStatus {
   open: boolean;
   /**
@@ -1614,14 +1663,10 @@ export interface RegistrationStatus {
   bidValueMode?: RegistrationStatusBidValueMode;
   /** Allowed bid values when bidValueMode is player */
   bidValueOptions?: number[];
-  playerRegistrationMode?: TournamentPlayerRegistrationMode;
-  registrationCategoryMode?: TournamentRegistrationCategoryMode;
-  categories?: {
-    id: number;
-    name: string;
-    colorCode?: string | null;
-    sortOrder?: number;
-  }[];
+  playerRegistrationMode?: RegistrationStatusPlayerRegistrationMode;
+  registrationCategoryMode?: RegistrationStatusRegistrationCategoryMode;
+  /** Public category/division options when registrationCategoryMode is player_select */
+  categories?: RegistrationStatusCategoriesItem[];
   sport?: string;
 }
 
@@ -2310,6 +2355,10 @@ export type DeleteCategory409 = {
   error: string;
   code: DeleteCategory409Code;
   playerCount?: number;
+};
+
+export type UpdateAuctionSettingsBody = {
+  ownerBiddingEnabled?: boolean;
 };
 
 export type SetDisplayOverlayBodyMode =

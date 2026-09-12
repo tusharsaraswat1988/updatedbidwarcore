@@ -40,6 +40,8 @@ export const tournamentsTable = pgTable("tournaments", {
   bidExtensionEnabled: boolean("bid_extension_enabled").notNull().default(false),
   bidExtensionThresholdSeconds: integer("bid_extension_threshold_seconds").notNull().default(3),
   bidExtensionSeconds: integer("bid_extension_seconds").notNull().default(5),
+  /** When false, online owner bidding is blocked across the tournament (e.g. for paddle/placard mode) */
+  ownerBiddingEnabled: boolean("owner_bidding_enabled").notNull().default(true),
   playerSelectionMode: text("player_selection_mode").notNull().default("random"),
   status: text("status").notNull().default("setup"),
   // Player registration link controls

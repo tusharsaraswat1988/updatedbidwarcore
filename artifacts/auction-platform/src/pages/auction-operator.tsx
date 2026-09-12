@@ -29,6 +29,7 @@ import {
   useDeferPlayer,
   useSetBreakTimer,
   useSyncFortuneWheel,
+  useUpdateAuctionSettings,
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
   getListBidsQueryKey,
@@ -319,6 +320,8 @@ export default function AuctionOperator() {
   /** Local bid gate — never rely solely on placeBid.isPending (can stick if fetch hangs). */
   const [bidGateLocked, setBidGateLocked] = useState(false);
   const bidGateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirmDisableOwnerBiddingOpen, setConfirmDisableOwnerBiddingOpen] = useState(false);
+  const [confirmEnableOwnerBiddingOpen, setConfirmEnableOwnerBiddingOpen] = useState(false);
 
   // Drop stale fortune-wheel broadcast from a prior session so the LED shows
   // the auction main view when the operator opens auction control.
@@ -416,6 +419,66 @@ export default function AuctionOperator() {
   const setCategoryFilter  = useSetCategoryFilter();
   const deferPlayerMut     = useDeferPlayer();
   const setBreakTimerMut   = useSetBreakTimer();
+  const updateAuctionSettingsMut = useUpdateAuctionSettings();
+
+  const ownerBiddingEnabled =
+    (state as { ownerBiddingEnabled?: boolean } | undefined)?.ownerBiddingEnabled ??
+    (tournament as { ownerBiddingEnabled?: boolean } | undefined)?.ownerBiddingEnabled ??
+    true;
+
+  const handleToggleOwnerBidding = () => {
+    if (ownerBiddingEnabled) {
+      setConfirmDisableOwnerBiddingOpen(true);
+    } else {
+      setConfirmEnableOwnerBiddingOpen(true);
+    }
+  };
+
+  const handleConfirmDisableOwnerBidding = async () => {
+    setConfirmDisableOwnerBiddingOpen(false);
+    try {
+      const res = await updateAuctionSettingsMut.mutateAsync({
+        tournamentId,
+        data: { ownerBiddingEnabled: false },
+      });
+      applyMutationResult(res);
+      qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+      toast({
+        title: "Online Owner Bidding Disabled",
+        description: "Team owners can no longer bid online. Use manual sell to record bids.",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to disable owner bidding",
+        description: mutationErrorMessage(err, "Please try again."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConfirmEnableOwnerBidding = async () => {
+    setConfirmEnableOwnerBiddingOpen(false);
+    try {
+      const res = await updateAuctionSettingsMut.mutateAsync({
+        tournamentId,
+        data: { ownerBiddingEnabled: true },
+      });
+      applyMutationResult(res);
+      qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+      toast({
+        title: "Online Owner Bidding Enabled",
+        description: "Team owners can now submit bids from their devices.",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to enable owner bidding",
+        description: mutationErrorMessage(err, "Please try again."),
+        variant: "destructive",
+      });
+    }
+  };
 
   const auctionMutationPending =
     bidGateLocked ||
@@ -425,7 +488,8 @@ export default function AuctionOperator() {
     startAuction.isPending ||
     pauseAuction.isPending ||
     deferPlayerMut.isPending ||
-    reAuction.isPending;
+    reAuction.isPending ||
+    updateAuctionSettingsMut.isPending;
 
   const controlsLocked = operatorReadOnly || auctionMutationPending;
 
@@ -1241,6 +1305,59 @@ export default function AuctionOperator() {
           <Shuffle className="w-3 h-3" /> Fortune Wheel
         </button>
       </div>
+    </div>
+  );
+
+  const ownerBiddingControlCard = (
+    <div
+      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border transition-all ${
+        ownerBiddingEnabled
+          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+          : "bg-red-500/10 border-red-500/30 text-red-300"
+      }`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="text-base shrink-0 leading-none">
+          {ownerBiddingEnabled ? "🟢" : "🔴"}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs lg:text-sm font-black tracking-wide uppercase">
+              {ownerBiddingEnabled ? "OWNER BIDDING ENABLED" : "OWNER BIDDING DISABLED"}
+            </span>
+            <span
+              className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                ownerBiddingEnabled
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                  : "bg-red-500/20 text-red-300 border border-red-500/30"
+              }`}
+            >
+              {ownerBiddingEnabled ? "Online Active" : "Paddle Mode"}
+            </span>
+          </div>
+          <p className="text-[10px] lg:text-[11px] text-white/50 truncate">
+            {ownerBiddingEnabled
+              ? "Team owners can submit bids from mobile devices."
+              : "Online bids blocked. Conduct physically & use Manual Sell."}
+          </p>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        disabled={controlsLocked || updateAuctionSettingsMut.isPending}
+        onClick={handleToggleOwnerBidding}
+        className={`shrink-0 font-bold text-xs h-8 px-3 rounded-lg border transition-all ${
+          ownerBiddingEnabled
+            ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border-red-500/40"
+            : "bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-emerald-500/40"
+        }`}
+      >
+        {updateAuctionSettingsMut.isPending
+          ? "Updating…"
+          : ownerBiddingEnabled
+          ? "Disable Bidding"
+          : "Enable Bidding"}
+      </Button>
     </div>
   );
 
@@ -2254,6 +2371,7 @@ export default function AuctionOperator() {
             {timerAndUtilitiesBar}
             <div className="flex-1 overflow-y-auto">
               <div className="px-5 py-4 space-y-4 max-w-2xl mx-auto">
+                {ownerBiddingControlCard}
                 {currentPlayerAndBidCards}
                 {reauctionLastPlayerButton}
                 {primaryActionsGrid}
@@ -2269,6 +2387,7 @@ export default function AuctionOperator() {
             {timerAndUtilitiesBar}
             <div className="flex-1 overflow-y-auto">
               <div className="px-3 py-2 space-y-2">
+                {ownerBiddingControlCard}
                 {currentPlayerAndBidCards}
                 {nextPlayerAndStartRow}
                 {primaryActionsGrid}
@@ -3026,6 +3145,71 @@ export default function AuctionOperator() {
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={() => setConcludeDialogOpen(false)}>Cancel</Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Disable Owner Bidding Confirmation */}
+        <Dialog open={confirmDisableOwnerBiddingOpen} onOpenChange={setConfirmDisableOwnerBiddingOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                Disable Online Bidding?
+              </DialogTitle>
+              <DialogDescription className="text-sm text-white/70 pt-2 leading-relaxed">
+                This will immediately prevent all team owners from submitting bids from their devices.
+                You can conduct bidding manually and use Manual Sell to assign players.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2 pt-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={updateAuctionSettingsMut.isPending}
+                onClick={() => setConfirmDisableOwnerBiddingOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold"
+                disabled={updateAuctionSettingsMut.isPending}
+                onClick={() => void handleConfirmDisableOwnerBidding()}
+              >
+                {updateAuctionSettingsMut.isPending ? "Disabling…" : "Disable Bidding"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Enable Owner Bidding Confirmation */}
+        <Dialog open={confirmEnableOwnerBiddingOpen} onOpenChange={setConfirmEnableOwnerBiddingOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-emerald-400">
+                <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                Enable Online Bidding?
+              </DialogTitle>
+              <DialogDescription className="text-sm text-white/70 pt-2 leading-relaxed">
+                Team owners with valid bidding permissions will be able to submit bids from their devices.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2 pt-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={updateAuctionSettingsMut.isPending}
+                onClick={() => setConfirmEnableOwnerBiddingOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                disabled={updateAuctionSettingsMut.isPending}
+                onClick={() => void handleConfirmEnableOwnerBidding()}
+              >
+                {updateAuctionSettingsMut.isPending ? "Enabling…" : "Enable Bidding"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

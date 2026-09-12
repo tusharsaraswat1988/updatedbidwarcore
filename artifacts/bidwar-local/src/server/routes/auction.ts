@@ -277,6 +277,7 @@ export function createAuctionRouter(db: LocalDb) {
       bidTier2Increment: tournamentsTable.bidTier2Increment,
       bidTier3Increment: tournamentsTable.bidTier3Increment,
       bidTiers: tournamentsTable.bidTiers,
+      ownerBiddingEnabled: tournamentsTable.ownerBiddingEnabled,
     }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
 
     const timerSeconds = tournamentRow?.timerSeconds ?? 30;
@@ -417,6 +418,7 @@ export function createAuctionRouter(db: LocalDb) {
       breakEndsAt: session.breakEndsAt ?? null,
       displayCountdown,
       activeCategoryIds, playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
+      ownerBiddingEnabled: tournamentRow?.ownerBiddingEnabled ?? true,
       licenseStatus: "active",
       trialTeamIds: null,
       deferredPlayerIds: deferredPlayerIds.length > 0 ? deferredPlayerIds : null,
@@ -674,6 +676,7 @@ export function createAuctionRouter(db: LocalDb) {
     }
 
     const [tournamentRow] = await db.select({
+      ownerBiddingEnabled: tournamentsTable.ownerBiddingEnabled,
       bidTier1UpTo: tournamentsTable.bidTier1UpTo,
       bidTier1Increment: tournamentsTable.bidTier1Increment,
       bidTier2UpTo: tournamentsTable.bidTier2UpTo,
@@ -681,6 +684,16 @@ export function createAuctionRouter(db: LocalDb) {
       bidTier3Increment: tournamentsTable.bidTier3Increment,
       bidTiers: tournamentsTable.bidTiers,
     }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+
+    if (tournamentRow?.ownerBiddingEnabled === false) {
+      res.status(403).json({
+        success: false,
+        error: "OWNER_BIDDING_DISABLED",
+        message: "Online owner bidding is currently disabled by the organizer.",
+      });
+      return;
+    }
+
     const tiers = parseBidTiers(tournamentRow?.bidTiers, {
       bidTier1UpTo: tournamentRow?.bidTier1UpTo ?? 100000,
       bidTier1Increment: tournamentRow?.bidTier1Increment ?? 25000,
@@ -1775,6 +1788,32 @@ export function createAuctionRouter(db: LocalDb) {
     });
     res.json({ ok: true });
   });
+
+  const updateSettingsHandler = async (req: Request, res: Response) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const schema = z.object({
+      ownerBiddingEnabled: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const { ownerBiddingEnabled } = parsed.data;
+
+    const updates: Record<string, unknown> = {};
+    if (ownerBiddingEnabled !== undefined) {
+      updates.ownerBiddingEnabled = ownerBiddingEnabled;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(tournamentsTable).set({ ...updates, updatedAt: new Date().toISOString() }).where(eq(tournamentsTable.id, tid));
+    }
+
+    const state = await broadcastState(tid, ["settings"]);
+    res.json(state);
+  };
+
+  router.patch("/tournaments/:tournamentId/auction/settings", updateSettingsHandler);
+  router.post("/tournaments/:tournamentId/auction/settings", updateSettingsHandler);
 
   return router;
 }
