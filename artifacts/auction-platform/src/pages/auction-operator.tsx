@@ -73,6 +73,7 @@ import {
   Coffee, PlusCircle, ChevronDown, Volume2, VolumeX, Info,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { cldUrl } from "@/lib/cloudinary";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -1370,50 +1371,54 @@ export default function AuctionOperator() {
             key={state?.currentPlayer?.id}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="relative rounded-xl lg:rounded-2xl border border-white/10 overflow-hidden min-h-[132px] lg:min-h-[200px] bg-card"
+            className="relative rounded-xl lg:rounded-2xl border border-white/10 overflow-hidden min-h-[132px] lg:min-h-[200px] bg-card flex flex-row items-stretch"
           >
-            {/* Full-bleed photo — face stays in the clear upper zone */}
-            {state?.currentPlayer?.photoUrl ? (
-              <img
-                src={state.currentPlayer.photoUrl}
-                alt={state.currentPlayer.name}
-                className="absolute inset-0 w-full h-full object-cover object-top"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/5">
-                <User className="w-10 h-10 lg:w-14 lg:h-14 text-white/20" />
-              </div>
-            )}
+            {/* Dedicated player portrait frame — preserves exact 4:5 crop with centered alignment */}
+            <div className="relative w-[100px] sm:w-[130px] lg:w-[160px] shrink-0 bg-black/40 overflow-hidden border-r border-white/10 flex items-center justify-center">
+              {state?.currentPlayer?.photoUrl ? (
+                <img
+                  src={cldUrl(state.currentPlayer.photoUrl, "playerCard")}
+                  alt={state.currentPlayer.name}
+                  className="w-full h-full object-cover object-center"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-white/5">
+                  <User className="w-10 h-10 lg:w-14 lg:h-14 text-white/20" />
+                </div>
+              )}
+            </div>
 
-            {/* Top stays readable for the face; bottom darkens for type */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "linear-gradient(to top, rgba(8,10,16,0.96) 0%, rgba(8,10,16,0.78) 38%, rgba(8,10,16,0.28) 68%, rgba(8,10,16,0.05) 100%)",
-              }}
-            />
-
-            {/* Identity pinned to bottom of card (works when grid stretches taller) */}
-            <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-2.5 py-2.5 lg:px-4 lg:py-3.5">
-              <p className="text-[10px] lg:text-[11px] font-black uppercase tracking-[0.16em] text-white/70 truncate drop-shadow-sm">
-                #{state?.currentPlayer?.id}
-                {state?.currentPlayer?.jerseyNumber ? (
-                  <span className="ml-1.5 font-mono tracking-normal text-white/55">· J{state.currentPlayer.jerseyNumber}</span>
-                ) : null}
-                {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
-                  <span className="hidden lg:inline ml-1.5 tracking-normal font-semibold normal-case" style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined }}>
-                    · {categoryMap[state.currentPlayer.categoryId].name}
-                  </span>
+            {/* Player details on right — un-obscured with clear contrast */}
+            <div className="flex-1 flex flex-col justify-between p-2.5 lg:p-4 min-w-0 bg-gradient-to-r from-card to-card/90">
+              <div>
+                <p className="text-[10px] lg:text-[11px] font-black uppercase tracking-[0.16em] text-white/70 truncate drop-shadow-sm">
+                  #{state?.currentPlayer?.id}
+                  {state?.currentPlayer?.jerseyNumber ? (
+                    <span className="ml-1.5 font-mono tracking-normal text-white/55">· J{state.currentPlayer.jerseyNumber}</span>
+                  ) : null}
+                  {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
+                    <span className="hidden lg:inline ml-1.5 tracking-normal font-semibold normal-case" style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined }}>
+                      · {categoryMap[state.currentPlayer.categoryId].name}
+                    </span>
+                  )}
+                </p>
+                <h2
+                  className="text-base sm:text-lg lg:text-2xl font-display font-black leading-tight text-white line-clamp-2 mt-0.5"
+                  style={{ textShadow: "0 1px 8px rgba(0,0,0,0.65)" }}
+                >
+                  {state?.currentPlayer?.name}
+                </h2>
+                {(state?.currentPlayer?.age || state?.currentPlayer?.city) && (
+                  <p className="text-[10px] lg:text-[11px] text-white/50 truncate mt-0.5">
+                    {[
+                      state?.currentPlayer?.age ? `Age ${state.currentPlayer.age}` : null,
+                      state?.currentPlayer?.city || null,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
                 )}
-              </p>
-              <h2
-                className="text-base sm:text-lg lg:text-2xl font-display font-black leading-tight text-white line-clamp-2 mt-0.5"
-                style={{ textShadow: "0 1px 8px rgba(0,0,0,0.65)" }}
-              >
-                {state?.currentPlayer?.name}
-              </h2>
-              <div className="mt-1.5 lg:mt-2 flex items-end justify-between gap-2">
+              </div>
+
+              <div className="mt-1.5 lg:mt-2 pt-1.5 lg:pt-2 border-t border-white/10 flex items-end justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/45">Base</p>
                   <p
@@ -1427,14 +1432,6 @@ export default function AuctionOperator() {
                   +{formatShort(increment)}/raise
                 </p>
               </div>
-              {(state?.currentPlayer?.age || state?.currentPlayer?.city) && (
-                <p className="hidden lg:block mt-1.5 text-[11px] text-white/50 truncate">
-                  {[
-                    state?.currentPlayer?.age ? `Age ${state.currentPlayer.age}` : null,
-                    state?.currentPlayer?.city || null,
-                  ].filter(Boolean).join(" · ")}
-                </p>
-              )}
             </div>
           </motion.div>
         ) : (
