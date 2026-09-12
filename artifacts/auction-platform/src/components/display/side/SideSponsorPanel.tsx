@@ -9,6 +9,7 @@ import {
   SPONSOR_CAROUSEL_HOLD_MS,
 } from "@/lib/broadcast-canvas/constants";
 import {
+  getSideLedCategoryBadgeStyle,
   getSideLedCategoryStyle,
   getSideLedKickerStyle,
   getSideLedKickerText,
@@ -30,6 +31,14 @@ import { SideSponsorLogoGlow } from "../broadcast-canvas/SideSponsorLogoGlow";
 
 function sponsorTier(sponsor: LiveSponsorDTO): SponsorBroadcastTier {
   return sponsor.tier ?? "normal";
+}
+
+function getDynamicSponsorNameSize(name: string, baseSize: number, tier: SponsorBroadcastTier): number {
+  const len = name.trim().length;
+  let size = getSideLedNameSize(baseSize, tier);
+  if (len > 24) size = Math.round(size * 0.76);
+  else if (len > 16) size = Math.round(size * 0.88);
+  return size;
 }
 
 function useCachedSponsors(tournamentId: number, liveSponsors: LiveSponsorDTO[]) {
@@ -138,7 +147,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
   }, [entries]);
 
   const L = SIDE_LED_LAYOUT;
-  const logoPad = 16;
+  const logoPad = 28;
   const logoFrameWidth = L.sponsorLogoWidth;
   const logoFrameHeight = L.sponsorLogoMaxHeight;
 
@@ -148,45 +157,47 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
       <SideDivider />
 
       {entries.length > 0 && current ? (
-        <>
+        <div
+          key={`${current.name}-${index}`}
+          className={animationClass}
+          style={{
+            position: "absolute",
+            left: BROADCAST_SAFE_LEFT,
+            right: BROADCAST_SAFE_RIGHT,
+            top: L.sponsorKickerTop,
+            bottom: BROADCAST_CANVAS_HEIGHT - L.sponsorFooterTop + 40,
+            textAlign: "center",
+          }}
+        >
+          {/* Kicker: PROUDLY SUPPORTED BY / TITLE SPONSOR */}
           <p
             className="broadcast-kicker broadcast-sponsor-kicker"
             style={{
               position: "absolute",
-              left: BROADCAST_SAFE_LEFT,
-              right: BROADCAST_SAFE_RIGHT,
-              top: L.sponsorKickerTop + L.sponsorKickerOffset,
+              left: 0,
+              right: 0,
+              top: 0,
               margin: 0,
               textAlign: "center",
               fontSize: L.sponsorKickerSize,
+              lineHeight: 1.1,
               ...getSideLedKickerStyle(tier),
             }}
           >
             {getSideLedKickerText(tier)}
           </p>
 
+          {/* Large-scale Logo Card with Ambient Glow */}
           <div
-            key={`${current.name}-${index}`}
-            className={animationClass}
             style={{
               position: "absolute",
-              left: BROADCAST_SAFE_LEFT,
-              right: BROADCAST_SAFE_RIGHT,
-              top: L.sponsorKickerTop,
-              bottom: BROADCAST_CANVAS_HEIGHT - L.sponsorFooterTop + 40,
-              textAlign: "center",
+              left: "50%",
+              top: L.sponsorLogoTop - L.sponsorKickerTop,
+              transform: "translateX(-50%)",
+              width: logoFrameWidth,
+              height: logoFrameHeight,
             }}
           >
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: L.sponsorLogoTop - L.sponsorKickerTop,
-                transform: "translateX(-50%)",
-                width: L.sponsorLogoWidth,
-                height: L.sponsorLogoMaxHeight,
-              }}
-            >
             <SideSponsorLogoGlow width={logoFrameWidth} height={logoFrameHeight} tier={tier} />
             <div
               style={{
@@ -199,7 +210,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
                 justifyContent: "center",
                 width: logoFrameWidth,
                 height: logoFrameHeight,
-                borderRadius: 12,
+                borderRadius: 24,
                 padding: logoPad,
                 boxSizing: "border-box",
                 zIndex: 1,
@@ -212,10 +223,10 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
                   alt={current.name || "Sponsor"}
                   style={{
                     display: "block",
-                    width: L.sponsorLogoWidth - logoPad * 2,
-                    maxWidth: L.sponsorLogoWidth - logoPad * 2,
-                    height: L.sponsorLogoMaxHeight - logoPad * 2,
-                    maxHeight: L.sponsorLogoMaxHeight - logoPad * 2,
+                    width: "100%",
+                    maxWidth: logoFrameWidth - logoPad * 2,
+                    height: "100%",
+                    maxHeight: logoFrameHeight - logoPad * 2,
                     objectFit: "contain",
                     filter: getSponsorLogoFilter(tier),
                   }}
@@ -223,7 +234,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
               ) : (
                 <span
                   className="broadcast-sponsor-name"
-                  style={{ color: "rgba(0,0,0,0.82)", fontSize: 60, padding: "0 8px" }}
+                  style={{ color: "rgba(0,0,0,0.88)", fontSize: 80, padding: "0 16px", fontWeight: 800 }}
                 >
                   {current.name}
                 </span>
@@ -231,7 +242,8 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
             </div>
           </div>
 
-          <p
+          {/* Sponsor Name: Extra Large, High-Contrast & Bold */}
+          <h2
             className="broadcast-sponsor-name"
             style={{
               position: "absolute",
@@ -239,28 +251,56 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
               right: 0,
               top: L.sponsorNameTop - L.sponsorKickerTop,
               margin: 0,
-              fontSize: getSideLedNameSize(L.sponsorNameSize, tier),
+              padding: "0 20px",
+              fontSize: getDynamicSponsorNameSize(current.name, L.sponsorNameSize, tier),
+              lineHeight: 1.06,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              wordBreak: "break-word",
               ...getSideLedNameStyle(tier),
             }}
           >
             {current.name.trim() || "\u00a0"}
-          </p>
-          <p
-            className="broadcast-category broadcast-sponsor-category"
+          </h2>
+
+          {/* Sponsor Category: High-Visibility Illuminated Broadcast Ribbon / Badge */}
+          <div
             style={{
               position: "absolute",
               left: 0,
               right: 0,
               top: L.sponsorCategoryTop - L.sponsorKickerTop,
-              margin: 0,
-              fontSize: L.sponsorCategorySize,
-              ...getSideLedCategoryStyle(tier),
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "0 16px",
             }}
           >
-            {current.type.trim() || "Partner"}
-          </p>
+            <span
+              className="broadcast-category broadcast-sponsor-category-badge"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: L.sponsorCategorySize,
+                fontWeight: 800,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                padding: "12px 38px",
+                borderRadius: 9999,
+                maxWidth: 900,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                ...getSideLedCategoryBadgeStyle(tier),
+              }}
+            >
+              {current.type.trim() || "Partner"}
+            </span>
           </div>
-        </>
+        </div>
       ) : (
         <div
           style={{

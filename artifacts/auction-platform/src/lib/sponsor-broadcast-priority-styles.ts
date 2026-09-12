@@ -299,17 +299,27 @@ export function getSideLedKickerStyle(tier: SponsorBroadcastTier): CSSProperties
     case "title":
       return {
         color: TITLE_GOLD,
-        letterSpacing: "0.18em",
-        textShadow: "0 0 24px rgba(247, 223, 138, 0.45)",
+        letterSpacing: "0.22em",
+        fontWeight: 800,
+        textTransform: "uppercase",
+        textShadow: "0 0 28px rgba(247, 223, 138, 0.6), 0 2px 8px rgba(0,0,0,0.85)",
       };
     case "co_sponsor":
       return {
         color: CO_SILVER,
-        letterSpacing: "0.16em",
-        textShadow: "0 0 20px rgba(180, 200, 220, 0.35)",
+        letterSpacing: "0.2em",
+        fontWeight: 800,
+        textTransform: "uppercase",
+        textShadow: "0 0 24px rgba(180, 200, 220, 0.5), 0 2px 8px rgba(0,0,0,0.85)",
       };
     default:
-      return {};
+      return {
+        color: "#FBBF24",
+        letterSpacing: "0.2em",
+        fontWeight: 800,
+        textTransform: "uppercase",
+        textShadow: "0 0 24px rgba(251, 191, 36, 0.5), 0 2px 8px rgba(0,0,0,0.85)",
+      };
   }
 }
 
@@ -317,26 +327,26 @@ export function getSideLedLogoFrameStyle(tier: SponsorBroadcastTier): CSSPropert
   switch (tier) {
     case "title":
       return {
-        border: "2px solid rgba(247, 223, 138, 0.72)",
+        border: "3px solid rgba(247, 223, 138, 0.85)",
         background:
-          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(255, 248, 230, 0.97) 100%)",
+          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(255, 248, 230, 0.98) 100%)",
         boxShadow:
-          "0 0 48px rgba(247, 223, 138, 0.55), 0 0 96px rgba(201, 162, 39, 0.22), 0 12px 40px rgba(0, 0, 0, 0.28)",
+          "0 0 60px rgba(247, 223, 138, 0.5), 0 0 110px rgba(201, 162, 39, 0.25), 0 18px 48px rgba(0, 0, 0, 0.5)",
       };
     case "co_sponsor":
       return {
-        border: "2px solid rgba(180, 200, 220, 0.58)",
+        border: "3px solid rgba(180, 200, 220, 0.75)",
         background:
-          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(240, 246, 255, 0.97) 100%)",
+          "linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(240, 246, 255, 0.98) 100%)",
         boxShadow:
-          "0 0 40px rgba(180, 200, 220, 0.42), 0 0 80px rgba(140, 165, 200, 0.16), 0 12px 40px rgba(0, 0, 0, 0.28)",
+          "0 0 50px rgba(180, 200, 220, 0.42), 0 0 90px rgba(140, 165, 200, 0.2), 0 18px 48px rgba(0, 0, 0, 0.5)",
       };
     default:
       return {
-        border: "1px solid rgba(255,255,255,0.14)",
-        background: "rgba(255,255,255,0.98)",
+        border: "2px solid rgba(255,255,255,0.3)",
+        background: "rgba(255,255,255,0.99)",
         boxShadow:
-          "0 0 36px rgba(212, 175, 55, 0.38), 0 0 72px rgba(212, 175, 55, 0.16), 0 12px 40px rgba(0, 0, 0, 0.32)",
+          "0 0 44px rgba(212, 175, 55, 0.4), 0 0 80px rgba(212, 175, 55, 0.18), 0 18px 48px rgba(0, 0, 0, 0.5)",
       };
   }
 }
@@ -346,17 +356,24 @@ export function getSideLedNameStyle(tier: SponsorBroadcastTier): CSSProperties {
     case "title":
       return {
         color: TITLE_GOLD,
+        fontWeight: 900,
         textShadow:
-          "0 0 28px rgba(247, 223, 138, 0.55), 0 0 56px rgba(201, 162, 39, 0.28), 0 2px 12px rgba(0,0,0,0.5)",
+          "0 0 32px rgba(247, 223, 138, 0.65), 0 0 64px rgba(201, 162, 39, 0.35), 0 4px 16px rgba(0,0,0,0.95)",
       };
     case "co_sponsor":
       return {
         color: CO_SILVER,
+        fontWeight: 900,
         textShadow:
-          "0 0 22px rgba(180, 200, 220, 0.45), 0 0 44px rgba(140, 165, 200, 0.2), 0 2px 10px rgba(0,0,0,0.45)",
+          "0 0 28px rgba(180, 200, 220, 0.55), 0 0 54px rgba(140, 165, 200, 0.25), 0 4px 16px rgba(0,0,0,0.95)",
       };
     default:
-      return { color: "rgba(255,255,255,0.96)" };
+      return {
+        color: "#FFFFFF",
+        fontWeight: 900,
+        textShadow:
+          "0 0 28px rgba(255, 255, 255, 0.35), 0 4px 16px rgba(0,0,0,0.95)",
+      };
   }
 }
 
@@ -385,6 +402,41 @@ export function getSideLedCategoryStyle(tier: SponsorBroadcastTier): CSSProperti
       };
     default:
       return { color: "rgba(212, 175, 55, 0.92)" };
+  }
+}
+
+export function getSideLedCategoryBadgeStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        color: TITLE_GOLD,
+        background:
+          "linear-gradient(135deg, rgba(201, 162, 39, 0.28) 0%, rgba(247, 223, 138, 0.1) 100%)",
+        border: "2px solid rgba(247, 223, 138, 0.75)",
+        boxShadow:
+          "0 0 32px rgba(247, 223, 138, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
+        textShadow: "0 0 16px rgba(247, 223, 138, 0.55), 0 2px 6px rgba(0,0,0,0.85)",
+      };
+    case "co_sponsor":
+      return {
+        color: CO_SILVER,
+        background:
+          "linear-gradient(135deg, rgba(160, 180, 210, 0.25) 0%, rgba(232, 238, 248, 0.08) 100%)",
+        border: "2px solid rgba(180, 200, 220, 0.65)",
+        boxShadow:
+          "0 0 28px rgba(180, 200, 220, 0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+        textShadow: "0 0 14px rgba(180, 200, 220, 0.45), 0 2px 6px rgba(0,0,0,0.85)",
+      };
+    default:
+      return {
+        color: "#FCD34D",
+        background:
+          "linear-gradient(135deg, rgba(212, 175, 55, 0.22) 0%, rgba(255, 255, 255, 0.05) 100%)",
+        border: "2px solid rgba(245, 158, 11, 0.65)",
+        boxShadow:
+          "0 0 28px rgba(212, 175, 55, 0.35), inset 0 1px 0 rgba(255,255,255,0.15)",
+        textShadow: "0 0 16px rgba(245, 158, 11, 0.5), 0 2px 6px rgba(0,0,0,0.85)",
+      };
   }
 }
 

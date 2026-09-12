@@ -96,9 +96,15 @@ import {
   connectAndSyncTournamentGoogleSheet,
 } from "../lib/google-sheets-sync-service.js";
 import { scheduleGoogleSheetSync } from "../lib/google-sheets-sync-queue.js";
+import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
 
 function afterPlayerDataChanged(tournamentId: number, log?: import("pino").Logger) {
   scheduleGoogleSheetSync(tournamentId, log);
+  invalidateAuctionBuildCache(tournamentId, "all");
+  invalidateStateCache(tournamentId);
+  void broadcastState(tournamentId, ["players", "purses"]).catch((err) => {
+    log?.warn({ err, tournamentId }, "broadcastState failed in afterPlayerDataChanged");
+  });
 }
 
 async function resolveSheetOrganizerId(req: Request, tournamentId: number): Promise<number | null> {

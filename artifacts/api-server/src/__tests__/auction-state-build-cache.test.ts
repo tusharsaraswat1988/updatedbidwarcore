@@ -111,4 +111,22 @@ describe("auction state build cache", () => {
     expect(getCachedRoster(1)).toBeNull();
     expect(getCachedStatic(1)).toBeNull();
   });
+
+  it("expires roster cache after TTL", () => {
+    setCachedRoster(1, {
+      teams: [],
+      counts: { soldCount: 0, unsoldCount: 0, availableCount: 10 },
+      rosterPlayers: [],
+      purses: [],
+    });
+    expect(getCachedRoster(1)).toBeTruthy();
+
+    const originalNow = Date.now;
+    try {
+      Date.now = () => originalNow() + 6000;
+      expect(getCachedRoster(1)).toBeNull();
+    } finally {
+      Date.now = originalNow;
+    }
+  });
 });

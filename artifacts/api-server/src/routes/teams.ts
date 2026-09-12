@@ -34,6 +34,8 @@ import {
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
 
+import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
+
 const cloudinaryLogoUrl = z
   .string()
   .optional()
@@ -41,6 +43,14 @@ const cloudinaryLogoUrl = z
     (v) => !v || v.startsWith("https://res.cloudinary.com/"),
     "Logo URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
   );
+
+function afterTeamDataChanged(tournamentId: number, log?: import("pino").Logger) {
+  invalidateAuctionBuildCache(tournamentId, "all");
+  invalidateStateCache(tournamentId);
+  void broadcastState(tournamentId, ["purses"]).catch((err) => {
+    log?.warn({ err, tournamentId }, "broadcastState failed in afterTeamDataChanged");
+  });
+}
 
 const router = Router();
 
@@ -241,6 +251,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     after: snapshotTeam(team),
   });
 
+  afterTeamDataChanged(tid, req.log);
   res.status(201).json(teamToJson(team));
 });
 
@@ -544,6 +555,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     alertKey,
   });
 
+  afterTeamDataChanged(tid, req.log);
   res.json(teamToJson(team));
 });
 
@@ -692,6 +704,7 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     resource: { type: "team", id: teamId },
     before: snapshotTeam(beforeTeam),
   });
+  afterTeamDataChanged(tid, req.log);
   res.status(204).send();
 });
 
