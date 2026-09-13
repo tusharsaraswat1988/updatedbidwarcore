@@ -57,42 +57,64 @@ export function getTeamWiseTypography(rows: number) {
   const s = 1 / rows;
   return {
     /** Hero — purse left (priority 1) */
-    heroPurse: `clamp(1.15rem, ${2.95 * s + 0.92}vw, 3.1rem)`,
-    name:      `clamp(1.08rem, ${3.25 * s + 0.98}vw, 3.65rem)`,
-    purse:     `clamp(0.95rem, ${2.4 * s + 0.75}vw, 2.6rem)`,
-    spendable: `clamp(0.86rem, ${2.08 * s + 0.66}vw, 2.24rem)`,
-    money:     `clamp(0.68rem, ${1.45 * s + 0.52}vw, 1.72rem)`,
-    squad:     `clamp(1rem,   ${2.55 * s + 0.82}vw, 2.85rem)`,
-    label:     `clamp(0.61rem, ${0.72 * s + 0.51}vw, 0.85rem)`,
-    meta:      `clamp(0.59rem, ${0.7 * s + 0.47}vw, 0.83rem)`,
-    badge:     `clamp(0.72rem, ${0.88 * s + 0.62}vw, 1.02rem)`,
+    heroPurse: `clamp(1.35rem, ${3.4 * s + 1.15}vw, 3.6rem)`,
+    name:      `clamp(1.15rem, ${3.2 * s + 1.0}vw, 3.5rem)`,
+    purse:     `clamp(1.05rem, ${2.5 * s + 0.85}vw, 2.75rem)`,
+    spendable: `clamp(1.1rem,  ${2.6 * s + 0.85}vw, 2.8rem)`,
+    money:     `clamp(0.95rem, ${1.9 * s + 0.65}vw, 2.05rem)`,
+    squad:     `clamp(1.25rem, ${3.0 * s + 1.0}vw, 3.4rem)`,
+    label:     `clamp(0.78rem, ${0.95 * s + 0.58}vw, 1.15rem)`,
+    meta:      `clamp(0.72rem, ${0.85 * s + 0.52}vw, 1.05rem)`,
+    badge:     `clamp(0.8rem,  ${0.95 * s + 0.6}vw, 1.2rem)`,
     /** ~20% larger franchise badge */
-    logo:      `clamp(2.1rem,  ${5.04 * s + 1.62}vw, 6rem)`,
+    logo:      `clamp(2.4rem,  ${5.2 * s + 1.8}vw, 6.2rem)`,
+    nameStyle: (name: string) => getTeamWiseNameStyle(name, rows),
+  };
+}
+
+export function getTeamWiseNameStyle(name: string, rows: number) {
+  const s = 1 / rows;
+  const len = name.length;
+  if (len > 22) {
+    return {
+      fontSize: `clamp(0.92rem, ${2.2 * s + 0.75}vw, 2.2rem)`,
+      lineHeight: 1.05,
+    };
+  }
+  if (len > 14) {
+    return {
+      fontSize: `clamp(1.05rem, ${2.7 * s + 0.88}vw, 2.8rem)`,
+      lineHeight: 1.08,
+    };
+  }
+  return {
+    fontSize: `clamp(1.18rem, ${3.3 * s + 1.05}vw, 3.5rem)`,
+    lineHeight: 1.1,
   };
 }
 
 /** Broadcast card shell — radial depth, team-tinted edge, floating shadow (body only). */
 export function getTeamWisePanelShellStyle(teamColor: string, isActive = false) {
-  const edgeTint = `color-mix(in srgb, ${teamColor} ${isActive ? "20%" : "13%"}, rgba(255,255,255,0.05))`;
+  const edgeTint = `color-mix(in srgb, ${teamColor} ${isActive ? "35%" : "22%"}, rgba(255,255,255,0.12))`;
   const ambientSpread = isActive ? "36px" : "24px";
-  const ambientAlpha = isActive ? "0.11" : "0.07";
+  const ambientAlpha = isActive ? "0.18" : "0.1";
 
   return {
     ["--tw-panel-color" as string]: teamColor,
     background: [
-      `radial-gradient(ellipse 92% 68% at 50% 36%, color-mix(in srgb, ${teamColor} 11%, rgba(20,24,34,0.97)) 0%, rgba(10,12,18,0.99) 52%, rgba(5,7,11,1) 100%)`,
-      `linear-gradient(180deg, rgba(255,255,255,0.022) 0%, transparent 14%, rgba(0,0,0,0.2) 100%)`,
+      `radial-gradient(ellipse 92% 68% at 50% 36%, color-mix(in srgb, ${teamColor} 14%, rgba(20,24,34,0.98)) 0%, rgba(10,12,18,0.99) 52%, rgba(5,7,11,1) 100%)`,
+      `linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 14%, rgba(0,0,0,0.3) 100%)`,
     ].join(", "),
-    borderTopColor: `color-mix(in srgb, ${teamColor} 10%, rgba(255,255,255,0.11))`,
-    borderBottomColor: `color-mix(in srgb, ${teamColor} 16%, rgba(0,0,0,0.72))`,
+    borderTopColor: `color-mix(in srgb, ${teamColor} 20%, rgba(255,255,255,0.22))`,
+    borderBottomColor: `color-mix(in srgb, ${teamColor} 25%, rgba(0,0,0,0.85))`,
     borderLeftColor: edgeTint,
     borderRightColor: edgeTint,
     boxShadow: [
-      "0 16px 40px rgba(0,0,0,0.52)",
-      "0 6px 18px rgba(0,0,0,0.32)",
-      "inset 0 1px 0 rgba(255,255,255,0.07)",
-      "inset 0 -2px 10px rgba(0,0,0,0.42)",
-      "inset 0 0 28px rgba(0,0,0,0.28)",
+      "0 16px 40px rgba(0,0,0,0.7)",
+      "0 6px 18px rgba(0,0,0,0.45)",
+      "inset 0 1px 0 rgba(255,255,255,0.12)",
+      "inset 0 -2px 10px rgba(0,0,0,0.5)",
+      "inset 0 0 28px rgba(0,0,0,0.35)",
       `0 0 ${ambientSpread} color-mix(in srgb, ${teamColor} ${ambientAlpha}, transparent)`,
     ].join(", "),
   };
@@ -100,7 +122,7 @@ export function getTeamWisePanelShellStyle(teamColor: string, isActive = false) 
 
 /** Extremely soft team-colored spill — separation via light, not spacing. */
 export function getTeamWiseAmbientGlowStyle(teamColor: string, isActive = false) {
-  const mix = isActive ? "24%" : "11%";
+  const mix = isActive ? "28%" : "15%";
   return {
     background: `radial-gradient(ellipse 82% 70% at 50% 44%, color-mix(in srgb, ${teamColor} ${mix}, transparent) 0%, transparent 72%)`,
   };
@@ -111,23 +133,23 @@ export function getTeamWiseHeaderBandStyle(teamColor: string) {
   return {
     ["--tw-header-color" as string]: teamColor,
     background: [
-      `linear-gradient(168deg, color-mix(in srgb, ${teamColor} 76%, #ffffff 12%) 0%, color-mix(in srgb, ${teamColor} 90%, #000000 10%) 26%, color-mix(in srgb, ${teamColor} 84%, #000000 14%) 48%, color-mix(in srgb, ${teamColor} 70%, #0a0e18 24%) 74%, color-mix(in srgb, ${teamColor} 54%, #050810 46%) 100%)`,
+      `linear-gradient(168deg, color-mix(in srgb, ${teamColor} 82%, #ffffff 15%) 0%, color-mix(in srgb, ${teamColor} 92%, #000000 8%) 26%, color-mix(in srgb, ${teamColor} 86%, #000000 14%) 48%, color-mix(in srgb, ${teamColor} 75%, #0a0e18 25%) 74%, color-mix(in srgb, ${teamColor} 60%, #050810 40%) 100%)`,
     ].join(", "),
     boxShadow: [
-      "inset 0 2px 0 rgba(255,255,255,0.26)",
-      "inset 0 -1px 0 rgba(0,0,0,0.32)",
-      "inset 0 -5px 12px rgba(0,0,0,0.4)",
-      "inset 0 10px 22px rgba(0,0,0,0.12)",
+      "inset 0 2px 0 rgba(255,255,255,0.32)",
+      "inset 0 -1px 0 rgba(0,0,0,0.45)",
+      "inset 0 -5px 12px rgba(0,0,0,0.45)",
+      "inset 0 10px 22px rgba(0,0,0,0.15)",
     ].join(", "),
   };
 }
 
-/** Hero purse amount — gold broadcast figure. */
+/** Hero purse amount — ultra high contrast bright gold/yellow broadcast figure. */
 export function getTeamWisePurseValueStyle(isPrimary = true) {
   return {
-    color: isPrimary ? "#f7dc8a" : undefined,
+    color: isPrimary ? "#fde047" : "#ffffff",
     textShadow: isPrimary
-      ? "0 0 28px rgba(212,175,55,0.32), 0 2px 4px rgba(0,0,0,0.72), 0 0 1px rgba(0,0,0,0.9)"
+      ? "0 2px 8px rgba(0,0,0,0.9), 0 0 2px #000"
       : undefined,
   };
 }

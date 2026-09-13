@@ -621,10 +621,12 @@ export const EffectsLayer = memo(function EffectsLayer({
           isTrial={tournament.isTrial}
           right={
             <div className="text-right">
-              <p className={LED_SECTION_KICKER_CLASS}>Squad Status</p>
+              <p className="text-xs md:text-sm font-['Barlow_Condensed'] uppercase tracking-[0.25em] text-white/80 font-bold">
+                Squad Status
+              </p>
               <p
-                className={`${LED_HEADLINE_CLASS} text-2xl md:text-4xl mt-0.5`}
-                style={{ color: "var(--accent)" }}
+                className={`${LED_HEADLINE_CLASS} text-2xl md:text-4xl mt-0.5 font-black drop-shadow-md`}
+                style={{ color: "var(--accent, #f59e0b)" }}
               >
                 TEAM WISE
               </p>
@@ -810,10 +812,10 @@ function TeamWiseSummaryBar({
   soldAtAuction: number;
 }) {
   const stats = [
-    { label: "Total Players Available", value: poolCounts.available, valueClass: "text-sky-300", iconClass: "bg-sky-400/80" },
-    { label: "Total Players Retained", value: poolCounts.retained, valueClass: "text-purple-300", iconClass: "bg-purple-400/80" },
-    { label: "Total Players Sold", value: poolCounts.sold, valueClass: "text-emerald-300", iconClass: "bg-emerald-400/80" },
-    { label: "Total Players Unsold", value: poolCounts.unsold, valueClass: "text-amber-300", iconClass: "bg-amber-400/80" },
+    { label: "Total Players Available", value: poolCounts.available, valueClass: "text-sky-300", iconClass: "bg-sky-400" },
+    { label: "Total Players Retained", value: poolCounts.retained, valueClass: "text-purple-300", iconClass: "bg-purple-400" },
+    { label: "Total Players Sold", value: poolCounts.sold, valueClass: "text-emerald-300", iconClass: "bg-emerald-400" },
+    { label: "Total Players Unsold", value: poolCounts.unsold, valueClass: "text-amber-300", iconClass: "bg-amber-400" },
   ] as const;
 
   const highestPurseTeam =
@@ -824,16 +826,16 @@ function TeamWiseSummaryBar({
     lastOutcome?.type === "sold" && lastOutcome.playerName ? lastOutcome : null;
 
   return (
-    <div className="relative team-wise-ticker flex items-stretch px-[2.4%] py-[1%] gap-[0.5%]">
+    <div className="relative team-wise-ticker flex items-stretch px-[2.4%] py-[0.8%] gap-[0.5%]">
       {(lastSold || highestPurseTeam) ? (
         <div className="team-wise-ticker-extra shrink-0">
           {lastSold ? (
             <div className="team-wise-ticker-extra-block">
-              <span className="team-wise-label" style={{ fontSize: metaSize }}>
+              <span className="team-wise-label text-white/80 font-bold" style={{ fontSize: metaSize }}>
                 Last Sold
               </span>
               <p
-                className="team-wise-ticker-extra-value mt-[0.2em]"
+                className="team-wise-ticker-extra-value mt-[0.2em] font-bold"
                 style={{ fontSize: valueSize, color: lastSold.teamColor ?? "var(--accent)" }}
               >
                 {lastSold.playerName}
@@ -842,11 +844,11 @@ function TeamWiseSummaryBar({
           ) : null}
           {highestPurseTeam ? (
             <div className="team-wise-ticker-extra-block">
-              <span className="team-wise-label" style={{ fontSize: metaSize }}>
+              <span className="team-wise-label text-white/80 font-bold" style={{ fontSize: metaSize }}>
                 Highest Purse
               </span>
               <p
-                className="team-wise-ticker-extra-value mt-[0.2em]"
+                className="team-wise-ticker-extra-value mt-[0.2em] font-bold"
                 style={{ fontSize: valueSize, color: highestPurseTeam.color }}
               >
                 {highestPurseTeam.short} · {formatTeamWiseMoneyShort(highestPurseTeam.purse, unit)}
@@ -854,10 +856,10 @@ function TeamWiseSummaryBar({
             </div>
           ) : null}
           <div className="team-wise-ticker-extra-block">
-            <span className="team-wise-label" style={{ fontSize: metaSize }}>
+            <span className="team-wise-label text-white/80 font-bold" style={{ fontSize: metaSize }}>
               Auction Round
             </span>
-            <p className="team-wise-ticker-extra-value mt-[0.2em] text-amber-200/90" style={{ fontSize: valueSize }}>
+            <p className="team-wise-ticker-extra-value mt-[0.2em] text-amber-300 font-bold" style={{ fontSize: valueSize }}>
               {Math.max(1, soldAtAuction + 1)}
             </p>
           </div>
@@ -870,7 +872,7 @@ function TeamWiseSummaryBar({
           <div className="flex flex-1 items-center justify-center min-w-0">
             <div className="flex flex-col items-center min-w-0 gap-[0.28em]">
               <span
-                className="team-wise-label text-center leading-tight"
+                className="team-wise-label text-white/85 font-bold text-center leading-tight whitespace-nowrap"
                 style={{ fontSize: metaSize }}
               >
                 {stat.label}
@@ -878,7 +880,7 @@ function TeamWiseSummaryBar({
               <div className="flex items-center gap-[0.45em]">
                 <span className={`team-wise-ticker-stat-icon ${stat.iconClass}`} aria-hidden />
                 <span
-                  className={`team-wise-ticker-value ${stat.valueClass}`}
+                  className={`team-wise-ticker-value font-bold ${stat.valueClass}`}
                   style={{ fontSize: valueSize }}
                 >
                   {stat.value}
@@ -930,11 +932,11 @@ function TeamWiseBroadcastPanel({
 
       {isActive && countdown != null && countdown > 0 ? (
         <div className="team-wise-last-pick">
-          <p className="team-wise-label" style={{ fontSize: type.meta }}>
+          <p className="team-wise-label font-bold" style={{ fontSize: type.meta }}>
             Last Pick
           </p>
           <p
-            className="team-wise-stat-primary text-amber-200 tabular-nums leading-none mt-[0.15em]"
+            className="team-wise-stat-primary text-amber-200 tabular-nums leading-none mt-[0.15em] whitespace-nowrap"
             style={{ fontSize: type.money }}
           >
             {formatTeamWiseCountdown(countdown)}
@@ -976,8 +978,9 @@ function TeamWiseBroadcastPanel({
           )}
         </div>
         <h2
-          className={`team-wise-franchise-name ${LED_HEADLINE_CLASS} flex-1 min-w-0 truncate text-white leading-tight`}
-          style={{ fontSize: type.name }}
+          className={`team-wise-franchise-name ${LED_HEADLINE_CLASS} flex-1 min-w-0 text-white line-clamp-2`}
+          style={type.nameStyle ? type.nameStyle(team.name) : { fontSize: type.name }}
+          title={team.name}
         >
           {team.name}
         </h2>
@@ -987,14 +990,14 @@ function TeamWiseBroadcastPanel({
       <div className="relative z-[1] flex flex-col justify-between px-[4.5%] py-[3.5%] flex-1 min-h-0 gap-[0.45em]">
 
         {/* Financial stats: Purse Left | Max Bid | Reserve */}
-        <div className="grid grid-cols-3 gap-[0.5em]">
+        <div className="grid grid-cols-[1.35fr_1.2fr_0.95fr] gap-[0.4em] items-start">
           {/* Purse Left */}
           <div className="min-w-0">
             <p className="team-wise-label" style={{ fontSize: type.label }}>
               Purse Left
             </p>
             <p
-              className="team-wise-stat-hero tabular-nums mt-[0.2em] transition-[color,text-shadow] duration-500"
+              className="team-wise-stat-hero whitespace-nowrap tabular-nums mt-[0.2em] transition-[color,text-shadow] duration-500 font-extrabold"
               style={{ fontSize: type.heroPurse, ...getTeamWisePurseValueStyle(true) }}
             >
               {formatTeamWiseMoneyShort(team.purse, unit)}
@@ -1006,12 +1009,12 @@ function TeamWiseBroadcastPanel({
               Max Bid
             </p>
             <p
-              className="team-wise-stat-spendable tabular-nums mt-[0.2em]"
+              className="team-wise-stat-spendable whitespace-nowrap tabular-nums mt-[0.2em] font-extrabold"
               style={{ fontSize: type.spendable }}
             >
               {formatTeamWiseMoneyShort(team.maxBidAllowed, unit)}
             </p>
-            <p className="team-wise-label mt-[0.12em]" style={{ fontSize: type.meta }}>
+            <p className="team-wise-label mt-[0.15em] text-white/75 font-semibold whitespace-nowrap" style={{ fontSize: type.meta }}>
               On 1 Player
             </p>
           </div>
@@ -1021,7 +1024,7 @@ function TeamWiseBroadcastPanel({
               Reserve
             </p>
             <p
-              className="team-wise-stat-tertiary tabular-nums mt-[0.2em]"
+              className="team-wise-stat-tertiary whitespace-nowrap tabular-nums mt-[0.2em] font-bold"
               style={{ fontSize: type.money }}
             >
               {formatTeamWiseMoneyShort(team.reservedAmount, unit)}
@@ -1032,12 +1035,12 @@ function TeamWiseBroadcastPanel({
         <div className="team-wise-divider" role="separator" />
 
         {/* Squad counts + status */}
-        <div className="grid grid-cols-3 gap-[0.5em] items-center">
+        <div className="grid grid-cols-[1.05fr_1.05fr_1.4fr] gap-[0.4em] items-center">
           <div className="min-w-0">
             <p className="team-wise-label" style={{ fontSize: type.label }}>
               Bought
             </p>
-            <p className="team-wise-stat-tertiary leading-none mt-[0.16em]" style={{ fontSize: type.money }}>
+            <p className="team-wise-stat-tertiary whitespace-nowrap leading-none mt-[0.16em] font-bold" style={{ fontSize: type.money }}>
               {team.playersBought}
             </p>
           </div>
@@ -1046,13 +1049,13 @@ function TeamWiseBroadcastPanel({
               Slots Left
             </p>
             <p
-              className="team-wise-stat-slots leading-none mt-[0.16em]"
+              className="team-wise-stat-slots whitespace-nowrap leading-none mt-[0.16em] font-extrabold"
               style={{ fontSize: type.squad }}
             >
               {team.slotsRemaining}
             </p>
           </div>
-          <div className={status.badgeClass}>
+          <div className={`${status.badgeClass} whitespace-nowrap`}>
             <span className={status.dotClass} aria-hidden />
             <span style={{ fontSize: type.badge }}>{status.label}</span>
           </div>
@@ -1061,7 +1064,7 @@ function TeamWiseBroadcastPanel({
         {/* Progress bar */}
         <div className="min-w-0">
           <div
-            className="team-wise-progress-track h-[0.6em] min-h-[6px]"
+            className="team-wise-progress-track h-[0.7em] min-h-[7px]"
             style={getTeamWiseProgressTrackStyle(team.color)}
           >
             <div
@@ -1072,7 +1075,7 @@ function TeamWiseBroadcastPanel({
               }}
             />
           </div>
-          <p className="team-wise-label mt-[0.55em]" style={{ fontSize: type.meta }}>
+          <p className="team-wise-label mt-[0.45em] text-white/85 font-bold" style={{ fontSize: type.meta }}>
             {team.playersBought} / {squadCap} Players
           </p>
         </div>
@@ -1087,20 +1090,20 @@ function TeamWiseBroadcastPanel({
           {team.lastPurchase ? (
             <div className="team-wise-purchase-strip flex items-baseline justify-between gap-[0.55em]">
               <p
-                className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} truncate text-white leading-tight flex-1 min-w-0`}
+                className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} truncate text-white leading-tight flex-1 min-w-0 font-bold`}
                 style={{ fontSize: type.purse }}
               >
                 {team.lastPurchase.playerName}
               </p>
               <p
-                className="team-wise-stat-hero tabular-nums shrink-0 leading-none text-right"
+                className="team-wise-stat-hero whitespace-nowrap tabular-nums shrink-0 leading-none text-right font-extrabold"
                 style={{ fontSize: type.spendable, ...getTeamWisePurseValueStyle(true) }}
               >
                 {formatTeamWiseMoneyShort(team.lastPurchase.amount, unit)}
               </p>
             </div>
           ) : (
-            <p className="team-wise-label mt-[0.24em]" style={{ fontSize: type.meta }}>
+            <p className="team-wise-label mt-[0.24em] text-white/70 font-semibold" style={{ fontSize: type.meta }}>
               No Purchase Yet —
             </p>
           )}
@@ -1108,7 +1111,7 @@ function TeamWiseBroadcastPanel({
       </div>
 
       {isActive ? (
-        <div className="team-wise-active-pill" aria-label="Active bidding team">
+        <div className="team-wise-active-pill whitespace-nowrap font-bold" aria-label="Active bidding team">
           Active
         </div>
       ) : null}
