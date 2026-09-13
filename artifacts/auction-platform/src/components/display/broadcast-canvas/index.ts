@@ -7,3 +7,5 @@ export { SideDivider } from "./SideDivider";
 export { SideSafeAreaOverlay } from "./SideSafeAreaOverlay";
 export { SideSponsorLogoGlow } from "./SideSponsorLogoGlow";
 export { DisplayPreviewControls } from "./DisplayPreviewControls";
+export { SideLedStretchControls } from "./SideLedStretchControls";
+

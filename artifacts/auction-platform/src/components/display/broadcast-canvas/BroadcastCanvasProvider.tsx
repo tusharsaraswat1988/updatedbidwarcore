@@ -6,19 +6,22 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type {
-  BroadcastCanvasPreviewState,
-  CanvasDisplayMode,
-  CanvasGuideOverlay,
-  CanvasScaleMode,
+import {
+  savePersistedLedScreenConfig,
+  type BroadcastCanvasPreviewState,
+  type CanvasDisplayMode,
+  type CanvasGuideOverlay,
+  type CanvasScaleMode,
 } from "@/lib/broadcast-canvas/preview-mode";
 
 type BroadcastCanvasContextValue = {
   preview: BroadcastCanvasPreviewState;
   setScaleMode: (mode: CanvasScaleMode) => void;
+  setStretchX: (stretchX: number) => void;
   setDisplayMode: (mode: CanvasDisplayMode) => void;
   toggleGuide: (guide: CanvasGuideOverlay) => void;
   setShowPreviewControls: (show: boolean) => void;
+  resetScale: () => void;
 };
 
 const BroadcastCanvasContext =
@@ -34,7 +37,25 @@ export function BroadcastCanvasProvider({
   const [preview, setPreview] = useState(initialPreview);
 
   const setScaleMode = useCallback((scaleMode: CanvasScaleMode) => {
-    setPreview((p) => ({ ...p, scaleMode }));
+    setPreview((p) => {
+      savePersistedLedScreenConfig({ scaleMode, stretchX: p.stretchX });
+      return { ...p, scaleMode };
+    });
+  }, []);
+
+  const setStretchX = useCallback((stretchX: number) => {
+    const safe = Number.isFinite(stretchX) && stretchX > 0 ? Math.round(stretchX * 100) / 100 : 1;
+    setPreview((p) => {
+      savePersistedLedScreenConfig({ scaleMode: p.scaleMode, stretchX: safe });
+      return { ...p, stretchX: safe };
+    });
+  }, []);
+
+  const resetScale = useCallback(() => {
+    setPreview((p) => {
+      savePersistedLedScreenConfig({ scaleMode: "fit", stretchX: 1 });
+      return { ...p, scaleMode: "fit", stretchX: 1 };
+    });
   }, []);
 
   const setDisplayMode = useCallback((displayMode: CanvasDisplayMode) => {
@@ -58,11 +79,21 @@ export function BroadcastCanvasProvider({
     () => ({
       preview,
       setScaleMode,
+      setStretchX,
+      resetScale,
       setDisplayMode,
       toggleGuide,
       setShowPreviewControls,
     }),
-    [preview, setScaleMode, setDisplayMode, toggleGuide, setShowPreviewControls],
+    [
+      preview,
+      setScaleMode,
+      setStretchX,
+      resetScale,
+      setDisplayMode,
+      toggleGuide,
+      setShowPreviewControls,
+    ],
   );
 
   return (
@@ -82,3 +113,4 @@ export function useBroadcastCanvasPreview() {
 export function useBroadcastCanvasPreviewOptional() {
   return use(BroadcastCanvasContext);
 }
+

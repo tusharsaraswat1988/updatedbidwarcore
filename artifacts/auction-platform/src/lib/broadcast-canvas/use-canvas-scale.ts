@@ -1,32 +1,39 @@
 import { useEffect, useState, type RefObject } from "react";
 import {
-  resolveCanvasScale,
+  resolveCanvasScale2D,
+  type CanvasScale2D,
   type CanvasScaleMode,
 } from "./preview-mode";
 
 /**
- * Observes viewport size and returns GPU-friendly scale for the fixed canvas.
+ * Observes viewport size and returns GPU-friendly 2D scale for the fixed canvas.
  */
 export function useCanvasScale(
   viewportRef: RefObject<HTMLElement | null>,
   scaleMode: CanvasScaleMode,
   canvasWidth = 1080,
   canvasHeight = 1920,
-): number {
-  const [scale, setScale] = useState(1);
+  stretchX = 1,
+): CanvasScale2D {
+  const [scaleState, setScaleState] = useState<CanvasScale2D>({
+    scaleX: 1,
+    scaleY: 1,
+    scale: 1,
+  });
 
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
 
     const update = () => {
-      setScale(
-        resolveCanvasScale(
+      setScaleState(
+        resolveCanvasScale2D(
           el.clientWidth,
           el.clientHeight,
           scaleMode,
           canvasWidth,
           canvasHeight,
+          stretchX,
         ),
       );
     };
@@ -40,7 +47,8 @@ export function useCanvasScale(
       ro.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [viewportRef, scaleMode, canvasWidth, canvasHeight]);
+  }, [viewportRef, scaleMode, canvasWidth, canvasHeight, stretchX]);
 
-  return scale;
+  return scaleState;
 }
+
