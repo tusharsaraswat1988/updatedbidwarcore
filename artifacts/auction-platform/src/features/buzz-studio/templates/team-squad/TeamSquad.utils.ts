@@ -1,8 +1,12 @@
 /**
  * Buzz Studio — Team Squad Template Utilities
  *
- * Responsive roster layout for all four export ratios.
- * Fonts and row heights scale to fit — names and prices never truncate.
+ * Preset layout engine for Team Squad creatives across player count tiers:
+ * - Tier 1: < 8 players (spacious layout)
+ * - Tier 2: 8–11 players (standard squad)
+ * - Tier 3: 12–16+ players (dense squad)
+ *
+ * Provides uniform typography, zero letter-breaking, and clean data hierarchy.
  */
 
 import type { TeamSquadContract, TeamSquadPlayerEntry } from "./TeamSquad.types";
@@ -35,77 +39,182 @@ export function squadCounts(contract: TeamSquadContract): {
   return { sold, retained, total: contract.players.length };
 }
 
-/**
- * Column count — prefer 2 columns once the squad gets dense so rows stay readable.
- * Landscape always uses at least 2 when there are enough players.
- */
+export type SquadPlayerTier = "under8" | "tier8to11" | "tier12to16";
+
+export function resolveSquadPlayerTier(playerCount: number): SquadPlayerTier {
+  if (playerCount < 8) return "under8";
+  if (playerCount <= 11) return "tier8to11";
+  return "tier12to16";
+}
+
+export interface SquadLayoutPreset {
+  columns: number;
+  rowHeight: number;
+  avatarSize: number;
+  nameSize: number;
+  priceSize: number;
+  statusSize: number;
+  rowGap: number;
+  rowPaddingX: number;
+  rowPaddingY: number;
+  gapInsideRow: number;
+  priceAreaWidth: number;
+}
+
+/** Backward compatibility alias */
+export type SquadRosterLayout = SquadLayoutPreset;
+
+export function getSquadLayoutPreset(
+  ctx: BuzzRenderContext,
+  playerCount: number,
+  hasSponsors = false,
+): SquadLayoutPreset {
+  const count = Math.max(1, playerCount);
+  const tier = resolveSquadPlayerTier(count);
+  const { aspectRatio, renderHeight } = ctx;
+
+  // 1. Landscape (16:9)
+  if (aspectRatio === "16:9") {
+    let columns = 3;
+    if (tier === "under8") columns = count <= 4 ? 2 : 3;
+    else if (tier === "tier12to16") columns = 4;
+
+    const rows = Math.max(1, Math.ceil(count / columns));
+    const availableHeight = renderHeight * 0.78;
+    const rowGap = 10;
+    const rowHeight = Math.max(54, Math.floor((availableHeight - rowGap * (rows - 1)) / rows));
+
+    const avatarSize = Math.max(42, Math.min(84, Math.round(rowHeight * 0.74)));
+    const nameSize = tier === "under8" ? 22 : tier === "tier8to11" ? 19 : 16;
+    const priceSize = tier === "under8" ? 24 : tier === "tier8to11" ? 22 : 18;
+    const statusSize = Math.max(9, Math.round(nameSize * 0.58));
+
+    return {
+      columns,
+      rowHeight,
+      avatarSize,
+      nameSize,
+      priceSize,
+      statusSize,
+      rowGap,
+      rowPaddingX: 12,
+      rowPaddingY: 8,
+      gapInsideRow: 10,
+      priceAreaWidth: 125,
+    };
+  }
+
+  // 2. 9:16 (1080 x 1920)
+  if (aspectRatio === "9:16") {
+    const columns = tier === "under8" && count <= 5 ? 1 : 2;
+    const rows = Math.max(1, Math.ceil(count / columns));
+    const availableHeight = renderHeight * (hasSponsors ? 0.72 : 0.76);
+    const rowGap = 12;
+    const rowHeight = Math.max(64, Math.floor((availableHeight - rowGap * (rows - 1)) / rows));
+
+    const avatarSize = Math.max(56, Math.min(115, Math.round(rowHeight * 0.75)));
+    const nameSize = tier === "under8" ? (columns === 1 ? 30 : 26) : tier === "tier8to11" ? 25 : 21;
+    const priceSize = tier === "under8" ? (columns === 1 ? 36 : 30) : tier === "tier8to11" ? 28 : 24;
+    const statusSize = Math.max(10, Math.round(nameSize * 0.52));
+
+    return {
+      columns,
+      rowHeight,
+      avatarSize,
+      nameSize,
+      priceSize,
+      statusSize,
+      rowGap,
+      rowPaddingX: 14,
+      rowPaddingY: 10,
+      gapInsideRow: 12,
+      priceAreaWidth: 145,
+    };
+  }
+
+  // 3. 4:5 (1080 x 1350)
+  if (aspectRatio === "4:5") {
+    const columns = tier === "under8" && count <= 4 ? 1 : 2;
+    const rows = Math.max(1, Math.ceil(count / columns));
+    const availableHeight = renderHeight * (hasSponsors ? 0.66 : 0.70);
+    const rowGap = 8;
+    const rowHeight = Math.max(52, Math.floor((availableHeight - rowGap * (rows - 1)) / rows));
+
+    const avatarSize = Math.max(44, Math.min(94, Math.round(rowHeight * 0.75)));
+    const nameSize = tier === "under8" ? (columns === 1 ? 26 : 22) : tier === "tier8to11" ? 21 : 18;
+    const priceSize = tier === "under8" ? (columns === 1 ? 30 : 26) : tier === "tier8to11" ? 25 : 21;
+    const statusSize = Math.max(9, Math.round(nameSize * 0.54));
+
+    return {
+      columns,
+      rowHeight,
+      avatarSize,
+      nameSize,
+      priceSize,
+      statusSize,
+      rowGap,
+      rowPaddingX: 12,
+      rowPaddingY: 8,
+      gapInsideRow: 10,
+      priceAreaWidth: 135,
+    };
+  }
+
+  // 4. 1:1 (1080 x 1080)
+  const columns = tier === "under8" && count <= 4 ? 1 : 2;
+  const rows = Math.max(1, Math.ceil(count / columns));
+  const availableHeight = renderHeight * (hasSponsors ? 0.62 : 0.66);
+  const rowGap = 6;
+  const rowHeight = Math.max(48, Math.floor((availableHeight - rowGap * (rows - 1)) / rows));
+
+  const avatarSize = Math.max(38, Math.min(76, Math.round(rowHeight * 0.74)));
+  const nameSize = tier === "under8" ? (columns === 1 ? 22 : 18) : tier === "tier8to11" ? 18 : 15;
+  const priceSize = tier === "under8" ? (columns === 1 ? 25 : 21) : tier === "tier8to11" ? 20 : 17;
+  const statusSize = Math.max(8, Math.round(nameSize * 0.54));
+
+  return {
+    columns,
+    rowHeight,
+    avatarSize,
+    nameSize,
+    priceSize,
+    statusSize,
+    rowGap,
+    rowPaddingX: 10,
+    rowPaddingY: 6,
+    gapInsideRow: 8,
+    priceAreaWidth: 120,
+  };
+}
+
+/** Backward compatibility helper */
+export function computeSquadRosterLayout(
+  ctx: BuzzRenderContext,
+  players: TeamSquadPlayerEntry[],
+  _unitOrCurrency = "rupee",
+  hasSponsors = false,
+): SquadLayoutPreset {
+  return getSquadLayoutPreset(ctx, players.length, hasSponsors);
+}
+
+/** Backward compatibility helper */
 export function rosterGridColumns(
   aspectRatio: BuzzAspectRatio,
   playerCount: number,
 ): number {
   if (aspectRatio === "16:9") {
     if (playerCount <= 4) return 2;
-    if (playerCount <= 10) return 3;
+    if (playerCount <= 9) return 3;
     return 4;
   }
-  if (aspectRatio === "1:1") {
-    return playerCount >= 5 ? 2 : 1;
-  }
-  if (aspectRatio === "4:5") {
-    return playerCount >= 6 ? 2 : 1;
-  }
-  // 9:16
-  return playerCount >= 7 ? 2 : 1;
-}
-
-/** Vertical budget for roster area (fraction of canvas height). */
-function rosterHeightBudget(
-  aspectRatio: BuzzAspectRatio,
-  landscape: boolean,
-): number {
-  if (landscape) return 0.72;
-  if (aspectRatio === "9:16") return 0.55;
-  if (aspectRatio === "4:5") return 0.58;
-  return 0.56;
-}
-
-export interface SquadRosterLayout {
-  columns: number;
-  avatarSize: number;
-  rowGap: number;
-  rowPaddingY: number;
-  rowPaddingX: number;
-  nameSize: number;
-  priceSize: number;
-  metaSize: number;
-  rowMinHeight: number;
-  priceAreaWidth: number;
-  nameAreaWidth: number;
-}
-
-function estimateTextWidth(charCount: number, fontSize: number, factor = 0.58): number {
-  return charCount * fontSize * factor;
-}
-
-function fitFontToWidth(
-  charCount: number,
-  availableWidth: number,
-  preferredSize: number,
-  minSize: number,
-  factor = 0.58,
-): number {
-  let size = preferredSize;
-  while (size > minSize && estimateTextWidth(charCount, size, factor) > availableWidth) {
-    size -= 1;
-  }
-  return size;
+  return playerCount <= 4 ? 1 : 2;
 }
 
 export function longestSquadPriceLength(
   players: TeamSquadPlayerEntry[],
   unitOrCurrency = "rupee",
 ): number {
-  let max = 5;
+  let max = 6;
   for (const player of players) {
     const formatted = formatSquadPlayerPrice(player, unitOrCurrency);
     if (formatted) max = Math.max(max, formatted.length);
@@ -113,97 +222,41 @@ export function longestSquadPriceLength(
   return max;
 }
 
-function longestSquadNameLength(players: TeamSquadPlayerEntry[]): number {
-  let max = 8;
-  for (const player of players) {
-    max = Math.max(max, player.playerName.length);
+export function isMarqueePlayerTag(tag: string | null | undefined): boolean {
+  return tag === "icon" || tag === "star_player";
+}
+
+export function squadTagTheme(
+  tag: string | null | undefined,
+): { color: string; glow: string; border: string; label: string } | null {
+  if (tag === "icon") {
+    return {
+      color: "#fbbf24",
+      glow: "rgba(251,191,36,0.45)",
+      border: "rgba(251,191,36,0.50)",
+      label: "Icon",
+    };
   }
-  return max;
+  if (tag === "star_player") {
+    return {
+      color: "#a855f7",
+      glow: "rgba(168,85,247,0.40)",
+      border: "rgba(168,85,247,0.50)",
+      label: "Star Player",
+    };
+  }
+  return null;
 }
 
-/**
- * Scale roster so the full squad fits the canvas for any ratio.
- * Name + price fonts shrink together until both fit without clipping.
- */
-export function computeSquadRosterLayout(
-  ctx: BuzzRenderContext,
-  players: TeamSquadPlayerEntry[],
-  unitOrCurrency = "rupee",
-): SquadRosterLayout {
-  const playerCount = Math.max(1, players.length);
-  const landscape = ctx.aspectRatio === "16:9";
-  const columns = rosterGridColumns(ctx.aspectRatio, playerCount);
-  const rows = Math.max(1, Math.ceil(playerCount / columns));
-  const budget = rosterHeightBudget(ctx.aspectRatio, landscape) * ctx.renderHeight;
-  const baseGap = Math.max(3, Math.round(ctx.renderHeight * 0.005));
-  const totalGap = baseGap * Math.max(0, rows - 1);
-  const rowMinHeight = Math.max(32, Math.floor((budget - totalGap) / rows));
-
-  const avatarSize = Math.max(
-    22,
-    Math.min(
-      Math.round(rowMinHeight * 0.7),
-      landscape ? Math.round(ctx.renderHeight * 0.095) : Math.round(ctx.renderHeight * 0.042),
-    ),
-  );
-
-  const rowPaddingY = Math.max(3, Math.round(rowMinHeight * 0.08));
-  const rowPaddingX = Math.max(5, Math.round(ctx.renderWidth * 0.012));
-  const metaSize = Math.max(7, Math.round(rowMinHeight * 0.15));
-
-  const canvasPadX = Math.round(ctx.renderWidth * 0.05) * 2;
-  const rowInnerWidth = Math.max(100, (ctx.renderWidth - canvasPadX) / columns - 4);
-  const gapBudget = avatarSize + rowPaddingX * 2 + Math.round(rowPaddingX * 0.6);
-  const contentWidth = Math.max(80, rowInnerWidth - gapBudget);
-
-  // Split content: ~52% name / ~48% price — then fit fonts to each slot.
-  const nameAreaWidth = Math.max(48, Math.round(contentWidth * 0.52));
-  const priceAreaWidth = Math.max(56, Math.round(contentWidth * 0.48));
-
-  const maxNameChars = longestSquadNameLength(players);
-  const maxPriceChars = longestSquadPriceLength(players, unitOrCurrency);
-
-  // Names may wrap to 2 lines — fit against ~1.85× single-line width budget.
-  const preferredName = Math.max(11, Math.round(rowMinHeight * 0.28));
-  const minName = Math.max(9, Math.round(rowMinHeight * 0.16));
-  const nameSize = fitFontToWidth(
-    maxNameChars,
-    Math.round(nameAreaWidth * 1.85),
-    preferredName,
-    minName,
-    0.55,
-  );
-
-  const preferredPrice = Math.max(12, Math.round(rowMinHeight * 0.42));
-  const minPrice = Math.max(10, Math.round(metaSize * 1.2));
-  const priceSize = fitFontToWidth(maxPriceChars, priceAreaWidth, preferredPrice, minPrice, 0.62);
-
-  return {
-    columns,
-    avatarSize,
-    rowGap: baseGap,
-    rowPaddingY,
-    rowPaddingX,
-    nameSize,
-    priceSize,
-    metaSize,
-    rowMinHeight,
-    priceAreaWidth,
-    nameAreaWidth,
-  };
-}
-
-/**
- * Tournament title: ~80% of base poster size, shrink further so it fits in max 2 lines.
- */
+/** Tournament title: shrink so it fits in max 2 lines. */
 export function fitTournamentTitleSize(
   name: string,
   availableWidth: number,
   preferredSize: number,
   maxLines = 2,
 ): number {
-  const minSize = Math.max(9, Math.round(preferredSize * 0.55));
-  const target = Math.max(minSize, Math.round(preferredSize * 0.8));
+  const minSize = Math.max(11, Math.round(preferredSize * 0.55));
+  const target = Math.max(minSize, Math.round(preferredSize * 0.85));
   const upper = name.toUpperCase();
 
   for (let size = target; size >= minSize; size -= 1) {
@@ -215,16 +268,14 @@ export function fitTournamentTitleSize(
   return minSize;
 }
 
-/**
- * Team name: larger display size, shrink to fit up to 2 lines.
- */
+/** Team name: prominent display size, shrink to fit up to 2 lines. */
 export function fitTeamTitleSize(
   name: string,
   availableWidth: number,
   preferredSize: number,
   maxLines = 2,
 ): number {
-  const minSize = Math.max(12, Math.round(preferredSize * 0.55));
+  const minSize = Math.max(14, Math.round(preferredSize * 0.55));
   const upper = name.toUpperCase();
 
   for (let size = preferredSize; size >= minSize; size -= 1) {
@@ -234,31 +285,4 @@ export function fitTeamTitleSize(
     if (linesNeeded <= maxLines) return size;
   }
   return minSize;
-}
-
-export function isMarqueePlayerTag(tag: string | null | undefined): boolean {
-  return tag === "icon" || tag === "star_player";
-}
-
-/** Lightweight tag chrome for squad rows (mirrors lib/tag-theme for icon/star). */
-export function squadTagTheme(
-  tag: string | null | undefined,
-): { color: string; glow: string; border: string; label: string } | null {
-  if (tag === "icon") {
-    return {
-      color: "#fbbf24",
-      glow: "rgba(251,191,36,0.45)",
-      border: "rgba(251,191,36,0.40)",
-      label: "Icon",
-    };
-  }
-  if (tag === "star_player") {
-    return {
-      color: "#a855f7",
-      glow: "rgba(168,85,247,0.40)",
-      border: "rgba(168,85,247,0.40)",
-      label: "Star Player",
-    };
-  }
-  return null;
 }
