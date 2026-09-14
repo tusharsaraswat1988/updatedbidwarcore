@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import type { LedView } from "@/lib/led-view/types";
 import { EyesMascot } from "./EyesMascot";
+import { TeamsPurseBoard } from "./TeamsPurseBoard";
 
 function fmt(secs: number): string {
   const m = Math.floor(secs / 60);
@@ -52,6 +53,7 @@ function useIntermittentAwaiting(suppressed: boolean) {
 
 /**
  * TIMER PANEL — countdown with progress bar scaled to tournament timer settings.
+ * Includes middle TeamsPurseBoard showing all teams' remaining purse and max bid allowed per player.
  * When idle, an awaiting eyes overlay occasionally fades in over the placeholder.
  */
 export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) {
@@ -64,8 +66,8 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
   const pct = Math.max(0, Math.min(100, (countdown / ceiling) * 100));
 
   return (
-    <div className="flex flex-col items-end justify-between gap-4 h-full">
-      <div className="flex flex-col items-end w-full">
+    <div className="flex flex-col justify-between gap-2.5 h-full min-h-0">
+      <div className="flex flex-col items-end w-full shrink-0">
         <span
           className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/45 mb-1"
           style={{
@@ -120,8 +122,11 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
         </div>
       </div>
 
+      {/* Teams Purse & Max Bid board occupies the spacious middle area */}
+      <TeamsPurseBoard view={view} />
+
       <div
-        className="w-full p-3 border"
+        className="w-full p-2.5 border shrink-0"
         style={{
           backgroundColor: hammerActive
             ? "color-mix(in srgb, var(--accent) 12%, transparent)"

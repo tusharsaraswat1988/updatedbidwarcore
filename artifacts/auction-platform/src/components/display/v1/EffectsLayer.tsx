@@ -133,6 +133,17 @@ export const EffectsLayer = memo(function EffectsLayer({
       ? formatAuctionAmount(lastOutcome.amount, auctionUnit)
       : currentBidLabel;
 
+    const winningTeam =
+      teams.find((t) => lastOutcome?.teamId != null && String(t.id) === String(lastOutcome.teamId)) ??
+      (leadingTeam?.id ? teams.find((t) => String(t.id) === String(leadingTeam.id)) : null) ??
+      teams.find((t) => t.name.toLowerCase() === teamName.toLowerCase()) ??
+      leadingTeam;
+
+    const remainingPurseLabel =
+      winningTeam?.purse != null
+        ? formatAuctionAmount(winningTeam.purse, auctionUnit)
+        : null;
+
     return (
       <div className="absolute inset-0 z-30 grid place-items-center pointer-events-none overflow-hidden">
         <div
@@ -178,6 +189,22 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="text-[clamp(0.55rem,1.1cqw,0.875rem)] font-mono uppercase tracking-[0.35em] text-white/70 text-center mt-2 truncate max-w-full">
               {playerName} · {teamName}
             </p>
+            {remainingPurseLabel ? (
+              <div
+                className="mt-1.5 inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full border bg-black/70 backdrop-blur-sm"
+                style={{ borderColor: `color-mix(in srgb, ${teamColor} 60%, transparent)` }}
+              >
+                <span className="font-mono text-[clamp(0.5rem,0.9cqw,0.72rem)] uppercase tracking-[0.2em] text-white/60">
+                  REMAINING PURSE:
+                </span>
+                <span
+                  className="font-['Bebas_Neue'] text-[clamp(0.85rem,1.7cqw,1.35rem)] tracking-wider tabular-nums leading-none"
+                  style={{ color: teamColor }}
+                >
+                  {remainingPurseLabel}
+                </span>
+              </div>
+            ) : null}
           </div>
           {teamLogo ? (
             <img src={teamLogo} alt={teamName} className="h-[14.8cqh] w-[14.8cqh] object-contain" />
