@@ -79,6 +79,127 @@
   }
 }
 
+/* ── BidWar Auction LED Broadcast Typography System ────────────────────────
+   Venue LED display typography layer (10–50 ft viewing on 1366x768 up to 4K).
+   Replaces arbitrary micro-typography (8px–10px, text-xs) with responsive
+   stage-relative sizing, hard readability floors, tight LED-friendly tracking,
+   and crisp tabular numerals.
+*/
+.bidwar-led-surface {
+  --led-font-display: "Bebas Neue", "Barlow Condensed", system-ui, sans-serif;
+  --led-font-primary: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+  --led-font-label: "Space Grotesk", "Barlow Condensed", system-ui, sans-serif;
+  --led-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Hard readability floors + stage-relative clamp scaling (calibrated for 10-50ft viewing) */
+  --led-hero-size: clamp(3.75rem, 11cqw, 12rem);
+  --led-timer-size: clamp(2.5rem, 8cqw, 4.5rem);
+  --led-player-size: clamp(2.25rem, 5.5cqw, 5rem);
+  --led-tournament-size: clamp(1.2rem, 1.75cqw, 2.2rem);
+  --led-team-size: clamp(1.2rem, 2.1cqw, 2.5rem);
+  --led-status-size: clamp(0.95rem, 1.35cqw, 1.55rem);
+  --led-value-size: clamp(1.4rem, 2.5cqw, 2.8rem);
+  --led-value-sub-size: clamp(0.95rem, 1.3cqw, 1.45rem);
+  --led-label-size: clamp(0.85rem, 1.15cqw, 1.35rem);
+  --led-caption-size: clamp(0.75rem, 0.95cqw, 1.1rem);
+}
+
+/* LED HERO — Current bid amount (dominant, tabular, instant recognition) */
+.bidwar-led-surface .led-hero,
+.led-hero {
+  font-family: var(--led-font-display, "Bebas Neue", "Barlow Condensed", sans-serif);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.85;
+  letter-spacing: -0.02em;
+}
+
+/* LED TIMER — Hammer time countdown */
+.bidwar-led-surface .led-timer,
+.led-timer {
+  font-family: var(--led-font-mono, "JetBrains Mono", monospace);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* LED PLAYER — Player name display */
+.bidwar-led-surface .led-player,
+.led-player {
+  font-family: var(--led-font-display, "Bebas Neue", "Barlow Condensed", sans-serif);
+  text-transform: uppercase;
+  line-height: 0.88;
+  letter-spacing: -0.01em;
+}
+
+/* LED TEAM — Team identity & short code */
+.bidwar-led-surface .led-team,
+.led-team {
+  font-family: var(--led-font-primary, "Barlow Condensed", sans-serif);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+/* LED STATUS — Highest Bidder, Live, Bidding Open, Paused */
+.bidwar-led-surface .led-status,
+.led-status {
+  font-family: var(--led-font-label, "Space Grotesk", sans-serif);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+}
+
+/* LED VALUE — Next minimum, increment, bid ladder amounts, purse, max bid */
+.bidwar-led-surface .led-value,
+.led-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.bidwar-led-surface .led-value-sub,
+.led-value-sub {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+/* LED LABEL — Headers & supporting labels (Tournament, Players Remaining, Hammer Time, Next Min) */
+.bidwar-led-surface .led-label,
+.led-label {
+  font-family: var(--led-font-label, "Space Grotesk", "Barlow Condensed", sans-serif);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+/* LED TOURNAMENT — Header tournament title */
+.bidwar-led-surface .led-tournament,
+.led-tournament {
+  font-family: var(--led-font-display, "Bebas Neue", sans-serif);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+/* LED CAPTION — Micro-metadata (only genuinely non-critical ancillary text) */
+.bidwar-led-surface .led-caption,
+.led-caption {
+  font-family: var(--led-font-label, "Space Grotesk", sans-serif);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+
 /* ── BidWar Broadcast Typography System ──────────────────────────────────────
    Semantic type tokens shared by every BidWar LED/broadcast display.
    Voice: Barlow Condensed (athletic, high-legibility primary) for hero

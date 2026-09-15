@@ -69,7 +69,7 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
     <div className="flex flex-col justify-between gap-2.5 h-full min-h-0">
       <div className="flex flex-col items-end w-full shrink-0">
         <span
-          className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/45 mb-1"
+          className="led-label text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.08em] text-white/85 mb-1 font-['Space_Grotesk']"
           style={{
             opacity: hammerActive || !awaitingPeek ? 1 : 0,
             transition: hammerActive ? "none" : `opacity ${AWAITING_FADE_MS}ms ease-in-out`,
@@ -80,13 +80,13 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
 
         <div className="relative w-full min-h-[8.1cqh] flex items-end justify-end">
           <div
-            className="font-mono text-[clamp(2.5rem,8cqw,4.5rem)] font-bold leading-none tabular-nums"
+            className="led-timer font-mono text-[clamp(2.75rem,8cqw,5rem)] font-extrabold leading-none tabular-nums"
             style={{
               color: hammerActive
                 ? urgent
                   ? "#ef4444"
                   : "var(--accent)"
-                : "rgba(255,255,255,0.15)",
+                : "rgba(255,255,255,0.2)",
               animation: urgent ? "auction-urgency-pulse 0.8s ease-in-out infinite" : undefined,
               opacity: hammerActive ? 1 : awaitingPeek ? 0.1 : 1,
               transition: hammerActive ? "none" : `opacity ${AWAITING_FADE_MS}ms ease-in-out`,
@@ -104,14 +104,14 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
               }}
             >
               <EyesMascot idle={awaitingPeek} />
-              <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/50">
+              <span className="led-label text-[clamp(0.9rem,1.2cqw,1.35rem)] font-bold uppercase tracking-[0.06em] text-white/80">
                 Awaiting
               </span>
             </div>
           ) : null}
         </div>
 
-        <div className="mt-2 h-1 w-full bg-white/10 overflow-hidden">
+        <div className="mt-2 h-1.5 w-full bg-white/15 overflow-hidden rounded-full">
           <div
             className="h-full transition-all duration-1000 ease-linear"
             style={{
@@ -129,23 +129,23 @@ export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) 
         className="w-full p-2.5 border shrink-0"
         style={{
           backgroundColor: hammerActive
-            ? "color-mix(in srgb, var(--accent) 12%, transparent)"
-            : "rgba(255,255,255,0.03)",
+            ? "color-mix(in srgb, var(--accent) 15%, rgba(0,0,0,0.6))"
+            : "rgba(255,255,255,0.04)",
           borderColor: hammerActive
-            ? "color-mix(in srgb, var(--accent) 35%, transparent)"
-            : "rgba(255,255,255,0.08)",
+            ? "color-mix(in srgb, var(--accent) 45%, transparent)"
+            : "rgba(255,255,255,0.12)",
         }}
       >
-        <p className="text-[9px] font-mono uppercase tracking-widest text-white/50">
+        <p className="led-label text-[clamp(0.85rem,1.15cqw,1.3rem)] font-extrabold uppercase tracking-[0.06em] text-white/85 font-['Space_Grotesk']">
           Next Minimum
         </p>
         <p
-          className="font-['Bebas_Neue'] text-[clamp(1.5rem,3cqw,1.875rem)] leading-none mt-1 tabular-nums"
-          style={{ color: hammerActive ? "var(--accent)" : "rgba(255,255,255,0.4)" }}
+          className="led-value font-['Bebas_Neue'] text-[clamp(1.75rem,3.2cqw,2.75rem)] font-black leading-none mt-1 tabular-nums"
+          style={{ color: hammerActive ? "var(--accent)" : "rgba(255,255,255,0.85)" }}
         >
           {nextMinLabel}
         </p>
-        <p className="text-[9px] font-mono uppercase tracking-widest text-white/45 mt-1">
+        <p className="led-value-sub text-[clamp(0.95rem,1.25cqw,1.4rem)] font-bold uppercase tracking-[0.04em] text-white/90 mt-1 tabular-nums">
           Increment {incrementLabel}
         </p>
       </div>

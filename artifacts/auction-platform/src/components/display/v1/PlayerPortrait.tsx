@@ -99,19 +99,19 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       />
 
       <div className="absolute inset-x-0 bottom-0 z-10 px-3 sm:px-4 pb-3 pt-8 sm:pt-10 bg-gradient-to-t from-black/95 via-black/80 to-transparent">
-        <p className="mb-1.5 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.14em] leading-snug flex flex-wrap items-center gap-x-2 gap-y-1">
+        <p className="mb-1.5 led-label text-[clamp(0.8rem,1.05cqw,1.2rem)] font-extrabold uppercase tracking-[0.06em] leading-snug flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk']">
           <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
           {currentPlayer.city ? (
             <>
-              <span className="text-white/35 font-normal">•</span>
-              <span className="text-white/80 font-mono tracking-[0.18em]">
+              <span className="text-white/40 font-normal">•</span>
+              <span className="text-white/90 font-mono tracking-[0.06em]">
                 {currentPlayer.city}
               </span>
             </>
           ) : null}
           {tag ? (
             <>
-              <span className="text-white/35 font-normal">•</span>
+              <span className="text-white/40 font-normal">•</span>
               <span style={{ color: tag.color }}>{tag.label}</span>
             </>
           ) : null}
@@ -186,7 +186,7 @@ function PortraitPlayerName({ name }: { name: string }) {
     <div ref={containerRef} className="w-full">
       <h2
         ref={textRef}
-        className="w-max max-w-full font-['Bebas_Neue'] text-[clamp(1.75rem,18cqw,4rem)] leading-[0.88] uppercase text-white tracking-tight whitespace-nowrap"
+        className="w-max max-w-full led-player font-['Bebas_Neue'] text-[clamp(2rem,18cqw,4.5rem)] leading-[0.88] uppercase text-white tracking-tight whitespace-nowrap font-bold"
       >
         {name}
       </h2>
@@ -217,13 +217,13 @@ function SpecRow({
   return (
     <p className={`min-w-0 leading-snug ${className ?? ""}`}>
       <span
-        className="font-mono text-[12px] sm:text-[13px] uppercase tracking-[0.12em] text-white/50"
+        className="led-label text-[clamp(0.8rem,1cqw,1.15rem)] font-bold uppercase tracking-[0.06em] text-white/75 font-['Space_Grotesk']"
         title={fullLabel}
       >
         {shortLabel}:{" "}
       </span>
       <span
-        className="font-mono text-[14px] sm:text-[15px] font-bold"
+        className="led-value font-mono text-[clamp(0.95rem,1.25cqw,1.4rem)] font-extrabold tabular-nums"
         style={{ color: "var(--accent)" }}
       >
         {value}

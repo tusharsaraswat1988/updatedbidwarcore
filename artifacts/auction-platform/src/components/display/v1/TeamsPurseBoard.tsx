@@ -55,7 +55,7 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
   if (teams.length === 0) {
     return (
       <div className="w-full flex-1 min-h-0 flex flex-col justify-center items-center p-3 border border-white/10 bg-black/40 text-center">
-        <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/30">
+        <span className="led-label text-[clamp(0.9rem,1.2cqw,1.35rem)] font-bold uppercase tracking-[0.06em] text-white/70 font-['Space_Grotesk']">
           Awaiting Teams Data
         </span>
       </div>
@@ -70,17 +70,17 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
       <div className="flex items-center justify-between px-1.5 pb-1.5 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-1.5">
           <div
-            className="size-1.5 rounded-full"
+            className="size-2 rounded-full"
             style={{
-              backgroundColor: isBidding ? "var(--accent)" : "rgba(255,255,255,0.4)",
+              backgroundColor: isBidding ? "var(--accent)" : "rgba(255,255,255,0.6)",
               animation: isBidding ? "auction-pulse-glow 1.5s ease-in-out infinite" : undefined,
             }}
           />
-          <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-white/60">
+          <span className="led-label text-[clamp(0.75rem,0.95cqw,1.05rem)] font-extrabold uppercase tracking-[0.04em] text-white/90 font-['Space_Grotesk']">
             Teams Purse & Max Bid
           </span>
         </div>
-        <span className="text-[8px] font-mono uppercase tracking-widest text-white/40">
+        <span className="led-label text-[clamp(0.7rem,0.85cqw,0.95rem)] font-bold uppercase text-white/75">
           {teams.length} Teams
         </span>
       </div>
@@ -99,19 +99,19 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
               } border`}
               style={{
                 backgroundColor: isLeader
-                  ? `color-mix(in srgb, ${teamColor} 18%, rgba(0,0,0,0.6))`
-                  : "rgba(255,255,255,0.03)",
+                  ? `color-mix(in srgb, ${teamColor} 22%, rgba(0,0,0,0.7))`
+                  : "rgba(255,255,255,0.04)",
                 borderColor: isLeader
-                  ? `color-mix(in srgb, ${teamColor} 65%, transparent)`
-                  : "rgba(255,255,255,0.08)",
+                  ? `color-mix(in srgb, ${teamColor} 75%, transparent)`
+                  : "rgba(255,255,255,0.12)",
                 boxShadow: isLeader
-                  ? `0 0 12px color-mix(in srgb, ${teamColor} 30%, transparent)`
+                  ? `0 0 14px color-mix(in srgb, ${teamColor} 35%, transparent)`
                   : undefined,
               }}
             >
               {/* Left Stripe */}
               <div
-                className="absolute left-0 inset-y-0 w-1"
+                className="absolute left-0 inset-y-0 w-1.5"
                 style={{ backgroundColor: teamColor }}
               />
 
@@ -125,9 +125,9 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
                   />
                 ) : (
                   <span
-                    className="font-['Bebas_Neue'] text-xs px-1 py-0.5 rounded leading-none shrink-0 font-bold"
+                    className="led-team font-['Bebas_Neue'] text-[clamp(0.85rem,1.15cqw,1.3rem)] px-1.5 py-0.5 rounded leading-none shrink-0 font-bold"
                     style={{
-                      backgroundColor: `color-mix(in srgb, ${teamColor} 25%, transparent)`,
+                      backgroundColor: `color-mix(in srgb, ${teamColor} 30%, transparent)`,
                       color: teamColor,
                     }}
                   >
@@ -136,12 +136,12 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
                 )}
                 <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-bold uppercase tracking-wider text-white truncate max-w-[130px]">
+                    <span className="led-team text-[clamp(0.8rem,1cqw,1.15rem)] font-extrabold uppercase tracking-wide text-white truncate max-w-[140px]">
                       {team.name}
                     </span>
                     {isLeader && (
                       <span
-                        className="text-[7.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded leading-tight shrink-0"
+                        className="led-status text-[clamp(0.7rem,0.85cqw,0.95rem)] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-tight shrink-0 shadow"
                         style={{
                           backgroundColor: teamColor,
                           color: "#000",
@@ -158,11 +158,11 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
               <div className="flex items-center gap-2.5 shrink-0 text-right">
                 {/* Remaining Purse */}
                 <div className="flex flex-col items-end">
-                  <span className="text-[7.5px] font-mono uppercase tracking-wider text-white/45 leading-none mb-0.5">
+                  <span className="led-label text-[clamp(0.68rem,0.8cqw,0.9rem)] font-bold uppercase tracking-wider text-white/70 leading-none mb-0.5 font-['Space_Grotesk']">
                     Purse
                   </span>
                   <span
-                    className="font-['Bebas_Neue'] text-sm tracking-wide tabular-nums leading-none font-bold"
+                    className="led-value font-['Bebas_Neue'] text-[clamp(0.95rem,1.3cqw,1.45rem)] tracking-wide tabular-nums leading-none font-black"
                     style={{ color: isLeader ? teamColor : "var(--stage-text)" }}
                   >
                     {formatAuctionAmount(team.purse, auctionUnit)}
@@ -170,14 +170,14 @@ export const TeamsPurseBoard = memo(function TeamsPurseBoard({ view }: TeamsPurs
                 </div>
 
                 {/* Vertical separator */}
-                <div className="h-5 w-px bg-white/10" />
+                <div className="h-5 w-px bg-white/15" />
 
                 {/* Max Bid Allowed */}
                 <div className="flex flex-col items-end min-w-[52px]">
-                  <span className="text-[7.5px] font-mono uppercase tracking-wider text-white/45 leading-none mb-0.5">
+                  <span className="led-label text-[clamp(0.68rem,0.8cqw,0.9rem)] font-bold uppercase tracking-wider text-white/70 leading-none mb-0.5 font-['Space_Grotesk']">
                     Max Bid
                   </span>
-                  <span className="font-['Bebas_Neue'] text-sm tracking-wide tabular-nums leading-none text-emerald-400 font-bold">
+                  <span className="led-value font-['Bebas_Neue'] text-[clamp(0.95rem,1.3cqw,1.45rem)] tracking-wide tabular-nums leading-none text-emerald-400 font-black">
                     {formatAuctionAmount(team.maxBidAllowed, auctionUnit)}
                   </span>
                 </div>

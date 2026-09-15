@@ -11,7 +11,7 @@ export function StageFrame({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="auction-stage absolute inset-0 overflow-hidden"
+      className="auction-stage bidwar-led-surface absolute inset-0 overflow-hidden"
       style={{
         ...styleVars,
         backgroundColor: "var(--stage-bg)",

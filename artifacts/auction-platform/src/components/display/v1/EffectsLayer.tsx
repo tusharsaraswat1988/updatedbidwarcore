@@ -118,6 +118,7 @@ export const EffectsLayer = memo(function EffectsLayer({
       const timer = window.setTimeout(() => setNewPlayerName(null), 8000);
       return () => window.clearTimeout(timer);
     }
+    return undefined;
   }, [derivedState, currentPlayer?.name]);
 
 
@@ -186,19 +187,19 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="font-['Bebas_Neue'] text-[clamp(1.25rem,3.5cqw,3rem)] tracking-widest text-center text-white mt-1 tabular-nums">
               {amount} → {teamShort}
             </p>
-            <p className="text-[clamp(0.55rem,1.1cqw,0.875rem)] font-mono uppercase tracking-[0.35em] text-white/70 text-center mt-2 truncate max-w-full">
+            <p className="led-player text-[clamp(1rem,1.75cqw,1.9rem)] font-extrabold uppercase tracking-[0.06em] text-white text-center mt-2 truncate max-w-full font-['Space_Grotesk']">
               {playerName} · {teamName}
             </p>
             {remainingPurseLabel ? (
               <div
-                className="mt-1.5 inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full border bg-black/70 backdrop-blur-sm"
-                style={{ borderColor: `color-mix(in srgb, ${teamColor} 60%, transparent)` }}
+                className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-black/80 backdrop-blur-sm"
+                style={{ borderColor: `color-mix(in srgb, ${teamColor} 70%, transparent)` }}
               >
-                <span className="font-mono text-[clamp(0.5rem,0.9cqw,0.72rem)] uppercase tracking-[0.2em] text-white/60">
+                <span className="led-label font-['Space_Grotesk'] text-[clamp(0.75rem,0.95cqw,1.05rem)] font-bold uppercase tracking-[0.06em] text-white/80">
                   REMAINING PURSE:
                 </span>
                 <span
-                  className="font-['Bebas_Neue'] text-[clamp(0.85rem,1.7cqw,1.35rem)] tracking-wider tabular-nums leading-none"
+                  className="led-value font-['Bebas_Neue'] text-[clamp(1.1rem,1.8cqw,1.85rem)] tracking-wide tabular-nums leading-none font-bold"
                   style={{ color: teamColor }}
                 >
                   {remainingPurseLabel}
@@ -250,7 +251,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="font-['Bebas_Neue'] text-[clamp(4rem,12cqw,12rem)] leading-[0.85] tracking-tighter text-red-500">
               UNSOLD
             </p>
-            <p className="text-xs font-mono uppercase tracking-[0.35em] text-white/60 mt-2">
+            <p className="led-label font-['Space_Grotesk'] text-[clamp(0.95rem,1.35cqw,1.5rem)] font-bold uppercase tracking-[0.06em] text-white/90 mt-2">
               {playerName} · Base {basePriceLabel} unmet
             </p>
           </div>
@@ -271,18 +272,18 @@ export const EffectsLayer = memo(function EffectsLayer({
             className="max-w-3xl border-4 border-amber-400/85 bg-black/88 px-10 py-5 text-center shadow-[0_0_40px_rgba(245,158,11,0.25)]"
             style={{ animation: "auction-sold-slam 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.55em] text-amber-300/90">
+            <p className="led-status font-['Space_Grotesk'] text-[clamp(0.95rem,1.35cqw,1.5rem)] font-extrabold uppercase tracking-[0.06em] text-amber-300">
               Player Deferred
             </p>
-            <p className="font-['Bebas_Neue'] text-[clamp(2rem,5cqw,4rem)] leading-none tracking-wide text-white mt-2">
+            <p className="led-player font-['Bebas_Neue'] text-[clamp(2.25rem,5.5cqw,4.5rem)] leading-none tracking-wide text-white mt-2 font-bold">
               {playerName}
             </p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-amber-200/85 mt-3">
+            <p className="led-label font-['Space_Grotesk'] text-[clamp(0.85rem,1.1cqw,1.25rem)] font-bold uppercase tracking-[0.06em] text-amber-200/95 mt-3">
               Returned to available pool
             </p>
           </div>
           <div className="border border-white/20 bg-black/65 px-8 py-3 backdrop-blur-sm">
-            <p className="font-mono text-[10px] uppercase tracking-[0.45em] text-white/75">
+            <p className="led-status font-['Space_Grotesk'] text-[clamp(0.9rem,1.2cqw,1.35rem)] font-extrabold uppercase tracking-[0.06em] text-white/90">
               Awaiting next player
             </p>
           </div>
@@ -308,7 +309,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               PAUSED
             </p>
             {pausedSeconds != null ? (
-              <p className="text-xs font-mono uppercase tracking-[0.35em] text-white/60 mt-2">
+              <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/90 mt-2 font-['Space_Grotesk']">
                 Resume at {pausedSeconds}s remaining
               </p>
             ) : null}
@@ -347,7 +348,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             className="relative text-center px-16 py-10 border-8 border-amber-400 bg-black/70"
             style={{ animation: "auction-sold-slam 0.6s ease-out both" }}
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.6em] text-amber-300/80">
+            <p className="led-label text-[clamp(0.85rem,1.1cqw,1.25rem)] font-extrabold uppercase tracking-[0.06em] text-amber-300 font-['Space_Grotesk']">
               Auction Paused
             </p>
             <p
@@ -361,12 +362,12 @@ export const EffectsLayer = memo(function EffectsLayer({
                 {mm}:{ss}
               </p>
             ) : (
-              <p className="text-xs font-mono uppercase tracking-[0.4em] text-white/60 mt-4">
+              <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/85 mt-4 font-['Space_Grotesk']">
                 Resuming shortly
               </p>
             )}
             {breakInfo.message ? (
-              <p className="text-sm md:text-base font-mono uppercase tracking-[0.35em] text-amber-200/90 mt-6">
+              <p className="led-label text-[clamp(1rem,1.4cqw,1.6rem)] font-bold uppercase tracking-[0.06em] text-amber-200 mt-6 font-['Space_Grotesk']">
                 {breakInfo.message}
               </p>
             ) : null}
@@ -399,7 +400,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           style={{ animation: "auction-sold-slam 0.6s ease-out both" }}
         >
           <p
-            className="text-xs font-mono uppercase tracking-[0.6em] mb-3"
+            className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] mb-3 font-['Space_Grotesk']"
             style={{ color: "var(--accent)" }}
           >
             Get Ready
@@ -421,7 +422,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             {showMinutes ? `${mm}:${ss}` : ss}
           </p>
           {breakInfo.message ? (
-            <p className="text-sm md:text-lg font-mono uppercase tracking-[0.4em] text-white/80 mt-4">
+            <p className="led-label text-[clamp(1rem,1.4cqw,1.6rem)] font-bold uppercase tracking-[0.06em] text-white/90 mt-4 font-['Space_Grotesk']">
               {breakInfo.message}
             </p>
           ) : null}
@@ -437,7 +438,7 @@ export const EffectsLayer = memo(function EffectsLayer({
       <div className="absolute inset-0 z-30 grid place-items-center pointer-events-none">
         <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
         <div className="relative flex flex-col items-center gap-8" style={{ animation: "auction-sold-slam 0.6s ease-out both" }}>
-          <p className="text-[10px] font-mono uppercase tracking-[0.5em] text-white/60">
+          <p className="led-label text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/80 font-['Space_Grotesk']">
             Fortune Wheel
           </p>
           <FortuneWheel items={wheel.items} spinning={wheel.spinning} winner={wheel.winner} />
@@ -448,7 +449,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               </p>
             </div>
           ) : (
-            <p className="text-xs font-mono uppercase tracking-[0.4em] text-white/50">
+            <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/85 font-['Space_Grotesk']">
               {wheel.spinning ? "Spinning…" : "Get Ready"}
             </p>
           )}
@@ -648,7 +649,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           isTrial={tournament.isTrial}
           right={
             <div className="text-right">
-              <p className="text-xs md:text-sm font-['Barlow_Condensed'] uppercase tracking-[0.25em] text-white/80 font-bold">
+              <p className="led-label text-[clamp(0.85rem,1.15cqw,1.3rem)] font-extrabold font-['Space_Grotesk'] uppercase tracking-[0.06em] text-white/85">
                 Squad Status
               </p>
               <p
@@ -672,7 +673,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         >
           {teams.length === 0 ? (
             <div className="col-span-full grid place-items-center">
-              <p className="text-white/40 font-mono uppercase tracking-[0.4em] text-sm">No teams yet</p>
+              <p className="text-white/70 font-['Space_Grotesk'] uppercase tracking-[0.06em] text-[clamp(0.95rem,1.25cqw,1.4rem)] font-bold">No teams yet</p>
             </div>
           ) : (
             teams.map((team) => (
@@ -760,7 +761,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           {/* List */}
           <div className="px-[3%] py-[1.5%] flex flex-col justify-center gap-[1.2cqh] min-h-0">
             {topSoldPlayers.length === 0 ? (
-              <p className="text-center text-white/40 font-mono uppercase tracking-[0.4em] text-xs">
+              <p className="text-center text-white/70 font-['Space_Grotesk'] uppercase tracking-[0.06em] text-[clamp(0.95rem,1.25cqw,1.4rem)] font-bold">
                 No sales yet
               </p>
             ) : (
@@ -802,7 +803,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             className="border-4 border-emerald-400/80 bg-black/88 px-10 py-4 text-center shadow-[0_0_32px_rgba(52,211,153,0.22)]"
             style={{ animation: "auction-sold-slam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.5em] text-emerald-300/90">
+            <p className="font-['Space_Grotesk'] led-status text-[clamp(0.85rem,1.1cqw,1.25rem)] font-extrabold uppercase tracking-[0.06em] text-emerald-300">
               Now Bidding
             </p>
             <p className="font-['Bebas_Neue'] text-[clamp(1.75rem,4cqw,3rem)] leading-none tracking-wide text-white mt-1">
