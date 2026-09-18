@@ -1659,12 +1659,15 @@ export default function AuctionOperator() {
           });
           const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBidAmount && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !bidGateLocked;
           const code = (team.shortCode || team.name).slice(0, 4).toUpperCase();
+          const tooltipText = `${team.name}${team.shortCode ? ` (${team.shortCode})` : ""} · ${
+            isLeading ? "Currently Leading" : maxReached ? "Squad Full" : isTrialRestricted ? "Trial Locked" : canBid ? `Click to Bid ${formatShort(nextBidAmount)}` : `Purse low (${formatShort(maxAllowedBid)} max)`
+          }`;
           return (
             <button
               key={team.id}
               disabled={!canBid}
               onClick={() => handleBid(team.id)}
-              title={isLeading ? "Leading" : maxReached ? "Squad full" : isTrialRestricted ? "Trial locked" : `Bid ${formatShort(nextBidAmount)}`}
+              title={tooltipText}
               className={`inline-flex items-center gap-1.5 h-10 px-2.5 rounded-md border text-left transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${
                 isLeading ? "border-yellow-400/50 bg-yellow-400/10" : "border-white/10 bg-white/[0.04]"
               }`}
@@ -1694,8 +1697,15 @@ export default function AuctionOperator() {
             trialTeamIds,
           });
           const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !bidGateLocked;
+          const tooltipText = `${team.name}${team.shortCode ? ` (${team.shortCode})` : ""} · ${
+            isLeading ? "Currently Leading" : maxReached ? "Squad Full" : isTrialRestricted ? "Trial Locked" : canBid ? `Click to Bid ${formatShort(nextBid)}` : `Purse low (${formatShort(maxAllowedBid)} max)`
+          }`;
           return (
-            <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
+            <button
+              key={team.id}
+              disabled={!canBid}
+              onClick={() => handleBid(team.id)}
+              title={tooltipText}
               className={`relative px-2.5 py-2 rounded-lg border text-left transition-all ${isLeading ? "border-yellow-400 bg-yellow-400/15 ring-1 ring-yellow-400/40" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"} ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer"}`}
               style={{ borderLeftWidth: "3px", borderLeftColor: team.color || (isLeading ? "#facc15" : "#3b82f6") }}
             >
@@ -1718,10 +1728,12 @@ export default function AuctionOperator() {
                   <img src={team.logoUrl} alt={team.name} className="w-4 h-4 rounded object-contain flex-shrink-0" />
                 ) : (
                   <div className="w-4 h-4 rounded flex items-center justify-center text-[8px] font-mono font-bold flex-shrink-0" style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}>
-                    {team.shortCode?.slice(0, 2)}
+                    {team.shortCode?.slice(0, 2) || team.name.slice(0, 2)}
                   </div>
                 )}
-                <span className="text-xs font-bold truncate text-white/90">{team.shortCode || team.name}</span>
+                <span className="text-xs font-bold truncate text-white/90" title={team.name}>
+                  {team.name || team.shortCode}
+                </span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-white/45">
                 <span>{formatShort(maxAllowedBid)} max</span>
