@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBranding } from "@/hooks/use-branding";
@@ -40,10 +40,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
-  Download, Loader2, Radio,
+  Download, Loader2, Radio, MoreVertical, Calendar, MapPin, SlidersHorizontal, Share2, Tv, Zap, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
@@ -53,6 +60,7 @@ import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { navigateAfterOrganizerAuth } from "@/lib/navigate-after-organizer-auth";
 import { trackOrganizerSignupConversion } from "@/lib/google-ads-conversion";
+import { formatDateRange } from "@/lib/public-tournament-utils";
 import {
   getOrganizerAuctionStatusLabel,
   getOrganizerLicenseBadgeKind,
@@ -76,7 +84,45 @@ type Tournament = {
   auctionRulesPdfReady?: boolean;
   auctionRulesPdfBlockedReason?: string | null;
   scoringEnabled?: boolean;
+  logoUrl?: string | null;
+  matchDates?: string | null;
 };
+
+function sportEmoji(sport?: string | null) {
+  const s = (sport || "").toLowerCase();
+  if (s.includes("cricket")) return "🏏";
+  if (s.includes("badminton")) return "🏸";
+  if (s.includes("football") || s.includes("soccer")) return "⚽";
+  if (s.includes("tennis")) return "🎾";
+  if (s.includes("volleyball")) return "🏐";
+  if (s.includes("kabaddi")) return "🤼";
+  if (s.includes("pickleball")) return "🏓";
+  if (s.includes("basketball")) return "🏀";
+  return "🏆";
+}
+
+function formatTournamentLocation(t: Tournament) {
+  const city = (t.city || "").trim();
+  const venue = (t.venue || "").trim();
+  if (venue && city) {
+    if (venue.toLowerCase().includes(city.toLowerCase())) {
+      return venue;
+    }
+    return `${venue}, ${city}`;
+  }
+  return venue || city || null;
+}
+
+function formatTournamentDate(dateStr?: string | null) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+  } catch {}
+  return dateStr;
+}
 
 // ─── Tournament License Badge ─────────────────────────────────────────────────
 
@@ -90,15 +136,15 @@ function TournamentLicenseBadge({
   const kind = getOrganizerLicenseBadgeKind(licenseStatus, auctionStatus);
   if (kind === "live-ready") {
     return (
-      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1" title="Live auction is activated">
-        <ShieldCheck className="w-2.5 h-2.5" /> Live Ready
+      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] gap-1 font-semibold" title="Live auction is activated">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Ready
       </Badge>
     );
   }
   if (kind === "auction-done") {
     return (
-      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] gap-1" title="Auction has finished">
-        <CheckCheck className="w-2.5 h-2.5" /> Auction Done
+      <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px] gap-1 font-semibold" title="Auction has finished">
+        <CheckCheck className="w-2.5 h-2.5" /> Done
       </Badge>
     );
   }
@@ -1214,35 +1260,41 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-accent transition-colors"
+        className="flex items-center gap-2.5 rounded-xl pl-1.5 pr-3 py-1.5 bg-muted/15 hover:bg-muted/30 border border-border/60 hover:border-border transition-all cursor-pointer shadow-sm"
         aria-label="Account menu"
       >
         {avatarSrc ? (
-          <img src={avatarSrc} alt={organizer.name} className="w-7 h-7 rounded-full object-cover border border-border/60" />
+          <img src={avatarSrc} alt={organizer.name} className="w-8 h-8 rounded-lg object-cover border border-primary/30" />
         ) : (
-          <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-[11px] font-bold text-primary">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/25 to-primary/10 border border-primary/30 flex items-center justify-center text-xs font-black text-primary shadow-inner">
             {initials}
           </div>
         )}
-        <span className="text-xs font-medium text-foreground max-w-[100px] truncate hidden sm:inline">{organizer.name}</span>
+        <div className="text-left hidden sm:block min-w-0">
+          <p className="text-xs font-bold text-foreground leading-tight max-w-[130px] truncate">{organizer.name}</p>
+          <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+            Organizer
+          </p>
+        </div>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-border/60 bg-card shadow-xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/40">
-            <p className="text-sm font-semibold text-foreground truncate">{organizer.name}</p>
+        <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border/60 bg-card shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
+          <div className="px-4 py-3 border-b border-border/40 bg-muted/10">
+            <p className="text-sm font-bold text-foreground truncate">{organizer.name}</p>
             <p className="text-xs text-muted-foreground truncate">{organizer.email ?? organizer.mobile ?? ""}</p>
           </div>
-          <div className="py-1">
+          <div className="py-1.5">
             <button
               onClick={() => { setOpen(false); navigate("/organizer/profile"); }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors text-left"
             >
               <Settings className="w-4 h-4 text-muted-foreground" /> Account Settings
             </button>
             <button
               onClick={() => { setOpen(false); onLogout(); }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors text-left"
             >
               <LogOut className="w-4 h-4" /> Sign Out
             </button>
@@ -1270,6 +1322,8 @@ function OrganizerDashboard({
   const logoAlt = getBrandLogoAlt(brandName);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all");
+  const [sportFilter, setSportFilter] = useState<string>("all");
   const [downloadingRulesTid, setDownloadingRulesTid] = useState<number | null>(null);
 
   const [spDismissed, setSpDismissed] = useState(false);
@@ -1366,62 +1420,82 @@ function OrganizerDashboard({
   }
 
   const isLocked = isOrganizerAccountLocked(organizer.licenseStatus);
-  const activeTournaments = tournaments.filter(isOrganizerTournamentActive);
-  const completedTournaments = tournaments.filter(isOrganizerTournamentCompleted);
+  const safeTournaments = Array.isArray(tournaments) ? tournaments : [];
+  const activeTournaments = safeTournaments.filter(isOrganizerTournamentActive);
+  const completedTournaments = safeTournaments.filter(isOrganizerTournamentCompleted);
 
-  const filteredTournaments = tournaments.filter(t => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return t.name.toLowerCase().includes(q) || t.sport.toLowerCase().includes(q) || (t.city || "").toLowerCase().includes(q) || (t.venue || "").toLowerCase().includes(q);
-  });
+  const sportsList = useMemo(() => {
+    return Array.from(new Set(safeTournaments.map(t => t.sport).filter(Boolean)));
+  }, [safeTournaments]);
+
+  const filteredTournaments = useMemo(() => {
+    return safeTournaments.filter(t => {
+      // Status filter
+      if (statusFilter === "active" && !isOrganizerTournamentActive(t)) return false;
+      if (statusFilter === "completed" && !isOrganizerTournamentCompleted(t)) return false;
+
+      // Sport filter
+      if (sportFilter !== "all" && t.sport?.toLowerCase() !== sportFilter.toLowerCase()) return false;
+
+      // Text search
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.sport.toLowerCase().includes(q) ||
+        (t.city || "").toLowerCase().includes(q) ||
+        (t.venue || "").toLowerCase().includes(q)
+      );
+    });
+  }, [safeTournaments, statusFilter, sportFilter, search]);
 
   const statusColor: Record<string, string> = {
-    setup: "text-muted-foreground",
-    active: "text-green-400",
+    setup: "text-amber-400",
+    active: "text-emerald-400",
     paused: "text-yellow-400",
-    completed: "text-blue-400",
+    completed: "text-sky-400",
   };
 
   return (
     <div className="lovable-theme min-h-screen text-foreground dark">
-      {/* Header */}
-      <div className="border-b border-border/50 bg-background/75 sticky top-0 backdrop-blur-xl z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
+      {/* ── Enhanced Header ── */}
+      <div className="border-b border-border/50 bg-background/80 sticky top-0 backdrop-blur-xl z-20 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          {/* Brand & Portal Title */}
+          <div className="flex items-center gap-3 min-w-0">
             {/* BidWar brand mark */}
             {(() => {
               const headerLogoSrc = getBrandLogoSrc(logos, organizerHeaderPreset.logoOrder);
               return headerLogoSrc ? (
                 <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
               ) : (
-                <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-primary/5 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary flex-shrink-0 shadow-sm shadow-primary/10">
                   {miniBrandText}
                 </div>
               );
             })()}
-            <div className="w-px h-5 bg-border/60 hidden sm:block flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="font-display font-bold text-sm sm:text-base leading-none text-foreground truncate">{organizer.name}</p>
-              <p className="text-[11px] sm:text-xs text-muted-foreground truncate hidden sm:block">{organizer.mobile ?? organizer.email ?? ""}</p>
+            
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-primary/10 border border-primary/25 text-[10px] font-bold text-primary tracking-wider uppercase leading-none hidden sm:inline-block">
+                  Organizer Hub
+                </span>
+              </div>
+              <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5 hidden sm:block">
+                Sports Auction &amp; Event Management
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-8 hidden sm:flex" onClick={onRefresh}>
-              <RefreshCw className="w-3 h-3" /> Refresh
-            </Button>
-            <button
-              className="sm:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-              onClick={onRefresh}
-              title="Refresh"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+
+          {/* Right Area: Profile Menu */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <OrganizerAvatarMenu organizer={organizer} onLogout={onLogout} />
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-6 sm:space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-6">
         {isLocked && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             <div className="flex items-start gap-2">
@@ -1505,50 +1579,151 @@ function OrganizerDashboard({
           </div>
         )}
 
-        {/* Stats */}
+        {/* ── Interactive KPI Stats Bar ── */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          <div className="org-kpi-card text-center">
-            <p className="text-xl sm:text-2xl font-display font-black text-primary">{tournaments.length}</p>
-            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Total</p>
-          </div>
-          <div className="org-kpi-card text-center">
-            <p className="text-xl sm:text-2xl font-display font-black text-green-400">{activeTournaments.length}</p>
-            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Active</p>
-          </div>
-          <div className="org-kpi-card text-center">
-            <p className="text-xl sm:text-2xl font-display font-black text-blue-400">{completedTournaments.length}</p>
-            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Completed</p>
-          </div>
+          {/* Total */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter("all")}
+            className={`relative overflow-hidden rounded-xl border p-3.5 sm:p-4 text-left transition-all duration-200 cursor-pointer ${
+              statusFilter === "all"
+                ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_-8px_rgba(234,179,8,0.3)] ring-1 ring-primary/50"
+                : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Total Tournaments</span>
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center">
+                <Trophy className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-display font-black text-foreground mt-1.5">{safeTournaments.length}</p>
+          </button>
+
+          {/* Active */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(f => f === "active" ? "all" : "active")}
+            className={`relative overflow-hidden rounded-xl border p-3.5 sm:p-4 text-left transition-all duration-200 cursor-pointer ${
+              statusFilter === "active"
+                ? "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_24px_-8px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/50"
+                : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Active &amp; Live</span>
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                <Zap className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-display font-black text-emerald-400 mt-1.5">{activeTournaments.length}</p>
+          </button>
+
+          {/* Completed */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(f => f === "completed" ? "all" : "completed")}
+            className={`relative overflow-hidden rounded-xl border p-3.5 sm:p-4 text-left transition-all duration-200 cursor-pointer ${
+              statusFilter === "completed"
+                ? "border-sky-500/60 bg-sky-500/10 shadow-[0_0_24px_-8px_rgba(14,165,233,0.3)] ring-1 ring-sky-500/50"
+                : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Completed</span>
+              <div className="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-display font-black text-sky-400 mt-1.5">{completedTournaments.length}</p>
+          </button>
         </div>
 
-        {/* Tournaments Section */}
-        <div>
-          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap sm:flex-nowrap">
-            <h2 className="text-base sm:text-lg font-display font-bold flex items-center gap-2 flex-shrink-0">
-              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> Your Tournaments
-            </h2>
-            <div className="flex items-center gap-2 w-full sm:flex-1 sm:min-w-0 sm:max-w-xs">
-              <div className="relative flex-1">
+        {/* ── Tournaments Section ── */}
+        <div className="space-y-4">
+          {/* Filter Tabs & Search Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              {[
+                { id: "all", label: "All", count: safeTournaments.length },
+                { id: "active", label: "Active", count: activeTournaments.length, dot: "bg-emerald-400" },
+                { id: "completed", label: "Completed", count: completedTournaments.length, dot: "bg-sky-400" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id as any)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                    statusFilter === tab.id
+                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                      : "bg-muted/15 border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  }`}
+                >
+                  {tab.dot && <span className={`w-1.5 h-1.5 rounded-full ${tab.dot}`} />}
+                  {tab.label}
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    statusFilter === tab.id ? "bg-black/20 text-primary-foreground" : "bg-muted/30 text-muted-foreground"
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+
+              {/* Sport Filter Pills if multiple sports exist */}
+              {sportsList.length > 1 && (
+                <>
+                  <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
+                  {sportsList.map((sport: string) => (
+                    <button
+                      key={sport}
+                      type="button"
+                      onClick={() => setSportFilter(s => s === sport ? "all" : sport)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium capitalize transition-all cursor-pointer ${
+                        sportFilter === sport
+                          ? "bg-white/15 border border-white/30 text-foreground font-semibold"
+                          : "bg-muted/10 border border-border/40 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {sportEmoji(sport)} {sport}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Search and Create Action */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-60">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Search..."
-                  className="pl-8 h-9 text-sm"
+                  placeholder="Search tournaments..."
+                  className="pl-8 pr-7 h-9 text-xs"
                 />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
               <Button
                 size="sm"
-                className="gap-1.5 shrink-0 h-9"
+                className="gap-1.5 shrink-0 h-9 text-xs font-semibold px-3"
                 disabled={isLocked}
                 onClick={() => setCreateOpen(true)}
               >
-                <Plus className="w-4 h-4" /> New
+                <Plus className="w-4 h-4" /> New Tournament
               </Button>
             </div>
           </div>
 
-          {tournaments.length === 0 ? (
+          {safeTournaments.length === 0 ? (
             <div className="space-y-4">
               {/* Welcome banner for first-time organizers */}
               <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/20 p-8">
@@ -1589,17 +1764,27 @@ function OrganizerDashboard({
             </div>
           ) : filteredTournaments.length === 0 ? (
             <Card className="border-border/50 bg-card/20">
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground text-sm">No tournaments match your search.</p>
+              <CardContent className="py-12 text-center space-y-2">
+                <p className="text-muted-foreground text-sm font-medium">No tournaments match your filter or search.</p>
+                <button
+                  type="button"
+                  onClick={() => { setStatusFilter("all"); setSportFilter("all"); setSearch(""); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear all filters
+                </button>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTournaments.map((t, i) => {
-                const scoringState = resolveOrganizerScoringCta({
-                  sport: t.sport,
-                  scoringEnabled: t.scoringEnabled,
-                });
+              {filteredTournaments.map((t: Tournament, i: number) => {
+                const isActive = isOrganizerTournamentActive(t);
+                const isCompleted = isOrganizerTournamentCompleted(t);
+                const locationStr = formatTournamentLocation(t);
+                const auctionDateStr = formatTournamentDate(t.auctionDate);
+                const tournamentDateStr = formatDateRange(t.matchDates);
+                const logo = t.logoUrl ? cldUrl(t.logoUrl, "thumbnail") || t.logoUrl : null;
+
                 return (
                 <motion.div
                   key={t.id}
@@ -1610,112 +1795,174 @@ function OrganizerDashboard({
                 >
                   <Card
                     aria-disabled={isLocked}
-                    className={`group panel border-none h-full transition-all duration-200 ${
+                    className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${
                       isLocked
-                        ? "opacity-50"
-                        : "hover:border-primary/40 hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.35)]"
+                        ? "opacity-50 border-border/30 bg-card/20"
+                        : isCompleted
+                          ? "border-border/60 bg-gradient-to-b from-card/60 to-card/30 hover:border-sky-500/40 hover:shadow-xl hover:shadow-sky-500/5"
+                          : isActive
+                            ? "border-emerald-500/30 bg-gradient-to-b from-card/80 to-card/40 hover:border-emerald-500/60 hover:shadow-xl hover:shadow-emerald-500/10"
+                            : "border-border/60 bg-gradient-to-b from-card/60 to-card/30 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5"
                     }`}
                   >
-                    <CardContent className="p-5 space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
-                          <TournamentLicenseBadge licenseStatus={t.licenseStatus} auctionStatus={t.status} />
+                    <CardContent className="p-4 sm:p-5 space-y-4">
+                      {/* Top Header: Prominent Logo + Tournament Title & Badges + 3-Dot Menu */}
+                      <div className="flex items-start gap-3.5">
+                        {/* Prominent Logo Emblem */}
+                        <div className="shrink-0">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent border border-white/10 p-1.5 shadow-md flex items-center justify-center group-hover:border-primary/40 group-hover:shadow-primary/10 transition-all">
+                            {logo ? (
+                              <img
+                                src={logo}
+                                alt={t.name}
+                                className="w-full h-full object-contain rounded-xl drop-shadow"
+                              />
+                            ) : (
+                              <span className="text-2xl drop-shadow select-none">
+                                {sportEmoji(t.sport)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Tournament Title & Sport/Status Pills */}
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-muted-foreground">
+                              {t.sport}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              isActive
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                : isCompleted
+                                  ? "bg-sky-500/15 text-sky-400 border border-sky-500/30"
+                                  : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                isActive ? "bg-emerald-400 animate-pulse" : isCompleted ? "bg-sky-400" : "bg-amber-400"
+                              }`} />
+                              {getOrganizerAuctionStatusLabel(t.status)}
+                            </span>
+                          </div>
+
+                          <h3
+                            className="font-display font-black text-base sm:text-lg leading-snug text-foreground group-hover:text-primary transition-colors break-words"
+                            title={t.name}
+                          >
+                            {t.name}
+                          </h3>
+                        </div>
+
+                        {/* 3-Dot Quick Actions Menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground/70 hover:text-foreground shrink-0 -mr-1"
+                              disabled={isLocked}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 dark">
+                            <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}/settings`)} className="gap-2 cursor-pointer">
+                              <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" /> Settings
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}/liveviewer`)} className="gap-2 cursor-pointer">
+                              <Tv className="w-3.5 h-3.5 text-sky-400" /> LED Big Screen
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}`)} className="gap-2 cursor-pointer">
+                              <Share2 className="w-3.5 h-3.5 text-amber-400" /> Overview &amp; Links
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={isLocked || !t.auctionRulesPdfReady || downloadingRulesTid === t.id}
+                              onClick={() => { void handleDownloadAuctionRules(t); }}
+                              className="gap-2 cursor-pointer"
+                            >
+                              {downloadingRulesTid === t.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                              ) : (
+                                <Download className="w-3.5 h-3.5 text-muted-foreground" />
+                              )}
+                              Download Rules PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={isLocked}
+                              onClick={() => { setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
+                              className="gap-2 cursor-pointer"
+                            >
+                              <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> In-Person Consent
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Location & Distinct Dates Strip (No Cut-Offs) */}
+                      <div className="space-y-2 pt-2.5 border-t border-border/40 text-xs">
+                        {locationStr ? (
+                          <div className="flex items-start gap-1.5 text-muted-foreground/90">
+                            <MapPin className="w-3.5 h-3.5 text-primary/80 shrink-0 mt-0.5" />
+                            <span className="font-medium text-foreground/90 leading-tight break-words">{locationStr}</span>
+                          </div>
+                        ) : null}
+
+                        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 pt-0.5">
+                          {auctionDateStr && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                                Auction Date
+                              </span>
+                              <span className="font-semibold text-foreground/90">{auctionDateStr}</span>
+                            </div>
+                          )}
+
+                          {tournamentDateStr ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded">
+                                Tournament Date
+                              </span>
+                              <span className="font-semibold text-foreground/90">{tournamentDateStr}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+                              <Calendar className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                              <span>Created {new Date(t.createdAt).toLocaleDateString("en-IN")}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-base leading-snug">{t.name}</p>
-                        <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
-                          {getOrganizerAuctionStatusLabel(t.status)}
-                        </p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {[t.city, t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
-                      </p>
 
-                      <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Primary Actions Row: Prominent Auction + Muted Coming Soon Scoring */}
+                      <div className="flex items-center gap-2.5 pt-0.5">
                         <Button
                           type="button"
                           size="sm"
-                          className="h-9 gap-1.5 px-2"
+                          className={`flex-1 h-11 gap-2 font-bold text-xs transition-all ${
+                            isActive
+                              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15"
+                              : "bg-muted/30 border border-border/60 hover:bg-muted/50 text-foreground"
+                          }`}
                           disabled={isLocked}
                           onClick={() => navigate(`/tournament/${t.id}`)}
                         >
-                          <Gavel className="h-3.5 w-3.5 shrink-0" />
-                          Auction
+                          <Gavel className="h-4 w-4 shrink-0" />
+                          {isActive ? "Enter Auction" : "View Auction"}
                         </Button>
-                        {scoringState === "coming-soon" ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled
-                            aria-disabled="true"
-                            className="h-9 gap-1.5 px-2 border-dashed opacity-45 cursor-not-allowed"
-                            title="Scoring coming soon for this sport"
-                          >
-                            <Radio className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                            Coming soon
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={isLocked}
-                            className={
-                              scoringState === "active"
-                                ? "h-9 gap-1.5 px-2 border-primary/50 bg-primary/15 text-primary hover:bg-primary/25 hover:text-primary cursor-pointer shadow-[0_0_0_1px_oklch(0.85_0.17_88_/_0.25)]"
-                                : "h-9 gap-1.5 px-2 border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15 cursor-pointer"
-                            }
-                            title={
-                              scoringState === "active"
-                                ? "Open scoring setup"
-                                : "Contact BIDWAR for enabling sport scoring module"
-                            }
-                            onClick={() => {
-                              if (isLocked) return;
-                              window.location.assign(scoringAppHomePath(t.id, t.sport));
-                            }}
-                          >
-                            <Radio className="h-3.5 w-3.5 shrink-0" />
-                            Scoring
-                          </Button>
-                        )}
-                      </div>
-                      {scoringState === "needs-admin" ? (
-                        <p className="text-[10px] text-amber-200/80 -mt-1">
-                          Contact BIDWAR for enabling sport scoring module
-                        </p>
-                      ) : null}
 
-                      <div className="pt-2 border-t border-border/40 space-y-1">
-                        <button
-                          type="button"
-                          disabled={isLocked || !t.auctionRulesPdfReady || downloadingRulesTid === t.id}
-                          title={
-                            t.auctionRulesPdfReady
-                              ? "Download auction rules PDF"
-                              : (t.auctionRulesPdfBlockedReason
-                                || "Complete Auction Rules in Settings first")
-                          }
-                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => { void handleDownloadAuctionRules(t); }}
+                        <div
+                          className="h-11 px-3 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 flex flex-col items-center justify-center cursor-not-allowed select-none shrink-0"
+                          title="Match Scoring module is coming soon"
                         >
-                          {downloadingRulesTid === t.id
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <Download className="w-3 h-3" />}
-                          Download auction rules
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isLocked}
-                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => { setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
-                        >
-                          <CheckCheck className="w-3 h-3" />
-                          Record in-person consent
-                        </button>
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/75 leading-none">
+                            <Radio className="h-3 w-3 opacity-60 text-muted-foreground" />
+                            <span>Match Scoring</span>
+                          </div>
+                          <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
+                            Coming Soon
+                          </span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
