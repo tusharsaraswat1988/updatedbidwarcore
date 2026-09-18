@@ -1334,23 +1334,23 @@ export default function AuctionOperator() {
 
   const ownerBiddingControlCard = (
     <div
-      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border transition-all ${
+      className={`flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-lg border transition-all ${
         ownerBiddingEnabled
           ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
           : "bg-red-500/10 border-red-500/30 text-red-300"
       }`}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
-        <span className="text-base shrink-0 leading-none">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sm shrink-0 leading-none">
           {ownerBiddingEnabled ? "🟢" : "🔴"}
         </span>
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs lg:text-sm font-black tracking-wide uppercase">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-black tracking-wide uppercase">
               {ownerBiddingEnabled ? "OWNER BIDDING ENABLED" : "OWNER BIDDING DISABLED"}
             </span>
             <span
-              className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+              className={`text-[8px] font-bold px-1.5 py-0.2 rounded uppercase ${
                 ownerBiddingEnabled
                   ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                   : "bg-red-500/20 text-red-300 border border-red-500/30"
@@ -1359,7 +1359,7 @@ export default function AuctionOperator() {
               {ownerBiddingEnabled ? "Online Active" : "Paddle Mode"}
             </span>
           </div>
-          <p className="text-[10px] lg:text-[11px] text-white/50 truncate">
+          <p className="text-[10px] text-white/50 truncate">
             {ownerBiddingEnabled
               ? "Team owners can submit bids from mobile devices."
               : "Online bids blocked. Conduct physically & use Manual Sell."}
@@ -1370,7 +1370,7 @@ export default function AuctionOperator() {
         size="sm"
         disabled={controlsLocked || updateAuctionSettingsMut.isPending}
         onClick={handleToggleOwnerBidding}
-        className={`shrink-0 font-bold text-xs h-8 px-3 rounded-lg border transition-all ${
+        className={`shrink-0 font-bold text-[11px] h-7 px-2.5 rounded border transition-all ${
           ownerBiddingEnabled
             ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border-red-500/40"
             : "bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-emerald-500/40"
@@ -1387,17 +1387,17 @@ export default function AuctionOperator() {
 
   const currentPlayerAndBidCards = (
     /* Player card: full-bleed photo + bottom gradient identity. Bid column stays action-focused. */
-    <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,7fr)] lg:grid-cols-2 gap-2 lg:gap-4 items-stretch">
+    <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,7fr)] lg:grid-cols-2 gap-2 lg:gap-3 items-stretch">
       <AnimatePresence mode="wait">
         {hasPlayer ? (
           <motion.div
             key={state?.currentPlayer?.id}
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="relative rounded-xl lg:rounded-2xl border border-white/10 overflow-hidden min-h-[132px] lg:min-h-[200px] bg-card flex flex-row items-stretch"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="relative rounded-xl border border-white/10 overflow-hidden min-h-[110px] lg:min-h-[135px] bg-card flex flex-row items-stretch"
           >
             {/* Dedicated player portrait frame — preserves exact 4:5 crop with centered alignment */}
-            <div className="relative w-[100px] sm:w-[130px] lg:w-[160px] shrink-0 bg-black/40 overflow-hidden border-r border-white/10 flex items-center justify-center">
+            <div className="relative w-[95px] sm:w-[115px] lg:w-[130px] shrink-0 bg-black/40 overflow-hidden border-r border-white/10 flex items-center justify-center">
               {state?.currentPlayer?.photoUrl ? (
                 <img
                   src={cldUrl(state.currentPlayer.photoUrl, "playerCard")}
@@ -1406,15 +1406,15 @@ export default function AuctionOperator() {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-white/5">
-                  <User className="w-10 h-10 lg:w-14 lg:h-14 text-white/20" />
+                  <User className="w-8 h-8 lg:w-10 lg:h-10 text-white/20" />
                 </div>
               )}
             </div>
 
             {/* Player details on right — un-obscured with clear contrast */}
-            <div className="flex-1 flex flex-col justify-between p-2.5 lg:p-4 min-w-0 bg-gradient-to-r from-card to-card/90">
+            <div className="flex-1 flex flex-col justify-between p-2 lg:p-2.5 min-w-0 bg-gradient-to-r from-card to-card/90">
               <div>
-                <p className="text-[10px] lg:text-[11px] font-black uppercase tracking-[0.16em] text-white/70 truncate drop-shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/70 truncate drop-shadow-sm">
                   #{state?.currentPlayer?.id}
                   {state?.currentPlayer?.jerseyNumber ? (
                     <span className="ml-1.5 font-mono tracking-normal text-white/55">· J{state.currentPlayer.jerseyNumber}</span>
@@ -1426,13 +1426,13 @@ export default function AuctionOperator() {
                   )}
                 </p>
                 <h2
-                  className="text-base sm:text-lg lg:text-2xl font-display font-black leading-tight text-white line-clamp-2 mt-0.5"
-                  style={{ textShadow: "0 1px 8px rgba(0,0,0,0.65)" }}
+                  className="text-sm sm:text-base lg:text-lg font-display font-black leading-tight text-white line-clamp-1 mt-0.5"
+                  style={{ textShadow: "0 1px 6px rgba(0,0,0,0.65)" }}
                 >
                   {state?.currentPlayer?.name}
                 </h2>
                 {(state?.currentPlayer?.age || state?.currentPlayer?.city) && (
-                  <p className="text-[10px] lg:text-[11px] text-white/50 truncate mt-0.5">
+                  <p className="text-[10px] text-white/50 truncate mt-0.5">
                     {[
                       state?.currentPlayer?.age ? `Age ${state.currentPlayer.age}` : null,
                       state?.currentPlayer?.city || null,
@@ -1441,17 +1441,17 @@ export default function AuctionOperator() {
                 )}
               </div>
 
-              <div className="mt-1.5 lg:mt-2 pt-1.5 lg:pt-2 border-t border-white/10 flex items-end justify-between gap-2">
+              <div className="mt-1 pt-1 border-t border-white/10 flex items-end justify-between gap-1.5">
                 <div className="min-w-0">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/45">Base</p>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-white/45">Base</p>
                   <p
-                    className="text-lg lg:text-2xl font-display font-black text-emerald-400 leading-none tabular-nums"
-                    style={{ textShadow: "0 1px 10px rgba(0,0,0,0.55)" }}
+                    className="text-base lg:text-lg font-display font-black text-emerald-400 leading-none tabular-nums"
+                    style={{ textShadow: "0 1px 8px rgba(0,0,0,0.55)" }}
                   >
                     {formatAmount(state?.currentPlayer?.basePrice || 0)}
                   </p>
                 </div>
-                <p className="text-[10px] lg:text-[11px] text-white/45 text-right shrink-0 pb-0.5">
+                <p className="text-[10px] text-white/45 text-right shrink-0 pb-0.5">
                   +{formatShort(increment)}/raise
                 </p>
               </div>
@@ -1461,39 +1461,38 @@ export default function AuctionOperator() {
           <motion.div
             key="no-player"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="rounded-xl lg:rounded-2xl border border-white/8 bg-card flex items-center justify-center min-h-[132px] lg:min-h-[200px] text-white/20 text-xs lg:text-sm text-center px-2 lg:px-4"
+            className="rounded-xl border border-white/8 bg-card flex items-center justify-center min-h-[110px] lg:min-h-[135px] text-white/20 text-xs text-center px-2 lg:px-4"
           >
             {isActive ? "Click Next Player to load a player" : "Start the auction to begin"}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col rounded-xl lg:rounded-2xl border border-white/8 bg-card overflow-hidden min-w-0">
-        <div className="flex flex-col items-center justify-center flex-1 py-2 px-2 lg:py-3 lg:px-3 text-center min-w-0">
-          <p className="text-[9px] lg:text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-0.5 lg:mb-1">Current Bid</p>
+      <div className="flex flex-col rounded-xl border border-white/8 bg-card overflow-hidden min-w-0">
+        <div className="flex flex-col items-center justify-center flex-1 py-1.5 px-2 lg:py-2 text-center min-w-0">
+          <p className="text-[8px] lg:text-[9px] font-black uppercase tracking-[0.18em] text-white/30 mb-0.5">Current Bid</p>
           <motion.div
             key={state?.currentBid}
             initial={{ scale: 0.88, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 300 }}
-            className="text-2xl sm:text-3xl lg:text-4xl font-display font-black text-yellow-400 leading-none mb-1 lg:mb-2"
-            style={{ textShadow: "0 0 28px rgba(250,204,21,0.35)" }}
+            className="text-xl sm:text-2xl lg:text-3xl font-display font-black text-yellow-400 leading-none mb-0.5 lg:mb-1"
+            style={{ textShadow: "0 0 24px rgba(250,204,21,0.35)" }}
           >
             {formatAmount(state?.currentBid || 0)}
           </motion.div>
           {hasBid ? (
-            <div className="flex items-center gap-2 justify-center min-w-0 max-w-full">
-              <div className="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full animate-pulse shrink-0" style={{ backgroundColor: state?.currentBidTeamColor || "#fff" }} />
-              <span className="text-xs lg:text-sm font-bold truncate" style={{ color: state?.currentBidTeamColor || "inherit" }}>
+            <div className="flex items-center gap-1.5 justify-center min-w-0 max-w-full">
+              <div className="w-2 h-2 rounded-full animate-pulse shrink-0" style={{ backgroundColor: state?.currentBidTeamColor || "#fff" }} />
+              <span className="text-xs font-bold truncate" style={{ color: state?.currentBidTeamColor || "inherit" }}>
                 {state?.currentBidTeamName}
               </span>
             </div>
           ) : hasPlayer ? (
-            <p className="text-[11px] lg:text-xs text-white/25">No bid yet</p>
+            <p className="text-[10px] text-white/25">No bid yet</p>
           ) : null}
-          <p className="hidden lg:block text-[10px] text-white/20 mt-1.5">Base {formatAmount(state?.currentPlayer?.basePrice || 0)} · +{formatShort(increment)}/raise</p>
         </div>
-        <div className="border-t border-white/8 p-2 lg:p-3 min-w-0">
+        <div className="border-t border-white/8 p-1.5 lg:p-2 min-w-0">
           <CircularTimer
             endsAt={state?.timerEndsAt}
             totalSeconds={activeTimerSecsNum}
@@ -1518,9 +1517,9 @@ export default function AuctionOperator() {
           ? "Available only immediately after a sale, before the next player is loaded"
           : `Reverse ${lastSoldPlayer.name}'s sale and start a reauction [Z]`
       }
-      className="w-full flex flex-row items-center justify-center gap-2 py-1.5 rounded-xl border-2 border-orange-500/40 bg-orange-500/10 text-orange-300 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed hover:bg-orange-500/20 enabled:hover:scale-[1.01]"
+      className="w-full flex flex-row items-center justify-center gap-2 py-1 px-3 rounded-lg border border-orange-500/35 bg-orange-500/10 text-orange-300 font-bold text-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-orange-500/20"
     >
-      <RotateCcw className="w-4 h-4 shrink-0" />
+      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
       <span>Reauction Last Player</span>
       <span className="text-[10px] font-normal opacity-55">
         {isPaused
@@ -1534,7 +1533,7 @@ export default function AuctionOperator() {
     </button>
   );
 
-  /* Mobile: compact action chips (min 48px). Desktop keeps larger labeled cards. */
+  /* Mobile: compact action chips (min 48px). Desktop keeps labeled cards with compact padding. */
   const primaryActionsGrid = (
     <div className="grid grid-cols-4 gap-1.5 lg:gap-2">
       {[
@@ -1584,12 +1583,12 @@ export default function AuctionOperator() {
           disabled={disabled}
           onClick={onClick}
           title={title}
-          className={`col-span-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] lg:min-h-0 py-1.5 lg:py-3 rounded-lg lg:rounded-xl border lg:border-2 font-bold text-[11px] lg:text-sm transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${bg} ${border} ${text} lg:hover:scale-[1.02]`}
+          className={`col-span-1 flex flex-col items-center justify-center gap-0.5 min-h-[42px] lg:min-h-0 py-1.5 lg:py-2 rounded-lg lg:rounded-xl border font-bold text-[10px] lg:text-xs transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${bg} ${border} ${text} lg:hover:scale-[1.01]`}
         >
-          <Icon className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
+          <Icon className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
           <span className="lg:hidden">{shortLabel}</span>
           <span className="hidden lg:inline">{label}</span>
-          <span className="hidden lg:inline text-[10px] font-normal opacity-55">{sub}</span>
+          <span className="hidden lg:inline text-[9px] font-normal opacity-55 leading-none">{sub}</span>
         </button>
       ))}
     </div>
@@ -1602,15 +1601,15 @@ export default function AuctionOperator() {
         disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending}
         onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
         title={hasPlayer ? "Sold, unsold, or defer the current player first" : timerActive ? "Stop bidding first" : undefined}
-        className="lg:col-span-3 flex items-center justify-center gap-2 min-h-[56px] lg:min-h-0 py-3.5 lg:py-4 rounded-xl font-display font-black text-lg lg:text-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-yellow-400 text-black hover:bg-yellow-300 enabled:shadow-[0_0_20px_rgba(234,179,8,0.35)]"
+        className="lg:col-span-3 flex items-center justify-center gap-2 min-h-[48px] lg:min-h-0 py-2.5 lg:py-3 rounded-xl font-display font-black text-base lg:text-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-yellow-400 text-black hover:bg-yellow-300 enabled:shadow-[0_0_16px_rgba(234,179,8,0.3)]"
       >
-        {selectionMode === "random" ? <Shuffle className="w-5 h-5 lg:w-6 lg:h-6" /> : <SkipForward className="w-5 h-5 lg:w-6 lg:h-6" />}
+        {selectionMode === "random" ? <Shuffle className="w-4 h-4 lg:w-5 lg:h-5" /> : <SkipForward className="w-4 h-4 lg:w-5 lg:h-5" />}
         NEXT PLAYER
         {nextPlayer.isPending
-          ? <span className="text-xs lg:text-sm font-normal opacity-60">Loading…</span>
+          ? <span className="text-xs font-normal opacity-60">Loading…</span>
           : selectionMode === "random"
-          ? <span className="text-xs lg:text-sm font-normal opacity-60">(Random)</span>
-          : <span className="hidden lg:inline text-sm font-normal opacity-60 font-mono">N</span>
+          ? <span className="text-xs font-normal opacity-60">(Random)</span>
+          : <span className="hidden lg:inline text-xs font-normal opacity-60 font-mono">N</span>
         }
       </button>
 
@@ -1619,9 +1618,9 @@ export default function AuctionOperator() {
           onClick={handleStopTimer}
           disabled={stopTimerMut.isPending}
           title="Freeze current player, bid, and timer — for disputes or interruptions"
-          className="lg:col-span-2 flex items-center justify-center gap-2 min-h-[48px] lg:min-h-0 py-3 lg:py-4 rounded-xl font-display font-black text-sm lg:text-lg transition-all disabled:opacity-40 bg-yellow-500/15 border border-yellow-400/50 text-yellow-300 hover:bg-yellow-500/25"
+          className="lg:col-span-2 flex items-center justify-center gap-2 min-h-[44px] lg:min-h-0 py-2 lg:py-2.5 rounded-xl font-display font-black text-xs lg:text-sm transition-all disabled:opacity-40 bg-yellow-500/15 border border-yellow-400/50 text-yellow-300 hover:bg-yellow-500/25"
         >
-          <Pause className="w-4 h-4 lg:w-5 lg:h-5" />
+          <Pause className="w-4 h-4" />
           <span className="lg:hidden">PAUSE BID</span>
           <span className="hidden lg:inline">PAUSE CURRENT BID</span>
         </button>
@@ -1630,9 +1629,9 @@ export default function AuctionOperator() {
           onClick={handleStartBiddingClick}
           disabled={!hasPlayer || !isActive || startTimerMut.isPending}
           title={isPaused ? "Resume auction before starting bidding" : undefined}
-          className="lg:col-span-2 flex items-center justify-center gap-2 min-h-[48px] lg:min-h-0 py-3 lg:py-4 rounded-xl font-display font-black text-sm lg:text-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-green-600 text-white hover:bg-green-500 enabled:shadow-[0_0_16px_rgba(16,185,129,0.35)]"
+          className="lg:col-span-2 flex items-center justify-center gap-2 min-h-[44px] lg:min-h-0 py-2 lg:py-2.5 rounded-xl font-display font-black text-xs lg:text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-green-600 text-white hover:bg-green-500 enabled:shadow-[0_0_14px_rgba(16,185,129,0.3)]"
         >
-          <Play className="w-4 h-4 lg:w-5 lg:h-5" />
+          <Play className="w-4 h-4" />
           {currentBidPaused ? "RESUME BIDDING" : "START BIDDING"}
         </button>
       )}
@@ -1641,7 +1640,7 @@ export default function AuctionOperator() {
 
   const quickBidSection = teams && teams.length > 0 && (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1.5 lg:mb-2">
+      <p className="text-[9px] font-bold uppercase tracking-wider text-white/35 mb-1">
         Quick Bid · Next: <span className="text-yellow-400 font-mono">{formatShort(nextBidAmount)}</span>
       </p>
       {/* Mobile: compact chips (code + max bid). Desktop: existing cards with logos. */}
@@ -1666,7 +1665,7 @@ export default function AuctionOperator() {
               disabled={!canBid}
               onClick={() => handleBid(team.id)}
               title={isLeading ? "Leading" : maxReached ? "Squad full" : isTrialRestricted ? "Trial locked" : `Bid ${formatShort(nextBidAmount)}`}
-              className={`inline-flex items-center gap-1.5 h-12 px-2.5 rounded-md border text-left transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${
+              className={`inline-flex items-center gap-1.5 h-10 px-2.5 rounded-md border text-left transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${
                 isLeading ? "border-yellow-400/50 bg-yellow-400/10" : "border-white/10 bg-white/[0.04]"
               }`}
             >
@@ -1678,7 +1677,7 @@ export default function AuctionOperator() {
           );
         })}
       </div>
-      <div className="hidden lg:grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="hidden lg:grid grid-cols-2 sm:grid-cols-3 gap-1.5">
         {teams.map(team => {
           const purseData = teamPurses?.find(p => p.teamId === team.id);
           const capacity = purseData?.effectiveCapacity ?? team.purse;
@@ -1697,38 +1696,38 @@ export default function AuctionOperator() {
           const canBid = isActive && hasPlayer && timerActive && maxAllowedBid >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !bidGateLocked;
           return (
             <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
-              className={`relative p-3 rounded-xl border-2 text-left transition-all ${isLeading ? "scale-[1.01]" : "border-white/10"} ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
-              style={{ borderColor: isLeading ? team.color || "#fff" : undefined, boxShadow: isLeading ? `0 0 16px ${team.color}44` : undefined, background: `${team.color || "#888"}0d` }}
+              className={`relative px-2.5 py-2 rounded-lg border text-left transition-all ${isLeading ? "border-yellow-400 bg-yellow-400/15 ring-1 ring-yellow-400/40" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"} ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer"}`}
+              style={{ borderLeftWidth: "3px", borderLeftColor: team.color || (isLeading ? "#facc15" : "#3b82f6") }}
             >
               {isLeading && (
                 <div className="absolute top-1.5 right-2 flex items-center gap-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
-                  <span className="text-[9px] font-bold" style={{ color: team.color || "#fff" }}>LEAD</span>
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-yellow-400" />
+                  <span className="text-[8px] font-bold text-yellow-300">LEAD</span>
                 </div>
               )}
               {isTrialRestricted && (
-                <div className="absolute inset-0 rounded-xl bg-background/60 flex items-center justify-center">
-                  <span className="text-[9px] font-bold text-yellow-400/70 uppercase">Trial</span>
+                <div className="absolute inset-0 rounded-lg bg-background/60 flex items-center justify-center">
+                  <span className="text-[8px] font-bold text-yellow-400/70 uppercase">Trial</span>
                 </div>
               )}
               {maxReached && !isTrialRestricted && (
                 <div className="absolute top-1.5 right-2"><span className="text-[8px] font-bold text-red-400 uppercase">Full</span></div>
               )}
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-1.5 mb-0.5 min-w-0 pr-8">
                 {team.logoUrl ? (
-                  <img src={team.logoUrl} alt={team.name} className="w-5 h-5 rounded object-contain flex-shrink-0" />
+                  <img src={team.logoUrl} alt={team.name} className="w-4 h-4 rounded object-contain flex-shrink-0" />
                 ) : (
-                  <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-mono font-bold flex-shrink-0" style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}>
+                  <div className="w-4 h-4 rounded flex items-center justify-center text-[8px] font-mono font-bold flex-shrink-0" style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}>
                     {team.shortCode?.slice(0, 2)}
                   </div>
                 )}
-                <span className="text-xs font-bold truncate text-white/80">{team.shortCode || team.name}</span>
+                <span className="text-xs font-bold truncate text-white/90">{team.shortCode || team.name}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <p className="text-[10px] text-white/40">{formatShort(maxAllowedBid)} max bid</p>
+              <div className="flex items-center gap-1 text-[10px] text-white/45">
+                <span>{formatShort(maxAllowedBid)} max</span>
                 {reserved > 0 && (
                   <span title={`${formatShort(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0">
-                    <ShieldAlert className="w-2.5 h-2.5 text-yellow-400/70" />
+                    <ShieldAlert className="w-2.5 h-2.5 text-yellow-400/70 inline ml-0.5" />
                   </span>
                 )}
               </div>
@@ -2387,11 +2386,11 @@ export default function AuctionOperator() {
             </ScrollArea>
           </aside>
 
-          {/* ══ CENTER: AUCTION CONTROL (Desktop, unchanged) ═══════════════ */}
+          {/* ══ CENTER: AUCTION CONTROL (Desktop) ═════════════════════════ */}
           <main className="hidden lg:flex flex-col min-h-0 overflow-hidden">
             {timerAndUtilitiesBar}
             <div className="flex-1 overflow-y-auto">
-              <div className="px-5 py-4 space-y-4 max-w-2xl mx-auto">
+              <div className="px-4 py-2.5 space-y-2 lg:space-y-2.5 max-w-2xl mx-auto">
                 {ownerBiddingControlCard}
                 {currentPlayerAndBidCards}
                 {reauctionLastPlayerButton}
