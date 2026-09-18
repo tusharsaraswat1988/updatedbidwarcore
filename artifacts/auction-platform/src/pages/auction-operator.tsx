@@ -76,6 +76,8 @@ import {
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { BID_ACK_TIMEOUT_MS, logBidLifecycle } from "@workspace/api-base/auction-bid-sync";
@@ -266,6 +268,12 @@ export default function AuctionOperator() {
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
+  const { logos, brandName, iconVersion } = useBranding();
+  const brandLogoSrc =
+    getBrandWordmarkSrc(logos, ["mainReverse", "main"]) ||
+    getBrandLogoSrc(logos, ["mainReverse", "main"], iconVersion) ||
+    "/assets/branding/bidwar-reverse-logo-official.png";
+
   const readinessFixLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
     teams: readinessFixPath(tournamentId, "teams"),
     players: readinessFixPath(tournamentId, "players"),
@@ -1750,6 +1758,28 @@ export default function AuctionOperator() {
     </div>
   );
 
+  const subtleEngineWatermark = (
+    <div
+      aria-hidden="true"
+      className="pt-4 pb-1 flex flex-col items-center justify-center pointer-events-none select-none opacity-20 hover:opacity-30 transition-opacity"
+    >
+      <span className="text-[8px] font-bold tracking-[0.28em] text-white/45 uppercase leading-none">
+        Powered by
+      </span>
+      <img
+        src={brandLogoSrc}
+        alt={brandName || "BidWar"}
+        className="h-6 sm:h-7 max-w-[130px] object-contain my-1 filter drop-shadow-sm brightness-95"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).src = "/assets/branding/bidwar-reverse-logo-official.png";
+        }}
+      />
+      <span className="text-[8px] font-black tracking-[0.32em] text-white/35 uppercase leading-none">
+        Engine
+      </span>
+    </div>
+  );
+
   const headerSessionAction = mainRoundExhausted ? (
     <button
       type="button"
@@ -2402,13 +2432,16 @@ export default function AuctionOperator() {
           <main className="hidden lg:flex flex-col min-h-0 overflow-hidden">
             {timerAndUtilitiesBar}
             <div className="flex-1 overflow-y-auto">
-              <div className="px-4 py-2.5 space-y-2 lg:space-y-2.5 max-w-2xl mx-auto">
-                {ownerBiddingControlCard}
-                {currentPlayerAndBidCards}
-                {reauctionLastPlayerButton}
-                {primaryActionsGrid}
-                {nextPlayerAndStartRow}
-                {quickBidSection}
+              <div className="px-4 py-2.5 space-y-2 lg:space-y-2.5 max-w-2xl mx-auto flex flex-col min-h-full">
+                <div className="space-y-2 lg:space-y-2.5 flex-1">
+                  {ownerBiddingControlCard}
+                  {currentPlayerAndBidCards}
+                  {reauctionLastPlayerButton}
+                  {primaryActionsGrid}
+                  {nextPlayerAndStartRow}
+                  {quickBidSection}
+                </div>
+                {subtleEngineWatermark}
               </div>
             </div>
           </main>
@@ -2418,13 +2451,16 @@ export default function AuctionOperator() {
           <main className={`flex-col min-h-0 overflow-hidden lg:hidden ${mobilePanel === "auction" ? "flex" : "hidden"}`}>
             {timerAndUtilitiesBar}
             <div className="flex-1 overflow-y-auto">
-              <div className="px-3 py-2 space-y-2">
-                {ownerBiddingControlCard}
-                {currentPlayerAndBidCards}
-                {nextPlayerAndStartRow}
-                {primaryActionsGrid}
-                {quickBidSection}
-                {reauctionLastPlayerButton}
+              <div className="px-3 py-2 space-y-2 flex flex-col min-h-full">
+                <div className="space-y-2 flex-1">
+                  {ownerBiddingControlCard}
+                  {currentPlayerAndBidCards}
+                  {nextPlayerAndStartRow}
+                  {primaryActionsGrid}
+                  {quickBidSection}
+                  {reauctionLastPlayerButton}
+                </div>
+                {subtleEngineWatermark}
               </div>
             </div>
           </main>
