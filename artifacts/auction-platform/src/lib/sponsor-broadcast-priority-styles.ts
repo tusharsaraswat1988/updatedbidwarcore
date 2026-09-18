@@ -143,7 +143,7 @@ export function getSponsorChyronItemStyle(tier: SponsorBroadcastTier): CSSProper
           "linear-gradient(135deg, rgba(201, 162, 39, 0.24) 0%, rgba(247, 223, 138, 0.08) 100%)",
         border: "1px solid rgba(247, 223, 138, 0.5)",
         borderRadius: 6,
-        padding: "4px 10px",
+        padding: "4px 12px",
         boxShadow:
           "0 0 20px rgba(247, 223, 138, 0.18), inset 0 1px 0 rgba(255,255,255,0.1)",
       };
@@ -153,7 +153,7 @@ export function getSponsorChyronItemStyle(tier: SponsorBroadcastTier): CSSProper
           "linear-gradient(135deg, rgba(160, 180, 210, 0.2) 0%, rgba(232, 238, 248, 0.07) 100%)",
         border: "1px solid rgba(180, 200, 220, 0.4)",
         borderRadius: 6,
-        padding: "4px 10px",
+        padding: "4px 12px",
         boxShadow: "0 0 14px rgba(180, 200, 220, 0.14)",
       };
     default:
@@ -175,8 +175,8 @@ export function getSponsorChyronNameStyle(tier: SponsorBroadcastTier): CSSProper
       return {
         ...fullName,
         color: TITLE_GOLD,
-        fontSize: "clamp(0.9rem, 1.25vw, 1.1rem)",
-        letterSpacing: "0.28em",
+        fontSize: "clamp(1.15rem, 1.55cqw, 1.65rem)",
+        letterSpacing: "0.18em",
         textShadow:
           "0 0 12px rgba(247, 223, 138, 0.6), 0 0 24px rgba(201, 162, 39, 0.35), 0 1px 3px rgba(0,0,0,0.85)",
       };
@@ -184,12 +184,17 @@ export function getSponsorChyronNameStyle(tier: SponsorBroadcastTier): CSSProper
       return {
         ...fullName,
         color: CO_SILVER,
-        fontSize: "clamp(0.85rem, 1.15vw, 1rem)",
-        letterSpacing: "0.26em",
+        fontSize: "clamp(1.05rem, 1.35cqw, 1.48rem)",
+        letterSpacing: "0.16em",
         textShadow: "0 0 10px rgba(180, 200, 220, 0.45), 0 1px 3px rgba(0,0,0,0.75)",
       };
     default:
-      return { ...fullName, color: "rgba(255,255,255,0.9)" };
+      return {
+        ...fullName,
+        color: "rgba(255,255,255,0.92)",
+        fontSize: "clamp(0.95rem, 1.2cqw, 1.35rem)",
+        letterSpacing: "0.14em",
+      };
   }
 }
 
@@ -198,19 +203,26 @@ export function getSponsorChyronTypeStyle(tier: SponsorBroadcastTier): CSSProper
     case "title":
       return {
         color: TITLE_GOLD_MUTED,
-        fontSize: 9,
-        letterSpacing: "0.32em",
+        fontSize: "clamp(0.76rem, 0.96cqw, 1.05rem)",
+        letterSpacing: "0.16em",
+        fontWeight: 700,
         textShadow: "0 0 6px rgba(247, 223, 138, 0.4)",
       };
     case "co_sponsor":
       return {
         color: CO_SILVER_MUTED,
-        fontSize: 8,
-        letterSpacing: "0.3em",
+        fontSize: "clamp(0.72rem, 0.9cqw, 1rem)",
+        letterSpacing: "0.14em",
+        fontWeight: 700,
         textShadow: "0 0 4px rgba(180, 200, 220, 0.3)",
       };
     default:
-      return { color: "rgba(255,255,255,0.45)" };
+      return {
+        color: "rgba(255,255,255,0.7)",
+        fontSize: "clamp(0.7rem, 0.88cqw, 0.95rem)",
+        letterSpacing: "0.10em",
+        fontWeight: 600,
+      };
   }
 }
 

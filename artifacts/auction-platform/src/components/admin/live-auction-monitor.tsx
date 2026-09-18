@@ -270,24 +270,9 @@ function MonitorWorkspace({
               </div>
             </div>
           </div>
-
-          <div className="rounded-xl border border-border bg-card/70 p-4">
-            <h3 className="font-display font-black text-white">Quick Actions</h3>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="outline" asChild>
-                <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">Open Viewer</a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Open Overlay</a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={`/tournament/${t.id}/auction`} target="_blank" rel="noreferrer">Operator Panel</a>
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/admin/settings/reports")}>Sold Report</Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 }
+

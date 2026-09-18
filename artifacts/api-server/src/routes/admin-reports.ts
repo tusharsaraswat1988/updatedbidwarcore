@@ -12,17 +12,20 @@ import ExcelJS from "exceljs";
 import { z } from "zod";
 import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
 
+import { requireTournamentOrganizer } from "../middleware/require-organizer";
+
 const filtersSchema = z.object({
   categoryIds: z.array(z.number().int()).optional(),
   teamIds: z.array(z.number().int()).optional(),
   statuses: z.array(z.enum(["available", "sold", "unsold", "retained"])).optional(),
   roles: z.array(z.string()).optional(),
+  city: z.string().optional(),
   cities: z.array(z.string()).optional(),
-  jerseySizes: z.array(z.enum(JERSEY_SIZE_VALUES)).optional(),
+  jerseySizes: z.array(z.string()).optional(),
   search: z.string().optional(),
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
-}).strict();
+}).passthrough();
 
 const previewBodySchema = z.object({
   type: z.string().min(1),
@@ -40,8 +43,27 @@ const router = Router();
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 
 function requireMasterAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (req.jwtUser.isAdmin && req.jwtUser.adminLevel === "master") { next(); return; }
+  if (req.jwtUser?.isAdmin && req.jwtUser?.adminLevel === "master") { next(); return; }
   res.status(403).json({ error: "Master admin access required" });
+}
+
+function requireReportAuth(req: Request, res: Response, next: NextFunction): void {
+  if (
+    req.jwtUser?.isAdmin ||
+    req.jwtUser?.organizerAccountId ||
+    (req.jwtUser?.organizer && Object.keys(req.jwtUser.organizer).length > 0)
+  ) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Organizer or Admin access required" });
+}
+
+async function verifyReportAccess(req: Request, res: Response, tournamentId: number): Promise<boolean> {
+  if (req.jwtUser?.isAdmin && req.jwtUser?.adminLevel === "master") {
+    return true;
+  }
+  return requireTournamentOrganizer(req, res, tournamentId);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,6 +73,7 @@ type Filters = {
   teamIds?: number[];
   statuses?: string[];        // available | sold | unsold | retained
   roles?: string[];
+  city?: string;
   cities?: string[];
   jerseySizes?: string[];
   search?: string;
@@ -75,6 +98,7 @@ type ReportData = {
   reportTitle: string;
   tournamentName: string;
   tournamentSport: string;
+  auctionUnit?: "rupee" | "points";
   generatedAt: string;
   filtersApplied: string[];
   summary?: { label: string; value: string }[];
@@ -91,17 +115,15 @@ type ReportType = {
 // ─── Report catalogue ─────────────────────────────────────────────────────────
 
 const REPORT_TYPES: ReportType[] = [
+  { id: "top_5_showcase", title: "Top 5 Sold Players (Poster Showcase)", description: "Visual poster of top 5 highest sold players with photo, team logo and bid price.", category: "live" },
+  { id: "team_showcase", title: "Team-Wise Sold Players Showcase", description: "Visual squad cards with player photos, team logos and prices for community sharing.", category: "post" },
   { id: "master_catalogue", title: "Master Player Catalogue", description: "Full player registry with role, base price and status.", category: "pre" },
-  { id: "category_wise", title: "Category-Wise Player List", description: "Players grouped by category (Platinum, Gold, Silver, etc.).", category: "pre" },
-  { id: "city_wise", title: "City-Wise Player List", description: "Players grouped by city of origin.", category: "pre" },
   { id: "jersey_sizing", title: "Jersey Sizing Report", description: "Players grouped by jersey size with jersey number.", category: "pre" },
   { id: "contact_directory", title: "Player Contact Directory", description: "Player names, mobile numbers, role and city.", category: "directory" },
   { id: "sold_players", title: "Sold Player Report", description: "All sold players with team, price and category.", category: "live" },
   { id: "unsold_players", title: "Unsold Player Report", description: "Players that did not get sold (re-auction candidates).", category: "live" },
   { id: "top_sold", title: "Top Sold Players", description: "Top 25 most expensive sold players.", category: "live" },
-  { id: "team_squad", title: "Team Squad Sheet", description: "Per-team sold + retained squad.", category: "post" },
   { id: "team_purse", title: "Team Purse Breakdown", description: "Purse used, remaining and player count for each team.", category: "post" },
-  { id: "financial_summary", title: "Financial Summary", description: "KPIs: total spend, average bid, highest bid, sold/unsold counts.", category: "post" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -139,6 +161,7 @@ function buildFiltersDescription(f: Filters, ctx: { categories: Map<number, stri
   if (f.teamIds?.length) out.push(`Teams: ${f.teamIds.map(id => ctx.teams.get(id) ?? `#${id}`).join(", ")}`);
   if (f.statuses?.length) out.push(`Status: ${f.statuses.join(", ")}`);
   if (f.roles?.length) out.push(`Role: ${f.roles.join(", ")}`);
+  if (f.city) out.push(`City: ${f.city}`);
   if (f.cities?.length) out.push(`Cities: ${f.cities.join(", ")}`);
   if (f.jerseySizes?.length) out.push(`Jersey sizes: ${f.jerseySizes.join(", ")}`);
   if (f.search) out.push(`Name contains: ${f.search}`);
@@ -153,9 +176,11 @@ async function loadContext(tournamentId: number) {
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tournamentId));
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tournamentId));
   const teamMap = new Map(teams.map(t => [t.id, t.name]));
+  const teamShortCodeMap = new Map(teams.map(t => [t.id, t.shortCode]));
   const teamColorMap = new Map(teams.map(t => [t.id, t.color ?? "#3B82F6"]));
+  const teamLogoMap = new Map(teams.map(t => [t.id, t.logoUrl ?? null]));
   const categoryMap = new Map(categories.map(c => [c.id, c.name]));
-  return { tournament, teams, categories, teamMap, teamColorMap, categoryMap };
+  return { tournament, teams, categories, teamMap, teamShortCodeMap, teamColorMap, teamLogoMap, categoryMap };
 }
 
 async function loadFilteredPlayers(tournamentId: number, f: Filters) {
@@ -164,6 +189,7 @@ async function loadFilteredPlayers(tournamentId: number, f: Filters) {
   if (f.teamIds?.length) conditions.push(inArray(playersTable.teamId, f.teamIds));
   if (f.statuses?.length) conditions.push(inArray(playersTable.status, f.statuses));
   if (f.roles?.length) conditions.push(inArray(playersTable.role, f.roles));
+  if (f.city) conditions.push(ilike(playersTable.city, `%${f.city}%`));
   if (f.cities?.length) conditions.push(inArray(playersTable.city, f.cities));
   if (f.jerseySizes?.length) conditions.push(inArray(playersTable.jerseySize, f.jerseySizes));
   if (f.search) conditions.push(ilike(playersTable.name, `%${f.search}%`));
@@ -219,6 +245,9 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
   const enrich = (p: typeof playersTable.$inferSelect) => ({
     ...p,
     teamName: p.teamId ? ctx.teamMap.get(p.teamId) ?? null : null,
+    teamShortCode: p.teamId ? ctx.teamShortCodeMap.get(p.teamId) ?? null : null,
+    teamColor: p.teamId ? ctx.teamColorMap.get(p.teamId) ?? null : null,
+    teamLogoUrl: p.teamId ? ctx.teamLogoMap.get(p.teamId) ?? null : null,
     categoryName: p.categoryId ? ctx.categoryMap.get(p.categoryId) ?? null : null,
   });
 
@@ -229,9 +258,57 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     reportTitle,
     tournamentName: t.name,
     tournamentSport: t.sport,
+    auctionUnit: (t.auctionUnit ?? "rupee") as "rupee" | "points",
     generatedAt,
     filtersApplied,
   };
+
+  if (typeId === "top_5_showcase") {
+    const f: Filters = { ...filters, statuses: ["sold"] };
+    const top5 = (await loadFilteredPlayers(tournamentId, f))
+      .map(enrich)
+      .sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0))
+      .slice(0, 5);
+    const totalSpend = top5.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
+    return {
+      ...baseHeader,
+      summary: [
+        { label: "Top Players", value: String(top5.length) },
+        { label: "Combined Spend", value: fmtShortRupee(totalSpend) },
+        { label: "#1 Highest Sold", value: fmtShortRupee(top5[0]?.soldPrice ?? 0) },
+      ],
+      sections: [{
+        heading: "Top 5 Highest Sold Players",
+        columns: PLAYER_COLUMNS,
+        rows: top5 as unknown as Record<string, unknown>[],
+      }],
+    };
+  }
+
+  if (typeId === "team_showcase") {
+    const players = (await loadFilteredPlayers(tournamentId, filters)).map(enrich);
+    const sections: ReportSection[] = [];
+    const teams = filters.teamIds?.length ? ctx.teams.filter(t => filters.teamIds!.includes(t.id)) : ctx.teams;
+    for (const team of teams) {
+      const rows = players.filter(p => p.teamId === team.id && (p.status === "sold" || p.status === "retained"))
+        .sort((a, b) => (b.soldPrice ?? b.retainedPrice ?? 0) - (a.soldPrice ?? a.retainedPrice ?? 0));
+      if (!rows.length) continue;
+      const totalSpent = rows.reduce((s, p) => s + (p.soldPrice ?? p.retainedPrice ?? 0), 0);
+      sections.push({
+        heading: `${team.name} (${rows.length} players · Spent: ${fmtShortRupee(totalSpent)})`,
+        columns: PLAYER_COLUMNS,
+        rows: rows as unknown as Record<string, unknown>[],
+      });
+    }
+    return {
+      ...baseHeader,
+      summary: [
+        { label: "Teams", value: String(sections.length) },
+        { label: "Total Squad Players", value: String(sections.reduce((s, sec) => s + sec.rows.length, 0)) },
+      ],
+      sections,
+    };
+  }
 
   if (typeId === "master_catalogue") {
     const players = (await loadFilteredPlayers(tournamentId, filters)).map(enrich);
@@ -693,13 +770,14 @@ function renderCsv(report: ReportData, res: Response): void {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/reports/types", requireMasterAdmin, heavyLimiter, (_req, res) => {
+router.get("/auth/admin/reports/types", requireReportAuth, heavyLimiter, (_req, res) => {
   res.json({ reports: REPORT_TYPES });
 });
 
-router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, heavyLimiter, async (req, res) => {
+router.get("/auth/admin/reports/:tournamentId/context", requireReportAuth, heavyLimiter, async (req, res) => {
   const tournamentId = parseInt(String(req.params.tournamentId));
   if (!Number.isFinite(tournamentId)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
+  if (!(await verifyReportAccess(req, res, tournamentId))) return;
   const ctx = await loadContext(tournamentId);
   if (!ctx) { res.status(404).json({ error: "Tournament not found" }); return; }
   // distinct roles + cities for filter dropdowns
@@ -713,7 +791,12 @@ router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, heav
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     });
   res.json({
-    tournament: { id: ctx.tournament.id, name: ctx.tournament.name, sport: ctx.tournament.sport },
+    tournament: {
+      id: ctx.tournament.id,
+      name: ctx.tournament.name,
+      sport: ctx.tournament.sport,
+      auctionUnit: ctx.tournament.auctionUnit ?? "rupee",
+    },
     teams: ctx.teams.map(t => ({ id: t.id, name: t.name, shortCode: t.shortCode, color: t.color })),
     categories: ctx.categories.map(c => ({ id: c.id, name: c.name, colorCode: c.colorCode })),
     roles,
@@ -724,9 +807,10 @@ router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, heav
   });
 });
 
-router.post("/auth/admin/reports/:tournamentId/preview", requireMasterAdmin, heavyLimiter, async (req, res) => {
+router.post("/auth/admin/reports/:tournamentId/preview", requireReportAuth, heavyLimiter, async (req, res) => {
   const tournamentId = parseInt(String(req.params.tournamentId));
   if (!Number.isFinite(tournamentId)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
+  if (!(await verifyReportAccess(req, res, tournamentId))) return;
   const parsed = previewBodySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.issues }); return; }
   if (!REPORT_TYPES.find(r => r.id === parsed.data.type)) { res.status(400).json({ error: "Unknown report type" }); return; }
@@ -735,9 +819,10 @@ router.post("/auth/admin/reports/:tournamentId/preview", requireMasterAdmin, hea
   res.json(data);
 });
 
-router.post("/auth/admin/reports/:tournamentId/export", requireMasterAdmin, exportLimiter, async (req, res) => {
+router.post("/auth/admin/reports/:tournamentId/export", requireReportAuth, exportLimiter, async (req, res) => {
   const tournamentId = parseInt(String(req.params.tournamentId));
   if (!Number.isFinite(tournamentId)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
+  if (!(await verifyReportAccess(req, res, tournamentId))) return;
   const parsed = exportBodySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.issues }); return; }
   if (!REPORT_TYPES.find(r => r.id === parsed.data.type)) { res.status(400).json({ error: "Unknown report type" }); return; }

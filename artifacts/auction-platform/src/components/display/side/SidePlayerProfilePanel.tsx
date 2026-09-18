@@ -150,9 +150,11 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
           </div>
         ) : null}
         <div
-          className="side-player-serial-badge broadcast-tournament-name absolute z-10 grid place-items-center italic"
+          className="side-player-serial-badge led-label absolute z-10 grid place-items-center"
           style={{
-            fontSize: 30,
+            fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+            fontSize: 28,
+            fontWeight: 800,
             backgroundColor: "var(--accent)",
             color: "var(--accent-on)",
           }}
@@ -160,28 +162,43 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
           #{player.serialNo}
         </div>
         <div className="side-player-name-zone absolute bottom-0 left-0 right-0 z-10">
-          <p className="broadcast-category" style={{ margin: 0, fontSize: 34, lineHeight: 1.2 }}>
+          <p
+            className="led-label flex flex-wrap items-center gap-x-3 gap-y-1"
+            style={{
+              margin: 0,
+              fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+              fontSize: 32,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              lineHeight: 1.2,
+            }}
+          >
             <span style={{ color: "var(--accent)" }}>{roleLabel || player.roleRaw}</span>
             {player.categoryName ? (
               <>
-                <span style={{ margin: "0 12px", color: "rgba(255,255,255,0.35)" }}>•</span>
-                <span style={{ color: "rgba(255,255,255,0.85)" }}>{player.categoryName}</span>
+                <span style={{ color: "rgba(255,255,255,0.4)" }}>•</span>
+                <span style={{ color: "rgba(255,255,255,0.92)" }}>{player.categoryName}</span>
               </>
             ) : null}
             {tag ? (
               <>
-                <span style={{ margin: "0 12px", color: "rgba(255,255,255,0.35)" }}>•</span>
+                <span style={{ color: "rgba(255,255,255,0.4)" }}>•</span>
                 <span style={{ color: tag.color }}>{tag.label}</span>
               </>
             ) : null}
           </p>
           <h2
-            className="broadcast-player-name side-player-name"
+            className="led-player side-player-name"
             style={{
-              margin: "10px 0 0",
-              fontSize: "clamp(5.5rem, 15vw, 9.5rem)",
-              lineHeight: 0.86,
+              margin: "12px 0 0",
+              fontFamily: 'var(--led-font-display, "Bebas Neue", sans-serif)',
+              fontSize: player.name.length > 20 ? 92 : player.name.length > 14 ? 108 : 126,
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              lineHeight: 0.88,
               color: "#fff",
+              textShadow: "0 4px 24px rgba(0, 0, 0, 0.95), 0 0 40px rgba(0, 0, 0, 0.75)",
             }}
           >
             {player.name}
@@ -262,28 +279,40 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
             {live ? (
               <div className="absolute right-[5%] top-1/2 z-10 flex -translate-y-1/2 flex-col items-end">
                 <span
-                  className="broadcast-kicker"
-                  style={{ marginBottom: 8, fontSize: 28, color: "rgba(255,255,255,0.45)" }}
+                  className="led-label"
+                  style={{
+                    marginBottom: 6,
+                    fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+                    fontSize: 26,
+                    fontWeight: 800,
+                    letterSpacing: "0.10em",
+                    color: "rgba(255,255,255,0.7)",
+                  }}
                 >
                   Hammer Time
                 </span>
                 <span
-                  className="broadcast-bid-amount"
+                  className="led-timer broadcast-bid-amount"
                   style={{
-                    fontSize: 64,
+                    fontFamily: 'var(--led-font-mono, "JetBrains Mono", monospace)',
+                    fontSize: 76,
+                    fontWeight: 800,
                     lineHeight: 1,
+                    letterSpacing: "-0.01em",
                     color: urgent ? "#ef4444" : "var(--accent)",
+                    textShadow: urgent ? "0 0 28px rgba(239, 68, 68, 0.75)" : "0 0 24px var(--accent-glow)",
                     animation: urgent ? "auction-urgency-pulse 0.8s ease-in-out infinite" : undefined,
                   }}
                 >
                   {fmtTimer(countdown)}
                 </span>
-                <div className="mt-2 h-1.5 w-28 overflow-hidden bg-white/10">
+                <div className="mt-2.5 h-2 w-32 overflow-hidden rounded-full bg-white/15">
                   <div
-                    className="h-full transition-all duration-1000 ease-linear"
+                    className="h-full transition-all duration-1000 ease-linear rounded-full"
                     style={{
                       width: `${pct}%`,
                       backgroundColor: urgent ? "#ef4444" : "var(--accent)",
+                      boxShadow: urgent ? "0 0 10px #ef4444" : "0 0 10px var(--accent)",
                     }}
                   />
                 </div>
@@ -295,15 +324,27 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
               className={`side-player-bid-hero side-player-bid-hero--pop mx-auto flex w-full max-w-3xl flex-col items-center text-center`}
             >
               <p
-                className="broadcast-sponsor-kicker side-player-bid-kicker"
-                style={{ margin: "0 0 12px", fontSize: 32 }}
+                className="led-label side-player-bid-kicker"
+                style={{
+                  margin: "0 0 10px",
+                  fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+                  fontSize: 36,
+                  fontWeight: 800,
+                  letterSpacing: "0.16em",
+                  color: "var(--accent)",
+                  textShadow: "0 0 20px var(--accent-glow)",
+                }}
               >
                 {state.currentBid > 0 ? "Current Bid" : "Bid Starts At"}
               </p>
               <p
-                className="broadcast-bid-amount side-player-bid-amount"
+                className="led-hero broadcast-bid-amount side-player-bid-amount"
                 style={{
                   margin: 0,
+                  fontFamily: 'var(--led-font-display, "Bebas Neue", sans-serif)',
+                  fontSize: 164,
+                  fontWeight: 800,
+                  letterSpacing: "-0.01em",
                   color: "#fff",
                   ...(teamBidGlow ? { "--bid-team-glow": teamBidGlow } : {}),
                   animation: [
@@ -317,19 +358,23 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
                 {currentBidLabel}
               </p>
               {leadingTeam && state.currentBid > 0 ? (
-                <div className="side-player-bid-team mt-4 flex max-w-full items-center justify-center gap-3">
+                <div className="side-player-bid-team mt-5 flex max-w-full items-center justify-center gap-4">
                   {leadingTeam.logoUrl ? (
-                    <img src={leadingTeam.logoUrl} alt="" className="h-12 w-12 shrink-0 object-contain" />
+                    <img src={leadingTeam.logoUrl} alt="" className="h-14 w-14 shrink-0 object-contain drop-shadow" />
                   ) : null}
                   <span
-                    className="broadcast-tournament-name"
+                    className="led-team broadcast-tournament-name"
                     style={{
-                      fontSize: 40,
+                      fontFamily: 'var(--led-font-primary, "Barlow Condensed", sans-serif)',
+                      fontSize: 48,
+                      fontWeight: 800,
+                      letterSpacing: "0.04em",
                       lineHeight: 1,
                       color: leadingTeam.color,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      textShadow: `0 0 24px ${leadingTeam.color}66`,
                     }}
                   >
                     {leadingTeam.name}
@@ -337,8 +382,15 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
                 </div>
               ) : live ? (
                 <p
-                  className="broadcast-kicker"
-                  style={{ marginTop: 14, fontSize: 28, color: "rgba(255,255,255,0.4)" }}
+                  className="led-status"
+                  style={{
+                    marginTop: 16,
+                    fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+                    fontSize: 30,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    color: "rgba(255,255,255,0.55)",
+                  }}
                 >
                   Waiting for first bid
                 </p>
@@ -365,16 +417,32 @@ function SideSpecRow({
   className?: string;
 }) {
   return (
-    <p className={`side-player-spec-row min-w-0 leading-snug ${className ?? ""}`}>
-      <span className="broadcast-spec-label side-player-spec-label" style={{ fontSize: 30 }} title={fullLabel}>
-        {shortLabel}:{" "}
+    <p className={`side-player-spec-row min-w-0 leading-snug flex items-baseline gap-2.5 ${className ?? ""}`}>
+      <span
+        className="led-label side-player-spec-label"
+        style={{
+          fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+          fontSize: 30,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          color: "rgba(255, 255, 255, 0.82)",
+          textTransform: "uppercase",
+        }}
+        title={fullLabel}
+      >
+        {shortLabel}:
       </span>
       <span
-        className="broadcast-spec-value side-player-spec-value"
+        className="led-value side-player-spec-value"
         style={{
-          fontSize: 40,
+          fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+          fontSize: 42,
+          fontWeight: 800,
+          letterSpacing: "0.02em",
+          fontVariantNumeric: "tabular-nums",
           textTransform: "uppercase",
-          color: accent ? "var(--accent)" : "#fff",
+          color: accent ? "var(--accent)" : "#ffffff",
+          textShadow: accent ? "0 0 16px var(--accent-glow)" : "0 2px 8px rgba(0,0,0,0.6)",
         }}
         title={value}
       >

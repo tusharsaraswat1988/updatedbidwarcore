@@ -51,7 +51,6 @@ router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: 
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
-  if (tournament.licenseStatus !== "active") { res.status(403).json({ error: "Team reports require an active license" }); return; }
 
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.createdAt);
   const players = await db.select({
@@ -87,7 +86,6 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
-  if (tournament.licenseStatus !== "active") { res.status(403).json({ error: "Team reports require an active license" }); return; }
 
   const [team] = await db.select().from(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Team not found" }); return; }

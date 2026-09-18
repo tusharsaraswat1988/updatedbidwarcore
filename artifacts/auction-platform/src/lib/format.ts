@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-base/auction-unit";
 
 export type { AuctionUnit };
+export { formatAuctionAmount };
 
 export function formatIndianRupee(
   amount: number | null | undefined,

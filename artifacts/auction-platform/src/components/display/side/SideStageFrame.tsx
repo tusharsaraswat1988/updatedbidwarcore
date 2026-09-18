@@ -19,7 +19,7 @@ export function SideStageFrame({
 
   return (
     <div
-      className="absolute inset-0 overflow-hidden"
+      className="auction-stage bidwar-led-surface absolute inset-0 overflow-hidden"
       style={{
         ...styleVars,
         backgroundColor: "var(--stage-bg)",

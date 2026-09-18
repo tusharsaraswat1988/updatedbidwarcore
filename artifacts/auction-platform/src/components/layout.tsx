@@ -180,53 +180,14 @@ function SidebarNav({
                 {expanded && <span className="font-medium">Media Center</span>}
               </SidebarLink>
             ) : null}
-            {tournament?.status === "completed" ? (
-              <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
-                <BarChart3 className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span className="font-medium">Reports & Analytics</span>}
-              </SidebarLink>
-            ) : (
-              <div
-                title="Opens after auction is marked completed"
-                className={`flex items-center rounded-md cursor-not-allowed select-none ${
-                  !expanded ? "justify-center w-9 h-9 mx-auto opacity-30" : "gap-3 px-3 py-2"
-                }`}
-              >
-                <BarChart3 className={`w-5 h-5 flex-shrink-0 ${!expanded ? "" : "opacity-30"}`} />
-                {expanded && (
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex items-center gap-2 opacity-30">
-                      <span className="font-medium">Reports & Analytics</span>
-                      <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto shrink-0">Locked</span>
-                    </div>
-                    <span className="text-[11px] text-amber-300/85 leading-tight mt-0.5 normal-case">
-                      Opens after auction is marked completed
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-            {tournament?.licenseStatus === "active" ? (
-              <SidebarLink href={`/tournament/${tournamentId}/team-reports`} title="Pre-Auction Reports" className={cls(`/tournament/${tournamentId}/team-reports`)} active={active(`/tournament/${tournamentId}/team-reports`)} showAccent={expanded}>
-                <FileText className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span className="font-medium">Pre-Auction Reports</span>}
-              </SidebarLink>
-            ) : (
-              <div
-                title="Pre-Auction Reports available only for licensed tournaments"
-                className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
-                  !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                }`}
-              >
-                <FileText className="w-5 h-5 flex-shrink-0" />
-                {expanded && (
-                  <>
-                    <span className="font-medium">Pre-Auction Reports</span>
-                    <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Trial</span>
-                  </>
-                )}
-              </div>
-            )}
+            <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
+              <BarChart3 className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="font-medium">Reports & Analytics</span>}
+            </SidebarLink>
+            <SidebarLink href={`/tournament/${tournamentId}/team-reports`} title="Pre-Auction Reports" className={cls(`/tournament/${tournamentId}/team-reports`)} active={active(`/tournament/${tournamentId}/team-reports`)} showAccent={expanded}>
+              <FileText className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="font-medium">Pre-Auction Reports</span>}
+            </SidebarLink>
           </nav>
 
           {expanded && (

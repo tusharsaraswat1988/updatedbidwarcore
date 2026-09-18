@@ -171,7 +171,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
         >
           {/* Kicker: PROUDLY SUPPORTED BY / TITLE SPONSOR */}
           <p
-            className="broadcast-kicker broadcast-sponsor-kicker"
+            className="led-label broadcast-kicker broadcast-sponsor-kicker"
             style={{
               position: "absolute",
               left: 0,
@@ -179,6 +179,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
               top: 0,
               margin: 0,
               textAlign: "center",
+              fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
               fontSize: L.sponsorKickerSize,
               lineHeight: 1.1,
               ...getSideLedKickerStyle(tier),
@@ -244,7 +245,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
 
           {/* Sponsor Name: Extra Large, High-Contrast & Bold */}
           <h2
-            className="broadcast-sponsor-name"
+            className="led-player broadcast-sponsor-name"
             style={{
               position: "absolute",
               left: 0,
@@ -252,8 +253,10 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
               top: L.sponsorNameTop - L.sponsorKickerTop,
               margin: 0,
               padding: "0 20px",
+              fontFamily: 'var(--led-font-display, "Bebas Neue", sans-serif)',
               fontSize: getDynamicSponsorNameSize(current.name, L.sponsorNameSize, tier),
               lineHeight: 1.06,
+              letterSpacing: "0.10em",
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
@@ -279,18 +282,19 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
             }}
           >
             <span
-              className="broadcast-category broadcast-sponsor-category-badge"
+              className="led-status broadcast-category broadcast-sponsor-category-badge"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
+                fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
                 fontSize: L.sponsorCategorySize,
                 fontWeight: 800,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
-                padding: "12px 38px",
+                padding: "14px 44px",
                 borderRadius: 9999,
-                maxWidth: 900,
+                maxWidth: 920,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -313,13 +317,26 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
         >
           <p
             className="broadcast-tournament-name"
-            style={{ fontSize: 72, color: "rgba(255,255,255,0.2)", margin: 0 }}
+            style={{
+              fontFamily: 'var(--led-font-display, "Bebas Neue", sans-serif)',
+              fontSize: 80,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              color: "rgba(255,255,255,0.25)",
+              margin: 0,
+            }}
           >
             SPONSORS
           </p>
           <p
             className="broadcast-kicker broadcast-sponsor-kicker"
-            style={{ marginTop: 16, opacity: 0.45 }}
+            style={{
+              marginTop: 16,
+              fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
+              fontSize: 36,
+              fontWeight: 700,
+              opacity: 0.55,
+            }}
           >
             Partner logos will appear here
           </p>
@@ -327,7 +344,7 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
       )}
 
       <p
-        className="broadcast-kicker broadcast-sponsor-footer"
+        className="led-label broadcast-kicker broadcast-sponsor-footer"
         style={{
           position: "absolute",
           left: 60,
@@ -335,7 +352,11 @@ export const SideSponsorPanel = memo(function SideSponsorPanel({
           top: L.sponsorFooterTop,
           margin: 0,
           textAlign: "center",
+          fontFamily: 'var(--led-font-label, "Space Grotesk", sans-serif)',
           fontSize: L.sponsorFooterSize,
+          fontWeight: 700,
+          letterSpacing: "0.16em",
+          color: "rgba(255,255,255,0.65)",
         }}
       >
         {branding?.poweredByText ?? "Powered by BidWar"}

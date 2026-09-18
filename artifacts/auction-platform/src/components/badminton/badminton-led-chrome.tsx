@@ -525,27 +525,15 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
                   {/* Logos are unreadable on LED walls at distance — show name + title only. */}
                   <div className="flex flex-col leading-none gap-0.5">
                     <span
-                      className="bw-label text-lg md:text-xl"
-                      style={{
-                        ...nameStyle,
-                        fontSize:
-                          tier === "title"
-                            ? "clamp(1.15rem, 1.7vw, 1.45rem)"
-                            : tier === "co_sponsor"
-                              ? "clamp(1.05rem, 1.55vw, 1.3rem)"
-                              : undefined,
-                      }}
+                      className="bw-label text-lg md:text-xl font-['Bebas_Neue'] uppercase font-bold tracking-[0.14em]"
+                      style={nameStyle}
                     >
                       {s.name?.trim() || typeLabel}
                     </span>
                     {typeLabel ? (
                       <span
-                        className="bw-caption text-sm"
-                        style={{
-                          ...typeStyle,
-                          fontSize:
-                            tier === "title" ? 13 : tier === "co_sponsor" ? 12 : undefined,
-                        }}
+                        className="bw-caption text-sm font-['Space_Grotesk'] uppercase font-bold tracking-[0.10em]"
+                        style={typeStyle}
                       >
                         {typeLabel}
                       </span>

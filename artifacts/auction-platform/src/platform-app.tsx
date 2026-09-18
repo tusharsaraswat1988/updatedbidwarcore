@@ -30,6 +30,7 @@ const PlayerRegisterLegacy = lazy(() => import("@/pages/player-register-legacy")
 const OrganizerLogin = lazy(() => import("@/pages/organizer-login"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overview"));
+const AdminEventsActivities = lazy(() => import("@/pages/admin-events-activities"));
 const AdminLiveOperations = lazy(() => import("@/pages/admin-live-operations"));
 const AdminTournamentsList = lazy(() => import("@/pages/admin-tournaments-list"));
 const AdminOrganisersList = lazy(() => import("@/pages/admin-organisers-list"));
@@ -52,7 +53,6 @@ const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicationCenter = lazy(() => import("@/pages/admin-communication-center"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
-const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
 const AdminAdminNotifications = lazy(() => import("@/pages/admin-admin-notifications"));
 const AdminAdminNotificationSettings = lazy(() => import("@/pages/admin-admin-notification-settings"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
@@ -176,6 +176,7 @@ function PlatformRouter() {
           )}
         </Route>
         <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/admin/events-activities" component={AdminEventsActivities} />
         <Route path="/admin/live" component={AdminLiveOperations} />
         <Route path="/admin/live/auctions" component={AdminLiveOperations} />
         <Route path="/admin/live/monitor" component={AdminLiveOperations} />
@@ -201,6 +202,7 @@ function PlatformRouter() {
         <Route path="/admin/tournaments/:id/teams" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/bids" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/monitor" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/endpoints" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/displays" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/owner-apps" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/sessions" component={AdminTournamentDetail} />
@@ -212,12 +214,12 @@ function PlatformRouter() {
         <Route path="/admin/settings/intelligence/:tab" component={AdminIntelligence} />
         <Route path="/admin/communication/:tab" component={AdminCommunicationCenter} />
         <Route path="/admin/communication" component={AdminCommunicationCenter} />
-        <Route path="/admin/settings/communication/logs" component={AdminCommunicate} />
-        <Route path="/admin/settings/communication/:tab" component={AdminCommunicate} />
-        <Route path="/admin/settings/communication" component={AdminCommunicate} />
+        <Route path="/admin/settings/communication/logs">{() => <Redirect to="/admin/communication/logs" />}</Route>
+        <Route path="/admin/settings/communication/:tab">{(params) => <Redirect to={`/admin/communication/${params?.tab || "sms"}`} />}</Route>
+        <Route path="/admin/settings/communication">{() => <Redirect to="/admin/communication/sms" />}</Route>
         <Route path="/admin/notifications" component={AdminAdminNotifications} />
         <Route path="/admin/settings/admin-notifications" component={AdminAdminNotificationSettings} />
-        <Route path="/admin/settings/notifications" component={AdminNotificationCenter} />
+        <Route path="/admin/settings/notifications">{() => <Redirect to="/admin/communication" />}</Route>
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
         <Route path="/admin/creative-assets" component={AdminCreativeAssets} />

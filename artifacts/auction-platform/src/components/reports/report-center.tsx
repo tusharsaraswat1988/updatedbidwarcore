@@ -1,24 +1,17 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useLocation } from "wouter";
-import { useAdminAuth } from "@/hooks/use-auth";
-import { listAdminTournaments, AdminTournamentRow } from "@/lib/auth";
-import { AdminShell } from "@/components/admin-shell";
 import { CityAutocomplete } from "@/components/city-autocomplete";
-import { motion } from "framer-motion";
 import {
   ShieldCheck, FileText, FileSpreadsheet, FileType, Printer, RefreshCw,
   Search, Users, TrendingUp, Wallet, Award, Phone, MapPin, Trophy, Filter,
-  ListChecks, FileBarChart, Table2, BadgeCheck, X, ChevronDown, Check,
-  Crown, Sparkles, ImageDown, User, Flame, LayoutGrid, TableProperties, Download,
+  ListChecks, Table2, BadgeCheck, X, ChevronDown, Check,
+  Crown, Sparkles, ImageDown, User, LayoutGrid, TableProperties, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
-import { ADMIN_FLEX_SCROLL_CLASS } from "@/components/admin/admin-scroll-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cldUrl } from "@/lib/cloudinary";
@@ -41,14 +34,14 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return r.json();
 }
 
-type ReportType = {
+export type ReportType = {
   id: string;
   title: string;
   description: string;
   category: "pre" | "live" | "post" | "directory";
 };
 
-type ReportContext = {
+export type ReportContext = {
   tournament: { id: number; name: string; sport: string; auctionUnit?: "rupee" | "points" };
   teams: { id: number; name: string; shortCode: string; color: string | null }[];
   categories: { id: number; name: string; colorCode: string | null }[];
@@ -59,7 +52,7 @@ type ReportContext = {
   playerCount: number;
 };
 
-type Filters = {
+export type Filters = {
   categoryIds?: number[];
   teamIds?: number[];
   statuses?: string[];
@@ -71,9 +64,9 @@ type Filters = {
   maxPrice?: number;
 };
 
-type Column = { key: string; label: string; width?: number };
-type Section = { heading?: string; columns: Column[]; rows: Record<string, unknown>[] };
-type ReportData = {
+export type Column = { key: string; label: string; width?: number };
+export type Section = { heading?: string; columns: Column[]; rows: Record<string, unknown>[] };
+export type ReportData = {
   reportTitle: string;
   tournamentName: string;
   tournamentSport: string;
@@ -105,11 +98,24 @@ const REPORT_ICON: Record<string, typeof FileText> = {
   team_purse: Wallet,
 };
 
-export default function AdminReports() {
-  const { isLoading, isLoggedIn: isAdmin } = useAdminAuth();
-  const [, navigate] = useLocation();
-  const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
-  const [tournamentId, setTournamentId] = useState<number | null>(null);
+export interface ReportCenterProps {
+  tournamentId?: number | null;
+  tournaments?: { id: number; name: string; sport?: string }[];
+  onSelectTournament?: (id: number) => void;
+  hideTournamentSelector?: boolean;
+  className?: string;
+}
+
+export function ReportCenter({
+  tournamentId: propTournamentId,
+  tournaments = [],
+  onSelectTournament,
+  hideTournamentSelector = true,
+  className = "",
+}: ReportCenterProps) {
+  const [internalTournamentId, setInternalTournamentId] = useState<number | null>(propTournamentId ?? null);
+  const activeTournamentId = propTournamentId !== undefined ? propTournamentId : internalTournamentId;
+
   const [reportTypes, setReportTypes] = useState<ReportType[]>([]);
   const [activeReport, setActiveReport] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"visual" | "table">("visual");
@@ -118,596 +124,526 @@ export default function AdminReports() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | "csv" | null>(null);
-  const [exportingImage, setExportingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const printAreaRef = useRef<HTMLDivElement | null>(null);
 
-  // Auth gate
+  // Sync prop changes
   useEffect(() => {
-    if (!isLoading && !isAdmin) navigate("/admin/login");
-  }, [isLoading, isAdmin, navigate]);
+    if (propTournamentId !== undefined) {
+      setInternalTournamentId(propTournamentId);
+    }
+  }, [propTournamentId]);
 
-  // Load tournaments + report types on mount
+  // Load report types on mount
   useEffect(() => {
     let cancel = false;
-    async function load() {
+    async function loadTypes() {
       try {
-        const [t, types] = await Promise.all([
-          listAdminTournaments(),
-          api<{ reports: ReportType[] }>("/auth/admin/reports/types"),
-        ]);
+        const types = await api<{ reports: ReportType[] }>("/auth/admin/reports/types");
         if (cancel) return;
-        setTournaments(t);
         setReportTypes(types.reports);
       } catch (e) {
-        if (!cancel) setError(e instanceof Error ? e.message : "Failed to load");
+        if (!cancel) setError(e instanceof Error ? e.message : "Failed to load report types");
       }
     }
-    if (isAdmin) load();
+    loadTypes();
     return () => { cancel = true; };
-  }, [isAdmin]);
+  }, []);
 
-  // Load context whenever tournament changes
+  // Load tournament report context
   useEffect(() => {
-    if (!tournamentId) { setCtx(null); return; }
+    if (!activeTournamentId) {
+      setCtx(null);
+      setData(null);
+      return;
+    }
     let cancel = false;
-    async function load() {
+    async function loadContext() {
       try {
-        const c = await api<ReportContext>(`/auth/admin/reports/${tournamentId}/context`);
-        if (!cancel) { setCtx(c); setFilters({}); setData(null); }
+        const c = await api<ReportContext>(`/auth/admin/reports/${activeTournamentId}/context`);
+        if (cancel) return;
+        setCtx(c);
+        setError(null);
       } catch (e) {
-        if (!cancel) setError(e instanceof Error ? e.message : "Failed to load context");
+        if (!cancel) {
+          setCtx(null);
+          setError(e instanceof Error ? e.message : "Failed to load tournament context");
+        }
       }
     }
-    load();
+    loadContext();
     return () => { cancel = true; };
-  }, [tournamentId]);
+  }, [activeTournamentId]);
 
-  const runPreview = useCallback(async () => {
-    if (!tournamentId || !activeReport) return;
+  // Auto-switch default view mode based on report type
+  useEffect(() => {
+    if (activeReport === "top_5_showcase" || activeReport === "team_showcase") {
+      setViewMode("visual");
+    } else {
+      setViewMode("table");
+    }
+  }, [activeReport]);
+
+  // Load preview data
+  const loadPreview = useCallback(async (reportId: string, currentFilters: Filters) => {
+    if (!activeTournamentId) return;
     setLoadingPreview(true);
     setError(null);
     try {
-      const d = await api<ReportData>(`/auth/admin/reports/${tournamentId}/preview`, {
+      const res = await api<ReportData>(`/auth/admin/reports/${activeTournamentId}/preview`, {
         method: "POST",
-        body: JSON.stringify({ type: activeReport, filters }),
+        body: JSON.stringify({ type: reportId, filters: currentFilters }),
       });
-      setData(d);
+      setData(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Preview failed");
+      setError(e instanceof Error ? e.message : "Failed to generate report preview");
+      setData(null);
     } finally {
       setLoadingPreview(false);
     }
-  }, [tournamentId, activeReport, filters]);
+  }, [activeTournamentId]);
 
-  // Auto-preview when report selected, tournament changes, or filters change (debounced)
+  // Run preview when active report or active tournament changes
   useEffect(() => {
-    if (!activeReport || !tournamentId) return;
-    const timer = setTimeout(() => {
-      runPreview();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [activeReport, tournamentId, filters, runPreview]);
+    if (activeTournamentId && activeReport) {
+      loadPreview(activeReport, filters);
+    }
+  }, [activeTournamentId, activeReport, loadPreview]);
 
-  async function runExport(format: "pdf" | "xlsx" | "csv") {
-    if (!tournamentId || !activeReport) return;
+  // Handle report selection
+  const handleSelectReport = (reportId: string) => {
+    setActiveReport(reportId);
+    setFilters({});
+  };
+
+  // Filtered catalogue
+  const filteredTypes = useMemo(() => {
+    if (!search.trim()) return reportTypes;
+    const q = search.toLowerCase();
+    return reportTypes.filter(r => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+  }, [reportTypes, search]);
+
+  const groupedReports = useMemo(() => {
+    const groups: Record<ReportType["category"], ReportType[]> = { pre: [], live: [], post: [], directory: [] };
+    for (const r of filteredTypes) {
+      if (groups[r.category]) groups[r.category].push(r);
+    }
+    return groups;
+  }, [filteredTypes]);
+
+  // Handle Export (PDF, Excel, CSV)
+  const handleExport = async (format: "pdf" | "xlsx" | "csv") => {
+    if (!activeTournamentId || !activeReport) return;
     setExporting(format);
     setError(null);
     try {
-      const r = await fetch(`${API}/auth/admin/reports/${tournamentId}/export`, {
+      const res = await fetch(`${API}/auth/admin/reports/${activeTournamentId}/export`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: activeReport, filters, format }),
+        body: JSON.stringify({ type: activeReport, format, filters }),
       });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error || `Export failed (${r.status})`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Export failed (${res.status})`);
       }
-      const blob = await r.blob();
-      const cd = r.headers.get("Content-Disposition") || "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m?.[1] || `report.${format}`;
+      const blob = await res.blob();
+      const contentDisp = res.headers.get("Content-Disposition") || "";
+      const match = contentDisp.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : `report.${format}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed");
     } finally {
       setExporting(null);
     }
-  }
+  };
 
-  function handlePrint() {
+  // Print handler
+  const handlePrint = () => {
     window.print();
-  }
-
-  async function downloadPosterAsPng() {
-    if (!printAreaRef.current || !data) return;
-    setExportingImage(true);
-    setError(null);
-    try {
-      const html2canvas = (await import("html2canvas-pro")).default;
-      const element = printAreaRef.current;
-      await document.fonts.ready;
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: "#030712",
-      });
-      const url = canvas.toDataURL("image/png");
-      const a = document.createElement("a");
-      const safeTitle = (data.reportTitle || "showcase").toLowerCase().replace(/[^a-z0-9]/g, "_");
-      const safeTournament = (data.tournamentName || "tournament").toLowerCase().replace(/[^a-z0-9]/g, "_");
-      a.download = `${safeTournament}_${safeTitle}.png`;
-      a.href = url;
-      a.click();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to export image");
-    } finally {
-      setExportingImage(false);
-    }
-  }
-
-  const selectedTournament = useMemo(() => {
-    return tournaments.find(t => t.id === tournamentId) || null;
-  }, [tournaments, tournamentId]);
-
-  const currentReportMeta = useMemo(() => {
-    return reportTypes.find(r => r.id === activeReport) || null;
-  }, [reportTypes, activeReport]);
-
-  const grouped = useMemo(() => {
-    const filtered = reportTypes.filter(r =>
-      !search.trim() ||
-      r.title.toLowerCase().includes(search.toLowerCase()) ||
-      r.description.toLowerCase().includes(search.toLowerCase()),
-    );
-    const out: Record<ReportType["category"], ReportType[]> = { pre: [], live: [], post: [], directory: [] };
-    for (const r of filtered) out[r.category].push(r);
-    return out;
-  }, [reportTypes, search]);
-
-  if (isLoading) {
-    return (
-      <AdminShell title="Report Center" eyebrow="Platform Settings">
-        <div className="flex h-48 items-center justify-center">
-          <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      </AdminShell>
-    );
-  }
-
-  if (!isAdmin) return null;
+  };
 
   return (
-    <AdminShell title="Report Center" eyebrow="Platform Settings">
-      {/* Print-only CSS stylesheet */}
+    <div className={`report-center-root space-y-4 ${className}`}>
+      {/* Printable CSS override */}
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          #printable-report-area, #printable-report-area * {
-            visibility: visible;
-          }
-          #printable-report-area {
+          body * { visibility: hidden; }
+          .report-printable-area, .report-printable-area * { visibility: visible; }
+          .report-printable-area {
             position: absolute;
             left: 0;
             top: 0;
             width: 100% !important;
+            max-width: 100% !important;
             padding: 20px !important;
-            background: #ffffff !important;
-            color: #0f172a !important;
+            background: white !important;
+            color: black !important;
           }
-          .no-print {
-            display: none !important;
-          }
-          .print-card {
-            background: #f8fafc !important;
-            border: 1px solid #cbd5e1 !important;
-            color: #0f172a !important;
-            box-shadow: none !important;
-          }
+          .no-print { display: none !important; }
           .print-table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            color: #0f172a !important;
+            width: 100%;
+            border-collapse: collapse;
+          }
+          .print-table th, .print-table td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            font-size: 10pt;
+            color: black !important;
           }
           .print-table th {
-            background-color: #1e293b !important;
-            color: #fbbf24 !important;
-            font-size: 9pt !important;
-            padding: 6px 8px !important;
-            border: 1px solid #94a3b8 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .print-table td {
-            font-size: 8.5pt !important;
-            padding: 4px 6px !important;
-            border: 1px solid #cbd5e1 !important;
-            color: #0f172a !important;
-          }
-          .print-table tr:nth-child(even) td {
-            background-color: #f1f5f9 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          thead {
-            display: table-header-group;
-          }
-          tr {
-            page-break-inside: avoid;
-          }
-          @page {
-            size: A4 landscape;
-            margin: 12mm 10mm;
+            background-color: #f2f2f2 !important;
+            font-weight: bold;
           }
         }
       `}</style>
 
-      <div className="flex h-[calc(100vh-190px)] max-h-[calc(100vh-190px)] min-h-[550px] flex-col overflow-hidden rounded-xl border border-border bg-card/70 shadow-sm">
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row h-full overflow-hidden">
-          {/* Left sidebar - Tournament Selection & Report List */}
-          <aside className="no-print w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-border/50 flex flex-col flex-shrink-0 bg-muted/20 h-full overflow-hidden">
-            {/* Step 1: Prominent Tournament Selector Card */}
-            <div className="p-3.5 border-b border-border/50 bg-background/60">
-              <div className="flex items-center justify-between gap-1 mb-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-primary" /> Active Tournament
-                </span>
-                {ctx && (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                    {ctx.playerCount} Players
-                  </Badge>
-                )}
+      {/* Main Layout: Split Catalogue & Viewer */}
+      <div className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col lg:flex-row min-h-[700px]">
+        {/* Left Sidebar: Catalogue */}
+        <aside className="no-print w-full lg:w-80 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/60 bg-muted/20 flex flex-col">
+          {/* Header & Tournament selector (if not hidden) */}
+          <div className="p-4 border-b border-border/40 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                <h3 className="font-display font-bold text-sm tracking-tight text-foreground">Report Catalogue</h3>
               </div>
-              
-              <Select value={tournamentId ? String(tournamentId) : ""} onValueChange={v => {
-                const id = parseInt(v);
-                setTournamentId(id);
-                if (!activeReport && reportTypes.length) {
-                  setActiveReport(reportTypes[0].id);
-                }
-              }}>
-                <SelectTrigger className="w-full text-left bg-background border-border/80 h-10 px-3 shadow-sm hover:border-primary/50 transition">
-                  <SelectValue placeholder="Select tournament...">
-                    {selectedTournament && (
-                      <div className="flex items-center gap-2 truncate text-xs font-semibold">
-                        <Badge variant="outline" className="text-[9px] uppercase px-1 py-0 bg-primary/10 text-primary border-primary/30">
-                          {selectedTournament.sport}
-                        </Badge>
-                        <span className="truncate">{selectedTournament.name}</span>
-                      </div>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {tournaments.map(t => (
-                    <SelectItem key={t.id} value={String(t.id)}>
-                      <div className="flex items-center gap-2 py-0.5">
-                        <Badge variant="outline" className="text-[9px] uppercase font-mono px-1 py-0 text-muted-foreground">
-                          {t.sport}
-                        </Badge>
-                        <span className="font-medium text-xs truncate">{t.name}</span>
-                        {t.id === tournamentId && <Check className="w-3.5 h-3.5 ml-auto text-primary" />}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Badge variant="secondary" className="text-[10px] font-mono">
+                {reportTypes.length} Active
+              </Badge>
             </div>
 
-            {/* Step 2: Search Report Catalogue */}
-            <div className="p-3 border-b border-border/40 flex-shrink-0 bg-muted/10">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search reports..."
-                  className="h-8 pl-8 text-xs bg-background"
-                />
+            {!hideTournamentSelector && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground font-semibold">Select Tournament</Label>
+                <Select
+                  value={activeTournamentId ? String(activeTournamentId) : ""}
+                  onValueChange={v => {
+                    const id = Number(v);
+                    setInternalTournamentId(id);
+                    onSelectTournament?.(id);
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-background">
+                    <SelectValue placeholder="-- Pick a tournament --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tournaments.map(t => (
+                      <SelectItem key={t.id} value={String(t.id)} className="text-xs">
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
 
-            {/* Reports Grouped Tree */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-              <div className="p-3 space-y-4">
-                {(Object.keys(grouped) as ReportType["category"][]).map(cat => {
-                  const items = grouped[cat];
-                  if (!items.length) return null;
-                  const meta = CATEGORY_META[cat];
-                  const Icon = meta.icon;
-                  return (
-                    <div key={cat}>
-                      <div className="flex items-center gap-1.5 px-1 mb-1.5">
-                        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{meta.label}</p>
-                      </div>
-                      <div className="space-y-1">
-                        {items.map(r => {
-                          const RIcon = REPORT_ICON[r.id] ?? FileText;
-                          const active = activeReport === r.id;
-                          return (
-                            <button
-                              key={r.id}
-                              onClick={() => setActiveReport(r.id)}
-                              className={`w-full text-left rounded-lg p-2.5 transition border ${
-                                active
-                                  ? "bg-primary/15 border-primary/50 shadow-sm ring-1 ring-primary/30"
-                                  : "border-transparent hover:bg-muted/50 hover:border-border/40"
-                              }`}
-                            >
-                              <div className="flex items-start gap-2.5">
-                                <div className={`p-1.5 rounded-md mt-0.5 ${active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                                  <RIcon className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className={`text-xs font-semibold leading-tight ${active ? "text-primary font-bold" : "text-foreground"}`}>
-                                    {r.title}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
-                                    {r.description}
-                                  </p>
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Catalogue Search */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search reports..."
+                className="h-8 pl-8 text-xs bg-background"
+              />
+            </div>
+          </div>
+
+          {/* Catalogue Report List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-4 max-h-[600px]">
+            {!activeTournamentId ? (
+              <div className="text-center py-10 px-3 text-muted-foreground text-xs">
+                <Trophy className="w-8 h-8 mx-auto mb-2 opacity-50 text-primary" />
+                Please select a tournament above to unlock reports.
               </div>
-            </div>
-          </aside>
-
-          {/* Main content Area */}
-          <main className="flex-1 flex flex-col min-w-0 bg-background/50 h-full overflow-hidden">
-            {!tournamentId ? (
-              <NoTournamentState />
-            ) : !activeReport ? (
-              <EmptyState />
             ) : (
-              <>
-                {/* Active Context Bar */}
-                <div className="no-print px-5 py-3 border-b border-border/50 bg-card/40 flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider bg-primary/10 text-primary border-primary/30">
-                      {selectedTournament?.sport || "Sport"}
-                    </Badge>
-                    <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">/</span>
-                    <h2 className="text-sm font-bold text-foreground truncate max-w-xs sm:max-w-md">
-                      {selectedTournament?.name || "Tournament"}
-                    </h2>
-                    <span className="text-xs font-semibold text-muted-foreground">→</span>
-                    <Badge variant="secondary" className="text-xs font-bold text-foreground">
-                      {currentReportMeta?.title || "Report"}
-                    </Badge>
-                  </div>
+              (Object.keys(groupedReports) as ReportType["category"][]).map(catKey => {
+                const list = groupedReports[catKey];
+                if (list.length === 0) return null;
+                const meta = CATEGORY_META[catKey];
+                const CatIcon = meta.icon;
 
-                  <div className="flex items-center gap-2">
-                    {data && (
-                      <span className="text-[11px] text-muted-foreground hidden md:inline">
-                        Generated: {new Date(data.generatedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                return (
+                  <div key={catKey} className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 px-2 py-1">
+                      <CatIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {meta.label}
                       </span>
-                    )}
+                    </div>
+
+                    <div className="space-y-1">
+                      {list.map(r => {
+                        const isSelected = activeReport === r.id;
+                        const Icon = REPORT_ICON[r.id] || FileText;
+                        const isVisual = r.id === "top_5_showcase" || r.id === "team_showcase";
+
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => handleSelectReport(r.id)}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl border transition flex items-start gap-2.5 ${
+                              isSelected
+                                ? "bg-primary/10 border-primary/50 text-foreground shadow-sm ring-1 ring-primary/20"
+                                : "border-border/40 bg-card/40 hover:bg-card/80 text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <p className={`text-xs font-semibold truncate ${isSelected ? "text-primary font-bold" : ""}`}>
+                                  {r.title}
+                                </p>
+                                {isVisual && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/30">
+                                    Poster
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5 leading-snug">
+                                {r.description}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                );
+              })
+            )}
+          </div>
+        </aside>
 
-                {/* Filter bar */}
-                <div className="no-print">
-                  <FilterBar ctx={ctx} filters={filters} setFilters={setFilters} onRun={runPreview} loading={loadingPreview} />
-                </div>
-
-                {/* Action bar: Print, Save PNG, PDF, Excel, CSV */}
-                <div className="no-print px-5 py-2.5 border-b border-border/50 flex items-center justify-between gap-3 flex-wrap bg-muted/20">
+        {/* Right Content Area: Filters, Action Bar, Preview */}
+        <main className="flex-1 flex flex-col min-w-0 bg-background/50">
+          {!activeTournamentId ? (
+            <NoTournamentState />
+          ) : !activeReport ? (
+            <EmptyState />
+          ) : (
+            <>
+              {/* Action Bar Header */}
+              <div className="no-print p-3 sm:p-4 border-b border-border/60 bg-card/40 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {data ? `${data.sections.reduce((s, x) => s + x.rows.length, 0)} rows in ${data.sections.length} section(s)` : "Loading..."}
+                    <Badge variant="outline" className="text-[10px] font-mono px-2 py-0.5 text-primary border-primary/30 bg-primary/5">
+                      {reportTypes.find(r => r.id === activeReport)?.category.toUpperCase()} REPORT
                     </Badge>
-
-                    {(activeReport === "top_5_showcase" || activeReport === "team_showcase") && (
-                      <div className="flex items-center border border-border/80 rounded-lg p-0.5 bg-background shadow-sm ml-2">
-                        <Button
-                          size="sm"
-                          variant={viewMode === "visual" ? "secondary" : "ghost"}
-                          className="h-6 px-2 text-[11px] gap-1 font-semibold"
-                          onClick={() => setViewMode("visual")}
-                        >
-                          <LayoutGrid className="w-3 h-3" />
-                          Poster View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={viewMode === "table" ? "secondary" : "ghost"}
-                          className="h-6 px-2 text-[11px] gap-1 font-semibold"
-                          onClick={() => setViewMode("table")}
-                        >
-                          <TableProperties className="w-3 h-3" />
-                          Table View
-                        </Button>
-                      </div>
-                    )}
+                    <h2 className="text-sm sm:text-base font-bold text-foreground truncate">
+                      {reportTypes.find(r => r.id === activeReport)?.title}
+                    </h2>
                   </div>
+                  {data && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Generated on {new Date(data.generatedAt).toLocaleString("en-IN")} · {ctx?.tournament.name}
+                    </p>
+                  )}
+                </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* 📸 Download Poster as High-Res PNG Image (Social sharing) */}
-                    {(activeReport === "top_5_showcase" || activeReport === "team_showcase") && (
+                {/* View Mode & Export Actions */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  {/* View Mode Toggle (Visual vs Table) */}
+                  {(activeReport === "top_5_showcase" || activeReport === "team_showcase") && (
+                    <div className="flex items-center bg-muted/80 p-0.5 rounded-lg border border-border/60 mr-1">
                       <Button
                         size="sm"
-                        variant="default"
-                        className="h-8 gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold shadow-sm"
-                        disabled={!data || loadingPreview || exportingImage}
-                        onClick={downloadPosterAsPng}
+                        variant={viewMode === "visual" ? "default" : "ghost"}
+                        className="h-7 px-2 text-xs font-semibold gap-1 rounded-md"
+                        onClick={() => setViewMode("visual")}
                       >
-                        {exportingImage ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                        ) : (
-                          <ImageDown className="w-3.5 h-3.5" />
-                        )}
-                        Save Poster (PNG)
+                        <LayoutGrid className="w-3.5 h-3.5" /> Poster Visual
                       </Button>
-                    )}
+                      <Button
+                        size="sm"
+                        variant={viewMode === "table" ? "default" : "ghost"}
+                        className="h-7 px-2 text-xs font-semibold gap-1 rounded-md"
+                        onClick={() => setViewMode("table")}
+                      >
+                        <TableProperties className="w-3.5 h-3.5" /> Data Table
+                      </Button>
+                    </div>
+                  )}
 
-                    {/* 🖨️ Direct Print Report */}
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-8 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-sm"
-                      disabled={!data || loadingPreview}
-                      onClick={handlePrint}
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      Print Report
-                    </Button>
+                  {/* Print */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                    onClick={handlePrint}
+                    disabled={loadingPreview || !data}
+                  >
+                    <Printer className="w-3.5 h-3.5 text-primary" /> Print
+                  </Button>
 
-                    {/* 📄 PDF Download */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1.5 font-medium border-border/70 hover:bg-muted"
-                      disabled={!data || exporting !== null}
-                      onClick={() => runExport("pdf")}
-                    >
-                      {exporting === "pdf" ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileType className="w-3.5 h-3.5 text-red-400" />}
-                      PDF
-                    </Button>
+                  {/* PDF Export */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                    onClick={() => handleExport("pdf")}
+                    disabled={exporting !== null || loadingPreview || !data}
+                  >
+                    {exporting === "pdf" ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileType className="w-3.5 h-3.5 text-red-500" />}
+                    PDF
+                  </Button>
 
-                    {/* 📊 Excel Download */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1.5 font-medium border-border/70 hover:bg-muted"
-                      disabled={!data || exporting !== null}
-                      onClick={() => runExport("xlsx")}
-                    >
-                      {exporting === "xlsx" ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-green-400" />}
-                      Excel
-                    </Button>
+                  {/* Excel Export */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                    onClick={() => handleExport("xlsx")}
+                    disabled={exporting !== null || loadingPreview || !data}
+                  >
+                    {exporting === "xlsx" ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />}
+                    Excel
+                  </Button>
 
-                    {/* 📝 CSV Download */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1.5 font-medium border-border/70 hover:bg-muted"
-                      disabled={!data || exporting !== null}
-                      onClick={() => runExport("csv")}
-                    >
-                      {exporting === "csv" ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileText className="w-3.5 h-3.5 text-blue-400" />}
-                      CSV
-                    </Button>
-                  </div>
+                  {/* CSV Export */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                    onClick={() => handleExport("csv")}
+                    disabled={exporting !== null || loadingPreview || !data}
+                  >
+                    {exporting === "csv" ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileText className="w-3.5 h-3.5 text-blue-400" />}
+                    CSV
+                  </Button>
                 </div>
+              </div>
 
+              {/* Filter Bar */}
+              <FilterBar
+                ctx={ctx}
+                filters={filters}
+                setFilters={setFilters}
+                onRun={() => activeReport && loadPreview(activeReport, filters)}
+                loading={loadingPreview}
+              />
+
+              {/* Preview Container */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
                 {error && (
-                  <div className="no-print mx-5 mt-3 rounded-lg px-4 py-2.5 text-sm bg-destructive/15 text-destructive border border-destructive/30 flex items-center justify-between flex-shrink-0">
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center justify-between gap-2">
                     <span>{error}</span>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setError(null)}>
-                      <X className="w-3.5 h-3.5" />
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => activeReport && loadPreview(activeReport, filters)}>
+                      Retry
                     </Button>
                   </div>
                 )}
 
-                {/* Printable Report Canvas */}
-                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-                  <div id="printable-report-area" ref={printAreaRef} className="p-5 space-y-6">
-                    {/* Header exclusively styled for Print or top of canvas */}
-                    {data && (
-                      <div className="hidden print:block border-b-2 border-slate-900 pb-3 mb-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">{data.reportTitle}</h1>
-                            <p className="text-sm font-semibold text-slate-700 mt-0.5">
-                              {data.tournamentSport.toUpperCase()} · {data.tournamentName}
-                            </p>
+                {loadingPreview ? (
+                  <div className="space-y-4 py-8 max-w-4xl mx-auto">
+                    <Skeleton className="h-10 w-3/4 rounded-xl" />
+                    <Skeleton className="h-48 w-full rounded-2xl" />
+                    <Skeleton className="h-64 w-full rounded-2xl" />
+                  </div>
+                ) : !data ? (
+                  <div className="text-center py-16 text-muted-foreground text-sm">
+                    No preview data generated yet. Click Refresh Preview.
+                  </div>
+                ) : (
+                  <div ref={printAreaRef} className="report-printable-area space-y-6 max-w-5xl mx-auto">
+                    {/* Header with Official Branding */}
+                    <ReportBrandingHeader data={data} />
+
+                    {/* Summary Metrics Cards */}
+                    {data.summary && data.summary.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
+                        {data.summary.map((item, idx) => (
+                          <div key={idx} className="p-3 bg-card/80 border border-border/60 rounded-xl shadow-sm">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">{item.label}</p>
+                            <p className="text-base font-bold text-foreground mt-0.5">{item.value}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs font-bold text-slate-900">BidWar Platform Report</p>
-                            <p className="text-[10px] text-slate-500">
-                              Generated: {new Date(data.generatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST
-                            </p>
-                          </div>
-                        </div>
-                        {data.filtersApplied.length > 0 && (
-                          <p className="text-[10px] text-slate-600 mt-2 italic">
-                            Filters applied: {data.filtersApplied.join(" | ")}
-                          </p>
-                        )}
+                        ))}
                       </div>
                     )}
 
-                    {loadingPreview && !data && (
-                      <div className="space-y-3">
-                        {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+                    {/* Report Specific Visual or Table Presentation */}
+                    {viewMode === "visual" && activeReport === "top_5_showcase" ? (
+                      <div className="poster-capture-canvas">
+                        <Top5ShowcasePoster data={data} tournament={ctx?.tournament || null} />
                       </div>
-                    )}
-
-                    {data && (
-                      <>
-                        {/* Summary KPI Cards */}
-                        {data.summary && data.summary.length > 0 && (
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {data.summary.map((s, i) => (
-                              <motion.div key={s.label} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-                                <Card className="p-3 bg-card/80 border-border/60 print-card shadow-sm">
-                                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{s.label}</p>
-                                  <p className="text-xl font-bold font-display mt-1 text-foreground">{s.value}</p>
-                                </Card>
-                              </motion.div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Active Filter Badges */}
-                        {data.filtersApplied.length > 0 && (
-                          <div className="flex items-center gap-2 flex-wrap no-print">
-                            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-                            {data.filtersApplied.map(f => (
-                              <Badge key={f} variant="outline" className="text-[10px] bg-muted/40">{f}</Badge>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Render Visual Showcase Posters or Section Tables */}
-                        {activeReport === "top_5_showcase" && viewMode === "visual" ? (
-                          <Top5ShowcasePoster data={data} tournament={selectedTournament} />
-                        ) : activeReport === "team_showcase" && viewMode === "visual" ? (
-                          <TeamSoldSquadShowcase data={data} />
-                        ) : (
-                          <>
-                            {data.sections.map((section, i) => (
-                              <SectionTable key={i} section={section} />
-                            ))}
-                          </>
-                        )}
-
-                        {data.sections.every(s => s.rows.length === 0) && (
-                          <div className="text-center py-16 text-muted-foreground">
-                            <Table2 className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                            <p className="text-sm font-medium">No data matches the selected criteria.</p>
-                            <p className="text-xs text-muted-foreground mt-1">Try clearing some filters or changing the tournament.</p>
-                          </div>
-                        )}
-                      </>
+                    ) : viewMode === "visual" && activeReport === "team_showcase" ? (
+                      <div className="poster-capture-canvas">
+                        <TeamSoldSquadShowcase data={data} />
+                      </div>
+                    ) : (
+                      /* Standard Tabular Presentation for All Reports */
+                      <div className="space-y-6">
+                        {data.sections.map((section, idx) => (
+                          <SectionTable key={idx} section={section} />
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
-              </>
-            )}
-          </main>
+                )}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sub-Components & Posters ──────────────────────────────────────────────────
+
+function ReportBrandingHeader({ data }: { data: ReportData }) {
+  const { logoSrc, brandName } = usePosterBranding();
+  return (
+    <div className="border-b border-border/70 pb-4 flex items-start justify-between gap-4">
+      <div className="flex items-center gap-3">
+        {logoSrc && (
+          <img
+            src={logoSrc}
+            alt={brandName}
+            className="h-10 sm:h-12 w-auto max-w-[150px] object-contain"
+            crossOrigin="anonymous"
+          />
+        )}
+        <div className="h-8 w-[1px] bg-border/80" />
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+            {data.tournamentSport} · Official Tournament Report
+          </span>
+          <h1 className="text-lg sm:text-xl font-black font-display text-foreground leading-tight">
+            {data.reportTitle}
+          </h1>
+          <p className="text-xs font-semibold text-muted-foreground">
+            Tournament: <span className="text-foreground">{data.tournamentName}</span>
+          </p>
         </div>
       </div>
-    </AdminShell>
+      <div className="text-right text-[11px] text-muted-foreground flex-shrink-0">
+        <Badge variant="outline" className="font-mono text-[9px] uppercase border-border/80">
+          Verified by BidWar
+        </Badge>
+        <p className="mt-1 font-mono text-[10px]">
+          {new Date(data.generatedAt).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -718,7 +654,7 @@ function NoTournamentState() {
         <Trophy className="w-14 h-14 text-primary mx-auto mb-3 opacity-60" />
         <h2 className="font-display font-bold text-xl mb-1 text-foreground">Select a Tournament</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Please pick a tournament from the dropdown in the left sidebar to load its reports, stats, and player data.
+          Please select a tournament to view its detailed report catalogue.
         </p>
       </div>
     </div>
@@ -732,14 +668,14 @@ function EmptyState() {
         <ShieldCheck className="w-14 h-14 text-primary mx-auto mb-3 opacity-60" />
         <h2 className="font-display font-bold text-xl mb-1 text-foreground">Select a Report</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Choose a report from the catalog on the left to view real-time data, apply filters, print official sheets, or export to PDF, Excel, and CSV.
+          Choose a report from the catalogue on the left to view data, apply filters, print sheets, or export to PDF, Excel, and CSV.
         </p>
       </div>
     </div>
   );
 }
 
-function usePosterBranding() {
+export function usePosterBranding() {
   const { logos, brandName, iconVersion } = useBranding();
   const logoSrc =
     getObsBroadcastLogoSrc(logos, iconVersion) ||
@@ -748,7 +684,7 @@ function usePosterBranding() {
   return { logoSrc, brandName: brandName || "BidWar" };
 }
 
-async function captureAndDownloadElement(element: HTMLElement, filename: string) {
+export async function captureAndDownloadElement(element: HTMLElement, filename: string) {
   const html2canvas = (await import("html2canvas-pro")).default;
   await document.fonts.ready;
   const canvas = await html2canvas(element, {
@@ -765,7 +701,7 @@ async function captureAndDownloadElement(element: HTMLElement, filename: string)
   a.click();
 }
 
-function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament: AdminTournamentRow | null }) {
+export function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament: { name?: string; sport?: string } | null }) {
   const { logoSrc, brandName } = usePosterBranding();
   const unit: AuctionUnit = data.auctionUnit ?? "rupee";
   const posterRef = useRef<HTMLDivElement | null>(null);
@@ -1041,7 +977,7 @@ function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament
   );
 }
 
-function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
+export function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
   const { logoSrc, brandName } = usePosterBranding();
   const unit: AuctionUnit = data.auctionUnit ?? "rupee";
   const [selectedTeamTab, setSelectedTeamTab] = useState<string>("all");
@@ -1087,7 +1023,6 @@ function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
         if (el) {
           const safeTeam = teamName.toLowerCase().replace(/[^a-z0-9]/g, "_");
           await captureAndDownloadElement(el, `${safeTournament}_${safeTeam}_squad_poster`);
-          // slight delay between downloads
           await new Promise(r => setTimeout(r, 400));
         }
       }
@@ -1345,7 +1280,7 @@ function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
   );
 }
 
-function SectionTable({ section }: { section: Section }) {
+export function SectionTable({ section }: { section: Section }) {
   if (!section.rows.length) {
     if (!section.heading) return null;
     return (
@@ -1426,9 +1361,7 @@ function formatShortRupee(n: number): string {
   return `₹${n}`;
 }
 
-// ─── Filter Bar ───────────────────────────────────────────────────────────────
-
-function FilterBar({
+export function FilterBar({
   ctx, filters, setFilters, onRun, loading,
 }: {
   ctx: ReportContext | null; filters: Filters;
@@ -1461,7 +1394,7 @@ function FilterBar({
   );
   return (
     <div className="border-b border-border/40 flex-shrink-0 bg-card/30">
-      <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap">
+      <div className="px-4 sm:px-5 py-2.5 flex items-center gap-2 flex-wrap">
         <Button size="sm" variant="outline" className={`h-8 gap-1.5 ${open ? "bg-muted border-primary/50" : ""}`} onClick={() => setOpen(o => !o)}>
           <Filter className="w-3.5 h-3.5" /> Filters
           {activeCount > 0 && <Badge className="ml-1 h-4 px-1.5 text-[10px] bg-primary/20 text-primary">{activeCount}</Badge>}
@@ -1472,13 +1405,13 @@ function FilterBar({
           <Input
             value={filters.search ?? ""}
             onChange={e => setFilters(p => ({ ...p, search: e.target.value || undefined }))}
-            placeholder="Search by player name..."
-            className="h-8 w-64 pl-8 text-xs bg-background"
+            placeholder="Search player name..."
+            className="h-8 w-48 sm:w-64 pl-8 text-xs bg-background"
           />
         </div>
         {activeCount > 0 && (
           <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={() => setFilters({})}>
-            <X className="w-3.5 h-3.5" /> Clear Filters
+            <X className="w-3.5 h-3.5" /> Clear
           </Button>
         )}
         <Button size="sm" variant="secondary" className="h-8 gap-1.5 ml-auto text-xs" onClick={onRun} disabled={loading}>
@@ -1487,7 +1420,7 @@ function FilterBar({
         </Button>
       </div>
       {open && (
-        <div className="px-5 pb-3.5 pt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 border-t border-border/30 bg-muted/10">
+        <div className="px-4 sm:px-5 pb-3.5 pt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 border-t border-border/30 bg-muted/10">
           <FilterMulti
             label="Categories"
             options={ctx.categories.map(c => ({ id: c.id, label: c.name }))}
@@ -1514,7 +1447,7 @@ function FilterBar({
           />
           <FilterMultiText
             label="Jersey Size"
-            options={(ctx.jerseySizeOptions.length ? ctx.jerseySizeOptions : ctx.jerseySizes).map(s => ({ id: s, label: s }))}
+            options={(ctx.jerseySizeOptions?.length ? ctx.jerseySizeOptions : ctx.jerseySizes).map(s => ({ id: s, label: s }))}
             selected={filters.jerseySizes ?? []}
             onToggle={s => toggle("jerseySizes", s, filters.jerseySizes)}
           />

@@ -4,25 +4,20 @@ import {
   useGetTournament,
   useGetTeamPurses,
   useGetTopBids,
-  useGetCategoryBreakdown,
   getGetTournamentSummaryQueryKey,
   getGetTournamentQueryKey,
   getGetTeamPursesQueryKey,
   getGetTopBidsQueryKey,
-  getGetCategoryBreakdownQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie,
-} from "recharts";
-import { Users, Wallet, TrendingUp, BarChart3, UserCheck, Award } from "lucide-react";
+import { Users, Wallet, TrendingUp, BarChart3, UserCheck, Award, FileText } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReportCenter } from "@/components/reports/report-center";
 
 export default function Reports() {
   const [, params] = useRoute("/tournament/:id/reports");
@@ -34,26 +29,12 @@ export default function Reports() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: teamPurses, isLoading: loadingPurses } = useGetTeamPurses(tournamentId, {
+  const { data: teamPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: topBids } = useGetTopBids(tournamentId, {
     query: { queryKey: getGetTopBidsQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: categoryBreakdown } = useGetCategoryBreakdown(tournamentId, {
-    query: { queryKey: getGetCategoryBreakdownQueryKey(tournamentId), enabled: !!tournamentId },
-  });
-
-  const purseChartData = (teamPurses || []).map(t => ({
-    name: t.shortCode,
-    Spent: t.purseUsed,
-    Remaining: t.purseRemaining,
-    color: t.color || "#666",
-  }));
-
-  const catPieData = (categoryBreakdown || [])
-    .filter(c => c.sold > 0)
-    .map(c => ({ name: c.categoryName, value: c.sold, color: c.colorCode || "#666" }));
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -102,148 +83,119 @@ export default function Reports() {
           </div>
         )}
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          <Card className="panel border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-primary" /> Team Purse Usage
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingPurses ? <Skeleton className="h-48" /> : (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={purseChartData} barSize={24}>
-                    <XAxis dataKey="name" tick={{ fill: "#888", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      tickFormatter={v => `₹${(v / 100000).toFixed(0)}L`}
-                      tick={{ fill: "#888", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => formatIndianRupee(value)}
-                      contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #333", borderRadius: 8 }}
-                    />
-                    <Bar dataKey="Spent" stackId="a" fill="#F59E0B" radius={[0,0,0,0]} />
-                    <Bar dataKey="Remaining" stackId="a" fill="#1e293b" radius={[4,4,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+        {/* Overview Row: Team Purse Breakdown (2 columns) & Top 5 Sold Players (Compact) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Team Purse Breakdown */}
+          {teamPurses && teamPurses.length > 0 && (
+            <Card className="panel border-none lg:col-span-7 flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs sm:text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Users className="w-4 h-4 text-primary" /> Team Purse Breakdown
+                  </span>
+                  <span className="text-[11px] font-mono text-muted-foreground font-normal">
+                    {teamPurses.length} Teams
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-1 flex-1">
+                <div className={`grid gap-2.5 ${teamPurses.length > 3 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+                  {teamPurses.map(team => {
+                    const pct = Math.min(100, (team.purseUsed / team.purse) * 100);
+                    return (
+                      <div key={team.teamId} className="p-2.5 rounded-xl bg-card/60 border border-border/40 space-y-1.5 shadow-sm">
+                        <div className="flex items-center justify-between gap-1.5 text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: team.color || "#666" }} />
+                            <span className="font-semibold text-xs truncate text-foreground">{team.teamName}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
+                            {team.playersBought}p
+                          </span>
+                        </div>
+                        <Progress value={pct} className="h-1.5" />
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                          <span>{formatShortIndianRupee(team.purseUsed)} used</span>
+                          <span className="font-mono font-bold" style={{ color: team.color || "#fff" }}>
+                            {formatShortIndianRupee(team.purseRemaining)} left
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card className="panel border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" /> Sold by Category
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {catPieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={catPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={70}
-                      label={({ name, value }) => `${name} (${value})`}
-                      labelLine={false}
+          {/* Top 5 Sold Players (Compact) */}
+          {topBids && topBids.length > 0 && (
+            <Card className="panel border-none lg:col-span-5 flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs sm:text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Award className="w-4 h-4 text-primary" /> Top 5 Sold Players
+                  </span>
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-amber-500/30 text-amber-400 bg-amber-500/10 font-bold">
+                    TOP 5
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-1 flex-1">
+                <div className="space-y-1.5">
+                  {topBids.slice(0, 5).map((entry, i) => (
+                    <div
+                      key={entry.playerId}
+                      className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-card/50 border border-border/30 hover:border-border/60 transition"
                     >
-                      {catPieData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #333", borderRadius: 8 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">No data yet</div>
-              )}
-            </CardContent>
-          </Card>
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center font-display font-black text-[10px] flex-shrink-0"
+                        style={{
+                          backgroundColor: i === 0 ? "#F59E0B22" : i === 1 ? "#94A3B822" : i === 2 ? "#A855F722" : "#1e293b",
+                          color: i === 0 ? "#F59E0B" : i === 1 ? "#94A3B8" : i === 2 ? "#A855F7" : "#888",
+                        }}
+                      >
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-xs truncate leading-tight text-foreground">{entry.playerName}</h4>
+                        <p className="text-[10px] text-muted-foreground truncate capitalize">
+                          {entry.role}{entry.teamName ? ` · ${entry.teamName}` : ""}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-mono font-bold text-primary text-xs leading-tight">
+                          {formatShortIndianRupee(entry.soldPrice)}
+                        </p>
+                        {entry.basePrice && entry.soldPrice > 0 && (
+                          <p className="text-[9px] font-mono text-muted-foreground">
+                            {Math.round((entry.soldPrice / entry.basePrice) * 10) / 10}x
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Team Purse Detail Table */}
-        {teamPurses && teamPurses.length > 0 && (
-          <Card className="panel border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" /> Team Purse Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {teamPurses.map(team => {
-                const pct = Math.min(100, (team.purseUsed / team.purse) * 100);
-                return (
-                  <div key={team.teamId} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2 text-sm flex-wrap">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: team.color || "#666" }} />
-                        <span className="font-semibold truncate">{team.teamName}</span>
-                        <span className="text-muted-foreground text-xs flex-shrink-0">{team.playersBought} players</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs flex-shrink-0">
-                        <span className="text-muted-foreground">{formatShortIndianRupee(team.purseUsed)} used</span>
-                        <span className="font-mono font-bold" style={{ color: team.color || "#fff" }}>
-                          {formatShortIndianRupee(team.purseRemaining)} left
-                        </span>
-                      </div>
-                    </div>
-                    <Progress value={pct} className="h-1.5" />
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        )}
+        {/* ─── Integrated Reports & Posters Center ─────────────────────────── */}
+        <div className="pt-6 border-t border-border/60 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold font-display text-foreground flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" /> Reports & Showcase Posters
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Generate social media squad posters, print official player sheets, and download PDF / Excel / CSV reports for this tournament.
+              </p>
+            </div>
+          </div>
 
-        {/* Top Bids */}
-        {topBids && topBids.length > 0 && (
-          <Card className="panel border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <Award className="w-4 h-4 text-primary" /> Top Sold Players
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {topBids.map((entry, i) => (
-                  <div key={entry.playerId} className="flex items-center gap-3 sm:gap-4 py-3 border-b border-border/50 last:border-0">
-                    <div
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-display font-bold text-xs sm:text-sm flex-shrink-0"
-                      style={{
-                        backgroundColor: i === 0 ? "#F59E0B22" : i === 1 ? "#94A3B822" : i === 2 ? "#A855F722" : "#1e293b",
-                        color: i === 0 ? "#F59E0B" : i === 1 ? "#94A3B8" : i === 2 ? "#A855F7" : "#666",
-                      }}
-                    >
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-sm truncate">{entry.playerName}</h4>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {entry.role}{entry.categoryName ? ` · ${entry.categoryName}` : ""}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-mono font-bold text-primary text-sm">{formatIndianRupee(entry.soldPrice)}</p>
-                      <div className="flex items-center gap-1 justify-end mt-0.5">
-                        {entry.teamColor && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.teamColor }} />}
-                        <p className="text-xs text-muted-foreground">{entry.teamName}</p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="text-xs flex-shrink-0">
-                      {Math.round((entry.soldPrice / entry.basePrice) * 10) / 10}x
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+          <ReportCenter tournamentId={tournamentId} hideTournamentSelector={true} />
+        </div>
       </div>
     </AppLayout>
   );

@@ -25,6 +25,7 @@ import {
   waMeUrl,
 } from "@/lib/public-site-links";
 import { BplPromoModal } from "@/components/bpl-promo-modal";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 
 const PaymentModal = lazy(() =>
   import("@/components/payment-modal").then((m) => ({ default: m.PaymentModal })),
@@ -1637,7 +1638,17 @@ function RealTournaments() {
   ];
 
   // Masonry gallery: 1 hero + 2 medium + 3 small, each with a distinct aspect for real assets.
-  const galleryHero = { t: "Auction Stage", d: "VNBL 3.0 · Mumbai", tag: "HERO PHOTO", aspect: "aspect-[16/10]", tone: "from-amber-500/40 to-rose-500/20" };
+  const galleryHero = {
+    t: "Auction Stage",
+    d: "VNBL 3.0 · Mumbai",
+    tag: "HERO PHOTO",
+    aspect: "aspect-[16/10]",
+    tone: "from-amber-500/40 to-rose-500/20",
+    img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1789471841/Screenshot_2026-09-15_165941.png",
+    alt: "BidWar live auction stage LED display for Vyapari Network Badminton League (VNBL 3.0) in Mumbai showing real-time player bidding, team purse, and sponsor branding",
+    width: 1200,
+    height: 750,
+  };
   const galleryMed = [
     { t: "LED Reveal", d: "SOLD · 4.8L Pts", tag: "LED SCREEN", aspect: "aspect-[4/3]", tone: "from-emerald-500/40 to-cyan-500/10" },
     { t: "Team Owners", d: "Bidding Floor", tag: "PHOTO", aspect: "aspect-[4/3]", tone: "from-indigo-500/40 to-violet-500/10" },
@@ -1724,23 +1735,64 @@ function RealTournaments() {
   );
 }
 
+type GalleryTileItem = {
+  t: string;
+  d: string;
+  tag: string;
+  aspect: string;
+  tone: string;
+  img?: string | null;
+  alt?: string;
+  width?: number;
+  height?: number;
+};
+
 function GalleryTile({
   item,
   className = "",
 }: {
-  item: { t: string; d: string; tag: string; aspect: string; tone: string };
+  item: GalleryTileItem;
   className?: string;
 }) {
   return (
-    <div className={`panel group relative overflow-hidden ${item.aspect} ${className}`}>
-      <div className={`absolute inset-0 bg-gradient-to-br ${item.tone}`} />
-      <div className="absolute inset-0 grid-bg opacity-20" />
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3">
-        <div className="font-display text-sm">{item.t}</div>
+    <figure
+      className={`panel group relative overflow-hidden ${item.aspect} ${className}`}
+      itemScope
+      itemType="https://schema.org/ImageObject"
+    >
+      {item.img ? (
+        <>
+          <OptimizedImage
+            src={item.img}
+            alt={item.alt || item.t}
+            preset="marketing"
+            lazy
+            width={item.width ?? 1200}
+            height={item.height ?? 750}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            fallback={<div className={`absolute inset-0 bg-gradient-to-br ${item.tone}`} />}
+          />
+          <meta itemProp="contentUrl" content={item.img} />
+          <meta itemProp="name" content={item.t} />
+          <meta itemProp="caption" content={item.d} />
+          <meta itemProp="description" content={item.alt || item.t} />
+        </>
+      ) : (
+        <>
+          <div className={`absolute inset-0 bg-gradient-to-br ${item.tone}`} />
+          <div className="absolute inset-0 grid-bg opacity-20" />
+        </>
+      )}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+      <figcaption className="absolute inset-x-0 bottom-0 p-3 z-10">
+        <div className="font-display text-sm text-white">{item.t}</div>
         <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{item.d}</div>
+      </figcaption>
+      <div className="absolute right-2 top-2 rounded-sm bg-black/50 px-1.5 py-0.5 font-mono text-[9px] text-primary z-10">
+        {item.tag}
       </div>
-      <div className="absolute right-2 top-2 rounded-sm bg-black/50 px-1.5 py-0.5 font-mono text-[9px] text-primary">{item.tag}</div>
-    </div>
+    </figure>
   );
 }
 
@@ -1748,9 +1800,29 @@ function GalleryTile({
 /* Product Showcase — 4 premium-labeled surfaces                       */
 /* ------------------------------------------------------------------ */
 
+type ProductSurface = {
+  k: string;
+  tag: string;
+  d: string;
+  kind: "console" | "mobile" | "live" | "broadcast";
+  img?: string | null;
+  alt?: string;
+  width?: number;
+  height?: number;
+};
+
 function ProductShowcase() {
-  const surfaces = [
-    { k: "Operator Console", tag: "CONTROL ROOM", d: "Queue, pools, RTM, retentions, undo — one auctioneer runs the room.", kind: "console" },
+  const surfaces: ProductSurface[] = [
+    {
+      k: "Operator Console",
+      tag: "CONTROL ROOM",
+      d: "Queue, pools, RTM, retentions, undo — one auctioneer runs the room.",
+      kind: "console",
+      img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1786695659/Screenshot_2026-08-14_133632.png",
+      alt: "BidWar live sports auction operator console dashboard for real-time player bidding control, countdown timer, quick bid buttons, and team purse tracking",
+      width: 960,
+      height: 540,
+    },
     { k: "Team-Owner App", tag: "MOBILE EXPERIENCE", d: "Bid from any phone. Budget guard, category tracker, instant confirm.", kind: "mobile" },
     { k: "Live Auction Room", tag: "LIVE INTERFACE", d: "Real-time bid ticker, leading-bidder card, SOLD stamps — for the room to feel the moment.", kind: "live" },
     { k: "LED / Stream Feed", tag: "BROADCAST OUTPUT", d: "1080p60 lower-thirds, SOLD stamps, points purse counters, sponsor bands, OBS-ready.", kind: "broadcast" },
@@ -1770,53 +1842,82 @@ function ProductShowcase() {
                 {s.tag}
               </span>
             </div>
-            {/* Screenshot placeholder — sized for real 16:9 asset (mobile uses 9:16). */}
-            <div className={`scoreboard-tile relative mb-4 overflow-hidden ${s.kind === "mobile" ? "aspect-[9/16] max-h-72" : "aspect-video"}`}>
-              <div className="absolute inset-0 bg-[radial-gradient(80%_80%_at_50%_10%,oklch(0.42_0.15_265/0.6),oklch(0.14_0.09_265))]" />
-              <div className="absolute inset-0 grid-bg opacity-25" />
-              {s.kind === "console" && (
-                <div className="absolute inset-3 grid grid-cols-4 gap-1">
-                  <div className="col-span-3 rounded bg-white/5" />
-                  <div className="rounded bg-primary/20" />
-                  <div className="col-span-2 rounded bg-white/5" />
-                  <div className="col-span-2 rounded bg-white/5" />
-                  <div className="col-span-4 rounded bg-white/5" />
-                </div>
+            {/* Screenshot frame — sized for real 16:9 asset (mobile uses 9:16). */}
+            <figure
+              className={`scoreboard-tile group/media relative mb-4 overflow-hidden ${s.kind === "mobile" ? "aspect-[9/16] max-h-72" : "aspect-video"}`}
+              itemScope
+              itemType="https://schema.org/ImageObject"
+            >
+              {s.img ? (
+                <>
+                  <OptimizedImage
+                    src={s.img}
+                    alt={s.alt || s.k}
+                    preset="marketing"
+                    lazy
+                    width={s.width ?? 960}
+                    height={s.height ?? 540}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 300px"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover/media:scale-105"
+                    fallback={
+                      <div className="absolute inset-0 bg-[radial-gradient(80%_80%_at_50%_10%,oklch(0.42_0.15_265/0.6),oklch(0.14_0.09_265))]" />
+                    }
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60" />
+                  <meta itemProp="contentUrl" content={s.img} />
+                  <meta itemProp="name" content={s.k} />
+                  <meta itemProp="caption" content={s.d} />
+                  <meta itemProp="description" content={s.alt || s.k} />
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 bg-[radial-gradient(80%_80%_at_50%_10%,oklch(0.42_0.15_265/0.6),oklch(0.14_0.09_265))]" />
+                  <div className="absolute inset-0 grid-bg opacity-25" />
+                  {s.kind === "console" && (
+                    <div className="absolute inset-3 grid grid-cols-4 gap-1">
+                      <div className="col-span-3 rounded bg-white/5" />
+                      <div className="rounded bg-primary/20" />
+                      <div className="col-span-2 rounded bg-white/5" />
+                      <div className="col-span-2 rounded bg-white/5" />
+                      <div className="col-span-4 rounded bg-white/5" />
+                    </div>
+                  )}
+                  {s.kind === "mobile" && (
+                    <div className="absolute inset-x-6 inset-y-3 rounded-lg border border-white/10 bg-black/40 p-2">
+                      <div className="h-3 w-1/2 rounded bg-primary/40" />
+                      <div className="mt-2 h-24 rounded bg-white/5" />
+                      <div className="mt-2 flex gap-1">
+                        <div className="h-8 flex-1 rounded bg-primary/30" />
+                        <div className="h-8 flex-1 rounded bg-white/10" />
+                      </div>
+                    </div>
+                  )}
+                  {s.kind === "live" && (
+                    <div className="absolute inset-3 flex flex-col justify-between">
+                      <div className="flex justify-between">
+                        <div className="h-2 w-16 rounded bg-[color:var(--live)]/60" />
+                        <div className="h-2 w-10 rounded bg-white/20" />
+                      </div>
+                      <div className="rounded bg-white/5 p-2">
+                        <div className="h-3 w-24 rounded bg-primary/30" />
+                        <div className="mt-1 h-2 w-16 rounded bg-white/20" />
+                      </div>
+                    </div>
+                  )}
+                  {s.kind === "broadcast" && (
+                    <div className="absolute inset-x-3 bottom-3">
+                      <div className="rounded bg-[image:var(--gradient-gold)]/40 p-2">
+                        <div className="h-2 w-1/3 rounded bg-black/40" />
+                        <div className="mt-1 h-3 w-1/2 rounded bg-black/60" />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-              {s.kind === "mobile" && (
-                <div className="absolute inset-x-6 inset-y-3 rounded-lg border border-white/10 bg-black/40 p-2">
-                  <div className="h-3 w-1/2 rounded bg-primary/40" />
-                  <div className="mt-2 h-24 rounded bg-white/5" />
-                  <div className="mt-2 flex gap-1">
-                    <div className="h-8 flex-1 rounded bg-primary/30" />
-                    <div className="h-8 flex-1 rounded bg-white/10" />
-                  </div>
-                </div>
-              )}
-              {s.kind === "live" && (
-                <div className="absolute inset-3 flex flex-col justify-between">
-                  <div className="flex justify-between">
-                    <div className="h-2 w-16 rounded bg-[color:var(--live)]/60" />
-                    <div className="h-2 w-10 rounded bg-white/20" />
-                  </div>
-                  <div className="rounded bg-white/5 p-2">
-                    <div className="h-3 w-24 rounded bg-primary/30" />
-                    <div className="mt-1 h-2 w-16 rounded bg-white/20" />
-                  </div>
-                </div>
-              )}
-              {s.kind === "broadcast" && (
-                <div className="absolute inset-x-3 bottom-3">
-                  <div className="rounded bg-[image:var(--gradient-gold)]/40 p-2">
-                    <div className="h-2 w-1/3 rounded bg-black/40" />
-                    <div className="mt-1 h-3 w-1/2 rounded bg-black/60" />
-                  </div>
-                </div>
-              )}
-              <div className="absolute left-2 top-2 rounded-sm bg-black/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-primary">
+              <span className="absolute left-2 top-2 rounded-sm bg-black/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-primary z-10">
                 {s.tag}
-              </div>
-            </div>
+              </span>
+            </figure>
             <h3 className="font-display text-lg">{s.k}</h3>
             <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
           </div>
