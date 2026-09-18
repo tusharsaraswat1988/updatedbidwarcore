@@ -1761,20 +1761,20 @@ export default function AuctionOperator() {
   const subtleEngineWatermark = (
     <div
       aria-hidden="true"
-      className="pt-4 pb-1 flex flex-col items-center justify-center pointer-events-none select-none opacity-20 hover:opacity-30 transition-opacity"
+      className="pt-4 pb-1 flex flex-col items-center justify-center pointer-events-none select-none opacity-80 transition-opacity"
     >
-      <span className="text-[8px] font-bold tracking-[0.28em] text-white/45 uppercase leading-none">
+      <span className="text-[9px] font-bold tracking-[0.28em] text-white/70 uppercase leading-none">
         Powered by
       </span>
       <img
         src={brandLogoSrc}
         alt={brandName || "BidWar"}
-        className="h-6 sm:h-7 max-w-[130px] object-contain my-1 filter drop-shadow-sm brightness-95"
+        className="h-7 sm:h-8 max-w-[140px] object-contain my-1 filter drop-shadow-md"
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).src = "/assets/branding/bidwar-reverse-logo-official.png";
         }}
       />
-      <span className="text-[8px] font-black tracking-[0.32em] text-white/35 uppercase leading-none">
+      <span className="text-[9px] font-black tracking-[0.32em] text-white/60 uppercase leading-none">
         Engine
       </span>
     </div>
