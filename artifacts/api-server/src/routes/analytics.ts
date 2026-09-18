@@ -7,7 +7,7 @@ import {
   categoriesTable,
   tournamentsTable,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc, and, isNotNull } from "drizzle-orm";
 import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
 import { getTournamentInsights } from "../lib/tournament-insights";
 import { insightsLimiter } from "../lib/rate-limiters";
@@ -97,8 +97,14 @@ router.get("/tournaments/:tournamentId/analytics/top-bids", async (req, res) => 
   const soldPlayers = await db
     .select()
     .from(playersTable)
-    .where(eq(playersTable.tournamentId, tid))
-    .orderBy(desc(playersTable.soldPrice))
+    .where(
+      and(
+        eq(playersTable.tournamentId, tid),
+        eq(playersTable.status, "sold"),
+        isNotNull(playersTable.soldPrice)
+      )
+    )
+    .orderBy(desc(playersTable.soldPrice), asc(playersTable.serialNo), asc(playersTable.id))
     .limit(10);
 
   const categories = await db
