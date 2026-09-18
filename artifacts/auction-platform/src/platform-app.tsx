@@ -56,17 +56,13 @@ const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
 const AdminAdminNotifications = lazy(() => import("@/pages/admin-admin-notifications"));
 const AdminAdminNotificationSettings = lazy(() => import("@/pages/admin-admin-notification-settings"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
-const AdminCreativeAssets = lazy(() => import("@/pages/admin-creative-assets"));
 const AdminAcademyLessonsList = lazy(() => import("@/pages/admin-academy-lessons-list"));
 const AdminAcademyLessonForm = lazy(() => import("@/pages/admin-academy-lesson-form"));
-const BuzzStudioDevPage = lazy(() => import("@/pages/buzz-studio-dev/BuzzStudioDevPage"));
 const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
 const TeamReports = lazy(() => import("@/pages/team-reports"));
-const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
-const TemplateStudioPage = lazy(() => import("@/pages/media-center/template-studio-page"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function RouteSuspenseFallback() {
@@ -222,7 +218,6 @@ function PlatformRouter() {
         <Route path="/admin/settings/notifications">{() => <Redirect to="/admin/communication" />}</Route>
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
-        <Route path="/admin/creative-assets" component={AdminCreativeAssets} />
         <Route path="/admin/knowledge-center/academy/new" component={AdminAcademyLessonForm} />
         <Route path="/admin/knowledge-center/academy/:id" component={AdminAcademyLessonForm} />
         <Route path="/admin/knowledge-center/academy" component={AdminAcademyLessonsList} />
@@ -236,7 +231,6 @@ function PlatformRouter() {
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
         <Route path="/admin/settings/system/search-console" component={AdminSystemPage} />
-        <Route path="/admin/buzz-studio-dev" component={BuzzStudioDevPage} />
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
         <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
         <Route path="/admin/communicate/logs">{() => <Redirect to="/admin/settings/communication/logs" />}</Route>
@@ -325,30 +319,6 @@ function PlatformRouter() {
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return <OrganizerGuard tournamentId={tid}><TournamentSettings /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/media-center/:templateId">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/media-center">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/organizer/media-center/:id/:templateId">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/organizer/media-center/:id">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
           }}
         </Route>
         {/* Sports Mission Control — temporary host under scoring-app */}

@@ -34,7 +34,6 @@ import badmintonLatencyProbeRouter from "./badminton-latency-probe";
 import masterSportsRouter from "./master-sports";
 import cricketMasterSportsRouter from "./cricket-master-sports";
 import scoringFoundationRouter from "./scoring-foundation";
-import creativeJobsRouter from "./creative-jobs";
 import contactRouter from "./contact";
 import communicationCenterRouter from "./communication-center";
 import adminNotificationsRouter from "./admin-notifications";
@@ -102,7 +101,6 @@ router.use(ownerOnboardingRouter);
 router.use(notificationsRouter);
 router.use(auditRouter);
 router.use(purseBoostersRouter);
-router.use(creativeJobsRouter);
 router.use(scoringRouter);
 router.use(contactRouter);
 // Organizer/live sports routes MUST stay above Super-Admin-only modules.

@@ -29,10 +29,6 @@ const tournamentItems: NavItem[] = [
   { label: "Sports & Specs", href: "/admin/tournaments/sports", icon: Gavel },
 ];
 
-const creativeItems: NavItem[] = [
-  { label: "Creative Assets", href: "/admin/creative-assets", icon: Image },
-];
-
 const knowledgeCenterItems: NavItem[] = [
   { label: "Academy", href: "/admin/knowledge-center/academy", icon: GraduationCap },
 ];
@@ -137,7 +133,6 @@ export function AdminSidebarNav({
         onNavigate={onNavigate}
       />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
-      <NavSection label="Buzz Studio" items={creativeItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Knowledge Center" items={knowledgeCenterItems} location={location} onNavigate={onNavigate} />
       {isMaster && (
         <NavSection label="Platform" items={communicationItems} location={location} onNavigate={onNavigate} />

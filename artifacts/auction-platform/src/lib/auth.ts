@@ -134,7 +134,7 @@ export async function updateAdminTournament(
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
     localModeEnabled: boolean; scoringEnabled: boolean; reason: string;
-    features: Partial<{ buzzStudio: boolean; ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean }>;
+    features: Partial<{ ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean }>;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
@@ -226,7 +226,7 @@ export type AdminTournamentDetail = {
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
     cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
     localModeEnabled: boolean; scoringEnabled: boolean;
-    features: { buzzStudio: boolean; ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean };
+    features: { ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean };
     createdAt: string;
   };
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;

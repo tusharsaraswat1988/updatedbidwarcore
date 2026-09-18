@@ -536,32 +536,6 @@ export default function AdminTournamentDetailPage() {
                           )}
                         </div>
                       )}
-
-                      {/* Buzz Studio Feature */}
-                      <div className="rounded-lg border border-border/60 bg-card/60 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                              <Sparkles className="h-3.5 w-3.5 text-primary" />
-                              Buzz Studio Media Center
-                            </div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">
-                              Social posters & AI tournament creatives
-                            </div>
-                          </div>
-                          {isMaster && (
-                            <Switch
-                              checked={t.features?.buzzStudio === true}
-                              disabled={!!actionLoading}
-                              onCheckedChange={(checked) =>
-                                doAction(checked ? "Enable Buzz Studio" : "Disable Buzz Studio", () =>
-                                  updateAdminTournament(tournamentId, { features: { buzzStudio: checked } })
-                                )
-                              }
-                            />
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
 

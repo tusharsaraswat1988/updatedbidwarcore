@@ -23,8 +23,7 @@ COPY . .
 # Install all workspace dependencies
 RUN pnpm install --frozen-lockfile
 
-# Build TypeScript libs → API esbuild bundle → Vite frontends → Playwright Chromium
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
+# Build TypeScript libs → API esbuild bundle → Vite frontends
 RUN pnpm run build:deploy
 
 # Create a clean production deploy directory for the api-server:
@@ -38,42 +37,11 @@ FROM node:22-bookworm-slim
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV SERVE_STATIC=true
-ENV CREATIVE_RENDER_WORKER_ENABLED=true
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
 
 WORKDIR /app
 
-# Playwright Chromium system dependencies (Debian bookworm)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libglib2.0-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libx11-6 \
-    libxcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    fonts-liberation \
-    && rm -rf /var/lib/apt/lists/*
-
 # Production node_modules — flat layout from pnpm deploy, no devDeps
 COPY --from=builder /deploy/node_modules ./node_modules
-
-# Playwright Chromium binaries (installed during build)
-COPY --from=builder /app/.playwright-browsers ./.playwright-browsers
 
 # Monorepo root marker — loadAppEnv/findRepoRoot walks up from dist/ looking for this
 COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -86,14 +54,6 @@ COPY --from=builder /app/artifacts/auction-platform/dist/public ./artifacts/auct
 COPY --from=builder /app/artifacts/owner-app/dist/public        ./artifacts/owner-app/dist/public
 COPY --from=builder /app/artifacts/scoring-app/dist/public      ./artifacts/scoring-app/dist/public
 COPY --from=builder /app/artifacts/mobile-app/dist/public       ./artifacts/mobile-app/dist/public
-
-# Buzz Studio SSR reads this CSS at module load via import.meta.url relative to
-# artifacts/api-server/dist → /app/artifacts/auction-platform/src/.../top-buy-chrome.css
-# (only runtime FS asset required by @workspace/buzz-studio-render).
-COPY --from=builder \
-  /app/artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css \
-  ./artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css
-RUN test -f /app/artifacts/auction-platform/src/features/buzz-studio/templates/top-buys/top-buy-chrome.css
 
 EXPOSE 3000
 

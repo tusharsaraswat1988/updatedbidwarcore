@@ -3,7 +3,6 @@ import "./lib/scoring-adapters/register.js";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startConsentBlastScheduler } from "./lib/scheduler";
-import { startCreativeRenderWorker } from "./lib/creative-render-worker";
 import { startCommunicationWorker } from "./lib/communication/worker.js";
 import { seedCommunicationDefaults } from "./lib/communication/seed-templates.js";
 import { getRuntimeConfig } from "./lib/runtime-env";
@@ -38,7 +37,6 @@ async function start() {
     }
     logger.info({ port }, "Server listening");
     startConsentBlastScheduler();
-    startCreativeRenderWorker();
     startCommunicationWorker();
     startMemoryDiagnostics();
     startScorerLockCleanupJob();

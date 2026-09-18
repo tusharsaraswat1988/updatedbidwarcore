@@ -9,8 +9,6 @@ import {
   auctionRoomPath,
   auctionResetPath,
   displayScreenPath,
-  mediaCenterPath,
-  mediaCenterTournamentPath,
 } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
@@ -18,7 +16,6 @@ import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { clearOrganizerAccountAuth } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
-import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -50,26 +47,18 @@ interface SidebarNavProps {
   location: string;
   tournamentId: number | undefined;
   tournament: TournamentData | undefined;
-  buzzStudioActive: boolean;
   localVenue: boolean;
 }
 
-function navLinkCls(path: string, currentLocation: string, expanded: boolean, tournamentId?: number) {
-  let active = currentLocation === path;
-  if (!active && tournamentId && path === mediaCenterPath(tournamentId)) {
-    active = currentLocation === mediaCenterTournamentPath(tournamentId);
-  }
+function navLinkCls(path: string, currentLocation: string, expanded: boolean, _tournamentId?: number) {
+  const active = currentLocation === path;
   return `relative flex items-center rounded-md transition-colors cursor-pointer ${
     !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
   } ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"}`;
 }
 
-function isNavActive(path: string, currentLocation: string, tournamentId?: number) {
-  if (currentLocation === path) return true;
-  if (tournamentId && path === mediaCenterPath(tournamentId)) {
-    return currentLocation === mediaCenterTournamentPath(tournamentId);
-  }
-  return false;
+function isNavActive(path: string, currentLocation: string, _tournamentId?: number) {
+  return currentLocation === path;
 }
 
 function SidebarLink({
@@ -174,12 +163,6 @@ function SidebarNav({
               <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
               {expanded && <span className="font-medium">Settings</span>}
             </SidebarLink>
-            {buzzStudioActive && !localVenue ? (
-              <SidebarLink href={mediaCenterPath(tournamentId)} title="Media Center" className={cls(mediaCenterPath(tournamentId))} active={active(mediaCenterPath(tournamentId))} showAccent={expanded}>
-                <Sparkles className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span className="font-medium">Media Center</span>}
-              </SidebarLink>
-            ) : null}
             <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
               <BarChart3 className="w-5 h-5 flex-shrink-0" />
               {expanded && <span className="font-medium">Reports & Analytics</span>}
@@ -339,7 +322,6 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
-  const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
   const localVenue = isBidWarLocalHost();
 
   // Three sidebar states:
@@ -398,7 +380,6 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
     location,
     tournamentId,
     tournament,
-    buzzStudioActive,
     localVenue,
     expanded: false,
   };

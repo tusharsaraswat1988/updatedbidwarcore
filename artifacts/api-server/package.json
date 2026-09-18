@@ -8,8 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "setup:browsers": "playwright install chromium"
+    "test": "vitest run"
   },
   "dependencies": {
     "@workspace/api-base": "workspace:*",
@@ -27,7 +26,6 @@
     "@workspace/cheer-presets": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/badminton-core": "workspace:*",
-    "@workspace/buzz-studio-render": "workspace:*",
     "@workspace/scoring-core": "workspace:*",
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
@@ -44,7 +42,6 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdfkit": "^0.18.0",
-    "playwright": "^1.51.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "sharp": "^0.34.3",
