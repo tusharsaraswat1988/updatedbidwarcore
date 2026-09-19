@@ -42,6 +42,7 @@ import {
   OrganizerVideoReviews,
   type OrganizerReview,
 } from "@/components/home/organizer-video-reviews";
+import { HeroTournamentShowcase } from "@/components/home/hero-tournament-showcase";
 
 import { PricingSection } from "@/components/home/pricing-section";
 
@@ -349,12 +350,8 @@ export default function LovableHome() {
         )}
 
         <main>
-          {/* 1. Hero Section with Live Bidding Simulation */}
-          <Hero
-            onContact={openDemoWhatsApp}
-            goSignup={goSignup}
-            onWatchDemo={handlePlayWalkthrough}
-          />
+          {/* 1. Hero Section with Live Tournament Showcase */}
+          <Hero goSignup={goSignup} />
 
           {/* 2. Trust Strip & Live Tournament Ticker */}
           <TrustBadges />
@@ -700,13 +697,9 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
 /* ------------------------------------------------------------------ */
 
 function Hero({
-  onContact,
   goSignup,
-  onWatchDemo,
 }: {
-  onContact: () => void;
   goSignup: () => void;
-  onWatchDemo: () => void;
 }) {
   return (
     <section id="top" className="relative overflow-hidden">
@@ -734,11 +727,6 @@ function Hero({
             your LED wall displays real-time graphics, and your operator stays in complete control.
           </p>
 
-          <div className="mt-4 max-w-xl rounded-lg border-l-2 border-primary/50 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
-            Players are allotted against a virtual points purse — not sold for money on BidWar.
-            Organizers manage tournament fees or settlements independently outside the platform.
-          </div>
-
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -746,21 +734,6 @@ function Hero({
               className="gold-button gold-button-hover rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
             >
               Start Free Trial →
-            </button>
-            <button
-              type="button"
-              onClick={onWatchDemo}
-              className="ghost-button ghost-button-hover rounded-md px-5 py-3.5 text-xs font-semibold flex items-center gap-2"
-            >
-              <Play className="h-3.5 w-3.5 fill-current text-primary" />
-              <span>Watch 2-Min Demo Reel</span>
-            </button>
-            <button
-              type="button"
-              onClick={onContact}
-              className="text-xs uppercase tracking-wider text-muted-foreground hover:text-primary py-2 px-1 transition"
-            >
-              WhatsApp Us →
             </button>
           </div>
 
@@ -780,28 +753,9 @@ function Hero({
           </div>
         </div>
 
-        {/* Live Interactive Auction Card Stack - Experience Bidding */}
-        <div id="experience-bidding" className="relative flex items-center justify-center scroll-mt-28">
-          <div className="relative w-full max-w-md">
-            <div className="absolute -inset-6 -z-10 rounded-2xl bg-[image:var(--gradient-gold)] opacity-15 blur-3xl" />
-            <div className="mb-3 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
-              <span className="flex items-center gap-1.5"><span className="live-dot" /> Experience Live Bidding · Simulation</span>
-              <span>1080p60 SYNCED</span>
-            </div>
-            <AuctionCard />
-            <div className="mt-3 grid grid-cols-2 gap-2.5">
-              <div className="p-3 rounded-xl bg-card/50 border border-white/10">
-                <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground font-mono">Next in Queue</div>
-                <div className="font-display text-sm font-bold text-foreground mt-0.5 tracking-wide">A. Sequeira</div>
-                <div className="text-[10px] text-muted-foreground">Fast Bowler · Base 40k Pts</div>
-              </div>
-              <div className="p-3 rounded-xl bg-card/50 border border-white/10">
-                <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground font-mono">Category Pool</div>
-                <div className="font-display text-sm font-bold text-primary mt-0.5 tracking-wide">12 Players Left</div>
-                <div className="text-[10px] text-muted-foreground">Marquee All-Rounders</div>
-              </div>
-            </div>
-          </div>
+        {/* Seamless Borderless Tournament Slideshow */}
+        <div className="relative flex items-center justify-center">
+          <HeroTournamentShowcase />
         </div>
       </div>
     </section>
@@ -1246,7 +1200,7 @@ function RealTournaments({
         { v: "100%", l: "Purse Accuracy", sub: "Zero Overspend" },
         { v: "0", l: "Disputed Bids", sub: "Stage LED Sync" },
       ],
-      image: "https://res.cloudinary.com/dja0upxxe/image/upload/v1789471841/Screenshot_2026-09-15_165941.png",
+      image: "/assets/evidence/vnbl-chhavi-gera-bidding.jpg",
       reelLabel: "VNBL 3.0 · Stage Highlight Reel",
     },
     {

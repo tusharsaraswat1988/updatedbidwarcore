@@ -537,10 +537,6 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
       if (e.key === "Escape" && isFullscreen) {
         setIsFullscreen(false);
       }
-      if (e.key === "F11") {
-        e.preventDefault();
-        toggleFullscreen();
-      }
     };
     document.addEventListener("fullscreenchange", handleFsChange);
     window.addEventListener("keydown", handleKeyDown);
@@ -802,7 +798,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
           <button
             type="button"
             onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Expand Simulator to Full Screen (F11)"}
+            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Expand Simulator to Full Screen"}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer ${
               isFullscreen
                 ? "border-amber-400/60 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.3)]"

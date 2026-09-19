@@ -25,7 +25,8 @@
     "@workspace/db": "workspace:*",
     "@workspace/scoring-core": "workspace:*",
     "dotenv": "^17.4.2",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "sharp": "^0.34.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
