@@ -51,7 +51,9 @@ import {
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
   Download, Loader2, Radio, MoreVertical, Calendar, MapPin, SlidersHorizontal, Share2, Tv, Zap, X,
+  MessageCircle, Copy, Check, Headphones,
 } from "lucide-react";
+import { SITE_CONTACT } from "@/lib/public-site-links";
 import { useToast } from "@/hooks/use-toast";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
@@ -409,9 +411,136 @@ function CompleteProfileForm({
   );
 }
 
+// ─── Support Modal ────────────────────────────────────────────────────────────
+
+function OrganizerSupportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText(SITE_CONTACT.email);
+    setCopied(true);
+    toast({
+      title: "Email copied",
+      description: `${SITE_CONTACT.email} is copied to your clipboard.`,
+    });
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const whatsappUrl = `https://wa.me/${SITE_CONTACT.phoneWhatsApp}?text=${encodeURIComponent(
+    "Hi BidWar Team, I need assistance with the Organizer Portal (Login / Registration)."
+  )}`;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md panel border-border/80 text-foreground">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-lg font-bold flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
+              <Headphones className="w-4 h-4" />
+            </span>
+            BidWar Organizer Support
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Our tournament operations team is ready to assist you with login, mobile OTP verification, or setup.
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-3 pt-2">
+          {/* WhatsApp Support - Primary for Indian Organizers */}
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                  Chat on WhatsApp
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-300 font-medium">Instant</span>
+                </p>
+                <p className="text-xs text-muted-foreground">Direct chat with tournament coordinators</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </a>
+
+          {/* Direct Phone Call */}
+          <a
+            href={`tel:${SITE_CONTACT.phoneDisplay.replace(/\s+/g, "")}`}
+            className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Phone className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Direct Call</p>
+                <p className="text-xs text-muted-foreground">{SITE_CONTACT.phoneDisplay}</p>
+              </div>
+            </div>
+            <span className="text-xs text-primary font-medium group-hover:underline">Call Now</span>
+          </a>
+
+          {/* Email Support with 1-Click Copy */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/20">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Email Support</p>
+                <p className="text-xs text-muted-foreground truncate">{SITE_CONTACT.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyEmail}
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 mr-1" />
+                    Copy
+                  </>
+                )}
+              </Button>
+              <a
+                href={`mailto:${SITE_CONTACT.email}?subject=Organizer%20Support%20Request`}
+                className="inline-flex h-8 items-center justify-center rounded-md px-2.5 text-xs bg-muted/60 hover:bg-muted font-medium text-foreground transition-colors"
+              >
+                Open Mail
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+          <span>Need demo or tournament pricing?</span>
+          <a href="/contact" className="text-primary hover:underline font-medium">
+            Contact Page &rarr;
+          </a>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Forgot Password Flow ─────────────────────────────────────────────────────
 
-function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
+function ForgotPasswordFlow({ onBack, onSuccess, onNeedSupport }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; onNeedSupport?: () => void }) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
@@ -469,7 +598,7 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
       </button>
       <div className="flex items-center gap-2 mb-2">
@@ -519,7 +648,7 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
                 type="button"
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || resending}
-                className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
@@ -552,11 +681,23 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
           <button
             type="button"
             onClick={() => { setStep("mobile"); setOtpCode(""); setError(""); }}
-            className="text-xs text-muted-foreground hover:text-foreground w-full text-center transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground w-full text-center transition-colors cursor-pointer"
           >
             Change mobile number
           </button>
         </form>
+      )}
+      {onNeedSupport && (
+        <div className="pt-2 text-center text-xs text-muted-foreground border-t border-border/40">
+          Still having trouble?{" "}
+          <button
+            type="button"
+            onClick={onNeedSupport}
+            className="text-primary hover:underline font-medium cursor-pointer"
+          >
+            Contact Support
+          </button>
+        </div>
       )}
     </div>
   );
@@ -588,20 +729,18 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
 
 function GoogleSignupBlock({ next }: { next?: string }) {
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-2.5">
       <p className="text-xs text-center text-muted-foreground tracking-wide">
-        Fastest way — use your Google account
+        Fastest way &mdash; use your Google account
       </p>
       <GoogleSignInButton next={next} prominent />
       <div
         role="note"
-        className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3.5"
+        className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left"
       >
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-          <Info className="h-3.5 w-3.5 text-primary" aria-hidden />
-        </div>
-        <p className="text-[13px] leading-relaxed text-muted-foreground text-left">
-          After your first Google sign-in, we&apos;ll ask you to verify your mobile number with OTP to secure your account.
+        <Info className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden />
+        <p className="text-xs text-muted-foreground">
+          Mobile OTP verification is required after Google sign-in to secure your account.
         </p>
       </div>
     </div>
@@ -665,6 +804,7 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
   const [loginGuard, setLoginGuard] = useState<LoginGuardStatus | null>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [cooldownSec, setCooldownSec] = useState(0);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
     fetchAuthConfig().then(cfg => {
@@ -853,7 +993,7 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
   }
 
   return (
-    <div className="lovable-home min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 py-10 text-foreground">
+    <div className="lovable-home min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 text-foreground">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
       </div>
@@ -861,31 +1001,35 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative w-full max-w-sm space-y-6"
+        className="relative w-full max-w-sm space-y-4 sm:space-y-5"
       >
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm mb-2"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-xs sm:text-sm cursor-pointer mb-1"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to home
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to home
         </button>
 
-        <div className="text-center space-y-3">
+        <div className="text-center space-y-1.5">
           <img src={logoSrc} alt={logoAlt} className={authLoginPreset.sizeClass} />
-          <p className="text-muted-foreground text-sm">My Tournaments</p>
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+            Organizer Portal &bull; Live Sports Auctions
+          </p>
         </div>
 
         {view !== "forgot" && (
           <div className="flex rounded-md bg-white/5 p-1 border border-white/10">
             <button
+              type="button"
               onClick={() => { setView("login"); setError(""); setSignupStep("details"); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${view === "login" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all normal-case tracking-normal cursor-pointer ${view === "login" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
             >
               Sign In
             </button>
             <button
+              type="button"
               onClick={() => { setView("signup"); setError(""); setSignupStep("details"); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${view === "signup" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all normal-case tracking-normal cursor-pointer ${view === "signup" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
             >
               Create Account
             </button>
@@ -893,18 +1037,22 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
         )}
 
         {next && view !== "forgot" && (
-          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-muted-foreground">
-            <Lock className="w-4 h-4 shrink-0" />
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-xs text-muted-foreground">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
             Please log in to continue.
           </div>
         )}
 
-        <Card className="panel border-none">
-          <CardContent className={view === "signup" ? "p-6 sm:p-7" : "p-6"}>
+        <Card className="panel border-none shadow-xl">
+          <CardContent className="p-5 sm:p-6">
             <AnimatePresence mode="wait">
               {view === "forgot" ? (
                 <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                  <ForgotPasswordFlow onBack={() => { setView("login"); setError(""); }} onSuccess={onSuccess} />
+                  <ForgotPasswordFlow
+                    onBack={() => { setView("login"); setError(""); }}
+                    onSuccess={onSuccess}
+                    onNeedSupport={() => setSupportOpen(true)}
+                  />
                 </motion.div>
               ) : view === "login" ? (
                 <motion.form
@@ -913,10 +1061,10 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
                   onSubmit={handleLogin}
-                  className="space-y-4"
+                  className="space-y-3.5"
                 >
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm">
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-2 text-sm font-medium">
                       <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile or Email
                     </Label>
                     <Input
@@ -925,17 +1073,18 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                       placeholder="+91 98765 43210 or email"
                       autoComplete="username"
                       inputMode="tel"
+                      className="h-10"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2 text-sm">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
                         <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
                       </Label>
                       <button
                         type="button"
                         onClick={() => { setView("forgot"); setError(""); }}
-                        className="text-xs text-primary hover:underline"
+                        className="text-xs text-primary hover:underline font-medium cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -947,11 +1096,12 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
                         placeholder="Enter your password"
                         autoComplete="current-password"
+                        className="h-10 pr-10"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -966,22 +1116,23 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         placeholder="Your answer"
                         inputMode="numeric"
                         autoComplete="off"
+                        className="h-10"
                       />
                     </div>
                   )}
                   {cooldownSec > 0 && (
-                    <p className="text-amber-400 text-sm flex items-center gap-1.5">
+                    <p className="text-amber-400 text-xs flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 shrink-0" />
                       Too many failed attempts. Try again in {cooldownSec}s.
                     </p>
                   )}
-                  {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                  {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
                   {redirectUriHint ? (
                     <p className="text-xs text-muted-foreground break-all rounded-md border border-border/50 bg-muted/30 px-3 py-2 font-mono">
                       {redirectUriHint}
                     </p>
                   ) : null}
-                  <Button type="submit" className="w-full" disabled={signInDisabled}>
+                  <Button type="submit" className="w-full h-10" disabled={signInDisabled}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     {cooldownSec > 0 ? `Sign In (${cooldownSec}s)` : "Sign In"}
                   </Button>
@@ -994,19 +1145,20 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                     <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
                     .
                   </p>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                  <div className="relative my-1">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border/70" /></div>
                     <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
                   </div>
                   <GoogleSignInButton next={next} />
-                  <p className="text-center text-xs text-muted-foreground">
+                  <p className="text-center text-xs text-muted-foreground pt-1">
                     Need help?{" "}
-                    <a
-                      href="mailto:bidwarsupport@gmail.com"
-                      className="text-primary hover:underline underline-offset-2"
+                    <button
+                      type="button"
+                      onClick={() => setSupportOpen(true)}
+                      className="text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
                     >
                       Contact Support
-                    </a>
+                    </button>
                   </p>
                 </motion.form>
               ) : (
@@ -1015,7 +1167,7 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="space-y-6"
+                  className="space-y-3.5"
                 >
                   {/* Google — visually prominent path */}
                   <GoogleSignupBlock next={next} />
@@ -1025,14 +1177,14 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                       <span className="w-full border-t border-border/80" />
                     </div>
                     <div className="relative flex justify-center text-xs text-muted-foreground">
-                      <span className="bg-card px-3">or sign up with email</span>
+                      <span className="bg-card px-3 font-medium">or register with mobile &amp; email</span>
                     </div>
                   </div>
 
                   {/* Email + mobile OTP signup */}
                   {signupStep === "details" && (
-                  <form onSubmit={handleSignupEmail} className="space-y-4">
-                    <div className="space-y-2">
+                  <form onSubmit={handleSignupEmail} className="space-y-3">
+                    <div className="space-y-1.5">
                       <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-medium">
                         <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
                       </Label>
@@ -1043,10 +1195,10 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         placeholder="Your full name"
                         autoFocus
                         required
-                        className="h-11"
+                        className="h-10"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-medium">
                         <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email
                       </Label>
@@ -1058,52 +1210,67 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         placeholder="name@example.com"
                         autoComplete="username"
                         required
-                        className="h-11"
+                        className="h-10"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-medium">
                         <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number
                       </Label>
-                      <Input
-                        id="signup-mobile"
-                        type="tel"
-                        value={signupForm.mobile}
-                        onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
-                        placeholder="10-digit mobile"
-                        inputMode="numeric"
-                        maxLength={10}
-                        required
-                        className="h-11"
-                      />
+                      <div className="relative flex items-center">
+                        <div className="absolute left-3 flex items-center pointer-events-none text-xs font-semibold text-muted-foreground border-r border-border/60 pr-2">
+                          +91
+                        </div>
+                        <Input
+                          id="signup-mobile"
+                          type="tel"
+                          value={signupForm.mobile}
+                          onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
+                          placeholder="10-digit mobile"
+                          inputMode="numeric"
+                          maxLength={10}
+                          required
+                          className="h-10 pl-14"
+                        />
+                      </div>
                     </div>
 
                     {error ? (
-                      <p className="text-destructive text-sm flex items-start gap-1.5 pt-0.5">
+                      <p className="text-destructive text-xs flex items-start gap-1.5 pt-0.5">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
 
-                    <div className="pt-2 space-y-3.5">
-                      <Button type="submit" className="w-full h-11" disabled={loading}>
+                    <div className="pt-1 space-y-2">
+                      <Button type="submit" className="w-full h-10" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Send OTP
                       </Button>
                       <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
                         We&apos;ll verify your mobile before you create a password.
                       </p>
+                      <p className="text-center text-xs text-muted-foreground pt-1">
+                        Need help?{" "}
+                        <button
+                          type="button"
+                          onClick={() => setSupportOpen(true)}
+                          className="text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
+                        >
+                          Contact Support
+                        </button>
+                      </p>
                     </div>
                   </form>
                   )}
 
                   {signupStep === "otp" && (
-                  <form onSubmit={handleSignupVerifyOtp} className="space-y-4">
+                  <form onSubmit={handleSignupVerifyOtp} className="space-y-3.5">
                     <AuthStepIndicator step={2} total={3} />
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Enter the code sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="signup-otp" className="text-sm font-medium">Verification code</Label>
                       <Input
                         id="signup-otp"
@@ -1114,47 +1281,57 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         onChange={e => setSignupForm(f => ({ ...f, otp: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
                         placeholder="6-digit OTP"
                         autoFocus
-                        className="h-11 tracking-widest"
+                        className="h-10 tracking-widest text-center text-base"
                         required
                       />
                     </div>
                     {error ? (
-                      <p className="text-destructive text-sm flex items-start gap-1.5">
+                      <p className="text-destructive text-xs flex items-start gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
-                    <Button type="submit" className="w-full h-11" disabled={loading || signupForm.otp.length !== 6}>
+                    <Button type="submit" className="w-full h-10" disabled={loading || signupForm.otp.length !== 6}>
                       {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                       Verify OTP
                     </Button>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-xs pt-1">
                       <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground"
+                        className="text-muted-foreground hover:text-foreground cursor-pointer"
                         onClick={() => { setSignupStep("details"); setError(""); setSignupForm(f => ({ ...f, otp: "" })); }}
                       >
                         Back
                       </button>
                       <button
                         type="button"
-                        className="text-primary disabled:opacity-50"
+                        className="text-primary disabled:opacity-50 cursor-pointer font-medium"
                         disabled={signupResendCooldown > 0 || loading}
                         onClick={() => void handleSignupResendOtp()}
                       >
                         {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
                       </button>
                     </div>
+                    <div className="pt-2 text-center text-xs text-muted-foreground border-t border-border/40">
+                      Didn&apos;t receive OTP?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setSupportOpen(true)}
+                        className="text-primary hover:underline font-medium cursor-pointer"
+                      >
+                        Get Help on WhatsApp
+                      </button>
+                    </div>
                   </form>
                   )}
 
                   {signupStep === "password" && (
-                  <form onSubmit={handleSignupComplete} className="space-y-4">
+                  <form onSubmit={handleSignupComplete} className="space-y-3">
                     <AuthStepIndicator step={3} total={3} />
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Mobile verified. Create your password to finish.
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-medium">
                         <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
                       </Label>
@@ -1166,21 +1343,21 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                           onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
                           placeholder="At least 6 characters"
                           autoComplete="new-password"
-                          className="h-11 pr-10"
+                          className="h-10 pr-10"
                           required
                           autoFocus
                         />
                         <button
                           type="button"
                           onClick={() => setShowSignupPw(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                           aria-label={showSignupPw ? "Hide password" : "Show password"}
                         >
                           {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-medium">
                         <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
                       </Label>
@@ -1192,13 +1369,13 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                           onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
                           placeholder="Re-enter your password"
                           autoComplete="new-password"
-                          className="h-11 pr-10"
+                          className="h-10 pr-10"
                           required
                         />
                         <button
                           type="button"
                           onClick={() => setShowSignupConfirm(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                           aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
                         >
                           {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1206,13 +1383,13 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                       </div>
                     </div>
                     {error ? (
-                      <p className="text-destructive text-sm flex items-start gap-1.5">
+                      <p className="text-destructive text-xs flex items-start gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
-                    <div className="pt-2 space-y-3.5">
-                      <Button type="submit" className="w-full h-11" disabled={loading}>
+                    <div className="pt-1 space-y-2">
+                      <Button type="submit" className="w-full h-10" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Create Account
                       </Button>
@@ -1225,6 +1402,16 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
                         .
                       </p>
+                      <p className="text-center text-xs text-muted-foreground pt-1">
+                        Need help?{" "}
+                        <button
+                          type="button"
+                          onClick={() => setSupportOpen(true)}
+                          className="text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
+                        >
+                          Contact Support
+                        </button>
+                      </p>
                     </div>
                   </form>
                   )}
@@ -1234,6 +1421,8 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
           </CardContent>
         </Card>
       </motion.div>
+
+      <OrganizerSupportModal open={supportOpen} onOpenChange={setSupportOpen} />
     </div>
   );
 }

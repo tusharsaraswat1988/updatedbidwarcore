@@ -469,6 +469,18 @@ const migrations: Array<{ label: string; sql: string }> = [
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS city text;
     `,
   },
+  {
+    label: "tournaments_owner_bidding_enabled",
+    sql: `
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS owner_bidding_enabled boolean NOT NULL DEFAULT true;
+    `,
+  },
+  {
+    label: "academy_lessons_thumbnail_url",
+    sql: `
+      ALTER TABLE academy_lessons ADD COLUMN IF NOT EXISTS thumbnail_url text;
+    `,
+  },
 ];
 
 for (const m of migrations) {
