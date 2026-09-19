@@ -115,9 +115,9 @@ export function PublicNavbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-stage/85 backdrop-blur-md">
-        <div className="h-16 w-full px-3 sm:px-6 lg:px-8 flex items-center gap-3">
-          <a href="/" className="h-full flex items-center flex-shrink-0 pr-1" aria-label="BidWar Home">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-stage/90 backdrop-blur-md">
+        <div className="h-16 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <a href="/" className="flex items-center shrink-0 mr-4 xl:mr-6 2xl:mr-8" aria-label="BidWar Home">
             <BrandLogoImage
               src={headerLogoSrc}
               alt={logoAlt}
@@ -128,25 +128,25 @@ export function PublicNavbar() {
             />
           </a>
 
-          <div className="hidden xl:flex flex-1 items-center justify-center gap-5 text-sm text-muted-foreground">
+          <div className="hidden xl:flex items-center gap-1 xl:gap-2 2xl:gap-3.5 text-[13px] font-medium text-muted-foreground">
             <a
               href="/#auction-screens"
               onClick={(e) => onSectionClick("auction-screens", e)}
-              className="hover:text-foreground transition-colors whitespace-nowrap"
+              className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
             >
               Auction Screens
             </a>
             <a
               href="/#experience-bidding"
               onClick={(e) => onSectionClick("experience-bidding", e)}
-              className="hover:text-foreground transition-colors whitespace-nowrap"
+              className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
             >
               Experience Bidding
             </a>
             <a
               href="/#tournament-galleries"
               onClick={(e) => onSectionClick("tournament-galleries", e)}
-              className="hover:text-foreground transition-colors whitespace-nowrap"
+              className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
             >
               Tournament Galleries
             </a>
@@ -155,12 +155,12 @@ export function PublicNavbar() {
               <a
                 href="/#solutions"
                 onClick={(e) => onSectionClick("solutions", e)}
-                className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${isSolutionsPath ? "text-foreground" : "hover:text-foreground"}`}
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${isSolutionsPath ? "text-foreground bg-white/5" : ""}`}
                 aria-haspopup="true"
               >
-                Solutions <ChevronDown className="w-3.5 h-3.5" />
+                Solutions <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
               </a>
-              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[520px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-3 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[520px] -translate-x-1/2 translate-y-2 rounded-xl border border-white/10 bg-stage/95 backdrop-blur-xl p-3 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">By Sport</div>
@@ -213,7 +213,7 @@ export function PublicNavbar() {
 
             <a
               href="/academy"
-              className={`inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${isAcademyPath ? "text-foreground" : "hover:text-foreground"}`}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${isAcademyPath ? "text-foreground bg-white/5" : ""}`}
             >
               <span>Academy</span>
               <span className="rounded bg-primary/20 px-1.5 py-0.5 font-mono text-[9px] text-primary font-bold">
@@ -224,43 +224,16 @@ export function PublicNavbar() {
             <a
               href="/pricing"
               onClick={(e) => { if (isHome) onSectionClick("pricing", e); }}
-              className={`transition-colors whitespace-nowrap ${isPricingPath ? "text-foreground" : "hover:text-foreground"}`}
+              className={`px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${isPricingPath ? "text-foreground bg-white/5" : ""}`}
             >
               Pricing
             </a>
 
             <div className="relative group">
-              <a href="/blog" className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${isBlogPath ? "text-foreground" : "hover:text-foreground"}`}>
-                Blog <ChevronDown className="w-3.5 h-3.5" />
-              </a>
-              {!isAcademyPath && navBlogPosts.length > 0 ? (
-              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[360px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-                <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Top Blog Pages</div>
-                <div className="space-y-0.5">
-                  {navBlogPosts.map((post) => (
-                    <a
-                      key={post.slug}
-                      href={`/blog/${post.slug}`}
-                      className="block rounded-md px-2 py-1.5 text-[13px] leading-snug text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
-                    >
-                      {post.title}
-                    </a>
-                  ))}
-                </div>
-                <div className="pt-1 mt-1 border-t border-white/10">
-                  <a href="/blog" className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
-                    Explore All Articles →
-                  </a>
-                </div>
-              </div>
-              ) : null}
-            </div>
-
-            <div className="relative group">
-              <button className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${isMorePath ? "text-foreground" : "hover:text-foreground"}`} type="button" aria-label="Open more navigation links">
-                More <ChevronDown className="w-3.5 h-3.5" />
+              <button className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${isMorePath ? "text-foreground bg-white/5" : ""}`} type="button" aria-label="Open more navigation links">
+                More <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
               </button>
-              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-56 -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-60 -translate-x-1/2 translate-y-2 rounded-xl border border-white/10 bg-stage/95 backdrop-blur-xl p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
                 {MORE_NAV_LINKS.map((link) => (
                   <a
                     key={link.label}
@@ -270,7 +243,7 @@ export function PublicNavbar() {
                         onSectionClick(link.sectionId, e);
                       }
                     }}
-                    className="block rounded-md px-2 py-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                    className="block rounded-md px-2.5 py-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
                   >
                     {link.label}
                   </a>
@@ -279,16 +252,16 @@ export function PublicNavbar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto lg:pl-2">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
             <a
               href="https://bpl.bidwar.in/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/25 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/30 hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
             >
               <span className="text-amber-400">🏏</span>
-              <span className="hidden sm:inline">BPL Team Registration</span>
-              <span className="sm:hidden">BPL Reg</span>
+              <span className="hidden 2xl:inline">BPL Team Registration</span>
+              <span className="inline 2xl:hidden">BPL Registration</span>
             </a>
             <PublicAuthCta
               variant="navbar"

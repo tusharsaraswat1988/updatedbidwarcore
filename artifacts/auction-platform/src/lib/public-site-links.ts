@@ -25,11 +25,12 @@ export const SOLUTION_PLATFORM_LINKS = [
 ] as const;
 
 export const MORE_NAV_LINKS = [
+  { label: "Blog & Articles", href: "/blog" },
   { label: "Organizer Reviews", href: "/#reviews", sectionId: "reviews" },
   { label: "Tournament Calculator", href: "/#calculator", sectionId: "calculator" },
-  { label: "FAQs", href: "/#faq", sectionId: "faq" },
   { label: "Upcoming Auctions", href: "/upcoming-auctions" },
-  { label: "Auction Tips", href: "/auction-tips" },
+  { label: "Auction Tips & Guides", href: "/auction-tips" },
+  { label: "Frequently Asked Questions", href: "/#faq", sectionId: "faq" },
   { label: "Contact Desk", href: "/contact" },
 ] as const;
 
