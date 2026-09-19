@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Gavel,
   Trophy,
@@ -9,27 +9,18 @@ import {
   Smartphone,
   Video,
   Eye,
-  LayoutGrid,
   CheckCircle,
   XCircle,
   Hourglass,
   Settings2,
-  Clock,
-  User,
-  Zap,
   ArrowRight,
-  Shield,
-  Radio,
   Flame,
-  ThumbsUp,
-  Coins,
-  ChevronRight,
+  Maximize2,
+  Minimize2,
   Sparkles,
 } from "lucide-react";
 
 // ─── TYPES & DATA ────────────────────────────────────────────────────────────
-
-// ─── TYPES & DATA (Mirrored directly from user's live LED screenshot) ─────────
 
 export interface DemoTeam {
   id: string;
@@ -51,9 +42,11 @@ export interface DemoPlayer {
   city: string;
   age: string;
   batStyle: string;
+  bowlStyle?: string;
   category: string;
   basePrice: number; // in Points
   avatarEmoji: string;
+  photoUrl?: string;
 }
 
 export interface SoldRecord {
@@ -70,6 +63,17 @@ export interface SoldRecord {
 
 const TEAMS_DATA: DemoTeam[] = [
   {
+    id: "pw",
+    code: "PW",
+    name: "PITCH WARRIORS",
+    shortName: "PW",
+    color: "#10b981",
+    purse: 150000,
+    initialPurse: 150000,
+    maxBid: 140000,
+    playersCount: 0,
+  },
+  {
     id: "t2",
     code: "T2",
     name: "DELHI DEVILS",
@@ -78,18 +82,18 @@ const TEAMS_DATA: DemoTeam[] = [
     purse: 1000000,
     initialPurse: 1000000,
     maxBid: 950000,
-    playersCount: 4,
+    playersCount: 0,
   },
   {
     id: "t1",
     code: "T1",
-    name: "LUCKNOW CHA...",
+    name: "LUCKNOW CHALLENGERS",
     shortName: "LUC",
     color: "#2563eb",
     purse: 955000,
     initialPurse: 955000,
     maxBid: 915000,
-    playersCount: 3,
+    playersCount: 1,
   },
   {
     id: "t3",
@@ -100,7 +104,7 @@ const TEAMS_DATA: DemoTeam[] = [
     purse: 1200000,
     initialPurse: 1200000,
     maxBid: 1100000,
-    playersCount: 5,
+    playersCount: 2,
   },
   {
     id: "t4",
@@ -111,7 +115,7 @@ const TEAMS_DATA: DemoTeam[] = [
     purse: 1050000,
     initialPurse: 1050000,
     maxBid: 980000,
-    playersCount: 4,
+    playersCount: 2,
   },
 ];
 
@@ -119,38 +123,44 @@ const PLAYERS_QUEUE: DemoPlayer[] = [
   {
     id: "p1",
     serialNo: 1,
-    name: "TUSHAR SARASWAT",
-    role: "BATSMAN",
+    name: "ANKIT SRIVASTAVA",
+    role: "BOWLER",
     city: "VARANASI",
-    age: "—",
-    batStyle: "Right-hand",
-    category: "GRADE A+",
-    basePrice: 10000,
+    age: "38",
+    batStyle: "Left-arm",
+    bowlStyle: "Medium",
+    category: "BOWLER",
+    basePrice: 15000,
     avatarEmoji: "🏏",
+    photoUrl: "/assets/players/ankit-head.png",
   },
   {
     id: "p2",
     serialNo: 2,
+    name: "MAYANK YADAV",
+    role: "BOWLER",
+    city: "VARANASI",
+    age: "24",
+    batStyle: "Right-hand",
+    bowlStyle: "Fast",
+    category: "GRADE A",
+    basePrice: 10000,
+    avatarEmoji: "⚡",
+    photoUrl: "/assets/players/mayank-head.png",
+  },
+  {
+    id: "p3",
+    serialNo: 3,
     name: "VIRAT KOHLI",
     role: "BATSMAN",
     city: "DELHI",
     age: "35",
     batStyle: "Right-hand",
-    category: "MARQUEE",
-    basePrice: 20000,
-    avatarEmoji: "🔥",
-  },
-  {
-    id: "p3",
-    serialNo: 3,
-    name: "ROHIT SHARMA",
-    role: "BATSMAN",
-    city: "MUMBAI",
-    age: "36",
-    batStyle: "Right-hand",
+    bowlStyle: "Right-arm Med",
     category: "MARQUEE",
     basePrice: 20000,
     avatarEmoji: "🏏",
+    photoUrl: "/assets/players/ankit-head.png",
   },
   {
     id: "p4",
@@ -159,42 +169,92 @@ const PLAYERS_QUEUE: DemoPlayer[] = [
     role: "BOWLER",
     city: "AHMEDABAD",
     age: "30",
-    batStyle: "Right-arm Fast",
+    batStyle: "Right-hand",
+    bowlStyle: "Fast",
     category: "MARQUEE",
-    basePrice: 20000,
+    basePrice: 25000,
     avatarEmoji: "⚡",
+    photoUrl: "/assets/players/ankit-head.png",
+  },
+];
+
+const TOP_5_LEADERBOARD = [
+  {
+    rank: 1,
+    name: "RAJ CHANGRANI",
+    soldTo: "RAJASTHAN MARBLE & TILES",
+    price: 1295000,
+    pct: 100,
+    color: "#3b82f6",
+    photoUrl: "/assets/players/top-1.png",
+  },
+  {
+    rank: 2,
+    name: "ANUBHAV CHAURASIA",
+    soldTo: "VIJAY TYRES SMASHERS",
+    price: 1000000,
+    pct: 77,
+    color: "#f97316",
+    photoUrl: "/assets/players/top-2.png",
+  },
+  {
+    rank: 3,
+    name: "JASPREET SINGH",
+    soldTo: "STOCKTECH SMASHERS",
+    price: 800000,
+    pct: 62,
+    color: "#22c55e",
+    photoUrl: "/assets/players/top-3.png",
+  },
+  {
+    rank: 4,
+    name: "UTTAM SETH",
+    soldTo: "ARYA ACES",
+    price: 755000,
+    pct: 58,
+    color: "#ef4444",
+    photoUrl: "/assets/players/top-4.png",
+  },
+  {
+    rank: 5,
+    name: "GAURAV KUMAR JAIN",
+    soldTo: "RD SMASHERS",
+    price: 500000,
+    pct: 39,
+    color: "#ec4899",
+    photoUrl: "/assets/players/top-5.png",
   },
 ];
 
 const INITIAL_TOP_5: SoldRecord[] = [
   {
     id: "top-1",
-    playerName: "HARDIK PANDYA",
+    playerName: "RAJ CHANGRANI",
     role: "ALL-ROUNDER",
     teamCode: "T2",
-    teamName: "DELHI DEVILS",
-    teamColor: "#ef4444",
-    price: 45000,
+    teamName: "RAJASTHAN MARBLE & TILES",
+    teamColor: "#3b82f6",
+    price: 1295000,
     timestamp: "Lot 01",
   },
   {
     id: "top-2",
-    playerName: "RASHID KHAN",
-    role: "SPINNER",
+    playerName: "ANUBHAV CHAURASIA",
+    role: "BATSMAN",
     teamCode: "T1",
-    teamName: "LUCKNOW CHA...",
-    teamColor: "#2563eb",
-    price: 35000,
+    teamName: "VIJAY TYRES SMASHERS",
+    teamColor: "#f97316",
+    price: 1000000,
     timestamp: "Lot 02",
   },
   {
     id: "top-3",
-    playerName: "SURYAKUMAR YADAV",
-    role: "BATSMAN",
+    playerName: "JASPREET SINGH",
+    role: "BOWLER",
     teamCode: "T3",
-    teamName: "MUMBAI TITANS",
-    teamColor: "#0284c7",
-    price: 30000,
+    teamName: "STOCKTECH SMASHERS",
+    teamColor: "#22c55e",
+    price: 800000,
     timestamp: "Lot 03",
   },
 ];
@@ -209,7 +269,9 @@ class WebAudioSounds {
     if (!this.enabled) return null;
     try {
       if (!this.ctx) {
-        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         this.ctx = new AudioCtx();
       }
       if (this.ctx.state === "suspended") {
@@ -247,32 +309,29 @@ class WebAudioSounds {
     if (!ctx) return;
     try {
       const t = ctx.currentTime;
-      // Gavel strike thump
-      const thump = ctx.createOscillator();
-      const thumpGain = ctx.createGain();
-      thump.connect(thumpGain);
-      thumpGain.connect(ctx.destination);
-      thump.type = "triangle";
-      thump.frequency.setValueAtTime(180, t);
-      thump.frequency.exponentialRampToValueAtTime(40, t + 0.22);
-      thumpGain.gain.setValueAtTime(0.5, t);
-      thumpGain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      thump.start(t);
-      thump.stop(t + 0.22);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(160, t);
+      osc.frequency.exponentialRampToValueAtTime(45, t + 0.25);
+      gain.gain.setValueAtTime(0.7, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      osc.start(t);
+      osc.stop(t + 0.25);
 
-      // Fanfare chord [C5, E5, G5, C6]
-      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-        const chordOsc = ctx.createOscillator();
-        const chordGain = ctx.createGain();
-        chordOsc.connect(chordGain);
-        chordGain.connect(ctx.destination);
-        chordOsc.type = "triangle";
-        chordOsc.frequency.setValueAtTime(f, t + 0.06 + i * 0.04);
-        chordGain.gain.setValueAtTime(0.25, t + 0.06 + i * 0.04);
-        chordGain.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
-        chordOsc.start(t + 0.06 + i * 0.04);
-        chordOsc.stop(t + 0.75);
-      });
+      const chime = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chime.connect(chimeGain);
+      chimeGain.connect(ctx.destination);
+      chime.type = "sine";
+      chime.frequency.setValueAtTime(587.33, t + 0.08);
+      chime.frequency.setValueAtTime(880, t + 0.18);
+      chimeGain.gain.setValueAtTime(0.25, t + 0.08);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      chime.start(t + 0.08);
+      chime.stop(t + 0.55);
     } catch {
       // ignore
     }
@@ -305,15 +364,15 @@ const sfx = new WebAudioSounds();
 // ─── MAIN SIMULATOR COMPONENT ────────────────────────────────────────────────
 
 export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: () => void }) {
-  const [activeScreen, setActiveScreen] = useState<"director" | "led" | "team" | "obs" | "viewer" | "quad">("director");
+  const [activeScreen, setActiveScreen] = useState<"led" | "viewer" | "obs" | "team">("led");
+  const [ledSubView, setLedSubView] = useState<"main" | "top5">("main");
   const [teams, setTeams] = useState<DemoTeam[]>(TEAMS_DATA);
   const [playerIdx, setPlayerIdx] = useState(0);
   const [currentBid, setCurrentBid] = useState<number>(15000);
   const [leadingTeamId, setLeadingTeamId] = useState<string>("t2");
   const [status, setStatus] = useState<"active" | "sold" | "unsold">("active");
-  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerSeconds, setTimerSeconds] = useState(9);
   const [topSold, setTopSold] = useState<SoldRecord[]>(INITIAL_TOP_5);
-  const [showTopModal, setShowTopModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualTeam, setManualTeam] = useState("t2");
   const [manualPrice, setManualPrice] = useState("15000");
@@ -323,7 +382,58 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
 
   const currentPlayer = PLAYERS_QUEUE[playerIdx % PLAYERS_QUEUE.length];
   const leadingTeam = teams.find((t) => t.id === leadingTeamId) || teams[0];
-  const userTeam = teams[0]; // T2 Delhi Devils
+  const userTeam = teams.find((t) => t.id === "pw") || teams[0]; // PW Pitch Warriors
+
+  // Fullscreen support (true hardware fullscreen + full viewport fallback)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = async () => {
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      try {
+        if (containerRef.current && !document.fullscreenElement) {
+          if (containerRef.current.requestFullscreen) {
+            await containerRef.current.requestFullscreen();
+          }
+        }
+      } catch {
+        // Fallback CSS fixed overlay handles it reliably
+      }
+    } else {
+      setIsFullscreen(false);
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+      }
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   // Sync mute
   useEffect(() => {
@@ -340,12 +450,25 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
   }, [status]);
 
   // Raise Bid (+5,000 PT. or +10,000 PT.)
-  const handleRaiseBid = (increment = 5000) => {
+  const handleRaiseBid = (increment = 5000, targetTeamId?: string) => {
     if (status !== "active") return;
     const nextAmount = currentBid + increment;
-    const nextTeam = leadingTeamId === "t2" ? teams[1] : teams[0]; // Alternates between T2 (Delhi Devils) and T1 (Lucknow)
+    let nextTeamId = targetTeamId;
+    if (!nextTeamId) {
+      nextTeamId = leadingTeamId === "t2" ? "t1" : (leadingTeamId === "t1" ? "pw" : "t2");
+    }
     setCurrentBid(nextAmount);
-    setLeadingTeamId(nextTeam.id);
+    setLeadingTeamId(nextTeamId);
+    setTimerSeconds(15);
+    sfx.playBid();
+  };
+
+  // Dedicated bidder action for Team Bid Screen (Pitch Warriors bids)
+  const handleTeamBid = () => {
+    if (status !== "active") return;
+    const nextAmount = currentBid + 5000;
+    setCurrentBid(nextAmount);
+    setLeadingTeamId("pw");
     setTimerSeconds(15);
     sfx.playBid();
   };
@@ -356,7 +479,6 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
     setStatus("sold");
     sfx.playSold();
 
-    // Deduct purse
     setTeams((prev) =>
       prev.map((t) => {
         if (t.id === leadingTeamId) {
@@ -364,13 +486,13 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
             ...t,
             purse: Math.max(0, t.purse - currentBid),
             playersCount: t.playersCount + 1,
+            maxBid: Math.max(0, t.purse - currentBid - 10000),
           };
         }
         return t;
       })
     );
 
-    // Add to Top Sold
     const rec: SoldRecord = {
       id: `sold-${Date.now()}`,
       playerName: currentPlayer.name,
@@ -388,7 +510,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
     });
   };
 
-  // UNSOLD
+  // UNSOLD / DEFER
   const handleUnsold = () => {
     if (status !== "active") return;
     setStatus("unsold");
@@ -411,6 +533,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
             ...t,
             purse: Math.max(0, t.purse - finalP),
             playersCount: t.playersCount + 1,
+            maxBid: Math.max(0, t.purse - finalP - 10000),
           };
         }
         return t;
@@ -445,7 +568,8 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
     setStatus("active");
     setCurrentBid(nextP.basePrice);
     setLeadingTeamId("t2");
-    setTimerSeconds(15);
+    setTimerSeconds(9);
+    setLedSubView("main");
   };
 
   // RESET
@@ -456,7 +580,8 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
     setLeadingTeamId("t2");
     setStatus("active");
     setTopSold(INITIAL_TOP_5);
-    setTimerSeconds(0);
+    setTimerSeconds(9);
+    setLedSubView("main");
   };
 
   // FAN REACTIONS
@@ -469,37 +594,30 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
     }, 1500);
   };
 
-  return (
-    <div className="space-y-4">
-      {/* ─── 1. TOP HEADER & SCREEN SELECTOR TABS ─────────────────────────── */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-white/10">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-emerald-400 font-bold">
-              Live Auction Ecosystem Preview
-            </span>
-          </div>
-          <h3 className="text-xl sm:text-2xl font-display font-black text-foreground mt-0.5 tracking-tight">
-            See Exactly What Every Screen Shows
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-            Real production layouts. Hit <strong className="text-emerald-400 font-mono">SOLD</strong> or <strong className="text-red-400 font-mono">UNSOLD</strong> on the operator desk below to see all screens synchronize in real time.
-          </p>
-        </div>
+  const soldCount = topSold.length;
+  const unsoldCount = status === "unsold" ? 1 : 0;
+  const leftCount = Math.max(0, PLAYERS_QUEUE.length - playerIdx - (status === "sold" ? 1 : 0));
 
-        {/* Screen Tabs without horizontal scrollbar */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-black/60 border border-white/15">
+  return (
+    <div
+      ref={containerRef}
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-[99999] w-screen h-screen bg-[#070913] p-2.5 sm:p-4 overflow-y-auto flex flex-col justify-between"
+          : "space-y-2.5"
+      }
+    >
+      {/* ─── 1. CLEAN SCREEN SELECTOR TABS (NO COMBINATIONS) + FULLSCREEN ACTION ───────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-black/70 border border-white/10 rounded-xl p-1.5 sm:p-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+          <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest font-bold mr-1 hidden sm:inline shrink-0">
+            SELECT SCREEN:
+          </span>
           {[
-            { key: "director", label: "⊞ Director View (LED + Feeds)", icon: LayoutGrid },
-            { key: "led", label: "1. Stage LED (Full)", icon: Tv },
-            { key: "team", label: "2. Team Owner App", icon: Smartphone },
-            { key: "obs", label: "3. OBS Broadcast", icon: Video },
-            { key: "viewer", label: "4. Fan Room", icon: Eye },
-            { key: "quad", label: "2x2 Quad Grid", icon: LayoutGrid },
+            { key: "led", label: "Live LED Screen", icon: Tv },
+            { key: "viewer", label: "Live Viewer Screen", icon: Smartphone },
+            { key: "obs", label: "OBS Live Streaming", icon: Video },
+            { key: "team", label: "Team Bid Screen", icon: Eye },
           ].map((item) => {
             const Icon = item.icon;
             const active = activeScreen === item.key;
@@ -508,10 +626,10 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                 key={item.key}
                 type="button"
                 onClick={() => setActiveScreen(item.key as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
                   active
                     ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    : "text-white/70 hover:text-white hover:bg-white/5"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -520,350 +638,90 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
             );
           })}
         </div>
-      </div>
 
-      {/* ─── 2. OPERATOR CONTROL CONSOLE (AT THE TOP — ALWAYS VISIBLE!) ────── */}
-      <div className="rounded-2xl border-2 border-primary/40 bg-card/95 p-4 sm:p-5 shadow-2xl space-y-3.5">
-        {/* Console Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
-              <Gavel className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="font-display font-black text-base sm:text-lg text-foreground tracking-wide">
-                  Auction Operator Console
-                </h4>
-                <span className="px-2 py-0.5 rounded bg-primary/20 border border-primary/30 text-[11px] font-mono font-bold text-primary">
-                  Active Lot: #{currentPlayer.serialNo} {currentPlayer.name}
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                IPL-grade auctioneer desk. Tap any action to update all connected screens instantly.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Top 5 Sold */}
-            <button
-              type="button"
-              onClick={() => setShowTopModal(true)}
-              className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition"
-            >
-              <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              <span>Top 5 Sold</span>
-              <span className="rounded-full bg-amber-400/20 px-1.5 py-0.2 text-[10px] font-mono">
-                {topSold.length}
-              </span>
-            </button>
-
-            {/* Audio Toggle */}
-            <button
-              type="button"
-              onClick={() => setMuted(!muted)}
-              title={muted ? "Unmute sound effects" : "Mute sound effects"}
-              className={`p-2 rounded-lg border text-xs transition ${
-                muted
-                  ? "border-white/10 bg-white/5 text-muted-foreground"
-                  : "border-primary/40 bg-primary/20 text-primary"
-              }`}
-            >
-              {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-            </button>
-
-            {/* Reset */}
-            <button
-              type="button"
-              onClick={handleReset}
-              title="Reset auction state"
-              className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground text-xs transition"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Console Action Buttons Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {/* Action 1: SOLD */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+          {/* Audio Toggle */}
           <button
             type="button"
-            disabled={status !== "active"}
-            onClick={handleSold}
-            className="flex flex-col items-center justify-center py-2.5 px-3 rounded-xl border-2 border-emerald-500/70 bg-gradient-to-b from-emerald-600/30 to-emerald-700/20 hover:from-emerald-600/40 hover:to-emerald-700/30 active:scale-98 transition disabled:opacity-40 disabled:pointer-events-none group shadow-lg shadow-emerald-500/15"
+            onClick={() => setMuted(!muted)}
+            title={muted ? "Unmute sound effects" : "Mute sound effects"}
+            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs transition cursor-pointer flex items-center gap-1 ${
+              muted ? "border-white/10 bg-white/5 text-muted-foreground" : "border-primary/40 bg-primary/20 text-primary"
+            }`}
           >
-            <div className="flex items-center gap-1.5 text-emerald-300 font-display font-black text-base sm:text-lg uppercase">
-              <CheckCircle className="h-4 w-4 group-hover:scale-110 transition-transform" />
-              <span>SOLD!</span>
-            </div>
-            <span className="text-[10px] font-mono text-emerald-200/80 mt-0.5">
-              Hammer down to {leadingTeam.shortName} [S]
-            </span>
+            {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            <span className="hidden md:inline text-[10px] font-mono">{muted ? "MUTED" : "SOUND"}</span>
           </button>
 
-          {/* Action 2: UNSOLD */}
+          {/* Reset */}
           <button
             type="button"
-            disabled={status !== "active"}
-            onClick={handleUnsold}
-            className="flex flex-col items-center justify-center py-2.5 px-3 rounded-xl border-2 border-rose-500/60 bg-gradient-to-b from-rose-600/25 to-rose-700/15 hover:from-rose-600/35 hover:to-rose-700/25 active:scale-98 transition disabled:opacity-40 disabled:pointer-events-none group shadow-lg shadow-rose-500/15"
+            onClick={handleReset}
+            title="Reset auction state"
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground text-xs transition cursor-pointer flex items-center gap-1"
           >
-            <div className="flex items-center gap-1.5 text-rose-300 font-display font-black text-base sm:text-lg uppercase">
-              <XCircle className="h-4 w-4 group-hover:scale-110 transition-transform" />
-              <span>UNSOLD</span>
-            </div>
-            <span className="text-[10px] font-mono text-rose-200/80 mt-0.5">
-              Pass to next pool [U]
-            </span>
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span className="hidden md:inline text-[10px] font-mono">RESET</span>
           </button>
 
-          {/* Action 3: MANUAL SELL */}
+          {/* FULLSCREEN TOGGLE (EXPANDS TO 100% MONITOR / SPLIT VIEWPORT SMOOTHLY) */}
           <button
             type="button"
-            disabled={status !== "active"}
-            onClick={() => {
-              setManualPrice(String(currentBid));
-              setShowManualModal(true);
-            }}
-            className="flex flex-col items-center justify-center py-2.5 px-3 rounded-xl border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 active:scale-98 transition disabled:opacity-40 disabled:pointer-events-none group"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Expand Simulator to Full Screen (F11)"}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer ${
+              isFullscreen
+                ? "border-amber-400/60 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                : "border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary"
+            }`}
           >
-            <div className="flex items-center gap-1.5 text-amber-300 font-display font-bold text-sm sm:text-base uppercase">
-              <Settings2 className="h-4 w-4 group-hover:rotate-45 transition-transform" />
-              <span>Manual Sell</span>
-            </div>
-            <span className="text-[10px] font-mono text-amber-200/80 mt-0.5">
-              Assign team & custom price [M]
-            </span>
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="h-3.5 w-3.5" />
+                <span className="text-[10px] sm:text-[11px] font-mono font-black">EXIT FULLSCREEN</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span className="text-[10px] sm:text-[11px] font-mono font-black">FULLSCREEN</span>
+              </>
+            )}
           </button>
-
-          {/* Action 4: NEXT PLAYER */}
-          <button
-            type="button"
-            onClick={handleNextPlayer}
-            className="flex flex-col items-center justify-center py-2.5 px-3 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 active:scale-98 transition group"
-          >
-            <div className="flex items-center gap-1.5 text-primary font-display font-black text-sm sm:text-base uppercase">
-              <span>Next Player</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-            <span className="text-[10px] font-mono text-muted-foreground mt-0.5">
-              Load next lot from queue
-            </span>
-          </button>
-        </div>
-
-        {/* Quick Bids & Teams Purse Strip */}
-        <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-white/10">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground font-bold">
-              Raise Bid:
-            </span>
-            <button
-              type="button"
-              disabled={status !== "active"}
-              onClick={() => handleRaiseBid(5000)}
-              className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-200 text-xs font-bold font-mono transition disabled:opacity-30"
-            >
-              +5,000 PT. ({(currentBid + 5000).toLocaleString("en-IN")})
-            </button>
-            <button
-              type="button"
-              disabled={status !== "active"}
-              onClick={() => handleRaiseBid(10000)}
-              className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-200 text-xs font-bold font-mono transition disabled:opacity-30"
-            >
-              +10,000 PT. ({(currentBid + 10000).toLocaleString("en-IN")})
-            </button>
-          </div>
-
-          {/* Teams Purse Tracker */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            {teams.map((t) => (
-              <div
-                key={t.id}
-                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1.5 ${
-                  t.id === leadingTeamId && status === "active"
-                    ? "border-primary bg-primary/20 text-primary font-bold shadow-sm"
-                    : "border-white/10 bg-black/40 text-muted-foreground"
-                }`}
-              >
-                <span className="font-bold">{t.shortName}</span>
-                <span className="font-mono text-foreground font-semibold">
-                  {t.purse.toLocaleString("en-IN")} PT.
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* ─── 3. SCREENS DISPLAY CANVAS (DIRECTLY UNDER OPERATOR CONSOLE) ──── */}
-      <div className="relative rounded-2xl border-2 border-primary/30 bg-black/90 p-3 sm:p-5 shadow-2xl overflow-hidden">
-        {/* Subtle grid background */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:20px_20px]" />
+      {/* ─── 2. TWO-COLUMN LAYOUT: SCREEN ON LEFT (68%) + OPERATOR DESK ON RIGHT (32%) ─── */}
+      <div
+        className={`grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch ${
+          isFullscreen ? "flex-1 min-h-0 my-2" : ""
+        }`}
+      >
+        {/* LEFT COLUMN: THE SELECTED LIVE SCREEN */}
+        <div
+          className={`lg:col-span-8 flex flex-col justify-center rounded-xl border border-white/15 bg-black overflow-hidden shadow-2xl ${
+            isFullscreen
+              ? "min-h-[460px] h-full"
+              : "min-h-[340px] sm:min-h-[460px] max-h-none sm:max-h-[540px]"
+          }`}
+        >
+          {activeScreen === "led" && (
+            ledSubView === "main" ? (
+              <ActualLedStageView
+                player={currentPlayer}
+                bid={currentBid}
+                leadingTeam={leadingTeam}
+                status={status}
+                timer={timerSeconds}
+                remainingPurse={leadingTeam.purse - (status === "sold" ? currentBid : 0)}
+              />
+            ) : (
+              <ActualTop5LedView />
+            )
+          )}
 
-        {/* A. DIRECTOR VIEW (DEFAULT): Hero Stage LED on Left (62%) + 3 Live Feeds on Right (38%) */}
-        {activeScreen === "director" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 relative z-10 items-start">
-            {/* Left: Hero Stage LED Wall */}
-            <div className="lg:col-span-7 xl:col-span-8 flex flex-col rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl">
-              <div className="bg-slate-950 px-3.5 py-2 border-b border-white/10 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
-                  <Tv className="h-4 w-4" /> Screen 1: Stage LED Wall (1080p Main Auditorium)
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/20 uppercase font-bold">
-                  HERO DISPLAY
-                </span>
-              </div>
-              <div className="p-2 sm:p-3 flex-1 flex flex-col justify-center bg-black">
-                <ActualLedStageView
-                  player={currentPlayer}
-                  bid={currentBid}
-                  leadingTeam={leadingTeam}
-                  status={status}
-                  timer={timerSeconds}
-                  remainingPurse={leadingTeam.purse - (status === "sold" ? currentBid : 0)}
-                  large
-                />
-              </div>
-            </div>
-
-            {/* Right: 3 Synchronized Ecosystem Feeds */}
-            <div className="lg:col-span-5 xl:col-span-4 space-y-3.5 flex flex-col">
-              {/* Screen 2: Team Owner Bidding App */}
-              <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-                <div className="bg-slate-950 px-3 py-1.5 border-b border-white/10 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-cyan-400 uppercase tracking-wider">
-                    <Smartphone className="h-3.5 w-3.5" /> Screen 2: Team Owner PWA
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-foreground">Mobile / Tablet</span>
-                </div>
-                <div className="p-2">
-                  <ActualTeamBidderView
-                    player={currentPlayer}
-                    bid={currentBid}
-                    leadingTeam={leadingTeam}
-                    userTeam={userTeam}
-                    status={status}
-                    onQuickBid={() => handleRaiseBid(5000)}
-                  />
-                </div>
-              </div>
-
-              {/* Screen 3: OBS Broadcast Lower Third */}
-              <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-                <div className="bg-slate-950 px-3 py-1.5 border-b border-white/10 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-rose-400 uppercase tracking-wider">
-                    <Video className="h-3.5 w-3.5" /> Screen 3: OBS Broadcast Stream
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-foreground">YouTube Overlay</span>
-                </div>
-                <div className="p-2">
-                  <ActualObsStreamView
-                    player={currentPlayer}
-                    bid={currentBid}
-                    leadingTeam={leadingTeam}
-                    status={status}
-                  />
-                </div>
-              </div>
-
-              {/* Screen 4: Public Fan Viewer Room */}
-              <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-                <div className="bg-slate-950 px-3 py-1.5 border-b border-white/10 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-wider">
-                    <Eye className="h-3.5 w-3.5" /> Screen 4: Public Fan Room
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-foreground">Live Fan Stream</span>
-                </div>
-                <div className="p-2">
-                  <ActualFanViewerView
-                    player={currentPlayer}
-                    bid={currentBid}
-                    leadingTeam={leadingTeam}
-                    status={status}
-                    reactions={reactions}
-                    onSendReaction={sendReaction}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* B. 2x2 QUAD GRID VIEW */}
-        {activeScreen === "quad" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 relative z-10">
-            {/* Screen 1: Stage LED Wall */}
-            <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-              <div className="bg-slate-950 px-4 py-2 border-b border-white/10 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
-                  <Tv className="h-4 w-4" /> Screen 1: Stage LED Display
-                </span>
-                <span className="text-[10px] font-mono text-muted-foreground">Auditorium Main</span>
-              </div>
-              <div className="p-2.5 flex-1 bg-black flex flex-col justify-center">
-                <ActualLedStageView
-                  player={currentPlayer}
-                  bid={currentBid}
-                  leadingTeam={leadingTeam}
-                  status={status}
-                  timer={timerSeconds}
-                  remainingPurse={leadingTeam.purse - (status === "sold" ? currentBid : 0)}
-                  large
-                />
-              </div>
-            </div>
-
-            {/* Screen 2: Team Bidder Screen */}
-            <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-              <div className="bg-slate-950 px-4 py-2 border-b border-white/10 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">
-                  <Smartphone className="h-4 w-4" /> Screen 2: Team Owner Bidding App
-                </span>
-                <span className="text-[10px] font-mono text-muted-foreground">Tablet / Phone PWA</span>
-              </div>
-              <div className="p-2.5 flex-1">
-                <ActualTeamBidderView
-                  player={currentPlayer}
-                  bid={currentBid}
-                  leadingTeam={leadingTeam}
-                  userTeam={userTeam}
-                  status={status}
-                  onQuickBid={() => handleRaiseBid(5000)}
-                />
-              </div>
-            </div>
-
-            {/* Screen 3: OBS Broadcast Stream */}
-            <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-              <div className="bg-slate-950 px-4 py-2 border-b border-white/10 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-mono font-bold text-rose-400 uppercase tracking-wider">
-                  <Video className="h-4 w-4" /> Screen 3: OBS Live Broadcast Overlay
-                </span>
-                <span className="text-[10px] font-mono text-muted-foreground">YouTube Stream</span>
-              </div>
-              <div className="p-2.5 flex-1">
-                <ActualObsStreamView
-                  player={currentPlayer}
-                  bid={currentBid}
-                  leadingTeam={leadingTeam}
-                  status={status}
-                />
-              </div>
-            </div>
-
-            {/* Screen 4: Live Fan Viewer */}
-            <div className="rounded-xl border border-white/15 bg-card/60 overflow-hidden shadow-xl flex flex-col">
-              <div className="bg-slate-950 px-4 py-2 border-b border-white/10 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
-                  <Eye className="h-4 w-4" /> Screen 4: Public Fan Viewer Screen
-                </span>
-                <span className="text-[10px] font-mono text-muted-foreground">Live Fan Stream</span>
-              </div>
-              <div className="p-2.5 flex-1">
+          {activeScreen === "viewer" && (
+            <div className="h-full flex items-center justify-center p-2 bg-[#060a14]">
+              <div className="w-full max-w-sm h-full">
                 <ActualFanViewerView
                   player={currentPlayer}
                   bid={currentBid}
@@ -874,144 +732,63 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                 />
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* C. SINGLE SCREEN EXPANDED VIEWS */}
-        {activeScreen === "led" && (
-          <div className="max-w-5xl mx-auto py-2">
-            <ActualLedStageView
-              player={currentPlayer}
-              bid={currentBid}
-              leadingTeam={leadingTeam}
-              status={status}
-              timer={timerSeconds}
-              remainingPurse={leadingTeam.purse - (status === "sold" ? currentBid : 0)}
-              large
-            />
-          </div>
-        )}
-
-        {activeScreen === "team" && (
-          <div className="max-w-md mx-auto py-2">
-            <ActualTeamBidderView
-              player={currentPlayer}
-              bid={currentBid}
-              leadingTeam={leadingTeam}
-              userTeam={userTeam}
-              status={status}
-              onQuickBid={() => handleRaiseBid(5000)}
-              large
-            />
-          </div>
-        )}
-
-        {activeScreen === "obs" && (
-          <div className="max-w-3xl mx-auto py-2">
+          {activeScreen === "obs" && (
             <ActualObsStreamView
               player={currentPlayer}
               bid={currentBid}
               leadingTeam={leadingTeam}
               status={status}
-              large
             />
-          </div>
-        )}
+          )}
 
-        {activeScreen === "viewer" && (
-          <div className="max-w-md mx-auto py-2">
-            <ActualFanViewerView
-              player={currentPlayer}
-              bid={currentBid}
-              leadingTeam={leadingTeam}
-              status={status}
-              reactions={reactions}
-              onSendReaction={sendReaction}
-              large
-            />
-          </div>
-        )}
+          {activeScreen === "team" && (
+            <div className="h-full flex items-center justify-center p-2 bg-[#080918]">
+              <div className="w-full max-w-sm h-full">
+                <ActualTeamBidderView
+                  player={currentPlayer}
+                  bid={currentBid}
+                  leadingTeam={leadingTeam}
+                  userTeam={userTeam}
+                  status={status}
+                  timer={timerSeconds}
+                  onQuickBid={handleTeamBid}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: THE OPERATOR DESK (DIRECTLY RESEMBLING media_1789817701930.png) */}
+        <div className={`lg:col-span-4 flex flex-col ${isFullscreen ? "h-full overflow-y-auto" : ""}`}>
+          <OperatorDeskPanel
+            player={currentPlayer}
+            bid={currentBid}
+            status={status}
+            teams={teams}
+            leadingTeam={leadingTeam}
+            timer={timerSeconds}
+            soldCount={soldCount}
+            unsoldCount={unsoldCount}
+            leftCount={leftCount}
+            activeScreen={activeScreen}
+            ledSubView={ledSubView}
+            onSetLedSubView={setLedSubView}
+            onSold={handleSold}
+            onUnsold={handleUnsold}
+            onDefer={handleUnsold}
+            onManual={() => {
+              setManualPrice(String(currentBid));
+              setShowManualModal(true);
+            }}
+            onNext={handleNextPlayer}
+            onRaiseBid={handleRaiseBid}
+          />
+        </div>
       </div>
 
-      {/* ─── MODAL 1: TOP 5 SOLD PLAYERS LEADERBOARD ───────────────────────── */}
-      {showTopModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="relative w-full max-w-lg rounded-2xl border-2 border-amber-500/40 bg-card/95 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                  <Trophy className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-display font-black text-xl text-foreground">Top 5 Highest Buys</h3>
-                  <p className="text-xs text-muted-foreground">Live leaderboard updated from the auction gavel</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowTopModal(false)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-white/10 hover:text-foreground text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
-              {topSold.slice(0, 5).map((record, index) => {
-                const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
-                return (
-                  <div
-                    key={record.id}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition ${
-                      index === 0
-                        ? "border-amber-500/50 bg-amber-500/10 text-foreground shadow-md"
-                        : "border-white/10 bg-black/40 text-foreground"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-display font-black text-xl w-8 text-center">{medal}</span>
-                      <div>
-                        <div className="font-display font-bold text-base text-foreground flex items-center gap-2">
-                          {record.playerName}
-                          {record.isManual && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold">
-                              Direct
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
-                          <span>{record.role}</span>
-                          <span>·</span>
-                          <span className="font-semibold text-primary">{record.teamName}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-mono text-muted-foreground block">Sold Price</span>
-                      <span className="font-mono text-lg font-black text-amber-300">
-                        {record.price.toLocaleString("en-IN")} PT.
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowTopModal(false)}
-                className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold"
-              >
-                Close Leaderboard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── MODAL 2: MANUAL SELL / DIRECT ALLOTMENT ────────────────────────── */}
+      {/* ─── MODAL: MANUAL SELL / DIRECT ALLOTMENT ─────────────────────────── */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
           <div className="relative w-full max-w-md rounded-2xl border-2 border-primary/40 bg-card/95 p-6 shadow-2xl space-y-4">
@@ -1030,7 +807,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
               <button
                 type="button"
                 onClick={() => setShowManualModal(false)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-white/10 hover:text-foreground text-sm font-bold"
+                className="rounded-lg p-2 text-muted-foreground hover:bg-white/10 hover:text-foreground text-sm font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -1047,7 +824,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                       key={t.id}
                       type="button"
                       onClick={() => setManualTeam(t.id)}
-                      className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2.5 transition ${
+                      className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
                         manualTeam === t.id
                           ? "border-primary bg-primary/20 text-primary"
                           : "border-white/10 bg-black/40 text-muted-foreground hover:bg-white/5"
@@ -1085,14 +862,14 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
               <button
                 type="button"
                 onClick={() => setShowManualModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-muted-foreground"
+                className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-muted-foreground cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmManualSell}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
               >
                 <CheckCircle className="h-4 w-4" />
                 Confirm Direct Sale
@@ -1106,7 +883,269 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
 }
 
 // =============================================================================
-// SCREEN 1: ACTUAL STAGE LED DISPLAY (1080p WALL) — 100% REPLICA OF USER SCREENSHOTS
+// RIGHT PANEL: OPERATOR CONTROL DESK (MATCHES media_1789817701930.png)
+// =============================================================================
+function OperatorDeskPanel({
+  player,
+  bid,
+  status,
+  teams,
+  leadingTeam,
+  timer,
+  soldCount,
+  unsoldCount,
+  leftCount,
+  activeScreen,
+  ledSubView,
+  onSetLedSubView,
+  onSold,
+  onUnsold,
+  onDefer,
+  onManual,
+  onNext,
+  onRaiseBid,
+}: {
+  player: DemoPlayer;
+  bid: number;
+  status: "active" | "sold" | "unsold";
+  teams: DemoTeam[];
+  leadingTeam: DemoTeam;
+  timer: number;
+  soldCount: number;
+  unsoldCount: number;
+  leftCount: number;
+  activeScreen: string;
+  ledSubView: "main" | "top5";
+  onSetLedSubView: (v: "main" | "top5") => void;
+  onSold: () => void;
+  onUnsold: () => void;
+  onDefer: () => void;
+  onManual: () => void;
+  onNext: () => void;
+  onRaiseBid: (inc: number, targetTeamId?: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border-2 border-blue-500/40 bg-[#0b1329] p-2.5 sm:p-3 flex flex-col justify-between shadow-2xl h-full space-y-2 select-none">
+      {/* 1. Top Header */}
+      <div>
+        <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-display font-black text-xs text-white uppercase tracking-wider">
+              Operator Desk
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-[9px] font-mono font-bold">
+            <span className="text-emerald-400">SOLD {soldCount}</span>
+            <span className="text-white/30">·</span>
+            <span className="text-rose-400">UNSOLD {unsoldCount}</span>
+            <span className="text-white/30">·</span>
+            <span className="text-yellow-400">LEFT {leftCount}</span>
+          </div>
+        </div>
+
+        {/* LED Screen View Switcher: MAIN View vs Top 5 Sold */}
+        {activeScreen === "led" && (
+          <div className="mt-1.5 flex items-center justify-between p-1 rounded-lg bg-black/60 border border-white/10 text-[10px] font-mono">
+            <span className="text-white/50 font-bold uppercase tracking-wider pl-1">LED SCREEN:</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSetLedSubView("main")}
+                className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                  ledSubView === "main" ? "bg-emerald-500 text-black shadow" : "text-white/60 hover:text-white"
+                }`}
+              >
+                MAIN View
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetLedSubView("top5")}
+                className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                  ledSubView === "top5" ? "bg-amber-500 text-black shadow" : "text-white/60 hover:text-white"
+                }`}
+              >
+                Top 5 Sold
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Active Lot Card (From media_1789817701930.png) */}
+      <div className="p-2 rounded-lg bg-[#070c1c] border border-white/10 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-11 h-13 rounded overflow-hidden border border-white/15 bg-black shrink-0">
+            <img
+              src={player.photoUrl || "/assets/players/ankit-head.png"}
+              alt={player.name}
+              className="w-full h-full object-cover object-top"
+            />
+          </div>
+          <div className="min-w-0 leading-tight">
+            <div className="text-[10px] font-mono text-yellow-400 font-bold">#{player.serialNo} {player.role}</div>
+            <h4 className="font-display font-black text-xs sm:text-sm text-white uppercase truncate">
+              {player.name}
+            </h4>
+            <div className="text-[10px] font-mono text-emerald-400 font-bold mt-0.5">
+              BID: {bid.toLocaleString("en-IN")} PT.
+            </div>
+            <div className="text-[9px] font-mono text-white/50 truncate">
+              Lead: <span className="text-white font-bold">{leadingTeam.shortName}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Countdown Timer Box */}
+        <div className="text-right shrink-0 bg-black/60 border border-white/10 px-2 py-1 rounded">
+          <span className="text-[8px] font-mono uppercase text-white/40 block">TIMER</span>
+          <div className="font-mono font-black text-base text-yellow-400 leading-none">
+            00:{timer < 10 ? `0${timer}` : timer}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Primary Gavel Action Buttons 2x2 Grid (Matches media_1789817701930.png) */}
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
+          {/* SOLD Button */}
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={onSold}
+            className="py-2.5 px-2 rounded-lg bg-[#063b2f] hover:bg-[#074b3c] border-2 border-emerald-500 text-emerald-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+          >
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3.5 w-3.5" />
+              <span>SOLD</span>
+            </div>
+            <span className="text-[8px] font-mono text-emerald-300/80">Bid first [S]</span>
+          </button>
+
+          {/* UNSOLD Button */}
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={onUnsold}
+            className="py-2.5 px-2 rounded-lg bg-[#3b0b14] hover:bg-[#4b0e1a] border-2 border-rose-500 text-rose-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+          >
+            <div className="flex items-center gap-1">
+              <XCircle className="h-3.5 w-3.5" />
+              <span>UNSOLD</span>
+            </div>
+            <span className="text-[8px] font-mono text-rose-300/80">No bid [U]</span>
+          </button>
+
+          {/* DEFER Button */}
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={onDefer}
+            className="py-2.5 px-2 rounded-lg bg-[#3b2b06] hover:bg-[#4b3707] border-2 border-amber-500 text-amber-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+          >
+            <div className="flex items-center gap-1">
+              <Hourglass className="h-3.5 w-3.5" />
+              <span>DEFER</span>
+            </div>
+            <span className="text-[8px] font-mono text-amber-300/80">Return pool [D]</span>
+          </button>
+
+          {/* SELL MANUALLY Button */}
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={onManual}
+            className="py-2.5 px-2 rounded-lg bg-[#25103b] hover:bg-[#32164f] border-2 border-purple-500 text-purple-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+          >
+            <div className="flex items-center gap-1">
+              <Settings2 className="h-3.5 w-3.5" />
+              <span>MANUAL</span>
+            </div>
+            <span className="text-[8px] font-mono text-purple-300/80">Set amount [M]</span>
+          </button>
+        </div>
+
+        {/* NEXT PLAYER (Prominent Gold Button) */}
+        <button
+          type="button"
+          onClick={onNext}
+          className="w-full py-2 rounded-lg bg-[#634a06] hover:bg-[#785907] border-2 border-amber-400 text-amber-200 font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer shadow-md"
+        >
+          <span>NEXT PLAYER (Random)</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* 4. Quick Bid Row */}
+      <div className="p-1.5 rounded-lg bg-[#070c1c] border border-white/5 space-y-1">
+        <div className="flex items-center justify-between text-[9px] font-mono text-white/50 font-bold uppercase">
+          <span>QUICK BID</span>
+          <span className="text-yellow-400">NEXT: {(bid + 5000).toLocaleString("en-IN")} PT.</span>
+        </div>
+        <div className="grid grid-cols-3 gap-1">
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={() => onRaiseBid(5000, "t2")}
+            className="px-1.5 py-1.5 rounded bg-black/60 hover:bg-black/90 border border-red-500/40 text-red-200 text-[9px] sm:text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-30 truncate"
+          >
+            +5k (DEL)
+          </button>
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={() => onRaiseBid(10000, "t1")}
+            className="px-1.5 py-1.5 rounded bg-black/60 hover:bg-black/90 border border-blue-500/40 text-blue-200 text-[9px] sm:text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-30 truncate"
+          >
+            +10k (LUC)
+          </button>
+          <button
+            type="button"
+            disabled={status !== "active"}
+            onClick={() => onRaiseBid(5000, "pw")}
+            className="px-1.5 py-1.5 rounded bg-black/60 hover:bg-black/90 border border-emerald-500/40 text-emerald-200 text-[9px] sm:text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-30 truncate"
+          >
+            +5k (PW)
+          </button>
+        </div>
+      </div>
+
+      {/* 5. TEAMS & PURSE Tracker (From media_1789817701930.png right section) */}
+      <div className="p-1.5 rounded-lg bg-[#070c1c] border border-white/5 space-y-1">
+        <span className="text-[9px] font-mono uppercase tracking-wider text-white/50 block font-bold">
+          TEAMS & PURSE (3 TEAMS)
+        </span>
+        <div className="space-y-1 text-[9px] font-mono">
+          {teams.slice(0, 3).map((t) => (
+            <div
+              key={t.id}
+              className={`px-2 py-1 rounded flex items-center justify-between ${
+                t.id === leadingTeam.id && status === "active"
+                  ? "bg-red-950/60 border border-red-500/40 text-white"
+                  : "bg-black/40 border border-white/5 text-white/70"
+              }`}
+            >
+              <span className="font-bold flex items-center gap-1">
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: t.color }}
+                />
+                {t.code} {t.shortName}
+              </span>
+              <div className="text-right">
+                <span className="text-white font-bold">{t.purse.toLocaleString("en-IN")} PT.</span>
+                <span className="text-[8px] text-emerald-400 block">MAX {t.maxBid.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// SCREEN 1: ACTUAL STAGE LED DISPLAY (1080p WALL) — MATCHES media_1789816747528.png
 // =============================================================================
 function ActualLedStageView({
   player,
@@ -1115,7 +1154,6 @@ function ActualLedStageView({
   status,
   timer,
   remainingPurse,
-  large = false,
 }: {
   player: DemoPlayer;
   bid: number;
@@ -1123,19 +1161,17 @@ function ActualLedStageView({
   status: "active" | "sold" | "unsold";
   timer: number;
   remainingPurse: number;
-  large?: boolean;
 }) {
   const isSold = status === "sold";
   const isUnsold = status === "unsold";
 
   return (
     <div
-      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[580px]"
+      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[540px]"
       style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
-      {/* ── 1. TOP HEADER BAR (Directly from media_1789806468280.png) ──────── */}
+      {/* Top Header Bar */}
       <div className="bg-black px-3.5 py-2 flex items-center justify-between border-b border-white/10 shrink-0">
-        {/* Left: Tournament Name */}
         <div>
           <span className="text-[9px] font-mono uppercase tracking-widest text-white/50 block leading-none">
             TOURNAMENT
@@ -1145,7 +1181,6 @@ function ActualLedStageView({
           </span>
         </div>
 
-        {/* Center: bidWAR Brand + Status Pill */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex flex-col items-center">
             <div className="text-xs sm:text-sm xl:text-base font-display font-black leading-none tracking-tight">
@@ -1173,7 +1208,6 @@ function ActualLedStageView({
           )}
         </div>
 
-        {/* Right: Players Remaining */}
         <div className="text-right flex items-center gap-2">
           <div>
             <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-widest text-white/50 block leading-none">
@@ -1194,39 +1228,41 @@ function ActualLedStageView({
         </div>
       </div>
 
-      {/* ── 2. MAIN 3-COLUMN LAYOUT (Directly from media_1789806468280.png) ──── */}
+      {/* Main 3-Column Layout */}
       <div className="grid grid-cols-[27%_1fr_29%] gap-2 sm:gap-3 p-2.5 sm:p-3.5 items-stretch flex-1 min-h-0 relative overflow-hidden">
         {/* LEFT COLUMN: Player Portrait Frame */}
         <div className="relative rounded-lg border-2 border-white/10 bg-black/80 flex flex-col justify-between overflow-hidden shadow-xl min-w-0">
-          {/* Top Yellow Bar Accent */}
           <div className="absolute top-0 left-0 w-8 sm:w-10 h-1 bg-yellow-400 z-10" />
-
-          {/* Top Right Lot # Badge */}
           <div className="absolute top-0 right-0 z-10 w-7 h-7 sm:w-8 sm:h-8 bg-yellow-400 text-black font-display font-black text-xs sm:text-sm flex items-center justify-center">
             #{player.serialNo}
           </div>
 
-          {/* Center Silhouette Avatar */}
-          <div className="flex-1 flex items-center justify-center py-3 sm:py-5">
-            <User className="h-14 w-14 sm:h-20 sm:w-20 text-white/20 stroke-[1.2]" />
+          <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-black/40 via-black/20 to-black flex items-center justify-center min-h-[140px] max-h-[220px]">
+            <img
+              src={player.photoUrl || "/assets/players/ankit-head.png"}
+              alt={player.name}
+              className="w-full h-full object-cover object-top"
+            />
           </div>
 
-          {/* Bottom Player Metadata */}
-          <div className="p-2 sm:p-2.5 bg-gradient-to-t from-black via-black/90 to-transparent border-t border-white/5 min-w-0">
+          <div className="p-2 sm:p-2.5 bg-gradient-to-t from-black via-black/95 to-transparent border-t border-white/10 min-w-0 z-10">
             <div className="flex items-center gap-1 text-[9px] font-mono font-bold uppercase tracking-wider mb-0.5 truncate">
               <span className="text-yellow-400">{player.role}</span>
               <span className="text-white/40">·</span>
-              <span className="text-white/70">{player.city}</span>
+              <span className="text-white/80">{player.city}</span>
             </div>
 
             <h3 className="font-display font-black text-xs sm:text-base xl:text-lg text-white tracking-wide uppercase leading-tight truncate" title={player.name}>
               {player.name}
             </h3>
 
-            <div className="mt-1.5 pt-1 border-t border-white/10 text-[8px] sm:text-[9px] font-mono flex items-center justify-between text-white/60">
+            <div className="mt-1 pt-1 border-t border-white/10 text-[8px] sm:text-[9px] font-mono flex items-center justify-between text-white/70">
               <span>AGE: {player.age}</span>
               <span>
-                BAT: <strong className="text-yellow-400 font-bold">{player.batStyle}</strong>
+                BOWL: <strong className="text-yellow-400 font-bold">{player.bowlStyle || "Medium"}</strong>
+              </span>
+              <span>
+                BA: <strong className="text-white font-bold">{player.batStyle}</strong>
               </span>
             </div>
           </div>
@@ -1238,12 +1274,10 @@ function ActualLedStageView({
             CURRENT BID
           </span>
 
-          {/* Glowing white bid number */}
           <div className="my-0.5 sm:my-1 font-display font-black text-3xl sm:text-5xl xl:text-6xl text-white tracking-tight drop-shadow-[0_0_25px_rgba(255,255,255,0.4)] leading-none">
             {bid.toLocaleString("en-IN")} PT.
           </div>
 
-          {/* Leading Franchise Card: White box with red left border */}
           <div className="mt-2 sm:mt-3 w-full max-w-[260px] sm:max-w-xs">
             <div className="bg-white text-black flex items-center justify-center gap-2 sm:gap-3 py-1.5 sm:py-2 px-3 shadow-xl relative">
               <div className="absolute left-0 top-0 bottom-0 w-2 bg-red-600" />
@@ -1270,7 +1304,6 @@ function ActualLedStageView({
 
         {/* RIGHT COLUMN: Hammer Time + Teams Purse + Next Minimum */}
         <div className="flex flex-col justify-between gap-1.5 sm:gap-2 min-w-0">
-          {/* Hammer Time Digital Clock */}
           <div className="text-right">
             <span className="text-[9px] font-mono font-black uppercase tracking-widest text-white/60 block">
               HAMMER TIME
@@ -1280,7 +1313,6 @@ function ActualLedStageView({
             </div>
           </div>
 
-          {/* Teams Purse & Max Bid Board */}
           <div className="rounded-lg border border-white/10 bg-black/80 p-2 space-y-1">
             <div className="flex items-center justify-between text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-wider pb-1 border-b border-white/10">
               <span className="text-white flex items-center gap-1">
@@ -1290,7 +1322,6 @@ function ActualLedStageView({
               <span className="text-white/40">2 TEAMS</span>
             </div>
 
-            {/* Team T2 (Delhi Devils - Leading) */}
             <div className="p-1 rounded border-l-2 border-red-500 bg-red-950/40 flex items-center justify-between text-[8px] sm:text-[9px] font-mono min-w-0">
               <div className="flex items-center gap-1 truncate">
                 <span className="font-bold text-red-400">T2</span>
@@ -1309,7 +1340,6 @@ function ActualLedStageView({
               </div>
             </div>
 
-            {/* Team T1 (Lucknow Challengers) */}
             <div className="p-1 rounded border-l-2 border-blue-500 bg-blue-950/40 flex items-center justify-between text-[8px] sm:text-[9px] font-mono min-w-0">
               <div className="flex items-center gap-1 truncate">
                 <span className="font-bold text-blue-400">T1</span>
@@ -1326,7 +1356,6 @@ function ActualLedStageView({
             </div>
           </div>
 
-          {/* Next Minimum Box */}
           <div className="rounded-lg border border-white/10 bg-black/90 p-2">
             <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-widest text-white/50 block font-bold">
               NEXT MINIMUM
@@ -1340,26 +1369,26 @@ function ActualLedStageView({
           </div>
         </div>
 
-        {/* ── 3. SOLD CARD OVERLAY (100% Pixel Match to media_1789806493839.png) ── */}
+        {/* SOLD CARD OVERLAY */}
         {isSold && (
           <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in zoom-in-95 duration-150">
             <div
               className="relative w-full max-w-lg bg-zinc-950 border-4 border-[#ff4d4f] shadow-[0_0_60px_rgba(255,77,79,0.35)] p-4 sm:p-5 select-none"
               style={{ transform: "rotate(-3.5deg)" }}
             >
-              {/* Giant Red SOLD Header */}
               <div className="font-display font-black text-5xl sm:text-7xl xl:text-8xl text-[#ff4d4f] text-center leading-[0.85] tracking-tighter drop-shadow-[0_0_20px_rgba(255,77,79,0.5)]">
                 SOLD
               </div>
 
-              {/* Middle Section: Photo + Sold details + Team Code Box */}
               <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-5 mt-2.5">
-                {/* Photo cutout box */}
-                <div className="w-12 h-16 sm:w-16 sm:h-20 border-2 border-[#ff4d4f] bg-black/60 flex items-center justify-center shrink-0">
-                  <User className="h-8 w-8 sm:h-10 sm:w-10 text-white/20" />
+                <div className="w-12 h-16 sm:w-16 sm:h-20 border-2 border-[#ff4d4f] bg-black/60 overflow-hidden shrink-0">
+                  <img
+                    src={player.photoUrl || "/assets/players/ankit-head.png"}
+                    alt={player.name}
+                    className="w-full h-full object-cover object-top"
+                  />
                 </div>
 
-                {/* Amount, Player Name & Remaining Purse */}
                 <div className="flex flex-col items-center text-center min-w-0">
                   <div className="font-display font-black text-xl sm:text-2xl xl:text-3xl text-white tracking-tight leading-tight">
                     {bid.toLocaleString("en-IN")} PT. <span className="text-[#ff4d4f]">➔</span> {leadingTeam.shortName}
@@ -1379,7 +1408,6 @@ function ActualLedStageView({
                   </div>
                 </div>
 
-                {/* Team Code Red Square Box */}
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#ff4d4f] text-black font-display font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-lg">
                   {leadingTeam.shortName}
                 </div>
@@ -1409,7 +1437,7 @@ function ActualLedStageView({
         )}
       </div>
 
-      {/* ── 4. BID LADDER STRIP (Directly from media_1789806468280.png) ──────── */}
+      {/* Bid Ladder Strip */}
       <div className="bg-zinc-950 px-3.5 py-1.5 border-t border-white/10 flex items-center gap-3 text-[10px] sm:text-xs font-mono shrink-0">
         <span className="font-bold text-white/60 tracking-wider">BID LADDER</span>
         <div className="flex-1 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
@@ -1423,18 +1451,21 @@ function ActualLedStageView({
         </div>
       </div>
 
-      {/* ── 5. FOOTER SPONSORS STRIP (Directly from media_1789806468280.png) ─── */}
+      {/* Footer Sponsors Strip */}
       <div className="bg-black px-3.5 py-1 border-t border-white/10 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="bg-yellow-400 text-black font-display font-black text-[10px] sm:text-[11px] px-2.5 py-0.5 uppercase tracking-wider skew-x-[-12deg]">
+        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+          <div className="bg-yellow-400 text-black font-display font-black text-[9px] sm:text-[10px] px-2 py-0.5 uppercase tracking-wider skew-x-[-12deg] shrink-0">
             OUR SPONSORS
           </div>
-          <span className="text-[10px] sm:text-[11px] font-mono text-white/40 tracking-wider uppercase">
-            BIDWAR PREMIER LEAGUE
-          </span>
+          <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-mono text-white/70 tracking-wider uppercase shrink-0">
+            <span className="font-bold text-white bg-white/10 px-1.5 py-0.2 rounded">I SCHOOL</span>
+            <span className="font-bold text-white bg-white/10 px-1.5 py-0.2 rounded">DHAMMAWAT GEMS</span>
+            <span className="font-bold text-white bg-white/10 px-1.5 py-0.2 rounded">KV TechMedia</span>
+            <span className="font-bold text-amber-300 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.2 rounded">TITLE SPONSOR</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1 font-display font-black text-xs">
+        <div className="flex items-center gap-1 font-display font-black text-xs shrink-0 pl-2">
           <span className="text-yellow-400">bid</span>
           <span className="text-white">WAR</span>
         </div>
@@ -1444,251 +1475,237 @@ function ActualLedStageView({
 }
 
 // =============================================================================
-// SCREEN 2: ACTUAL TEAM BIDDER SCREEN (MOBILE/TABLET OWNER PWA)
+// SUB-SCREEN 1B: TOP 5 PLAYERS SOLD ON LED WALL (MATCHES media_1789817965850.png)
 // =============================================================================
-function ActualTeamBidderView({
-  player,
-  bid,
-  leadingTeam,
-  userTeam,
-  status,
-  onQuickBid,
-  large = false,
-}: {
-  player: DemoPlayer;
-  bid: number;
-  leadingTeam: DemoTeam;
-  userTeam: DemoTeam;
-  status: "active" | "sold" | "unsold";
-  onQuickBid: () => void;
-  large?: boolean;
-}) {
-  const isWinning = leadingTeam.id === userTeam.id;
-
+function ActualTop5LedView() {
   return (
     <div
-      className={`rounded-xl overflow-hidden bg-slate-900 border-2 border-cyan-500/40 p-4 flex flex-col justify-between shadow-2xl ${
-        large ? "min-h-[420px]" : "min-h-[250px]"
-      }`}
+      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[540px]"
+      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
-      {/* 1. Header with Team Name & Connected Badge */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-blue-600 font-display font-black text-white flex items-center justify-center text-xs">
-            {userTeam.shortName}
-          </div>
-          <div>
-            <span className="font-display font-black text-sm text-white uppercase block leading-tight">
-              {userTeam.name}
-            </span>
-            <span className="text-[10px] font-mono text-cyan-400 font-bold">FRANCHISE CONSOLE</span>
-          </div>
+      {/* 1. Header */}
+      <div className="bg-black px-3.5 py-2 flex items-center justify-between border-b border-white/10 shrink-0">
+        <div>
+          <span className="text-[8px] font-mono uppercase tracking-widest text-white/50 block leading-none">
+            TOURNAMENT
+          </span>
+          <span className="font-display font-black text-xs sm:text-sm text-white tracking-wide uppercase leading-tight mt-0.5 block">
+            VYAPARI NETWORK BADMINTON LEAGUE 3.0 (MEN)
+          </span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-mono font-bold text-emerald-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>CONNECTED</span>
-        </div>
-      </div>
 
-      {/* 2. Team Purse & Stats Summary Strip */}
-      <div className="my-2 p-2.5 rounded-xl bg-black/50 border border-white/10 grid grid-cols-3 text-center">
-        <div>
-          <span className="text-[10px] uppercase font-mono text-muted-foreground block">Purse Left</span>
-          <span className="font-display font-black text-sm sm:text-base text-emerald-400">
-            {userTeam.purse.toLocaleString("en-IN")} PT.
-          </span>
+        <div className="flex items-center gap-1 font-display font-black text-xs sm:text-sm">
+          <span className="text-yellow-400">bid</span>
+          <span className="text-white">WAR</span>
         </div>
-        <div className="border-x border-white/10">
-          <span className="text-[10px] uppercase font-mono text-muted-foreground block">Max Bid</span>
-          <span className="font-display font-black text-sm sm:text-base text-amber-400">
-            {userTeam.maxBid.toLocaleString("en-IN")} PT.
+
+        <div className="text-right">
+          <span className="text-[8px] font-mono uppercase tracking-widest text-white/50 block leading-none">
+            HIGHEST BIDS
           </span>
-        </div>
-        <div>
-          <span className="text-[10px] uppercase font-mono text-muted-foreground block">Squad</span>
-          <span className="font-display font-black text-sm sm:text-base text-white">
-            {userTeam.playersCount}/15
+          <span className="font-display font-black text-xs sm:text-sm text-yellow-400 tracking-wide uppercase leading-tight mt-0.5 block">
+            TOP 5 PLAYERS SOLD
           </span>
         </div>
       </div>
 
-      {/* 3. Real-time Bidding Alert Banner */}
-      <div className="my-1">
-        {status === "sold" ? (
+      {/* 2. Top 5 List Rows */}
+      <div className="flex-1 p-2 sm:p-3 flex flex-col justify-around gap-1 min-h-0 bg-gradient-to-b from-black via-zinc-950 to-black">
+        {TOP_5_LEADERBOARD.map((item) => (
           <div
-            className={`p-2.5 rounded-xl text-center font-bold text-xs ${
-              isWinning
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                : "bg-black/60 text-muted-foreground border border-white/10"
-            }`}
+            key={item.rank}
+            className="flex items-center justify-between gap-2.5 px-2.5 py-1 rounded bg-black/60 border border-white/5 relative overflow-hidden"
           >
-            {isWinning
-              ? `🎉 CONGRATULATIONS! ${player.name} WON FOR ${bid.toLocaleString("en-IN")} PT.`
-              : `Lot sold to ${leadingTeam.name} for ${bid.toLocaleString("en-IN")} PT.`}
+            {/* Left: Rank Number + Photo + Player details */}
+            <div className="flex items-center gap-2.5 min-w-0 z-10">
+              <span
+                className="font-display font-black text-xl sm:text-2xl w-6 text-center leading-none"
+                style={{ color: item.color }}
+              >
+                {item.rank}
+              </span>
+              <div className="w-9 h-10 rounded overflow-hidden border border-white/15 bg-zinc-900 shrink-0">
+                <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover object-top" />
+              </div>
+              <div className="min-w-0 leading-tight">
+                <h4 className="font-display font-black text-xs sm:text-sm text-white uppercase tracking-wide truncate">
+                  {item.name}
+                </h4>
+                <div className="text-[9px] font-mono text-white/60 uppercase truncate">
+                  SOLD TO — <strong className="text-white font-bold">{item.soldTo}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Price */}
+            <div className="text-right z-10 shrink-0">
+              <div
+                className="font-display font-black text-sm sm:text-base tracking-tight leading-none"
+                style={{ color: item.color }}
+              >
+                {item.price.toLocaleString("en-IN")} PT.
+              </div>
+            </div>
+
+            {/* Horizontal progress bar underline */}
+            <div
+              className="absolute bottom-0 left-0 h-[2.5px] opacity-80"
+              style={{ width: `${item.pct}%`, backgroundColor: item.color }}
+            />
           </div>
-        ) : status === "unsold" ? (
-          <div className="p-2.5 rounded-xl text-center font-bold text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40">
-            Player Unsold (Passed)
-          </div>
-        ) : isWinning ? (
-          <div className="p-2.5 rounded-xl bg-emerald-500/20 border-2 border-emerald-500/60 text-emerald-300 flex items-center justify-center gap-2 text-xs font-bold animate-pulse">
-            <CheckCircle className="h-4 w-4" />
-            <span>YOU HOLD HIGHEST BID ({bid.toLocaleString("en-IN")} PT.)</span>
-          </div>
-        ) : (
-          <div className="p-2.5 rounded-xl bg-amber-500/20 border-2 border-amber-500/60 text-amber-300 flex items-center justify-center gap-2 text-xs font-bold">
-            <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-            <span>OUTBID BY {leadingTeam.name.toUpperCase()} ({bid.toLocaleString("en-IN")} PT.)</span>
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* 4. Active Player Info & Big Bid Button */}
-      <div className="pt-2">
-        <div className="flex items-center justify-between text-xs mb-2">
-          <span className="text-muted-foreground">Active Lot: <strong className="text-white font-bold">{player.name}</strong></span>
-          <span className="font-mono text-cyan-400 font-bold">Next: {(bid + 5000).toLocaleString("en-IN")} PT.</span>
+      {/* 3. Footer Sponsors */}
+      <div className="bg-black px-3.5 py-1 border-t border-white/10 flex items-center justify-between shrink-0 text-[8px] sm:text-[9px] font-mono">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <div className="bg-yellow-400 text-black font-display font-black px-2 py-0.2 uppercase tracking-wider skew-x-[-12deg] shrink-0">
+            OUR SPONSORS
+          </div>
+          <span className="text-white/80 bg-white/10 px-1.5 py-0.2 rounded shrink-0">KUBER GLASS & PLYWOOD</span>
+          <span className="text-white/80 bg-white/10 px-1.5 py-0.2 rounded shrink-0">AALISHAN ZAIKA</span>
+          <span className="text-white/80 bg-white/10 px-1.5 py-0.2 rounded shrink-0">ADMAIRA PEST CONTROL</span>
         </div>
-
-        <button
-          type="button"
-          disabled={status !== "active" || isWinning}
-          onClick={onQuickBid}
-          className={`w-full py-3 rounded-xl font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition ${
-            isWinning
-              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-not-allowed"
-              : status !== "active"
-              ? "bg-white/5 text-muted-foreground border border-white/10 cursor-not-allowed"
-              : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-xl shadow-cyan-500/25 active:scale-98"
-          }`}
-        >
-          {isWinning ? (
-            <>
-              <CheckCircle className="h-4 w-4" /> Leading at {bid.toLocaleString("en-IN")} PT.
-            </>
-          ) : (
-            <>
-              <Zap className="h-4 w-4" /> Tap to Bid {(bid + 5000).toLocaleString("en-IN")} PT.
-            </>
-          )}
-        </button>
+        <span className="text-white/40 text-[8px] uppercase tracking-widest pl-2 shrink-0">
+          POWERED BY BIDWAR.IN
+        </span>
       </div>
     </div>
   );
 }
 
 // =============================================================================
-// SCREEN 3: ACTUAL OBS BROADCAST STREAM OVERLAY
+// SCREEN 2: ACTUAL OBS BROADCAST STREAM OVERLAY (MATCHES media_1789817126323.png)
 // =============================================================================
 function ActualObsStreamView({
   player,
   bid,
   leadingTeam,
   status,
-  large = false,
 }: {
   player: DemoPlayer;
   bid: number;
   leadingTeam: DemoTeam;
   status: "active" | "sold" | "unsold";
-  large?: boolean;
 }) {
   return (
     <div
-      className={`rounded-xl overflow-hidden bg-zinc-950 border-2 border-rose-500/40 relative flex flex-col justify-between shadow-2xl ${
-        large ? "aspect-[16/9] min-h-[420px] p-5" : "min-h-[250px] p-3.5"
-      }`}
+      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[540px]"
+      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
-      {/* 1. Simulated Live Broadcast Camera Feed Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-zinc-900 to-slate-950 opacity-95" />
+      {/* Top Bar: Center logo + Right jersey sponsor */}
+      <div className="absolute top-2 left-0 right-0 z-20 px-4 flex items-center justify-between pointer-events-none">
+        <div className="w-24" />
 
-      {/* Top Bar with Live Bug & Tournament Brand */}
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-red-600 text-white font-mono text-[10px] font-black px-2 py-0.5 rounded shadow">
-            <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-            <span>LIVE 1080p60</span>
+        <div className="flex flex-col items-center bg-black/80 backdrop-blur-xs px-4 py-1 rounded-md border border-white/10 shadow-lg">
+          <div className="font-display font-black text-sm text-yellow-400 leading-none">
+            bid<span className="text-white">WAR</span>
           </div>
-          <span className="text-xs font-mono text-white/80 font-bold uppercase">
-            BIDWAR OFFICIAL BROADCAST
+          <span className="text-[8px] font-mono tracking-widest text-white/80 uppercase mt-0.5">
+            BIDWAR PREMIER LEAGUE
           </span>
         </div>
-        <span className="text-[11px] font-mono text-amber-400 font-bold">
-          OFFICIAL STREAM OVERLAY
-        </span>
-      </div>
 
-      {/* Middle Arena Watermark */}
-      <div className="relative z-10 my-auto text-center opacity-30 pointer-events-none">
-        <span className="text-4xl">🎙️</span>
-        <div className="text-[10px] uppercase font-mono tracking-widest text-white mt-1">
-          Live Studio Broadcast
+        <div className="bg-black/80 border border-white/15 px-2.5 py-1 rounded text-right shadow-lg">
+          <span className="text-[8px] font-mono text-white font-bold block uppercase leading-none">
+            DHAMMAWAT GEMS AND JEWELLERS
+          </span>
+          <span className="text-[7px] font-mono text-amber-400 block tracking-wider uppercase mt-0.5">
+            JERSEY SPONSOR
+          </span>
         </div>
       </div>
 
-      {/* 2. ACTUAL TV BROADCAST LOWER-THIRD (Matches ObsLowerThirdScene.tsx) */}
-      <div className="relative z-10 space-y-2">
-        {status === "sold" ? (
-          <div className="rounded-xl border-2 border-emerald-400/60 bg-gradient-to-r from-black/95 via-emerald-950/80 to-emerald-900/60 p-3 text-white shadow-2xl flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🏆</span>
-              <div>
-                <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-300 font-bold block">
-                  BREAKING NEWS · LOT SOLD
-                </span>
-                <span className="font-display font-black text-base sm:text-lg text-white">
-                  {player.name} to {leadingTeam.name}
-                </span>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-[10px] uppercase font-mono text-muted-foreground block">Sold Price</span>
-              <span className="font-display font-black text-xl sm:text-2xl text-emerald-300">
-                {bid.toLocaleString("en-IN")} PT.
-              </span>
-            </div>
-          </div>
-        ) : status === "unsold" ? (
-          <div className="rounded-xl border-2 border-rose-500/60 bg-rose-950/80 p-2.5 text-white shadow-2xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-rose-400" />
-              <span className="font-display font-black text-sm uppercase">PLAYER UNSOLD — {player.name}</span>
-            </div>
-            <span className="text-xs font-mono font-bold bg-black/40 px-2 py-0.5 rounded">ROUND 1</span>
-          </div>
-        ) : (
-          /* Regular Live Bid Lower-Third */
-          <div className="rounded-xl border border-white/20 bg-black/90 backdrop-blur-md p-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-xl">
-                {player.avatarEmoji}
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-display font-black text-base text-white">{player.name}</span>
-                  <span className="text-[10px] text-muted-foreground">({player.role})</span>
-                </div>
-                <div className="text-xs font-mono text-muted-foreground">
-                  Leading: <strong className="text-primary font-bold">{leadingTeam.name}</strong>
-                </div>
-              </div>
-            </div>
+      {/* Middle: Simulated Broadcast Camera Feed (White space is camera feed!) */}
+      <div className="relative flex-1 bg-slate-900 overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-zinc-900/90 to-slate-950" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px]" />
 
-            <div className="text-right">
-              <span className="text-[10px] uppercase font-mono text-muted-foreground block">Current Bid</span>
-              <span className="font-display font-black text-xl sm:text-2xl text-yellow-400">
-                {bid.toLocaleString("en-IN")} PT.
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Running Team Ticker Bar */}
-        <div className="bg-primary px-3 py-1 rounded-lg text-primary-foreground text-[10px] font-mono flex items-center gap-2 truncate">
-          <span className="font-black uppercase bg-black/30 px-1.5 py-0.2 rounded">TICKER:</span>
-          <span className="truncate font-semibold">
-            {leadingTeam.code} {leadingTeam.name} LEADS WITH {bid.toLocaleString("en-IN")} PT. · T1: 9,55,000 PT. · T3: 12,00,000 PT. · T4: 10,50,000 PT.
+        <div className="relative z-10 flex flex-col items-center justify-center opacity-40 select-none">
+          <Video className="h-10 w-10 text-white/50 animate-pulse" />
+          <span className="text-[10px] font-mono text-white/70 tracking-[0.25em] uppercase mt-2 font-bold">
+            ● LIVE CAMERA FEED (OBS 1080p60)
           </span>
+        </div>
+      </div>
+
+      {/* Bottom TV Broadcast Lower-Third (Directly from media_1789817126323.png) */}
+      <div className="relative z-20 border-t-2 border-yellow-400 bg-black/95 shadow-2xl shrink-0">
+        <div className="px-3 py-2 flex items-center justify-between gap-3">
+          {/* Left: Yellow angled badge + Player details */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="relative w-12 h-14 sm:w-14 sm:h-16 border-2 border-yellow-400 bg-black/80 overflow-hidden shrink-0 shadow-lg"
+              style={{ clipPath: "polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%)" }}
+            >
+              <img
+                src={player.photoUrl || "/assets/players/ankit-head.png"}
+                alt={player.name}
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[8px] sm:text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>LIVE AUCTION</span>
+              </div>
+              <h3 className="font-display font-black text-sm sm:text-base xl:text-lg text-white tracking-wide uppercase leading-tight truncate">
+                {player.name}
+              </h3>
+              <div className="text-[9px] sm:text-[10px] font-mono text-white/60">
+                {player.role} <span className="text-white/40">·</span> {player.city}
+              </div>
+              <div className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-yellow-400/20 border border-yellow-400/40 text-[8px] sm:text-[9px] font-mono font-bold text-yellow-300 mt-0.5">
+                ● BASE VALUE {player.basePrice.toLocaleString("en-IN")} Pt.
+              </div>
+            </div>
+          </div>
+
+          {/* Center: Team status pills */}
+          <div className="hidden sm:flex flex-col items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 text-[9px] font-mono">
+              <span className="text-blue-400 flex items-center gap-1 font-bold">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                LUCKNOW CHAMPIONS 1 Taken
+              </span>
+              <span className="text-red-400 flex items-center gap-1 font-bold">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                DELHI DEVILS {status === "sold" ? 1 : 0} Taken
+              </span>
+            </div>
+            {status === "sold" && (
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-mono font-bold text-emerald-300 uppercase">
+                🎉 LOT SOLD TO {leadingTeam.name}
+              </span>
+            )}
+          </div>
+
+          {/* Right: Opening/Current Bid */}
+          <div className="text-right shrink-0">
+            <span className="text-[8px] sm:text-[9px] font-mono text-white/50 uppercase tracking-wider block font-bold">
+              {status === "sold" ? "FINAL SOLD PRICE" : "CURRENT BID"}
+            </span>
+            <div className="font-display font-black text-xl sm:text-3xl text-white tracking-tight leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+              {bid.toLocaleString("en-IN")} PT.
+            </div>
+            <span className="text-[8px] sm:text-[9px] font-mono text-yellow-400 block mt-0.5">
+              {status === "sold" ? `Sold to ${leadingTeam.shortName}` : `Leading: ${leadingTeam.name}`}
+            </span>
+          </div>
+        </div>
+
+        {/* Sponsor Ticker */}
+        <div className="bg-zinc-950 px-3 py-1 border-t border-white/10 text-[8px] sm:text-[9px] font-mono text-white/60 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <span className="text-white font-bold">JEWELLERS (JERSEY SPONSOR)</span>
+          <span>•</span>
+          <span className="text-white font-bold">I SCHOOL (CO SPONSOR)</span>
+          <span>•</span>
+          <span className="text-yellow-400 font-bold">Powered by BidWar</span>
+          <span>•</span>
+          <span className="text-white font-bold">KV TECH MEDIA (DIGITAL MEDIA SPONSOR)</span>
+          <span>•</span>
+          <span className="text-white font-bold">DHAMMAWAT GEMS AND JEWELLERS (JERSEY SPONSOR)</span>
         </div>
       </div>
     </div>
@@ -1696,7 +1713,7 @@ function ActualObsStreamView({
 }
 
 // =============================================================================
-// SCREEN 4: ACTUAL PUBLIC FAN VIEWER SCREEN
+// SCREEN 3: ACTUAL PUBLIC FAN VIEWER SCREEN (MATCHES media_1789816565583.png)
 // =============================================================================
 function ActualFanViewerView({
   player,
@@ -1705,7 +1722,6 @@ function ActualFanViewerView({
   status,
   reactions,
   onSendReaction,
-  large = false,
 }: {
   player: DemoPlayer;
   bid: number;
@@ -1713,112 +1729,462 @@ function ActualFanViewerView({
   status: "active" | "sold" | "unsold";
   reactions: { id: number; emoji: string; left: number }[];
   onSendReaction: (emoji: string) => void;
-  large?: boolean;
 }) {
   return (
     <div
-      className={`rounded-xl overflow-hidden bg-zinc-950 border-2 border-emerald-500/40 p-4 flex flex-col justify-between relative shadow-2xl ${
-        large ? "min-h-[420px]" : "min-h-[250px]"
-      }`}
+      className="relative rounded-2xl overflow-hidden bg-[#070b14] border-2 border-blue-500/30 p-2.5 sm:p-3 flex flex-col justify-between select-none shadow-2xl h-full"
+      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
-      {/* Floating Emojis Overlay */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden z-20">
+      {/* Floating Reactions */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden z-30">
         {reactions.map((r) => (
           <span
             key={r.id}
             style={{ left: `${r.left}%` }}
-            className="absolute bottom-12 text-3xl animate-in slide-in-from-bottom-6 fade-out duration-1000"
+            className="absolute bottom-14 text-3xl animate-in slide-in-from-bottom-6 fade-out duration-1000"
           >
             {r.emoji}
           </span>
         ))}
       </div>
 
-      {/* Fan Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-display font-black text-xs text-white uppercase tracking-wider">
-            Public Fan Room
+      {/* Top Bar */}
+      <div className="flex items-center justify-between pb-1.5 border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white font-mono text-[9px] font-black uppercase tracking-wider">
+            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+            LIVE
           </span>
+          <Volume2 className="h-3.5 w-3.5 text-white/70" />
         </div>
-        <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 font-bold">
-          <User className="h-3.5 w-3.5" />
-          <span>1,842 Viewing</span>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-display font-black text-yellow-400">
+            bid<span className="text-white">WAR</span>
+          </span>
+          <span className="text-[9px] sm:text-[10px] font-mono text-white/80 font-bold uppercase tracking-wide">
+            BIDWAR PREMIER LEAGUE
+          </span>
         </div>
       </div>
 
-      {/* Fan Main View: Shows OutcomeResultPanel when SOLD or live bid log */}
-      <div className="my-2 flex-1 flex flex-col justify-center">
-        {status === "sold" ? (
-          <div className="p-3 rounded-xl bg-emerald-500/10 border-2 border-emerald-500/40 flex items-center gap-3">
-            <div className="relative h-14 w-14 rounded-lg bg-black/60 border border-emerald-400/50 flex items-center justify-center text-2xl flex-shrink-0">
-              {player.avatarEmoji}
-              <div
-                className="absolute inset-0 flex items-center justify-center font-display font-black text-xs bg-emerald-600 text-white rounded px-1"
-                style={{ transform: "rotate(-12deg)" }}
-              >
-                SOLD
-              </div>
+      {/* Summary Chips */}
+      <div className="flex items-center justify-between px-1 py-1 my-1 text-[9px] sm:text-[10px] font-mono font-bold shrink-0 bg-black/40 rounded border border-white/5">
+        <span className="text-emerald-400 flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          {status === "sold" ? "2" : "1"} SOLD
+        </span>
+        <span className="text-yellow-400 flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+          {status === "sold" ? "2" : "3"} LEFT
+        </span>
+        <span className="text-rose-400 flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+          {status === "unsold" ? "1" : "0"} UNSOLD
+        </span>
+        <span className="text-purple-400 flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+          0 RETAINED
+        </span>
+      </div>
+
+      {/* Player Card */}
+      <div className="relative rounded-xl bg-gradient-to-br from-[#0c2445] via-[#08182f] to-[#040c17] border border-blue-500/40 p-2.5 shadow-lg shrink-0">
+        <div className="flex items-start gap-2.5">
+          <div className="relative w-14 h-18 sm:w-16 sm:h-20 rounded-lg overflow-hidden border border-blue-400/40 bg-black/60 shrink-0">
+            <div className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full bg-yellow-400 text-black font-display font-black text-[10px] flex items-center justify-center shadow-md">
+              #{player.serialNo}
             </div>
-            <div className="min-w-0">
-              <h4 className="font-display font-black text-base text-white truncate">{player.name}</h4>
-              <p className="text-xs text-emerald-300 font-semibold truncate">Sold to {leadingTeam.name}</p>
-              <p className="font-display font-black text-lg text-amber-400">{bid.toLocaleString("en-IN")} PT.</p>
+            <img
+              src={player.photoUrl || "/assets/players/ankit-head.png"}
+              alt={player.name}
+              className="w-full h-full object-cover object-top"
+            />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h4 className="font-display font-black text-sm sm:text-base text-white tracking-wide truncate">
+              {player.name}
+            </h4>
+
+            <div className="flex flex-wrap items-center gap-1 my-1">
+              <span className="px-1.5 py-0.5 rounded bg-black/60 border border-blue-500/30 text-[9px] font-mono text-cyan-300 font-bold">
+                {player.role === "BOWLER" ? "Bowler" : player.role}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-black/60 border border-blue-500/30 text-[9px] font-mono text-cyan-300 font-bold">
+                {player.batStyle}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-black/60 border border-blue-500/30 text-[9px] font-mono text-cyan-300 font-bold">
+                {player.city}
+              </span>
+            </div>
+
+            <div className="text-[10px] font-mono text-white/60">
+              Base: <strong className="text-white font-bold">{player.basePrice.toLocaleString("en-IN")} Pt.</strong>
             </div>
           </div>
-        ) : status === "unsold" ? (
-          <div className="p-3 rounded-xl bg-rose-500/10 border-2 border-rose-500/40 flex items-center gap-3">
-            <div className="relative h-14 w-14 rounded-lg bg-black/60 border border-rose-400/50 flex items-center justify-center text-2xl flex-shrink-0">
-              {player.avatarEmoji}
-              <div
-                className="absolute inset-0 flex items-center justify-center font-display font-black text-[10px] bg-rose-700 text-white rounded px-1"
-                style={{ transform: "rotate(-12deg)" }}
-              >
+        </div>
+
+        <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between">
+          <div>
+            <span className="text-[9px] font-mono uppercase tracking-wider text-white/50 block font-bold">
+              CURRENT BID
+            </span>
+            <span className="font-display font-black text-lg sm:text-xl text-yellow-400 leading-none">
+              {bid.toLocaleString("en-IN")} Pt.
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/70 border border-red-500/40 text-[10px] font-mono font-bold text-white">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+            <span>{leadingTeam.code} {leadingTeam.name}</span>
+          </div>
+        </div>
+
+        {status === "sold" && (
+          <div className="absolute inset-0 z-20 rounded-xl bg-black/85 backdrop-blur-xs flex items-center justify-center p-2 animate-in zoom-in-95">
+            <div className="text-center">
+              <div className="text-lg sm:text-xl font-display font-black text-emerald-400 uppercase tracking-wider">
+                🎉 SOLD!
+              </div>
+              <div className="text-[11px] font-mono text-white font-bold mt-0.5">
+                {leadingTeam.name} won for {bid.toLocaleString("en-IN")} Pt.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status === "unsold" && (
+          <div className="absolute inset-0 z-20 rounded-xl bg-black/85 backdrop-blur-xs flex items-center justify-center p-2 animate-in zoom-in-95">
+            <div className="text-center">
+              <div className="text-lg sm:text-xl font-display font-black text-rose-500 uppercase tracking-wider">
                 UNSOLD
               </div>
-            </div>
-            <div className="min-w-0">
-              <h4 className="font-display font-black text-base text-white truncate">{player.name}</h4>
-              <p className="text-xs text-rose-300">Passed by franchises</p>
-            </div>
-          </div>
-        ) : (
-          /* Live Bid Activity Feed */
-          <div className="space-y-1.5">
-            <span className="text-[10px] uppercase font-mono text-muted-foreground font-bold">
-              Live Bid Feed:
-            </span>
-            <div className="p-2.5 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-primary font-bold">⚡</span>
-                <span className="font-bold text-white">{leadingTeam.name}</span>
+              <div className="text-[11px] font-mono text-white/70 font-bold mt-0.5">
+                Passed to recall pool
               </div>
-              <span className="font-mono font-black text-primary text-sm">{bid.toLocaleString("en-IN")} PT.</span>
-            </div>
-            <div className="p-2 rounded-lg bg-black/40 border border-white/5 flex items-center justify-between text-xs text-muted-foreground">
-              <span>LUCKNOW CHALLENGERS</span>
-              <span className="font-mono">{(bid - 5000 > 0 ? bid - 5000 : 10000).toLocaleString("en-IN")} PT.</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Fan Cheer Emoji Reactions Bar */}
-      <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-        <span className="text-xs font-mono text-muted-foreground font-bold">Cheer Live:</span>
-        <div className="flex items-center gap-2">
-          {["🔥", "🏏", "👏", "💰", "❤️"].map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => onSendReaction(emoji)}
-              className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/15 active:scale-125 transition flex items-center justify-center text-base"
-            >
-              {emoji}
-            </button>
-          ))}
+      {/* Teams Section */}
+      <div className="my-1.5 shrink-0">
+        <span className="text-[10px] font-mono font-black uppercase tracking-wider text-white block mb-1">
+          TEAMS
+        </span>
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="p-1.5 rounded-lg border-l-2 border-blue-500 bg-[#0c182b] border border-white/5 text-[9px] font-mono">
+            <div className="font-bold text-white truncate">T1 LUCKNOW CH...</div>
+            <div className="text-white/60 mt-0.5">
+              PURSE LEFT <strong className="text-blue-300 font-bold">9.55 L Pt.</strong>
+            </div>
+            <div className="text-emerald-400 font-bold">SQUAD 1</div>
+          </div>
+
+          <div className="p-1.5 rounded-lg border-l-2 border-red-500 bg-[#1a0c0c] border border-white/5 text-[9px] font-mono">
+            <div className="font-bold text-white truncate">T2 DELHI DEVILS</div>
+            <div className="text-white/60 mt-0.5">
+              PURSE LEFT <strong className="text-red-300 font-bold">{status === "sold" ? "9.85" : "10.00"} L Pt.</strong>
+            </div>
+            <div className="text-emerald-400 font-bold">SQUAD {status === "sold" ? 1 : 0}</div>
+          </div>
         </div>
+      </div>
+
+      {/* Full-width Cheer Button */}
+      <div className="shrink-0 pt-1">
+        <button
+          type="button"
+          onClick={() => {
+            onSendReaction("🔥");
+            onSendReaction("🏏");
+            onSendReaction("👏");
+          }}
+          className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 hover:from-orange-400 hover:to-red-400 active:scale-98 text-white font-display font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition cursor-pointer"
+        >
+          <Flame className="h-4 w-4" />
+          <span>CHEER LIVE</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// SCREEN 4: ACTUAL TEAM BIDDER SCREEN (MATCHES media_1789817873758.png)
+// =============================================================================
+function ActualTeamBidderView({
+  player,
+  bid,
+  leadingTeam,
+  userTeam,
+  status,
+  timer,
+  onQuickBid,
+}: {
+  player: DemoPlayer;
+  bid: number;
+  leadingTeam: DemoTeam;
+  userTeam: DemoTeam;
+  status: "active" | "sold" | "unsold";
+  timer: number;
+  onQuickBid: () => void;
+}) {
+  const isWinner = leadingTeam.code === "PW" || leadingTeam.id === userTeam.id;
+  const purseLeft = status === "sold" && isWinner ? Math.max(0, 150000 - bid) : 140000;
+  const maxBidVal = status === "sold" && isWinner ? Math.max(0, purseLeft - 10000) : 140000;
+
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden bg-[#0e1026] border-2 border-blue-500/30 p-2.5 sm:p-3 flex flex-col justify-between select-none shadow-2xl h-full max-w-sm mx-auto"
+      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+    >
+      {/* 1. Header */}
+      <div>
+        <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+          <div className="flex items-center gap-1 font-display font-black text-sm">
+            <span className="text-yellow-400">bid</span>
+            <span className="text-white">WAR</span>
+          </div>
+          <span className="text-[7px] font-mono uppercase tracking-widest text-white/40">
+            FROM AUCTION TO CHAMPION
+          </span>
+        </div>
+
+        {/* Team bar: Pitch Warriors LIVE */}
+        <div className="flex items-center justify-between pt-1.5 text-xs">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-md bg-emerald-600 text-white font-display font-black flex items-center justify-center text-[10px]">
+              PW
+            </div>
+            <span className="font-bold text-white text-xs">Pitch Warriors</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[8px] font-mono font-bold uppercase">
+              LIVE
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[9px] font-mono text-white/60">
+            <span className="text-emerald-400">SYNCED</span>
+            <span>MY SQUAD</span>
+            <span>RIVALS</span>
+          </div>
+        </div>
+
+        {/* Live Countdown Timer Bar */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded-full bg-black/60 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                status !== "active"
+                  ? "bg-zinc-600 w-full"
+                  : timer <= 3
+                  ? "bg-red-500 animate-pulse"
+                  : timer <= 6
+                  ? "bg-amber-400"
+                  : "bg-emerald-400"
+              }`}
+              style={{
+                width: status === "active" ? `${Math.min(100, Math.max(0, (timer / 15) * 100))}%` : "100%",
+              }}
+            />
+          </div>
+          <span
+            className={`font-mono font-black text-xs sm:text-sm ${
+              status !== "active"
+                ? "text-white/40"
+                : timer <= 3
+                ? "text-red-400 animate-pulse"
+                : "text-emerald-400"
+            }`}
+          >
+            {status === "active" ? `${timer}s` : "0s"}
+          </span>
+        </div>
+      </div>
+
+      {/* 2. Active Player Card */}
+      <div className="relative my-2 p-2.5 rounded-xl bg-[#141738] border border-blue-500/30 overflow-hidden">
+        {/* SOLD / UNSOLD OVERLAYS */}
+        {status === "sold" && isWinner && (
+          <div className="absolute inset-0 z-30 rounded-xl bg-gradient-to-b from-[#063b2f]/95 via-black/95 to-[#04241c]/95 border-2 border-emerald-400 p-2.5 flex flex-col items-center justify-center text-center animate-in zoom-in-95 shadow-2xl">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-xl shadow-[0_0_20px_rgba(16,185,129,0.7)] animate-bounce mb-0.5">
+              🎉
+            </div>
+            <span className="px-2 py-0.2 rounded-full bg-emerald-400 text-black font-mono font-black text-[8px] tracking-wider uppercase">
+              LOT WON!
+            </span>
+            <h3 className="font-display font-black text-base text-white mt-0.5 uppercase">
+              CONGRATULATIONS!
+            </h3>
+            <p className="text-[10px] font-mono text-emerald-300 font-bold">
+              {player.name} won for ₹{bid.toLocaleString("en-IN")}
+            </p>
+            <span className="text-[8px] font-mono text-white/70 bg-black/60 px-2 py-0.5 rounded border border-white/10 mt-1">
+              Added to Pitch Warriors Squad · Purse adjusted
+            </span>
+          </div>
+        )}
+
+        {status === "sold" && !isWinner && (
+          <div className="absolute inset-0 z-30 rounded-xl bg-gradient-to-b from-[#3b0b14]/95 via-black/95 to-[#240409]/95 border-2 border-red-500/60 p-2.5 flex flex-col items-center justify-center text-center animate-in zoom-in-95 shadow-2xl">
+            <div className="w-10 h-10 rounded-full bg-red-500/20 border-2 border-red-500/60 flex items-center justify-center text-xl mb-0.5">
+              🔨
+            </div>
+            <span className="px-2 py-0.2 rounded-full bg-red-500 text-white font-mono font-black text-[8px] tracking-wider uppercase">
+              LOT SOLD
+            </span>
+            <h3 className="font-display font-black text-sm text-white mt-0.5 uppercase">
+              SOLD TO {leadingTeam.name}
+            </h3>
+            <p className="text-[10px] font-mono text-white/80 font-bold">
+              Final Price: ₹{bid.toLocaleString("en-IN")}
+            </p>
+            <span className="text-[8px] font-mono text-amber-300 bg-black/60 px-2 py-0.5 rounded border border-amber-500/30 mt-1">
+              Outbid by {leadingTeam.shortName} · Awaiting next lot
+            </span>
+          </div>
+        )}
+
+        {status === "unsold" && (
+          <div className="absolute inset-0 z-30 rounded-xl bg-gradient-to-b from-[#25103b]/95 via-black/95 to-[#160824]/95 border-2 border-purple-500/60 p-2.5 flex flex-col items-center justify-center text-center animate-in zoom-in-95 shadow-2xl">
+            <div className="w-10 h-10 rounded-full bg-purple-500/20 border-2 border-purple-500/60 flex items-center justify-center text-xl mb-0.5">
+              ✕
+            </div>
+            <span className="px-2 py-0.2 rounded-full bg-purple-500 text-white font-mono font-black text-[8px] tracking-wider uppercase">
+              UNSOLD
+            </span>
+            <h3 className="font-display font-black text-sm text-white mt-0.5 uppercase">
+              {player.name}
+            </h3>
+            <span className="text-[8px] font-mono text-white/60 bg-black/60 px-2 py-0.5 rounded border border-white/10 mt-1">
+              Returned to recall pool · Next lot soon
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-start gap-2.5">
+          <div className="relative w-14 h-18 rounded-lg overflow-hidden border border-blue-400/30 bg-black/60 shrink-0">
+            <img
+              src={player.photoUrl || "/assets/players/ankit-head.png"}
+              alt={player.name}
+              className="w-full h-full object-cover object-top"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-mono text-yellow-400 font-bold">#{player.serialNo}</div>
+            <h4 className="font-display font-black text-sm sm:text-base text-white truncate leading-tight">
+              {player.name}
+            </h4>
+            <div className="text-[10px] font-mono text-white/70 mt-0.5">
+              ROLE <strong className="text-white font-bold">{player.role}</strong>
+            </div>
+            <div className="text-[10px] font-mono text-white/70">
+              CITY <strong className="text-white font-bold">{player.city}</strong>
+            </div>
+            <div className="text-[10px] font-mono text-yellow-400 mt-0.5">
+              Base <strong>₹{player.basePrice.toLocaleString("en-IN")}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Current Bid Display + Leader tag */}
+        <div className="mt-2 pt-2 border-t border-white/10 text-center">
+          <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-widest text-white/50 block font-bold">
+            {status === "sold" ? "FINAL LOT AMOUNT" : "CURRENT BID"}
+          </span>
+          <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight leading-none mt-0.5">
+            ₹{bid.toLocaleString("en-IN")}
+          </div>
+          <div className="mt-1 text-[9px] font-mono">
+            <span className="text-white/40 uppercase">Leading: </span>
+            {isWinner ? (
+              <span className="text-emerald-400 font-bold">★ Pitch Warriors (YOU)</span>
+            ) : (
+              <span className="text-amber-400 font-bold">{leadingTeam.shortName} ({leadingTeam.name})</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Stats 3-box row */}
+      <div className="grid grid-cols-3 gap-1.5 text-center text-[9px] font-mono bg-[#141738] p-1.5 rounded-lg border border-white/5">
+        <div>
+          <span className="font-bold text-amber-400 text-xs block">11</span>
+          <span className="text-white/50 text-[8px] block">MIN SQUAD</span>
+        </div>
+        <div>
+          <span className="font-bold text-blue-400 text-xs block">1</span>
+          <span className="text-white/50 text-[8px] block">RETAINED</span>
+        </div>
+        <div>
+          <span className="font-bold text-emerald-400 text-xs block">
+            {status === "sold" && isWinner ? "1" : "0"}
+          </span>
+          <span className="text-white/50 text-[8px] block">BOUGHT</span>
+        </div>
+      </div>
+
+      {/* 4. Purse chips */}
+      <div className="grid grid-cols-3 gap-1 my-2 text-[8px] font-mono text-center">
+        <div className="p-1 rounded bg-black/40 border border-white/5">
+          <div className="text-emerald-400 font-bold">₹1.50L</div>
+          <div className="text-white/40">PURSE</div>
+        </div>
+        <div className="p-1 rounded bg-black/40 border border-white/5">
+          <div className="text-cyan-400 font-bold">₹{(purseLeft / 100000).toFixed(2)}L</div>
+          <div className="text-white/40">PURSE LEFT</div>
+        </div>
+        <div className="p-1 rounded bg-black/40 border border-white/5">
+          <div className="text-amber-400 font-bold">₹{(maxBidVal / 100000).toFixed(2)}L</div>
+          <div className="text-white/40">MAX BID</div>
+        </div>
+      </div>
+
+      {/* 5. DYNAMIC BID BUTTON / CELEBRATION BADGE */}
+      <div>
+        {status === "active" && (
+          <button
+            type="button"
+            onClick={onQuickBid}
+            className="w-full py-3 sm:py-3.5 rounded-xl bg-[#1fc76a] hover:bg-[#1bb35f] active:scale-98 text-black font-display font-black text-lg sm:text-xl uppercase tracking-wider flex flex-col items-center justify-center shadow-2xl cursor-pointer transition min-h-[44px]"
+          >
+            <span>BID</span>
+            <span className="text-xs font-mono font-bold text-black/80">
+              ₹{(bid + 5000).toLocaleString("en-IN")}
+            </span>
+          </button>
+        )}
+
+        {status === "sold" && isWinner && (
+          <div className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 text-black font-display font-black text-xs sm:text-sm uppercase tracking-wider flex flex-col items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.5)] border-2 border-emerald-300 animate-pulse min-h-[44px]">
+            <div className="flex items-center gap-1.5">
+              <Trophy className="h-4 w-4 text-black" />
+              <span>WON BY PITCH WARRIORS!</span>
+            </div>
+            <span className="text-[10px] font-mono font-black text-black/80">
+              ₹{bid.toLocaleString("en-IN")} PT.
+            </span>
+          </div>
+        )}
+
+        {status === "sold" && !isWinner && (
+          <div className="w-full py-2.5 rounded-xl bg-black/60 border border-white/10 text-white/50 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center min-h-[44px]">
+            <span>LOT SOLD TO {leadingTeam.shortName}</span>
+            <span className="text-[9px] font-mono text-white/40">
+              ₹{bid.toLocaleString("en-IN")} PT.
+            </span>
+          </div>
+        )}
+
+        {status === "unsold" && (
+          <div className="w-full py-2.5 rounded-xl bg-black/60 border border-white/10 text-rose-400 font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 min-h-[44px]">
+            <XCircle className="h-3.5 w-3.5" />
+            <span>PLAYER UNSOLD</span>
+          </div>
+        )}
+
+        <span className="text-[8px] font-mono text-center text-white/30 uppercase tracking-widest block mt-1">
+          POWERED BY BIDWAR
+        </span>
       </div>
     </div>
   );

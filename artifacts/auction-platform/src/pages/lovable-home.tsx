@@ -303,7 +303,7 @@ export default function LovableHome() {
   return (
     <>
       <HomeSchemaMarkup />
-      <div className="lovable-home min-h-screen text-foreground bg-stage">
+      <div className="lovable-home min-h-screen text-foreground bg-stage overflow-x-hidden">
         <Header
           onOpenDrawer={() => setDrawerOpen(true)}
           goBlog={goBlog}
