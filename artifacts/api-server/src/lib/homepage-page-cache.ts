@@ -1,10 +1,12 @@
 import type { DisplayAuctionRow } from "./display-auction-service.js";
 import type { ShowcaseEventRow } from "./showcase-service.js";
+import type { ClientRow } from "./clients-service.js";
 
 /** Serializable homepage bundle — matches window.__BIDWAR_INITIAL_DATA__ contract. */
 export type HomepagePageData = {
   auctions: DisplayAuctionRow[];
   showcaseEvents: ShowcaseEventRow[];
+  clients: ClientRow[];
   branding: Record<string, unknown>;
   generatedAt: string;
 };

@@ -13,10 +13,12 @@ import { SystemLogsPanel } from "@/components/admin/system-logs-panel";
 import { DefaultAudioSettingsPanel } from "@/components/admin/default-audio-panel";
 import { DiagnosticsPanel } from "@/components/admin/diagnostics-panel";
 import { SearchConsolePanel } from "@/components/admin/search-console-panel";
+import { ClientsPanel } from "@/components/admin/clients-panel";
 
 const systemTabs = [
   { id: "diagnostics", label: "Diagnostics", href: "/admin/settings/system/diagnostics" },
   { id: "audit-logs", label: "Audit Logs", href: "/admin/settings/system/audit-logs" },
+  { id: "clients", label: "Our Clients", href: "/admin/settings/system/clients" },
   { id: "sms", label: "SMS Notifications", href: "/admin/settings/system/sms" },
   { id: "session-lock", label: "Session Lock", href: "/admin/settings/system/session-lock" },
   { id: "installer", label: "Local App Installer", href: "/admin/settings/system/installer" },
@@ -30,6 +32,7 @@ const systemTabs = [
 function getSection(pathname: string) {
   if (pathname.includes("/diagnostics")) return "diagnostics";
   if (pathname.includes("/audit-logs")) return "audit-logs";
+  if (pathname.includes("/clients")) return "clients";
   if (pathname.includes("/session-lock")) return "session-lock";
   if (pathname.includes("/installer")) return "installer";
   if (pathname.includes("/builds")) return "builds";
@@ -69,6 +72,7 @@ export default function AdminSystemPage() {
         <div className="overflow-hidden rounded-xl border border-border bg-card/70">
           {section === "diagnostics" && <DiagnosticsPanel />}
           {section === "audit-logs" && <SystemLogsPanel />}
+          {section === "clients" && <ClientsPanel />}
           {section === "sms" && <SmsSettingsPanel />}
           {section === "session-lock" && <AdminSessionLockPanel />}
           {section === "installer" && <InstallerSettingsPanel />}

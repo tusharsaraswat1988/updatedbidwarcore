@@ -25,6 +25,7 @@ export const SOLUTION_PLATFORM_LINKS = [
 ] as const;
 
 export const MORE_NAV_LINKS = [
+  { label: "Our Clients", href: "/#our-clients", sectionId: "our-clients" },
   { label: "Blog & Articles", href: "/blog" },
   { label: "Organizer Reviews", href: "/#reviews", sectionId: "reviews" },
   { label: "Tournament Calculator", href: "/#calculator", sectionId: "calculator" },

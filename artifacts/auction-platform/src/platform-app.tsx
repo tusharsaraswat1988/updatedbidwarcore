@@ -223,6 +223,7 @@ function PlatformRouter() {
         <Route path="/admin/knowledge-center/academy" component={AdminAcademyLessonsList} />
         <Route path="/admin/settings/system/diagnostics" component={AdminSystemPage} />
         <Route path="/admin/settings/system/audit-logs" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/clients" component={AdminSystemPage} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
         <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />
         <Route path="/admin/settings/system/installer" component={AdminSystemPage} />
@@ -231,6 +232,7 @@ function PlatformRouter() {
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
         <Route path="/admin/settings/system/search-console" component={AdminSystemPage} />
+        <Route path="/admin/clients">{() => <Redirect to="/admin/settings/system/clients" />}</Route>
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
         <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
         <Route path="/admin/communicate/logs">{() => <Redirect to="/admin/settings/communication/logs" />}</Route>

@@ -40,6 +40,7 @@ const communicationItems: NavItem[] = [
 const settingItems: NavItem[] = [
   { label: "Reports", href: "/admin/settings/reports", icon: FileBarChart },
   { label: "Branding", href: "/admin/settings/branding", icon: Settings },
+  { label: "Our Clients", href: "/admin/settings/system/clients", icon: Building2 },
   { label: "Admin Notifications", href: "/admin/settings/admin-notifications", icon: Bell },
   { label: "AI & Intelligence", href: "/admin/settings/intelligence", icon: Activity },
   { label: "System", href: "/admin/settings/system/diagnostics", icon: Monitor },

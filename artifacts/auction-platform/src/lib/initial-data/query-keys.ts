@@ -12,3 +12,8 @@ export const brandingKeys = {
   public: ["branding", "public"] as const,
   iconVersion: ["branding", "icon-version"] as const,
 };
+
+export const clientKeys = {
+  all: ["clients"] as const,
+  active: ["clients", "active"] as const,
+};

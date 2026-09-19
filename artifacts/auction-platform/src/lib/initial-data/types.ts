@@ -14,10 +14,22 @@ export type ShowcaseEventRecord = {
   active?: boolean;
 };
 
+export type ClientRecord = {
+  id: number;
+  name: string;
+  logoUrl?: string | null;
+  logoPublicId?: string | null;
+  websiteUrl?: string | null;
+  clientType?: string;
+  displayOrder?: number;
+  active?: boolean;
+};
+
 /** Wire format embedded in window.__BIDWAR_INITIAL_DATA__ */
 export type HomeInitialDataWire = {
   auctions: DisplayAuction[];
   showcaseEvents: ShowcaseEventRecord[];
+  clients?: ClientRecord[];
   branding: Record<string, unknown>;
   generatedAt: string;
 };
@@ -26,6 +38,7 @@ export type HomeInitialDataWire = {
 export type HomeInitialData = {
   auctions: DisplayAuction[];
   showcaseEvents: ShowcaseEventRecord[];
+  clients: ClientRecord[];
   branding: BrandingSettings;
   generatedAt: string;
 };
@@ -52,6 +65,7 @@ export function normalizeHomeInitialData(wire: HomeInitialDataWire): HomeInitial
   return {
     auctions: wire.auctions,
     showcaseEvents: wire.showcaseEvents,
+    clients: wire.clients || [],
     branding: brandingPayloadToSettings(wire.branding),
     generatedAt: wire.generatedAt,
   };

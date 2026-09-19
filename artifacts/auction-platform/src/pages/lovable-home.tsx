@@ -43,6 +43,7 @@ import {
   type OrganizerReview,
 } from "@/components/home/organizer-video-reviews";
 import { HeroTournamentShowcase } from "@/components/home/hero-tournament-showcase";
+import { OurClientsSection } from "@/components/home/our-clients-section";
 
 import { PricingSection } from "@/components/home/pricing-section";
 
@@ -63,7 +64,9 @@ function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement
       ? "auction-screens"
       : sectionId === "tournaments" || sectionId === "cases"
         ? "tournament-galleries"
-        : sectionId;
+        : sectionId === "clients"
+          ? "our-clients"
+          : sectionId;
   const el = document.getElementById(targetId) || document.getElementById(sectionId);
   if (el) {
     const yOffset = -95; // Account for sticky header + breathing room
@@ -381,6 +384,10 @@ export default function LovableHome() {
           {/* 10. Final Booking CTA & Contact Desk */}
           <FinalCTA onContact={openDemoWhatsApp} goSignup={goSignup} />
           <ContactSection onOpen={() => setContactOpen(true)} />
+
+          {/* 11. Our Clients (Brands, Firms, and Auction Organisations) */}
+          <OurClientsSection />
+
           <Footer />
         </main>
 
@@ -635,6 +642,7 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
           { label: "Auction Screens", href: "#auction-screens", sectionId: "auction-screens" },
           { label: "Experience Bidding", href: "#experience-bidding", sectionId: "experience-bidding" },
           { label: "Tournament Galleries", href: "#tournament-galleries", sectionId: "tournament-galleries" },
+          { label: "Our Clients", href: "#our-clients", sectionId: "our-clients" },
           { label: "Academy (Video Hub)", href: "/academy", action: goAcademy },
           { label: "Pricing", href: "#pricing", sectionId: "pricing" },
           { label: "Blog", href: "/blog", action: goBlog },
@@ -1776,6 +1784,7 @@ function Footer() {
       items: [
         { label: "BidWar Academy", href: "/academy" },
         { label: "Blog & Guides", href: "/blog" },
+        { label: "Our Clients", href: "#our-clients" },
         { label: "Tournament Galleries", href: "#tournament-galleries" },
         { label: "Organizer Reviews", href: "#reviews" },
         { label: "Upcoming Auctions", href: "/upcoming-auctions" },

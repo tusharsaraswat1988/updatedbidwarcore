@@ -16,9 +16,10 @@ import {
   brandingKeys,
   displayAuctionKeys,
   showcaseKeys,
+  clientKeys,
 } from "./query-keys";
 import type { DisplayAuction } from "@/lib/auth";
-import type { ShowcaseEventRecord } from "./types";
+import type { ShowcaseEventRecord, ClientRecord } from "./types";
 
 type InitialDataContextValue = {
   pageData: PageInitialData | null;
@@ -36,6 +37,7 @@ export function seedHomepageQueryCache(
 ): DehydratedState {
   queryClient.setQueryData<DisplayAuction[]>(displayAuctionKeys.landing, data.auctions);
   queryClient.setQueryData<ShowcaseEventRecord[]>(showcaseKeys.active, data.showcaseEvents);
+  queryClient.setQueryData<ClientRecord[]>(clientKeys.active, data.clients);
   queryClient.setQueryData(brandingKeys.public, data.branding);
   return dehydrate(queryClient);
 }
@@ -67,6 +69,7 @@ export function InitialDataProvider({
 
     void queryClient.invalidateQueries({ queryKey: displayAuctionKeys.landing });
     void queryClient.invalidateQueries({ queryKey: showcaseKeys.active });
+    void queryClient.invalidateQueries({ queryKey: clientKeys.active });
     void queryClient.invalidateQueries({ queryKey: brandingKeys.public });
   }, [pageData, queryClient]);
 
@@ -93,12 +96,14 @@ export function useHasServerSnapshot(): boolean {
 export function normalizeHomepageBundle(bundle: {
   auctions: DisplayAuction[];
   showcaseEvents: ShowcaseEventRecord[];
+  clients?: ClientRecord[];
   branding: Record<string, unknown>;
   generatedAt: string;
 }): HomeInitialData {
   return {
     auctions: bundle.auctions,
     showcaseEvents: bundle.showcaseEvents,
+    clients: bundle.clients || [],
     branding: brandingPayloadToSettings(bundle.branding),
     generatedAt: bundle.generatedAt,
   };

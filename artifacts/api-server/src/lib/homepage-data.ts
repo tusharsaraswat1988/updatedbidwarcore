@@ -1,6 +1,7 @@
 import { brandingService } from "./branding-service.js";
 import { displayAuctionService } from "./display-auction-service.js";
 import { showcaseService } from "./showcase-service.js";
+import { clientsService } from "./clients-service.js";
 import {
   getHomepagePageData,
   invalidateHomepageCache,
@@ -9,12 +10,13 @@ import {
 } from "./homepage-page-cache.js";
 
 async function loadFreshHomepageData(): Promise<Omit<HomepagePageData, "generatedAt">> {
-  const [auctions, showcaseEvents, branding] = await Promise.all([
+  const [auctions, showcaseEvents, clients, branding] = await Promise.all([
     displayAuctionService.listForLanding(),
     showcaseService.listActive(),
+    clientsService.listActive(),
     brandingService.getPublicBrandingPayload(),
   ]);
-  return { auctions, showcaseEvents, branding };
+  return { auctions, showcaseEvents, clients, branding };
 }
 
 export function invalidateHomepagePageCache(): void {
