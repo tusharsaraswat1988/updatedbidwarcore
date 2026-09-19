@@ -57,13 +57,25 @@ export function PublicNavbar() {
   }, []);
 
   const onSectionClick = useCallback(
-    (sectionId: string, event: MouseEvent<HTMLAnchorElement>) => {
+    (sectionId: string, event?: MouseEvent<HTMLAnchorElement>) => {
+      const targetId =
+        sectionId === "surfaces" || sectionId === "features"
+          ? "auction-screens"
+          : sectionId === "tournaments" || sectionId === "cases"
+            ? "tournament-galleries"
+            : sectionId;
+
       if (!isHome) {
         closeMobileMenu();
         return;
       }
-      event.preventDefault();
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+      event?.preventDefault();
+      const el = document.getElementById(targetId) || document.getElementById(sectionId);
+      if (el) {
+        const yOffset = -95;
+        const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }
       closeMobileMenu();
     },
     [isHome, closeMobileMenu],
@@ -105,7 +117,7 @@ export function PublicNavbar() {
     <>
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-stage/85 backdrop-blur-md">
         <div className="h-16 w-full px-3 sm:px-6 lg:px-8 flex items-center gap-3">
-          <a href="/" className="h-full flex items-center flex-shrink-0 pr-1">
+          <a href="/" className="h-full flex items-center flex-shrink-0 pr-1" aria-label="BidWar Home">
             <BrandLogoImage
               src={headerLogoSrc}
               alt={logoAlt}
@@ -116,13 +128,34 @@ export function PublicNavbar() {
             />
           </a>
 
-          <div className="hidden lg:flex flex-1 items-center justify-center gap-6 text-sm text-muted-foreground">
-            <a href="/#features" onClick={(e) => onSectionClick("features", e)} className="hover:text-foreground transition-colors">Features</a>
+          <div className="hidden xl:flex flex-1 items-center justify-center gap-5 text-sm text-muted-foreground">
+            <a
+              href="/#auction-screens"
+              onClick={(e) => onSectionClick("auction-screens", e)}
+              className="hover:text-foreground transition-colors whitespace-nowrap"
+            >
+              Auction Screens
+            </a>
+            <a
+              href="/#experience-bidding"
+              onClick={(e) => onSectionClick("experience-bidding", e)}
+              className="hover:text-foreground transition-colors whitespace-nowrap"
+            >
+              Experience Bidding
+            </a>
+            <a
+              href="/#tournament-galleries"
+              onClick={(e) => onSectionClick("tournament-galleries", e)}
+              className="hover:text-foreground transition-colors whitespace-nowrap"
+            >
+              Tournament Galleries
+            </a>
+
             <div className="relative group">
               <a
                 href="/#solutions"
                 onClick={(e) => onSectionClick("solutions", e)}
-                className={`inline-flex items-center gap-1 transition-colors ${isSolutionsPath ? "text-foreground" : "hover:text-foreground"}`}
+                className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${isSolutionsPath ? "text-foreground" : "hover:text-foreground"}`}
                 aria-haspopup="true"
               >
                 Solutions <ChevronDown className="w-3.5 h-3.5" />
@@ -130,7 +163,7 @@ export function PublicNavbar() {
               <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[520px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-3 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">By Sport</div>
+                    <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">By Sport</div>
                     <div className="space-y-0.5">
                       {SOLUTION_SPORT_LINKS.map((link) => (
                         <a
@@ -148,7 +181,7 @@ export function PublicNavbar() {
                     </div>
                   </div>
                   <div>
-                    <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Platform</div>
+                    <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Platform</div>
                     <div className="space-y-0.5">
                       {SOLUTION_PLATFORM_LINKS.map((link) => (
                         <a
@@ -172,31 +205,37 @@ export function PublicNavbar() {
                     onClick={(e) => onSectionClick("solutions", e)}
                     className="block rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
                   >
-                    View all solutions →
+                    View all sports & platform solutions →
                   </a>
                 </div>
               </div>
             </div>
+
+            <a
+              href="/academy"
+              className={`inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${isAcademyPath ? "text-foreground" : "hover:text-foreground"}`}
+            >
+              <span>Academy</span>
+              <span className="rounded bg-primary/20 px-1.5 py-0.5 font-mono text-[9px] text-primary font-bold">
+                VIDEOS
+              </span>
+            </a>
+
             <a
               href="/pricing"
               onClick={(e) => { if (isHome) onSectionClick("pricing", e); }}
-              className={`transition-colors ${isPricingPath ? "text-foreground" : "hover:text-foreground"}`}
+              className={`transition-colors whitespace-nowrap ${isPricingPath ? "text-foreground" : "hover:text-foreground"}`}
             >
               Pricing
             </a>
-            <a
-              href="/academy"
-              className={`inline-flex items-center gap-1 transition-colors ${isAcademyPath ? "text-foreground" : "hover:text-foreground"}`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" /> Academy
-            </a>
+
             <div className="relative group">
-              <a href="/blog" className={`inline-flex items-center gap-1 transition-colors ${isBlogPath ? "text-foreground" : "hover:text-foreground"}`}>
-                <BookOpen className="w-3.5 h-3.5" /> Blog <ChevronDown className="w-3.5 h-3.5" />
+              <a href="/blog" className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${isBlogPath ? "text-foreground" : "hover:text-foreground"}`}>
+                Blog <ChevronDown className="w-3.5 h-3.5" />
               </a>
               {!isAcademyPath && navBlogPosts.length > 0 ? (
               <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[360px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-                <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Top Blog Pages</div>
+                <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Top Blog Pages</div>
                 <div className="space-y-0.5">
                   {navBlogPosts.map((post) => (
                     <a
@@ -210,14 +249,15 @@ export function PublicNavbar() {
                 </div>
                 <div className="pt-1 mt-1 border-t border-white/10">
                   <a href="/blog" className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
-                    More Articles
+                    Explore All Articles →
                   </a>
                 </div>
               </div>
               ) : null}
             </div>
+
             <div className="relative group">
-              <button className={`inline-flex items-center gap-1 transition-colors ${isMorePath ? "text-foreground" : "hover:text-foreground"}`} type="button" aria-label="Open more navigation links">
+              <button className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${isMorePath ? "text-foreground" : "hover:text-foreground"}`} type="button" aria-label="Open more navigation links">
                 More <ChevronDown className="w-3.5 h-3.5" />
               </button>
               <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-56 -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
@@ -256,7 +296,7 @@ export function PublicNavbar() {
             />
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="ghost-button lg:hidden rounded-md p-2"
+              className="ghost-button xl:hidden rounded-md p-2"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
             >
@@ -271,11 +311,11 @@ export function PublicNavbar() {
             <button
               type="button"
               onClick={closeMobileMenu}
-              className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
+              className="xl:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
               aria-label="Close mobile navigation"
             />
-            <div className="lg:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200">
-              <div className="space-y-2">
+            <div className="xl:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200">
+              <div className="space-y-1.5">
                 <a
                   href="https://bpl.bidwar.in/"
                   target="_blank"
@@ -286,18 +326,19 @@ export function PublicNavbar() {
                   <span>🏏</span>
                   <span>BPL Team Registration</span>
                 </a>
+
                 {[
-                  { label: "Features", href: "/#features", action: () => { if (isHome) document.getElementById("features")?.scrollIntoView({ behavior: "smooth" }); } },
-                  { label: "Use Cases", href: "/#solutions", action: () => { if (isHome) document.getElementById("solutions")?.scrollIntoView({ behavior: "smooth" }); } },
+                  { label: "Auction Screens", href: "/#auction-screens", sectionId: "auction-screens" },
+                  { label: "Experience Bidding", href: "/#experience-bidding", sectionId: "experience-bidding" },
+                  { label: "Tournament Galleries", href: "/#tournament-galleries", sectionId: "tournament-galleries" },
                 ].map((item) => (
                   <a
                     key={item.label}
                     href={item.href}
-                    onClick={() => {
-                      item.action?.();
-                      closeMobileMenu();
+                    onClick={(e) => {
+                      onSectionClick(item.sectionId, e);
                     }}
-                    className="block w-full text-left px-3 py-3 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    className="block w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
                   >
                     {item.label}
                   </a>
@@ -307,18 +348,18 @@ export function PublicNavbar() {
                   <button
                     type="button"
                     onClick={() => setMobileSolutionsOpen((prev) => !prev)}
-                    className={`flex w-full items-center justify-between px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex w-full items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isSolutionsPath ? "bg-white/5 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                     }`}
                     aria-expanded={mobileSolutionsOpen}
                   >
-                    Solutions
+                    Solutions by Sport
                     <ChevronDown className={`w-4 h-4 transition-transform ${mobileSolutionsOpen ? "rotate-180" : ""}`} />
                   </button>
                   {mobileSolutionsOpen ? (
                     <div className="px-2 pb-2 space-y-3">
                       <div>
-                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">By Sport</p>
+                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">By Sport</p>
                         {SOLUTION_SPORT_LINKS.map((link) => (
                           <a
                             key={link.href}
@@ -335,7 +376,7 @@ export function PublicNavbar() {
                         ))}
                       </div>
                       <div>
-                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Platform</p>
+                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Platform</p>
                         {SOLUTION_PLATFORM_LINKS.map((link) => (
                           <a
                             key={link.href}
@@ -363,25 +404,30 @@ export function PublicNavbar() {
                 </div>
 
                 {[
+                  { label: "Academy (Video Hub)", href: "/academy" },
                   { label: "Pricing", href: "/pricing" },
-                  { label: "FAQ", href: "/#faq", action: () => { if (isHome) document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" }); } },
-                  { label: "Academy", href: "/academy" },
-                  { label: "Auction Tips", href: "/auction-tips" },
                   { label: "Blog", href: "/blog" },
+                  { label: "Organizer Reviews", href: "/#reviews", sectionId: "reviews" },
+                  { label: "Tournament Calculator", href: "/#calculator", sectionId: "calculator" },
                   { label: "Upcoming Auctions", href: "/upcoming-auctions" },
+                  { label: "Auction Tips", href: "/auction-tips" },
                   { label: "Contact Us", href: "/contact" },
+                  { label: "FAQs", href: "/#faq", sectionId: "faq" },
                 ].map((item) => (
                   <a
                     key={item.label}
                     href={item.href}
-                    onClick={() => {
-                      item.action?.();
-                      closeMobileMenu();
+                    onClick={(e) => {
+                      if ("sectionId" in item && item.sectionId) {
+                        onSectionClick(item.sectionId, e);
+                      } else {
+                        closeMobileMenu();
+                      }
                     }}
-                    className={`block w-full text-left px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    className={`block w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       (item.label === "Blog" && isBlogPath)
                       || (item.label === "Pricing" && isPricingPath)
-                      || (item.label === "Academy" && isAcademyPath)
+                      || (item.label.startsWith("Academy") && isAcademyPath)
                       || (item.label === "Upcoming Auctions" && isUpcomingPath)
                       || (item.label === "Contact Us" && isContactPath)
                       || (item.label === "Auction Tips" && isAuctionTipsPath)
