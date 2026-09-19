@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, TrendingDown, LockOpen, Zap, MessageCircle, ChevronLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
@@ -35,6 +36,120 @@ import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
 import { TeamForm } from "@/components/team-form";
+
+function formatDisplayMobile(mobile?: string | null): string {
+  if (!mobile) return "—";
+  const digits = mobile.replace(/\D/g, "");
+  if (digits.length === 10) return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+  }
+  return mobile.trim() || "—";
+}
+
+function buildAllTeamsWhatsAppMessage(
+  tournament: { name: string; organizerName?: string | null } | undefined | null,
+  teams: Array<{
+    id: number;
+    name: string;
+    ownerName?: string | null;
+    ownerMobile?: string | null;
+    accessCode?: string | null;
+  }>,
+  tournamentId: number,
+  origin: string,
+): string {
+  const commonLink = `${origin}/owner-app/join?tournamentId=${tournamentId}`;
+  const tournamentName = tournament?.name || "Tournament";
+  const orgName = tournament?.organizerName?.trim();
+
+  const lines: string[] = [
+    `🏏 *Welcome to ${tournamentName}!*`,
+    ``,
+    `Here are the franchise team credentials for the live auction bidding panel.`,
+    ``,
+    `🔗 *Bidding Panel Link (Same for all teams):*`,
+    commonLink,
+    ``,
+    `📋 *How to login:*`,
+    `1. Click the bidding panel link above`,
+    `2. Enter your registered mobile number`,
+    `3. Enter your team's Access Code`,
+    ``,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `👥 *TEAM ACCESS CREDENTIALS*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    ``,
+  ];
+
+  teams.forEach((t, idx) => {
+    lines.push(`${idx + 1}. *${t.name}*`);
+    if (t.ownerName?.trim()) {
+      lines.push(`• Owner: ${t.ownerName.trim()}`);
+    }
+    lines.push(`• Registered Mobile: ${formatDisplayMobile(t.ownerMobile)}`);
+    lines.push(`• Access Code: *${t.accessCode?.trim() || "—"}*`);
+    lines.push(``);
+  });
+
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`Regards,`);
+  if (orgName) {
+    lines.push(`${orgName} (Organiser)`);
+  }
+  lines.push(`BidWar Auction Platform`);
+
+  return lines.join("\n");
+}
+
+function buildSingleTeamWhatsAppMessage(
+  tournament: { name: string; organizerName?: string | null } | undefined | null,
+  team: {
+    id: number;
+    name: string;
+    ownerName?: string | null;
+    ownerMobile?: string | null;
+    accessCode?: string | null;
+  },
+  tournamentId: number,
+  origin: string,
+): string {
+  const directLink = `${origin}/owner-app/join?tournamentId=${tournamentId}&teamId=${team.id}`;
+  const tournamentName = tournament?.name || "Tournament";
+  const orgName = tournament?.organizerName?.trim();
+  const mobileDisplay = formatDisplayMobile(team.ownerMobile);
+
+  const lines: string[] = [
+    `🏏 *Welcome to ${tournamentName}!*`,
+    ``,
+    `Here are the auction bidding credentials for *${team.name}*:`,
+    ``,
+    `🔗 *Bidding Panel Link:*`,
+    directLink,
+    ``,
+    `📋 *How to login:*`,
+    `1. Click the bidding panel link above`,
+    `2. Enter your registered mobile: *${mobileDisplay}*`,
+    `3. Enter your Access Code: *${team.accessCode?.trim() || "—"}*`,
+    ``,
+    `• *Team:* ${team.name}`,
+  ];
+
+  if (team.ownerName?.trim()) {
+    lines.push(`• *Owner:* ${team.ownerName.trim()}`);
+  }
+  lines.push(`• *Mobile:* ${mobileDisplay}`);
+  lines.push(`• *Access Code:* *${team.accessCode?.trim() || "—"}*`);
+  lines.push(``);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`Regards,`);
+  if (orgName) {
+    lines.push(`${orgName} (Organiser)`);
+  }
+  lines.push(`BidWar Auction Platform`);
+
+  return lines.join("\n");
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -90,6 +205,10 @@ export default function Teams() {
   const [unlockTarget, setUnlockTarget] = useState<{ id: number; name: string } | null>(null);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState("");
+
+  const { toast } = useToast();
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [copiedTeamId, setCopiedTeamId] = useState<number | null>(null);
 
   const existingShortCodes = (teams || []).map(t => t.shortCode);
   const existingTeamColors = useMemo(() => (teams || []).map(t => t.color), [teams]);
@@ -157,16 +276,61 @@ export default function Teams() {
     return `${location.origin}/owner-app/join?tournamentId=${tournamentId}&teamId=${teamId}`;
   }
 
+  async function handleCopyAllCredentials() {
+    if (!teams || teams.length === 0) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const msg = buildAllTeamsWhatsAppMessage(tournament, teams, tournamentId, origin);
+    try {
+      await navigator.clipboard.writeText(msg);
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2000);
+      toast({
+        title: "Copied !",
+        description: "Paste it wherever required.",
+      });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Copy failed",
+        description: "Could not copy to clipboard. Please allow clipboard permissions.",
+      });
+    }
+  }
+
+  async function handleCopyTeamCredentials(team: {
+    id: number;
+    name: string;
+    ownerName?: string | null;
+    ownerMobile?: string | null;
+    accessCode?: string | null;
+  }) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const msg = buildSingleTeamWhatsAppMessage(tournament, team, tournamentId, origin);
+    try {
+      await navigator.clipboard.writeText(msg);
+      setCopiedTeamId(team.id);
+      setTimeout(() => setCopiedTeamId(null), 2000);
+      toast({
+        title: "Copied !",
+        description: "Paste it wherever required.",
+      });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Copy failed",
+        description: "Could not copy to clipboard.",
+      });
+    }
+  }
+
   function getOwnerWhatsAppHref(team: { id: number; name: string; ownerName?: string | null; ownerMobile?: string | null; accessCode?: string | null }) {
-    const ownerLink = getOwnerLink(team.id);
-    const shareLines = [
-      `${tournament?.name ?? "Auction"} — ${team.name}`,
-      team.ownerName ? `Owner: ${team.ownerName}` : null,
-      team.accessCode ? `Access code: ${team.accessCode}` : null,
-      `Bidding link: ${ownerLink}`,
-    ].filter(Boolean);
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const message = buildSingleTeamWhatsAppMessage(tournament, team, tournamentId, origin);
     const mobile = team.ownerMobile?.replace(/\D/g, "") ?? "";
-    return `https://wa.me/${mobile}?text=${encodeURIComponent(shareLines.join("\n"))}`;
+    if (mobile) {
+      return `https://wa.me/${mobile}?text=${encodeURIComponent(message)}`;
+    }
+    return `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
 
   return (
@@ -213,35 +377,58 @@ export default function Teams() {
               : `Teams: ${teams?.length || 0} of 2 minimum`
           }
           actions={
-          <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
-                <Plus className="w-5 h-5" /> Add Team
-              </Button>
-            </DialogTrigger>
-            <DialogContent
-              className="max-w-lg dark"
-              onPointerDownOutside={e => e.preventDefault()}
-              onEscapeKeyDown={e => e.preventDefault()}
-            >
-              <OrganizerFormDialogHeader
-                tournament={tournament}
-                title={editing ? "Edit Team" : "Add New Team"}
-              />
-              <TeamForm
-                key={editing?.id ?? "new"}
-                tournamentId={tournamentId}
-                team={editing}
-                existingShortCodes={existingShortCodes}
-                existingTeamColors={existingTeamColors}
-                basePurse={basePurse}
-                purseLabel={budgetLabel}
-                formatShortAmount={formatShort}
-                amountUnit={normalizeAuctionUnit(tournament?.auctionUnit)}
-                onClose={() => { setOpen(false); setEditing(null); }}
-              />
-            </DialogContent>
-          </Dialog>
+            <div className="flex items-center gap-2 flex-wrap">
+              {teams && teams.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 font-medium transition-colors"
+                  onClick={handleCopyAllCredentials}
+                  title="Copy all team credentials"
+                >
+                  {copiedAll ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>Copied !</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copy All Team Credentials</span>
+                    </>
+                  )}
+                </Button>
+              )}
+              <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
+                <DialogTrigger asChild>
+                  <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
+                    <Plus className="w-5 h-5" /> Add Team
+                  </Button>
+                </DialogTrigger>
+                <DialogContent
+                  className="max-w-lg dark"
+                  onPointerDownOutside={e => e.preventDefault()}
+                  onEscapeKeyDown={e => e.preventDefault()}
+                >
+                  <OrganizerFormDialogHeader
+                    tournament={tournament}
+                    title={editing ? "Edit Team" : "Add New Team"}
+                  />
+                  <TeamForm
+                    key={editing?.id ?? "new"}
+                    tournamentId={tournamentId}
+                    team={editing}
+                    existingShortCodes={existingShortCodes}
+                    existingTeamColors={existingTeamColors}
+                    basePurse={basePurse}
+                    purseLabel={budgetLabel}
+                    formatShortAmount={formatShort}
+                    amountUnit={normalizeAuctionUnit(tournament?.auctionUnit)}
+                    onClose={() => { setOpen(false); setEditing(null); }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
           }
         />
 
@@ -445,12 +632,24 @@ export default function Teams() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-1.5 bg-card border border-border rounded-lg px-3 py-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Panel Link</p>
                           <p className="text-xs font-mono text-muted-foreground truncate">{ownerLink}</p>
                         </div>
-                        <CopyButton text={ownerLink} />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-emerald-400 flex-shrink-0"
+                          title="Copy team credentials"
+                          onClick={() => handleCopyTeamCredentials(team)}
+                        >
+                          {copiedTeamId === team.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"

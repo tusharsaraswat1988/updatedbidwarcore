@@ -40,7 +40,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     highlight: false,
     color: "border-white/10 bg-card/40",
     badge: null,
-    discountedPrice: 4500,
+    discountedPrice: 3750,
     category: "club",
     cta: "Get Starter",
   },
@@ -53,7 +53,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     highlight: true,
     color: "border-primary/80 bg-primary/10 shadow-[var(--shadow-broadcast)]",
     badge: "Most Popular",
-    discountedPrice: 5400,
+    discountedPrice: 4500,
     category: "club",
     cta: "Get Pro License",
   },
@@ -66,7 +66,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     highlight: false,
     color: "border-white/10 bg-card/40",
     badge: null,
-    discountedPrice: 7200,
+    discountedPrice: 6000,
     category: "franchise",
     cta: "Get Advanced",
   },
@@ -79,7 +79,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     highlight: true,
     color: "border-primary/80 bg-primary/10 shadow-[var(--shadow-broadcast)]",
     badge: "Recommended",
-    discountedPrice: 8100,
+    discountedPrice: 6750,
     category: "franchise",
     cta: "Get Elite",
   },
@@ -92,7 +92,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     highlight: false,
     color: "border-white/10 bg-card/40",
     badge: null,
-    discountedPrice: 9900,
+    discountedPrice: 8250,
     category: "franchise",
     cta: "Get Premium",
   },
@@ -105,7 +105,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     highlight: false,
     color: "border-white/10 bg-card/40",
     badge: null,
-    discountedPrice: 10800,
+    discountedPrice: 9000,
     category: "franchise",
     cta: "Get Champion",
   },
@@ -139,7 +139,7 @@ export function PricingSection({
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-0.5 font-mono text-[10px] font-bold text-primary border border-primary/30">
-              <Clock className="w-3 h-3" /> 10% LIMITED DISCOUNT INCLUDED
+              <Clock className="w-3 h-3" /> 25% LIMITED DISCOUNT INCLUDED
             </span>
             <span>·</span>
             <span>Pay once per tournament · All screens & features included</span>

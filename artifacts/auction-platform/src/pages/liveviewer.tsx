@@ -16,7 +16,7 @@ import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket"
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
+import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight, SlidersHorizontal, Check, Sparkles } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { resolveRetainedSpend } from "@workspace/api-base";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
@@ -39,7 +39,7 @@ import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/disp
 import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 
 const TEAMS_PREVIEW = 6;
-const MOBILE_CHEER_VISIBLE_LIMIT = 8;
+const MOBILE_CHEER_VISIBLE_LIMIT = 3;
 /** Clearance above sponsor ribbon for the fixed CHEER LIVE pill (mobile). */
 const MOBILE_CHEER_BUTTON_CLEARANCE_PX = 52;
 
@@ -47,7 +47,7 @@ type CheerEntry = { id: string; supporterLabel: string; message: string; teamCol
 
 // ── Sound utilities (module-level, no hooks) ──────────────────────────────────
 
-type SoundKey = "newPlayer" | "bid" | "sold" | "unsold";
+type SoundKey = "newPlayer" | "bid" | "sold" | "unsold" | "cheer";
 type SoundSettings = Record<SoundKey, boolean>;
 
 const SOUND_LABELS: Record<SoundKey, string> = {
@@ -55,6 +55,7 @@ const SOUND_LABELS: Record<SoundKey, string> = {
   bid: "Bid placed",
   sold: "Player sold",
   unsold: "Player unsold",
+  cheer: "Live cheer reactions",
 };
 
 function playTone(
@@ -106,6 +107,13 @@ function playUnsoldSound(ac: AudioContext) {
   osc.stop(ac.currentTime + 0.6);
 }
 
+function playCheerSound(ac: AudioContext) {
+  const t = ac.currentTime;
+  // Soft, subtle harmonic bubble-pop chime (E5 -> A5) with gentle low gain
+  playTone(ac, 659.25, t, 0.12, "sine", 0.07);
+  playTone(ac, 880, t + 0.05, 0.18, "sine", 0.05);
+}
+
 // ── useSoundEngine ────────────────────────────────────────────────────────────
 
 function useSoundEngine() {
@@ -114,7 +122,7 @@ function useSoundEngine() {
       const raw = localStorage.getItem("bidwar_viewer_sounds");
       if (raw) return JSON.parse(raw) as SoundSettings;
     } catch {}
-    return { newPlayer: true, bid: true, sold: true, unsold: true };
+    return { newPlayer: true, bid: true, sold: true, unsold: true, cheer: true };
   });
 
   const settingsRef = useRef(settings);
@@ -155,6 +163,7 @@ function useSoundEngine() {
         case "bid":       playBidSound(ac);       break;
         case "sold":      playSoldSound(ac);      break;
         case "unsold":    playUnsoldSound(ac);    break;
+        case "cheer":     playCheerSound(ac);     break;
       }
     } catch {}
   }, []);
@@ -167,7 +176,25 @@ function useSoundEngine() {
     });
   }, []);
 
-  return { play, settings, toggle };
+  const anySound = useMemo(() => Object.values(settings).some(Boolean), [settings]);
+
+  const toggleAll = useCallback(() => {
+    setSettings((prev) => {
+      const currentlyAnyOn = Object.values(prev).some(Boolean);
+      const nextVal = !currentlyAnyOn;
+      const next: SoundSettings = {
+        newPlayer: nextVal,
+        bid: nextVal,
+        sold: nextVal,
+        unsold: nextVal,
+        cheer: nextVal,
+      };
+      try { localStorage.setItem("bidwar_viewer_sounds", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  return { play, settings, toggle, toggleAll, anySound };
 }
 
 function playerAcquisitionAmount(player: {
@@ -253,14 +280,22 @@ function TeamSquadSheet({
                     {team?.shortCode?.slice(0, 3) || "?"}
                   </div>
                 )}
-                <div>
-                  <p className="font-display font-bold text-lg leading-none" style={{ color: tc }}>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display font-bold text-lg leading-none truncate" style={{ color: tc }}>
                     {team?.teamName}
                   </p>
                   {team?.ownerName && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{team.ownerName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{team.ownerName}</p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors flex-shrink-0"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {/* Purse stats */}
@@ -339,7 +374,7 @@ function TeamSquadSheet({
             </div>
 
             {/* Player list */}
-            <div className="flex-1 overflow-y-auto px-2 py-2">
+            <div className="flex-1 overflow-y-auto px-2 py-2 pb-8 sm:pb-4">
               {squadPlayers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <User className="w-8 h-8 mb-2 opacity-25" />
@@ -817,6 +852,9 @@ function CheerFeedRail({
   fanBattle,
   heatMeterEnabled,
   fanBattleEnabled,
+  onOpenCheer,
+  cheerTeam,
+  cooldownSecondsLeft = 0,
 }: {
   messages: CheerEntry[];
   teams: TeamPurse[];
@@ -824,15 +862,18 @@ function CheerFeedRail({
   fanBattle: Record<string, number>;
   heatMeterEnabled: boolean;
   fanBattleEnabled: boolean;
+  onOpenCheer?: () => void;
+  cheerTeam?: TeamPurse | null;
+  cooldownSecondsLeft?: number;
 }) {
   return (
-    <div className="hidden xl:flex fixed right-0 top-0 bottom-0 w-72 z-20 flex-col border-l border-white/8 bg-black/55 backdrop-blur-2xl">
+    <div className="hidden xl:flex fixed right-0 top-0 bottom-0 w-80 z-20 flex-col border-l border-white/10 bg-black/65 backdrop-blur-2xl">
       {/* Rail header */}
-      <div className="flex-shrink-0 px-4 py-3.5 border-b border-white/8">
+      <div className="flex-shrink-0 px-4 py-3.5 border-b border-white/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live Cheer</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-widest text-foreground">Live Fan Cheer</span>
           </div>
           {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
             <HeatBadge level={heatLevel} />
@@ -843,12 +884,12 @@ function CheerFeedRail({
         )}
       </div>
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 p-3">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
-            <MessageCircle className="w-8 h-8 text-muted-foreground/20 mb-3" />
-            <p className="text-xs text-muted-foreground/40">No cheers yet</p>
-            <p className="text-[10px] text-muted-foreground/25 mt-1">Be the first to cheer!</p>
+            <MessageCircle className="w-10 h-10 text-muted-foreground/20 mb-3" />
+            <p className="text-sm text-muted-foreground/60 font-medium">No cheers yet</p>
+            <p className="text-xs text-muted-foreground/35 mt-1">Be the first to cheer for your team!</p>
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
@@ -857,6 +898,136 @@ function CheerFeedRail({
             ))}
           </AnimatePresence>
         )}
+      </div>
+      {/* Rail bottom cheer button */}
+      {onOpenCheer && (
+        <div className="flex-shrink-0 p-3.5 border-t border-white/10 bg-black/40">
+          <motion.button
+            onClick={cooldownSecondsLeft > 0 ? undefined : onOpenCheer}
+            disabled={cooldownSecondsLeft > 0}
+            whileTap={{ scale: 0.96 }}
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-sm flex items-center justify-center gap-2 shadow-lg hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition-all cursor-pointer"
+            style={{ boxShadow: "0 0 24px rgba(245,158,11,0.35)" }}
+          >
+            {cooldownSecondsLeft > 0 ? (
+              <>
+                <Sparkles className="w-4 h-4 animate-spin" />
+                WAIT {cooldownSecondsLeft}S
+              </>
+            ) : (
+              <>
+                <Flame className="w-4 h-4 fill-black" />
+                {cheerTeam ? `CHEER FOR ${cheerTeam.shortCode || cheerTeam.teamName}` : "CHEER LIVE"}
+              </>
+            )}
+          </motion.button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type FloatingReactionItem = {
+  id: string;
+  label: string;
+  emoji: string;
+  teamColor: string;
+  xOffset: number;
+};
+
+function FloatingReactionOverlay({ reactions }: { reactions: FloatingReactionItem[] }) {
+  if (reactions.length === 0) return null;
+  return (
+    <div className="fixed inset-x-0 bottom-24 pointer-events-none z-30 flex justify-center items-end h-64 overflow-hidden xl:hidden">
+      <AnimatePresence>
+        {reactions.map((item) => (
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, y: 40, scale: 0.7, x: item.xOffset }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              y: -180,
+              scale: [0.7, 1.25, 1.1, 0.85],
+              x: item.xOffset * 1.6,
+            }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2.3, ease: "easeOut" }}
+            className="absolute flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border shadow-lg"
+            style={{
+              backgroundColor: `${item.teamColor}28`,
+              borderColor: `${item.teamColor}60`,
+              boxShadow: `0 4px 20px ${item.teamColor}33`,
+            }}
+          >
+            <span className="text-xl leading-none">{item.emoji}</span>
+            <span className="text-xs font-bold font-display" style={{ color: item.teamColor }}>
+              {item.label}
+            </span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MobileFanBattle({
+  fanBattle,
+  teams,
+}: {
+  fanBattle: Record<string, number>;
+  teams: TeamPurse[];
+}) {
+  const sorted = useMemo(() => {
+    return Object.entries(fanBattle)
+      .map(([id, count]) => {
+        const team = teams.find((t) => String(t.teamId) === id);
+        return { id, count, team };
+      })
+      .filter((x): x is { id: string; count: number; team: TeamPurse } => !!x.team)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 2);
+  }, [fanBattle, teams]);
+
+  if (sorted.length < 2) return null;
+  const total = sorted.reduce((sum, x) => sum + x.count, 0) || 1;
+  const [t1, t2] = sorted;
+  const t1Pct = Math.round((t1.count / total) * 100);
+  const t2Pct = 100 - t1Pct;
+  const c1 = t1.team.color || "#F59E0B";
+  const c2 = t2.team.color || "#3B82F6";
+
+  return (
+    <div className="flex-shrink-0 px-1 py-1 mb-2 xl:hidden">
+      <div className="p-2 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5">
+          <span className="flex items-center gap-1 truncate max-w-[42%]" style={{ color: c1 }}>
+            <Flame className="w-3 h-3 flex-shrink-0 animate-pulse" />
+            <span className="truncate">{t1.team.shortCode || t1.team.teamName.slice(0, 8)}</span>
+            <span className="font-mono">({t1Pct}%)</span>
+          </span>
+          <span className="text-[9px] text-muted-foreground font-semibold px-1.5 py-0.5 rounded bg-white/5">
+            FAN BATTLE
+          </span>
+          <span className="flex items-center gap-1 truncate max-w-[42%] justify-end" style={{ color: c2 }}>
+            <span className="font-mono">({t2Pct}%)</span>
+            <span className="truncate">{t2.team.shortCode || t2.team.teamName.slice(0, 8)}</span>
+            <Flame className="w-3 h-3 flex-shrink-0 animate-pulse" />
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-white/10 flex overflow-hidden">
+          <motion.div
+            className="h-full rounded-l-full"
+            style={{ backgroundColor: c1 }}
+            animate={{ width: `${t1Pct}%` }}
+            transition={{ duration: 0.4 }}
+          />
+          <motion.div
+            className="h-full rounded-r-full"
+            style={{ backgroundColor: c2 }}
+            animate={{ width: `${t2Pct}%` }}
+            transition={{ duration: 0.4 }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -871,8 +1042,8 @@ function MobileCheerBubble({ entry }: { entry: CheerEntry }) {
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: -8, scale: 0.92, transition: { duration: 0.18 } }}
       transition={{ type: "spring", stiffness: 420, damping: 30 }}
-      className="flex items-start gap-1.5 w-fit max-w-full rounded-2xl px-2.5 py-1.5 bg-black/50 backdrop-blur-md border border-white/10 shadow-lg"
-      style={{ boxShadow: `0 2px 12px ${tc}18` }}
+      className="flex items-start gap-1.5 w-fit max-w-full rounded-2xl px-2.5 py-1.5 bg-black/65 backdrop-blur-md border border-white/10 shadow-lg"
+      style={{ boxShadow: `0 2px 12px ${tc}20` }}
     >
       <span
         className="font-bold text-[11px] leading-snug flex-shrink-0"
@@ -890,41 +1061,23 @@ function MobileCheerBubble({ entry }: { entry: CheerEntry }) {
 function MobileCheerFeed({
   messages,
   overlayBottom,
+  hide = false,
 }: {
   messages: CheerEntry[];
   overlayBottom: number;
+  hide?: boolean;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const userScrolledUpRef = useRef(false);
-
+  if (hide) return null;
   const visibleMessages = messages.slice(-MOBILE_CHEER_VISIBLE_LIMIT);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || userScrolledUpRef.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [visibleMessages.length, visibleMessages[visibleMessages.length - 1]?.id]);
-
-  function handleScroll() {
-    const el = scrollRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 28;
-    userScrolledUpRef.current = !atBottom;
-  }
 
   if (visibleMessages.length === 0) return null;
 
   return (
     <div
-      className="fixed left-3 z-30 flex flex-col max-w-[min(78vw,300px)] pointer-events-none xl:hidden"
+      className="fixed left-3 z-20 flex flex-col max-w-[min(62vw,240px)] pointer-events-none xl:hidden"
       style={{ bottom: overlayBottom }}
     >
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="pointer-events-auto flex flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1 scrollbar-none"
-        style={{ maxHeight: "min(40vh, 280px)" }}
-      >
+      <div className="pointer-events-auto flex flex-col gap-1.5 overflow-hidden">
         <AnimatePresence initial={false} mode="popLayout">
           {visibleMessages.map((m) => (
             <MobileCheerBubble key={m.id} entry={m} />
@@ -946,18 +1099,46 @@ export default function LiveViewerPage() {
   const viewerHeaderPreset = getBrandSurfacePreset("auction-viewer-header");
   const miniLogoSrc = getBrandLogoSrc(logos, viewerHeaderPreset.logoOrder);
 
+  // ── Sound engine ─────────────────────────────────────────────────────────
+  const { play, settings: soundSettings, toggle: toggleSound, toggleAll: toggleAllSounds, anySound } = useSoundEngine();
+
   // ── Cheer state (declared early so the socket callback is stable) ─────────
   const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReactionItem[]>([]);
   const [cheerTeamId, setCheerTeamId] = useState<number | null>(() => {
     try { const v = localStorage.getItem("bidwar-cheer-team"); return v ? parseInt(v) : null; } catch { return null; }
   });
   const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [cheerCooldown, setCheerCooldown] = useState(false);
+  const [cheerCooldownSecondsLeft, setCheerCooldownSecondsLeft] = useState(0);
   const [cheerBlockedMsg, setCheerBlockedMsg] = useState<string | null>(null);
   const [cheerOpen, setCheerOpen] = useState(false);
   const [heatLevel, setHeatLevel] = useState<string | null>(null);
   const [fanBattle, setFanBattle] = useState<Record<string, number>>({});
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+
+  // Active client-side countdown timer to cleanly throttle cheers and eliminate 429 errors
+  useEffect(() => {
+    if (cheerCooldownSecondsLeft <= 0) {
+      setCheerCooldown(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCheerCooldownSecondsLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [cheerCooldownSecondsLeft]);
+
+  const triggerFloatingReaction = useCallback((msg: string, teamColor: string, label: string) => {
+    const match = msg.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+    const emoji = match ? match[0] : "🔥";
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const xOffset = Math.floor(Math.random() * 80) - 40;
+    setFloatingReactions((prev) => [...prev.slice(-6), { id, emoji, label, teamColor, xOffset }]);
+    setTimeout(() => {
+      setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
+    }, 2400);
+  }, []);
 
   const handleCheerMessage = useCallback((msg: CheerMessage) => {
     setCheerMessages((prev) => {
@@ -974,9 +1155,11 @@ export default function LiveViewerPage() {
       ];
       return next.slice(-10);
     });
+    triggerFloatingReaction(msg.message, msg.teamColor || "#F59E0B", msg.supporterLabel);
+    play("cheer");
     if (msg.heatLevel) setHeatLevel(msg.heatLevel);
     if (msg.fanBattle) setFanBattle(msg.fanBattle);
-  }, []);
+  }, [play, triggerFloatingReaction]);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { connectionStatus } = useAuctionSocket(tournamentId, handleCheerMessage);
@@ -997,9 +1180,10 @@ export default function LiveViewerPage() {
     },
   });
 
+  const stateWithActivity = state as (typeof state & { lastAuctionActivityAt?: string | null }) | undefined;
   const lastActivityAt =
-    typeof state?.lastAuctionActivityAt === "string"
-      ? state.lastAuctionActivityAt
+    typeof stateWithActivity?.lastAuctionActivityAt === "string"
+      ? stateWithActivity.lastAuctionActivityAt
       : null;
   const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
   const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";
@@ -1029,8 +1213,8 @@ export default function LiveViewerPage() {
   const { data: players } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
-      enabled: !!tournamentId && needsPlayerList,
-      staleTime: 15000,
+      enabled: !!tournamentId,
+      staleTime: 60000,
     },
   });
 
@@ -1066,9 +1250,6 @@ export default function LiveViewerPage() {
   );
   const extraTeamCount = Math.max(0, (teamPurses?.length ?? 0) - TEAMS_PREVIEW);
 
-  // ── Sound engine ─────────────────────────────────────────────────────────
-  const { play, settings: soundSettings, toggle: toggleSound } = useSoundEngine();
-
   // ── Cheer logic ────────────────────────────────────────────────────────────
   const cheerEnabled = tournament?.cheerMessagesEnabled !== false;
   const mobileTeamsScrollPadding = cheerEnabled
@@ -1081,7 +1262,7 @@ export default function LiveViewerPage() {
   const fanBattleEnabled = (tournament as { cheerFanBattleEnabled?: boolean } | undefined)?.cheerFanBattleEnabled ?? false;
   const cheerOverlayBottom =
     cheerBottomOffset +
-    (heatMeterEnabled && heatLevel && heatLevel !== "CALM" ? 80 : 56);
+    (heatMeterEnabled && heatLevel && heatLevel !== "CALM" ? 108 : 76);
   const cheerPresets = useMemo<string[]>(() => {
     const raw = tournament?.cheerMessagePresets;
     if (!raw) return DEFAULT_CHEER_PRESETS;
@@ -1122,22 +1303,35 @@ export default function LiveViewerPage() {
   }
 
   function sendCheer(idx: number) {
-    if (cheerCooldown) return;
+    if (cheerCooldown || cheerCooldownSecondsLeft > 0) return;
     if (!cheerTeamId) {
       setShowTeamSelector(true);
       setCheerOpen(false);
       return;
     }
+    const cooldownDuration = Math.max(cheerCooldownSeconds, 3);
     setCheerCooldown(true);
-    const localCooldownMs = cheerCooldownSeconds * 1000;
-    setTimeout(() => setCheerCooldown(false), localCooldownMs);
+    setCheerCooldownSecondsLeft(cooldownDuration);
     setCheerOpen(false);
+
+    // Instant local reaction feedback
+    const msg = cheerPresets[idx] || "Cheer! 🔥";
+    triggerFloatingReaction(msg, cheerTeam?.color || "#F59E0B", cheerSupporterLabel || "Fans");
+    play("cheer");
+
     void postCheer(cheerTeamId, idx);
   }
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [allTeamsOpen, setAllTeamsOpen] = useState(false);
   const [soundSettingsOpen, setSoundSettingsOpen] = useState(false);
+
+  const anyModalOpen =
+    selectedTeamId !== null ||
+    allTeamsOpen ||
+    soundSettingsOpen ||
+    cheerOpen ||
+    showTeamSelector;
 
   // Stores the last player outcome — persists until the next player is announced
   const [lastResult, setLastResult] = useState<{
@@ -1287,6 +1481,10 @@ export default function LiveViewerPage() {
     [teamPurses, selectedTeamId],
   );
   const playerList = useMemo(() => players ?? [], [players]);
+  const retainedCount = useMemo(
+    () => playerList.filter((p) => p.status === "retained").length,
+    [playerList],
+  );
 
   const playerSpecs = useMemo(() => {
     if (!state?.currentPlayer) return [];
@@ -1322,8 +1520,6 @@ export default function LiveViewerPage() {
     ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
     : "bg-border/15 text-muted-foreground border-border/30";
 
-  const anySound = Object.values(soundSettings).some(Boolean);
-
   return (
     <div className="lovable-theme dark h-[100dvh] bg-background relative flex flex-col overflow-hidden">
       {isCompleted ? (
@@ -1349,65 +1545,123 @@ export default function LiveViewerPage() {
       </AnimatePresence>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10">
-        <div className="px-4 py-3 md:px-4 md:py-2.5">
-          <div className="flex items-center gap-2.5 md:gap-3">
-            <div className="flex items-center flex-shrink-0">
-              <img src={logos.mini || miniLogoSrc} alt={logoAlt} className={viewerHeaderPreset.sizeClass} />
-            </div>
-            {sponsorLogos.length > 0 && (
-              <div className="hidden md:block ml-auto">
-                <SponsorCarousel logos={sponsorLogos} compact />
-              </div>
-            )}
-            <div className="flex items-center gap-2 flex-shrink-0 ml-auto md:ml-0">
-              <span className={`inline-flex items-center gap-1.5 text-xs md:text-xs font-bold px-2.5 md:px-3 py-1.5 rounded-full border ${statusRing}`}>
+      <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10 shadow-lg">
+        <div className="px-3 py-2.5 sm:px-5 sm:py-3 md:px-6 md:py-3.5">
+          {/* Top Row: Left (Live badge + Sound), Center (BidWar branding), Right (Sponsor banner) */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0">
+            {/* Left: Status badge & Sound toggles */}
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 justify-start">
+              <span className={`inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border shadow-sm ${statusRing}`}>
                 {(isActive || isSold) && (
-                  <span className="w-2 h-2 md:w-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 )}
                 {statusLabel}
               </span>
-              <button
-                onClick={() => setSoundSettingsOpen(true)}
-                className="p-2.5 md:p-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
-                title="Sound settings"
-              >
-                {anySound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-0.5 shadow-sm">
+                <button
+                  type="button"
+                  onClick={toggleAllSounds}
+                  className={`p-1.5 sm:p-2 rounded-lg transition-colors ${anySound ? "text-emerald-400 hover:bg-white/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"}`}
+                  title={anySound ? "Mute all sounds" : "Unmute sounds"}
+                  aria-label={anySound ? "Mute all sounds" : "Unmute sounds"}
+                >
+                  {anySound ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSoundSettingsOpen(true)}
+                  className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors border-l border-white/10"
+                  title="Sound settings"
+                  aria-label="Sound settings"
+                >
+                  <SlidersHorizontal className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Center: BidWar official branding ("1. bidwar branding should be in top centre.") */}
+            <div className="flex items-center justify-center flex-shrink-0 px-2">
+              <img
+                src={logos.mini || miniLogoSrc}
+                alt={logoAlt}
+                className="h-7 sm:h-8 md:h-9 w-auto object-contain select-none transition-transform hover:scale-105"
+              />
+            </div>
+
+            {/* Right: Sponsors banner ("3. sponsors ke banner top right me apni proper jagah le ke rahe. aur thoda bada rahe, taaki dikhe.") */}
+            <div className="flex items-center justify-end min-w-0 flex-1">
+              {sponsorLogos.length > 0 ? (
+                <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/[0.06] border border-white/10 backdrop-blur-md shadow-sm">
+                  <span className="text-[9px] uppercase tracking-widest font-black text-amber-400/90 hidden sm:inline-block">
+                    Sponsor
+                  </span>
+                  <SponsorCarousel logos={sponsorLogos} compact />
+                </div>
+              ) : (
+                <div className="w-16 sm:w-24 invisible pointer-events-none" />
+              )}
             </div>
           </div>
-          <div className="mt-2 md:mt-2 flex items-center gap-2.5 md:gap-2 min-w-0">
+
+          {/* Row 2: Tournament Name ("2. tournament name uske neeche 80-85% width le ke responsive rahe. depending on tournament name") */}
+          <div className="mt-2 sm:mt-2.5 w-full max-w-[85%] mx-auto flex items-center justify-center gap-2.5 sm:gap-3 text-center">
             {tournament?.logoUrl && (
               <img
                 src={cldUrl(tournament.logoUrl, "headerLogo")}
                 alt=""
-                className="w-9 h-9 md:w-8 md:h-8 rounded-lg object-contain flex-shrink-0 bg-white/5"
+                className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-xl object-contain flex-shrink-0 bg-white/5 border border-white/10 shadow-sm"
               />
             )}
-            <h1 className="flex-1 min-w-0 font-display font-black text-[19px] md:text-lg leading-tight text-white line-clamp-2">
+            <h1 className="font-display font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl leading-tight text-white tracking-tight line-clamp-2 drop-shadow-md">
               {tournament?.name || "Live Auction"}
             </h1>
-            {sponsorLogos.length > 0 && (
-              <div className="md:hidden flex-shrink-0">
-                <SponsorCarousel logos={sponsorLogos} compact />
-              </div>
-            )}
           </div>
-          <div className="mt-2 md:mt-1 flex items-center gap-3 md:gap-3 text-[14px] md:text-xs font-semibold tabular-nums">
-            <span className="text-green-400">
-              <span className="font-display font-black">{soldCount}</span>
-              <span className="text-muted-foreground font-normal ml-1.5 md:ml-1">sold</span>
-            </span>
-            <span className="text-white/20">·</span>
-            <span className="text-amber-400">
-              <span className="font-display font-black">{remainingCount}</span>
-              <span className="text-muted-foreground font-normal ml-1.5 md:ml-1">left</span>
-            </span>
-            <span className="text-white/20">·</span>
-            <span className="text-red-400">
-              <span className="font-display font-black">{unsoldCount}</span>
-              <span className="text-muted-foreground font-normal ml-1.5 md:ml-1">unsold</span>
-            </span>
+
+          {/* Row 3: Prominent TV-Broadcast Stat Badges ("4. sold left unsold retained ye promonently dikhe abhi ajeeb sa kone me pada sa lag raha feeling less.") */}
+          <div className="mt-2.5 sm:mt-3 flex items-center justify-center flex-wrap gap-2 sm:gap-3">
+            {/* SOLD */}
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-950/20 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              <span className="font-display font-black text-sm sm:text-base md:text-lg tabular-nums leading-none">
+                {soldCount}
+              </span>
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400/85">
+                Sold
+              </span>
+            </div>
+
+            {/* LEFT */}
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-sm shadow-amber-950/20 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+              <span className="font-display font-black text-sm sm:text-base md:text-lg tabular-nums leading-none">
+                {remainingCount}
+              </span>
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400/85">
+                Left
+              </span>
+            </div>
+
+            {/* UNSOLD */}
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 shadow-sm shadow-rose-950/20 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+              <span className="font-display font-black text-sm sm:text-base md:text-lg tabular-nums leading-none">
+                {unsoldCount}
+              </span>
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-rose-400/85">
+                Unsold
+              </span>
+            </div>
+
+            {/* RETAINED */}
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 shadow-sm shadow-purple-950/20 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]" />
+              <span className="font-display font-black text-sm sm:text-base md:text-lg tabular-nums leading-none">
+                {retainedCount}
+              </span>
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-purple-300/85">
+                Retained
+              </span>
+            </div>
           </div>
         </div>
         {feed.state !== "live" && (
@@ -1454,16 +1708,16 @@ export default function LiveViewerPage() {
       )}
 
       {/* ── Main content — fixed viewport, no page scroll ──────────────── */}
-      <div className={`relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full transition-opacity duration-300 ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/20" : ""}`}>
+      <div className={`relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden max-w-5xl lg:max-w-6xl xl:max-w-[calc(100%-20rem)] mx-auto xl:mx-0 w-full transition-opacity duration-300 ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/20" : ""}`}>
 
         {/* Player + teams fill remaining height — mobile: only teams scroll */}
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-4 md:px-4 max-md:pb-0 pb-1">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 md:px-6 max-md:pb-0 pb-2">
         {/* ── Player section — fixed prominence, does not scroll on mobile ── */}
-        <div className="relative flex-shrink-0 mb-3 md:mb-3">
+        <div className="relative flex-shrink-0 mb-3 md:mb-4">
           {displayMode.overlayMode === "paused" && (
             <AuctionStatusOverlay
               mode="paused"
-              className="rounded-2xl"
+              className="rounded-2xl md:rounded-3xl"
             />
           )}
 
@@ -1477,7 +1731,7 @@ export default function LiveViewerPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={freezeBidUpdates ? undefined : { opacity: 0, y: -14 }}
               transition={{ duration: 0.3 }}
-              className="mb-4 p-4 sm:p-5 rounded-2xl backdrop-blur border transition-colors"
+              className="mb-3 sm:mb-4 p-3.5 sm:p-5 md:p-6 rounded-2xl md:rounded-3xl backdrop-blur border transition-colors shadow-lg"
               style={{
                 backgroundColor: isSold
                   ? `${teamColor}10`
@@ -1491,11 +1745,11 @@ export default function LiveViewerPage() {
                   : "rgba(var(--border), 0.5)",
               }}
             >
-              <div className="flex flex-row items-start gap-4">
+              <div className="flex flex-row items-start gap-3.5 sm:gap-5 md:gap-6">
                 {/* Photo */}
                 <div className="relative flex-shrink-0">
                   <div
-                    className="w-24 h-32 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
+                    className="w-24 h-32 sm:w-32 sm:h-40 md:w-36 md:h-48 lg:w-44 lg:h-56 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
                     style={{ borderColor: isSold ? `${teamColor}55` : isUnsold ? "rgba(239,68,68,0.4)" : `${teamColor}55` }}
                   >
                     {state?.currentPlayer?.photoUrl ? (
@@ -1505,12 +1759,12 @@ export default function LiveViewerPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <User className="w-14 h-14 text-muted-foreground/25" />
+                      <User className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/25" />
                     )}
                   </div>
                   {state?.currentPlayer?.jerseyNumber && !isSold && !isUnsold && (
                     <div
-                      className="absolute -top-2 -left-2 w-7 h-7 rounded-full flex items-center justify-center font-display font-black text-xs text-black shadow-lg"
+                      className="absolute -top-2 -left-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-display font-black text-xs sm:text-sm text-black shadow-lg"
                       style={{ backgroundColor: teamColor }}
                     >
                       {state.currentPlayer.jerseyNumber}
@@ -1528,7 +1782,7 @@ export default function LiveViewerPage() {
                         className="absolute inset-0 flex items-center justify-center"
                       >
                         <div
-                          className="bg-green-600/90 text-white font-display font-black text-xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl"
+                          className="bg-green-600/90 text-white font-display font-black text-xl sm:text-2xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl"
                           style={{ transform: "rotate(-12deg)" }}
                         >
                           SOLD
@@ -1545,7 +1799,7 @@ export default function LiveViewerPage() {
                         className="absolute inset-0 flex items-center justify-center"
                       >
                         <div
-                          className="bg-red-700/90 text-white font-display font-black text-xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl"
+                          className="bg-red-700/90 text-white font-display font-black text-xl sm:text-2xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl"
                           style={{ transform: "rotate(-12deg)" }}
                         >
                           UNSOLD
@@ -1556,36 +1810,36 @@ export default function LiveViewerPage() {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 min-w-0 text-left space-y-3">
+                <div className="flex-1 min-w-0 text-left space-y-2.5 sm:space-y-3 md:space-y-4">
                   <div>
-                    <h2 className="font-display font-black text-3xl sm:text-4xl leading-none">
+                    <h2 className="font-display font-black text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-tight tracking-tight text-white">
                       {state?.currentPlayer?.name}
                     </h2>
                     {playerSpecs.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
+                      <div className="flex flex-wrap gap-1.5 mt-2 sm:mt-2.5">
                         {playerSpecs.slice(0, 4).map((spec, i) => (
                           <span
                             key={i}
-                            className="text-xs px-2 py-0.5 rounded-full bg-border/25 text-muted-foreground border border-border/40"
+                            className="text-xs sm:text-sm px-2.5 py-0.5 rounded-full bg-border/25 text-muted-foreground border border-border/40 font-medium"
                           >
                             {spec}
                           </span>
                         ))}
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1.5">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 font-medium">
                       Base: {formatAmount(state?.currentPlayer?.basePrice)}
                     </p>
                   </div>
 
                   {/* Bid amount */}
                   <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
                       {isSold ? "Sold at" : isUnsold ? "Last Bid" : "Current Bid"}
                     </p>
                     {freezeBidUpdates ? (
                       <p
-                        className="font-display font-black text-5xl sm:text-6xl leading-none"
+                        className="font-display font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-none tracking-tight"
                         style={{ color: teamColor, textShadow: `0 0 28px ${teamColor}55` }}
                       >
                         {formatAmount(state?.currentBid || 0)}
@@ -1596,7 +1850,7 @@ export default function LiveViewerPage() {
                       initial={{ scale: 0.82, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 340, damping: 22 }}
-                      className="font-display font-black text-5xl sm:text-6xl leading-none"
+                      className="font-display font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-none tracking-tight"
                       style={{ color: teamColor, textShadow: `0 0 28px ${teamColor}55` }}
                     >
                       {formatAmount(state?.currentBid || 0)}
@@ -1609,7 +1863,7 @@ export default function LiveViewerPage() {
                     freezeBidUpdates ? (
                       <div>
                       <span
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
+                        className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full border text-sm sm:text-base font-bold shadow-md"
                         style={{
                           borderColor: `${teamColor}55`,
                           backgroundColor: `${teamColor}15`,
@@ -1620,10 +1874,10 @@ export default function LiveViewerPage() {
                           <img
                             src={cldUrl((state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl, "teamLogo")}
                             alt=""
-                            className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                            className="w-5 h-5 rounded-full object-cover flex-shrink-0"
                           />
                         ) : (
-                          <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+                          <Trophy className="w-4 h-4 flex-shrink-0" />
                         )}
                         {isSold ? `Sold to ${state.currentBidTeamName}` : state.currentBidTeamName}
                       </span>
@@ -1635,7 +1889,7 @@ export default function LiveViewerPage() {
                       animate={{ opacity: 1, x: 0 }}
                       >
                       <span
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
+                        className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full border text-sm sm:text-base font-bold shadow-md"
                         style={{
                           borderColor: `${teamColor}55`,
                           backgroundColor: `${teamColor}15`,
@@ -1646,10 +1900,10 @@ export default function LiveViewerPage() {
                           <img
                             src={cldUrl((state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl, "teamLogo")}
                             alt=""
-                            className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                            className="w-5 h-5 rounded-full object-cover flex-shrink-0"
                           />
                         ) : (
-                          <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+                          <Trophy className="w-4 h-4 flex-shrink-0" />
                         )}
                         {isSold ? `Sold to ${state.currentBidTeamName}` : state.currentBidTeamName}
                       </span>
@@ -1657,7 +1911,7 @@ export default function LiveViewerPage() {
                     )
                   ) : isUnsold ? (
                     <div className="flex justify-center sm:justify-start">
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold border-red-500/30 bg-red-500/10 text-red-400">
+                      <span className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full border text-sm sm:text-base font-semibold border-red-500/30 bg-red-500/10 text-red-400">
                         Player returns to pool
                       </span>
                     </div>
@@ -1730,58 +1984,143 @@ export default function LiveViewerPage() {
           </div>
         </div>
 
-        {/* ── Team grid — mobile: 2-col scrollable; desktop: 3-col static ── */}
+        {/* ── Team grid — responsive across all gadgets (mobile, tablet landscape, laptop, desktop) ── */}
         {previewTeams.length > 0 && (
           <div
-            className="flex-1 min-h-0 flex flex-col gap-2.5 md:gap-2 md:flex-shrink-0 md:flex-none max-md:overflow-y-auto max-md:overscroll-contain max-md:scroll-smooth liveviewer-mobile-teams-scroll"
+            className="flex-1 min-h-0 flex flex-col gap-3 sm:gap-4 overflow-y-auto overscroll-contain pr-1 liveviewer-mobile-teams-scroll"
             style={{ "--teams-scroll-pad": `${mobileTeamsScrollPadding}px` } as CSSProperties}
           >
+            {/* Mobile Fan Battle if active */}
+            {Object.keys(fanBattle).length > 0 && (
+              <MobileFanBattle fanBattle={fanBattle} teams={teamPurses ?? []} />
+            )}
+
             <div className="flex items-center justify-between gap-2 flex-shrink-0">
-              <p className="text-[11px] md:text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Teams</p>
+              <p className="text-xs sm:text-sm uppercase tracking-wider text-muted-foreground font-bold">Teams</p>
               {extraTeamCount > 0 && (
                 <button
                   type="button"
                   onClick={() => setAllTeamsOpen(true)}
-                  className="inline-flex items-center gap-0.5 text-xs md:text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-amber-400 hover:text-amber-300 transition-colors"
                 >
                   View More (+{extraTeamCount})
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-2 pb-1 md:pb-1">
+            <div
+              className={`grid gap-3 sm:gap-4 pb-4 ${
+                previewTeams.length <= 1
+                  ? "grid-cols-1 max-w-md mx-auto"
+                  : previewTeams.length === 2
+                  ? "grid-cols-2"
+                  : previewTeams.length === 3
+                  ? "grid-cols-2 sm:grid-cols-3"
+                  : previewTeams.length === 4
+                  ? "grid-cols-2 sm:grid-cols-2 md:grid-cols-4"
+                  : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+              }`}
+            >
               {previewTeams.map((team) => {
                 const isLeading = state?.currentBidTeamId === team.teamId;
                 const tc = team.color || "#F59E0B";
+                const hasDiffCode = team.shortCode && team.teamName && team.shortCode.toLowerCase() !== team.teamName.toLowerCase();
                 return (
                   <motion.button
                     key={team.teamId}
                     type="button"
                     onClick={() => setSelectedTeamId(team.teamId)}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex flex-col items-center gap-2 md:gap-1.5 p-3.5 md:p-3 rounded-xl border transition-all cursor-pointer relative"
+                    whileTap={{ scale: 0.97 }}
+                    className="flex flex-col justify-between p-3.5 sm:p-4 md:p-5 lg:p-6 rounded-2xl md:rounded-3xl border transition-all cursor-pointer relative overflow-hidden text-left bg-card/40 hover:bg-card/65 backdrop-blur-sm shadow-md min-h-[140px] sm:min-h-[160px] md:min-h-[175px]"
                     style={{
-                      backgroundColor: isLeading ? `${tc}10` : "transparent",
-                      borderColor: isLeading ? `${tc}88` : "rgba(var(--border), 0.5)",
-                      boxShadow: isLeading ? `0 0 14px ${tc}28` : "none",
+                      backgroundColor: isLeading ? `${tc}18` : undefined,
+                      borderColor: isLeading ? `${tc}90` : "rgba(255, 255, 255, 0.08)",
+                      boxShadow: isLeading ? `0 0 24px ${tc}35` : "none",
                     }}
                   >
-                    {isLeading && (
-                      <span className="absolute top-2 right-2 md:top-1.5 md:right-1.5 w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    )}
-                    {team.logoUrl ? (
-                      <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-14 h-14 md:w-10 md:h-10 rounded-full object-cover flex-shrink-0" />
-                    ) : (
-                      <div
-                        className="w-14 h-14 md:w-10 md:h-10 rounded-full flex items-center justify-center font-display font-black text-sm md:text-xs flex-shrink-0"
-                        style={{ backgroundColor: `${tc}22`, color: tc }}
-                      >
-                        {(team.shortCode || team.teamName).slice(0, 2).toUpperCase()}
+                    {/* Top row: team logo + names + leading badge */}
+                    <div className="flex items-start justify-between gap-2 w-full mb-3">
+                      <div className="flex items-center gap-3 sm:gap-3.5 md:gap-4 min-w-0 flex-1">
+                        {team.logoUrl ? (
+                          <img
+                            src={cldUrl(team.logoUrl, "teamLogo")}
+                            alt=""
+                            className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-xl sm:rounded-2xl object-cover flex-shrink-0 border border-white/10 shadow-md"
+                          />
+                        ) : (
+                          <div
+                            className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center font-display font-black text-sm sm:text-base md:text-lg flex-shrink-0 shadow-md"
+                            style={{ backgroundColor: `${tc}25`, color: tc, border: `1px solid ${tc}40` }}
+                          >
+                            {(team.shortCode || team.teamName).slice(0, 3).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm sm:text-base md:text-lg lg:text-xl font-display font-black truncate leading-tight tracking-tight text-white">
+                            {team.teamName}
+                          </h3>
+                          {team.ownerName ? (
+                            <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate mt-0.5 font-medium">
+                              Owner: {team.ownerName}
+                            </p>
+                          ) : hasDiffCode ? (
+                            <p className="text-[11px] sm:text-xs md:text-sm font-semibold tracking-wider mt-0.5" style={{ color: tc }}>
+                              {team.shortCode}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {isLeading && (
+                        <span
+                          className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider px-2 sm:px-2.5 py-1 rounded-full border shadow-sm flex-shrink-0"
+                          style={{
+                            backgroundColor: `${tc}25`,
+                            color: tc,
+                            borderColor: `${tc}60`,
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                          Leading
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Purse Remaining & Squad stats */}
+                    <div className="pt-2.5 sm:pt-3 border-t border-white/10 flex items-end justify-between w-full mt-auto">
+                      <div>
+                        <p className="text-[10px] sm:text-xs md:text-sm uppercase tracking-wider text-muted-foreground font-semibold leading-none">
+                          Purse Left
+                        </p>
+                        <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-display font-black tabular-nums mt-1" style={{ color: tc }}>
+                          {formatShort(team.purseRemaining ?? 0)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] sm:text-xs md:text-sm uppercase tracking-wider text-muted-foreground font-semibold leading-none">
+                          Squad
+                        </p>
+                        <p className="text-sm sm:text-base md:text-lg lg:text-xl font-mono font-black text-foreground tabular-nums mt-1">
+                          {team.playersBought ?? 0}
+                          {(team.maximumSquadSize ?? 0) > 0 && (
+                            <span className="text-muted-foreground text-xs sm:text-sm font-normal">/{team.maximumSquadSize}</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Mini squad capacity bar */}
+                    {(team.maximumSquadSize ?? 0) > 0 && (
+                      <div className="w-full h-1.5 sm:h-2 bg-white/10 rounded-full mt-2 sm:mt-2.5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, ((team.playersBought ?? 0) / (team.maximumSquadSize ?? 1)) * 100)}%`,
+                            backgroundColor: tc,
+                          }}
+                        />
                       </div>
                     )}
-                    <span className="text-[15px] md:text-xs font-semibold text-center leading-tight line-clamp-2 w-full" style={{ color: tc }}>
-                      {team.teamName}
-                    </span>
                   </motion.button>
                 );
               })}
@@ -1823,42 +2162,63 @@ export default function LiveViewerPage() {
         toggle={toggleSound}
       />
 
+      {/* ── Floating celebratory reactions ── */}
+      <FloatingReactionOverlay reactions={anyModalOpen ? [] : floatingReactions} />
+
       {/* ── Mobile cheer overlay — Instagram Live style auto-feed (xl+ uses CheerFeedRail) ─── */}
       {cheerEnabled && (
         <MobileCheerFeed
           messages={cheerMessages}
           overlayBottom={cheerOverlayBottom}
+          hide={anyModalOpen}
         />
       )}
 
       {/* ── CHEER LIVE pill button ────────────────────────────────────────── */}
-      {cheerEnabled && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
-          style={{ bottom: cheerBottomOffset }}
-        >
-          {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
-            <div className="xl:hidden">
-              <HeatBadge level={heatLevel} />
-            </div>
-          )}
-          <motion.button
-            onClick={() => {
-              if (!cheerTeamId) {
-                setShowTeamSelector(true);
-              } else {
-                setCheerOpen((o) => !o);
-              }
-            }}
-            whileTap={{ scale: 0.92 }}
-            className="flex items-center gap-2 px-8 py-3.5 md:px-7 md:py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-base md:text-sm tracking-wider shadow-lg cursor-pointer"
-            style={{ boxShadow: "0 0 30px rgba(245,158,11,0.45), 0 4px 18px rgba(0,0,0,0.55)" }}
+      <AnimatePresence>
+        {cheerEnabled && !anyModalOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.92 }}
+            transition={{ duration: 0.18 }}
+            className="fixed left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 xl:hidden"
+            style={{ bottom: cheerBottomOffset }}
           >
-            <Flame className="w-5 h-5 md:w-4 md:h-4" />
-            CHEER LIVE
-          </motion.button>
-        </div>
-      )}
+            {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
+              <div>
+                <HeatBadge level={heatLevel} />
+              </div>
+            )}
+            <motion.button
+              onClick={() => {
+                if (cheerCooldown || cheerCooldownSecondsLeft > 0) return;
+                if (!cheerTeamId) {
+                  setShowTeamSelector(true);
+                } else {
+                  setCheerOpen((o) => !o);
+                }
+              }}
+              disabled={cheerCooldown || cheerCooldownSecondsLeft > 0}
+              whileTap={{ scale: 0.92 }}
+              className="flex items-center gap-2 px-8 py-3.5 md:px-7 md:py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-base md:text-sm tracking-wider shadow-lg cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              style={{ boxShadow: "0 0 30px rgba(245,158,11,0.45), 0 4px 18px rgba(0,0,0,0.55)" }}
+            >
+              {cheerCooldownSecondsLeft > 0 ? (
+                <>
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                  WAIT {cheerCooldownSecondsLeft}S
+                </>
+              ) : (
+                <>
+                  <Flame className="w-5 h-5 md:w-4 md:h-4" />
+                  CHEER LIVE
+                </>
+              )}
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Cheer panel ───────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -1868,68 +2228,152 @@ export default function LiveViewerPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50"
+              className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm"
               onClick={() => setCheerOpen(false)}
             />
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-white/10 rounded-t-2xl"
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#141416] border-t border-white/10 rounded-t-3xl max-w-lg mx-auto shadow-2xl"
             >
+              {/* Drag handle */}
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-white/25" />
               </div>
-              <div className="px-5 pb-10 pt-3">
-                {cheerTeam ? (
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    {cheerTeam.logoUrl ? (
-                      <img src={cldUrl(cheerTeam.logoUrl, "teamLogo")} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                    ) : (
-                      <div
-                        className="w-5 h-5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: cheerTeam.color || "#F59E0B" }}
-                      />
-                    )}
-                    <span className="text-sm font-bold" style={{ color: cheerTeam.color || "#F59E0B" }}>
-                      {cheerSupporterLabel}
-                    </span>
-                    <button
-                      className="text-xs text-muted-foreground/60 underline ml-1"
-                      onClick={() => { setCheerOpen(false); setShowTeamSelector(true); }}
-                    >
-                      change
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center mb-4">
-                    Choose your side to join the cheer.
-                  </p>
-                )}
+
+              <div className="px-5 pb-8 pt-2">
+                {/* Header row: Team banner + close button */}
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  {cheerTeam ? (
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {cheerTeam.logoUrl ? (
+                        <img
+                          src={cldUrl(cheerTeam.logoUrl, "teamLogo")}
+                          alt=""
+                          className="w-8 h-8 rounded-xl object-cover flex-shrink-0 border"
+                          style={{ borderColor: cheerTeam.color || "#F59E0B" }}
+                        />
+                      ) : (
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center font-display font-black text-xs flex-shrink-0"
+                          style={{
+                            backgroundColor: `${cheerTeam.color || "#F59E0B"}25`,
+                            color: cheerTeam.color || "#F59E0B",
+                            border: `1px solid ${cheerTeam.color || "#F59E0B"}50`,
+                          }}
+                        >
+                          {(cheerTeam.shortCode || cheerTeam.teamName).slice(0, 3).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Cheering for</p>
+                        <p className="text-sm font-bold truncate leading-tight" style={{ color: cheerTeam.color || "#F59E0B" }}>
+                          {cheerSupporterLabel}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 ml-2 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 transition-colors"
+                        onClick={() => { setCheerOpen(false); setShowTeamSelector(true); }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Choose your side to cheer</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCheerOpen(false)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors flex-shrink-0"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Cooldown / Alert message */}
                 <AnimatePresence>
+                  {cheerCooldown && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-3 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center gap-1.5 text-xs text-amber-300 font-medium"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                      Cheer broadcasted! Ready in {cheerCooldownSecondsLeft || cheerCooldownSeconds}s...
+                    </motion.div>
+                  )}
                   {cheerBlockedMsg && (
                     <motion.p
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className="text-sm text-red-400 text-center mb-3"
+                      className="text-xs text-red-400 text-center mb-3 bg-red-500/10 py-1.5 px-3 rounded-lg border border-red-500/20"
                     >
                       {cheerBlockedMsg}
                     </motion.p>
                   )}
                 </AnimatePresence>
-                <div className="grid grid-cols-2 gap-3">
-                  {cheerPresets.map((preset, i) => (
-                    <button
-                      key={i}
-                      onClick={() => sendCheer(i)}
-                      disabled={cheerCooldown}
-                      className="rounded-2xl border border-white/15 bg-white/5 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none py-4 px-4 text-sm text-white/90 text-left transition-transform leading-snug cursor-pointer"
-                    >
-                      {preset}
-                    </button>
-                  ))}
+
+                {/* Quick Emoji Reaction bar */}
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">
+                    Quick Burst
+                  </p>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {[
+                      { emoji: "🔥", label: "Fire" },
+                      { emoji: "👏", label: "Clap" },
+                      { emoji: "⚔️", label: "War" },
+                      { emoji: "🏆", label: "Win" },
+                      { emoji: "💎", label: "Gem" },
+                      { emoji: "⚡", label: "Bolt" },
+                    ].map((item) => (
+                      <motion.button
+                        key={item.emoji}
+                        type="button"
+                        onClick={() => {
+                          const matchingIdx = cheerPresets.findIndex((p) => p.includes(item.emoji));
+                          sendCheer(matchingIdx >= 0 ? matchingIdx : 0);
+                        }}
+                        disabled={cheerCooldown}
+                        whileTap={{ scale: 0.88 }}
+                        className="flex flex-col items-center justify-center py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:bg-white/15 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                      >
+                        <span className="text-xl leading-none">{item.emoji}</span>
+                        <span className="text-[9px] text-muted-foreground mt-1 font-medium">{item.label}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preset Messages grid */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">
+                    Shoutouts
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 max-h-[36vh] overflow-y-auto pr-0.5">
+                    {cheerPresets.map((preset, i) => (
+                      <motion.button
+                        key={i}
+                        type="button"
+                        onClick={() => sendCheer(i)}
+                        disabled={cheerCooldown}
+                        whileTap={{ scale: 0.95 }}
+                        className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none py-3 px-3 text-xs text-white/90 text-left transition-all leading-snug cursor-pointer flex items-center justify-between"
+                        style={{
+                          borderLeftWidth: "3px",
+                          borderLeftColor: cheerTeam?.color || "#F59E0B",
+                        }}
+                      >
+                        <span className="truncate pr-1">{preset}</span>
+                      </motion.button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -1955,66 +2399,89 @@ export default function LiveViewerPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/60"
+              className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm"
               onClick={() => setShowTeamSelector(false)}
             />
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-white/10 rounded-t-2xl"
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#141416] border-t border-white/10 rounded-t-3xl max-w-lg mx-auto shadow-2xl"
             >
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-white/25" />
               </div>
-              <div className="px-5 pb-10 pt-3 max-h-[75vh] overflow-y-auto">
-                <h3 className="text-center font-display font-black text-lg mb-1">Choose your side</h3>
-                <p className="text-center text-xs text-muted-foreground mb-5">Your cheer will represent this team</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="px-5 pb-8 pt-2 max-h-[75vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="font-display font-black text-lg">Choose Your Side</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Your cheers will represent this team live</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTeamSelector(false)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors flex-shrink-0"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 mt-4">
                   {(teamPurses ?? []).map((team) => {
                     const tc = team.color || "#F59E0B";
                     const isSelected = cheerTeamId === team.teamId;
                     return (
-                      <button
+                      <motion.button
                         key={team.teamId}
+                        type="button"
                         onClick={() => {
                           setCheerTeamId(team.teamId);
                           try { localStorage.setItem("bidwar-cheer-team", String(team.teamId)); } catch {}
                           setShowTeamSelector(false);
-                          setTimeout(() => setCheerOpen(true), 80);
+                          setTimeout(() => setCheerOpen(true), 120);
                         }}
-                        className="flex items-center gap-3 rounded-2xl border p-4 text-left transition-all active:scale-[0.97] cursor-pointer"
+                        whileTap={{ scale: 0.96 }}
+                        className="flex flex-col items-center gap-2 p-3.5 rounded-2xl border text-center transition-all cursor-pointer relative"
                         style={{
-                          borderColor: isSelected ? `${tc}88` : "rgba(255,255,255,0.1)",
-                          backgroundColor: isSelected ? `${tc}18` : "transparent",
-                          boxShadow: isSelected ? `0 0 16px ${tc}28` : "none",
+                          borderColor: isSelected ? tc : "rgba(255,255,255,0.08)",
+                          backgroundColor: isSelected ? `${tc}18` : "rgba(255,255,255,0.03)",
+                          boxShadow: isSelected ? `0 0 20px ${tc}35` : "none",
                         }}
                       >
                         {team.logoUrl ? (
-                          <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                          <img
+                            src={cldUrl(team.logoUrl, "teamLogo")}
+                            alt=""
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0 border"
+                            style={{ borderColor: `${tc}40` }}
+                          />
                         ) : (
                           <div
-                            className="w-9 h-9 rounded-full flex items-center justify-center font-display font-black text-sm flex-shrink-0"
-                            style={{ backgroundColor: `${tc}25`, color: tc }}
+                            className="w-10 h-10 rounded-full flex items-center justify-center font-display font-black text-sm flex-shrink-0"
+                            style={{ backgroundColor: `${tc}25`, color: tc, border: `1px solid ${tc}50` }}
                           >
                             {(team.shortCode || team.teamName).slice(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <div className="min-w-0 flex-1">
+                        <div className="w-full">
                           <p className="font-bold text-sm leading-tight truncate" style={{ color: tc }}>
-                            {team.shortCode || team.teamName.slice(0, 10)}
+                            {team.teamName}
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {(team.shortCode || team.teamName.slice(0, 4)).toUpperCase()} FANS
+                          <p className="text-[11px] font-mono font-bold text-foreground/85 mt-1">
+                            {formatShort(team.purseRemaining ?? 0)} Left
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {team.playersBought ?? 0} player{(team.playersBought ?? 0) !== 1 ? "s" : ""}
                           </p>
                         </div>
                         {isSelected && (
-                          <div className="ml-auto flex-shrink-0 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                            <div className="w-2 h-2 rounded-full bg-white" />
+                          <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shadow-md">
+                            <Check className="w-3 h-3 text-black stroke-[3]" />
                           </div>
                         )}
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
@@ -2033,6 +2500,15 @@ export default function LiveViewerPage() {
           fanBattle={fanBattle}
           heatMeterEnabled={heatMeterEnabled}
           fanBattleEnabled={fanBattleEnabled}
+          onOpenCheer={() => {
+            if (!cheerTeamId) {
+              setShowTeamSelector(true);
+            } else {
+              setCheerOpen(true);
+            }
+          }}
+          cheerTeam={cheerTeam}
+          cooldownSecondsLeft={cheerCooldownSecondsLeft}
         />
       )}
     </div>

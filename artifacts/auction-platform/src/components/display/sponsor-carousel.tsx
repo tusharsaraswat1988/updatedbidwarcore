@@ -209,7 +209,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
             key={current.url}
             src={cldUrl(current.url, "teamLogo")}
             alt={imgAlt}
-            className="h-9 max-w-[88px] object-contain"
+            className="h-9 sm:h-10 md:h-11 max-w-[100px] sm:max-w-[130px] md:max-w-[160px] object-contain"
             loading="eager"
             decoding="async"
             onError={e => (e.currentTarget.style.display = "none")}

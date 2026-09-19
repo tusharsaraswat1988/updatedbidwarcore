@@ -1,6 +1,7 @@
 import { useState, useId } from "react";
-import { Sliders, Sparkles, Clock, ShieldCheck, ArrowRight } from "lucide-react";
+import { Sliders, Sparkles, Clock, ShieldCheck, ArrowRight, Zap, Play } from "lucide-react";
 import { waMeUrl } from "@/lib/public-site-links";
+import { AuctionExperienceSimulator } from "./auction-experience-simulator";
 
 type SportConfig = {
   name: string;
@@ -19,6 +20,7 @@ const SPORTS_CONFIG: Record<string, SportConfig> = {
 };
 
 export function TournamentCalculator({ onStartTrial }: { onStartTrial: () => void }) {
+  const [activeTab, setActiveTab] = useState<"simulator" | "calculator">("simulator");
   const [sport, setSport] = useState<string>("Cricket");
   const [teams, setTeams] = useState<number>(8);
   const [pursePerTeam, setPursePerTeam] = useState<number>(50); // In Lakhs pts
@@ -38,28 +40,28 @@ export function TournamentCalculator({ onStartTrial }: { onStartTrial: () => voi
 
   // Recommended plan
   let planName = "Starter (4 Teams)";
-  let planPrice = "₹4,500";
+  let planPrice = "₹3,750";
   if (teams <= 2) {
     planName = "Free Trial (2 Teams)";
     planPrice = "₹0";
   } else if (teams <= 4) {
     planName = "Starter (4 Teams)";
-    planPrice = "₹4,500";
+    planPrice = "₹3,750";
   } else if (teams <= 8) {
     planName = "Pro (8 Teams)";
-    planPrice = "₹5,400";
+    planPrice = "₹4,500";
   } else if (teams <= 12) {
     planName = "Advanced (12 Teams)";
-    planPrice = "₹7,200";
+    planPrice = "₹6,000";
   } else if (teams <= 16) {
     planName = "Elite (16 Teams)";
-    planPrice = "₹8,100";
+    planPrice = "₹6,750";
   } else if (teams <= 22) {
     planName = "Premium (22 Teams)";
-    planPrice = "₹9,900";
+    planPrice = "₹8,250";
   } else {
     planName = "Champion (30 Teams)";
-    planPrice = "₹10,800";
+    planPrice = "₹9,000";
   }
 
   const handleWhatsAppConsult = () => {
@@ -76,16 +78,49 @@ export function TournamentCalculator({ onStartTrial }: { onStartTrial: () => voi
         <div className="relative mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-primary">
-              <Sliders className="h-3.5 w-3.5" /> Interactive Setup Planner
+              <Sliders className="h-3.5 w-3.5" /> Interactive Auction Suite
             </div>
-            <h2 className="text-display-lg mt-2">Calculate Your Auction Night Setup.</h2>
+            <h2 className="text-display-lg mt-2">
+              {activeTab === "simulator"
+                ? "Experience the Live Auction Command Center."
+                : "Calculate Your Auction Night Setup."}
+            </h2>
           </div>
-          <p className="max-w-md text-xs sm:text-sm text-muted-foreground">
-            Configure your league size to estimate bidding time, points purse distribution, and recommended license.
-          </p>
+          <div className="flex items-center gap-2 p-1 rounded-xl bg-black/60 border border-white/10">
+            <button
+              type="button"
+              onClick={() => setActiveTab("simulator")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                activeTab === "simulator"
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              <span>Live 4-Screen Simulator</span>
+              <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] text-emerald-300 font-mono">
+                Interactive
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("calculator")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                activeTab === "calculator"
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              <Sliders className="h-3.5 w-3.5" />
+              <span>Setup & Duration Planner</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] items-start">
+        {activeTab === "simulator" ? (
+          <AuctionExperienceSimulator onStartTrial={onStartTrial} />
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] items-start">
           {/* Controls */}
           <div className="panel space-y-6 p-6 rounded-xl bg-black/30 border border-white/10">
             {/* Sport Select */}
@@ -235,6 +270,7 @@ export function TournamentCalculator({ onStartTrial }: { onStartTrial: () => voi
             </div>
           </div>
         </div>
+        )}
       </div>
     </section>
   );

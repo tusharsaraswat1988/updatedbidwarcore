@@ -185,7 +185,7 @@ const FAQ_SCHEMA = {
       "name": "How much does BidWar cost?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "BidWar uses one-time per-tournament pricing for the Auction License software — no monthly fees. Trial is free (2 teams). Paid plans (list / with limited-time 10% off): Starter ₹5,000 / ₹4,500 (4 teams), Pro ₹6,000 / ₹5,400 (8), Advanced ₹8,000 / ₹7,200 (12), Elite ₹9,000 / ₹8,100 (16), Premium ₹11,000 / ₹9,900 (22), Champion ₹12,000 / ₹10,800 (30). License fees are for software access only. Player bidding on BidWar uses a virtual points purse — players are not sold for money through the platform.",
+        "text": "BidWar uses one-time per-tournament pricing for the Auction License software — no monthly fees. Trial is free (2 teams). Paid plans (list / with limited-time 25% off): Starter ₹5,000 / ₹3,750 (4 teams), Pro ₹6,000 / ₹4,500 (8), Advanced ₹8,000 / ₹6,000 (12), Elite ₹9,000 / ₹6,750 (16), Premium ₹11,000 / ₹8,250 (22), Champion ₹12,000 / ₹9,000 (30). License fees are for software access only. Player bidding on BidWar uses a virtual points purse — players are not sold for money through the platform.",
       },
     },
     {
