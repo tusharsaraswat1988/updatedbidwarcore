@@ -7,8 +7,8 @@ interface YoutubePlayerProps {
   thumbnailUrl?: string | null;
 }
 
-const YT_THUMB = (id: string) => `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-const YT_THUMB_FALLBACK = (id: string) => `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+const YT_THUMB = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+const YT_THUMB_FALLBACK = (id: string) => `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 
 /** Loads YouTube iframe only after user clicks — no autoplay on page load. */
 export const YoutubePlayer = memo(function YoutubePlayer({

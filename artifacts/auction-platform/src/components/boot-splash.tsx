@@ -19,6 +19,7 @@ export function BootSplash({ label = "Loading BidWar" }: { label?: string }) {
     >
       <img src={logoSrc} alt="" width={64} height={64} decoding="async" />
       <div className="bidwar-boot-spinner" aria-hidden="true" />
+      <div className="bidwar-boot-text">{label}</div>
     </div>
   );
 }

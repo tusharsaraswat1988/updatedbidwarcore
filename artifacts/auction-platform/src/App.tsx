@@ -14,6 +14,7 @@ import type { PageInitialData } from "@/lib/initial-data/types";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 
 import { BootSplash } from "@/components/boot-splash";
+import { ErrorBoundary } from "@/components/error-boundary";
 import Landing from "@/pages/lovable-home";
 
 const PlatformApp = lazy(() => import("./platform-app"));
@@ -163,11 +164,15 @@ function HomeRoute() {
     }
   }, [isLoading, isLoggedIn, navigate]);
 
-  if (isLoading || isLoggedIn) {
+  if (!isLoading && isLoggedIn) {
     return <BootSplash />;
   }
 
-  return <Landing />;
+  return (
+    <ErrorBoundary fallbackTitle="BidWar Homepage">
+      <Landing />
+    </ErrorBoundary>
+  );
 }
 
 function Router() {
@@ -253,7 +258,9 @@ function App(props: AppProps = {}) {
           <OrganizerAccountAuthBootstrap />
           <BrandingEffects />
           <PageTracking />
-          <Router />
+          <ErrorBoundary fallbackTitle="BidWar Platform">
+            <Router />
+          </ErrorBoundary>
         </WouterRouter>
       </InitialDataProvider>
     </QueryClientProvider>

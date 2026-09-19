@@ -797,6 +797,7 @@ export type AcademyLessonRow = {
   contentFormat: "plain" | "markdown" | "html";
   youtubeUrl: string | null;
   youtubeVideoId: string | null;
+  thumbnailUrl?: string | null;
   categoryId: number | null;
   categoryName: string | null;
   seoTitle: string | null;
@@ -815,6 +816,7 @@ export type AcademyLessonInput = {
   content?: string | null;
   contentFormat?: "plain" | "markdown" | "html";
   youtubeUrl?: string | null;
+  thumbnailUrl?: string | null;
   categoryId?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;

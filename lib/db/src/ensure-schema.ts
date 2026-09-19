@@ -809,6 +809,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_status ON academy_lessons (status);
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_category_id ON academy_lessons (category_id);
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_display_order ON academy_lessons (display_order);
+    ALTER TABLE academy_lessons ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
   `);
 
   await q(`

@@ -74,7 +74,7 @@
   --shadow-broadcast: 0 30px 80px -20px oklch(0.75 0.19 65 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.6);
   --shadow-panel: 0 1px 0 0 oklch(1 0 0 / 0.06) inset, 0 24px 60px -30px oklch(0 0 0 / 0.7);
 
-  --font-display: "Anton", "Impact", sans-serif;
+  --font-display: "Barlow Condensed", "Space Grotesk", sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
@@ -236,25 +236,29 @@
 :is(.lovable-home, .lovable-theme) .bg-stage\/80 { background-color: color-mix(in oklab, var(--stage) 80%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-panel-2\/80 { background-color: color-mix(in oklab, var(--panel-2) 80%, transparent) !important; }
 
-/* Homepage-only: Anton uppercase display type.
-   .lovable-theme (badminton app) keeps readable product headings. */
+/* Homepage-only: Anton uppercase display type for primary headlines.
+   Card titles, FAQ questions, and body text use clean, readable Inter sans-serif. */
 .lovable-home h1,
 .lovable-home h2,
-.lovable-home h3,
-.lovable-home h4,
-.lovable-home h5,
-.lovable-home h6,
-.lovable-home .font-display {
-  font-family: "Anton", "Impact", sans-serif !important;
-  letter-spacing: 0.01em !important;
+.lovable-home .text-hero,
+.lovable-home .text-display-lg,
+.lovable-home .text-display-md {
+  font-family: "Anton", "Barlow Condensed", sans-serif !important;
+  letter-spacing: 0.025em !important;
   text-transform: uppercase !important;
+  line-height: 1.05 !important;
   font-weight: 400 !important;
 }
 
-.lovable-home h1,
-.lovable-home h2,
-.lovable-home h3 {
-  line-height: 0.95 !important;
+.lovable-home h3,
+.lovable-home h4,
+.lovable-home h5,
+.lovable-home h6 {
+  font-family: var(--font-sans) !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
 }
 
 :is(.lovable-home, .lovable-theme) .font-mono,

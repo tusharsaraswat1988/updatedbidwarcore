@@ -3,9 +3,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, ExternalLink } from "lucide-react";
 
 const BPL_POPUP_EXPIRY = new Date("2026-10-15T23:59:59+05:30").getTime();
-const BPL_POPUP_DISMISSED_KEY = "bidwar_bpl_promo_popup_dismissed_v1";
+const BPL_POPUP_DISMISSED_KEY = "bidwar_bpl_promo_popup_dismissed_v2";
 const BPL_REGISTRATION_URL = "https://bpl.bidwar.in/";
-const BPL_POSTER_SRC = "/assets/events/bpl-2026-poster.jpg";
+const BPL_POSTER_SRC = "/assets/events/bpl-2026-poster.jpg?v=2";
 
 interface BplPromoModalProps {
   forceOpen?: boolean;

@@ -66,6 +66,7 @@ const EMPTY_FORM: AcademyLessonInput & { slugManual: string; slugTouched: boolea
   content: "",
   contentFormat: "plain",
   youtubeUrl: "",
+  thumbnailUrl: "",
   categoryId: null,
   seoTitle: "",
   seoDescription: "",
@@ -123,6 +124,7 @@ export default function AdminAcademyLessonFormPage() {
       content: row.content ?? "",
       contentFormat: row.contentFormat,
       youtubeUrl: row.youtubeUrl ?? "",
+      thumbnailUrl: row.thumbnailUrl ?? "",
       categoryId: row.categoryId,
       seoTitle: row.seoTitle ?? "",
       seoDescription: row.seoDescription ?? "",
@@ -167,6 +169,7 @@ export default function AdminAcademyLessonFormPage() {
       content: form.content?.trim() || null,
       contentFormat: form.contentFormat,
       youtubeUrl: form.youtubeUrl?.trim() || null,
+      thumbnailUrl: form.thumbnailUrl?.trim() || null,
       categoryId: form.categoryId ?? null,
       seoTitle: form.seoTitle?.trim() || null,
       seoDescription: form.seoDescription?.trim() || null,
@@ -389,7 +392,7 @@ export default function AdminAcademyLessonFormPage() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Video</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Video & Media</h2>
             <div className="space-y-2">
               <Label htmlFor="youtubeUrl">YouTube URL</Label>
               <Input
@@ -399,7 +402,38 @@ export default function AdminAcademyLessonFormPage() {
                 onChange={(e) => updateField("youtubeUrl", e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=…"
               />
+              <p className="text-xs text-muted-foreground">
+                Paste the full YouTube video link. The video ID will be parsed automatically.
+              </p>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="thumbnailUrl">Custom Thumbnail / Screenshot URL (Optional)</Label>
+              <Input
+                id="thumbnailUrl"
+                type="url"
+                value={form.thumbnailUrl ?? ""}
+                onChange={(e) => updateField("thumbnailUrl", e.target.value)}
+                placeholder="https://... (direct image link or Cloudinary/host URL)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Recommended: 16:9 aspect ratio (1280x720). If left empty, BidWar automatically fetches the crystal-clear HD thumbnail from YouTube.
+              </p>
+            </div>
+            {form.thumbnailUrl && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">Thumbnail Preview:</p>
+                <div className="relative aspect-video max-w-sm overflow-hidden rounded-lg border border-border bg-black/40">
+                  <img
+                    src={form.thumbnailUrl}
+                    alt="Thumbnail preview"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="space-y-4">
