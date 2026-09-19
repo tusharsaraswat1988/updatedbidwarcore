@@ -310,7 +310,10 @@ export default function LovableHome() {
       organizerName: review.name,
       tournamentTag: review.sport,
       youtubeId: review.youtubeId,
-      videoUrl: `https://www.youtube.com/@bidwarofficial`,
+      videoUrl: review.youtubeId
+        ? `https://www.youtube.com/watch?v=${review.youtubeId}`
+        : `https://www.youtube.com/@bidwarofficial`,
+      comingSoon: !review.youtubeId,
     });
   };
 

@@ -22,7 +22,7 @@ export function VideoModal({
   videoUrl,
   organizerName,
   tournamentTag,
-  comingSoon = true, // Videos are in production currently
+  comingSoon,
 }: VideoModalProps) {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -50,18 +50,19 @@ export function VideoModal({
 
   if (!isOpen) return null;
 
-  // Derive embed source ONLY if there's an actual 11-char YouTube ID and not marked coming soon
-  let embedSrc: string | null = null;
-  if (!comingSoon) {
-    if (youtubeId && youtubeId.length === 11) {
-      embedSrc = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0&modestbranding=1`;
-    } else if (videoUrl) {
-      const match = videoUrl.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
-      if (match?.[1]) {
-        embedSrc = `https://www.youtube.com/embed/${match[1]}?autoplay=1&rel=0&modestbranding=1`;
-      }
+  // Derive embed source if YouTube ID or URL is available and not explicitly marked coming soon
+  let resolvedYtId = youtubeId && youtubeId.length === 11 ? youtubeId : null;
+  if (!resolvedYtId && videoUrl) {
+    const match = videoUrl.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    if (match?.[1]) {
+      resolvedYtId = match[1];
     }
   }
+
+  const isComingSoon = comingSoon !== undefined ? comingSoon : !resolvedYtId;
+  const embedSrc = !isComingSoon && resolvedYtId
+    ? `https://www.youtube.com/embed/${resolvedYtId}?autoplay=1&rel=0&modestbranding=1`
+    : null;
 
   const whatsappDemoUrl = `https://wa.me/918707488250?text=${encodeURIComponent(
     `Hi BidWar Team, I want to see a live demo of "${title}". Please schedule a quick walkthrough.`
