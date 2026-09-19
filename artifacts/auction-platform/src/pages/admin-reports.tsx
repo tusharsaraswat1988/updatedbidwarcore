@@ -354,10 +354,9 @@ export default function AdminReports() {
         }
       `}</style>
 
-      <div className="flex h-[calc(100vh-190px)] max-h-[calc(100vh-190px)] min-h-[550px] flex-col overflow-hidden rounded-xl border border-border bg-card/70 shadow-sm">
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row h-full overflow-hidden">
-          {/* Left sidebar - Tournament Selection & Report List */}
-          <aside className="no-print w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-border/50 flex flex-col flex-shrink-0 bg-muted/20 h-full overflow-hidden">
+      <div className="flex h-auto lg:h-[calc(100vh-190px)] lg:max-h-[calc(100vh-190px)] min-h-[550px] flex-col lg:flex-row overflow-hidden rounded-xl border border-border bg-card/70 shadow-sm">
+        {/* Left sidebar - Tournament Selection & Report List */}
+        <aside className="no-print w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-border/50 flex flex-col flex-shrink-0 bg-muted/20 max-h-[320px] lg:max-h-none h-auto lg:h-full overflow-hidden">
             {/* Step 1: Prominent Tournament Selector Card */}
             <div className="p-3.5 border-b border-border/50 bg-background/60">
               <div className="flex items-center justify-between gap-1 mb-1.5">
@@ -705,7 +704,6 @@ export default function AdminReports() {
               </>
             )}
           </main>
-        </div>
       </div>
     </AdminShell>
   );

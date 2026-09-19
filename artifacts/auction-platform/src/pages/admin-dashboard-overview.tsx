@@ -104,10 +104,6 @@ export default function AdminDashboardOverview() {
     if (!isLoading && !isLoggedIn) navigate("/admin/login");
   }, [isLoading, isLoggedIn, navigate]);
 
-  useEffect(() => {
-    if (!isLoading && isLoggedIn && isMobile) navigate("/admin/live/auctions");
-  }, [isLoading, isLoggedIn, isMobile, navigate]);
-
   const loadData = async () => {
     setLoading(true);
     try {
@@ -204,7 +200,7 @@ export default function AdminDashboardOverview() {
     };
   }, [organisers, tournaments]);
 
-  if (isLoading || !isLoggedIn || isMobile) return null;
+  if (isLoading || !isLoggedIn) return null;
 
   return (
     <AdminShell
@@ -492,10 +488,10 @@ export default function AdminDashboardOverview() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 text-xs">
+                <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 text-xs overflow-x-auto max-w-full">
                   <button
                     onClick={() => setTournamentTab("scheduled")}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "scheduled"
                         ? "bg-background text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
@@ -505,7 +501,7 @@ export default function AdminDashboardOverview() {
                   </button>
                   <button
                     onClick={() => setTournamentTab("recent")}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "recent"
                         ? "bg-background text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
@@ -515,7 +511,7 @@ export default function AdminDashboardOverview() {
                   </button>
                   <button
                     onClick={() => setTournamentTab("all")}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "all"
                         ? "bg-background text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"

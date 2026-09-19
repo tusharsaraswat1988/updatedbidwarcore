@@ -46,7 +46,7 @@ function getSportTag(sportName?: string) {
 
 type FilterStatus = "all" | "active" | "trial" | "completed" | "locked";
 
-const GRID_COLS = "md:grid md:grid-cols-[minmax(240px,2fr)_minmax(160px,1.2fr)_110px_110px_130px_90px] md:items-center md:gap-4";
+const GRID_COLS = "lg:grid lg:grid-cols-[minmax(220px,2fr)_minmax(140px,1.2fr)_110px_110px_130px_90px] lg:items-center lg:gap-4";
 
 export default function AdminTournamentsListPage() {
   const [, navigate] = useLocation();
@@ -193,11 +193,11 @@ export default function AdminTournamentsListPage() {
         </div>
 
         {/* Filter Chips Bar */}
-        <div className="flex flex-wrap items-center justify-between border-b border-border px-3 py-2 gap-2 bg-muted/20 text-xs">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border px-3 py-2 gap-2 bg-muted/20 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0">
             <button
               onClick={() => setStatusFilter("all")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 statusFilter === "all"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "bg-muted/40 text-muted-foreground hover:text-foreground"
@@ -207,7 +207,7 @@ export default function AdminTournamentsListPage() {
             </button>
             <button
               onClick={() => setStatusFilter("active")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 statusFilter === "active"
                   ? "bg-emerald-500 text-white shadow-xs"
                   : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
@@ -217,7 +217,7 @@ export default function AdminTournamentsListPage() {
             </button>
             <button
               onClick={() => setStatusFilter("trial")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 statusFilter === "trial"
                   ? "bg-amber-500 text-white shadow-xs"
                   : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -227,7 +227,7 @@ export default function AdminTournamentsListPage() {
             </button>
             <button
               onClick={() => setStatusFilter("completed")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 statusFilter === "completed"
                   ? "bg-sky-500 text-white shadow-xs"
                   : "bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
@@ -238,7 +238,7 @@ export default function AdminTournamentsListPage() {
             {counts.locked > 0 && (
               <button
                 onClick={() => setStatusFilter("locked")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                   statusFilter === "locked"
                     ? "bg-red-500 text-white shadow-xs"
                     : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
@@ -309,7 +309,7 @@ export default function AdminTournamentsListPage() {
                   <button
                     key={t.id}
                     onClick={() => navigate(`/admin/tournaments/${t.id}`)}
-                    className={`block w-full border-b border-border px-4 py-3 text-left text-sm hover:bg-accent/40 transition-colors ${GRID_COLS} md:border-b-0`}
+                    className={`block w-full border-b border-border p-3.5 text-left text-sm hover:bg-accent/40 transition-colors ${GRID_COLS} lg:border-b-0`}
                   >
                     {/* Col 1: Tournament Info */}
                     <div className="min-w-0">
@@ -333,7 +333,7 @@ export default function AdminTournamentsListPage() {
                     </div>
 
                     {/* Col 2: Organiser */}
-                    <div className="min-w-0 mt-1 md:mt-0">
+                    <div className="min-w-0 mt-1.5 lg:mt-0">
                       <span className="block truncate text-xs font-medium text-foreground/90">
                         {t.organizerName || <span className="text-muted-foreground italic">Unlinked Organiser</span>}
                       </span>
@@ -345,25 +345,25 @@ export default function AdminTournamentsListPage() {
                     </div>
 
                     {/* Col 3: Status */}
-                    <div className="mt-1.5 flex items-center gap-2 md:mt-0">
+                    <div className="mt-1.5 flex items-center gap-2 lg:mt-0">
                       <StatusBadge status={t.status} />
                     </div>
 
                     {/* Col 4: License */}
-                    <div className="mt-1.5 flex items-center gap-1.5 md:mt-0">
+                    <div className="mt-1.5 flex items-center gap-1.5 lg:mt-0">
                       <LicenseBadge status={t.licenseStatus} />
                       {t.adminLocked && <LockBadge locked />}
                     </div>
 
                     {/* Col 5: Auction Date */}
-                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground md:mt-0">
-                      <Calendar className="h-3 w-3 text-muted-foreground/60 hidden md:inline" />
+                    <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground lg:mt-0">
+                      <Calendar className="h-3 w-3 text-muted-foreground/60 hidden lg:inline" />
                       <span>{t.auctionDate ? `${t.auctionDate}${t.auctionTime ? ` (${t.auctionTime})` : ''}` : "Not scheduled"}</span>
                     </div>
 
                     {/* Col 6: Action */}
-                    <div className="mt-2 text-xs font-bold text-primary md:mt-0 md:text-right">
-                      <span className="rounded-md bg-primary/10 px-2 py-1 hover:bg-primary/20 transition-colors">
+                    <div className="mt-2.5 text-xs font-bold text-primary lg:mt-0 lg:text-right">
+                      <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 hover:bg-primary/20 transition-colors">
                         Open →
                       </span>
                     </div>

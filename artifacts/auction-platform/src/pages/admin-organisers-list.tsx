@@ -36,7 +36,7 @@ function PhoneStatusBadge({ status }: { status: ReturnType<typeof phoneStatusOf>
 
 type ExtendedFilter = "all" | "verified" | "missing_phone" | "incomplete_profile" | "locked";
 
-const GRID_COLS = "md:grid md:grid-cols-[minmax(220px,1.8fr)_minmax(140px,1.2fr)_minmax(180px,1.6fr)_120px_100px_100px_90px] md:items-center md:gap-4";
+const GRID_COLS = "lg:grid lg:grid-cols-[minmax(200px,1.8fr)_minmax(130px,1.2fr)_minmax(160px,1.6fr)_110px_90px_90px_80px] lg:items-center lg:gap-4";
 
 export default function AdminOrganisersListPage() {
   const [, navigate] = useLocation();
@@ -142,12 +142,12 @@ export default function AdminOrganisersListPage() {
         </div>
 
         {/* Top Filters Bar */}
-        <div className="flex flex-wrap items-center justify-between border-b border-border px-3 py-2 gap-2 bg-muted/20 text-xs">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border px-3 py-2 gap-2 bg-muted/20 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0">
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 filter === "all"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "bg-muted/40 text-muted-foreground hover:text-foreground"
@@ -158,7 +158,7 @@ export default function AdminOrganisersListPage() {
             <button
               type="button"
               onClick={() => setFilter("verified")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 filter === "verified"
                   ? "bg-emerald-500 text-white shadow-xs"
                   : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
@@ -169,7 +169,7 @@ export default function AdminOrganisersListPage() {
             <button
               type="button"
               onClick={() => setFilter("missing_phone")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 filter === "missing_phone"
                   ? "bg-amber-500 text-white shadow-xs"
                   : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -181,7 +181,7 @@ export default function AdminOrganisersListPage() {
               <button
                 type="button"
                 onClick={() => setFilter("incomplete_profile")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                   filter === "incomplete_profile"
                     ? "bg-orange-500 text-white shadow-xs"
                     : "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
@@ -194,7 +194,7 @@ export default function AdminOrganisersListPage() {
               <button
                 type="button"
                 onClick={() => setFilter("locked")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                   filter === "locked"
                     ? "bg-red-500 text-white shadow-xs"
                     : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
@@ -260,7 +260,7 @@ export default function AdminOrganisersListPage() {
                   <button
                     key={o.id}
                     onClick={() => navigate(`/admin/organisers/${o.id}`)}
-                    className={`block w-full border-b border-border px-4 py-3 text-left text-sm hover:bg-accent/40 transition-colors ${GRID_COLS} md:border-b-0`}
+                    className={`block w-full border-b border-border p-3.5 text-left text-sm hover:bg-accent/40 transition-colors ${GRID_COLS} lg:border-b-0`}
                   >
                     {/* Col 1: Organiser Info */}
                     <div className="min-w-0 flex items-center gap-3">
@@ -278,26 +278,26 @@ export default function AdminOrganisersListPage() {
                     </div>
 
                     {/* Col 2: Phone */}
-                    <div className="min-w-0 mt-1 md:mt-0">
+                    <div className="min-w-0 mt-1.5 lg:mt-0">
                       <span className={`block truncate text-xs ${!o.mobile ? "text-amber-400 font-medium" : "text-foreground font-mono"}`}>
                         {phoneDisplay(o)}
                       </span>
                     </div>
 
                     {/* Col 3: Email */}
-                    <div className="min-w-0 mt-1 md:mt-0">
+                    <div className="min-w-0 mt-1 lg:mt-0">
                       <span className="block truncate text-xs text-muted-foreground">
                         {o.email || "—"}
                       </span>
                     </div>
 
                     {/* Col 4: Phone Status */}
-                    <div className="mt-1.5 md:mt-0">
+                    <div className="mt-1.5 lg:mt-0">
                       <PhoneStatusBadge status={phoneStatus} />
                     </div>
 
                     {/* Col 5: Account Status */}
-                    <div className="mt-1.5 md:mt-0">
+                    <div className="mt-1.5 lg:mt-0">
                       <Badge
                         className={`text-[10px] font-semibold ${
                           !isLocked
@@ -310,7 +310,7 @@ export default function AdminOrganisersListPage() {
                     </div>
 
                     {/* Col 6: Tournaments Count */}
-                    <div className="mt-1.5 text-xs md:mt-0">
+                    <div className="mt-1.5 text-xs lg:mt-0">
                       <span className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-2 py-0.5 font-bold text-foreground">
                         <Trophy className="h-3 w-3 text-amber-400" />
                         {o.tournamentCount}
@@ -318,8 +318,8 @@ export default function AdminOrganisersListPage() {
                     </div>
 
                     {/* Col 7: Action */}
-                    <div className="mt-2 text-xs font-bold text-primary md:mt-0 md:text-right">
-                      <span className="rounded-md bg-primary/10 px-2 py-1 hover:bg-primary/20 transition-colors">
+                    <div className="mt-2.5 text-xs font-bold text-primary lg:mt-0 lg:text-right">
+                      <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 hover:bg-primary/20 transition-colors">
                         Open →
                       </span>
                     </div>

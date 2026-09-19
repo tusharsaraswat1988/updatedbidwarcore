@@ -53,14 +53,14 @@ export default function AdminSystemPage() {
   return (
     <AdminShell title="System Settings" eyebrow="Platform Settings">
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0">
           {systemTabs.map((tab) => (
             <Link
               key={tab.id}
               href={tab.href}
-              className={`rounded-lg border px-3 py-2 text-sm ${
+              className={`rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm whitespace-nowrap font-medium transition-colors ${
                 section === tab.id
-                  ? "border-primary/50 bg-primary/15 text-primary"
+                  ? "border-primary/50 bg-primary/15 text-primary shadow-sm"
                   : "border-border bg-card/70 text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >

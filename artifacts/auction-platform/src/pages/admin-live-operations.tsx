@@ -42,9 +42,9 @@ function LiveAuctions({
   const scheduled = allTournaments.filter((t) => t.licenseStatus !== "completed" && t.licenseStatus !== "active");
   const rows = liveTournaments.length ? liveTournaments : scheduled.slice(0, 8);
   return (
-    <div className="rounded-xl border border-border bg-card/70">
+    <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
       <AdminListHeader
-        gridClassName="md:grid md:grid-cols-[1fr_120px_180px_140px_140px]"
+        gridClassName="lg:grid lg:grid-cols-[1fr_120px_180px_140px_140px]"
         columns={[
           { label: "Tournament" },
           { label: "Status" },
@@ -57,20 +57,22 @@ function LiveAuctions({
         <button
           key={t.id}
           onClick={() => navigate(tournamentLiveOpsPath(t.id, "monitor"))}
-          className="block w-full border-b border-border px-4 py-3 text-left text-sm last:border-b-0 hover:bg-accent/50 md:grid md:grid-cols-[1fr_120px_180px_140px_140px] md:items-center md:gap-4"
+          className="block w-full border-b border-border p-3.5 text-left text-sm last:border-b-0 hover:bg-accent/50 lg:grid lg:grid-cols-[1fr_120px_180px_140px_140px] lg:items-center lg:gap-4"
         >
           <div className="min-w-0">
             <div className="font-semibold text-white">{t.name}</div>
             <div className="text-xs text-muted-foreground">{t.sport} · ID #{t.id}</div>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 md:mt-0">
+          <div className="mt-2 flex flex-wrap items-center gap-2 lg:mt-0">
             <LiveStatus tournament={t} />
-            <span className="text-xs text-muted-foreground md:hidden">{t.organizerName || "No organiser"}</span>
+            <span className="text-xs text-muted-foreground lg:hidden">· {t.organizerName || "No organiser"}</span>
           </div>
-          <div className="mt-1 hidden truncate text-xs text-muted-foreground md:block">{t.organizerName || "No organiser"}</div>
-          <div className="mt-1 text-xs text-muted-foreground md:mt-0">{t.auctionDate || "Not set"}</div>
-          <div className="mt-2 text-xs font-semibold text-primary md:mt-0 md:text-right">
-            {t.licenseStatus === "active" ? "Open tournament" : "Prepare"}
+          <div className="mt-1 hidden truncate text-xs text-muted-foreground lg:block">{t.organizerName || "No organiser"}</div>
+          <div className="mt-1.5 text-xs text-muted-foreground lg:mt-0">{t.auctionDate || "Not set"}</div>
+          <div className="mt-2 text-xs font-semibold text-primary lg:mt-0 lg:text-right">
+            <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 hover:bg-primary/20 transition-colors">
+              {t.licenseStatus === "active" ? "Open tournament →" : "Prepare →"}
+            </span>
           </div>
         </button>
       ))}

@@ -33,17 +33,18 @@ export function AdminPwaInstallHint({ variant = "card" }: AdminPwaInstallHintPro
     setSessionDismissed(true);
   }
 
-  if (variant === "compact" && canPromptInstall) {
+  if (variant === "compact") {
+    if (!canPromptInstall) return null;
     return (
       <Button
         type="button"
         size="sm"
         variant="outline"
-        className="gap-1.5 border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-amber-50"
+        className="hidden md:inline-flex gap-1.5 border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-amber-50 h-8 px-2.5 text-xs font-semibold"
         onClick={() => void handleInstall()}
         disabled={installing}
       >
-        <Download className="h-4 w-4" />
+        <Download className="h-3.5 w-3.5" />
         {installing ? "Installing..." : "Install app"}
       </Button>
     );

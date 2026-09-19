@@ -139,7 +139,7 @@ function MonitorWorkspace({
       />
 
       <div className="rounded-xl border border-border bg-card/70 p-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="bg-green-500/15 text-green-400">Live workspace</Badge>
@@ -148,15 +148,15 @@ function MonitorWorkspace({
               {t.localModeEnabled && <Badge className="bg-amber-500/15 text-amber-300">Local mode</Badge>}
               <LiveConnectionStatus tournamentId={tournamentId} />
             </div>
-            <h2 className="mt-2 font-display text-xl font-black text-white">{t.name}</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="mt-2 font-display text-lg sm:text-xl font-black text-white">{t.name}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {t.sport} · ID #{t.id} · {t.organizerName || "No organiser linked"}
             </p>
             {connectionStatus === "disconnected" && (
               <p className="mt-1 text-xs text-amber-300">Event stream offline — bid feed may be stale.</p>
             )}
           </div>
-          <Button variant="destructive" onClick={() => navigate(emergencyHref(t.id))}>
+          <Button variant="destructive" size="sm" className="self-start sm:self-auto text-xs" onClick={() => navigate(emergencyHref(t.id))}>
             Emergency Controls
           </Button>
         </div>

@@ -105,7 +105,7 @@ function DataTabLink({
   return (
     <Link
       href={href}
-      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+      className={`rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
         active === id
           ? "border-primary/50 bg-primary/15 text-primary shadow-sm"
           : "border-border bg-card/70 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -152,7 +152,7 @@ function LiveOpsTabLink({
   return (
     <Link
       href={tournamentLiveOpsPath(tournamentId, section)}
-      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+      className={`rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
         isMatch
           ? "border-primary/50 bg-primary/15 text-primary shadow-sm"
           : "border-border bg-card/70 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -362,9 +362,9 @@ export default function AdminTournamentDetailPage() {
           </div>
 
           {/* Unified Single-Row Navigation Bar */}
-          <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-2 sm:flex-row sm:items-center sm:justify-between overflow-hidden">
             {/* Primary Data Tabs */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0">
               <DataTabLink id="overview" label="Overview & Controls" tournamentId={tournamentId} active={tab} />
               <DataTabLink id="players" label={`Players (${detail.players.length})`} tournamentId={tournamentId} active={tab} />
               <DataTabLink id="teams" label={`Teams (${detail.teams.length})`} tournamentId={tournamentId} active={tab} />
@@ -372,7 +372,7 @@ export default function AdminTournamentDetailPage() {
             </div>
 
             {/* Live Operations Tabs on the Same Line */}
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-3">
+            <div className="flex items-center gap-1.5 border-t border-border/60 pt-2 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-3 overflow-x-auto max-w-full pb-1 sm:pb-0">
               <LiveOpsTabLink
                 section="monitor"
                 label="Live Auction Monitor"
