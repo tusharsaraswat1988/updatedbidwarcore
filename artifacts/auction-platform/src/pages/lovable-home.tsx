@@ -102,11 +102,29 @@ function LiveBadge({ label = "LIVE" }: { label?: string }) {
 }
 
 function StatTile({ value, label, sub }: { value: string; label: string; sub?: string }) {
+  const isCompact = value.length > 5;
+  const isMini = value.length > 8;
+
   return (
-    <div className="scoreboard-tile flex flex-col gap-1 px-4 py-3 rounded-xl bg-card/50 border border-white/10">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{label}</span>
-      <span className="font-display text-3xl leading-none text-primary font-bold count-flicker">{value}</span>
-      {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
+    <div className="scoreboard-tile flex flex-col justify-between gap-1 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-xl bg-card/60 border border-white/10 transition-colors hover:border-primary/40 min-h-[84px]">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground truncate" title={label}>
+        {label}
+      </span>
+      <span
+        className={`font-display font-bold leading-tight text-primary count-flicker truncate ${
+          isMini ? "text-lg sm:text-xl" : isCompact ? "text-2xl sm:text-2xl" : "text-2xl sm:text-3xl"
+        }`}
+        title={value}
+      >
+        {value}
+      </span>
+      {sub ? (
+        <span className="text-[11px] text-muted-foreground/80 truncate leading-tight" title={sub}>
+          {sub}
+        </span>
+      ) : (
+        <span className="h-1.5" />
+      )}
     </div>
   );
 }
@@ -1109,12 +1127,13 @@ function ProductShowcase({
 
 type Tournament = {
   id: string;
+  tabLabel: string;
   name: string;
   seasonTag: string;
   sportTag: string;
   location: string;
   blurb: string;
-  stats: Array<{ v: string; l: string }>;
+  stats: Array<{ v: string; l: string; sub?: string }>;
   image: string;
   reelLabel: string;
 };
@@ -1129,6 +1148,7 @@ function RealTournaments({
   const tournaments: Tournament[] = [
     {
       id: "vnbl3-2026",
+      tabLabel: "VNBL 3.0",
       name: "VNBL 3.0 (Vyapari Network Badminton League 2026)",
       seasonTag: "VERIFIED · 2026 LIVE LEAGUE",
       sportTag: "Badminton Auction",
@@ -1136,16 +1156,17 @@ function RealTournaments({
       blurb:
         "Vyapari Network Badminton League 3.0 conducted live at Hotel Bliss, Banaras. Over 78 players auctioned across 6 franchise teams with real-time stage LED projection, mobile purse guard, and instant squad exports.",
       stats: [
-        { v: "6", l: "Teams" },
-        { v: "78", l: "Players" },
-        { v: "Hotel Bliss", l: "Venue" },
-        { v: "0 Disputed Bids", l: "Accuracy" },
+        { v: "6", l: "Teams", sub: "Franchises" },
+        { v: "78", l: "Players", sub: "Auctioned" },
+        { v: "100%", l: "Purse Accuracy", sub: "Zero Overspend" },
+        { v: "0", l: "Disputed Bids", sub: "Stage LED Sync" },
       ],
       image: "https://res.cloudinary.com/dja0upxxe/image/upload/v1789471841/Screenshot_2026-09-15_165941.png",
       reelLabel: "VNBL 3.0 · Stage Highlight Reel",
     },
     {
       id: "apl2026",
+      tabLabel: "Alumni Premier League",
       name: "Alumni Premier League 2026",
       seasonTag: "VERIFIED · ALUMNI TOURNAMENT",
       sportTag: "Cricket Auction",
@@ -1153,16 +1174,17 @@ function RealTournaments({
       blurb:
         "St. John's Marhauli Alumni Association (SJMAA) Alumni Premier League 2026 hosted live at the prestigious Benaras Club. 5 franchise teams auctioning 65 alumni players with zero lag, instant squad exports, and big-screen auctioneer console.",
       stats: [
-        { v: "5", l: "Teams" },
-        { v: "65", l: "Players" },
-        { v: "Benaras Club", l: "Venue" },
-        { v: "100%", l: "Purse Accuracy" },
+        { v: "5", l: "Teams", sub: "Franchises" },
+        { v: "65", l: "Players", sub: "Auctioned" },
+        { v: "100%", l: "Purse Accuracy", sub: "Zero Errors" },
+        { v: "0", l: "Disputed Bids", sub: "Console Sync" },
       ],
       image: "/assets/evidence/real-auction-laptop-vncl.jpg",
       reelLabel: "APL 2026 · Benaras Club Auction Tape",
     },
     {
       id: "bpl2026",
+      tabLabel: "BidWar Premier League",
       name: "BidWar Premier League 2026",
       seasonTag: "ACTIVE · 2026 LIVE TOURNAMENT",
       sportTag: "Box Cricket Scoring",
@@ -1170,10 +1192,10 @@ function RealTournaments({
       blurb:
         "Official BidWar Premier League conducted at Pitch and Paddle, Sigra. Ball-by-ball box cricket live scoring, real-time LED screen match overlays, automated points table with NRR, and player performance analytics.",
       stats: [
-        { v: "8", l: "Teams" },
-        { v: "96", l: "Players" },
-        { v: "Pitch & Paddle", l: "Venue" },
-        { v: "Ball-by-Ball", l: "Live Scoring" },
+        { v: "8", l: "Teams", sub: "Franchises" },
+        { v: "96", l: "Players", sub: "Squad Pool" },
+        { v: "100%", l: "Live Overlay", sub: "Stage LED Sync" },
+        { v: "0s", l: "Scoring Delay", sub: "Ball-by-Ball" },
       ],
       image: "/assets/evidence/bpl-2026-poster.jpg?v=2",
       reelLabel: "BPL 2026 · Box Cricket Reel",
@@ -1222,7 +1244,7 @@ function RealTournaments({
                   : "border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground"
               }`}
             >
-              {tour.name}
+              {tour.tabLabel || tour.name}
             </button>
           ))}
           <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
@@ -1245,8 +1267,10 @@ function RealTournaments({
             </div>
             <h3 className="text-display-md mt-3 font-display font-bold text-foreground tracking-wide">{t.name}</h3>
             <p className="mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">{t.blurb}</p>
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {t.stats.map((s) => <StatTile key={s.l} value={s.v} label={s.l} />)}
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {t.stats.map((s) => (
+                <StatTile key={s.l} value={s.v} label={s.l} sub={s.sub} />
+              ))}
             </div>
           </div>
 
