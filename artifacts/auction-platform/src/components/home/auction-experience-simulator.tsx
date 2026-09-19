@@ -18,7 +18,99 @@ import {
   Maximize2,
   Minimize2,
   Sparkles,
+  Shield,
 } from "lucide-react";
+import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
+import { getBrandWordmarkSrc, getPublicBrandLogoSrc, getBrandLogoAlt } from "@/lib/brand-assets";
+import { BrandLogoImage } from "@/components/brand-logo-image";
+
+// ─── OFFICIAL TOURNAMENT NAME ────────────────────────────────────────────────
+export const TOURNAMENT_NAME = "Bidwar Premier League";
+
+// ─── ACTUAL BIDWAR LOGO FROM ADMIN BRANDING ─────────────────────────────────
+export function ActualBidwarLogo({ className = "h-6 w-auto object-contain" }: { className?: string }) {
+  const { logos, iconVersion, brandName } = usePublicBranding();
+  const adminWordmark = getBrandWordmarkSrc(logos, ["mainReverse", "main"]);
+  const src =
+    adminWordmark ||
+    getPublicBrandLogoSrc(["mainReverse", "main"], iconVersion) ||
+    "/assets/branding/bidwar-reverse-logo-official.png";
+
+  return (
+    <BrandLogoImage
+      src={src}
+      alt={getBrandLogoAlt(brandName || "BidWar")}
+      className={className}
+      width={120}
+      height={32}
+      loading="eager"
+      fallback={
+        <div className="font-display font-black text-sm text-yellow-400 flex items-center leading-none">
+          bid<span className="text-white">WAR</span>
+        </div>
+      }
+    />
+  );
+}
+
+// ─── 3 REALISTIC FRANCHISE TEAM CREST LOGOS (VECTOR SVG) ────────────────────
+const PW_LOGO_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="pwg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="pwgold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+  <polygon points="50,4 94,18 84,76 50,96 16,76 6,18" fill="url(#pwg)" stroke="url(#pwgold)" stroke-width="3.5"/>
+  <circle cx="50" cy="46" r="26" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+  <path d="M37,35 L63,59 M63,35 L37,59" stroke="#fcd34d" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="50" cy="47" r="7.5" fill="#ef4444" stroke="#fff" stroke-width="1.5"/>
+  <text x="50" y="81" text-anchor="middle" fill="#fbbf24" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="900" font-size="16" letter-spacing="1">PW</text>
+</svg>
+`)}`;
+
+const DEL_LOGO_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="delg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </linearGradient>
+    <linearGradient id="delfire" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+  <polygon points="50,4 94,18 84,76 50,96 16,76 6,18" fill="url(#delg)" stroke="url(#delfire)" stroke-width="3.5"/>
+  <circle cx="50" cy="46" r="26" fill="#450a0a" stroke="#f87171" stroke-width="1.5"/>
+  <path d="M50,22 C42,32 40,40 45,48 C41,45 38,40 38,36 C32,44 32,56 40,64 C48,72 58,70 62,62 C66,54 62,44 54,38 C56,44 52,48 50,48 C48,46 48,34 50,22 Z" fill="#fbbf24"/>
+  <text x="50" y="81" text-anchor="middle" fill="#ffffff" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="900" font-size="15" letter-spacing="1">DEL</text>
+</svg>
+`)}`;
+
+const LUC_LOGO_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="lucg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="lucstar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+  </defs>
+  <polygon points="50,4 94,18 84,76 50,96 16,76 6,18" fill="url(#lucg)" stroke="url(#lucstar)" stroke-width="3.5"/>
+  <circle cx="50" cy="46" r="26" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+  <polygon points="50,25 54,38 66,38 56,46 60,58 50,50 40,58 44,46 34,38 46,38" fill="#fbbf24" stroke="#fff" stroke-width="0.8"/>
+  <text x="50" y="81" text-anchor="middle" fill="#ffffff" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="900" font-size="15" letter-spacing="1">LUC</text>
+</svg>
+`)}`;
 
 // ─── TYPES & DATA ────────────────────────────────────────────────────────────
 
@@ -27,11 +119,22 @@ export interface DemoTeam {
   code: string;
   name: string;
   shortName: string;
+  city: string;
   color: string;
   purse: number; // in Points
   initialPurse: number;
   maxBid: number;
   playersCount: number;
+  logoSvg: string;
+}
+
+export interface PlayerSpecifications {
+  matches: number;
+  runs?: number;
+  wickets?: number;
+  strikeRate?: number;
+  economy?: number;
+  speciality: string;
 }
 
 export interface DemoPlayer {
@@ -46,7 +149,8 @@ export interface DemoPlayer {
   category: string;
   basePrice: number; // in Points
   avatarEmoji: string;
-  photoUrl?: string;
+  photoUrl: string;
+  specs: PlayerSpecifications;
 }
 
 export interface SoldRecord {
@@ -61,120 +165,131 @@ export interface SoldRecord {
   isManual?: boolean;
 }
 
+// ─── 3 REALISTIC TEAMS ───────────────────────────────────────────────────────
 const TEAMS_DATA: DemoTeam[] = [
   {
     id: "pw",
     code: "PW",
     name: "PITCH WARRIORS",
     shortName: "PW",
+    city: "MUMBAI",
     color: "#10b981",
-    purse: 150000,
-    initialPurse: 150000,
-    maxBid: 140000,
+    purse: 1000000,
+    initialPurse: 1000000,
+    maxBid: 950000,
     playersCount: 0,
+    logoSvg: PW_LOGO_SVG,
   },
   {
     id: "t2",
-    code: "T2",
+    code: "DEL",
     name: "DELHI DEVILS",
     shortName: "DEL",
+    city: "DELHI",
     color: "#ef4444",
     purse: 1000000,
     initialPurse: 1000000,
     maxBid: 950000,
     playersCount: 0,
+    logoSvg: DEL_LOGO_SVG,
   },
   {
     id: "t1",
-    code: "T1",
+    code: "LUC",
     name: "LUCKNOW CHALLENGERS",
     shortName: "LUC",
+    city: "LUCKNOW",
     color: "#2563eb",
     purse: 955000,
     initialPurse: 955000,
     maxBid: 915000,
     playersCount: 1,
-  },
-  {
-    id: "t3",
-    code: "T3",
-    name: "MUMBAI TITANS",
-    shortName: "MUM",
-    color: "#0284c7",
-    purse: 1200000,
-    initialPurse: 1200000,
-    maxBid: 1100000,
-    playersCount: 2,
-  },
-  {
-    id: "t4",
-    code: "T4",
-    name: "BANGALORE ROYALS",
-    shortName: "BLR",
-    color: "#dc2626",
-    purse: 1050000,
-    initialPurse: 1050000,
-    maxBid: 980000,
-    playersCount: 2,
+    logoSvg: LUC_LOGO_SVG,
   },
 ];
 
+// ─── 4 DUMMY INDIAN PLAYERS WITH DUMMY PHOTOS & DETAILED SPECS ───────────────
 const PLAYERS_QUEUE: DemoPlayer[] = [
   {
     id: "p1",
     serialNo: 1,
     name: "ANKIT SRIVASTAVA",
-    role: "BOWLER",
+    role: "ALL-ROUNDER",
     city: "VARANASI",
-    age: "38",
-    batStyle: "Left-arm",
-    bowlStyle: "Medium",
-    category: "BOWLER",
+    age: "26",
+    batStyle: "Right-Hand Bat",
+    bowlStyle: "Right-Arm Medium Fast",
+    category: "GRADE A",
     basePrice: 15000,
     avatarEmoji: "🏏",
     photoUrl: "/assets/players/ankit-head.png",
+    specs: {
+      matches: 48,
+      runs: 1240,
+      wickets: 54,
+      strikeRate: 142.5,
+      speciality: "Middle-Order Finisher & Death Overs",
+    },
   },
   {
     id: "p2",
     serialNo: 2,
     name: "MAYANK YADAV",
-    role: "BOWLER",
-    city: "VARANASI",
-    age: "24",
-    batStyle: "Right-hand",
-    bowlStyle: "Fast",
-    category: "GRADE A",
-    basePrice: 10000,
+    role: "FAST BOWLER",
+    city: "DELHI",
+    age: "22",
+    batStyle: "Right-Hand Bat",
+    bowlStyle: "Right-Arm Fast (152 km/h)",
+    category: "MARQUEE",
+    basePrice: 20000,
     avatarEmoji: "⚡",
     photoUrl: "/assets/players/mayank-head.png",
+    specs: {
+      matches: 32,
+      wickets: 49,
+      economy: 6.8,
+      speciality: "Express Pace & Deadly Yorkers",
+    },
   },
   {
     id: "p3",
     serialNo: 3,
-    name: "VIRAT KOHLI",
-    role: "BATSMAN",
-    city: "DELHI",
-    age: "35",
-    batStyle: "Right-hand",
-    bowlStyle: "Right-arm Med",
+    name: "RAJ CHANGRANI",
+    role: "OPENING BATSMAN",
+    city: "JAIPUR",
+    age: "25",
+    batStyle: "Left-Hand Bat",
+    bowlStyle: "Right-Arm Off Spin",
     category: "MARQUEE",
-    basePrice: 20000,
-    avatarEmoji: "🏏",
-    photoUrl: "/assets/players/ankit-head.png",
+    basePrice: 25000,
+    avatarEmoji: "🔥",
+    photoUrl: "/assets/players/top-1.png",
+    specs: {
+      matches: 64,
+      runs: 2180,
+      strikeRate: 156.4,
+      speciality: "Powerplay Hitter & 100+ Sixes",
+    },
   },
   {
     id: "p4",
     serialNo: 4,
-    name: "JASPRIT BUMRAH",
-    role: "BOWLER",
-    city: "AHMEDABAD",
-    age: "30",
-    batStyle: "Right-hand",
-    bowlStyle: "Fast",
-    category: "MARQUEE",
-    basePrice: 25000,
-    avatarEmoji: "⚡",
-    photoUrl: "/assets/players/ankit-head.png",
+    name: "ANUBHAV CHAURASIA",
+    role: "WICKET-KEEPER BATSMAN",
+    city: "LUCKNOW",
+    age: "24",
+    batStyle: "Right-Hand Bat",
+    bowlStyle: "Wicket-Keeper",
+    category: "GRADE A",
+    basePrice: 18000,
+    avatarEmoji: "🧤",
+    photoUrl: "/assets/players/top-2.png",
+    specs: {
+      matches: 42,
+      runs: 1450,
+      strikeRate: 138.2,
+      speciality: "Clean Gloves & Quick Stumping",
+    },
   },
 ];
 
@@ -182,47 +297,47 @@ const TOP_5_LEADERBOARD = [
   {
     rank: 1,
     name: "RAJ CHANGRANI",
-    soldTo: "RAJASTHAN MARBLE & TILES",
+    soldTo: "PITCH WARRIORS",
     price: 1295000,
     pct: 100,
-    color: "#3b82f6",
+    color: "#10b981",
     photoUrl: "/assets/players/top-1.png",
   },
   {
     rank: 2,
     name: "ANUBHAV CHAURASIA",
-    soldTo: "VIJAY TYRES SMASHERS",
+    soldTo: "DELHI DEVILS",
     price: 1000000,
     pct: 77,
-    color: "#f97316",
+    color: "#ef4444",
     photoUrl: "/assets/players/top-2.png",
   },
   {
     rank: 3,
     name: "JASPREET SINGH",
-    soldTo: "STOCKTECH SMASHERS",
+    soldTo: "LUCKNOW CHALLENGERS",
     price: 800000,
     pct: 62,
-    color: "#22c55e",
+    color: "#3b82f6",
     photoUrl: "/assets/players/top-3.png",
   },
   {
     rank: 4,
-    name: "UTTAM SETH",
-    soldTo: "ARYA ACES",
+    name: "ANKIT SRIVASTAVA",
+    soldTo: "PITCH WARRIORS",
     price: 755000,
     pct: 58,
-    color: "#ef4444",
-    photoUrl: "/assets/players/top-4.png",
+    color: "#10b981",
+    photoUrl: "/assets/players/ankit-head.png",
   },
   {
     rank: 5,
-    name: "GAURAV KUMAR JAIN",
-    soldTo: "RD SMASHERS",
+    name: "MAYANK YADAV",
+    soldTo: "DELHI DEVILS",
     price: 500000,
     pct: 39,
-    color: "#ec4899",
-    photoUrl: "/assets/players/top-5.png",
+    color: "#ef4444",
+    photoUrl: "/assets/players/mayank-head.png",
   },
 ];
 
@@ -231,19 +346,19 @@ const INITIAL_TOP_5: SoldRecord[] = [
     id: "top-1",
     playerName: "RAJ CHANGRANI",
     role: "ALL-ROUNDER",
-    teamCode: "T2",
-    teamName: "RAJASTHAN MARBLE & TILES",
-    teamColor: "#3b82f6",
+    teamCode: "PW",
+    teamName: "PITCH WARRIORS",
+    teamColor: "#10b981",
     price: 1295000,
     timestamp: "Lot 01",
   },
   {
     id: "top-2",
     playerName: "ANUBHAV CHAURASIA",
-    role: "BATSMAN",
-    teamCode: "T1",
-    teamName: "VIJAY TYRES SMASHERS",
-    teamColor: "#f97316",
+    role: "WICKET-KEEPER",
+    teamCode: "DEL",
+    teamName: "DELHI DEVILS",
+    teamColor: "#ef4444",
     price: 1000000,
     timestamp: "Lot 02",
   },
@@ -251,9 +366,9 @@ const INITIAL_TOP_5: SoldRecord[] = [
     id: "top-3",
     playerName: "JASPREET SINGH",
     role: "BOWLER",
-    teamCode: "T3",
-    teamName: "STOCKTECH SMASHERS",
-    teamColor: "#22c55e",
+    teamCode: "LUC",
+    teamName: "LUCKNOW CHALLENGERS",
+    teamColor: "#3b82f6",
     price: 800000,
     timestamp: "Lot 03",
   },
@@ -607,6 +722,25 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
           : "space-y-2.5"
       }
     >
+      {/* Fullscreen Official Tournament Branding Bar */}
+      {isFullscreen && (
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-black/80 border border-white/15 shrink-0">
+          <div className="flex items-center gap-3">
+            <ActualBidwarLogo className="h-6 w-auto object-contain" />
+            <div className="h-4 w-px bg-white/20" />
+            <span className="font-display font-black text-xs sm:text-sm text-white uppercase tracking-wider">
+              Bidwar Premier League
+            </span>
+            <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full hidden sm:inline-block">
+              LIVE SIMULATION
+            </span>
+          </div>
+          <div className="text-[10px] font-mono text-white/50">
+            Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white font-bold">Esc</kbd> to exit fullscreen
+          </div>
+        </div>
+      )}
+
       {/* ─── 1. CLEAN SCREEN SELECTOR TABS (NO COMBINATIONS) + FULLSCREEN ACTION ───────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2 bg-black/70 border border-white/10 rounded-xl p-1.5 sm:p-2">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
@@ -726,6 +860,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                   player={currentPlayer}
                   bid={currentBid}
                   leadingTeam={leadingTeam}
+                  teams={teams}
                   status={status}
                   reactions={reactions}
                   onSendReaction={sendReaction}
@@ -830,8 +965,8 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                           : "border-white/10 bg-black/40 text-muted-foreground hover:bg-white/5"
                       }`}
                     >
-                      <span className="h-7 w-7 rounded-lg bg-black/50 border border-white/15 flex items-center justify-center font-black">
-                        {t.shortName}
+                      <span className="h-7 w-7 rounded-lg bg-black/50 border border-white/15 flex items-center justify-center p-1 shrink-0">
+                        <img src={t.logoSvg} alt="" className="w-full h-full object-contain" />
                       </span>
                       <span className="truncate">{t.name}</span>
                     </button>
@@ -990,8 +1125,10 @@ function OperatorDeskPanel({
             <div className="text-[10px] font-mono text-emerald-400 font-bold mt-0.5">
               BID: {bid.toLocaleString("en-IN")} PT.
             </div>
-            <div className="text-[9px] font-mono text-white/50 truncate">
-              Lead: <span className="text-white font-bold">{leadingTeam.shortName}</span>
+            <div className="text-[9px] font-mono text-white/50 flex items-center gap-1 truncate">
+              <span>Lead:</span>
+              <img src={leadingTeam.logoSvg} alt="" className="w-3 h-3 object-contain" />
+              <span className="text-white font-bold">{leadingTeam.shortName}</span>
             </div>
           </div>
         </div>
@@ -1125,12 +1262,9 @@ function OperatorDeskPanel({
                   : "bg-black/40 border border-white/5 text-white/70"
               }`}
             >
-              <span className="font-bold flex items-center gap-1">
-                <span
-                  className="w-2 h-2 rounded-full inline-block"
-                  style={{ backgroundColor: t.color }}
-                />
-                {t.code} {t.shortName}
+              <span className="font-bold flex items-center gap-1.5 min-w-0">
+                <img src={t.logoSvg} alt="" className="w-3.5 h-3.5 object-contain shrink-0" />
+                <span className="truncate">{t.code} {t.shortName}</span>
               </span>
               <div className="text-right">
                 <span className="text-white font-bold">{t.purse.toLocaleString("en-IN")} PT.</span>
@@ -1183,11 +1317,8 @@ function ActualLedStageView({
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex flex-col items-center">
-            <div className="text-xs sm:text-sm xl:text-base font-display font-black leading-none tracking-tight">
-              <span className="text-yellow-400">bid</span>
-              <span className="text-white">WAR</span>
-            </div>
-            <span className="text-[6px] tracking-widest text-white/40 uppercase font-mono">
+            <ActualBidwarLogo className="h-5 sm:h-6 w-auto object-contain" />
+            <span className="text-[6px] tracking-widest text-white/40 uppercase font-mono mt-0.5">
               FROM AUCTION TO CHAMPION
             </span>
           </div>
@@ -1262,9 +1393,16 @@ function ActualLedStageView({
                 BOWL: <strong className="text-yellow-400 font-bold">{player.bowlStyle || "Medium"}</strong>
               </span>
               <span>
-                BA: <strong className="text-white font-bold">{player.batStyle}</strong>
+                BAT: <strong className="text-white font-bold">{player.batStyle}</strong>
               </span>
             </div>
+
+            {player.specs && (
+              <div className="mt-1 pt-0.5 border-t border-white/10 text-[7px] sm:text-[8px] font-mono text-cyan-300 flex items-center justify-between">
+                <span>{player.specs.matches} M · {player.specs.runs ? `${player.specs.runs} R` : ""}{player.specs.wickets ? ` · ${player.specs.wickets} W` : ""}</span>
+                <span>{player.specs.strikeRate ? `SR ${player.specs.strikeRate}` : player.specs.economy ? `Eco ${player.specs.economy}` : ""}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1279,8 +1417,11 @@ function ActualLedStageView({
           </div>
 
           <div className="mt-2 sm:mt-3 w-full max-w-[260px] sm:max-w-xs">
-            <div className="bg-white text-black flex items-center justify-center gap-2 sm:gap-3 py-1.5 sm:py-2 px-3 shadow-xl relative">
-              <div className="absolute left-0 top-0 bottom-0 w-2 bg-red-600" />
+            <div className="bg-white text-black flex items-center justify-center gap-2 sm:gap-2.5 py-1.5 sm:py-2 px-3 shadow-xl relative rounded-sm">
+              <div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: leadingTeam.color }} />
+              {leadingTeam.logoSvg && (
+                <img src={leadingTeam.logoSvg} alt={leadingTeam.name} className="w-6 h-6 object-contain" />
+              )}
               <span className="font-display font-black text-lg sm:text-2xl text-black">
                 {leadingTeam.code}
               </span>
@@ -1291,12 +1432,12 @@ function ActualLedStageView({
             </div>
 
             <div className="mt-1.5 sm:mt-2 flex flex-col items-center gap-0.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-red-600 text-white font-mono text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md">
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-white font-mono text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md" style={{ backgroundColor: leadingTeam.color }}>
                 <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                 <span>HIGHEST BIDDER</span>
               </div>
               <span className="text-[9px] sm:text-[10px] font-mono font-bold text-white/60 mt-0.5">
-                ● 1 ACTIVE BIDDER
+                ● {leadingTeam.city} FRANCHISE
               </span>
             </div>
           </div>
@@ -1319,41 +1460,39 @@ function ActualLedStageView({
                 <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
                 TEAMS PURSE & MAX BID
               </span>
-              <span className="text-white/40">2 TEAMS</span>
+              <span className="text-white/40">3 TEAMS</span>
             </div>
 
-            <div className="p-1 rounded border-l-2 border-red-500 bg-red-950/40 flex items-center justify-between text-[8px] sm:text-[9px] font-mono min-w-0">
-              <div className="flex items-center gap-1 truncate">
-                <span className="font-bold text-red-400">T2</span>
-                <span className="text-white truncate font-bold text-[10px]">DEL</span>
-                <span className="text-[8px] font-bold px-1 rounded bg-red-600 text-white">
-                  HIGHEST
-                </span>
-              </div>
-              <div className="text-right text-[8px] sm:text-[9px]">
-                <div className="text-white font-bold">
-                  PURSE <span className="text-red-300">10,00,000 PT.</span>
+            {TEAMS_DATA.map((t) => {
+              const isLead = t.id === leadingTeam.id;
+              return (
+                <div
+                  key={t.id}
+                  className={`p-1 rounded border-l-2 flex items-center justify-between text-[8px] sm:text-[9px] font-mono min-w-0 ${
+                    isLead ? "bg-white/10 text-white" : "bg-black/40 text-white/70"
+                  }`}
+                  style={{ borderLeftColor: t.color }}
+                >
+                  <div className="flex items-center gap-1 truncate">
+                    <img src={t.logoSvg} alt={t.name} className="w-3.5 h-3.5 object-contain" />
+                    <span className="font-bold text-white text-[10px]">{t.shortName}</span>
+                    {isLead && (
+                      <span className="text-[7px] font-bold px-1 rounded bg-red-600 text-white">
+                        HIGHEST
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-right text-[8px] sm:text-[9px]">
+                    <div className="text-white font-bold">
+                      PURSE <span style={{ color: t.color }}>{(t.purse / 100000).toFixed(2)}L PT.</span>
+                    </div>
+                    <div className="text-emerald-400 font-bold">
+                      MAX {(t.maxBid / 100000).toFixed(2)}L
+                    </div>
+                  </div>
                 </div>
-                <div className="text-emerald-400 font-bold">
-                  MAX 9,50,000 PT.
-                </div>
-              </div>
-            </div>
-
-            <div className="p-1 rounded border-l-2 border-blue-500 bg-blue-950/40 flex items-center justify-between text-[8px] sm:text-[9px] font-mono min-w-0">
-              <div className="flex items-center gap-1 truncate">
-                <span className="font-bold text-blue-400">T1</span>
-                <span className="text-white truncate font-bold text-[10px]">LUC</span>
-              </div>
-              <div className="text-right text-[8px] sm:text-[9px]">
-                <div className="text-white font-bold">
-                  PURSE <span className="text-blue-300">9,55,000 PT.</span>
-                </div>
-                <div className="text-emerald-400 font-bold">
-                  MAX 9,15,000 PT.
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
           <div className="rounded-lg border border-white/10 bg-black/90 p-2">
@@ -1465,9 +1604,8 @@ function ActualLedStageView({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 font-display font-black text-xs shrink-0 pl-2">
-          <span className="text-yellow-400">bid</span>
-          <span className="text-white">WAR</span>
+        <div className="flex items-center gap-1 shrink-0 pl-2">
+          <ActualBidwarLogo className="h-4 w-auto object-contain" />
         </div>
       </div>
     </div>
@@ -1490,13 +1628,12 @@ function ActualTop5LedView() {
             TOURNAMENT
           </span>
           <span className="font-display font-black text-xs sm:text-sm text-white tracking-wide uppercase leading-tight mt-0.5 block">
-            VYAPARI NETWORK BADMINTON LEAGUE 3.0 (MEN)
+            BIDWAR PREMIER LEAGUE
           </span>
         </div>
 
-        <div className="flex items-center gap-1 font-display font-black text-xs sm:text-sm">
-          <span className="text-yellow-400">bid</span>
-          <span className="text-white">WAR</span>
+        <div className="flex items-center gap-1.5">
+          <ActualBidwarLogo className="h-5 sm:h-6 w-auto object-contain" />
         </div>
 
         <div className="text-right">
@@ -1566,9 +1703,10 @@ function ActualTop5LedView() {
           <span className="text-white/80 bg-white/10 px-1.5 py-0.2 rounded shrink-0">AALISHAN ZAIKA</span>
           <span className="text-white/80 bg-white/10 px-1.5 py-0.2 rounded shrink-0">ADMAIRA PEST CONTROL</span>
         </div>
-        <span className="text-white/40 text-[8px] uppercase tracking-widest pl-2 shrink-0">
-          POWERED BY BIDWAR.IN
-        </span>
+        <div className="flex items-center gap-1.5 pl-2 shrink-0">
+          <span className="text-white/40 text-[8px] uppercase tracking-widest">POWERED BY</span>
+          <ActualBidwarLogo className="h-3 w-auto object-contain opacity-70" />
+        </div>
       </div>
     </div>
   );
@@ -1597,11 +1735,9 @@ function ActualObsStreamView({
       <div className="absolute top-2 left-0 right-0 z-20 px-4 flex items-center justify-between pointer-events-none">
         <div className="w-24" />
 
-        <div className="flex flex-col items-center bg-black/80 backdrop-blur-xs px-4 py-1 rounded-md border border-white/10 shadow-lg">
-          <div className="font-display font-black text-sm text-yellow-400 leading-none">
-            bid<span className="text-white">WAR</span>
-          </div>
-          <span className="text-[8px] font-mono tracking-widest text-white/80 uppercase mt-0.5">
+        <div className="flex flex-col items-center bg-black/85 backdrop-blur-xs px-4 py-1.5 rounded-md border border-white/15 shadow-lg">
+          <ActualBidwarLogo className="h-5 w-auto object-contain" />
+          <span className="text-[8px] font-mono tracking-widest text-yellow-400 font-bold uppercase mt-0.5">
             BIDWAR PREMIER LEAGUE
           </span>
         </div>
@@ -1656,6 +1792,11 @@ function ActualObsStreamView({
               <div className="text-[9px] sm:text-[10px] font-mono text-white/60">
                 {player.role} <span className="text-white/40">·</span> {player.city}
               </div>
+              {player.specs && (
+                <div className="text-[8px] sm:text-[9px] font-mono text-cyan-300 font-bold truncate mt-0.5">
+                  {player.specs.matches} M · {player.specs.runs ? `${player.specs.runs} R · ` : ""}{player.specs.wickets ? `${player.specs.wickets} W · ` : ""}{player.specs.speciality}
+                </div>
+              )}
               <div className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-yellow-400/20 border border-yellow-400/40 text-[8px] sm:text-[9px] font-mono font-bold text-yellow-300 mt-0.5">
                 ● BASE VALUE {player.basePrice.toLocaleString("en-IN")} Pt.
               </div>
@@ -1665,18 +1806,23 @@ function ActualObsStreamView({
           {/* Center: Team status pills */}
           <div className="hidden sm:flex flex-col items-center gap-1 shrink-0">
             <div className="flex items-center gap-2 text-[9px] font-mono">
+              <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                <img src={PW_LOGO_SVG} alt="PW" className="w-3 h-3 object-contain" />
+                PITCH WARRIORS
+              </span>
               <span className="text-blue-400 flex items-center gap-1 font-bold">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                LUCKNOW CHAMPIONS 1 Taken
+                <img src={LUC_LOGO_SVG} alt="LUC" className="w-3 h-3 object-contain" />
+                LUCKNOW CH.
               </span>
               <span className="text-red-400 flex items-center gap-1 font-bold">
-                <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                DELHI DEVILS {status === "sold" ? 1 : 0} Taken
+                <img src={DEL_LOGO_SVG} alt="DEL" className="w-3 h-3 object-contain" />
+                DELHI DEVILS
               </span>
             </div>
             {status === "sold" && (
-              <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-mono font-bold text-emerald-300 uppercase">
-                🎉 LOT SOLD TO {leadingTeam.name}
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-mono font-bold text-emerald-300 uppercase flex items-center gap-1">
+                <img src={leadingTeam.logoSvg} alt="" className="w-3 h-3 object-contain" />
+                <span>LOT SOLD TO {leadingTeam.name}</span>
               </span>
             )}
           </div>
@@ -1689,9 +1835,10 @@ function ActualObsStreamView({
             <div className="font-display font-black text-xl sm:text-3xl text-white tracking-tight leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">
               {bid.toLocaleString("en-IN")} PT.
             </div>
-            <span className="text-[8px] sm:text-[9px] font-mono text-yellow-400 block mt-0.5">
-              {status === "sold" ? `Sold to ${leadingTeam.shortName}` : `Leading: ${leadingTeam.name}`}
-            </span>
+            <div className="flex items-center justify-end gap-1 text-[8px] sm:text-[9px] font-mono text-yellow-400 mt-0.5">
+              <img src={leadingTeam.logoSvg} alt="" className="w-3.5 h-3.5 object-contain" />
+              <span>{status === "sold" ? `Sold to ${leadingTeam.shortName}` : `Leading: ${leadingTeam.name}`}</span>
+            </div>
           </div>
         </div>
 
@@ -1701,7 +1848,10 @@ function ActualObsStreamView({
           <span>•</span>
           <span className="text-white font-bold">I SCHOOL (CO SPONSOR)</span>
           <span>•</span>
-          <span className="text-yellow-400 font-bold">Powered by BidWar</span>
+          <div className="flex items-center gap-1 text-yellow-400 font-bold shrink-0">
+            <span>Powered by</span>
+            <ActualBidwarLogo className="h-3 w-auto object-contain" />
+          </div>
           <span>•</span>
           <span className="text-white font-bold">KV TECH MEDIA (DIGITAL MEDIA SPONSOR)</span>
           <span>•</span>
@@ -1719,6 +1869,7 @@ function ActualFanViewerView({
   player,
   bid,
   leadingTeam,
+  teams,
   status,
   reactions,
   onSendReaction,
@@ -1726,6 +1877,7 @@ function ActualFanViewerView({
   player: DemoPlayer;
   bid: number;
   leadingTeam: DemoTeam;
+  teams: DemoTeam[];
   status: "active" | "sold" | "unsold";
   reactions: { id: number; emoji: string; left: number }[];
   onSendReaction: (emoji: string) => void;
@@ -1759,10 +1911,8 @@ function ActualFanViewerView({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-display font-black text-yellow-400">
-            bid<span className="text-white">WAR</span>
-          </span>
-          <span className="text-[9px] sm:text-[10px] font-mono text-white/80 font-bold uppercase tracking-wide">
+          <ActualBidwarLogo className="h-4 sm:h-5 w-auto object-contain" />
+          <span className="text-[9px] sm:text-[10px] font-mono text-yellow-400 font-bold uppercase tracking-wide">
             BIDWAR PREMIER LEAGUE
           </span>
         </div>
@@ -1819,6 +1969,12 @@ function ActualFanViewerView({
               </span>
             </div>
 
+            {player.specs && (
+              <div className="text-[8px] sm:text-[9px] font-mono text-cyan-300 font-bold truncate my-0.5">
+                {player.specs.matches} M · {player.specs.runs ? `${player.specs.runs} R · ` : ""}{player.specs.wickets ? `${player.specs.wickets} W · ` : ""}{player.specs.speciality}
+              </div>
+            )}
+
             <div className="text-[10px] font-mono text-white/60">
               Base: <strong className="text-white font-bold">{player.basePrice.toLocaleString("en-IN")} Pt.</strong>
             </div>
@@ -1835,7 +1991,7 @@ function ActualFanViewerView({
             </span>
           </div>
           <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/70 border border-red-500/40 text-[10px] font-mono font-bold text-white">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+            <img src={leadingTeam.logoSvg} alt="" className="w-3.5 h-3.5 object-contain" />
             <span>{leadingTeam.code} {leadingTeam.name}</span>
           </div>
         </div>
@@ -1872,22 +2028,23 @@ function ActualFanViewerView({
         <span className="text-[10px] font-mono font-black uppercase tracking-wider text-white block mb-1">
           TEAMS
         </span>
-        <div className="grid grid-cols-2 gap-1.5">
-          <div className="p-1.5 rounded-lg border-l-2 border-blue-500 bg-[#0c182b] border border-white/5 text-[9px] font-mono">
-            <div className="font-bold text-white truncate">T1 LUCKNOW CH...</div>
-            <div className="text-white/60 mt-0.5">
-              PURSE LEFT <strong className="text-blue-300 font-bold">9.55 L Pt.</strong>
+        <div className="grid grid-cols-3 gap-1">
+          {teams.map((t) => (
+            <div
+              key={t.id}
+              className="p-1 rounded-lg border-l-2 bg-[#0c182b] border border-white/5 text-[8px] sm:text-[9px] font-mono"
+              style={{ borderLeftColor: t.color }}
+            >
+              <div className="flex items-center gap-1">
+                <img src={t.logoSvg} alt={t.name} className="w-3 h-3 object-contain shrink-0" />
+                <span className="font-bold text-white truncate text-[9px]">{t.shortName}</span>
+              </div>
+              <div className="text-white/60 mt-0.5 truncate text-[8px]">
+                PURSE <strong className="text-blue-300 font-bold">{(t.purse / 100000).toFixed(2)}L</strong>
+              </div>
+              <div className="text-emerald-400 font-bold text-[8px]">MAX {(t.maxBid / 100000).toFixed(2)}L</div>
             </div>
-            <div className="text-emerald-400 font-bold">SQUAD 1</div>
-          </div>
-
-          <div className="p-1.5 rounded-lg border-l-2 border-red-500 bg-[#1a0c0c] border border-white/5 text-[9px] font-mono">
-            <div className="font-bold text-white truncate">T2 DELHI DEVILS</div>
-            <div className="text-white/60 mt-0.5">
-              PURSE LEFT <strong className="text-red-300 font-bold">{status === "sold" ? "9.85" : "10.00"} L Pt.</strong>
-            </div>
-            <div className="text-emerald-400 font-bold">SQUAD {status === "sold" ? 1 : 0}</div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -1942,22 +2099,24 @@ function ActualTeamBidderView({
       {/* 1. Header */}
       <div>
         <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-          <div className="flex items-center gap-1 font-display font-black text-sm">
-            <span className="text-yellow-400">bid</span>
-            <span className="text-white">WAR</span>
+          <div className="flex items-center gap-1.5">
+            <ActualBidwarLogo className="h-4 sm:h-5 w-auto object-contain" />
+            <span className="text-[8px] sm:text-[9px] font-mono text-yellow-400 font-bold uppercase">
+              BIDWAR PREMIER LEAGUE
+            </span>
           </div>
           <span className="text-[7px] font-mono uppercase tracking-widest text-white/40">
-            FROM AUCTION TO CHAMPION
+            TEAM CONSOLE
           </span>
         </div>
 
         {/* Team bar: Pitch Warriors LIVE */}
         <div className="flex items-center justify-between pt-1.5 text-xs">
           <div className="flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded-md bg-emerald-600 text-white font-display font-black flex items-center justify-center text-[10px]">
-              PW
+            <div className="w-6 h-6 rounded-md bg-emerald-950 border border-emerald-500/40 p-0.5 flex items-center justify-center">
+              <img src={userTeam.logoSvg || PW_LOGO_SVG} alt={userTeam.name} className="w-full h-full object-contain" />
             </div>
-            <span className="font-bold text-white text-xs">Pitch Warriors</span>
+            <span className="font-bold text-white text-xs">{userTeam.name}</span>
             <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[8px] font-mono font-bold uppercase">
               LIVE
             </span>
@@ -2083,6 +2242,12 @@ function ActualTeamBidderView({
             <div className="text-[10px] font-mono text-yellow-400 mt-0.5">
               Base <strong>₹{player.basePrice.toLocaleString("en-IN")}</strong>
             </div>
+            {player.specs && (
+              <div className="text-[8px] font-mono text-cyan-300 font-bold mt-1 bg-black/40 px-1.5 py-0.5 rounded border border-white/10 flex items-center justify-between">
+                <span>{player.specs.matches} M · {player.specs.runs ? `${player.specs.runs} R` : ""}{player.specs.wickets ? ` · ${player.specs.wickets} W` : ""}</span>
+                <span>{player.specs.strikeRate ? `SR ${player.specs.strikeRate}` : player.specs.economy ? `Eco ${player.specs.economy}` : ""}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2094,8 +2259,9 @@ function ActualTeamBidderView({
           <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight leading-none mt-0.5">
             ₹{bid.toLocaleString("en-IN")}
           </div>
-          <div className="mt-1 text-[9px] font-mono">
+          <div className="mt-1 text-[9px] font-mono flex items-center justify-center gap-1">
             <span className="text-white/40 uppercase">Leading: </span>
+            <img src={leadingTeam.logoSvg} alt="" className="w-3.5 h-3.5 object-contain" />
             {isWinner ? (
               <span className="text-emerald-400 font-bold">★ Pitch Warriors (YOU)</span>
             ) : (
@@ -2182,9 +2348,10 @@ function ActualTeamBidderView({
           </div>
         )}
 
-        <span className="text-[8px] font-mono text-center text-white/30 uppercase tracking-widest block mt-1">
-          POWERED BY BIDWAR
-        </span>
+        <div className="flex items-center justify-center gap-1.5 mt-1">
+          <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">POWERED BY</span>
+          <ActualBidwarLogo className="h-3 w-auto object-contain opacity-60" />
+        </div>
       </div>
     </div>
   );
