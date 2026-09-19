@@ -871,8 +871,8 @@ function ProductShowcase({
       tag: "STAGE DISPLAY",
       icon: Tv,
       desc: "Broadcast-grade graphics designed for giant venue LED walls and stage projectors. High-visibility player cards, dynamic purse bars, and sponsor branding.",
-      img: "/assets/evidence/real-auction-laptop-vncl.jpg",
-      alt: "BidWar real auction laptop display running Live LED Stage Screen",
+      img: "/assets/evidence/live-led-screen.png",
+      alt: "BidWar Live LED Stage Screen interface showing tournament status, real-time player card, live bid amount, team purse limits, and sponsor branding",
       features: [
         "Crisp 1080p60 full-screen graphics optimized for giant stage screens",
         "Dramatic animated SOLD / UNSOLD reveal stamps",
@@ -902,8 +902,8 @@ function ProductShowcase({
       isPortrait: true,
       icon: Globe,
       desc: "Real-time spectator portal for team members, players, fans, and remote stakeholders who want to stay connected and follow the auction live from distance.",
-      img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1786695659/Screenshot_2026-08-14_133632.png",
-      alt: "BidWar Live Auction Remote Spectator View for remote attendees and fans",
+      img: "/assets/evidence/live-auction-view.png",
+      alt: "BidWar Live Auction Remote Spectator View showing live player card, real-time bid, team purse balances, and cheer button",
       features: [
         "Zero-delay live spectator room accessible from anywhere on any phone or PC",
         "Live Lot Tracking showing current player on hammer and live bids",
@@ -918,8 +918,8 @@ function ProductShowcase({
       isPortrait: true,
       icon: MessageSquare,
       desc: "Instant automated WhatsApp, SMS, and email notifications dispatched to players, franchise owners, and captains for maximum effective reach.",
-      img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1786695659/Screenshot_2026-08-14_133632.png",
-      alt: "BidWar automated communications for effective reach",
+      img: "/assets/evidence/automated-communications-sms.png",
+      alt: "BidWar instant player allotment SMS alert with congratulations message and winning team details",
       features: [
         "Instant WhatsApp & SMS sent to sold players with winning team & points",
         "Official Team Owner Confirmation Emails with signed allotment slips",
@@ -933,8 +933,8 @@ function ProductShowcase({
       tag: "REPORTS & SQUAD",
       icon: FileSpreadsheet,
       desc: "Comprehensive post-auction reporting and data export. Generate clean rosters, category expenditure breakdowns, and captain sheets in seconds.",
-      img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1786695659/Screenshot_2026-08-14_133632.png",
-      alt: "BidWar Squad Analytics & CSV export dashboard",
+      img: "/assets/evidence/reports-catalogue-dashboard.png",
+      alt: "BidWar Report Catalogue dashboard showing Top 5 Sold Players poster showcase, PDF, Excel, and CSV export options",
       features: [
         "1-Click Excel / CSV Full Squad Export ready before the crowd leaves",
         "Purse Spend Analysis & category allocation breakdowns per franchise",
