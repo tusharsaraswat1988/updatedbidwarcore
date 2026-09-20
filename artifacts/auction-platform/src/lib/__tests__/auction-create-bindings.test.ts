@@ -7,7 +7,7 @@ describe("auction create wizard steps", () => {
   it("keeps only auction-platform steps", () => {
     assert.deepEqual(
       WIZARD_STEPS.map((s) => s.id),
-      ["identity", "sport", "registration", "review"],
+      ["details", "experience"],
     );
   });
 

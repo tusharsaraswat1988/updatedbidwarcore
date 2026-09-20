@@ -3,35 +3,24 @@ import { CatalogRegistry } from "@workspace/platform-core/catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { CityAutocomplete } from "@/components/city-autocomplete";
-import { DatePicker } from "@/components/ui/date-picker";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Loader2,
   Trophy,
   MapPin,
   Building2,
-  Gavel,
-  Users,
-  Calendar,
-  Clock,
-  CreditCard,
   CheckCircle2,
   ArrowLeft,
   ArrowRight,
-  Sparkles,
-  ShieldCheck,
+  Rocket,
+  Tv,
+  Smartphone,
   Check,
+  Lock,
+  Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CatalogOptionList } from "./catalog-option-list";
 import { resolveAuctionCreateCatalogBindings } from "./auction-create-bindings";
 import {
   emptyTournamentCreationDraft,
@@ -51,10 +40,6 @@ export type TournamentCreationPayload = {
   ruleProfileVersion: string;
   presentationProfileId: string;
   presentationProfileVersion: string;
-  registrationDeadline?: string;
-  registrationLimit?: number;
-  enableRegistrationPayment?: boolean;
-  registrationFee?: number;
   basePurse: number;
   minBid: number;
   bidIncrement: number;
@@ -76,34 +61,6 @@ type TournamentCreationWizardProps = {
   >;
 };
 
-const TIME_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const TIME_MINUTES = ["00", "15", "30", "45"];
-
-function to24HourTime(hour: number, minute: number, period: "AM" | "PM"): string {
-  let h = hour % 12;
-  if (period === "PM") h += 12;
-  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function formatIndianNumberPreview(val: string): string | null {
-  const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-  if (isNaN(num) || num <= 0) return null;
-  const formatted = num.toLocaleString("en-IN");
-  if (num >= 10000000) {
-    const cr = (num / 10000000).toFixed(2).replace(/\.00$/, "");
-    return `₹${formatted} (${cr} Cr)`;
-  }
-  if (num >= 100000) {
-    const lk = (num / 100000).toFixed(2).replace(/\.00$/, "");
-    return `₹${formatted} (${lk} Lakh)`;
-  }
-  if (num >= 1000) {
-    const k = (num / 1000).toFixed(1).replace(/\.0$/, "");
-    return `₹${formatted} (${k}k)`;
-  }
-  return `₹${formatted}`;
-}
-
 function getSportEmoji(id: string) {
   const s = (id || "").toLowerCase();
   if (s.includes("cricket")) return "🏏";
@@ -116,7 +73,7 @@ function getSportEmoji(id: string) {
   return "🏆";
 }
 
-const STEP_LABELS = ["Details", "Sport", "Economics", "Review"];
+const STEP_LABELS = ["1. Tournament Setup", "2. License & Launch"];
 
 export function TournamentCreationWizard({
   mode = "page",
@@ -143,25 +100,12 @@ export function TournamentCreationWizard({
 
   function validateStep(id: WizardStepId): string | null {
     switch (id) {
-      case "identity":
+      case "details":
         if (draft.name.trim().length < 3) return "Tournament name must be at least 3 characters.";
+        if (!draft.sportId) return "Select a sport to continue.";
         if (!draft.city.trim()) return "City is required.";
         return null;
-      case "sport":
-        if (!draft.sportId) return "Select a sport to continue.";
-        return null;
-      case "registration":
-        if (!draft.basePurse || parseInt(draft.basePurse, 10) < 1) {
-          return "Team budget (purse) is required.";
-        }
-        if (!draft.minBid || parseInt(draft.minBid, 10) < 1) {
-          return "Minimum player value is required.";
-        }
-        if (!draft.bidIncrement || parseInt(draft.bidIncrement, 10) < 1) {
-          return "Bid increase amount is required.";
-        }
-        return null;
-      case "review": {
+      case "experience": {
         const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
         if ("error" in bindings) return bindings.error;
         return null;
@@ -187,7 +131,7 @@ export function TournamentCreationWizard({
   }
 
   async function handleCreate() {
-    const err = validateStep("review");
+    const err = validateStep("experience");
     if (err) {
       setError(err);
       return;
@@ -202,15 +146,6 @@ export function TournamentCreationWizard({
     setLoading(true);
     setError("");
 
-    const auctionTime =
-      draft.auctionDate && draft.auctionTimeHour
-        ? to24HourTime(
-            parseInt(draft.auctionTimeHour, 10),
-            parseInt(draft.auctionTimeMinute, 10) || 0,
-            draft.auctionTimePeriod,
-          )
-        : undefined;
-
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
       sport: draft.sportId,
@@ -222,19 +157,9 @@ export function TournamentCreationWizard({
       ruleProfileVersion: bindings.ruleProfileVersion,
       presentationProfileId: bindings.presentationProfileId,
       presentationProfileVersion: bindings.presentationProfileVersion,
-      registrationDeadline: draft.registrationDeadline || undefined,
-      registrationLimit: draft.registrationLimit
-        ? parseInt(draft.registrationLimit, 10)
-        : undefined,
-      enableRegistrationPayment: draft.enableRegistrationPayment,
-      registrationFee: draft.registrationFee
-        ? parseInt(draft.registrationFee, 10)
-        : undefined,
-      basePurse: parseInt(draft.basePurse, 10),
-      minBid: parseInt(draft.minBid, 10),
-      bidIncrement: parseInt(draft.bidIncrement, 10),
-      auctionDate: draft.auctionDate || undefined,
-      auctionTime,
+      basePurse: parseInt(draft.basePurse || "10000000", 10),
+      minBid: parseInt(draft.minBid || "100000", 10),
+      bidIncrement: parseInt(draft.bidIncrement || "50000", 10),
     };
 
     const result = await submit(payload);
@@ -251,7 +176,7 @@ export function TournamentCreationWizard({
       className={cn(
         "flex flex-col-reverse gap-2 sm:flex-row sm:justify-between items-center",
         isDialog &&
-          "border-t border-slate-700/50 bg-slate-900/90 px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-0",
+          "border-t border-slate-700/50 bg-slate-900/95 px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-0",
       )}
     >
       <div className="flex gap-2 w-full sm:w-auto">
@@ -259,7 +184,7 @@ export function TournamentCreationWizard({
           <Button
             type="button"
             variant="outline"
-            className="h-10 flex-1 sm:flex-none px-4 rounded-xl font-medium gap-1.5 cursor-pointer border-slate-700/60 bg-slate-800/40 hover:bg-slate-800 text-slate-300 hover:text-slate-100"
+            className="h-11 flex-1 sm:flex-none px-4 rounded-xl font-medium gap-1.5 cursor-pointer border-slate-700/60 bg-slate-800/40 hover:bg-slate-800 text-slate-300 hover:text-slate-100"
             onClick={goBack}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -269,7 +194,7 @@ export function TournamentCreationWizard({
           <Button
             type="button"
             variant="ghost"
-            className="h-10 flex-1 sm:flex-none px-4 rounded-xl font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 cursor-pointer"
+            className="h-11 flex-1 sm:flex-none px-4 rounded-xl font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 cursor-pointer"
             onClick={onCancel}
           >
             Cancel
@@ -278,27 +203,27 @@ export function TournamentCreationWizard({
       </div>
 
       <div className="flex gap-2 w-full sm:w-auto">
-        {step.id === "review" ? (
+        {step.id === "experience" ? (
           <Button
             type="button"
-            className="h-10 flex-1 sm:flex-none px-6 rounded-xl font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-lg shadow-sky-500/20 gap-2 cursor-pointer transition-all active:scale-[0.98]"
+            className="h-12 flex-1 sm:flex-none px-8 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:via-indigo-400 hover:to-purple-500 text-white shadow-xl shadow-indigo-500/25 gap-2 cursor-pointer transition-all active:scale-[0.98] animate-in fade-in"
             disabled={loading}
             onClick={() => void handleCreate()}
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Sparkles className="w-4 h-4 text-sky-200" />
+              <Rocket className="w-4 h-4 text-sky-200 animate-bounce" />
             )}
-            Create Tournament
+            <span>Let&apos;s Go Inside →</span>
           </Button>
         ) : (
           <Button
             type="button"
-            className="h-10 flex-1 sm:flex-none px-6 rounded-xl font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-md shadow-sky-500/15 gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
+            className="h-11 flex-1 sm:flex-none px-7 rounded-xl font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-md shadow-sky-500/15 gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
             onClick={goNext}
           >
-            <span>Continue</span>
+            <span>Continue to License & Launch</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
         )}
@@ -315,17 +240,17 @@ export function TournamentCreationWizard({
             : "space-y-5",
         )}
       >
-        {/* Soothing Horizontal Stepper */}
-        <div className="space-y-2.5 pb-1">
-          <div className="flex items-center justify-between gap-1">
+        {/* Soothing 2-Step Stepper */}
+        <div className="space-y-1.5 pb-0.5">
+          <div className="flex items-center justify-between gap-2">
             {WIZARD_STEPS.map((s, idx) => {
               const isPast = idx < stepIndex;
               const isCurrent = idx === stepIndex;
               return (
-                <div key={s.id} className="flex-1 flex items-center gap-1 sm:gap-2">
+                <div key={s.id} className="flex-1 flex items-center gap-2">
                   <div
                     className={cn(
-                      "flex items-center gap-2 py-1 px-1.5 sm:px-2 rounded-lg transition-all select-none",
+                      "flex items-center gap-2 py-1 px-2 rounded-xl transition-all select-none",
                       isCurrent
                         ? "text-sky-400 font-semibold"
                         : isPast
@@ -337,15 +262,15 @@ export function TournamentCreationWizard({
                       className={cn(
                         "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all",
                         isCurrent
-                          ? "bg-sky-500 text-white shadow-sm shadow-sky-500/30"
+                          ? "bg-sky-500 text-white shadow-sm shadow-sky-500/30 ring-2 ring-sky-400/20"
                           : isPast
                             ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                            : "bg-slate-800/80 text-slate-500 border border-slate-700/50",
+                            : "bg-slate-800 text-slate-500 border border-slate-700/50",
                       )}
                     >
                       {isPast ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : idx + 1}
                     </div>
-                    <span className="text-xs hidden sm:inline-block tracking-tight">
+                    <span className="text-xs sm:text-sm tracking-tight font-medium">
                       {STEP_LABELS[idx]}
                     </span>
                   </div>
@@ -353,7 +278,7 @@ export function TournamentCreationWizard({
                     <div
                       className={cn(
                         "flex-1 h-[2px] rounded-full mx-1 transition-all",
-                        idx < stepIndex ? "bg-emerald-500/40" : "bg-slate-800",
+                        idx < stepIndex ? "bg-emerald-500/50" : "bg-slate-800",
                       )}
                     />
                   )}
@@ -362,13 +287,7 @@ export function TournamentCreationWizard({
             })}
           </div>
 
-          {/* Step Header Text */}
-          <div className="pt-1">
-            <h2 className="text-base sm:text-lg font-semibold tracking-tight text-slate-100">
-              {step.title}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5 leading-relaxed">{step.job}</p>
-          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">{step.job}</p>
         </div>
 
         {error ? (
@@ -378,10 +297,11 @@ export function TournamentCreationWizard({
           </div>
         ) : null}
 
-        <div className="min-h-[220px] pb-2">
-          {/* STEP 1: DETAILS */}
-          {step.id === "identity" && (
+        <div className="min-h-[200px] pb-1 space-y-4">
+          {/* ════════════════════ STEP 1: LIGHTWEIGHT TOURNAMENT SETUP (NO RESISTANCE) ════════════════════ */}
+          {step.id === "details" && (
             <div className="space-y-4 rounded-2xl border border-slate-700/50 bg-slate-800/25 p-4 sm:p-5 shadow-sm">
+              {/* Tournament Name */}
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Trophy className="w-3.5 h-3.5 text-sky-400" />
@@ -392,15 +312,47 @@ export function TournamentCreationWizard({
                   value={draft.name}
                   onChange={(e) => patch({ name: e.target.value })}
                   placeholder="e.g. Mumbai Super League Season 3"
-                  className="h-10 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 text-slate-100 placeholder:text-slate-500 text-sm font-medium"
+                  className="h-11 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 text-slate-100 placeholder:text-slate-500 text-sm font-medium"
                   autoFocus
                 />
-                <p className="text-[11px] text-slate-400">
-                  Visible to players, team owners, and spectators on auction screens.
-                </p>
               </div>
 
-              <div className="grid gap-3.5 sm:grid-cols-2 pt-1">
+              {/* Compact Sport Selector */}
+              <div className="space-y-1.5 pt-1">
+                <Label className="text-xs font-medium text-slate-300">
+                  Select Sport <span className="text-rose-400">*</span>
+                </Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {sports.map((sport) => {
+                    const selected = draft.sportId === sport.id;
+                    const emoji = getSportEmoji(sport.id);
+                    return (
+                      <button
+                        key={sport.id}
+                        type="button"
+                        onClick={() => patch({ sportId: sport.id })}
+                        className={cn(
+                          "flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all duration-150 cursor-pointer select-none",
+                          selected
+                            ? "border-sky-500/60 bg-sky-500/15 shadow-sm ring-1 ring-sky-500/30 text-sky-200"
+                            : "border-slate-700/50 bg-slate-900/40 hover:bg-slate-800/60 text-slate-300",
+                        )}
+                      >
+                        <span className="text-xl shrink-0">{emoji}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-semibold truncate leading-tight">
+                            {sport.displayName}
+                          </p>
+                        </div>
+                        {selected && <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* City & Venue */}
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                     <MapPin className="w-3.5 h-3.5 text-sky-400" />
@@ -425,378 +377,138 @@ export function TournamentCreationWizard({
                     value={draft.venue}
                     onChange={(e) => patch({ venue: e.target.value })}
                     placeholder="e.g. DY Patil Stadium, Court 1"
-                    className="h-10 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 text-slate-100 placeholder:text-slate-500 text-sm"
+                    className="h-10 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 text-slate-100 placeholder:text-slate-500 text-sm"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 2: SPORT SELECTION */}
-          {step.id === "sport" && (
-            <div className="space-y-3">
-              <CatalogOptionList
-                entries={sports}
-                value={draft.sportId}
-                onSelect={(entry) => patch({ sportId: entry.id })}
-              />
-            </div>
-          )}
-
-          {/* STEP 3: AUCTION ECONOMICS & REGISTRATION */}
-          {step.id === "registration" && (
+          {/* ════════════════════ STEP 2: LICENSE SELECTION & LIVE PREVIEW ════════════════════ */}
+          {step.id === "experience" && (
             <div className="space-y-4">
-              {/* Card 1: Auction Economics */}
-              <section className="space-y-3.5 rounded-2xl border border-slate-700/50 bg-slate-800/25 p-4 sm:p-5 shadow-sm">
-                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-700/40">
-                  <Gavel className="w-4 h-4 text-sky-400 shrink-0" />
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-100">Auction Economics</h3>
-                    <p className="text-[11px] text-slate-400">
-                      Configure budget purse, minimum player value, and bid increase.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3.5 sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium text-slate-300">
-                        Team Budget (Purse) <span className="text-rose-400">*</span>
-                      </Label>
-                      {draft.basePurse && (
-                        <span className="text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                          {formatIndianNumberPreview(draft.basePurse)}
+              {/* License Option Cards */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-300">
+                  Select License Model
+                </Label>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {/* Option 1: Auction Only (Active) */}
+                  <div
+                    onClick={() => patch({ licenseType: "auction_only" })}
+                    className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-sky-500/50 bg-sky-500/[0.08] shadow-md shadow-sky-500/5 ring-1 ring-sky-500/30 cursor-pointer transition-all"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-xl shrink-0">
+                      🔨
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-sm text-sky-300">
+                          Live Auction Suite (Auction Only)
+                        </p>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Available Now · Included
                         </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
-                        ₹
-                      </span>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        value={draft.basePurse}
-                        onChange={(e) => patch({ basePurse: e.target.value })}
-                        placeholder="e.g. 10000000 (1 Cr)"
-                        className="h-10 pl-8 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 text-slate-100 text-sm font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium text-slate-300">
-                        Min Player Value <span className="text-rose-400">*</span>
-                      </Label>
-                      {draft.minBid && (
-                        <span className="text-[11px] font-semibold text-sky-300">
-                          {formatIndianNumberPreview(draft.minBid)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
-                        ₹
-                      </span>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        value={draft.minBid}
-                        onChange={(e) => patch({ minBid: e.target.value })}
-                        placeholder="e.g. 100000"
-                        className="h-10 pl-8 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 text-slate-100 text-sm font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium text-slate-300">
-                        Bid Increase <span className="text-rose-400">*</span>
-                      </Label>
-                      {draft.bidIncrement && (
-                        <span className="text-[11px] font-semibold text-indigo-300">
-                          {formatIndianNumberPreview(draft.bidIncrement)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
-                        ₹
-                      </span>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        value={draft.bidIncrement}
-                        onChange={(e) => patch({ bidIncrement: e.target.value })}
-                        placeholder="e.g. 50000"
-                        className="h-10 pl-8 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 text-slate-100 text-sm font-semibold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Auction Schedule */}
-                <div className="grid gap-3.5 sm:grid-cols-2 pt-2 border-t border-slate-700/30">
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                      <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Auction Date</span>
-                    </Label>
-                    <DatePicker
-                      value={draft.auctionDate}
-                      onChange={(auctionDate) => patch({ auctionDate })}
-                      placeholder="Select date (Optional)"
-                      disablePastDates
-                      className="min-h-10 rounded-xl bg-slate-900/60 border-slate-700/60"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Auction Time</span>
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={draft.auctionTimeHour || undefined}
-                        onValueChange={(v) => patch({ auctionTimeHour: v })}
-                      >
-                        <SelectTrigger aria-label="Hour" className="h-10 flex-1 rounded-xl bg-slate-900/60 border-slate-700/60 text-slate-200 text-xs sm:text-sm font-medium">
-                          <SelectValue placeholder="Hour" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-52 bg-slate-900 border-slate-700 text-slate-100">
-                          {TIME_HOURS.map((h) => (
-                            <SelectItem key={h} value={String(h)}>
-                              {String(h).padStart(2, "0")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select
-                        value={draft.auctionTimeMinute}
-                        onValueChange={(v) => patch({ auctionTimeMinute: v })}
-                      >
-                        <SelectTrigger aria-label="Minute" className="h-10 flex-1 rounded-xl bg-slate-900/60 border-slate-700/60 text-slate-200 text-xs sm:text-sm font-medium">
-                          <SelectValue placeholder="Min" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-700 text-slate-100">
-                          {TIME_MINUTES.map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select
-                        value={draft.auctionTimePeriod}
-                        onValueChange={(v) =>
-                          patch({ auctionTimePeriod: v as "AM" | "PM" })
-                        }
-                      >
-                        <SelectTrigger aria-label="AM or PM" className="h-10 w-20 rounded-xl bg-slate-900/60 border-slate-700/60 text-slate-200 text-xs sm:text-sm font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-700 text-slate-100">
-                          <SelectItem value="AM">AM</SelectItem>
-                          <SelectItem value="PM">PM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Card 2: Registration Options */}
-              <section className="space-y-3.5 rounded-2xl border border-slate-700/50 bg-slate-800/25 p-4 sm:p-5 shadow-sm">
-                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-700/40">
-                  <Users className="w-4 h-4 text-indigo-400 shrink-0" />
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-100">Player Registration</h3>
-                    <p className="text-[11px] text-slate-400">
-                      Optional public player registration settings and fee collection.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3.5 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-slate-300">
-                      Registration Deadline
-                    </Label>
-                    <DatePicker
-                      value={draft.registrationDeadline}
-                      onChange={(registrationDeadline) => patch({ registrationDeadline })}
-                      placeholder="Optional deadline"
-                      className="min-h-10 rounded-xl bg-slate-900/60 border-slate-700/60"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-slate-300">
-                      Registration Limit
-                    </Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      value={draft.registrationLimit}
-                      onChange={(e) => patch({ registrationLimit: e.target.value })}
-                      placeholder="e.g. 150 players (Optional)"
-                      className="h-10 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 text-slate-100 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Registration Fee Toggle Strip */}
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3.5 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 shrink-0">
-                      <CreditCard className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-200">Collect Registration Fee</p>
-                      <p className="text-[11px] text-slate-400">Collect payment when players register online</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={draft.enableRegistrationPayment}
-                    onCheckedChange={(enableRegistrationPayment) =>
-                      patch({ enableRegistrationPayment })
-                    }
-                  />
-                </div>
-
-                {draft.enableRegistrationPayment ? (
-                  <div className="space-y-1.5 pt-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium text-slate-300">
-                        Registration Fee per Player
-                      </Label>
-                      {draft.registrationFee && (
-                        <span className="text-xs font-semibold text-emerald-300">
-                          {formatIndianNumberPreview(draft.registrationFee)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
-                        ₹
-                      </span>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        value={draft.registrationFee}
-                        onChange={(e) => patch({ registrationFee: e.target.value })}
-                        placeholder="e.g. 500"
-                        className="h-10 pl-8 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 text-slate-100 text-sm font-semibold"
-                      />
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-            </div>
-          )}
-
-          {/* STEP 4: REVIEW & CONFIRM */}
-          {step.id === "review" && (
-            <div className="space-y-3.5">
-              {/* Header Blueprint Card */}
-              <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-950/20 via-slate-900/40 to-slate-900/20 p-4 sm:p-5 shadow-sm">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-13 h-13 rounded-2xl bg-slate-800/80 border border-slate-700/60 shadow flex items-center justify-center text-3xl shrink-0">
-                    {getSportEmoji(draft.sportId)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/25">
-                        {sportEntry?.displayName ?? draft.sportId}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700/50">
-                        {draft.city.trim()}
-                      </span>
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-100 truncate">
-                      {draft.name.trim()}
-                    </h3>
-                    {draft.venue.trim() ? (
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Building2 className="w-3 h-3 text-slate-500" />
-                        <span>{draft.venue.trim()}</span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                        Complete live auction console, projector LED big screen broadcast, team owner mobile bidding app & WhatsApp summaries.
                       </p>
-                    ) : null}
+                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+                  </div>
+
+                  {/* Option 2: Match Scoring Only (Coming Soon) */}
+                  <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-slate-700/40 bg-slate-900/30 opacity-65 cursor-not-allowed select-none">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-xl shrink-0 opacity-75">
+                      📊
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-slate-300">
+                          Match Scoring Engine
+                        </p>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-amber-400/90 border border-amber-400/20">
+                          Coming Soon
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Point-by-point digital match scoring, live scoreboard overlay & draw-based bracket manager.
+                      </p>
+                    </div>
+                    <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-1" />
+                  </div>
+
+                  {/* Option 3: Auction + Scoring (Coming Soon) */}
+                  <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-slate-700/40 bg-slate-900/30 opacity-65 cursor-not-allowed select-none">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-xl shrink-0 opacity-75">
+                      ⚡
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-slate-300">
+                          Auction + Match Scoring Bundle
+                        </p>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-amber-400/90 border border-amber-400/20">
+                          Coming Soon
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        All-in-one tournament platform: team auction, squads, fixtures, match scoring & final presentation.
+                      </p>
+                    </div>
+                    <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-1" />
                   </div>
                 </div>
               </div>
 
-              {/* Economics & Schedule Details Grid */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/25 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 border-b border-slate-700/30 pb-1.5">
-                    <Gavel className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Auction Economics</span>
+              {/* Instant Live Blueprint Summary */}
+              <div className="space-y-3 rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-950/25 via-slate-900/50 to-slate-900/30 p-4 sm:p-5 shadow-sm">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-700/40">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl shrink-0">{getSportEmoji(draft.sportId)}</span>
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          {sportEntry?.displayName ?? draft.sportId}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700/50">
+                          {draft.city.trim()}
+                        </span>
+                      </div>
+                      <h4 className="text-base font-bold text-slate-100 mt-0.5 truncate">
+                        {draft.name.trim()}
+                      </h4>
+                    </div>
                   </div>
-                  <BlueprintRow
-                    label="Purse"
-                    value={formatIndianNumberPreview(draft.basePurse) || draft.basePurse || "—"}
-                  />
-                  <BlueprintRow
-                    label="Min Value"
-                    value={formatIndianNumberPreview(draft.minBid) || draft.minBid || "—"}
-                  />
-                  <BlueprintRow
-                    label="Bid Step"
-                    value={formatIndianNumberPreview(draft.bidIncrement) || draft.bidIncrement || "—"}
-                  />
                 </div>
 
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/25 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 border-b border-slate-700/30 pb-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Schedule & Registration</span>
+                {/* Included Features Checklist */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Live Auctioneer Console</span>
                   </div>
-                  <BlueprintRow
-                    label="Auction Time"
-                    value={
-                      draft.auctionDate
-                        ? `${draft.auctionDate}${
-                            draft.auctionTimeHour
-                              ? ` · ${String(draft.auctionTimeHour).padStart(2, "0")}:${draft.auctionTimeMinute} ${draft.auctionTimePeriod}`
-                              : ""
-                          }`
-                        : "Not scheduled"
-                    }
-                  />
-                  <BlueprintRow
-                    label="Registration"
-                    value={
-                      draft.registrationDeadline
-                        ? `Till ${draft.registrationDeadline}`
-                        : "Open"
-                    }
-                  />
-                  <BlueprintRow
-                    label="Payment"
-                    value={
-                      draft.enableRegistrationPayment
-                        ? `₹${draft.registrationFee || 0} / player`
-                        : "Free"
-                    }
-                  />
+                  <div className="flex items-center gap-2">
+                    <Tv className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>LED Big Screen Projector View</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>Owner Mobile Bidding App</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                    <span>Instant WhatsApp Summaries</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Reassuring Note */}
-              <div className="flex items-start gap-2.5 rounded-xl border border-slate-700/40 bg-slate-800/20 p-3 text-xs text-slate-400 leading-relaxed">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>
-                  After creation, your tournament will be instantly available on your organizer dashboard. You can customize squads, rules, and posters anytime in Settings.
-                </span>
+                {/* Helper Note */}
+                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400 border-t border-slate-700/30">
+                  <SlidersHorizontal className="w-3 h-3 text-slate-500 shrink-0" />
+                  <span>
+                    Team budgets, player values, and auction rules are pre-configured with standard defaults and can be tuned anytime in Settings.
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -804,17 +516,6 @@ export function TournamentCreationWizard({
       </div>
 
       {isDialog ? <div className="shrink-0 pt-2">{actions}</div> : actions}
-    </div>
-  );
-}
-
-function BlueprintRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-xs py-0.5">
-      <span className="text-slate-400 text-[11px] font-medium shrink-0">
-        {label}
-      </span>
-      <span className="font-semibold text-slate-200 text-right truncate">{value}</span>
     </div>
   );
 }

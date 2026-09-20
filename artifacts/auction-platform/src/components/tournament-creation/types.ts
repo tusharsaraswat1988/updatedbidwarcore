@@ -1,15 +1,13 @@
-export type WizardStepId = "identity" | "sport" | "registration" | "review";
+export type WizardStepId = "details" | "experience";
+
+export type LicenseOptionId = "auction_only" | "scoring_only" | "auction_and_scoring";
 
 export type TournamentCreationDraft = {
   name: string;
   city: string;
   venue: string;
   sportId: string;
-  registrationDeadline: string;
-  registrationLimit: string;
-  enableRegistrationPayment: boolean;
-  registrationFee: string;
-  /** Always collected on auction-platform create. */
+  licenseType: LicenseOptionId;
   basePurse: string;
   minBid: string;
   bidIncrement: string;
@@ -19,16 +17,17 @@ export type TournamentCreationDraft = {
   auctionTimePeriod: "AM" | "PM";
 };
 
-/** Auction create only — Sports catalog questions live in Mission Control. */
 export const WIZARD_STEPS: { id: WizardStepId; title: string; job: string }[] = [
-  { id: "identity", title: "Identity", job: "Name your tournament and set location" },
-  { id: "sport", title: "Sport", job: "Choose the sport for this event" },
   {
-    id: "registration",
-    title: "Auction & Registration",
-    job: "Set auction economics and light registration options",
+    id: "details",
+    title: "Tournament Details",
+    job: "Basic info, sport selection & auction economics",
   },
-  { id: "review", title: "Review", job: "Confirm and create your auction tournament" },
+  {
+    id: "experience",
+    title: "License & Launch",
+    job: "Choose license model and review tournament",
+  },
 ];
 
 export function emptyTournamentCreationDraft(
@@ -38,14 +37,11 @@ export function emptyTournamentCreationDraft(
     name: "",
     city: "",
     venue: "",
-    sportId: "",
-    registrationDeadline: "",
-    registrationLimit: "",
-    enableRegistrationPayment: false,
-    registrationFee: "",
-    basePurse: "",
-    minBid: "",
-    bidIncrement: "",
+    sportId: "cricket",
+    licenseType: "auction_only",
+    basePurse: "10000000",
+    minBid: "100000",
+    bidIncrement: "50000",
     auctionDate: "",
     auctionTimeHour: "",
     auctionTimeMinute: "00",
