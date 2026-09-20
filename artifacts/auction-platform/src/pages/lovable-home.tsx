@@ -864,7 +864,7 @@ function ProductShowcase({
       tag: "WEB APP",
       icon: Smartphone,
       desc: "Team owners place real-time bids directly from their mobile phones without app installation. Built-in purse guard prevents overspending and enforces squad quotas.",
-      img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1789471841/Screenshot_2026-09-15_165941.png",
+      img: "/assets/evidence/team-bidding-screen.png",
       alt: "BidWar Team Bidding Screen Web App on smartphone",
       features: [
         "Zero App Store Install — Opens instantly via secure tournament link & PIN",
