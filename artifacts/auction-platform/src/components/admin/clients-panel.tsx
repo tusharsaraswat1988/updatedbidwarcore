@@ -185,10 +185,11 @@ export function ClientsPanel() {
         void load();
       } else {
         const d = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(d.error ?? "Failed to save client details");
+        setError(d.error || `Server error (${res.status}): Failed to save client`);
       }
-    } catch {
-      setError("Network error occurred while saving client");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Network error occurred while saving client";
+      setError(msg);
     } finally {
       setSaving(false);
     }
