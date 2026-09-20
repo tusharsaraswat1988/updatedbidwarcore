@@ -12,13 +12,13 @@ import {
   CheckCircle2,
   ArrowLeft,
   ArrowRight,
-  Rocket,
   Tv,
   Smartphone,
   Check,
   Lock,
   Sparkles,
   SlidersHorizontal,
+  Gavel,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveAuctionCreateCatalogBindings } from "./auction-create-bindings";
@@ -176,7 +176,7 @@ export function TournamentCreationWizard({
       className={cn(
         "flex flex-col-reverse gap-2 sm:flex-row sm:justify-between items-center",
         isDialog &&
-          "border-t border-slate-700/50 bg-slate-900/95 px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-0",
+          "border-t border-border/40 bg-card/95 px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-0",
       )}
     >
       <div className="flex gap-2 w-full sm:w-auto">
@@ -184,7 +184,7 @@ export function TournamentCreationWizard({
           <Button
             type="button"
             variant="outline"
-            className="h-11 flex-1 sm:flex-none px-4 rounded-xl font-medium gap-1.5 cursor-pointer border-slate-700/60 bg-slate-800/40 hover:bg-slate-800 text-slate-300 hover:text-slate-100"
+            className="h-11 flex-1 sm:flex-none px-4 rounded-xl font-medium gap-1.5 cursor-pointer border-border/60 bg-muted/20 hover:bg-muted/40 text-foreground"
             onClick={goBack}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -194,7 +194,7 @@ export function TournamentCreationWizard({
           <Button
             type="button"
             variant="ghost"
-            className="h-11 flex-1 sm:flex-none px-4 rounded-xl font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 cursor-pointer"
+            className="h-11 flex-1 sm:flex-none px-4 rounded-xl font-medium text-muted-foreground hover:text-foreground cursor-pointer"
             onClick={onCancel}
           >
             Cancel
@@ -206,21 +206,21 @@ export function TournamentCreationWizard({
         {step.id === "experience" ? (
           <Button
             type="button"
-            className="h-12 flex-1 sm:flex-none px-8 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:via-indigo-400 hover:to-purple-500 text-white shadow-xl shadow-indigo-500/25 gap-2 cursor-pointer transition-all active:scale-[0.98] animate-in fade-in"
+            className="h-11 sm:h-12 flex-1 sm:flex-none px-8 rounded-xl font-display font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20 gap-2 cursor-pointer transition-all active:scale-[0.98]"
             disabled={loading}
             onClick={() => void handleCreate()}
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Rocket className="w-4 h-4 text-sky-200 animate-bounce" />
+              <Gavel className="w-4 h-4" />
             )}
             <span>Let&apos;s Go Inside →</span>
           </Button>
         ) : (
           <Button
             type="button"
-            className="h-11 flex-1 sm:flex-none px-7 rounded-xl font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-md shadow-sky-500/15 gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
+            className="h-11 flex-1 sm:flex-none px-7 rounded-xl font-display font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15 gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
             onClick={goNext}
           >
             <span>Continue to License & Launch</span>
@@ -236,11 +236,11 @@ export function TournamentCreationWizard({
       <div
         className={cn(
           isDialog
-            ? "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-2 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.2)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-700/60 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent"
+            ? "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin]"
             : "space-y-5",
         )}
       >
-        {/* Soothing 2-Step Stepper */}
+        {/* Organizer Hub Unified Stepper */}
         <div className="space-y-1.5 pb-0.5">
           <div className="flex items-center justify-between gap-2">
             {WIZARD_STEPS.map((s, idx) => {
@@ -250,27 +250,27 @@ export function TournamentCreationWizard({
                 <div key={s.id} className="flex-1 flex items-center gap-2">
                   <div
                     className={cn(
-                      "flex items-center gap-2 py-1 px-2 rounded-xl transition-all select-none",
+                      "flex items-center gap-2 py-1 px-2.5 rounded-full transition-all select-none",
                       isCurrent
-                        ? "text-sky-400 font-semibold"
+                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
                         : isPast
-                          ? "text-emerald-400 font-medium"
-                          : "text-slate-500 font-normal",
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold"
+                          : "bg-muted/20 border border-border/40 text-muted-foreground font-medium",
                     )}
                   >
                     <div
                       className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all",
+                        "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
                         isCurrent
-                          ? "bg-sky-500 text-white shadow-sm shadow-sky-500/30 ring-2 ring-sky-400/20"
+                          ? "bg-primary-foreground/20 text-primary-foreground"
                           : isPast
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                            : "bg-slate-800 text-slate-500 border border-slate-700/50",
+                            ? "bg-emerald-500/30 text-emerald-300"
+                            : "bg-muted/40 text-muted-foreground",
                       )}
                     >
-                      {isPast ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : idx + 1}
+                      {isPast ? <Check className="w-3 h-3 stroke-[3]" /> : idx + 1}
                     </div>
-                    <span className="text-xs sm:text-sm tracking-tight font-medium">
+                    <span className="text-xs tracking-tight">
                       {STEP_LABELS[idx]}
                     </span>
                   </div>
@@ -278,7 +278,7 @@ export function TournamentCreationWizard({
                     <div
                       className={cn(
                         "flex-1 h-[2px] rounded-full mx-1 transition-all",
-                        idx < stepIndex ? "bg-emerald-500/50" : "bg-slate-800",
+                        idx < stepIndex ? "bg-emerald-500/40" : "bg-border/40",
                       )}
                     />
                   )}
@@ -287,40 +287,40 @@ export function TournamentCreationWizard({
             })}
           </div>
 
-          <p className="text-xs text-slate-400 leading-relaxed">{step.job}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed pt-0.5">{step.job}</p>
         </div>
 
         {error ? (
-          <div className="text-xs sm:text-sm text-rose-300 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 font-medium flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse shrink-0" />
+          <div className="text-xs sm:text-sm text-destructive rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 font-medium flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse shrink-0" />
             <span>{error}</span>
           </div>
         ) : null}
 
         <div className="min-h-[200px] pb-1 space-y-4">
-          {/* ════════════════════ STEP 1: LIGHTWEIGHT TOURNAMENT SETUP (NO RESISTANCE) ════════════════════ */}
+          {/* ════════════════════ STEP 1: LIGHTWEIGHT TOURNAMENT SETUP ════════════════════ */}
           {step.id === "details" && (
-            <div className="space-y-4 rounded-2xl border border-slate-700/50 bg-slate-800/25 p-4 sm:p-5 shadow-sm">
+            <div className="space-y-4 rounded-2xl border border-border/60 bg-gradient-to-b from-card/60 to-card/30 p-4 sm:p-5 shadow-sm">
               {/* Tournament Name */}
               <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Trophy className="w-3.5 h-3.5 text-sky-400" />
+                <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                  <Trophy className="w-3.5 h-3.5 text-primary" />
                   <span>Tournament Name</span>
-                  <span className="text-rose-400">*</span>
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   value={draft.name}
                   onChange={(e) => patch({ name: e.target.value })}
                   placeholder="e.g. Mumbai Super League Season 3"
-                  className="h-11 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 text-slate-100 placeholder:text-slate-500 text-sm font-medium"
+                  className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm font-medium"
                   autoFocus
                 />
               </div>
 
-              {/* Compact Sport Selector */}
+              {/* Compact Sport Selector matching Dashboard Pills */}
               <div className="space-y-1.5 pt-1">
-                <Label className="text-xs font-medium text-slate-300">
-                  Select Sport <span className="text-rose-400">*</span>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                  Select Sport <span className="text-destructive">*</span>
                 </Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {sports.map((sport) => {
@@ -334,8 +334,8 @@ export function TournamentCreationWizard({
                         className={cn(
                           "flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all duration-150 cursor-pointer select-none",
                           selected
-                            ? "border-sky-500/60 bg-sky-500/15 shadow-sm ring-1 ring-sky-500/30 text-sky-200"
-                            : "border-slate-700/50 bg-slate-900/40 hover:bg-slate-800/60 text-slate-300",
+                            ? "border-primary bg-primary/15 shadow-sm ring-1 ring-primary/40 text-primary font-bold"
+                            : "border-border/60 bg-muted/10 hover:border-primary/40 hover:bg-muted/30 text-foreground",
                         )}
                       >
                         <span className="text-xl shrink-0">{emoji}</span>
@@ -344,7 +344,7 @@ export function TournamentCreationWizard({
                             {sport.displayName}
                           </p>
                         </div>
-                        {selected && <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />}
+                        {selected && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
                       </button>
                     );
                   })}
@@ -354,10 +354,10 @@ export function TournamentCreationWizard({
               {/* City & Venue */}
               <div className="grid gap-3 sm:grid-cols-2 pt-1">
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
                     <MapPin className="w-3.5 h-3.5 text-sky-400" />
                     <span>City</span>
-                    <span className="text-rose-400">*</span>
+                    <span className="text-destructive">*</span>
                   </Label>
                   <CityAutocomplete
                     value={draft.city}
@@ -368,16 +368,16 @@ export function TournamentCreationWizard({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                    <Building2 className="w-3.5 h-3.5 text-amber-400" />
                     <span>Venue / Ground</span>
-                    <span className="text-[10px] text-slate-500">(Optional)</span>
+                    <span className="text-[10px] text-muted-foreground lowercase font-normal">(optional)</span>
                   </Label>
                   <Input
                     value={draft.venue}
                     onChange={(e) => patch({ venue: e.target.value })}
                     placeholder="e.g. DY Patil Stadium, Court 1"
-                    className="h-10 rounded-xl bg-slate-900/60 border-slate-700/60 focus:border-sky-400 text-slate-100 placeholder:text-slate-500 text-sm"
+                    className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm"
                   />
                 </div>
               </div>
@@ -389,93 +389,93 @@ export function TournamentCreationWizard({
             <div className="space-y-4">
               {/* License Option Cards */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-300">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Select License Model
                 </Label>
                 <div className="grid grid-cols-1 gap-2.5">
                   {/* Option 1: Auction Only (Active) */}
                   <div
                     onClick={() => patch({ licenseType: "auction_only" })}
-                    className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-sky-500/50 bg-sky-500/[0.08] shadow-md shadow-sky-500/5 ring-1 ring-sky-500/30 cursor-pointer transition-all"
+                    className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-primary/50 bg-primary/10 shadow-md shadow-primary/5 ring-1 ring-primary/30 cursor-pointer transition-all"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-xl shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-xl shrink-0">
                       🔨
                     </div>
                     <div className="flex-1 min-w-0 pr-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-sm text-sky-300">
+                        <p className="font-bold text-sm text-foreground">
                           Live Auction Suite (Auction Only)
                         </p>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                           Available Now · Included
                         </span>
                       </div>
-                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                         Complete live auction console, projector LED big screen broadcast, team owner mobile bidding app & WhatsApp summaries.
                       </p>
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   </div>
 
                   {/* Option 2: Match Scoring Only (Coming Soon) */}
-                  <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-slate-700/40 bg-slate-900/30 opacity-65 cursor-not-allowed select-none">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-xl shrink-0 opacity-75">
+                  <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-border/40 bg-muted/10 opacity-60 cursor-not-allowed select-none">
+                    <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border/40 flex items-center justify-center text-xl shrink-0 opacity-75">
                       📊
                     </div>
                     <div className="flex-1 min-w-0 pr-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-sm text-slate-300">
+                        <p className="font-semibold text-sm text-foreground/80">
                           Match Scoring Engine
                         </p>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-amber-400/90 border border-amber-400/20">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-amber-400 border border-amber-400/20">
                           Coming Soon
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                         Point-by-point digital match scoring, live scoreboard overlay & draw-based bracket manager.
                       </p>
                     </div>
-                    <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-1" />
+                    <Lock className="w-4 h-4 text-muted-foreground/60 shrink-0 mt-1" />
                   </div>
 
                   {/* Option 3: Auction + Scoring (Coming Soon) */}
-                  <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-slate-700/40 bg-slate-900/30 opacity-65 cursor-not-allowed select-none">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-xl shrink-0 opacity-75">
+                  <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-border/40 bg-muted/10 opacity-60 cursor-not-allowed select-none">
+                    <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border/40 flex items-center justify-center text-xl shrink-0 opacity-75">
                       ⚡
                     </div>
                     <div className="flex-1 min-w-0 pr-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-sm text-slate-300">
+                        <p className="font-semibold text-sm text-foreground/80">
                           Auction + Match Scoring Bundle
                         </p>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-amber-400/90 border border-amber-400/20">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-amber-400 border border-amber-400/20">
                           Coming Soon
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                         All-in-one tournament platform: team auction, squads, fixtures, match scoring & final presentation.
                       </p>
                     </div>
-                    <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-1" />
+                    <Lock className="w-4 h-4 text-muted-foreground/60 shrink-0 mt-1" />
                   </div>
                 </div>
               </div>
 
               {/* Instant Live Blueprint Summary */}
-              <div className="space-y-3 rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-950/25 via-slate-900/50 to-slate-900/30 p-4 sm:p-5 shadow-sm">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-700/40">
+              <div className="space-y-3 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/50 to-card/30 p-4 sm:p-5 shadow-sm">
+                <div className="flex items-center justify-between pb-2 border-b border-border/40">
                   <div className="flex items-center gap-3">
                     <span className="text-3xl shrink-0">{getSportEmoji(draft.sportId)}</span>
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-muted-foreground">
                           {sportEntry?.displayName ?? draft.sportId}
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700/50">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted/30 text-foreground/90 border border-border/40">
                           {draft.city.trim()}
                         </span>
                       </div>
-                      <h4 className="text-base font-bold text-slate-100 mt-0.5 truncate">
+                      <h4 className="text-base font-bold text-foreground mt-0.5 truncate">
                         {draft.name.trim()}
                       </h4>
                     </div>
@@ -483,7 +483,7 @@ export function TournamentCreationWizard({
                 </div>
 
                 {/* Included Features Checklist */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-300">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-foreground/90">
                   <div className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>Live Auctioneer Console</span>
@@ -493,20 +493,20 @@ export function TournamentCreationWizard({
                     <span>LED Big Screen Projector View</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Smartphone className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <Smartphone className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>Owner Mobile Bidding App</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span>Instant WhatsApp Summaries</span>
                   </div>
                 </div>
 
                 {/* Helper Note */}
-                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400 border-t border-slate-700/30">
-                  <SlidersHorizontal className="w-3 h-3 text-slate-500 shrink-0" />
+                <div className="flex items-center gap-2 pt-1 text-[11px] text-muted-foreground border-t border-border/30">
+                  <SlidersHorizontal className="w-3 h-3 text-muted-foreground/60 shrink-0" />
                   <span>
-                    Team budgets, player values, and auction rules are pre-configured with standard defaults and can be tuned anytime in Settings.
+                    Team budgets, player base values, and auction rules are pre-configured and can be adjusted anytime in Settings.
                   </span>
                 </div>
               </div>

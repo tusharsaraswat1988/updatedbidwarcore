@@ -183,10 +183,10 @@ function CreateTournamentModal({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
-      <DialogContent className="flex max-h-[min(92dvh,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-2xl flex-col gap-0 overflow-hidden p-4 sm:p-6 border border-slate-700/60 shadow-2xl bg-slate-900/95 text-slate-100 backdrop-blur-xl">
-        <DialogHeader className="shrink-0 space-y-1 pb-3 pr-8 text-left border-b border-slate-700/40">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-semibold text-slate-100">
-            <Gavel className="w-5 h-5 text-sky-400" />
+      <DialogContent className="flex max-h-[min(92dvh,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-4 sm:p-6 border border-white/10 shadow-2xl bg-card text-foreground backdrop-blur-xl">
+        <DialogHeader className="shrink-0 space-y-1 pb-3 pr-8 text-left border-b border-border/40">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-display font-bold text-foreground">
+            <Gavel className="w-5 h-5 text-primary" />
             <span>{createdCode ? "Tournament Created" : "Create Tournament"}</span>
           </DialogTitle>
         </DialogHeader>
@@ -194,18 +194,18 @@ function CreateTournamentModal({
         {createdCode ? (
           <div className="space-y-4 mt-2 text-center px-0.5">
             <CheckCheck className="w-10 h-10 text-emerald-400 mx-auto" />
-            <p className="text-sm text-slate-300">Your tournament has been created successfully.</p>
+            <p className="text-sm text-muted-foreground">Your tournament has been created successfully.</p>
             <div className="flex flex-col items-center gap-1.5 py-2">
-              <span className="text-xs text-slate-400 uppercase tracking-wide">LED Big Screen Code</span>
-              <span className="font-mono text-2xl font-bold tracking-widest text-sky-300 bg-sky-500/10 border border-sky-500/25 rounded-xl px-5 py-2">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">LED Big Screen Code</span>
+              <span className="font-mono text-2xl font-bold tracking-widest text-primary bg-primary/10 border border-primary/25 rounded-xl px-5 py-2">
                 {createdCode}
               </span>
-              <p className="text-xs text-slate-400 mt-2 max-w-xs leading-relaxed">
+              <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
                 Open the LED Big Screen on your projector laptop. When prompted for a code, enter this code.
               </p>
             </div>
             <Button
-              className="w-full h-11 rounded-xl font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-lg shadow-sky-500/20"
+              className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
               onClick={() => {
                 const id = createdTournamentId;
                 handleClose();
@@ -216,7 +216,7 @@ function CreateTournamentModal({
             </Button>
             <Button
               variant="outline"
-              className="w-full h-11 rounded-xl border-slate-700/60 bg-slate-800/40 hover:bg-slate-800 text-slate-300"
+              className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
               onClick={handleClose}
             >
               Back to My Tournaments
