@@ -269,7 +269,7 @@ export default function CricketMatchCenterPage() {
         }
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 space-y-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 pb-12 space-y-6 sm:space-y-8">
         {/* Header meta */}
         <section className={cn(hubPanelClass, "flex flex-wrap gap-x-4 gap-y-2 text-sm")}>
           <MetaChip label="Status" value={data.match.status} emphasize={isLive} />

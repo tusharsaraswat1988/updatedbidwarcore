@@ -32,32 +32,32 @@ export function FormModal({
   }[size];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-4 sm:items-center bg-black/75 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-2 sm:p-4 sm:items-center bg-black/75 backdrop-blur-md">
       <div
         className={cn(
-          "my-auto flex w-full max-h-[min(90vh,100%)] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl",
+          "my-auto flex w-full max-h-[min(94dvh,100%)] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl",
           maxW,
         )}
       >
-        <div className="z-10 flex shrink-0 items-start justify-between gap-4 border-b border-border bg-card px-6 py-4">
+        <div className="z-10 flex shrink-0 items-start justify-between gap-3 sm:gap-4 border-b border-border bg-card px-4 py-3 sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <h2 className="text-foreground font-display font-bold text-lg tracking-tight">{title}</h2>
-            {subtitle && <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>}
+            <h2 className="text-foreground font-display font-bold text-base sm:text-lg tracking-tight">{title}</h2>
+            {subtitle && <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex-none min-h-11 min-w-11 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors"
+            className="flex-none min-h-10 min-w-10 sm:min-h-11 sm:min-w-11 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors"
           >
             ×
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4 sm:space-y-5">{children}</div>
 
         {footer && (
-          <div className="z-10 shrink-0 border-t border-border bg-card px-6 py-4">{footer}</div>
+          <div className="z-10 shrink-0 border-t border-border bg-card px-4 py-3 sm:px-6 sm:py-4">{footer}</div>
         )}
       </div>
     </div>
@@ -366,7 +366,7 @@ export function SportsPageHeader({
   showBrandMark?: boolean;
 }) {
   return (
-    <div className="border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+    <div className="border-b border-border px-3.5 py-3.5 sm:px-6 sm:py-5">
       <div className="max-w-7xl mx-auto space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="space-y-1 min-w-0">
@@ -375,7 +375,7 @@ export function SportsPageHeader({
                 {eyebrow}
               </p>
             ) : null}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground truncate">
                 {title}
               </h1>
@@ -383,7 +383,7 @@ export function SportsPageHeader({
             </div>
             {subtitle ? <div className="text-xs sm:text-sm text-muted-foreground">{subtitle}</div> : null}
           </div>
-          {actions ? <div className="flex items-center gap-2 flex-wrap">{actions}</div> : null}
+          {actions ? <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">{actions}</div> : null}
         </div>
       </div>
     </div>

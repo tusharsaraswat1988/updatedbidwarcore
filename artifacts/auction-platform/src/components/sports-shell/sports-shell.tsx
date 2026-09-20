@@ -1,6 +1,6 @@
 import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import {
   getGetTournamentQueryKey,
@@ -19,6 +19,8 @@ import type { SportNavChild, SportNavConfig, SportNavItem } from "@/lib/sports-s
 import { cn } from "@/lib/utils";
 import { SportsUnavailableView } from "@/components/sports-unavailable-view";
 import { isTournamentScoringSport } from "@/hooks/use-platform-features";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 const COLLAPSE_STORAGE_KEY = "sports-shell-collapsed";
@@ -188,10 +190,12 @@ function SportNavChildLink({
   child,
   tournamentId,
   location,
+  onNavigate,
 }: {
   child: SportNavChild;
   tournamentId: number;
   location: string;
+  onNavigate?: () => void;
 }) {
   const href = child.href(tournamentId);
   const active = child.isActive(location, tournamentId);
@@ -202,6 +206,7 @@ function SportNavChildLink({
       title={child.label}
       className={childNavClass(active)}
       aria-current={active ? "page" : undefined}
+      onClick={() => onNavigate?.()}
       onMouseEnter={child.preload}
       onFocus={child.preload}
     >
@@ -265,6 +270,7 @@ function SportNavLink({
   collapsed,
   expanded,
   onToggleExpanded,
+  onNavigate,
 }: {
   item: SportNavItem;
   tournamentId: number;
@@ -272,6 +278,7 @@ function SportNavLink({
   collapsed: boolean;
   expanded: boolean;
   onToggleExpanded: () => void;
+  onNavigate?: () => void;
 }) {
   const href = item.href(tournamentId);
   const active = item.isActive(location, tournamentId);
@@ -290,6 +297,7 @@ function SportNavLink({
           target="_blank"
           rel="noopener noreferrer"
           title={item.label}
+          onClick={() => onNavigate?.()}
           className={cn(className, "font-medium")}
         >
           {!collapsed ? <NavActiveAccent active={active} /> : null}
@@ -313,6 +321,7 @@ function SportNavLink({
         href={href}
         title={item.label}
         className={cn(className, "font-medium")}
+        onClick={() => onNavigate?.()}
         onMouseEnter={item.preload}
         onFocus={item.preload}
       >
@@ -369,6 +378,7 @@ function SportNavLink({
             child={child}
             tournamentId={tournamentId}
             location={location}
+            onNavigate={onNavigate}
           />
         ))}
       </SportNavSubmenu>
@@ -380,8 +390,7 @@ function SportNavLink({
  * Shared tournament shell for scoring sports.
  * Auction continues to use AppLayout; badminton (and future sports) plug in via `nav`.
  *
- * Badminton only shares players + branding with auction — do not fetch full
- * tournament/auction license payloads here for badminton.
+ * Fully responsive: Collapsible sidebar on desktop (lg+), top app bar + slide-out drawer on mobile (<lg).
  */
 export function SportsShell({
   children,
@@ -432,7 +441,13 @@ export function SportsShell({
     }
   });
 
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+
+  // Automatically close mobile drawer whenever the route changes.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathForActive]);
 
   // Accordion: keep the active parent open; swap smoothly when the route module changes.
   useEffect(() => {
@@ -445,8 +460,6 @@ export function SportsShell({
       return new Set([activeParent.id]);
     });
   }, [nav, pathForActive, tournamentId]);
-
-
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");
@@ -479,146 +492,213 @@ export function SportsShell({
     });
   }
 
+  const renderNavSections = (isMobileDrawer = false) => (
+    <>
+      {!localVenue && (
+        <>
+          {(!collapsed || isMobileDrawer) && (
+            <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Main Menu
+            </div>
+          )}
+          <nav className={cn("space-y-1", collapsed && !isMobileDrawer ? "px-1.5" : "px-2")}>
+            <button
+              type="button"
+              onClick={() => {
+                if (isMobileDrawer) setMobileOpen(false);
+                goToTournamentsHome();
+              }}
+              title="All Tournaments"
+              className={navItemClass(false, collapsed && !isMobileDrawer)}
+            >
+              <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
+              {(!collapsed || isMobileDrawer) && <span className="font-medium">All Tournaments</span>}
+            </button>
+          </nav>
+        </>
+      )}
+
+      {(!collapsed || isMobileDrawer) && (
+        <div className="px-4 mt-6 mb-1 flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
+            {tournamentTitle}
+          </span>
+        </div>
+      )}
+      {(!collapsed || isMobileDrawer) && (
+        <div className="px-4 mb-3 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">
+          {nav.sportLabel}
+        </div>
+      )}
+      {collapsed && !isMobileDrawer && <div className="mt-6 mb-2 border-t border-border mx-2" />}
+
+      {nav.sections.map((section, sectionIndex) => (
+        <div key={section.id}>
+          {(!collapsed || isMobileDrawer) && section.label.trim() ? (
+            <div
+              className={cn(
+                "px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider",
+                sectionIndex === 0 ? "mt-1" : "mt-6",
+              )}
+            >
+              {section.label}
+            </div>
+          ) : null}
+          {collapsed && !isMobileDrawer && sectionIndex > 0 ? (
+            <div className="mt-6 mb-2 border-t border-border mx-2" />
+          ) : null}
+          <nav className={cn("space-y-1", collapsed && !isMobileDrawer ? "px-1.5" : "px-2", (!collapsed || isMobileDrawer) && "mb-1")}>
+            {section.items.map((item) => (
+              <SportNavLink
+                key={item.id}
+                item={item}
+                tournamentId={tournamentId}
+                location={pathForActive}
+                collapsed={collapsed && !isMobileDrawer}
+                expanded={expandedIds.has(item.id)}
+                onToggleExpanded={() => {
+                  setExpandedIds((prev) => {
+                    if (prev.has(item.id)) return new Set();
+                    return new Set([item.id]);
+                  });
+                }}
+                onNavigate={isMobileDrawer ? () => setMobileOpen(false) : undefined}
+              />
+            ))}
+          </nav>
+        </div>
+      ))}
+    </>
+  );
+
   return (
     <SportsShellContext.Provider value={true}>
       <div
         className={cn(
-          "lovable-theme flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
+          "lovable-theme flex flex-col lg:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
           className,
         )}
       >
-      <aside
-        className="flex-shrink-0 border-r border-border bg-card flex flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
-        style={{ width: collapsed ? 56 : 256 }}
-      >
-        <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
-          {collapsed ? (
+        {/* Mobile Top Navigation Bar (< lg) */}
+        <header className="lg:hidden h-14 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
-              onClick={toggleCollapsed}
-              title="Expand sidebar"
-              className="mx-auto text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation menu"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent border border-border/60 transition-colors cursor-pointer shrink-0"
             >
-              <ChevronRight className="w-4 h-4" />
+              <Menu className="w-5 h-5" />
             </button>
-          ) : (
-            <>
+            {brandingLoading ? (
+              <div className="h-7 w-7 shrink-0" />
+            ) : (
+              <img src={sidebarLogoSrc} alt={logoAlt} className="h-7 w-auto max-w-[5rem] object-contain shrink-0" />
+            )}
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-foreground truncate leading-tight">{tournamentTitle}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight">{nav.sportLabel}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-primary/30 text-primary font-bold uppercase">
+              {nav.sportId}
+            </Badge>
+            {tournamentId && !localVenue ? (
+              <LogoutButton tournamentId={tournamentId} iconOnly />
+            ) : null}
+          </div>
+        </header>
+
+        {/* Mobile Slide-out Drawer */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-[85vw] max-w-xs p-0 bg-card border-r border-border flex flex-col z-50">
+            <div className="h-14 flex items-center border-b border-border px-4 gap-2.5 shrink-0 min-w-0">
               {brandingLoading ? (
-                <div className="h-9 w-9 flex-shrink-0" />
+                <div className="h-8 w-8 shrink-0" />
               ) : (
-                <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />
+                <img src={sidebarLogoSrc} alt={logoAlt} className="h-8 w-auto max-w-[5.5rem] object-contain shrink-0" />
               )}
+              <div className="min-w-0 flex-1">
+                <SheetTitle className="text-xs font-bold text-foreground truncate">{tournamentTitle}</SheetTitle>
+                <p className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-wider">{nav.sportLabel}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-3 px-2 overflow-x-hidden">
+              {renderNavSections(true)}
+            </div>
+
+            {tournamentId && !localVenue && (
+              <SidebarAccountFooter tournamentId={tournamentId} collapsed={false} />
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {/* Desktop Sidebar (lg+) */}
+        <aside
+          className="hidden lg:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
+          style={{ width: collapsed ? 56 : 256 }}
+        >
+          <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
+            {collapsed ? (
               <button
                 type="button"
                 onClick={toggleCollapsed}
-                title="Collapse sidebar"
-                className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                title="Expand sidebar"
+                className="mx-auto text-muted-foreground hover:text-foreground transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4" />
               </button>
-            </>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-4 overflow-x-hidden">
-          {!localVenue && (
-            <>
-              {!collapsed && (
-                <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Main Menu
-                </div>
-              )}
-              <nav className={cn("space-y-1", collapsed ? "px-1.5" : "px-2")}>
+            ) : (
+              <>
+                {brandingLoading ? (
+                  <div className="h-9 w-9 flex-shrink-0" />
+                ) : (
+                  <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />
+                )}
                 <button
                   type="button"
-                  onClick={goToTournamentsHome}
-                  title="All Tournaments"
-                  className={navItemClass(false, collapsed)}
+                  onClick={toggleCollapsed}
+                  title="Collapse sidebar"
+                  className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">All Tournaments</span>}
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-              </nav>
-            </>
-          )}
-
-          {!collapsed && (
-            <div className="px-4 mt-7 mb-1 flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {tournamentTitle}
-              </span>
-            </div>
-          )}
-          {!collapsed && (
-            <div className="px-4 mb-3 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">
-              {nav.sportLabel}
-            </div>
-          )}
-          {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
-
-          {nav.sections.map((section, sectionIndex) => (
-            <div key={section.id}>
-              {!collapsed && section.label.trim() ? (
-                <div
-                  className={cn(
-                    "px-4 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider",
-                    sectionIndex === 0 ? "mt-0" : "mt-7",
-                  )}
-                >
-                  {section.label}
-                </div>
-              ) : null}
-              {collapsed && sectionIndex > 0 ? (
-                <div className="mt-6 mb-2 border-t border-border mx-2" />
-              ) : null}
-              <nav className={cn("space-y-1", collapsed ? "px-1.5" : "px-2", !collapsed && "mb-1")}>
-                {section.items.map((item) => (
-                  <SportNavLink
-                    key={item.id}
-                    item={item}
-                    tournamentId={tournamentId}
-                    location={pathForActive}
-                    collapsed={collapsed}
-                    expanded={expandedIds.has(item.id)}
-                    onToggleExpanded={() => {
-                      setExpandedIds((prev) => {
-                        if (prev.has(item.id)) return new Set();
-                        return new Set([item.id]);
-                      });
-                    }}
-                  />
-                ))}
-              </nav>
-            </div>
-          ))}
-        </div>
-
-        {tournamentId && !localVenue && (
-          <SidebarAccountFooter tournamentId={tournamentId} collapsed={collapsed} />
-        )}
-      </aside>
-
-      <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none opacity-100"
-          style={{
-            background:
-              "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
-          }}
-        />
-        {noPadding ? (
-          <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">
-            {scoringDisabled ? <SportsUnavailableView /> : children}
+              </>
+            )}
           </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto z-0 relative">
-            <div className="p-8 max-w-7xl mx-auto">
+
+          <div className="flex-1 overflow-y-auto py-4 overflow-x-hidden">
+            {renderNavSections(false)}
+          </div>
+
+          {tournamentId && !localVenue && (
+            <SidebarAccountFooter tournamentId={tournamentId} collapsed={collapsed} />
+          )}
+        </aside>
+
+        <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
+          <div
+            className="absolute inset-0 pointer-events-none opacity-100"
+            style={{
+              background:
+                "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
+            }}
+          />
+          {noPadding ? (
+            <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">
               {scoringDisabled ? <SportsUnavailableView /> : children}
             </div>
-          </div>
-        )}
-      </main>
-    </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto z-0 relative">
+              <div className="p-3.5 sm:p-5 md:p-6 lg:p-8 max-w-7xl mx-auto">
+                {scoringDisabled ? <SportsUnavailableView /> : children}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </SportsShellContext.Provider>
   );
 }

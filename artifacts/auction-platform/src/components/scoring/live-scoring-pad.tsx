@@ -537,7 +537,7 @@ export function LiveScoringPad({
       ) : null}
 
       {/* ─── Scoreboard Strip ─── */}
-      <div className="px-4 py-3.5 rounded-2xl border border-border/70 bg-card/60 shadow-sm space-y-3">
+      <div className="px-3 py-2.5 sm:px-4 sm:py-3.5 rounded-xl sm:rounded-2xl border border-border/70 bg-card/60 shadow-sm space-y-2.5 sm:space-y-3">
         {retireAtRuns != null ? (
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>Retire limit: {retireAtRuns} runs per batter</span>
@@ -549,19 +549,19 @@ export function LiveScoringPad({
           </div>
         ) : null}
 
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Innings {state.currentInnings}
               {state.target ? ` · Target ${state.target}` : ""}
             </p>
-            <p className="text-3xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground flex items-baseline gap-2">
+            <p className="text-2xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground flex items-baseline gap-1.5 sm:gap-2">
               <span>{innings.runs}/{innings.wickets}</span>
-              <span className="text-base sm:text-lg text-muted-foreground font-semibold">
+              <span className="text-sm sm:text-lg text-muted-foreground font-semibold">
                 ({oversText(innings.over, innings.ball)} / {state.oversLimit} ov)
               </span>
             </p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
               <span>CRR: <strong className="text-foreground">{rr}</strong></span>
               {req ? (
                 <>
@@ -574,46 +574,46 @@ export function LiveScoringPad({
             </div>
           </div>
 
-          <div className="text-right text-xs space-y-1 shrink-0">
+          <div className="text-right text-xs space-y-0.5 sm:space-y-1 shrink-0">
             <p
-              className="font-bold text-sm truncate max-w-[8rem]"
+              className="font-bold text-xs sm:text-sm truncate max-w-[6.5rem] sm:max-w-[8rem]"
               style={{ color: battingTeam?.color ?? undefined }}
             >
               {battingTeam?.shortCode ?? "BAT"} 🏏
             </p>
-            <p className="text-muted-foreground truncate max-w-[8rem]">
+            <p className="text-muted-foreground text-[11px] sm:text-xs truncate max-w-[6.5rem] sm:max-w-[8rem]">
               vs {bowlingTeam?.shortCode ?? "BOWL"}
             </p>
           </div>
         </div>
 
         {/* ─── Crease / Batters & Bowler Card ─── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-border/40 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 pt-1 border-t border-border/40 text-xs">
           {/* Striker */}
-          <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/30 px-3 py-2">
+          <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/30 px-2.5 py-1.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
               <span className="text-[10px] uppercase font-bold text-primary tracking-wider flex items-center gap-1">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 Striker *
               </span>
-              <p className="font-bold text-foreground text-sm truncate mt-0.5">
+              <p className="font-bold text-foreground text-xs sm:text-sm truncate mt-0.5">
                 {playerNameById(players, strikerId) || "Select Striker"}
               </p>
             </div>
             {strikerId && batterRuns[strikerId] != null ? (
-              <span className="text-xs font-bold text-primary tabular-nums">
-                {batterRuns[strikerId]} runs
+              <span className="text-xs font-bold text-primary tabular-nums shrink-0 ml-1">
+                {batterRuns[strikerId]}r
               </span>
             ) : null}
           </div>
 
           {/* Non-Striker & Swap Button */}
-          <div className="flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-3 py-2">
+          <div className="flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-2.5 py-1.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
                 Non-Striker
               </span>
-              <p className="font-semibold text-foreground text-sm truncate mt-0.5">
+              <p className="font-semibold text-foreground text-xs sm:text-sm truncate mt-0.5">
                 {playerNameById(players, nonStrikerId) || "Select Non-Striker"}
               </p>
             </div>
@@ -622,23 +622,23 @@ export function LiveScoringPad({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-[10px] font-bold text-muted-foreground hover:text-primary gap-1"
+                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] font-bold text-muted-foreground hover:text-primary gap-0.5 sm:gap-1 shrink-0"
                 onClick={onSwapStrike}
                 title="Swap Strike (S)"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                Swap
+                <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden xs:inline">Swap</span>
               </Button>
             ) : null}
           </div>
 
           {/* Active Bowler */}
-          <div className="flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-3 py-2">
+          <div className="col-span-2 sm:col-span-1 flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-2.5 py-1.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
                 Bowler
               </span>
-              <p className="font-semibold text-foreground text-sm truncate mt-0.5">
+              <p className="font-semibold text-foreground text-xs sm:text-sm truncate mt-0.5">
                 {playerNameById(players, activeBowlerId) || "Select Bowler"}
               </p>
             </div>
@@ -646,7 +646,7 @@ export function LiveScoringPad({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+              className="h-6 sm:h-7 px-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => setBowlerSheet(true)}
             >
               Change
@@ -656,7 +656,7 @@ export function LiveScoringPad({
 
         {/* ─── This Over Ball Strip ─── */}
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">
+          <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">
             This Over:
           </span>
           <div className="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
@@ -719,9 +719,9 @@ export function LiveScoringPad({
       ) : null}
 
       {/* ─── Main Scorer Keypad Grid ─── */}
-      <div className="p-3 rounded-2xl border border-border/70 bg-card/40 space-y-2.5">
+      <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-border/70 bg-card/40 space-y-2 sm:space-y-2.5">
         {/* Row 1: Primary Runs 0, 1, 2, 3 */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
           <ScoreButton
             label="0"
             sublabel="dot"
@@ -781,7 +781,7 @@ export function LiveScoringPad({
         </div>
 
         {/* Row 2: Boundaries 4, 6, Custom, Super Ball */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
           <ScoreButton
             label="4"
             sublabel="four"
@@ -840,7 +840,7 @@ export function LiveScoringPad({
         </div>
 
         {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes) */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
           <ScoreButton
             label="Wd"
             sublabel="wide"
@@ -896,7 +896,7 @@ export function LiveScoringPad({
         </div>
 
         {/* Row 4: Wicket & Undo Action Buttons */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
           <ScoreButton
             label="OUT / WICKET"
             sublabel="how out?"

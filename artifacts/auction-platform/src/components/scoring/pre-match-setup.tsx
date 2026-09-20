@@ -398,18 +398,18 @@ function TossStep({
   const winnerTeam = teams.find((t) => t.id === winnerId);
 
   return (
-    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-5">
+    <section className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-3.5 sm:p-5 md:p-6 shadow-md space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-xl">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-lg sm:text-xl">
             🪙
           </div>
           <div>
-            <h2 className="text-base font-bold text-foreground">Match Toss & Setup</h2>
-            <p className="text-xs text-muted-foreground">Select who won the toss and their choice</p>
+            <h2 className="text-sm sm:text-base font-bold text-foreground">Match Toss & Setup</h2>
+            <p className="text-[11px] sm:text-xs text-muted-foreground">Select who won the toss and their choice</p>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+        <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold bg-primary/10 text-primary border border-primary/20 shrink-0">
           {oversLimit} Overs
         </span>
       </div>
@@ -419,29 +419,29 @@ function TossStep({
         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Who Won the Toss?
         </Label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {/* Home Team Card */}
           <div
             onClick={() => !busy && setTossWinner(String(match.homeTeamId))}
             className={cn(
-              "p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-2 select-none",
+              "p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 sm:gap-2 select-none",
               tossWinner === String(match.homeTeamId)
                 ? "border-amber-400/80 bg-amber-500/15 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/50"
                 : "border-border/70 bg-card/40 hover:bg-card/80",
             )}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-muted/60 text-muted-foreground">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground">
                 Home
               </span>
               {tossWinner === String(match.homeTeamId) ? (
-                <CheckCircle2 className="w-5 h-5 text-amber-400" />
+                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               ) : null}
             </div>
-            <p className="font-bold text-sm sm:text-base text-foreground truncate mt-1">
+            <p className="font-bold text-xs sm:text-base text-foreground truncate mt-0.5 sm:mt-1">
               {home?.name ?? "Home Team"}
             </p>
-            <p className="text-xs font-semibold text-muted-foreground">
+            <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground">
               {home?.shortCode ?? "HOM"}
             </p>
           </div>
@@ -450,24 +450,24 @@ function TossStep({
           <div
             onClick={() => !busy && setTossWinner(String(match.awayTeamId))}
             className={cn(
-              "p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-2 select-none",
+              "p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 sm:gap-2 select-none",
               tossWinner === String(match.awayTeamId)
                 ? "border-amber-400/80 bg-amber-500/15 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/50"
                 : "border-border/70 bg-card/40 hover:bg-card/80",
             )}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-muted/60 text-muted-foreground">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground">
                 Away
               </span>
               {tossWinner === String(match.awayTeamId) ? (
-                <CheckCircle2 className="w-5 h-5 text-amber-400" />
+                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               ) : null}
             </div>
-            <p className="font-bold text-sm sm:text-base text-foreground truncate mt-1">
+            <p className="font-bold text-xs sm:text-base text-foreground truncate mt-0.5 sm:mt-1">
               {away?.name ?? "Away Team"}
             </p>
-            <p className="text-xs font-semibold text-muted-foreground">
+            <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground">
               {away?.shortCode ?? "AWY"}
             </p>
           </div>
@@ -479,12 +479,12 @@ function TossStep({
         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Elected To
         </Label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <Button
             type="button"
             variant="outline"
             className={cn(
-              "h-13 font-bold text-sm sm:text-base rounded-2xl transition-all border gap-2",
+              "h-11 sm:h-13 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl transition-all border gap-1.5 sm:gap-2",
               electedTo === "bat"
                 ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
                 : "border-border/70 bg-card/50 hover:bg-card",
@@ -498,7 +498,7 @@ function TossStep({
             type="button"
             variant="outline"
             className={cn(
-              "h-13 font-bold text-sm sm:text-base rounded-2xl transition-all border gap-2",
+              "h-11 sm:h-13 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl transition-all border gap-1.5 sm:gap-2",
               electedTo === "bowl"
                 ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
                 : "border-border/70 bg-card/50 hover:bg-card",
@@ -512,7 +512,7 @@ function TossStep({
       </div>
 
       {/* Toss Statement Preview */}
-      <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 text-xs text-primary font-semibold flex items-center gap-2">
+      <div className="rounded-xl border border-primary/25 bg-primary/5 p-2.5 sm:p-3 text-xs text-primary font-semibold flex items-center gap-2">
         <Zap className="w-4 h-4 shrink-0 text-primary" />
         <span>
           <strong>{winnerTeam?.name ?? "Team"}</strong> won the toss and elected to <strong>{electedTo.toUpperCase()}</strong> first.
@@ -520,7 +520,7 @@ function TossStep({
       </div>
 
       <Button
-        className="w-full h-13 font-display font-black text-base rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/20 cursor-pointer transition-all active:scale-[0.98]"
+        className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/20 cursor-pointer transition-all active:scale-[0.98]"
         disabled={startBlocked}
         onClick={() => {
           if (startBlocked) return;
@@ -617,11 +617,11 @@ function SquadLineupPicker({
   const isComplete = playingXi.length === playingSquadSize;
 
   return (
-    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-4">
+    <section className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-3.5 sm:p-5 md:p-6 shadow-md space-y-3.5 sm:space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div>
-          <h2 className="text-base font-bold text-foreground">{title}</h2>
-          <p className="text-xs text-muted-foreground">
+          <h2 className="text-sm sm:text-base font-bold text-foreground">{title}</h2>
+          <p className="text-[11px] sm:text-xs text-muted-foreground">
             Select {playingSquadSize} playing players + tag Captain (C) & Keeper (WK)
           </p>
         </div>
@@ -665,7 +665,7 @@ function SquadLineupPicker({
               <li
                 key={p.id}
                 className={cn(
-                  "flex items-center justify-between gap-2 rounded-2xl px-3 py-2 border transition-all",
+                  "flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl px-2.5 py-1.5 sm:px-3 sm:py-2 border transition-all",
                   inXi
                     ? "bg-primary/10 border-primary/30"
                     : onBench
@@ -685,7 +685,7 @@ function SquadLineupPicker({
                     size="sm"
                   />
                   <div className="min-w-0">
-                    <p className="font-bold text-sm text-foreground truncate">
+                    <p className="font-bold text-xs sm:text-sm text-foreground truncate">
                       {p.name}
                     </p>
                     <span className="text-[10px] text-muted-foreground uppercase font-semibold">
@@ -719,28 +719,27 @@ function SquadLineupPicker({
                         className={cn(
                           "w-8 h-7 rounded-lg text-xs font-black flex items-center justify-center transition-all",
                           isWk
-                            ? "bg-sky-500 text-white shadow-sm"
+                            ? "bg-sky-500 text-slate-950 shadow-sm"
                             : "bg-muted/50 text-muted-foreground hover:text-foreground",
                         )}
                         title="Toggle Wicketkeeper (WK)"
                       >
                         WK
                       </button>
-
-                      <span className="text-[10px] uppercase text-primary font-bold px-2 py-0.5 rounded-full bg-primary/15 border border-primary/25 ml-1">
-                        {playingSquadSize === 11 ? "XI" : `P${playingSquadSize}`}
-                      </span>
                     </>
                   ) : (
-                    <Button
+                    <button
                       type="button"
-                      size="sm"
-                      variant={onBench ? "secondary" : "ghost"}
-                      className="h-7 text-xs font-semibold"
                       onClick={() => toggleBench(p.id)}
+                      className={cn(
+                        "px-2 py-1 rounded-lg text-[10px] font-bold uppercase transition-all",
+                        onBench
+                          ? "bg-muted text-foreground border border-border"
+                          : "text-muted-foreground/60 hover:text-muted-foreground",
+                      )}
                     >
-                      {onBench ? "On Bench" : "+ Bench"}
-                    </Button>
+                      {onBench ? "Bench ✓" : "+ Bench"}
+                    </button>
                   )}
                 </div>
               </li>
@@ -750,7 +749,7 @@ function SquadLineupPicker({
       )}
 
       <Button
-        className="w-full h-12 font-bold text-sm sm:text-base rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
+        className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
         disabled={busy || playingXi.length < 2}
         onClick={() =>
           void onConfirm(
@@ -801,15 +800,15 @@ function OpenersPicker({
   );
 
   return (
-    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-5">
+    <section className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-3.5 sm:p-5 md:p-6 shadow-md space-y-4 sm:space-y-5">
       <div>
-        <h2 className="text-base font-bold text-foreground">Select Opening Batters</h2>
-        <p className="text-xs text-muted-foreground">
+        <h2 className="text-sm sm:text-base font-bold text-foreground">Select Opening Batters</h2>
+        <p className="text-[11px] sm:text-xs text-muted-foreground">
           {teamName} · Choose who takes first strike (*) and non-striker
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {/* Striker Picker Column */}
         <div className="space-y-2">
           <Label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
@@ -825,7 +824,7 @@ function OpenersPicker({
                   key={`striker-${p.id}`}
                   onClick={() => !isOther && setStriker(p.id)}
                   className={cn(
-                    "flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer select-none",
+                    "flex items-center justify-between p-2.5 rounded-xl sm:rounded-2xl border transition-all cursor-pointer select-none",
                     isSelected
                       ? "bg-primary/20 border-primary text-primary font-bold shadow-sm"
                       : isOther
@@ -835,7 +834,7 @@ function OpenersPicker({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <ScoringPlayerAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
-                    <span className="text-sm truncate">{p.name}</span>
+                    <span className="text-xs sm:text-sm truncate">{p.name}</span>
                   </div>
                   {isSelected ? <Check className="w-4 h-4 text-primary" /> : null}
                 </div>
@@ -858,7 +857,7 @@ function OpenersPicker({
                   key={`non-striker-${p.id}`}
                   onClick={() => !isOther && setNonStriker(p.id)}
                   className={cn(
-                    "flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer select-none",
+                    "flex items-center justify-between p-2.5 rounded-xl sm:rounded-2xl border transition-all cursor-pointer select-none",
                     isSelected
                       ? "bg-muted border-foreground/40 text-foreground font-bold shadow-sm"
                       : isOther
@@ -868,7 +867,7 @@ function OpenersPicker({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <ScoringPlayerAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
-                    <span className="text-sm truncate">{p.name}</span>
+                    <span className="text-xs sm:text-sm truncate">{p.name}</span>
                   </div>
                   {isSelected ? <Check className="w-4 h-4 text-foreground" /> : null}
                 </div>
@@ -879,7 +878,7 @@ function OpenersPicker({
       </div>
 
       <Button
-        className="w-full h-12 font-bold text-sm sm:text-base rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
+        className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
         disabled={busy || !striker || !nonStriker || striker === nonStriker}
         onClick={() => striker && nonStriker && onConfirm(striker, nonStriker)}
       >
@@ -919,10 +918,10 @@ function BowlerPicker({
   const [bowler, setBowler] = useState<number | null>(squad[0]?.id ?? null);
 
   return (
-    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-5">
+    <section className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-3.5 sm:p-5 md:p-6 shadow-md space-y-4 sm:space-y-5">
       <div>
-        <h2 className="text-base font-bold text-foreground">Select Opening Bowler</h2>
-        <p className="text-xs text-muted-foreground">
+        <h2 className="text-sm sm:text-base font-bold text-foreground">Select Opening Bowler</h2>
+        <p className="text-[11px] sm:text-xs text-muted-foreground">
           {teamName} · Choose who bowls the 1st over
         </p>
       </div>
@@ -935,16 +934,16 @@ function BowlerPicker({
               key={p.id}
               onClick={() => setBowler(p.id)}
               className={cn(
-                "flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer select-none",
+                "flex items-center justify-between p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer select-none",
                 isSelected
                   ? "bg-primary/20 border-primary text-primary font-bold shadow-sm"
                   : "bg-card/40 border-border/60 hover:bg-card/80",
               )}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <ScoringPlayerAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
                 <div className="min-w-0">
-                  <p className="font-bold text-sm truncate">{p.name}</p>
+                  <p className="font-bold text-xs sm:text-sm truncate">{p.name}</p>
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">
                     {p.role ?? "Bowler"}
                   </span>
@@ -957,7 +956,7 @@ function BowlerPicker({
       </div>
 
       <Button
-        className="w-full h-13 font-display font-black text-base rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-xl shadow-emerald-500/20 cursor-pointer transition-all active:scale-[0.98]"
+        className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-xl shadow-emerald-500/20 cursor-pointer transition-all active:scale-[0.98]"
         disabled={busy || !bowler}
         onClick={() => bowler && onSelect(bowler)}
       >

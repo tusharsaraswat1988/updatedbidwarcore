@@ -44,14 +44,14 @@ export function HubKpiCard({
 
   return (
     <Card className="bg-card border-border hover:border-primary/20 transition-colors">
-      <CardContent className="p-5">
-        <div className="flex justify-between items-start">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">{label}</p>
-            <p className="text-3xl font-display font-bold tabular-nums">{value}</p>
+      <CardContent className="p-3.5 sm:p-5">
+        <div className="flex justify-between items-start gap-2">
+          <div className="space-y-1 sm:space-y-2 min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{label}</p>
+            <p className="text-2xl sm:text-3xl font-display font-bold tabular-nums text-foreground">{value}</p>
           </div>
-          <div className={cn("p-3 rounded-lg relative", t.well)}>
-            <Icon className={cn("w-5 h-5", t.icon)} />
+          <div className={cn("p-2 sm:p-3 rounded-lg relative shrink-0", t.well)}>
+            <Icon className={cn("w-4 h-4 sm:w-5 sm:h-5", t.icon)} />
             {pulse ? (
               <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             ) : null}

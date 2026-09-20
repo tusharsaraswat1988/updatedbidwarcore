@@ -385,7 +385,7 @@ export default function ScoringMatchPage() {
         }
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10 space-y-4">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 md:px-6 pb-10 space-y-3 sm:space-y-4">
         {queueDepth > 0 ? (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-center gap-2 text-sm text-amber-100">
             <WifiOff className="w-4 h-4 shrink-0" />

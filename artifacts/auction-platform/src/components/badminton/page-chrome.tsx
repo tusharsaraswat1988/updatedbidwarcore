@@ -100,8 +100,8 @@ export function PageHeader({
   const shouldShowBrand = showBrandMark && !inShell;
 
   return (
-    <div className="border-b border-border px-6 py-5 sm:py-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="border-b border-border px-3.5 py-3.5 sm:px-6 sm:py-5">
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
         {shouldShowBrand && logoSrc ? (
           <div className="flex justify-center">
 

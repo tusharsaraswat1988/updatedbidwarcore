@@ -272,7 +272,7 @@ export default function ScoringMatchListPage() {
         actions={pageActions}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10 space-y-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 pb-10 space-y-6 sm:space-y-8">
         {featuresLoading || tournamentLoading || (scoringActive && isLoading) ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
