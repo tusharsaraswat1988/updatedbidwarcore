@@ -2559,7 +2559,7 @@ export default function Players() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [tab, setTab] = useState("all");
+  const [tab, setTab] = useState<StatusFilterValue>("all");
   const [search, setSearch] = useState("");
   const [categoryIds, setCategoryIds] = useState<Set<number>>(new Set());
   const [teamIds, setTeamIds] = useState<Set<number>>(new Set());
@@ -2595,7 +2595,7 @@ export default function Players() {
     setFiltersHydrated(false);
     const saved = loadPersistedFilters(tournamentId);
     if (saved) {
-      setTab(saved.tab ?? "all");
+      setTab((saved.tab as StatusFilterValue) ?? "all");
       setSearch(saved.search ?? "");
       setCategoryIds(new Set(saved.categoryIds ?? []));
       setTeamIds(new Set(saved.teamIds ?? []));
@@ -3020,9 +3020,9 @@ export default function Players() {
               onClick={() => setTab(tabItem.value)}
             />
           ))}
-          {filtered.length !== statusCounts[tab === "all" ? "all" : tab] && (
+          {filtered.length !== statusCounts[tab] && (
             <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap px-1.5 font-medium">
-              Showing {filtered.length} of {statusCounts[tab === "all" ? "all" : tab]}
+              Showing {filtered.length} of {statusCounts[tab]}
             </span>
           )}
         </div>

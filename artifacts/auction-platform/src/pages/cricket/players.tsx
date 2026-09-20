@@ -61,7 +61,37 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Plus, Trash2, Upload, UserMinus, UserRound, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
+import {
+  ChevronDown,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  LayoutGrid,
+  LayoutList,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+  UserMinus,
+  UserRound,
+  X,
+} from "lucide-react";
+import {
+  exportCricketRosterToExcel,
+  exportCricketRosterToPdf,
+  type ExportRosterScope,
+} from "@/lib/export-cricket-roster";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ROLES = [
@@ -201,6 +231,8 @@ export default function CricketPlayersPage() {
   const [genderFilter, setGenderFilter] = useState("all");
   const [battingFilter, setBattingFilter] = useState("all");
   const [bowlingFilter, setBowlingFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -522,6 +554,55 @@ export default function CricketPlayersPage() {
     }
   }
 
+  async function handleExport(format: "excel" | "pdf", scope: ExportRosterScope) {
+    if (players.length === 0) return;
+    setExporting(format);
+    try {
+      const targetPlayers = filtersActive && scope === "all" ? filtered : players;
+      if (format === "excel") {
+        await exportCricketRosterToExcel({
+          tournamentName: tournament?.name || "Cricket Tournament",
+          players: targetPlayers,
+          teams,
+          categories,
+          scope,
+        });
+        toast({
+          title: "Excel downloaded",
+          description:
+            typeof scope === "number"
+              ? `${teams.find((t) => t.id === scope)?.name ?? "Team"} roster exported.`
+              : scope === "multi-sheet"
+              ? "All teams exported as multi-sheet workbook."
+              : "Full tournament roster exported.",
+        });
+      } else {
+        await exportCricketRosterToPdf({
+          tournamentName: tournament?.name || "Cricket Tournament",
+          players: targetPlayers,
+          teams,
+          categories,
+          scope,
+        });
+        toast({
+          title: "PDF downloaded",
+          description:
+            typeof scope === "number"
+              ? `${teams.find((t) => t.id === scope)?.name ?? "Team"} roster PDF saved.`
+              : "Tournament roster PDF saved.",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Could not export roster",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(null);
+    }
+  }
+
   async function handleSave() {
     setFormError("");
     const parsedMobile = parseIndianMobile(form.mobile);
@@ -592,6 +673,80 @@ export default function CricketPlayersPage() {
               <Upload className="w-4 h-4" />
               {importBusy ? "Importing…" : "Import from Auction"}
             </BtnSecondary>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <BtnSecondary disabled={!scoringActive || players.length === 0 || exporting !== null}>
+                  {exporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span>{exporting ? "Exporting…" : "Download"}</span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                </BtnSecondary>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Excel Export (.xlsx)
+                </div>
+                <DropdownMenuItem onClick={() => void handleExport("excel", "all")}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
+                  <span>Overall Roster (All Players)</span>
+                </DropdownMenuItem>
+                {teams.length > 0 ? (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
+                      <span>Team-wise Excel</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56">
+                      <DropdownMenuItem onClick={() => void handleExport("excel", "multi-sheet")}>
+                        <span className="font-semibold">All Teams (Multi-sheet)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {teams
+                        .toSorted((a, b) => a.name.localeCompare(b.name))
+                        .map((t) => (
+                          <DropdownMenuItem key={t.id} onClick={() => void handleExport("excel", t.id)}>
+                            <span className="truncate">{t.name}</span>
+                          </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ) : null}
+
+                <DropdownMenuSeparator />
+
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  PDF Export (.pdf)
+                </div>
+                <DropdownMenuItem onClick={() => void handleExport("pdf", "all")}>
+                  <FileText className="w-4 h-4 mr-2 text-rose-500" />
+                  <span>Overall Roster (.pdf)</span>
+                </DropdownMenuItem>
+                {teams.length > 0 ? (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <FileText className="w-4 h-4 mr-2 text-rose-500" />
+                      <span>Team-wise PDF</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56">
+                      <DropdownMenuItem onClick={() => void handleExport("pdf", "all")}>
+                        <span className="font-semibold">All Teams (Combined)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {teams
+                        .toSorted((a, b) => a.name.localeCompare(b.name))
+                        .map((t) => (
+                          <DropdownMenuItem key={t.id} onClick={() => void handleExport("pdf", t.id)}>
+                            <span className="truncate">{t.name}</span>
+                          </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <BtnPrimary disabled={!scoringActive} onClick={openCreate}>
               <Plus className="w-4 h-4" />
               Add Player
@@ -618,8 +773,8 @@ export default function CricketPlayersPage() {
           />
         ) : (
           <>
-            <div className={cn(hubPanelClass, "px-4 py-3")}>
-              <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+            <div className={cn(hubPanelClass, "px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3")}>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                 <p>
                   <span className="text-muted-foreground">Total</span>{" "}
                   <span className="font-semibold text-foreground tabular-nums">{players.length}</span>
@@ -654,6 +809,37 @@ export default function CricketPlayersPage() {
                     </span>
                   </p>
                 ) : null}
+              </div>
+
+              <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-background/40 p-0.5 shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    viewMode === "table"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title="Table view"
+                >
+                  <LayoutList className="w-3.5 h-3.5" />
+                  <span>Table</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    viewMode === "cards"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title="Card view"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Cards</span>
+                </button>
               </div>
             </div>
 
@@ -777,135 +963,296 @@ export default function CricketPlayersPage() {
                         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                           {list.length} {list.length === 1 ? "player" : "players"}
                         </span>
+                        {!isUnassigned && team && list.length > 0 ? (
+                          <div className="ml-auto flex items-center">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  disabled={exporting !== null}
+                                  className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-card/60 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                                  title={`Export ${team.name} roster`}
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span className="hidden sm:inline">Export</span>
+                                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem onClick={() => void handleExport("excel", team.id)}>
+                                  <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-emerald-500" />
+                                  <span>Excel (.xlsx)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => void handleExport("pdf", team.id)}>
+                                  <FileText className="w-3.5 h-3.5 mr-2 text-rose-500" />
+                                  <span>PDF (.pdf)</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        ) : null}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {list.map((p) => {
-                          const cardTeam = p.teamId != null ? teamById.get(p.teamId) : undefined;
-                          const accent = normalizeTeamColor(cardTeam?.color);
-                          const meta = [
-                            p.role,
-                            p.jerseyNumber ? `#${p.jerseyNumber}` : null,
-                            p.gender ? formatPlayerGender(p.gender) : null,
-                          ].filter(Boolean);
+                      {viewMode === "table" ? (
+                        <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/40 backdrop-blur-sm shadow-sm">
+                          <table className="w-full text-left text-sm border-collapse min-w-[760px]">
+                            <thead>
+                              <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                <th className="py-2.5 px-3 w-14 text-center">#</th>
+                                <th className="py-2.5 px-3 min-w-[170px]">Player</th>
+                                <th className="py-2.5 px-3 min-w-[120px]">Role</th>
+                                <th className="py-2.5 px-3 min-w-[110px]">Batting</th>
+                                <th className="py-2.5 px-3 min-w-[130px]">Bowling</th>
+                                <th className="py-2.5 px-3 min-w-[110px]">Mobile</th>
+                                {showCategoryControls ? (
+                                  <th className="py-2.5 px-3 min-w-[130px]">Category</th>
+                                ) : null}
+                                <th className="py-2.5 px-3 text-right min-w-[210px]">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/60">
+                              {list.map((p) => {
+                                const cardTeam = p.teamId != null ? teamById.get(p.teamId) : undefined;
+                                const accent = normalizeTeamColor(cardTeam?.color);
+                                const subtitle = [
+                                  p.city,
+                                  p.gender ? formatPlayerGender(p.gender) : null,
+                                ].filter(Boolean).join(" · ");
 
-                          return (
-                            <div
-                              key={p.id}
-                              role="button"
-                              tabIndex={0}
-                              className={cn(
-                                hubCardClass,
-                                "relative overflow-hidden p-3 pl-3.5 space-y-1.5 text-left cursor-pointer transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                              )}
-                              onClick={() => openEdit(p)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  openEdit(p);
-                                }
-                              }}
-                            >
-                              <span
-                                className="absolute inset-y-0 left-0 w-1"
-                                style={{ backgroundColor: cardTeam ? accent : "transparent" }}
-                                aria-hidden
-                              />
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 space-y-1">
-                                  <p className="font-medium text-foreground truncate">{p.name}</p>
-                                  {cardTeam ? (
-                                    <span
-                                      className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold truncate"
-                                      style={teamChipStyle(cardTeam.color)}
-                                      title={cardTeam.name}
-                                    >
-                                      <span
-                                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: accent }}
-                                      />
-                                      <span className="truncate">{cardTeam.name}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                                      No team
-                                    </span>
-                                  )}
-                                  <p className="text-xs text-muted-foreground">
-                                    {meta.length > 0 ? meta.join(" · ") : "No role set"}
-                                  </p>
-                                  {showCategoryControls ? (
-                                    <div
-                                      onClick={(e) => e.stopPropagation()}
-                                      onKeyDown={(e) => e.stopPropagation()}
-                                    >
-                                      <PlayerCategorySelect
-                                        tournamentId={tournamentId}
-                                        playerId={p.id}
-                                        categoryId={p.categoryId}
-                                        categories={categories}
-                                        noneLabel="No category"
-                                        triggerClassName="max-w-full w-full"
-                                      />
-                                    </div>
-                                  ) : null}
-                                  {p.mobileNumber ? (
-                                    <p className="text-xs text-muted-foreground font-mono">{p.mobileNumber}</p>
-                                  ) : null}
-                                  {p.battingStyle || p.bowlingStyle ? (
-                                    <p className="text-[11px] text-muted-foreground/80 truncate">
-                                      {[p.battingStyle, p.bowlingStyle].filter(Boolean).join(" · ")}
-                                    </p>
-                                  ) : null}
-                                </div>
-                                <div
-                                  className="flex flex-col items-stretch gap-1.5 shrink-0 w-[7.75rem]"
-                                  onClick={(e) => e.stopPropagation()}
-                                  onKeyDown={(e) => e.stopPropagation()}
-                                >
-                                  <BtnSecondary
-                                    className={cn(btnCompactClass, "h-8 min-h-8 w-full justify-center")}
-                                    onClick={() => openEdit(p)}
+                                return (
+                                  <tr
+                                    key={p.id}
+                                    className="group hover:bg-muted/30 transition-colors"
                                   >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                    Edit
-                                  </BtnSecondary>
-                                  {teams.length === 0 ? (
+                                    <td className="py-2 px-3 text-center">
+                                      {p.jerseyNumber ? (
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-bold font-mono bg-muted/80 text-foreground border border-border/60">
+                                          #{p.jerseyNumber}
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground/40 text-xs">—</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="flex items-center gap-2.5">
+                                        <span
+                                          className="w-1.5 h-4 rounded-full shrink-0 group-hover:scale-y-110 transition-transform"
+                                          style={{ backgroundColor: cardTeam ? accent : "#64748b" }}
+                                          aria-hidden
+                                        />
+                                        <div className="min-w-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => openEdit(p)}
+                                            className="font-medium text-foreground hover:text-primary transition-colors truncate text-left block"
+                                          >
+                                            {p.name}
+                                          </button>
+                                          {subtitle ? (
+                                            <span className="text-[11px] text-muted-foreground truncate block">
+                                              {subtitle}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="py-2 px-3 text-xs">
+                                      {p.role ? (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
+                                          {p.role}
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground/50">—</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-3 text-xs text-muted-foreground">
+                                      {p.battingStyle || <span className="opacity-40">—</span>}
+                                    </td>
+                                    <td className="py-2 px-3 text-xs text-muted-foreground">
+                                      {p.bowlingStyle || <span className="opacity-40">—</span>}
+                                    </td>
+                                    <td className="py-2 px-3 text-xs font-mono text-muted-foreground">
+                                      {p.mobileNumber || <span className="opacity-40">—</span>}
+                                    </td>
+                                    {showCategoryControls ? (
+                                      <td className="py-2 px-3">
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                          <PlayerCategorySelect
+                                            tournamentId={tournamentId}
+                                            playerId={p.id}
+                                            categoryId={p.categoryId}
+                                            categories={categories}
+                                            noneLabel="No category"
+                                            triggerClassName="h-7 text-xs w-[130px]"
+                                          />
+                                        </div>
+                                      </td>
+                                    ) : null}
+                                    <td className="py-2 px-3 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <BtnSecondary
+                                          className={cn(btnCompactClass, "h-7 px-2.5 text-xs inline-flex items-center gap-1")}
+                                          onClick={() => openEdit(p)}
+                                          title="Edit Player"
+                                        >
+                                          <Pencil className="w-3 h-3" />
+                                          <span>Edit</span>
+                                        </BtnSecondary>
+                                        {teams.length > 0 ? (
+                                          <BtnSecondary
+                                            className={cn(btnCompactClass, "h-7 px-2.5 text-xs whitespace-nowrap")}
+                                            onClick={() => openAssignTeam(p)}
+                                            title={p.teamId != null ? "Re-assign Team" : "Assign Team"}
+                                          >
+                                            {p.teamId != null ? "Re-assign" : "Assign"}
+                                          </BtnSecondary>
+                                        ) : null}
+                                        <button
+                                          type="button"
+                                          onClick={() => setPlayerToDelete(p)}
+                                          className="h-7 px-2.5 flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 text-xs font-medium text-destructive hover:bg-destructive/20 hover:border-destructive/50 transition-colors"
+                                          title="Delete Player"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                          <span>Delete</span>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {list.map((p) => {
+                            const cardTeam = p.teamId != null ? teamById.get(p.teamId) : undefined;
+                            const accent = normalizeTeamColor(cardTeam?.color);
+                            const meta = [
+                              p.role,
+                              p.jerseyNumber ? `#${p.jerseyNumber}` : null,
+                              p.gender ? formatPlayerGender(p.gender) : null,
+                            ].filter(Boolean);
+
+                            return (
+                              <div
+                                key={p.id}
+                                role="button"
+                                tabIndex={0}
+                                className={cn(
+                                  hubCardClass,
+                                  "relative overflow-hidden p-3 pl-3.5 space-y-1.5 text-left cursor-pointer transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                )}
+                                onClick={() => openEdit(p)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    openEdit(p);
+                                  }
+                                }}
+                              >
+                                <span
+                                  className="absolute inset-y-0 left-0 w-1"
+                                  style={{ backgroundColor: cardTeam ? accent : "transparent" }}
+                                  aria-hidden
+                                />
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 space-y-1">
+                                    <p className="font-medium text-foreground truncate">{p.name}</p>
+                                    {cardTeam ? (
+                                      <span
+                                        className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold truncate"
+                                        style={teamChipStyle(cardTeam.color)}
+                                        title={cardTeam.name}
+                                      >
+                                        <span
+                                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                                          style={{ backgroundColor: accent }}
+                                        />
+                                        <span className="truncate">{cardTeam.name}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                        No team
+                                      </span>
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                      {meta.length > 0 ? meta.join(" · ") : "No role set"}
+                                    </p>
+                                    {showCategoryControls ? (
+                                      <div
+                                        onClick={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                      >
+                                        <PlayerCategorySelect
+                                          tournamentId={tournamentId}
+                                          playerId={p.id}
+                                          categoryId={p.categoryId}
+                                          categories={categories}
+                                          noneLabel="No category"
+                                          triggerClassName="max-w-full w-full"
+                                        />
+                                      </div>
+                                    ) : null}
+                                    {p.mobileNumber ? (
+                                      <p className="text-xs text-muted-foreground font-mono">{p.mobileNumber}</p>
+                                    ) : null}
+                                    {p.battingStyle || p.bowlingStyle ? (
+                                      <p className="text-[11px] text-muted-foreground/80 truncate">
+                                        {[p.battingStyle, p.bowlingStyle].filter(Boolean).join(" · ")}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div
+                                    className="flex flex-col items-stretch gap-1.5 shrink-0 w-[7.75rem]"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                  >
+                                    <BtnSecondary
+                                      className={cn(btnCompactClass, "h-8 min-h-8 w-full justify-center")}
+                                      onClick={() => openEdit(p)}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                      Edit
+                                    </BtnSecondary>
+                                    {teams.length === 0 ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="rounded-md border border-border/50 bg-muted/40 px-1.5 py-1 text-[10px] leading-tight text-muted-foreground cursor-not-allowed"
+                                      >
+                                        no teams are defined
+                                      </button>
+                                    ) : (
+                                      <BtnSecondary
+                                        className={cn(
+                                          btnCompactClass,
+                                          "h-auto min-h-8 w-full justify-center px-1.5 py-1 text-[10px] leading-tight whitespace-normal text-center",
+                                        )}
+                                        onClick={() => openAssignTeam(p)}
+                                      >
+                                        {p.teamId != null
+                                          ? "Re-assign team"
+                                          : "Assign team"}
+                                      </BtnSecondary>
+                                    )}
                                     <button
                                       type="button"
-                                      disabled
-                                      className="rounded-md border border-border/50 bg-muted/40 px-1.5 py-1 text-[10px] leading-tight text-muted-foreground cursor-not-allowed"
+                                      onClick={() => setPlayerToDelete(p)}
+                                      className="h-7 w-full flex items-center justify-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 text-[10px] font-medium text-destructive hover:bg-destructive/20 hover:border-destructive/50 transition-colors"
+                                      title="Delete Player"
                                     >
-                                      no teams are defined
+                                      <Trash2 className="w-3 h-3 shrink-0" />
+                                      <span>Delete</span>
                                     </button>
-                                  ) : (
-                                    <BtnSecondary
-                                      className={cn(
-                                        btnCompactClass,
-                                        "h-auto min-h-8 w-full justify-center px-1.5 py-1 text-[10px] leading-tight whitespace-normal text-center",
-                                      )}
-                                      onClick={() => openAssignTeam(p)}
-                                    >
-                                      {p.teamId != null
-                                        ? "Re-assign team"
-                                        : "Assign team"}
-                                    </BtnSecondary>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => setPlayerToDelete(p)}
-                                    className="h-7 w-full flex items-center justify-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 text-[10px] font-medium text-destructive hover:bg-destructive/20 hover:border-destructive/50 transition-colors"
-                                    title="Delete Player"
-                                  >
-                                    <Trash2 className="w-3 h-3 shrink-0" />
-                                    <span>Delete</span>
-                                  </button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </section>
                   );
                 })}
