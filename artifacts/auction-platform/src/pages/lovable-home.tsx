@@ -57,7 +57,7 @@ const BRAND_NAME = "BidWar";
 const DEMO_WA_MESSAGE =
   "Hi, I want to book a live BidWar demo for my sports auction. Can you help me set up?";
 
-function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>) {
+function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>, surfaceIndex?: number) {
   event?.preventDefault();
   const targetId =
     sectionId === "surfaces" || sectionId === "features"
@@ -72,6 +72,11 @@ function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement
     const yOffset = -95; // Account for sticky header + breathing room
     const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
     window.scrollTo({ top: y, behavior: "smooth" });
+  }
+  if (surfaceIndex !== undefined) {
+    window.dispatchEvent(
+      new CustomEvent("bidwar:select-surface", { detail: { index: surfaceIndex } })
+    );
   }
 }
 
@@ -955,6 +960,21 @@ function ProductShowcase({
   const current = surfaces[activeTab] || surfaces[0];
   const tabsScrollRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleSelect = (e: Event) => {
+      const custom = e as CustomEvent<{ index?: number }>;
+      if (typeof custom.detail?.index === "number" && custom.detail.index >= 0 && custom.detail.index < surfaces.length) {
+        setActiveTab(custom.detail.index);
+        if (tabsScrollRef.current) {
+          const tabBtn = tabsScrollRef.current.children[custom.detail.index] as HTMLElement | undefined;
+          tabBtn?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }
+      }
+    };
+    window.addEventListener("bidwar:select-surface", handleSelect);
+    return () => window.removeEventListener("bidwar:select-surface", handleSelect);
+  }, [surfaces.length]);
+
   const scrollTabs = (direction: "left" | "right") => {
     if (tabsScrollRef.current) {
       const scrollAmount = 260;
@@ -1758,15 +1778,18 @@ function FooterBrandMark() {
 }
 
 function Footer() {
-  type FooterItem = { label: string; href?: string };
+  type FooterItem = { label: string; href?: string; surfaceIndex?: number };
   const cols: Array<{ h: string; items: FooterItem[] }> = [
     {
       h: "Auction Screens & Platform",
       items: [
-        { label: "Operator Console", href: "#auction-screens" },
-        { label: "Team Owner Phone PWA", href: "#auction-screens" },
-        { label: "1080p60 LED Wall", href: "#auction-screens" },
-        { label: "Squad Analytics Hub", href: "#auction-screens" },
+        { label: "Auction Control", href: "#auction-screens", surfaceIndex: 0 },
+        { label: "Team Bidding Screen (Web App)", href: "#auction-screens", surfaceIndex: 1 },
+        { label: "Live LED Screen", href: "#auction-screens", surfaceIndex: 2 },
+        { label: "OBS Overlay (For Live Streaming)", href: "#auction-screens", surfaceIndex: 3 },
+        { label: "Live Auction View", href: "#auction-screens", surfaceIndex: 4 },
+        { label: "Communications", href: "#auction-screens", surfaceIndex: 5 },
+        { label: "Reports", href: "#auction-screens", surfaceIndex: 6 },
       ],
     },
     {
@@ -1867,7 +1890,7 @@ function Footer() {
                           href={i.href}
                           onClick={(e) => {
                             if (i.href?.startsWith("#")) {
-                              scrollToSection(i.href.slice(1), e);
+                              scrollToSection(i.href.slice(1), e, i.surfaceIndex);
                             }
                           }}
                           className="hover:text-foreground transition"
