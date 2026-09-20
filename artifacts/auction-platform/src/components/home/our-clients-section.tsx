@@ -223,17 +223,17 @@ export function OurClientsSection() {
                 </div>
 
                 {/* Logo or Stylized Monogram */}
-                <div className="my-auto py-2 flex items-center justify-center w-full min-h-[64px]">
+                <div className="my-auto py-2.5 flex items-center justify-center w-full min-h-[80px] sm:min-h-[88px]">
                   {client.logoUrl ? (
                     <img
                       src={client.logoUrl}
                       alt={client.name}
-                      className="max-h-14 sm:max-h-16 w-auto max-w-[85%] object-contain filter grayscale group-hover:grayscale-0 transition-all duration-300"
+                      className="max-h-[72px] sm:max-h-[80px] w-auto max-w-[90%] object-contain drop-shadow-md transition-all duration-300 group-hover:scale-105"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-amber-500/20 via-black to-zinc-900 border border-amber-400/30 flex items-center justify-center shadow-inner group-hover:border-amber-400 group-hover:scale-105 transition-all duration-300">
-                      <span className="font-display font-black text-base sm:text-lg tracking-wider text-amber-300">
+                    <div className="h-16 w-16 sm:h-18 sm:w-18 rounded-2xl bg-gradient-to-br from-amber-500/20 via-black to-zinc-900 border border-amber-400/30 flex items-center justify-center shadow-inner group-hover:border-amber-400 group-hover:scale-105 transition-all duration-300">
+                      <span className="font-display font-black text-lg sm:text-xl tracking-wider text-amber-300">
                         {initials}
                       </span>
                     </div>
