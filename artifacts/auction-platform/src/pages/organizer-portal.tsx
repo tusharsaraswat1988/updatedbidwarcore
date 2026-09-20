@@ -2123,7 +2123,7 @@ function OrganizerDashboard({
                         </div>
                       </div>
 
-                      {/* Primary Actions Row: Prominent Auction + Muted Coming Soon Scoring */}
+                      {/* Primary Actions Row: Prominent Auction + Scoring CTA */}
                       <div className="flex items-center gap-2.5 pt-0.5">
                         <Button
                           type="button"
@@ -2140,18 +2140,41 @@ function OrganizerDashboard({
                           {isActive ? "Enter Auction" : "View Auction"}
                         </Button>
 
-                        <div
-                          className="h-11 px-3 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 flex flex-col items-center justify-center cursor-not-allowed select-none shrink-0"
-                          title="Match Scoring module is coming soon"
-                        >
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/75 leading-none">
-                            <Radio className="h-3 w-3 opacity-60 text-muted-foreground" />
+                        {isScoringActive ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-11 px-3.5 rounded-xl border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-bold text-xs gap-1.5 shrink-0 transition-all shadow-sm active:scale-95 cursor-pointer"
+                            disabled={isLocked}
+                            onClick={() => {
+                              const sportLower = (t.sport || "").toLowerCase();
+                              if (sportLower.includes("badminton")) {
+                                navigate(`/tournament/${t.id}/badminton`);
+                              } else if (sportLower.includes("cricket")) {
+                                navigate(`/tournament/${t.id}/score`);
+                              } else {
+                                navigate(`/tournament/${t.id}/mission-control`);
+                              }
+                            }}
+                          >
+                            <Radio className="h-3.5 w-3.5 text-sky-400 animate-pulse" />
                             <span>Match Scoring</span>
+                          </Button>
+                        ) : (
+                          <div
+                            className="h-11 px-3 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 flex flex-col items-center justify-center cursor-not-allowed select-none shrink-0"
+                            title="Match Scoring is not enabled for this tournament"
+                          >
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/75 leading-none">
+                              <Radio className="h-3 w-3 opacity-60 text-muted-foreground" />
+                              <span>Match Scoring</span>
+                            </div>
+                            <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
+                              Coming Soon
+                            </span>
                           </div>
-                          <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
-                            Coming Soon
-                          </span>
-                        </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

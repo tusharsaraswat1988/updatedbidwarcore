@@ -56,25 +56,23 @@ export function getOrganizerAuctionStatusLabel(status: string): string {
 }
 
 /** Scoring CTA state for organizer dashboard module chooser. */
-export type OrganizerScoringCtaState = "active" | "needs-admin" | "coming-soon";
+export type OrganizerScoringCtaState = "active" | "coming-soon";
 
 const SCORING_SPORTS = new Set(["cricket", "badminton"]);
 
 /**
  * Organizer-card scoring affordance.
- * "Ask admin…" only when match scoring is explicitly disabled on the tournament.
- * Missing/unknown `scoringEnabled` (older API payloads) must not scare organizers.
+ * Active ONLY when match scoring is enabled by admin for the tournament (scoringEnabled === true).
+ * Otherwise "Coming Soon".
  */
 export function resolveOrganizerScoringCta(input: {
-  sport: string;
+  sport?: string | null;
   scoringEnabled: boolean | null | undefined;
   /** @deprecated Ignored — kept for call-site compatibility. */
   platformCricket?: boolean;
   /** @deprecated Ignored — kept for call-site compatibility. */
   platformBadminton?: boolean;
 }): OrganizerScoringCtaState {
-  const sport = input.sport.toLowerCase();
-  if (!SCORING_SPORTS.has(sport)) return "coming-soon";
-  if (input.scoringEnabled === false) return "needs-admin";
-  return "active";
+  if (input.scoringEnabled === true) return "active";
+  return "coming-soon";
 }
