@@ -107,7 +107,15 @@ function buildBrandingPatchPayload(
     displayName: form.displayName.trim(),
     logoUrl: form.logoUrl.trim() || null,
     logoPublicId: form.logoPublicId.trim() || null,
-    sponsorLogos: JSON.stringify(sponsorLogos.filter((l) => l.url.trim())),
+    sponsorLogos: JSON.stringify(
+      sponsorLogos
+        .filter((l) => l.url.trim())
+        .map((l, idx) => ({
+          url: l.url.trim(),
+          publicId: l.publicId?.trim() || null,
+          priority: l.priority ?? idx,
+        })),
+    ),
     venue: form.venue.trim() || null,
     organizerName: form.organizerName.trim() || null,
     primaryColor: form.primaryColor,
@@ -235,21 +243,16 @@ export default function CricketSettingsPage() {
     autoSaveReadyRef.current = false;
     const timer = window.setTimeout(() => {
       autoSaveReadyRef.current = true;
-    }, 150);
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [branding, tournamentId]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: ReturnType<typeof buildBrandingPatchPayload>) =>
       patchCricketBranding<BadmintonBranding>(tournamentId, payload),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       qc.setQueryData(brandingKey, data);
-      const synced = brandingFromApi(data);
-      lastSavedPayloadRef.current = brandingPayloadSignature(
-        synced.form,
-        synced.sponsorLogos,
-        synced.scoreBoardSponsor,
-      );
+      lastSavedPayloadRef.current = JSON.stringify(variables);
       setSaveError("");
       setJustSaved(true);
       if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
@@ -266,6 +269,9 @@ export default function CricketSettingsPage() {
     },
   });
 
+  const saveMutationRef = useRef(saveMutation);
+  saveMutationRef.current = saveMutation;
+
   const persistBranding = useCallback(
     (immediate = false) => {
       if (!tournamentId) return;
@@ -280,7 +286,7 @@ export default function CricketSettingsPage() {
         return;
       }
       const payload = buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor);
-      const signature = brandingPayloadSignature(form, sponsorLogos, scoreBoardSponsor);
+      const signature = JSON.stringify(payload);
       if (signature === lastSavedPayloadRef.current) {
         if (immediate) {
           setJustSaved(true);
@@ -297,14 +303,17 @@ export default function CricketSettingsPage() {
       }
 
       notifySaveToastRef.current = immediate;
-      const run = () => saveMutation.mutate(payload);
+      const run = () => {
+        lastSavedPayloadRef.current = signature;
+        saveMutationRef.current.mutate(payload);
+      };
       if (immediate) {
         run();
         return;
       }
-      autoSaveTimerRef.current = setTimeout(run, 600);
+      autoSaveTimerRef.current = setTimeout(run, 800);
     },
-    [form, sponsorLogos, scoreBoardSponsor, saveMutation, toast, tournamentId],
+    [form, sponsorLogos, scoreBoardSponsor, toast, tournamentId],
   );
 
   useEffect(() => {
@@ -316,7 +325,7 @@ export default function CricketSettingsPage() {
         autoSaveTimerRef.current = null;
       }
     };
-  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, scoringActive, persistBranding]);
+  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, scoringActive]);
 
   async function handleSponsorUpload(file: File | File[], idx: number | "new") {
     const files = Array.isArray(file) ? file : [file];

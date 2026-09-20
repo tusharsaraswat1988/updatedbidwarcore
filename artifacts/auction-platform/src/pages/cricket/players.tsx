@@ -33,6 +33,7 @@ import {
   PageHeader,
   SearchInput,
   btnCompactClass,
+  btnSecondaryClass,
   hubCardClass,
   hubPanelClass,
   inputClass,
@@ -675,7 +676,12 @@ export default function CricketPlayersPage() {
             </BtnSecondary>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <BtnSecondary disabled={!scoringActive || players.length === 0 || exporting !== null}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(btnSecondaryClass, "gap-2 cursor-pointer")}
+                  disabled={!scoringActive || players.length === 0 || exporting !== null}
+                >
                   {exporting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
@@ -683,31 +689,35 @@ export default function CricketPlayersPage() {
                   )}
                   <span>{exporting ? "Exporting…" : "Download"}</span>
                   <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-                </BtnSecondary>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Excel Export (.xlsx)
                 </div>
-                <DropdownMenuItem onClick={() => void handleExport("excel", "all")}>
+                <DropdownMenuItem onSelect={() => void handleExport("excel", "all")} onClick={() => void handleExport("excel", "all")}>
                   <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
                   <span>Overall Roster (All Players)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void handleExport("excel", "multi-sheet")} onClick={() => void handleExport("excel", "multi-sheet")}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
+                  <span>All Teams (Multi-sheet)</span>
                 </DropdownMenuItem>
                 {teams.length > 0 ? (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
-                      <span>Team-wise Excel</span>
+                      <span>Single Team Excel</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-56">
-                      <DropdownMenuItem onClick={() => void handleExport("excel", "multi-sheet")}>
-                        <span className="font-semibold">All Teams (Multi-sheet)</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
                       {teams
                         .toSorted((a, b) => a.name.localeCompare(b.name))
                         .map((t) => (
-                          <DropdownMenuItem key={t.id} onClick={() => void handleExport("excel", t.id)}>
+                          <DropdownMenuItem
+                            key={t.id}
+                            onSelect={() => void handleExport("excel", t.id)}
+                            onClick={() => void handleExport("excel", t.id)}
+                          >
                             <span className="truncate">{t.name}</span>
                           </DropdownMenuItem>
                         ))}
@@ -720,7 +730,7 @@ export default function CricketPlayersPage() {
                 <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   PDF Export (.pdf)
                 </div>
-                <DropdownMenuItem onClick={() => void handleExport("pdf", "all")}>
+                <DropdownMenuItem onSelect={() => void handleExport("pdf", "all")} onClick={() => void handleExport("pdf", "all")}>
                   <FileText className="w-4 h-4 mr-2 text-rose-500" />
                   <span>Overall Roster (.pdf)</span>
                 </DropdownMenuItem>
@@ -728,17 +738,17 @@ export default function CricketPlayersPage() {
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <FileText className="w-4 h-4 mr-2 text-rose-500" />
-                      <span>Team-wise PDF</span>
+                      <span>Single Team PDF</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-56">
-                      <DropdownMenuItem onClick={() => void handleExport("pdf", "all")}>
-                        <span className="font-semibold">All Teams (Combined)</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
                       {teams
                         .toSorted((a, b) => a.name.localeCompare(b.name))
                         .map((t) => (
-                          <DropdownMenuItem key={t.id} onClick={() => void handleExport("pdf", t.id)}>
+                          <DropdownMenuItem
+                            key={t.id}
+                            onSelect={() => void handleExport("pdf", t.id)}
+                            onClick={() => void handleExport("pdf", t.id)}
+                          >
                             <span className="truncate">{t.name}</span>
                           </DropdownMenuItem>
                         ))}
@@ -979,11 +989,17 @@ export default function CricketPlayersPage() {
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuItem onClick={() => void handleExport("excel", team.id)}>
+                                <DropdownMenuItem
+                                  onSelect={() => void handleExport("excel", team.id)}
+                                  onClick={() => void handleExport("excel", team.id)}
+                                >
                                   <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-emerald-500" />
                                   <span>Excel (.xlsx)</span>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => void handleExport("pdf", team.id)}>
+                                <DropdownMenuItem
+                                  onSelect={() => void handleExport("pdf", team.id)}
+                                  onClick={() => void handleExport("pdf", team.id)}
+                                >
                                   <FileText className="w-3.5 h-3.5 mr-2 text-rose-500" />
                                   <span>PDF (.pdf)</span>
                                 </DropdownMenuItem>

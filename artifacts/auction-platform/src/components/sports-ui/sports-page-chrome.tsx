@@ -273,25 +273,13 @@ function BtnLink({
   );
 }
 
-export function BtnPrimary({
-  children,
-  onClick,
-  disabled,
-  className,
-  type = "button",
-  href,
-  title,
-  external,
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  className?: string;
-  type?: "button" | "submit";
-  href?: string;
-  title?: string;
-  external?: boolean;
-}) {
+export const BtnPrimary = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    href?: string;
+    external?: boolean;
+  }
+>(({ children, onClick, disabled, className, type = "button", href, title, external, ...props }, ref) => {
   const classes = cn(btnPrimaryClass, className);
   if (href) {
     if (disabled) {
@@ -308,31 +296,28 @@ export function BtnPrimary({
     );
   }
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={classes} title={title}>
+    <button
+      ref={ref}
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={classes}
+      title={title}
+      {...props}
+    >
       {children}
     </button>
   );
-}
+});
+BtnPrimary.displayName = "BtnPrimary";
 
-export function BtnSecondary({
-  children,
-  onClick,
-  disabled,
-  className,
-  type = "button",
-  href,
-  title,
-  external,
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  className?: string;
-  type?: "button" | "submit";
-  href?: string;
-  title?: string;
-  external?: boolean;
-}) {
+export const BtnSecondary = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    href?: string;
+    external?: boolean;
+  }
+>(({ children, onClick, disabled, className, type = "button", href, title, external, ...props }, ref) => {
   const classes = cn(btnSecondaryClass, className);
   if (href) {
     if (disabled) {
@@ -349,11 +334,20 @@ export function BtnSecondary({
     );
   }
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={classes} title={title}>
+    <button
+      ref={ref}
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={classes}
+      title={title}
+      {...props}
+    >
       {children}
     </button>
   );
-}
+});
+BtnSecondary.displayName = "BtnSecondary";
 
 export function SportsPageHeader({
   title,
