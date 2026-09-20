@@ -23,7 +23,7 @@ import {
   PageHeader,
   hubPanelClass,
   inputClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -34,7 +34,19 @@ import {
 } from "@workspace/api-client-react";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Loader2, Lock, Scale } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  HelpCircle,
+  Info,
+  Loader2,
+  Lock,
+  PlayCircle,
+  Scale,
+  Settings2,
+  Sliders,
+  Users,
+} from "lucide-react";
 
 type CompetitionAggregate = {
   plan: { version: number } | null;
@@ -245,11 +257,15 @@ function OptionChips({
   disabled?: boolean;
   onChange: (id: string, version?: string) => void;
 }) {
+  const selectedOption = options.find((o) => o.id === value);
   return (
-    <FormField label={label}>
+    <div className="space-y-2">
+      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90 block">
+        {label}
+      </label>
       {options.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No options available for this sport.
+          No options available for this selection.
         </p>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -262,25 +278,29 @@ function OptionChips({
                 disabled={disabled}
                 onClick={() => onChange(o.id, o.version)}
                 className={cn(
-                  "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors text-left",
+                  "relative rounded-lg border px-3.5 py-2 text-xs font-semibold transition-all duration-150 text-left flex items-center gap-2",
                   selected
-                    ? "border-primary/50 bg-primary/15 text-primary"
-                    : "border-border/70 text-muted-foreground hover:text-foreground hover:border-border",
+                    ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
+                    : "border-border/80 bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card hover:border-border",
                   disabled && "opacity-60 cursor-not-allowed",
                 )}
               >
-                {o.label}
+                {selected ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                ) : null}
+                <span>{o.label}</span>
               </button>
             );
           })}
         </div>
       )}
-      {value ? (
-        <p className="text-xs text-muted-foreground mt-1.5">
-          {options.find((o) => o.id === value)?.description ?? null}
-        </p>
+      {selectedOption?.description ? (
+        <div className="flex items-start gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <Info className="w-3.5 h-3.5 text-primary/70 shrink-0 mt-0.5" />
+          <span>{selectedOption.description}</span>
+        </div>
       ) : null}
-    </FormField>
+    </div>
   );
 }
 
@@ -545,6 +565,21 @@ export default function CricketRulesPage() {
     );
   }, [selectedRuleProfile]);
 
+  // Ensure variant and competition type are valid options
+  useEffect(() => {
+    if (locked) return;
+    if (variantOptions.length > 0 && !variantOptions.some((o) => o.id === variantId)) {
+      setVariantId(variantOptions[0].id);
+    }
+  }, [locked, variantId, variantOptions]);
+
+  useEffect(() => {
+    if (locked) return;
+    if (competitionOptions.length > 0 && !competitionOptions.some((o) => o.id === competitionTypeId)) {
+      setCompetitionTypeId(competitionOptions[0].id);
+    }
+  }, [locked, competitionTypeId, competitionOptions]);
+
   // Keep dependent fields valid when parent selection changes.
   useEffect(() => {
     if (locked || !competitionTypeId) return;
@@ -796,466 +831,621 @@ export default function CricketRulesPage() {
         tournamentId={tournamentId}
       />
 
-      {loading && !data ? (
-        <div className="space-y-3">
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-48 w-full rounded-xl" />
-        </div>
-      ) : (
-        <div className="space-y-5 max-w-2xl pb-24">
-          {error ? (
-            <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-              {error}
-            </p>
-          ) : null}
-
-          {locked ? (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">
-                  Rules are locked
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Apply them to matches so Start match gets overs, XI, and bench
-                  limits.
-                </p>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 space-y-6">
+        {loading && !data ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 space-y-4">
+              <Skeleton className="h-44 w-full rounded-xl" />
+              <Skeleton className="h-56 w-full rounded-xl" />
+              <Skeleton className="h-72 w-full rounded-xl" />
             </div>
-          ) : null}
-
-          <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Scale className="w-4 h-4 text-primary" />
-              1. Format
-            </h2>
-            <OptionChips
-              label="Cricket type"
-              value={variantId}
-              options={variantOptions}
-              disabled={locked}
-              onChange={(id) => setVariantId(id)}
-            />
-            <OptionChips
-              label="Competition type"
-              value={competitionTypeId}
-              options={competitionOptions}
-              disabled={locked}
-              onChange={(id) => setCompetitionTypeId(id)}
-            />
-          </section>
-
-          <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold">2. Formation & squad</h2>
-            <OptionChips
-              label="Player registration"
-              value={registrationModeId}
-              options={registrationOptions}
-              disabled={locked}
-              onChange={(id) => setRegistrationModeId(id)}
-            />
-            <OptionChips
-              label="Team formation"
-              value={teamFormationStrategyId}
-              options={formationOptions}
-              disabled={locked}
-              onChange={(id) => setTeamFormationStrategyId(id)}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              {(
-                [
-                  ["minPlayers", "Min players"],
-                  ["maxPlayers", "Max players"],
-                  ["substitutes", "Substitutes"],
-                  ["retentions", "Retentions"],
-                ] as const
-              ).map(([key, label]) => (
-                <FormField key={key} label={label}>
-                  <input
-                    className={inputClass}
-                    inputMode="numeric"
-                    disabled={locked}
-                    value={squadRules[key]}
-                    onChange={(e) =>
-                      setSquadRules((prev) => ({
-                        ...prev,
-                        [key]: e.target.value,
-                      }))
-                    }
-                  />
-                </FormField>
-              ))}
+            <div className="lg:col-span-4 space-y-4">
+              <Skeleton className="h-64 w-full rounded-xl" />
             </div>
-          </section>
-
-          <section className={cn(hubPanelClass, "space-y-4 p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold">
-              3. Playing & display rules
-            </h2>
-            <OptionChips
-              label="Playing rules preset"
-              value={ruleProfileId}
-              options={ruleProfileOptions}
-              disabled={locked}
-              onChange={(id, version) => selectRuleProfile(id, version)}
-            />
-
-            {selectedRuleProfile ? (
-              <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold">
-                    {selectedRuleProfile.displayName}
-                  </p>
-                  {isCustomised ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">
-                      Customised from preset
-                    </span>
-                  ) : null}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    label={KEY_RULE_LABELS["cricket.match.overs_per_innings"]}
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      value={keyRules.overs}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({ ...p, overs: e.target.value }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={KEY_RULE_LABELS["cricket.match.max_wickets"]}
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      value={keyRules.maxWickets}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          maxWickets: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={KEY_RULE_LABELS["cricket.match.playing_squad_size"]}
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      value={keyRules.playingSquadSize}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          playingSquadSize: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={KEY_RULE_LABELS["cricket.match.bench_size"]}
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      value={keyRules.benchSize}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          benchSize: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={KEY_RULE_LABELS["cricket.batting.retire_at_runs"]}
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      placeholder="None"
-                      value={keyRules.retireAtRuns}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          retireAtRuns: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled }))
-                    }
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-xs font-semibold",
-                      keyRules.lbwEnabled
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/70 text-muted-foreground",
-                      locked && "opacity-60 cursor-not-allowed",
-                    )}
-                  >
-                    LBW {keyRules.lbwEnabled ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setKeyRules((p) => ({
-                        ...p,
-                        freeHitEnabled: !p.freeHitEnabled,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-xs font-semibold",
-                      keyRules.freeHitEnabled
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/70 text-muted-foreground",
-                      locked && "opacity-60 cursor-not-allowed",
-                    )}
-                  >
-                    Free hit {keyRules.freeHitEnabled ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setKeyRules((p) => ({
-                        ...p,
-                        legByeEnabled: !p.legByeEnabled,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-xs font-semibold",
-                      keyRules.legByeEnabled
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/70 text-muted-foreground",
-                      locked && "opacity-60 cursor-not-allowed",
-                    )}
-                  >
-                    Leg bye {keyRules.legByeEnabled ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setKeyRules((p) => ({
-                        ...p,
-                        playingXiEnforced: !p.playingXiEnforced,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-xs font-semibold",
-                      keyRules.playingXiEnforced
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/70 text-muted-foreground",
-                      locked && "opacity-60 cursor-not-allowed",
-                    )}
-                  >
-                    Exact XI {keyRules.playingXiEnforced ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setKeyRules((p) => ({
-                        ...p,
-                        superBallEnabled: !p.superBallEnabled,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-xs font-semibold",
-                      keyRules.superBallEnabled
-                        ? "border-amber-500/50 bg-amber-500/15 text-amber-500"
-                        : "border-border/70 text-muted-foreground",
-                      locked && "opacity-60 cursor-not-allowed",
-                    )}
-                  >
-                    Super Ball {keyRules.superBallEnabled ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setKeyRules((p) => ({
-                        ...p,
-                        superOverEnabled: !p.superOverEnabled,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-xs font-semibold",
-                      keyRules.superOverEnabled
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/70 text-muted-foreground",
-                      locked && "opacity-60 cursor-not-allowed",
-                    )}
-                  >
-                    Super Over {keyRules.superOverEnabled ? "On" : "Off"}
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <FormField
-                    label={
-                      KEY_RULE_LABELS["cricket.tie_break.super_over_overs"]
-                    }
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      value={keyRules.superOverOvers}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          superOverOvers: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={
-                      KEY_RULE_LABELS["cricket.tie_break.super_over_wickets"]
-                    }
-                  >
-                    <input
-                      className={inputClass}
-                      inputMode="numeric"
-                      disabled={locked}
-                      value={keyRules.superOverWickets}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          superOverWickets: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={
-                      KEY_RULE_LABELS["cricket.tie_break.super_over_trigger"]
-                    }
-                  >
-                    <select
-                      className={inputClass}
-                      disabled={locked}
-                      value={keyRules.superOverTrigger}
-                      onChange={(e) =>
-                        setKeyRules((p) => ({
-                          ...p,
-                          superOverTrigger: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="manual">Manual</option>
-                      <option value="knockout_tie">Knockout tie only</option>
-                    </select>
-                  </FormField>
-                </div>
-                {otherPresetRules.length > 0 ? (
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer font-semibold text-foreground/80">
-                      Other rules from preset
-                    </summary>
-                    <ul className="mt-2 space-y-1">
-                      {otherPresetRules.map((entry) => {
-                        const def = CatalogRegistry.getRuleDefinition(
-                          entry.definitionId,
-                          entry.definitionVersion,
-                        );
-                        return (
-                          <li
-                            key={`${entry.definitionId}@${entry.definitionVersion}`}
-                            className="flex justify-between gap-3"
-                          >
-                            <span>{def?.name ?? entry.definitionId}</span>
-                            <span className="font-mono shrink-0">
-                              {entry.value === null
-                                ? "null"
-                                : String(entry.value)}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </details>
-                ) : null}
+          </div>
+        ) : (
+          <>
+            {error ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 flex items-start gap-3 text-sm text-destructive">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             ) : null}
 
-            <OptionChips
-              label="LED / screen look"
-              value={presentationProfileId}
-              options={presentationOptions}
-              disabled={locked}
-              onChange={(id, version) => {
-                setPresentationProfileId(id);
-                setPresentationProfileVersion(version ?? "");
-              }}
-            />
-          </section>
-
-          <div className="flex flex-col sm:flex-row gap-2 sticky bottom-3 z-10">
-            {!locked ? (
-              <>
-                <BtnSecondary
-                  className="flex-1"
-                  disabled={saving || locking}
-                  onClick={() => void persistSetup()}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Saving…
-                    </>
-                  ) : (
-                    "Save"
-                  )}
-                </BtnSecondary>
+            {locked ? (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      Tournament rules are locked
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      These specifications are active. Apply them to matches so Start Match receives correct overs, XI, and bench limits.
+                    </p>
+                  </div>
+                </div>
                 <BtnPrimary
-                  className="flex-1"
-                  disabled={!canLock || locking || saving}
-                  onClick={() => void handleLock()}
+                  className="shrink-0"
+                  disabled={applying}
+                  onClick={() => void handleApplyToMatches()}
                 >
-                  {locking ? (
+                  {applying ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Locking…
+                      <Loader2 className="w-4 h-4 animate-spin" /> Applying…
                     </>
                   ) : (
                     <>
-                      <Lock className="w-4 h-4" /> Lock rules
+                      <PlayCircle className="w-4 h-4" /> Apply to matches
                     </>
                   )}
                 </BtnPrimary>
-              </>
-            ) : (
-              <BtnPrimary
-                className="flex-1"
-                disabled={applying}
-                onClick={() => void handleApplyToMatches()}
-              >
-                {applying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Applying…
-                  </>
-                ) : (
-                  "Apply to matches"
-                )}
-              </BtnPrimary>
-            )}
-          </div>
-        </div>
-      )}
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Rules Config Forms */}
+              <div className="lg:col-span-8 space-y-6">
+                {/* 1. Format & Competition */}
+                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/50">
+                    <Scale className="w-5 h-5 text-primary" />
+                    <h2 className="text-base font-semibold text-foreground">
+                      1. Format & Competition
+                    </h2>
+                  </div>
+                  <OptionChips
+                    label="Cricket type"
+                    value={variantId}
+                    options={variantOptions}
+                    disabled={locked}
+                    onChange={(id) => setVariantId(id)}
+                  />
+                  <OptionChips
+                    label="Competition type"
+                    value={competitionTypeId}
+                    options={competitionOptions}
+                    disabled={locked}
+                    onChange={(id) => setCompetitionTypeId(id)}
+                  />
+                </section>
+
+                {/* 2. Formation & Squad */}
+                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/50">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h2 className="text-base font-semibold text-foreground">
+                      2. Formation & Squad Limits
+                    </h2>
+                  </div>
+                  <OptionChips
+                    label="Player registration"
+                    value={registrationModeId}
+                    options={registrationOptions}
+                    disabled={locked}
+                    onChange={(id) => setRegistrationModeId(id)}
+                  />
+                  <OptionChips
+                    label="Team formation strategy"
+                    value={teamFormationStrategyId}
+                    options={formationOptions}
+                    disabled={locked}
+                    onChange={(id) => setTeamFormationStrategyId(id)}
+                  />
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90 mb-3">
+                      Squad Size Limits
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {(
+                        [
+                          ["minPlayers", "Min squad", "Minimum players required"],
+                          ["maxPlayers", "Max squad", "Max roster capacity"],
+                          ["substitutes", "Substitutes", "Number of bench substitutes"],
+                          ["retentions", "Retentions", "Prior season player retentions"],
+                        ] as const
+                      ).map(([key, label, desc]) => (
+                        <div
+                          key={key}
+                          className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-1.5 focus-within:border-primary/50"
+                        >
+                          <label className="text-xs font-medium text-foreground block">
+                            {label}
+                          </label>
+                          <input
+                            className={cn(
+                              inputClass,
+                              "h-9 font-semibold text-center text-sm bg-background/80",
+                            )}
+                            inputMode="numeric"
+                            disabled={locked}
+                            value={squadRules[key]}
+                            onChange={(e) =>
+                              setSquadRules((prev) => ({
+                                ...prev,
+                                [key]: e.target.value,
+                              }))
+                            }
+                          />
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            {desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* 3. Playing & Display Rules */}
+                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/50">
+                    <Sliders className="w-5 h-5 text-primary" />
+                    <h2 className="text-base font-semibold text-foreground">
+                      3. Playing & Display Rules
+                    </h2>
+                  </div>
+
+                  <OptionChips
+                    label="Playing rules preset"
+                    value={ruleProfileId}
+                    options={ruleProfileOptions}
+                    disabled={locked}
+                    onChange={(id, version) => selectRuleProfile(id, version)}
+                  />
+
+                  {selectedRuleProfile ? (
+                    <div className="rounded-xl border border-border/70 bg-card/40 p-4 sm:p-5 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-border/40">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {selectedRuleProfile.displayName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Key match parameters and dismissal options
+                          </p>
+                        </div>
+                        {isCustomised ? (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            Customised from preset
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                            Preset defaults
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Key Numeric Parameters */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <FormField
+                          label={KEY_RULE_LABELS["cricket.match.overs_per_innings"]}
+                        >
+                          <input
+                            className={cn(inputClass, "font-medium")}
+                            inputMode="numeric"
+                            disabled={locked}
+                            value={keyRules.overs}
+                            onChange={(e) =>
+                              setKeyRules((p) => ({ ...p, overs: e.target.value }))
+                            }
+                          />
+                        </FormField>
+                        <FormField
+                          label={KEY_RULE_LABELS["cricket.match.max_wickets"]}
+                        >
+                          <input
+                            className={cn(inputClass, "font-medium")}
+                            inputMode="numeric"
+                            disabled={locked}
+                            value={keyRules.maxWickets}
+                            onChange={(e) =>
+                              setKeyRules((p) => ({
+                                ...p,
+                                maxWickets: e.target.value,
+                              }))
+                            }
+                          />
+                        </FormField>
+                        <FormField
+                          label={KEY_RULE_LABELS["cricket.match.playing_squad_size"]}
+                        >
+                          <input
+                            className={cn(inputClass, "font-medium")}
+                            inputMode="numeric"
+                            disabled={locked}
+                            value={keyRules.playingSquadSize}
+                            onChange={(e) =>
+                              setKeyRules((p) => ({
+                                ...p,
+                                playingSquadSize: e.target.value,
+                              }))
+                            }
+                          />
+                        </FormField>
+                        <FormField
+                          label={KEY_RULE_LABELS["cricket.match.bench_size"]}
+                        >
+                          <input
+                            className={cn(inputClass, "font-medium")}
+                            inputMode="numeric"
+                            disabled={locked}
+                            value={keyRules.benchSize}
+                            onChange={(e) =>
+                              setKeyRules((p) => ({
+                                ...p,
+                                benchSize: e.target.value,
+                              }))
+                            }
+                          />
+                        </FormField>
+                        <FormField
+                          label={KEY_RULE_LABELS["cricket.batting.retire_at_runs"]}
+                        >
+                          <input
+                            className={cn(inputClass, "font-medium")}
+                            inputMode="numeric"
+                            disabled={locked}
+                            placeholder="None"
+                            value={keyRules.retireAtRuns}
+                            onChange={(e) =>
+                              setKeyRules((p) => ({
+                                ...p,
+                                retireAtRuns: e.target.value,
+                              }))
+                            }
+                          />
+                        </FormField>
+                      </div>
+
+                      {/* Rule Toggles */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90 mb-2">
+                          Special Rules & Dismissals
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            {
+                              label: "LBW Dismissals",
+                              active: keyRules.lbwEnabled,
+                              toggle: () =>
+                                setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled })),
+                            },
+                            {
+                              label: "Free Hit (No Balls)",
+                              active: keyRules.freeHitEnabled,
+                              toggle: () =>
+                                setKeyRules((p) => ({
+                                  ...p,
+                                  freeHitEnabled: !p.freeHitEnabled,
+                                })),
+                            },
+                            {
+                              label: "Leg Byes",
+                              active: keyRules.legByeEnabled,
+                              toggle: () =>
+                                setKeyRules((p) => ({
+                                  ...p,
+                                  legByeEnabled: !p.legByeEnabled,
+                                })),
+                            },
+                            {
+                              label: "Exact Playing XI",
+                              active: keyRules.playingXiEnforced,
+                              toggle: () =>
+                                setKeyRules((p) => ({
+                                  ...p,
+                                  playingXiEnforced: !p.playingXiEnforced,
+                                })),
+                            },
+                            {
+                              label: "Super Ball Feature",
+                              active: keyRules.superBallEnabled,
+                              toggle: () =>
+                                setKeyRules((p) => ({
+                                  ...p,
+                                  superBallEnabled: !p.superBallEnabled,
+                                })),
+                              gold: true,
+                            },
+                            {
+                              label: "Super Over Tie-Break",
+                              active: keyRules.superOverEnabled,
+                              toggle: () =>
+                                setKeyRules((p) => ({
+                                  ...p,
+                                  superOverEnabled: !p.superOverEnabled,
+                                })),
+                            },
+                          ].map((item) => (
+                            <button
+                              key={item.label}
+                              type="button"
+                              disabled={locked}
+                              onClick={item.toggle}
+                              className={cn(
+                                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold transition-all",
+                                item.active
+                                  ? item.gold
+                                    ? "border-amber-500/50 bg-amber-500/15 text-amber-300"
+                                    : "border-primary/50 bg-primary/15 text-primary"
+                                  : "border-border/60 bg-muted/10 text-muted-foreground hover:text-foreground",
+                                locked && "opacity-60 cursor-not-allowed",
+                              )}
+                            >
+                              <span className="truncate">{item.label}</span>
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded",
+                                  item.active
+                                    ? "bg-primary/20 text-primary-foreground"
+                                    : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {item.active ? "ON" : "OFF"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Super Over Configuration Details */}
+                      {keyRules.superOverEnabled ? (
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3.5 space-y-3">
+                          <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                            Super Over Configuration
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <FormField
+                              label={KEY_RULE_LABELS["cricket.tie_break.super_over_overs"]}
+                            >
+                              <input
+                                className={inputClass}
+                                inputMode="numeric"
+                                disabled={locked}
+                                value={keyRules.superOverOvers}
+                                onChange={(e) =>
+                                  setKeyRules((p) => ({
+                                    ...p,
+                                    superOverOvers: e.target.value,
+                                  }))
+                                }
+                              />
+                            </FormField>
+                            <FormField
+                              label={KEY_RULE_LABELS["cricket.tie_break.super_over_wickets"]}
+                            >
+                              <input
+                                className={inputClass}
+                                inputMode="numeric"
+                                disabled={locked}
+                                value={keyRules.superOverWickets}
+                                onChange={(e) =>
+                                  setKeyRules((p) => ({
+                                    ...p,
+                                    superOverWickets: e.target.value,
+                                  }))
+                                }
+                              />
+                            </FormField>
+                            <FormField
+                              label={KEY_RULE_LABELS["cricket.tie_break.super_over_trigger"]}
+                            >
+                              <select
+                                className={inputClass}
+                                disabled={locked}
+                                value={keyRules.superOverTrigger}
+                                onChange={(e) =>
+                                  setKeyRules((p) => ({
+                                    ...p,
+                                    superOverTrigger: e.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="manual">Manual trigger</option>
+                                <option value="knockout_tie">Knockout tie only</option>
+                              </select>
+                            </FormField>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Collapsible preset inspector */}
+                      {otherPresetRules.length > 0 ? (
+                        <details className="text-xs text-muted-foreground rounded-lg border border-border/40 p-3 bg-muted/10">
+                          <summary className="cursor-pointer font-semibold text-foreground/80 hover:text-primary">
+                            View {otherPresetRules.length} other rules from preset
+                          </summary>
+                          <ul className="mt-2.5 space-y-1.5 border-t border-border/40 pt-2">
+                            {otherPresetRules.map((entry) => {
+                              const def = CatalogRegistry.getRuleDefinition(
+                                entry.definitionId,
+                                entry.definitionVersion,
+                              );
+                              return (
+                                <li
+                                  key={`${entry.definitionId}@${entry.definitionVersion}`}
+                                  className="flex justify-between gap-3 text-xs"
+                                >
+                                  <span>{def?.name ?? entry.definitionId}</span>
+                                  <span className="font-mono text-muted-foreground shrink-0">
+                                    {entry.value === null ? "null" : String(entry.value)}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </details>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <OptionChips
+                    label="LED / Screen Look"
+                    value={presentationProfileId}
+                    options={presentationOptions}
+                    disabled={locked}
+                    onChange={(id, version) => {
+                      setPresentationProfileId(id);
+                      setPresentationProfileVersion(version ?? "");
+                    }}
+                  />
+                </section>
+              </div>
+
+              {/* Right Column: Sticky Summary & Actions Sidebar */}
+              <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-6">
+                {/* Status & Actions Card */}
+                <div className={cn(hubPanelClass, "p-5 space-y-5 border-primary/20")}>
+                  <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/50">
+                    <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                      <Settings2 className="w-4 h-4 text-primary" />
+                      Tournament Rules Status
+                    </h3>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                        locked
+                          ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                          : "bg-amber-500/15 border border-amber-500/30 text-amber-300",
+                      )}
+                    >
+                      {locked ? "Locked" : "In Draft"}
+                    </span>
+                  </div>
+
+                  {/* Summary Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Cricket Type
+                      </p>
+                      <p className="font-bold text-foreground truncate mt-0.5">
+                        {variantOptions.find((v) => v.id === variantId)?.label || "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Overs / Innings
+                      </p>
+                      <p className="font-bold text-foreground truncate mt-0.5">
+                        {keyRules.overs ? `${keyRules.overs} Overs` : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Squad / XI
+                      </p>
+                      <p className="font-bold text-foreground truncate mt-0.5">
+                        {keyRules.playingSquadSize ? `${keyRules.playingSquadSize} players` : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Super Over
+                      </p>
+                      <p className="font-bold text-foreground truncate mt-0.5">
+                        {keyRules.superOverEnabled ? `${keyRules.superOverOvers} Over (ON)` : "Disabled"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2 pt-2">
+                    {!locked ? (
+                      <>
+                        <BtnPrimary
+                          className="w-full justify-center h-10"
+                          disabled={!canLock || locking || saving}
+                          onClick={() => void handleLock()}
+                        >
+                          {locking ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" /> Locking Rules…
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-4 h-4" /> Lock & Finalize Rules
+                            </>
+                          )}
+                        </BtnPrimary>
+                        <BtnSecondary
+                          className="w-full justify-center h-9 text-xs"
+                          disabled={saving || locking}
+                          onClick={() => void persistSetup()}
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving Draft…
+                            </>
+                          ) : (
+                            "Save Draft Changes"
+                          )}
+                        </BtnSecondary>
+                      </>
+                    ) : (
+                      <BtnPrimary
+                        className="w-full justify-center h-10"
+                        disabled={applying}
+                        onClick={() => void handleApplyToMatches()}
+                      >
+                        {applying ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Applying to Matches…
+                          </>
+                        ) : (
+                          <>
+                            <PlayCircle className="w-4 h-4" /> Apply Rules to Matches
+                          </>
+                        )}
+                      </BtnPrimary>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {locked
+                      ? "Rules are sealed. Clicking 'Apply' will sync these match parameters into all scheduled matches."
+                      : "Locking rules finalizes overs, dismissal modes, and squad capacities for match scoring."}
+                  </p>
+                </div>
+
+                {/* Workflow steps card */}
+                <div className={cn(hubPanelClass, "p-4 space-y-3 text-xs")}>
+                  <p className="font-semibold text-foreground flex items-center gap-1.5">
+                    <HelpCircle className="w-3.5 h-3.5 text-primary" />
+                    Setup Steps
+                  </p>
+                  <ol className="space-y-2 text-muted-foreground">
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                        1
+                      </span>
+                      <span>Select Cricket Variant & Competition style.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                        2
+                      </span>
+                      <span>Set Overs, XI size, LBW and Tie-break rules.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                        3
+                      </span>
+                      <span>Click <b>Lock Rules</b> to seal configuration.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                        4
+                      </span>
+                      <span>Click <b>Apply to matches</b> to start scoring.</span>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </CricketOrganizerPageShell>
   );
 }

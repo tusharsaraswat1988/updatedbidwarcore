@@ -78,57 +78,13 @@ export function SchedulingSetupCard({ tournamentId, onQuickPeek }: SchedulingSet
     setLoading(true);
     setError("");
     try {
-      const idRes = await apiFetch(`/tournaments/${tournamentId}/scheduling`);
-      if (!idRes.ok) {
-        const body = await idRes.json().catch(() => ({}));
+      const res = await apiFetch(`/tournaments/${tournamentId}/scheduling/aggregate`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to load scheduling plans");
       }
-      const { identities } = (await idRes.json()) as { identities: SchedulingIdentity[] };
-
-      const loaded = await Promise.all(
-        identities.map(async (identity) => {
-          const base = `/tournaments/${tournamentId}/scheduling/${identity.id}`;
-          const [configRes, slotsRes, resourcesRes, validationRes, lifecycleRes] =
-            await Promise.all([
-              apiFetch(`${base}/configuration`),
-              apiFetch(`${base}/slots`),
-              apiFetch(`${base}/resources`),
-              apiFetch(`${base}/validation`),
-              apiFetch(`${base}/lifecycle`),
-            ]);
-          if (
-            !configRes.ok ||
-            !slotsRes.ok ||
-            !resourcesRes.ok ||
-            !validationRes.ok ||
-            !lifecycleRes.ok
-          ) {
-            throw new Error(`Failed to load scheduling ${identity.id}`);
-          }
-          const { configuration } = (await configRes.json()) as {
-            configuration: SchedulingConfiguration;
-          };
-          const { slots } = (await slotsRes.json()) as { slots: ScheduleSlot[] };
-          const { assignments } = (await resourcesRes.json()) as {
-            assignments: unknown[];
-          };
-          const { validation } = (await validationRes.json()) as {
-            validation: SchedulingValidation;
-          };
-          const { lifecycle } = (await lifecycleRes.json()) as {
-            lifecycle: SchedulingLifecycle;
-          };
-          return {
-            identity,
-            configuration,
-            lifecycle,
-            validation,
-            slots,
-            assignmentCount: assignments.length,
-          };
-        }),
-      );
-      setRows(loaded);
+      const { rows } = (await res.json()) as { rows: SchedulingRow[] };
+      setRows(rows ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load Scheduling Setup");
     } finally {

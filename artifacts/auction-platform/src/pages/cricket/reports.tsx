@@ -19,7 +19,7 @@ import {
   PageHeader,
   btnCompactClass,
   hubCardClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import { LeaderboardTable } from "@/components/scoring/leaderboard-table";

@@ -24,7 +24,7 @@ import {
   btnCompactClass,
   hubCardClass,
   hubPanelClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { ScorecardView } from "@/components/scoring/scorecard-view";
 import { ShareButtons } from "@/components/scoring/share-buttons";

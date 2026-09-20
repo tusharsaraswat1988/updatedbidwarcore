@@ -270,11 +270,13 @@ export function buildCricketScorecardFromEvents(
     const batStriker = getBat(inn, payload.strikerId);
     const bowl = getBowl(inn, payload.bowlerId);
 
-    const runsOffBat = payload.runsOffBat;
+    const effectiveBatRuns = payload.isSuperBall
+      ? payload.runsOffBat * 2
+      : payload.runsOffBat;
     const extraType = payload.extras.type as ExtraType | null;
     const extraRuns = payload.extras.runs;
 
-    let runsToBowler = runsOffBat;
+    let runsToBowler = effectiveBatRuns;
     if (extraType === "wide" || extraType === "no_ball") {
       bowl.wides += extraType === "wide" ? 1 : 0;
       bowl.noBalls += extraType === "no_ball" ? 1 : 0;
@@ -295,14 +297,14 @@ export function buildCricketScorecardFromEvents(
       inn.extras.total += extraRuns;
     }
 
-    const totalBallRuns = runsOffBat + (extraType === "bye" || extraType === "leg_bye" ? 0 : extraRuns);
+    const totalBallRuns = effectiveBatRuns + (extraType === "bye" || extraType === "leg_bye" ? 0 : extraRuns);
     inn.totalRuns += totalBallRuns;
 
     if (batsmanFacesBall(payload)) {
       batStriker.balls += 1;
-      batStriker.runs += runsOffBat;
-      if (runsOffBat === 4) batStriker.fours += 1;
-      if (runsOffBat === 6) batStriker.sixes += 1;
+      batStriker.runs += effectiveBatRuns;
+      if (payload.runsOffBat === 4) batStriker.fours += 1;
+      if (payload.runsOffBat === 6) batStriker.sixes += 1;
     }
 
     bowl.runs += runsToBowler + (extraType === "bye" || extraType === "leg_bye" ? extraRuns : 0);

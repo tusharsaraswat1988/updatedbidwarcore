@@ -76,55 +76,13 @@ export function MatchSetupCard({ tournamentId, onQuickPeek }: MatchSetupCardProp
     setLoading(true);
     setError("");
     try {
-      const idRes = await apiFetch(`/tournaments/${tournamentId}/matches/identities`);
-      if (!idRes.ok) {
-        const body = await idRes.json().catch(() => ({}));
+      const res = await apiFetch(`/tournaments/${tournamentId}/matches/aggregate`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to load matches");
       }
-      const { identities } = (await idRes.json()) as { identities: MatchIdentity[] };
-
-      const loaded = await Promise.all(
-        identities.map(async (identity) => {
-          const base = `/tournaments/${tournamentId}/matches/${identity.id}`;
-          const [configRes, sidesRes, officialsRes, validationRes, lifecycleRes] =
-            await Promise.all([
-              apiFetch(`${base}/configuration`),
-              apiFetch(`${base}/sides`),
-              apiFetch(`${base}/officials`),
-              apiFetch(`${base}/validation`),
-              apiFetch(`${base}/lifecycle`),
-            ]);
-          if (
-            !configRes.ok ||
-            !sidesRes.ok ||
-            !officialsRes.ok ||
-            !validationRes.ok ||
-            !lifecycleRes.ok
-          ) {
-            throw new Error(`Failed to load match ${identity.id}`);
-          }
-          const { configuration } = (await configRes.json()) as {
-            configuration: MatchConfiguration;
-          };
-          const { sides } = (await sidesRes.json()) as { sides: MatchSide[] };
-          const { officials } = (await officialsRes.json()) as { officials: unknown[] };
-          const { validation } = (await validationRes.json()) as {
-            validation: MatchValidation;
-          };
-          const { lifecycle } = (await lifecycleRes.json()) as {
-            lifecycle: MatchLifecycle;
-          };
-          return {
-            identity,
-            configuration,
-            lifecycle,
-            validation,
-            sides,
-            officialCount: officials.length,
-          };
-        }),
-      );
-      setRows(loaded);
+      const { rows } = (await res.json()) as { rows: MatchRow[] };
+      setRows(rows ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load Match Setup");
     } finally {

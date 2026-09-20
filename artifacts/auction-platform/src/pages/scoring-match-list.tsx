@@ -5,8 +5,8 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
-import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  CricketOrganizerPageShell,
   BtnPrimary,
   BtnSecondary,
   EmptyState,
@@ -15,7 +15,7 @@ import {
   PageHeader,
   btnCompactClass,
   hubCardClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {

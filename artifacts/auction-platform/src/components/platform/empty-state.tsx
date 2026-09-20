@@ -1,10 +1,9 @@
 import type { LucideIcon } from "lucide-react";
-import { BtnPrimary } from "@/components/badminton/form-ui";
+import { Link } from "wouter";
 
 /**
  * EmptyState
- * Auction: ad-hoc empty copy on organizer pages (adopts this API)
- * Badminton: EmptyState formerly in page-chrome.tsx
+ * Auction / Sports sport-agnostic empty copy on organizer pages
  */
 export function EmptyState({
   icon: Icon,
@@ -31,9 +30,22 @@ export function EmptyState({
       <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">{desc}</p>
       {action ? (
         <div className="mt-6">
-          <BtnPrimary href={action.href} onClick={action.onClick}>
-            {action.label}
-          </BtnPrimary>
+          {action.href ? (
+            <Link
+              href={action.href}
+              className="inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2.5 text-sm"
+            >
+              {action.label}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={action.onClick}
+              className="inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2.5 text-sm"
+            >
+              {action.label}
+            </button>
+          )}
         </div>
       ) : null}
     </div>

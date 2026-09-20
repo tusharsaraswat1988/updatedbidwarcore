@@ -49,6 +49,31 @@ router.get("/tournaments/:tournamentId/matches/identities", async (req, res) => 
   res.json({ identities: matches.map(buildMatchIdentity) });
 });
 
+/** GET /tournaments/:id/matches/aggregate — Fast bulk loader for tournament matches */
+router.get("/tournaments/:tournamentId/matches/aggregate", async (req, res) => {
+  const tid = parseId(req.params.tournamentId);
+  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  const matches = await listMatchRows(tid);
+  const rows = await Promise.all(
+    matches.map(async (match) => {
+      const history = await loadLatestMatchHistory(match.id);
+      const sides = await loadMatchSides(match);
+      const officials = await loadMatchOfficials(match);
+      const validation = await buildMatchValidation(tid, match);
+      const lifecycle = buildMatchLifecycle(match);
+      return {
+        identity: buildMatchIdentity(match),
+        configuration: buildMatchConfiguration(match, history?.version ?? null),
+        lifecycle,
+        validation,
+        sides,
+        officialCount: officials.length,
+      };
+    }),
+  );
+  res.json({ rows });
+});
+
 router.get("/tournaments/:tournamentId/matches/:matchId/identity", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);

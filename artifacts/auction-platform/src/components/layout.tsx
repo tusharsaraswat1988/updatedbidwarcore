@@ -233,10 +233,59 @@ function SidebarNav({
             {tournament?.localModeEnabled && !localVenue ? (
               <SidebarLink href={`/tournament/${tournamentId}/local-mode`} title="Local Mode setup" className={cls(`/tournament/${tournamentId}/local-mode`)} active={active(`/tournament/${tournamentId}/local-mode`)} showAccent={expanded}>
                 <MonitorDown className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span>Local Mode</span>}
+                {expanded && <span>Local Mode (Offline)</span>}
               </SidebarLink>
             ) : null}
           </nav>
+
+          {/* ── Match Scoring Hub Navigation ── */}
+          {tournament?.scoringEnabled && (
+            <>
+              {expanded && (
+                <div className="px-4 mt-7 mb-3 text-xs font-semibold text-sky-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Match Scoring</span>
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                </div>
+              )}
+              {!expanded && <div className="mt-6 mb-2 border-t border-sky-500/30 mx-2" />}
+              <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
+                <SidebarLink
+                  href={tournament?.sport === "badminton" ? `/scoring-app/tournament/${tournamentId}/badminton` : `/scoring-app/tournament/${tournamentId}/score`}
+                  title="Match Scoring Hub & Dashboard"
+                  className={cls(tournament?.sport === "badminton" ? `/scoring-app/tournament/${tournamentId}/badminton` : `/scoring-app/tournament/${tournamentId}/score`)}
+                  active={active(tournament?.sport === "badminton" ? `/scoring-app/tournament/${tournamentId}/badminton` : `/scoring-app/tournament/${tournamentId}/score`)}
+                  showAccent={expanded}
+                >
+                  <Activity className="w-5 h-5 flex-shrink-0 text-sky-400" />
+                  {expanded && <span className="font-semibold text-sky-200">Scoring Hub</span>}
+                </SidebarLink>
+                {tournament?.sport === "cricket" && (
+                  <>
+                    <SidebarLink
+                      href={`/scoring-app/tournament/${tournamentId}/score/fixtures`}
+                      title="Fixtures & Matches"
+                      className={cls(`/scoring-app/tournament/${tournamentId}/score/fixtures`)}
+                      active={active(`/scoring-app/tournament/${tournamentId}/score/fixtures`)}
+                      showAccent={expanded}
+                    >
+                      <LayoutDashboard className="w-5 h-5 flex-shrink-0 text-sky-400/80" />
+                      {expanded && <span>Fixtures</span>}
+                    </SidebarLink>
+                    <SidebarLink
+                      href={`/scoring-app/tournament/${tournamentId}/score/rules`}
+                      title="Rules & Format"
+                      className={cls(`/scoring-app/tournament/${tournamentId}/score/rules`)}
+                      active={active(`/scoring-app/tournament/${tournamentId}/score/rules`)}
+                      showAccent={expanded}
+                    >
+                      <SlidersHorizontal className="w-5 h-5 flex-shrink-0 text-sky-400/80" />
+                      {expanded && <span>Rules & Format</span>}
+                    </SidebarLink>
+                  </>
+                )}
+              </nav>
+            </>
+          )}
         </>
       )}
     </div>

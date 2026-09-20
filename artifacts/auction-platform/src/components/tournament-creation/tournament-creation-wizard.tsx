@@ -42,6 +42,8 @@ export type TournamentCreationPayload = {
   bidIncrement: number;
   auctionDate?: string;
   auctionTime?: string;
+  scoringEnabled?: boolean;
+  playerRegistrationMode?: string;
 };
 
 type TournamentCreationWizardProps = {
@@ -142,6 +144,11 @@ export function TournamentCreationWizard({
     setLoading(true);
     setError("");
 
+    const isScoring =
+      draft.licenseType === "scoring_only" ||
+      draft.licenseType === "auction_and_scoring";
+    const isScoringOnly = draft.licenseType === "scoring_only";
+
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
       sport: draft.sportId,
@@ -156,6 +163,8 @@ export function TournamentCreationWizard({
       basePurse: parseInt(draft.basePurse || "10000000", 10),
       minBid: parseInt(draft.minBid || "100000", 10),
       bidIncrement: parseInt(draft.bidIncrement || "50000", 10),
+      scoringEnabled: isScoring,
+      playerRegistrationMode: isScoringOnly ? "scoring" : "auction",
     };
 
     const result = await submit(payload);
@@ -306,15 +315,53 @@ export function TournamentCreationWizard({
           </div>
         )}
 
-        {/* ════════════════════ STEP 2: LICENSE SELECTION ONLY (SUPER CLEAN) ════════════════════ */}
+        {/* ════════════════════ STEP 2: PURPOSE & LICENSE SELECTION ════════════════════ */}
         {step.id === "experience" && (
           <div className="space-y-3">
-            {/* Option 1: Auction Only (Active) */}
+            {/* Option 1: Standalone Match Scoring */}
+            <div
+              onClick={() => patch({ licenseType: "scoring_only" })}
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
+                draft.licenseType === "scoring_only"
+                  ? "border-sky-500/80 bg-sky-500/10 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/50"
+                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
+              )}
+            >
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-2xl shrink-0">
+                📊
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-sm text-foreground">
+                    Standalone Match Scoring (No Auction)
+                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                    Live Ready
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Fast setup for leagues, box cricket, and knockout tournaments. Ball-by-ball live scoring pad, points table, NRR, stats, and public fan match center.
+                </p>
+              </div>
+              {draft.licenseType === "scoring_only" ? (
+                <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
+            </div>
+
+            {/* Option 2: Live Auction Suite */}
             <div
               onClick={() => patch({ licenseType: "auction_only" })}
-              className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-primary/60 bg-primary/10 shadow-md shadow-primary/5 ring-1 ring-primary/40 cursor-pointer transition-all"
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
+                draft.licenseType === "auction_only"
+                  ? "border-amber-500/80 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/50"
+                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
+              )}
             >
-              <div className="w-11 h-11 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl shrink-0">
                 🔨
               </div>
               <div className="flex-1 min-w-0 pr-2">
@@ -322,57 +369,52 @@ export function TournamentCreationWizard({
                   <p className="font-bold text-sm text-foreground">
                     Live Auction Suite (Auction Only)
                   </p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    Available Now
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    Popular
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Real-time auction host console, projector LED big screen view, team owner mobile bidding app & instant WhatsApp receipts.
+                  Host-controlled player auction console, LED big screen projector view, team owner mobile bidding, and instant purse tracking.
                 </p>
               </div>
-              <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              {draft.licenseType === "auction_only" ? (
+                <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
             </div>
 
-            {/* Option 2: Match Scoring Only (Coming Soon) */}
-            <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-border/40 bg-muted/10 opacity-55 cursor-not-allowed select-none">
-              <div className="w-11 h-11 rounded-xl bg-muted/30 border border-border/40 flex items-center justify-center text-2xl shrink-0 opacity-75">
-                📊
-              </div>
-              <div className="flex-1 min-w-0 pr-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-sm text-foreground/80">
-                    Match Scoring Engine
-                  </p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-amber-400 border border-amber-400/20">
-                    Coming Soon
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Point-by-point digital match scoring, live scoreboard overlay & draw-based bracket manager.
-                </p>
-              </div>
-              <Lock className="w-4 h-4 text-muted-foreground/60 shrink-0 mt-1" />
-            </div>
-
-            {/* Option 3: Auction + Scoring (Coming Soon) */}
-            <div className="relative flex items-start gap-3.5 p-4 rounded-2xl border border-border/40 bg-muted/10 opacity-55 cursor-not-allowed select-none">
-              <div className="w-11 h-11 rounded-xl bg-muted/30 border border-border/40 flex items-center justify-center text-2xl shrink-0 opacity-75">
+            {/* Option 3: Auction + Match Scoring Bundle */}
+            <div
+              onClick={() => patch({ licenseType: "auction_and_scoring" })}
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
+                draft.licenseType === "auction_and_scoring"
+                  ? "border-primary/80 bg-primary/10 shadow-md shadow-primary/10 ring-1 ring-primary/50"
+                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
+              )}
+            >
+              <div className="w-11 h-11 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
                 ⚡
               </div>
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-sm text-foreground/80">
-                    Auction + Match Scoring Bundle
+                  <p className="font-bold text-sm text-foreground">
+                    Auction + Match Scoring Bundle (All-in-One)
                   </p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-amber-400 border border-amber-400/20">
-                    Coming Soon
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30">
+                    Complete OS
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  All-in-one tournament platform: player auction, squads, fixtures, match scoring & trophy presentation.
+                  Run the player auction first, then 1-click transition sold squads into tournament fixtures, live match scoring, leaderboards, and OBS streaming.
                 </p>
               </div>
-              <Lock className="w-4 h-4 text-muted-foreground/60 shrink-0 mt-1" />
+              {draft.licenseType === "auction_and_scoring" ? (
+                <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
             </div>
           </div>
         )}

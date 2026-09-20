@@ -14,7 +14,7 @@ import {
   PageHeader,
   hubPanelClass,
   inputClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
 import { VenueBannerSettingsPanel } from "@/components/badminton/venue-banner-settings-panel";

@@ -280,16 +280,25 @@ export function onAuctionPlayerRosterChangedAsync(
   });
 }
 
-/**
- * List franchise teams for cricket scorer UI (match create, fixtures, etc.).
- *
- * Includes every tournament team from Sports/Auction identity — not only teams that
- * already have active Player Registry (PTA) rows. Empty squads still appear so
- * organizers can pick all franchises; `squadCount` reflects PTA readiness.
- */
-export async function listCricketMasterTeams(
-  tournamentId: number,
-): Promise<CricketMasterTeamItem[]> {
+type CacheItem<T> = {
+  data: T;
+  expiresAt: number;
+};
+
+const masterTeamsCache = new Map<number, CacheItem<CricketMasterTeamItem[]>>();
+const masterPlayersCache = new Map<string, CacheItem<CricketMasterPlayerItem[]>>();
+const MASTER_CACHE_TTL_MS = 25_000;
+
+export function invalidateCricketRosterCache(tournamentId: number) {
+  masterTeamsCache.delete(tournamentId);
+  for (const key of masterPlayersCache.keys()) {
+    if (key.startsWith(`${tournamentId}:`)) {
+      masterPlayersCache.delete(key);
+    }
+  }
+}
+
+async function listCricketMasterTeamsRaw(tournamentId: number): Promise<CricketMasterTeamItem[]> {
   const franchise = await listCricketFranchiseTeams(tournamentId);
   const byAuctionId = new Map<number, CricketMasterTeamItem>();
 
@@ -347,13 +356,44 @@ export async function listCricketMasterTeams(
   return [...byAuctionId.values()].sort((a, b) => a.auctionTeamId - b.auctionTeamId);
 }
 
+/**
+ * List franchise teams for cricket scorer UI (match create, fixtures, etc.).
+ *
+ * Includes every tournament team from Sports/Auction identity — not only teams that
+ * already have active Player Registry (PTA) rows. Empty squads still appear so
+ * organizers can pick all franchises; `squadCount` reflects PTA readiness.
+ */
+export async function listCricketMasterTeams(
+  tournamentId: number,
+): Promise<CricketMasterTeamItem[]> {
+  const now = Date.now();
+  const cached = masterTeamsCache.get(tournamentId);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const result = await listCricketMasterTeamsRaw(tournamentId);
+  masterTeamsCache.set(tournamentId, {
+    data: result,
+    expiresAt: now + MASTER_CACHE_TTL_MS,
+  });
+  return result;
+}
+
 /** List players for cricket scorer from Player Registry — optional filter by opaque team id. */
 export async function listCricketMasterPlayers(
   tournamentId: number,
   auctionTeamId?: number,
 ): Promise<CricketMasterPlayerItem[]> {
+  const cacheKey = `${tournamentId}:${auctionTeamId ?? "all"}`;
+  const now = Date.now();
+  const cached = masterPlayersCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
   const players = await listCricketFranchisePlayers(tournamentId, auctionTeamId);
-  return players.map((p) => ({
+  const result = players.map((p) => ({
     auctionPlayerId: p.playerId,
     masterPlayerId: p.masterPlayerId,
     tournamentPlayerProfileId: p.tournamentPlayerProfileId,
@@ -369,6 +409,12 @@ export async function listCricketMasterPlayers(
     syncedToMaster: true,
     onRoster: true,
   }));
+
+  masterPlayersCache.set(cacheKey, {
+    data: result,
+    expiresAt: now + MASTER_CACHE_TTL_MS,
+  });
+  return result;
 }
 
 /** Squad eligible for playing XI (active Player Registry assignment on team). */

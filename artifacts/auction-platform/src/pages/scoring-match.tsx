@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
-import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  CricketOrganizerPageShell,
   BtnPrimary,
   BtnSecondary,
   EmptyState,
   PageHeader,
   btnCompactClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
@@ -25,6 +25,7 @@ import {
 import {
   cricketMasterTeamToScorerTeam,
   cricketRosterToScorerPlayer,
+  playerNameById,
 } from "@/lib/scoring-squad";
 import {
   countQueuedScoringEvents,
@@ -432,72 +433,88 @@ export default function ScoringMatchPage() {
             {readyToScore && data.state.matchStatus !== "completed" ? (
               <div className="max-w-lg mx-auto w-full">
                 <LiveScoringPad
-                state={data.state}
-              teams={teams}
-              players={players}
-                rules={data.match.rules}
-                bowlerId={localBowlerId}
-                busy={busy || queueDepth > 0}
-                pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
-                localStrikerId={localStrikerId}
-                localNonStrikerId={localNonStrikerId}
-                onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
-                onEvent={sendEvent}
-                onUndo={async () => {
-                  if (!data || sendInFlightRef.current || queueDepth > 0) return;
-                  sendInFlightRef.current = true;
-                  setBusy(true);
-                  try {
-                    const result = await undoScoringEvent(
-                      tournamentId,
-                      matchId,
-                      sequenceRef.current,
-                    );
-                    sequenceRef.current = result.state.lastSequence;
-                    applyDetail({
-                      match: result.match,
-                      state: result.state,
-                      eventCount: data.eventCount + 1,
-                      lastSequence: result.state.lastSequence,
-                    });
-                    setPendingNewBatsman(
-                      result.state.strikerId == null || result.state.nonStrikerId == null,
-                    );
-                  } catch (e) {
-                    toast({
-                      title: "Undo failed",
-                      description: e instanceof Error ? e.message : "Error",
-                      variant: "destructive",
-                    });
-                  } finally {
-                    sendInFlightRef.current = false;
-                    setBusy(false);
+                  state={data.state}
+                  teams={teams}
+                  players={players}
+                  rules={data.match.rules}
+                  bowlerId={localBowlerId}
+                  busy={busy || queueDepth > 0}
+                  pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
+                  localStrikerId={localStrikerId}
+                  localNonStrikerId={localNonStrikerId}
+                  onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
+                  onEvent={sendEvent}
+                  onSwapStrike={() => {
+                    const currStriker = localStrikerId ?? data.state.strikerId;
+                    const currNonStriker = localNonStrikerId ?? data.state.nonStrikerId;
+                    if (currStriker && currNonStriker) {
+                      setLocalStrikerId(currNonStriker);
+                      setLocalNonStrikerId(currStriker);
+                      toast({
+                        title: "Strike rotated",
+                        description: `Striker is now ${playerNameById(players, currNonStriker)}`,
+                      });
+                    }
+                  }}
+                  onUndo={async () => {
+                    if (!data || sendInFlightRef.current || queueDepth > 0) return;
+                    sendInFlightRef.current = true;
+                    setBusy(true);
+                    try {
+                      const result = await undoScoringEvent(
+                        tournamentId,
+                        matchId,
+                        sequenceRef.current,
+                      );
+                      sequenceRef.current = result.state.lastSequence;
+                      applyDetail({
+                        match: result.match,
+                        state: result.state,
+                        eventCount: data.eventCount + 1,
+                        lastSequence: result.state.lastSequence,
+                      });
+                      setPendingNewBatsman(
+                        result.state.strikerId == null || result.state.nonStrikerId == null,
+                      );
+                      toast({
+                        title: "Undone",
+                        description: "Last recorded ball has been undone.",
+                      });
+                    } catch (e) {
+                      toast({
+                        title: "Undo failed",
+                        description: e instanceof Error ? e.message : "Error",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      sendInFlightRef.current = false;
+                      setBusy(false);
+                    }
+                  }}
+                  onInningsEnd={(payload) => {
+                    setLocalBowlerId(null);
+                    setPendingNewBatsman(false);
+                    return sendEvent(CricketEventType.INNINGS_ENDED, payload);
+                  }}
+                  onMatchComplete={(payload) =>
+                    sendEvent(CricketEventType.MATCH_COMPLETED, payload)
                   }
-                }}
-                onInningsEnd={(payload) => {
-                  setLocalBowlerId(null);
-                  setPendingNewBatsman(false);
-                  return sendEvent(CricketEventType.INNINGS_ENDED, payload);
-                }}
-                onMatchComplete={(payload) =>
-                  sendEvent(CricketEventType.MATCH_COMPLETED, payload)
-                }
-                onBowlerChange={setLocalBowlerId}
-                onNewBatsman={(playerId) => {
-                  if (playerId < 0) {
-                    setPendingNewBatsman(true);
-                    return;
-                  }
-                  if (data.state.strikerId == null) {
-                    setLocalStrikerId(playerId);
-                  } else if (data.state.nonStrikerId == null) {
-                    setLocalNonStrikerId(playerId);
-                  } else {
-                    setLocalStrikerId(playerId);
-                  }
-                  setPendingNewBatsman(false);
-                }}
-              />
+                  onBowlerChange={setLocalBowlerId}
+                  onNewBatsman={(playerId) => {
+                    if (playerId < 0) {
+                      setPendingNewBatsman(true);
+                      return;
+                    }
+                    if (data.state.strikerId == null) {
+                      setLocalStrikerId(playerId);
+                    } else if (data.state.nonStrikerId == null) {
+                      setLocalNonStrikerId(playerId);
+                    } else {
+                      setLocalStrikerId(playerId);
+                    }
+                    setPendingNewBatsman(false);
+                  }}
+                />
               </div>
             ) : null}
 

@@ -13,6 +13,7 @@ vi.mock("@workspace/db", () => ({
   },
   bidsTable: { tournamentId: "tournament_id", playerId: "player_id" },
   playersTable: { id: "id", tournamentId: "tournament_id", teamId: "team_id", status: "status" },
+  scoringMatchPlayerStatsTable: { tournamentId: "tournament_id", playerId: "player_id" },
 }));
 
 vi.mock("../lib/player-specification-service", () => ({
@@ -42,7 +43,8 @@ describe("validatePlayerDeletable", () => {
     vi.clearAllMocks();
   });
 
-  it("blocks players with auction roster status sold", async () => {
+  it("blocks players with auction roster status sold in auction context", async () => {
+    vi.mocked(db.select).mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never);
     const result = await validatePlayerDeletable(1, { id: 10, status: "sold", teamId: 5 });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -51,18 +53,21 @@ describe("validatePlayerDeletable", () => {
     }
   });
 
-  it("blocks players with auction roster status retained", async () => {
+  it("blocks players with auction roster status retained in auction context", async () => {
+    vi.mocked(db.select).mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never);
     const result = await validatePlayerDeletable(1, { id: 10, status: "retained", teamId: 5 });
     expect(result.ok).toBe(false);
   });
 
-  it("blocks players with auction roster status unsold", async () => {
+  it("blocks players with auction roster status unsold in auction context", async () => {
+    vi.mocked(db.select).mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never);
     const result = await validatePlayerDeletable(1, { id: 10, status: "unsold", teamId: null });
     expect(result.ok).toBe(false);
   });
 
   it("allows available players when no bids or auction block", async () => {
     vi.mocked(db.select)
+      .mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never)
       .mockReturnValueOnce(chainSelectWhere([{ bidCount: 0 }]) as never)
       .mockReturnValueOnce(chainSelectLimit([]) as never);
 
@@ -70,8 +75,38 @@ describe("validatePlayerDeletable", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("blocks when player has bid history", async () => {
-    vi.mocked(db.select).mockReturnValue(chainSelectWhere([{ bidCount: 2 }]) as never);
+  it("allows sold/retained player deletion when allowAuctionStatus is true and not on live auction block", async () => {
+    vi.mocked(db.select)
+      .mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never)
+      .mockReturnValueOnce(chainSelectLimit([]) as never);
+
+    const result = await validatePlayerDeletable(
+      1,
+      { id: 10, status: "sold", teamId: 5 },
+      { allowAuctionStatus: true },
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("blocks deletion when player has match stats", async () => {
+    vi.mocked(db.select).mockReturnValueOnce(chainSelectWhere([{ statsCount: 3 }]) as never);
+
+    const result = await validatePlayerDeletable(
+      1,
+      { id: 10, status: "sold", teamId: 5 },
+      { allowAuctionStatus: true },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("PLAYER_HAS_MATCH_STATS");
+      expect(result.status).toBe(409);
+    }
+  });
+
+  it("blocks when player has bid history in auction context", async () => {
+    vi.mocked(db.select)
+      .mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never)
+      .mockReturnValueOnce(chainSelectWhere([{ bidCount: 2 }]) as never);
 
     const result = await validatePlayerDeletable(1, { id: 10, status: "available", teamId: null });
     expect(result.ok).toBe(false);
@@ -82,6 +117,7 @@ describe("validatePlayerDeletable", () => {
 
   it("blocks when player is on the auction block", async () => {
     vi.mocked(db.select)
+      .mockReturnValueOnce(chainSelectWhere([{ statsCount: 0 }]) as never)
       .mockReturnValueOnce(chainSelectWhere([{ bidCount: 0 }]) as never)
       .mockReturnValueOnce(
         chainSelectLimit([{ currentPlayerId: 10, deferredPlayerIds: null }]) as never,

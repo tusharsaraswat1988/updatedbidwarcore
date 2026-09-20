@@ -1660,7 +1660,11 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
     return;
   }
 
-  const deleteGuard = await validatePlayerDeletable(tid, before);
+  const allowAuctionStatus =
+    req.query.context === "scoring" || req.query.force === "true";
+  const deleteGuard = await validatePlayerDeletable(tid, before, {
+    allowAuctionStatus,
+  });
   if (!deleteGuard.ok) {
     res.status(deleteGuard.status).json({ error: deleteGuard.error, code: deleteGuard.code });
     return;

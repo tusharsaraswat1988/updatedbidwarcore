@@ -43,6 +43,24 @@ router.get("/tournaments/:tournamentId/runtime-matches", async (req, res) => {
   res.json({ runtimeMatches: await listRuntimeMatches(tid) });
 });
 
+/** GET /tournaments/:id/runtime-matches/aggregate — Fast bulk loader for runtime matches */
+router.get("/tournaments/:tournamentId/runtime-matches/aggregate", async (req, res) => {
+  const tid = parseId(req.params.tournamentId);
+  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  const runtimeMatches = await listRuntimeMatches(tid);
+  const rows = await Promise.all(
+    runtimeMatches.map(async (list) => {
+      const match = await loadMatchRow(tid, parseInt(list.identity.id, 10));
+      const validation = match
+        ? await buildRuntimeValidation(tid, match)
+        : { issues: [], errorCount: 0, warningCount: 0, readiness: "ready" };
+      const snapshot = match ? await loadActiveSnapshot(match) : null;
+      return { list, validation, snapshot };
+    }),
+  );
+  res.json({ rows });
+});
+
 router.get(
   "/tournaments/:tournamentId/runtime-matches/:matchId/identity",
   async (req, res) => {

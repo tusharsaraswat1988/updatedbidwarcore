@@ -131,6 +131,24 @@ describe("box cricket configurable capabilities", () => {
     expect(state.superBallUsed[1]).toEqual([1]);
   });
 
+  it("scores Super Ball single as 2 runs", () => {
+    let state = started({ superBallEnabled: true });
+    state = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    state = reduceCricket(
+      state,
+      ev(5, CricketEventType.BALL_RECORDED, { ...fourBall, runsOffBat: 1 }),
+      { enforceLiveRules: true },
+    );
+    expect(state.innings[0]?.runs).toBe(2);
+  });
+
   it("scores Super Ball six as 12 and rejects duplicate declaration", () => {
     let state = started({ superBallEnabled: true });
     state = reduceCricket(

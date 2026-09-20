@@ -109,10 +109,37 @@ export async function rebuildTournamentStandings(tournamentId: number) {
     );
   }
 
+  invalidateTournamentStandingsCache(tournamentId);
+
   return computed;
 }
 
-export async function getScoringStandings(tournamentId: number) {
+type CacheItem<T> = {
+  data: T;
+  expiresAt: number;
+};
+
+const standingsCache = new Map<number, CacheItem<Awaited<ReturnType<typeof getScoringStandingsRaw>>>>();
+const squadReadinessCache = new Map<number, CacheItem<SquadReadinessRow[]>>();
+const scoringGateCache = new Map<number, CacheItem<{ scoringEnabled: boolean; sport: string | null }>>();
+
+const STANDINGS_CACHE_TTL_MS = 30_000;
+const SQUAD_CACHE_TTL_MS = 30_000;
+const SCORING_GATE_CACHE_TTL_MS = 60_000;
+
+export function invalidateTournamentStandingsCache(tournamentId: number) {
+  standingsCache.delete(tournamentId);
+}
+
+export function invalidateTournamentSquadCache(tournamentId: number) {
+  squadReadinessCache.delete(tournamentId);
+}
+
+export function invalidateTournamentScoringGateCache(tournamentId: number) {
+  scoringGateCache.delete(tournamentId);
+}
+
+async function getScoringStandingsRaw(tournamentId: number) {
   await ensureScoringEnabled(tournamentId);
 
   const rows = await db
@@ -147,6 +174,21 @@ export async function getScoringStandings(tournamentId: number) {
     });
 }
 
+export async function getScoringStandings(tournamentId: number) {
+  const now = Date.now();
+  const cached = standingsCache.get(tournamentId);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const result = await getScoringStandingsRaw(tournamentId);
+  standingsCache.set(tournamentId, {
+    data: result,
+    expiresAt: now + STANDINGS_CACHE_TTL_MS,
+  });
+  return result;
+}
+
 export type SquadReadinessRow = {
   teamId: number;
   name: string;
@@ -158,6 +200,12 @@ export type SquadReadinessRow = {
 };
 
 export async function getSquadReadiness(tournamentId: number): Promise<SquadReadinessRow[]> {
+  const now = Date.now();
+  const cached = squadReadinessCache.get(tournamentId);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
   await ensureScoringEnabled(tournamentId);
 
   const [teams, players] = await Promise.all([
@@ -165,7 +213,7 @@ export async function getSquadReadiness(tournamentId: number): Promise<SquadRead
     listCricketFranchisePlayers(tournamentId),
   ]);
 
-  return teams.map((team) => {
+  const result = teams.map((team) => {
     const squad = players.filter((p) => p.teamId === team.teamId);
     const soldCount = squad.filter(
       (p) => p.status === "sold" || p.assignmentType === "auction_sale",
@@ -182,17 +230,40 @@ export async function getSquadReadiness(tournamentId: number): Promise<SquadRead
       ready: eligibleCount >= MIN_SQUAD_ELIGIBLE,
     };
   });
+
+  squadReadinessCache.set(tournamentId, {
+    data: result,
+    expiresAt: now + SQUAD_CACHE_TTL_MS,
+  });
+
+  return result;
 }
 
 export async function ensureScoringEnabled(tournamentId: number) {
-  const [tournament] = await db
-    .select({
-      scoringEnabled: tournamentsTable.scoringEnabled,
-      sport: tournamentsTable.sport,
-    })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
+  const now = Date.now();
+  const cached = scoringGateCache.get(tournamentId);
+  let tournament: { scoringEnabled: boolean; sport: string | null } | undefined;
+
+  if (cached && cached.expiresAt > now) {
+    tournament = cached.data;
+  } else {
+    const [row] = await db
+      .select({
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        sport: tournamentsTable.sport,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId))
+      .limit(1);
+
+    if (row) {
+      tournament = { scoringEnabled: Boolean(row.scoringEnabled), sport: row.sport ?? null };
+      scoringGateCache.set(tournamentId, {
+        data: tournament,
+        expiresAt: now + SCORING_GATE_CACHE_TTL_MS,
+      });
+    }
+  }
 
   if (!tournament) {
     throw new ScoringPlatformError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");

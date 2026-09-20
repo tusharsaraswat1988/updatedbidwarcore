@@ -625,6 +625,13 @@ function isAuctionHtmlNavigation(
   return !pathname.includes(".");
 }
 
+const devProxyKeepAliveAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 64,
+  maxFreeSockets: 32,
+});
+
 function forwardHttp(
   req: IncomingMessage,
   res: ServerResponse,
@@ -649,6 +656,7 @@ function forwardHttp(
       port: target.port || 80,
       path,
       method: req.method,
+      agent: devProxyKeepAliveAgent,
       headers: {
         ...req.headers,
         host: target.host,

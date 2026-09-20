@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   squadPlayersForTeam,
   type CricketScorerPlayer,
   type CricketScorerTeam,
@@ -23,13 +16,29 @@ import {
 import { getActiveInnings } from "@/lib/scoring-ball";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
-import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
+import { ScoringPlayerAvatar } from "@/components/scoring/scoring-player-row";
 import { cricketRulesPath } from "@/lib/cricket-routes";
 import {
   BtnSecondary,
   btnCompactClass,
-} from "@/components/badminton/page-chrome";
-import { Loader2 } from "lucide-react";
+} from "@/components/scoring/cricket-page-chrome";
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Coins,
+  Crown,
+  Flame,
+  HandMetal,
+  Loader2,
+  Shield,
+  Sparkles,
+  Swords,
+  UserCheck,
+  Users,
+  Zap,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type PreMatchSetupProps = {
   tournamentId: number;
@@ -99,15 +108,15 @@ export function PreMatchSetup({
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const autoPrepareTried = useRef(false);
   const limits = executionLimitsFromMatch(match);
-  // MATCH_STARTED overs originate from RuntimeExecutionPolicy-derived rules only.
-  const oversLimit = limits.oversLimit ?? state.oversLimit;
+
+  const oversLimit = limits.oversLimit ?? state.oversLimit ?? 20;
   const policyReady =
     limits.fromPolicy &&
     typeof limits.oversLimit === "number" &&
     typeof limits.playingSquadSize === "number" &&
     typeof limits.benchSize === "number";
-  const playingSquadSize = limits.playingSquadSize;
-  const benchSize = limits.benchSize;
+  const playingSquadSize = limits.playingSquadSize ?? 11;
+  const benchSize = limits.benchSize ?? 4;
 
   async function handlePrepare() {
     if (preparing || busy) return;
@@ -143,13 +152,12 @@ export function PreMatchSetup({
     }
   }
 
-  // Existing matches: apply tournament rules automatically — no Mission Control detour.
+  // Auto prepare match rules once on mount
   useEffect(() => {
     if (limits.fromPolicy || autoPrepareTried.current) return;
     autoPrepareTried.current = true;
     void handlePrepare();
-    // Intentionally once per match mount when policy is missing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto prepare
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limits.fromPolicy, match.id]);
 
   const { battingId, bowlingId } = resolveCricketSideTeamIds(state, match);
@@ -185,31 +193,35 @@ export function PreMatchSetup({
     return null;
   }
 
+  const squadBadgeText =
+    playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`;
+
   return (
-    <div className="p-4 space-y-4 border-b border-border/60 bg-muted/10">
+    <div className="max-w-2xl mx-auto space-y-4">
+      {/* Policy banner */}
       {!limits.fromPolicy ? (
-        <div className="text-xs text-amber-200/90 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 space-y-2">
-          <p>
+        <div className="text-xs text-amber-200/90 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+          <p className="font-semibold">
             {preparing
               ? "Applying tournament rules to this match…"
-              : "Tournament rules still need to lock onto this match before Start."}
+              : "Tournament rules need to lock onto this match before Start."}
           </p>
           {prepareError ? (
             <p className="text-amber-100/95">{prepareError}</p>
           ) : null}
           {!preparing ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-1">
               <Button
                 type="button"
                 size="sm"
-                className="h-9"
+                className="h-9 font-semibold"
                 disabled={busy}
                 onClick={() => {
                   autoPrepareTried.current = true;
                   void handlePrepare();
                 }}
               >
-                Retry apply
+                Retry Apply
               </Button>
               <BtnSecondary
                 href={cricketRulesPath(tournamentId)}
@@ -220,22 +232,25 @@ export function PreMatchSetup({
             </div>
           ) : (
             <p className="flex items-center gap-1.5 text-amber-100/80">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
-              Locking rules…
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+              Locking match rules…
             </p>
           )}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">
-          Policy: {limits.oversLimit} overs · XI{" "}
-          {limits.playingSquadSize ?? "—"} · Bench {limits.benchSize ?? "—"}
-          {match.rules?.lbwEnabled === false ? " · LBW off" : ""}
-          {match.rules?.retireAtRuns != null
-            ? ` · Retire at ${match.rules.retireAtRuns}`
-            : ""}
-        </p>
+        <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground px-1">
+          <span className="font-medium text-foreground">
+            Match Format: <strong>{limits.oversLimit} Overs</strong> · <strong>{squadBadgeText}</strong> · Bench {limits.benchSize ?? "—"}
+          </span>
+          <span>
+            {match.rules?.superBallEnabled ? "⭐ Super Ball Active · " : ""}
+            {match.rules?.lbwEnabled === false ? "LBW Off · " : "LBW On · "}
+            {match.rules?.retireAtRuns != null ? `Retire @ ${match.rules.retireAtRuns}r` : ""}
+          </span>
+        </div>
       )}
 
+      {/* ─── Step 1: Toss ─── */}
       {needsToss ? (
         <TossStep
           match={match}
@@ -260,22 +275,25 @@ export function PreMatchSetup({
         />
       ) : null}
 
+      {/* ─── Step 2A: Batting Team Squad Lineup ─── */}
       {needsBattingLineup &&
       battingId &&
       playingSquadSize != null &&
       benchSize != null ? (
         <SquadLineupPicker
-          title={`${teamName(teams, battingId)} — squad & XI`}
+          title={`${teamName(teams, battingId)} (Batting Team) — Select ${squadBadgeText}`}
           teamId={battingId}
           players={players}
           playingSquadSize={playingSquadSize}
           benchSize={benchSize}
           busy={busy}
-          onConfirm={async (playingXi, bench, battingOrder) => {
+          onConfirm={async (playingXi, bench, battingOrder, captainId, wicketKeeperId) => {
             await setMatchSquad(tournamentId, match.id, battingId, {
               playingXi,
               bench,
               battingOrder,
+              captainId,
+              wicketKeeperId,
             });
             await onEvent(CricketEventType.LINEUP_SET, {
               teamId: battingId,
@@ -286,21 +304,24 @@ export function PreMatchSetup({
         />
       ) : null}
 
+      {/* ─── Step 2B: Bowling Team Squad Lineup ─── */}
       {needsBowlingLineup &&
       bowlingId &&
       playingSquadSize != null &&
       benchSize != null ? (
         <SquadLineupPicker
-          title={`${teamName(teams, bowlingId)} — squad & XI`}
+          title={`${teamName(teams, bowlingId)} (Bowling Team) — Select ${squadBadgeText}`}
           teamId={bowlingId}
           players={players}
           playingSquadSize={playingSquadSize}
           benchSize={benchSize}
           busy={busy}
-          onConfirm={async (playingXi, bench) => {
+          onConfirm={async (playingXi, bench, _order, captainId, wicketKeeperId) => {
             await setMatchSquad(tournamentId, match.id, bowlingId, {
               playingXi,
               bench,
+              captainId,
+              wicketKeeperId,
             });
             await onEvent(CricketEventType.LINEUP_SET, {
               teamId: bowlingId,
@@ -310,9 +331,11 @@ export function PreMatchSetup({
         />
       ) : null}
 
+      {/* ─── Step 3: Openers Picker ─── */}
       {needsOpeners && battingId ? (
         <OpenersPicker
           teamId={battingId}
+          teamName={teamName(teams, battingId)}
           players={players}
           lineup={state.lineups[battingId] ?? []}
           busy={busy}
@@ -326,9 +349,11 @@ export function PreMatchSetup({
         />
       ) : null}
 
+      {/* ─── Step 4: Opening Bowler Picker ─── */}
       {needsBowler && bowlingId ? (
         <BowlerPicker
           teamId={bowlingId}
+          teamName={teamName(teams, bowlingId)}
           players={players}
           lineup={state.lineups[bowlingId] ?? []}
           busy={busy}
@@ -339,6 +364,9 @@ export function PreMatchSetup({
   );
 }
 
+/* ═════════════════════════════════════════════════════════ */
+/* ─── Toss Step ─── */
+/* ═════════════════════════════════════════════════════════ */
 function TossStep({
   match,
   teams,
@@ -366,66 +394,160 @@ function TossStep({
   const away = teams.find((t) => t.id === match.awayTeamId);
   const startBlocked = busy || !policyReady;
 
+  const winnerId = parseInt(tossWinner, 10);
+  const winnerTeam = teams.find((t) => t.id === winnerId);
+
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <h2 className="text-sm font-semibold">Toss</h2>
+    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-xl">
+            🪙
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-foreground">Match Toss & Setup</h2>
+            <p className="text-xs text-muted-foreground">Select who won the toss and their choice</p>
+          </div>
+        </div>
+        <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+          {oversLimit} Overs
+        </span>
+      </div>
+
+      {/* Toss Winner Team Selection Cards */}
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Toss winner</Label>
-        <Select
-          value={tossWinner}
-          onValueChange={setTossWinner}
-          disabled={!policyReady || busy}
-        >
-          <SelectTrigger className="h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={String(match.homeTeamId)}>
-              {home?.name ?? "Home"}
-            </SelectItem>
-            <SelectItem value={String(match.awayTeamId)}>
-              {away?.name ?? "Away"}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Who Won the Toss?
+        </Label>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Home Team Card */}
+          <div
+            onClick={() => !busy && setTossWinner(String(match.homeTeamId))}
+            className={cn(
+              "p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-2 select-none",
+              tossWinner === String(match.homeTeamId)
+                ? "border-amber-400/80 bg-amber-500/15 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/50"
+                : "border-border/70 bg-card/40 hover:bg-card/80",
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-muted/60 text-muted-foreground">
+                Home
+              </span>
+              {tossWinner === String(match.homeTeamId) ? (
+                <CheckCircle2 className="w-5 h-5 text-amber-400" />
+              ) : null}
+            </div>
+            <p className="font-bold text-sm sm:text-base text-foreground truncate mt-1">
+              {home?.name ?? "Home Team"}
+            </p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              {home?.shortCode ?? "HOM"}
+            </p>
+          </div>
+
+          {/* Away Team Card */}
+          <div
+            onClick={() => !busy && setTossWinner(String(match.awayTeamId))}
+            className={cn(
+              "p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-2 select-none",
+              tossWinner === String(match.awayTeamId)
+                ? "border-amber-400/80 bg-amber-500/15 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/50"
+                : "border-border/70 bg-card/40 hover:bg-card/80",
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-muted/60 text-muted-foreground">
+                Away
+              </span>
+              {tossWinner === String(match.awayTeamId) ? (
+                <CheckCircle2 className="w-5 h-5 text-amber-400" />
+              ) : null}
+            </div>
+            <p className="font-bold text-sm sm:text-base text-foreground truncate mt-1">
+              {away?.name ?? "Away Team"}
+            </p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              {away?.shortCode ?? "AWY"}
+            </p>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant={electedTo === "bat" ? "default" : "outline"}
-          className="h-11"
-          disabled={!policyReady || busy}
-          onClick={() => setElectedTo("bat")}
-        >
-          Bat first
-        </Button>
-        <Button
-          type="button"
-          variant={electedTo === "bowl" ? "default" : "outline"}
-          className="h-11"
-          disabled={!policyReady || busy}
-          onClick={() => setElectedTo("bowl")}
-        >
-          Bowl first
-        </Button>
+
+      {/* Decision: Bat or Bowl */}
+      <div className="space-y-2">
+        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Elected To
+        </Label>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              "h-13 font-bold text-sm sm:text-base rounded-2xl transition-all border gap-2",
+              electedTo === "bat"
+                ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
+                : "border-border/70 bg-card/50 hover:bg-card",
+            )}
+            disabled={!policyReady || busy}
+            onClick={() => setElectedTo("bat")}
+          >
+            <span>🏏 Bat First</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              "h-13 font-bold text-sm sm:text-base rounded-2xl transition-all border gap-2",
+              electedTo === "bowl"
+                ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
+                : "border-border/70 bg-card/50 hover:bg-card",
+            )}
+            disabled={!policyReady || busy}
+            onClick={() => setElectedTo("bowl")}
+          >
+            <span>⚾ Bowl First</span>
+          </Button>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {policyReady ? `${oversLimit}-over match` : "Using tournament rules"}
-      </p>
+
+      {/* Toss Statement Preview */}
+      <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 text-xs text-primary font-semibold flex items-center gap-2">
+        <Zap className="w-4 h-4 shrink-0 text-primary" />
+        <span>
+          <strong>{winnerTeam?.name ?? "Team"}</strong> won the toss and elected to <strong>{electedTo.toUpperCase()}</strong> first.
+        </span>
+      </div>
+
       <Button
-        className="w-full h-12 text-base"
+        className="w-full h-13 font-display font-black text-base rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/20 cursor-pointer transition-all active:scale-[0.98]"
         disabled={startBlocked}
         onClick={() => {
           if (startBlocked) return;
           void onStart();
         }}
       >
-        {!policyReady ? "Applying rules…" : busy ? "Starting…" : "Start match"}
+        {!policyReady ? (
+          "Applying Rules…"
+        ) : busy ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+            Starting Match…
+          </span>
+        ) : (
+          <span className="flex items-center gap-2">
+            <span>Confirm Toss & Pick Lineups</span>
+            <ArrowRight className="w-4 h-4" />
+          </span>
+        )}
       </Button>
     </section>
   );
 }
 
+/* ═════════════════════════════════════════════════════════ */
+/* ─── Squad Lineup Picker with Auto-Fill & Captain/WK ─── */
+/* ═════════════════════════════════════════════════════════ */
 function SquadLineupPicker({
   title,
   teamId,
@@ -445,6 +567,8 @@ function SquadLineupPicker({
     playingXi: number[],
     bench: number[],
     battingOrder?: number[],
+    captainId?: number | null,
+    wicketKeeperId?: number | null,
   ) => void | Promise<void>;
 }) {
   const squad = useMemo(
@@ -453,11 +577,26 @@ function SquadLineupPicker({
   );
   const [playingXi, setPlayingXi] = useState<number[]>([]);
   const [bench, setBench] = useState<number[]>([]);
+  const [captainId, setCaptainId] = useState<number | null>(null);
+  const [wicketKeeperId, setWicketKeeperId] = useState<number | null>(null);
+
+  // Auto-fill all squad if empty
+  function handleAutoFill() {
+    const allIds = squad.map((p) => p.id);
+    const xi = allIds.slice(0, playingSquadSize);
+    const b = allIds.slice(playingSquadSize, playingSquadSize + benchSize);
+    setPlayingXi(xi);
+    setBench(b);
+    if (!captainId && xi.length > 0) setCaptainId(xi[0]!);
+    if (!wicketKeeperId && xi.length > 1) setWicketKeeperId(xi[1]!);
+  }
 
   function toggleXi(id: number) {
     setPlayingXi((prev) => {
       if (prev.includes(id)) {
         setBench((b) => b.filter((x) => x !== id));
+        if (captainId === id) setCaptainId(null);
+        if (wicketKeeperId === id) setWicketKeeperId(null);
         return prev.filter((x) => x !== id);
       }
       if (prev.length >= playingSquadSize) return prev;
@@ -475,81 +614,173 @@ function SquadLineupPicker({
     });
   }
 
+  const isComplete = playingXi.length === playingSquadSize;
+
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          XI {playingXi.length}/{playingSquadSize} · Bench {bench.length}/
-          {benchSize}
-        </span>
+    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <h2 className="text-base font-bold text-foreground">{title}</h2>
+          <p className="text-xs text-muted-foreground">
+            Select {playingSquadSize} playing players + tag Captain (C) & Keeper (WK)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-semibold gap-1 rounded-xl"
+            onClick={handleAutoFill}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            Auto-fill Squad
+          </Button>
+          <span
+            className={cn(
+              "text-xs font-bold tabular-nums px-2.5 py-1 rounded-full border",
+              isComplete
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : "bg-amber-500/15 text-amber-300 border-amber-500/30",
+            )}
+          >
+            {playingXi.length}/{playingSquadSize} Selected
+          </span>
+        </div>
       </div>
+
       {squad.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No eligible players for this team. Add players via Player Registry
-          first.
+        <p className="text-sm text-muted-foreground py-6 text-center">
+          No registered players for this team. Add players via Team Roster first.
         </p>
       ) : (
-        <ul className="max-h-56 overflow-y-auto space-y-1">
+        <ul className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
           {squad.map((p) => {
             const inXi = playingXi.includes(p.id);
             const onBench = bench.includes(p.id);
+            const isC = captainId === p.id;
+            const isWk = wicketKeeperId === p.id;
+
             return (
               <li
                 key={p.id}
-                className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/40"
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-2xl px-3 py-2 border transition-all",
+                  inXi
+                    ? "bg-primary/10 border-primary/30"
+                    : onBench
+                      ? "bg-muted/20 border-border/50"
+                      : "bg-card/40 border-border/40 hover:bg-card/70",
+                )}
               >
-                <label className="flex flex-1 items-center gap-2 cursor-pointer min-w-0">
+                <label className="flex flex-1 items-center gap-2.5 cursor-pointer min-w-0">
                   <Checkbox
                     checked={inXi}
                     onCheckedChange={() => toggleXi(p.id)}
                   />
-                  <ScoringPlayerLabel
+                  <ScoringPlayerAvatar
                     name={p.name}
                     photoUrl={p.photoUrl}
                     gender={p.gender}
-                    role={p.role}
-                  />
-                </label>
-                {!inXi ? (
-                  <Button
-                    type="button"
                     size="sm"
-                    variant={onBench ? "secondary" : "ghost"}
-                    className="h-8 text-xs shrink-0"
-                    onClick={() => toggleBench(p.id)}
-                  >
-                    {onBench ? "Bench" : "+Bench"}
-                  </Button>
-                ) : (
-                  <span className="text-[10px] uppercase text-primary font-medium px-1">
-                    XI
-                  </span>
-                )}
+                  />
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-foreground truncate">
+                      {p.name}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      {p.role ?? "Player"}
+                    </span>
+                  </div>
+                </label>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {inXi ? (
+                    <>
+                      {/* Captain Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setCaptainId(isC ? null : p.id)}
+                        className={cn(
+                          "w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center transition-all",
+                          isC
+                            ? "bg-amber-500 text-slate-950 shadow-sm"
+                            : "bg-muted/50 text-muted-foreground hover:text-foreground",
+                        )}
+                        title="Toggle Captain (C)"
+                      >
+                        C
+                      </button>
+
+                      {/* Wicketkeeper Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setWicketKeeperId(isWk ? null : p.id)}
+                        className={cn(
+                          "w-8 h-7 rounded-lg text-xs font-black flex items-center justify-center transition-all",
+                          isWk
+                            ? "bg-sky-500 text-white shadow-sm"
+                            : "bg-muted/50 text-muted-foreground hover:text-foreground",
+                        )}
+                        title="Toggle Wicketkeeper (WK)"
+                      >
+                        WK
+                      </button>
+
+                      <span className="text-[10px] uppercase text-primary font-bold px-2 py-0.5 rounded-full bg-primary/15 border border-primary/25 ml-1">
+                        {playingSquadSize === 11 ? "XI" : `P${playingSquadSize}`}
+                      </span>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={onBench ? "secondary" : "ghost"}
+                      className="h-7 text-xs font-semibold"
+                      onClick={() => toggleBench(p.id)}
+                    >
+                      {onBench ? "On Bench" : "+ Bench"}
+                    </Button>
+                  )}
+                </div>
               </li>
             );
           })}
         </ul>
       )}
+
       <Button
-        className="w-full h-11"
+        className="w-full h-12 font-bold text-sm sm:text-base rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
         disabled={busy || playingXi.length < 2}
-        onClick={() => void onConfirm(playingXi, bench, playingXi)}
+        onClick={() =>
+          void onConfirm(
+            playingXi,
+            bench,
+            playingXi,
+            captainId,
+            wicketKeeperId,
+          )
+        }
       >
-        Confirm squad ({playingXi.length} playing)
+        Confirm {playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`} ({playingXi.length} Selected)
       </Button>
     </section>
   );
 }
 
+/* ═════════════════════════════════════════════════════════ */
+/* ─── Openers Picker Step ─── */
+/* ═════════════════════════════════════════════════════════ */
 function OpenersPicker({
   teamId,
+  teamName,
   players,
   lineup,
   busy,
   onConfirm,
 }: {
   teamId: number;
+  teamName: string;
   players: CricketScorerPlayer[];
   lineup: number[];
   busy: boolean;
@@ -564,71 +795,113 @@ function OpenersPicker({
       .filter(Boolean) as CricketScorerPlayer[];
   }, [players, teamId, lineup]);
 
-  const [striker, setStriker] = useState<string>("");
-  const [nonStriker, setNonStriker] = useState<string>("");
+  const [striker, setStriker] = useState<number | null>(squad[0]?.id ?? null);
+  const [nonStriker, setNonStriker] = useState<number | null>(
+    squad[1]?.id ?? null,
+  );
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <h2 className="text-sm font-semibold">Opening batters</h2>
-      <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Striker</Label>
-        <Select value={striker} onValueChange={setStriker}>
-          <SelectTrigger className="h-11">
-            <SelectValue placeholder="Select striker" />
-          </SelectTrigger>
-          <SelectContent>
-            {squad.map((p) => (
-              <SelectItem
-                key={p.id}
-                value={String(p.id)}
-                disabled={nonStriker === String(p.id)}
-              >
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-5">
+      <div>
+        <h2 className="text-base font-bold text-foreground">Select Opening Batters</h2>
+        <p className="text-xs text-muted-foreground">
+          {teamName} · Choose who takes first strike (*) and non-striker
+        </p>
       </div>
-      <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Non-striker</Label>
-        <Select value={nonStriker} onValueChange={setNonStriker}>
-          <SelectTrigger className="h-11">
-            <SelectValue placeholder="Select non-striker" />
-          </SelectTrigger>
-          <SelectContent>
-            {squad.map((p) => (
-              <SelectItem
-                key={p.id}
-                value={String(p.id)}
-                disabled={striker === String(p.id)}
-              >
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Striker Picker Column */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            Striker (*) — Facing 1st Ball
+          </Label>
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            {squad.map((p) => {
+              const isSelected = striker === p.id;
+              const isOther = nonStriker === p.id;
+              return (
+                <div
+                  key={`striker-${p.id}`}
+                  onClick={() => !isOther && setStriker(p.id)}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer select-none",
+                    isSelected
+                      ? "bg-primary/20 border-primary text-primary font-bold shadow-sm"
+                      : isOther
+                        ? "opacity-35 pointer-events-none bg-muted/20 border-border/40"
+                        : "bg-card/40 border-border/60 hover:bg-card/80",
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ScoringPlayerAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
+                    <span className="text-sm truncate">{p.name}</span>
+                  </div>
+                  {isSelected ? <Check className="w-4 h-4 text-primary" /> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Non-Striker Picker Column */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Non-Striker (Runner End)
+          </Label>
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            {squad.map((p) => {
+              const isSelected = nonStriker === p.id;
+              const isOther = striker === p.id;
+              return (
+                <div
+                  key={`non-striker-${p.id}`}
+                  onClick={() => !isOther && setNonStriker(p.id)}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer select-none",
+                    isSelected
+                      ? "bg-muted border-foreground/40 text-foreground font-bold shadow-sm"
+                      : isOther
+                        ? "opacity-35 pointer-events-none bg-muted/20 border-border/40"
+                        : "bg-card/40 border-border/60 hover:bg-card/80",
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ScoringPlayerAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
+                    <span className="text-sm truncate">{p.name}</span>
+                  </div>
+                  {isSelected ? <Check className="w-4 h-4 text-foreground" /> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
+
       <Button
-        className="w-full h-11"
+        className="w-full h-12 font-bold text-sm sm:text-base rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
         disabled={busy || !striker || !nonStriker || striker === nonStriker}
-        onClick={() =>
-          onConfirm(parseInt(striker, 10), parseInt(nonStriker, 10))
-        }
+        onClick={() => striker && nonStriker && onConfirm(striker, nonStriker)}
       >
-        Confirm openers
+        Confirm Openers & Pick Bowler →
       </Button>
     </section>
   );
 }
 
+/* ═════════════════════════════════════════════════════════ */
+/* ─── Opening Bowler Picker Step ─── */
+/* ═════════════════════════════════════════════════════════ */
 function BowlerPicker({
   teamId,
+  teamName,
   players,
   lineup,
   busy,
   onSelect,
 }: {
   teamId: number;
+  teamName: string;
   players: CricketScorerPlayer[];
   lineup: number[];
   busy: boolean;
@@ -643,29 +916,52 @@ function BowlerPicker({
       .filter(Boolean) as CricketScorerPlayer[];
   }, [players, teamId, lineup]);
 
-  const [bowler, setBowler] = useState<string>("");
+  const [bowler, setBowler] = useState<number | null>(squad[0]?.id ?? null);
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <h2 className="text-sm font-semibold">Opening bowler</h2>
-      <Select value={bowler} onValueChange={setBowler}>
-        <SelectTrigger className="h-11">
-          <SelectValue placeholder="Select bowler" />
-        </SelectTrigger>
-        <SelectContent>
-          {squad.map((p) => (
-            <SelectItem key={p.id} value={String(p.id)}>
-              {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <section className="rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-5 sm:p-6 shadow-md space-y-5">
+      <div>
+        <h2 className="text-base font-bold text-foreground">Select Opening Bowler</h2>
+        <p className="text-xs text-muted-foreground">
+          {teamName} · Choose who bowls the 1st over
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+        {squad.map((p) => {
+          const isSelected = bowler === p.id;
+          return (
+            <div
+              key={p.id}
+              onClick={() => setBowler(p.id)}
+              className={cn(
+                "flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer select-none",
+                isSelected
+                  ? "bg-primary/20 border-primary text-primary font-bold shadow-sm"
+                  : "bg-card/40 border-border/60 hover:bg-card/80",
+              )}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ScoringPlayerAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm truncate">{p.name}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    {p.role ?? "Bowler"}
+                  </span>
+                </div>
+              </div>
+              {isSelected ? <Check className="w-4 h-4 text-primary shrink-0" /> : null}
+            </div>
+          );
+        })}
+      </div>
+
       <Button
-        className="w-full h-11"
+        className="w-full h-13 font-display font-black text-base rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-xl shadow-emerald-500/20 cursor-pointer transition-all active:scale-[0.98]"
         disabled={busy || !bowler}
-        onClick={() => onSelect(parseInt(bowler, 10))}
+        onClick={() => bowler && onSelect(bowler)}
       >
-        Confirm bowler
+        <span>🚀 Start Match & Go Live</span>
       </Button>
     </section>
   );

@@ -16,7 +16,7 @@ import {
   PageHeader,
   hubCardClass,
   hubPanelClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getScoringLeaderboard,

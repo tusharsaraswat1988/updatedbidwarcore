@@ -21,7 +21,7 @@ import {
   PageHeader,
   btnCompactClass,
   hubCardClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { TeamForm } from "@/components/team-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";

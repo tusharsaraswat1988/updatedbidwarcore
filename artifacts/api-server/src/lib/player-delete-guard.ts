@@ -3,6 +3,7 @@ import {
   auctionSessionsTable,
   bidsTable,
   playersTable,
+  scoringMatchPlayerStatsTable,
   type Player,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
@@ -17,12 +18,39 @@ const BLOCKED_AUCTION_STATUSES = new Set(["sold", "retained", "unsold"]);
 
 /**
  * Players tied to auction outcomes or an active auction block cannot be removed via registration delete.
+ * When called with allowAuctionStatus (e.g. from scoring roster), checks match stats instead.
  */
 export async function validatePlayerDeletable(
   tournamentId: number,
   player: Pick<Player, "id" | "status" | "teamId">,
+  options?: { allowAuctionStatus?: boolean },
 ): Promise<PlayerDeleteGuardResult> {
-  if (BLOCKED_AUCTION_STATUSES.has(player.status)) {
+  // Check if player has recorded match scorecard stats
+  try {
+    const [{ statsCount }] = await db
+      .select({ statsCount: sql<number>`cast(count(*) as int)` })
+      .from(scoringMatchPlayerStatsTable)
+      .where(
+        and(
+          eq(scoringMatchPlayerStatsTable.tournamentId, tournamentId),
+          eq(scoringMatchPlayerStatsTable.playerId, player.id),
+        ),
+      );
+
+    if (Number(statsCount) > 0) {
+      return {
+        ok: false,
+        status: 409,
+        code: "PLAYER_HAS_MATCH_STATS",
+        error:
+          "Cannot delete a player who has recorded match scorecard stats in this tournament.",
+      };
+    }
+  } catch {
+    // Scoring table may not have entries, proceed
+  }
+
+  if (!options?.allowAuctionStatus && BLOCKED_AUCTION_STATUSES.has(player.status)) {
     return {
       ok: false,
       status: 409,
@@ -31,18 +59,20 @@ export async function validatePlayerDeletable(
     };
   }
 
-  const [{ bidCount }] = await db
-    .select({ bidCount: sql<number>`cast(count(*) as int)` })
-    .from(bidsTable)
-    .where(and(eq(bidsTable.tournamentId, tournamentId), eq(bidsTable.playerId, player.id)));
+  if (!options?.allowAuctionStatus) {
+    const [{ bidCount }] = await db
+      .select({ bidCount: sql<number>`cast(count(*) as int)` })
+      .from(bidsTable)
+      .where(and(eq(bidsTable.tournamentId, tournamentId), eq(bidsTable.playerId, player.id)));
 
-  if (Number(bidCount) > 0) {
-    return {
-      ok: false,
-      status: 409,
-      code: "PLAYER_HAS_BIDS",
-      error: "Cannot delete a player who has bid history in this tournament.",
-    };
+    if (Number(bidCount) > 0) {
+      return {
+        ok: false,
+        status: 409,
+        code: "PLAYER_HAS_BIDS",
+        error: "Cannot delete a player who has bid history in this tournament.",
+      };
+    }
   }
 
   const [session] = await db

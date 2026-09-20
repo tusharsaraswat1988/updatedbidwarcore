@@ -107,35 +107,13 @@ export function RuntimePreparationCard({ tournamentId, onQuickPeek }: RuntimePre
     setLoading(true);
     setError("");
     try {
-      const listRes = await apiFetch(`/tournaments/${tournamentId}/runtime-matches`);
-      if (!listRes.ok) {
-        const body = await listRes.json().catch(() => ({}));
+      const res = await apiFetch(`/tournaments/${tournamentId}/runtime-matches/aggregate`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to load runtime matches");
       }
-      const { runtimeMatches } = (await listRes.json()) as {
-        runtimeMatches: RuntimeListItem[];
-      };
-
-      const loaded = await Promise.all(
-        runtimeMatches.map(async (list) => {
-          const base = `/tournaments/${tournamentId}/runtime-matches/${list.identity.id}`;
-          const [validationRes, snapshotRes] = await Promise.all([
-            apiFetch(`${base}/validation`),
-            apiFetch(`${base}/snapshot`),
-          ]);
-          if (!validationRes.ok || !snapshotRes.ok) {
-            throw new Error(`Failed to load runtime match ${list.identity.id}`);
-          }
-          const { validation } = (await validationRes.json()) as {
-            validation: RuntimeValidation;
-          };
-          const { snapshot } = (await snapshotRes.json()) as {
-            snapshot: RuntimeSnapshot | null;
-          };
-          return { list, validation, snapshot };
-        }),
-      );
-      setRows(loaded);
+      const { rows } = (await res.json()) as { rows: RuntimeRow[] };
+      setRows(rows ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load Runtime Preparation");
     } finally {

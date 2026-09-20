@@ -42,6 +42,29 @@ router.get("/tournaments/:tournamentId/scheduling", async (req, res) => {
   res.json({ identities });
 });
 
+/** GET /tournaments/:id/scheduling/aggregate — Fast bulk loader for tournament scheduling */
+router.get("/tournaments/:tournamentId/scheduling/aggregate", async (req, res) => {
+  const tid = parseTournamentId(req.params.tournamentId);
+  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  const identities = await listSchedulingIdentities(tid);
+  const rows = await Promise.all(
+    identities.map(async (identity) => {
+      const resolved = await resolveScheduling(tid, identity.id);
+      if (!resolved) return null;
+      const validation = await buildSchedulingValidation(tid, identity.id);
+      return {
+        identity: resolved.identity,
+        configuration: resolved.configuration,
+        lifecycle: resolved.lifecycle,
+        validation,
+        slots: resolved.slots,
+        assignmentCount: resolved.assignments.length,
+      };
+    }),
+  );
+  res.json({ rows: rows.filter(Boolean) });
+});
+
 router.get(
   "/tournaments/:tournamentId/scheduling/:schedulingId/identity",
   async (req, res) => {

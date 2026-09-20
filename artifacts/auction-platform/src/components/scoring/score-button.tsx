@@ -5,17 +5,20 @@ type ScoreButtonProps = {
   sublabel?: string;
   onClick: () => void;
   disabled?: boolean;
-  variant?: "default" | "run" | "extra" | "wicket" | "undo" | "muted";
+  variant?: "default" | "run" | "boundary" | "extra" | "wicket" | "undo" | "super_ball" | "active" | "muted";
   className?: string;
 };
 
 const variantClasses: Record<NonNullable<ScoreButtonProps["variant"]>, string> = {
-  default: "bg-card border-border text-foreground active:bg-muted",
-  run: "bg-primary/15 border-primary/40 text-primary active:bg-primary/25",
-  extra: "bg-primary/10 border-primary/30 text-primary active:bg-primary/20",
-  wicket: "bg-red-500/15 border-red-500/40 text-red-300 active:bg-red-500/25",
-  undo: "bg-muted/40 border-border text-muted-foreground active:bg-muted",
-  muted: "bg-muted/20 border-border/50 text-muted-foreground",
+  default: "bg-card/70 hover:bg-card border-border/80 text-foreground active:bg-muted shadow-sm",
+  run: "bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary active:bg-primary/25 shadow-sm",
+  boundary: "bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 text-emerald-400 active:bg-emerald-500/30 shadow-sm font-black",
+  extra: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300 active:bg-amber-500/25 shadow-sm",
+  wicket: "bg-red-500/15 hover:bg-red-500/25 border-red-500/40 text-red-400 active:bg-red-500/30 shadow-sm font-bold",
+  undo: "bg-muted/30 hover:bg-muted/50 border-border/70 text-muted-foreground hover:text-foreground active:bg-muted shadow-sm",
+  super_ball: "bg-gradient-to-br from-amber-400/20 via-yellow-500/20 to-amber-600/20 hover:from-amber-400/30 hover:to-amber-600/30 border-amber-400/60 text-amber-300 shadow-md shadow-amber-500/10 active:scale-[0.98] font-bold",
+  active: "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20",
+  muted: "bg-muted/15 border-border/40 text-muted-foreground",
 };
 
 export function ScoreButton({

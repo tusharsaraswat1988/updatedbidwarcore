@@ -5,13 +5,13 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
-import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
+  CricketOrganizerPageShell,
   BtnPrimary,
   BtnSecondary,
   PageHeader,
   btnCompactClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

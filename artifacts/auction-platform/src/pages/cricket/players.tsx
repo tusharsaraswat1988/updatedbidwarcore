@@ -36,7 +36,7 @@ import {
   hubCardClass,
   hubPanelClass,
   inputClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { formatPlayerGender } from "@/components/player-gender-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -50,7 +50,18 @@ import {
   shouldShowOrganizerCategoryControls,
 } from "@workspace/api-base/player-registration-mode";
 import { PlayerCategorySelect } from "@/components/player-category-select";
-import { Pencil, Plus, Upload, UserRound, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Pencil, Plus, Trash2, Upload, UserMinus, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ROLES = [
@@ -179,6 +190,9 @@ export default function CricketPlayersPage() {
   const [assignTeamId, setAssignTeamId] = useState("");
   const [assignError, setAssignError] = useState("");
   const [assignBusy, setAssignBusy] = useState(false);
+  const [playerToDelete, setPlayerToDelete] = useState<Player | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [unassignBusy, setUnassignBusy] = useState(false);
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -411,9 +425,7 @@ export default function CricketPlayersPage() {
       await updatePlayer.mutateAsync({
         tournamentId,
         playerId: assignPlayer.id,
-        data: scoringMode
-          ? { teamId: nextTeamId }
-          : { teamId: nextTeamId, status: "sold" },
+        data: { teamId: nextTeamId },
       });
       await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
       toast({
@@ -426,6 +438,64 @@ export default function CricketPlayersPage() {
       setAssignError(err instanceof Error ? err.message : "Could not update team");
     } finally {
       setAssignBusy(false);
+    }
+  }
+
+  async function handleUnassignTeam() {
+    if (!assignPlayer) return;
+    setAssignBusy(true);
+    setAssignError("");
+    try {
+      await updatePlayer.mutateAsync({
+        tournamentId,
+        playerId: assignPlayer.id,
+        data: { teamId: null, status: "available" },
+      });
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      toast({
+        title: "Removed from squad",
+        description: `${assignPlayer.name} moved to unassigned pool.`,
+      });
+      setAssignPlayer(null);
+      setAssignTeamId("");
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "Could not unassign team");
+    } finally {
+      setAssignBusy(false);
+    }
+  }
+
+  async function handleDeletePlayer(player: Player) {
+    setDeleteBusy(true);
+    try {
+      const res = await fetch(
+        `/api/tournaments/${tournamentId}/players/${player.id}?context=scoring`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Could not delete player");
+      }
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      toast({
+        title: "Player deleted",
+        description: `${player.name} was removed from the roster.`,
+      });
+      setPlayerToDelete(null);
+      if (editing?.id === player.id) {
+        closeForm();
+      }
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : "Could not delete player",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -475,11 +545,9 @@ export default function CricketPlayersPage() {
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle && form.bowlingStyle !== "None" ? form.bowlingStyle : undefined,
       teamId: assignedTeamId,
-      ...(assignedTeamId
-        ? (scoringMode ? { status: "available" as const } : { status: "sold" as const })
-        : { status: "available" as const }),
+      ...(editing ? {} : { status: "available" as const }),
       ...(showCategoryControls
-        ? { categoryId: form.categoryId ? Number(form.categoryId) : null }
+        ? { categoryId: form.categoryId ? Number(form.categoryId) : undefined }
         : {}),
     };
 
@@ -819,10 +887,19 @@ export default function CricketPlayersPage() {
                                       onClick={() => openAssignTeam(p)}
                                     >
                                       {p.teamId != null
-                                        ? "Re-assign to different team"
+                                        ? "Re-assign team"
                                         : "Assign team"}
                                     </BtnSecondary>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setPlayerToDelete(p)}
+                                    className="h-7 w-full flex items-center justify-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 text-[10px] font-medium text-destructive hover:bg-destructive/20 hover:border-destructive/50 transition-colors"
+                                    title="Delete Player"
+                                  >
+                                    <Trash2 className="w-3 h-3 shrink-0" />
+                                    <span>Delete</span>
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -845,13 +922,29 @@ export default function CricketPlayersPage() {
           onClose={closeForm}
           size="lg"
           footer={
-            <FormActions
-              onCancel={closeForm}
-              onSubmit={() => void handleSave()}
-              submitLabel={saving ? "Saving…" : editing ? "Update player" : "Save player"}
-              saving={saving}
-              disabled={saving}
-            />
+            <div className="flex items-center justify-between w-full gap-3">
+              {editing ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setPlayerToDelete(editing);
+                  }}
+                  className="gap-1.5 text-xs h-9"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete Player
+                </Button>
+              ) : <div />}
+              <FormActions
+                onCancel={closeForm}
+                onSubmit={() => void handleSave()}
+                submitLabel={saving ? "Saving…" : editing ? "Update player" : "Save player"}
+                saving={saving}
+                disabled={saving}
+              />
+            </div>
           }
         >
           <div className="space-y-3">
@@ -984,6 +1077,17 @@ export default function CricketPlayersPage() {
           }
         >
           <div className="space-y-3">
+            {assignPlayer.teamId != null ? (
+              <button
+                type="button"
+                disabled={assignBusy || unassignBusy}
+                onClick={() => void handleUnassignTeam()}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
+              >
+                <UserMinus className="w-3.5 h-3.5" />
+                Remove from squad (Move to unassigned)
+              </button>
+            ) : null}
             <FormField label="Team" required>
               <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                 {teams.map((t) => {
@@ -1022,6 +1126,30 @@ export default function CricketPlayersPage() {
           </div>
         </FormModal>
       ) : null}
+
+      <AlertDialog open={!!playerToDelete} onOpenChange={(open) => !open && setPlayerToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {playerToDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this player from the tournament roster? This will remove their scoring roster profile and squad assignment. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteBusy}
+              onClick={(e) => {
+                e.preventDefault();
+                if (playerToDelete) void handleDeletePlayer(playerToDelete);
+              }}
+            >
+              {deleteBusy ? "Deleting…" : "Delete Player"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CricketOrganizerPageShell>
   );
 }

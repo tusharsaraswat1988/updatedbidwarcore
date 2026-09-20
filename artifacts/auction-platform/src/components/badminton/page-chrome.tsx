@@ -3,11 +3,8 @@ import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { BtnPrimary, hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
-import { TeamPlayerCard } from "@/components/badminton/team-player-card";
 import { useBadmintonBidWarTheme } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
-import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
-import { badmintonMatchControlPath, badmintonScorerMatchPath } from "@/lib/badminton-routes";
 
 
 
@@ -71,68 +68,41 @@ const BIDWAR_HOME_URL = "https://bidwar.in/";
 
 /** Auction-style page header for badminton hub pages */
 
+import { useInSportsShell } from "@/components/sports-shell/sports-shell";
+
 export function PageHeader({
-
   title,
-
   subtitle,
-
   actions,
-
   eyebrow,
-
   badge,
-
   tournamentId,
-
   showBrandMark = true,
-
 }: {
-
   title: string;
-
   subtitle?: string;
-
   actions?: React.ReactNode;
-
   /** @deprecated Use BadmintonHubNav back link instead */
-
   backHref?: string;
-
   /** Fallback label when tournament name is unavailable. Prefer `tournamentId`. */
-
   eyebrow?: string;
-
   badge?: string;
-
   /** When set, eyebrow shows the tournament display name. */
-
   tournamentId?: number;
-
-  /** Centered BidWar logo — on for every hub tab/menu page. */
-
+  /** Centered BidWar logo — on for standalone hub tab/menu page, auto-hidden in SportsShell. */
   showBrandMark?: boolean;
-
 }) {
-
+  const inShell = useInSportsShell();
   const { brandName, logoSrc, logoAlt } = useBadmintonBidWarTheme();
-
   const { data: branding } = useBadmintonBranding(tournamentId ?? 0);
-
   const tournamentName = branding?.displayName?.trim();
-
   const eyebrowLabel = tournamentName || eyebrow;
-
-
+  const shouldShowBrand = showBrandMark && !inShell;
 
   return (
-
     <div className="border-b border-border px-6 py-5 sm:py-6">
-
       <div className="max-w-7xl mx-auto space-y-4">
-
-        {showBrandMark && logoSrc ? (
-
+        {shouldShowBrand && logoSrc ? (
           <div className="flex justify-center">
 
             <a

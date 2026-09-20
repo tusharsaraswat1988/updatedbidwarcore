@@ -511,6 +511,7 @@ export async function createOrganizerTournament(data: {
   presentationProfileId?: string; presentationProfileVersion?: string;
   registrationDeadline?: string; registrationLimit?: number;
   enableRegistrationPayment?: boolean; registrationFee?: number;
+  scoringEnabled?: boolean; playerRegistrationMode?: string;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {

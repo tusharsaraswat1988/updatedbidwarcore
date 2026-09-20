@@ -8,7 +8,6 @@ import {
 } from "@workspace/api-client-react";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
-import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +59,8 @@ interface SportsShellProps {
   /** Remove default padding so the child owns layout (e.g. dense operator views). */
   noPadding?: boolean;
   className?: string;
+  /** Optional custom title override */
+  title?: string;
 }
 
 function SidebarAccountFooter({
@@ -388,6 +389,7 @@ export function SportsShell({
   nav,
   noPadding,
   className,
+  title,
 }: SportsShellProps) {
   const [location] = useLocation();
   const search = useSearch();
@@ -401,11 +403,8 @@ export function SportsShell({
     cldUrl(logos.mini, "headerLogo") ||
     getBrandLogoSrc(logos, sidebarPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
-  const isBadminton = nav.sportId === "badminton";
 
-  // Badminton: sidebar title from badminton branding only (shared intentionally).
-  const { data: badmintonBranding } = useBadmintonBranding(isBadminton ? tournamentId : 0);
-  // Tournament row for title (non-badminton) + scoring gate (all sports in this shell).
+  // Tournament row for title + scoring gate (all sports in this shell).
   const { data: tournament, isPending: tournamentPending } = useGetTournament(tournamentId, {
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
@@ -415,7 +414,7 @@ export function SportsShell({
     },
   });
   const tournamentTitle =
-    (isBadminton ? badmintonBranding?.displayName : tournament?.name)?.trim() || "Tournament";
+    (title ?? tournament?.name)?.trim() || "Tournament";
   const localVenue = isBidWarLocalHost();
   const sportForGate = tournament?.sport ?? nav.sportId;
   const scoringDisabled =
@@ -446,6 +445,8 @@ export function SportsShell({
       return new Set([activeParent.id]);
     });
   }, [nav, pathForActive, tournamentId]);
+
+
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");

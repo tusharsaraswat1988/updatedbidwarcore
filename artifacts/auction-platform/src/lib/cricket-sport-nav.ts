@@ -1,5 +1,6 @@
 import {
   Award,
+  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   ListOrdered,
@@ -90,6 +91,14 @@ function preloadNav(id: string) {
   void loader();
 }
 
+/** Preload all cricket organizer route chunks in background idle time */
+export function preloadAllCricketChunks() {
+  const ids = Object.keys(PRELOAD);
+  for (const id of ids) {
+    preloadNav(id);
+  }
+}
+
 /**
  * Primary cricket organizer destinations — Sports product.
  * Teams / Players live here (import from Auction or add manually), like badminton.
@@ -97,15 +106,15 @@ function preloadNav(id: string) {
 export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   {
     id: "mission-control",
-    label: "Tournament Dashboard",
+    label: "Setup & Readiness",
     href: sportsMissionControlPath,
     isActive: (path, tid) => isMissionControlPath(path, tid),
-    icon: ClipboardList,
+    icon: ClipboardCheck,
     preload: () => preloadNav("missionControl"),
   },
   {
     id: "dashboard",
-    label: "Dashboard",
+    label: "Match Dashboard",
     href: cricketDashboardPath,
     isActive: (path) => isDashboardPath(path),
     icon: LayoutDashboard,

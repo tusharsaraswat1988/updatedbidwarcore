@@ -16,7 +16,7 @@ import {
   HubSectionHeader,
   PageHeader,
   hubCardClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

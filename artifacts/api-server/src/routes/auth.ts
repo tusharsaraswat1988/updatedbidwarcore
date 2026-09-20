@@ -1633,6 +1633,8 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     registrationLimit: z.number().int().min(0).nullable().optional(),
     enableRegistrationPayment: z.boolean().optional(),
     registrationFee: z.number().int().min(0).nullable().optional(),
+    scoringEnabled: z.boolean().optional(),
+    playerRegistrationMode: z.string().optional(),
   }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -1690,6 +1692,8 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     auctionCode = buildOrgCode(d.name, d.auctionDate);
   }
 
+  const isScoringActive = d.scoringEnabled ?? (!needsAuctionEconomics && !!catalogBindings.columns.competitionTypeId);
+
   const [tournament] = await db.insert(tournamentsTable).values({
     organizerId: organizer.id,
     name: d.name,
@@ -1716,6 +1720,9 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     registrationLimit: d.registrationLimit ?? null,
     enableRegistrationPayment: d.enableRegistrationPayment ?? false,
     registrationFee: d.registrationFee ?? null,
+    playerRegistrationMode: d.playerRegistrationMode ?? (isScoringActive && !needsAuctionEconomics ? "scoring" : "auction"),
+    scoringEnabled: isScoringActive,
+    scoringPhase: isScoringActive ? "active" : "disabled",
     licenseStatus: "trial",
     variantId: catalogBindings.columns.variantId,
     competitionTypeId: catalogBindings.columns.competitionTypeId,

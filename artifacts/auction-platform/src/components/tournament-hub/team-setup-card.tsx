@@ -68,39 +68,13 @@ export function TeamSetupCard({ tournamentId, onQuickPeek }: TeamSetupCardProps)
     setLoading(true);
     setError("");
     try {
-      const idRes = await apiFetch(`/tournaments/${tournamentId}/teams/identities`);
-      if (!idRes.ok) {
-        const body = await idRes.json().catch(() => ({}));
+      const res = await apiFetch(`/tournaments/${tournamentId}/teams/aggregate`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to load teams");
       }
-      const { identities } = (await idRes.json()) as { identities: TeamIdentity[] };
-
-      const loaded = await Promise.all(
-        identities.map(async (identity) => {
-          const [configRes, membersRes, validationRes] = await Promise.all([
-            apiFetch(`/tournaments/${tournamentId}/teams/${identity.id}/configuration`),
-            apiFetch(`/tournaments/${tournamentId}/teams/${identity.id}/members`),
-            apiFetch(`/tournaments/${tournamentId}/teams/${identity.id}/validation`),
-          ]);
-          if (!configRes.ok || !membersRes.ok || !validationRes.ok) {
-            throw new Error(`Failed to load team ${identity.id}`);
-          }
-          const { configuration } = (await configRes.json()) as {
-            configuration: TeamConfiguration;
-          };
-          const { members } = (await membersRes.json()) as { members: unknown[] };
-          const { validation } = (await validationRes.json()) as {
-            validation: TeamValidation;
-          };
-          return {
-            identity,
-            configuration,
-            validation,
-            memberCount: members.length,
-          };
-        }),
-      );
-      setRows(loaded);
+      const { rows } = (await res.json()) as { rows: TeamRow[] };
+      setRows(rows ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load Team Setup");
     } finally {

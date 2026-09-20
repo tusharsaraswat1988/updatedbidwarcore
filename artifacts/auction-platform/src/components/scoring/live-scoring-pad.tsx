@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
-import { availableDismissalTypes } from "@workspace/scoring-core";
+import { availableDismissalTypes, FREE_HIT_DISMISSALS } from "@workspace/scoring-core";
 import { ScoreButton } from "@/components/scoring/score-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import {
   getActiveInnings,
@@ -32,8 +33,19 @@ import {
   suggestInningsEndReason,
 } from "@/lib/scoring-match-logic";
 import { Input } from "@/components/ui/input";
-import { CloudRain } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeftRight,
+  Check,
+  CloudRain,
+  RotateCcw,
+  Sparkles,
+  Star,
+  UserCheck,
+  Zap,
+} from "lucide-react";
 import type { ScoringMatchRulesJson } from "@/lib/scoring-api";
+import { cn } from "@/lib/utils";
 
 type WicketType =
   | "bowled"
@@ -52,8 +64,10 @@ type BallInput = {
   wicket: {
     type: WicketType;
     dismissedPlayerId: number;
+    fielderId?: number;
   } | null;
   isLegalDelivery: boolean;
+  isSuperBall?: boolean;
 };
 
 type LiveScoringPadProps = {
@@ -74,12 +88,13 @@ type LiveScoringPadProps = {
   onMatchComplete: (payload: Record<string, unknown>) => Promise<void>;
   onBowlerChange: (bowlerId: number) => void;
   onNewBatsman: (playerId: number) => void;
+  onSwapStrike?: () => void;
   pendingNewBatsman: boolean;
   localStrikerId: number | null;
   localNonStrikerId: number | null;
 };
 
-function useDebounceTap(ms = 500) {
+function useDebounceTap(ms = 400) {
   const last = useRef(0);
   return useCallback(() => {
     const now = Date.now();
@@ -103,11 +118,13 @@ export function LiveScoringPad({
   onMatchComplete,
   onBowlerChange,
   onNewBatsman,
+  onSwapStrike,
   pendingNewBatsman,
   localStrikerId,
   localNonStrikerId,
 }: LiveScoringPadProps) {
   const lbwEnabled = rules?.lbwEnabled !== false;
+  const legByeEnabled = rules?.legByeEnabled !== false;
   const freeHitEnabled = rules?.freeHitEnabled !== false;
   const superBallEnabled = rules?.superBallEnabled === true;
   const superOverEnabled = rules?.superOverEnabled !== false;
@@ -115,28 +132,50 @@ export function LiveScoringPad({
     typeof rules?.retireAtRuns === "number" ? rules.retireAtRuns : null;
   const dismissalOptions = availableDismissalTypes(lbwEnabled) as WicketType[];
 
-  // Local batter runs accumulator for retire-at-N prompts (existing Retire sheet UX).
+  // Local batter runs accumulator for retire-at-N prompts.
   const [batterRuns, setBatterRuns] = useState<Record<number, number>>({});
-  const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<
-    number | null
-  >(null);
+  const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<number | null>(null);
+
+  // Super ball local intent toggle
+  const [localSuperBallArmed, setLocalSuperBallArmed] = useState(false);
 
   useEffect(() => {
     // Reset when innings changes.
     setBatterRuns({});
     setRetirePromptPlayerId(null);
+    setLocalSuperBallArmed(false);
   }, [state.currentInnings]);
+
   const canTap = useDebounceTap();
   const innings = getActiveInnings(state);
+
+  // Modals / Sheets
   const [wicketSheet, setWicketSheet] = useState(false);
-  const [runOutPick, setRunOutPick] = useState(false);
+  const [selectedWicketType, setSelectedWicketType] = useState<WicketType | null>(null);
+  const [runOutWho, setRunOutWho] = useState<"striker" | "non_striker">("striker");
+  const [runOutRunsCompleted, setRunOutRunsCompleted] = useState<number>(0);
+  const [selectedFielderId, setSelectedFielderId] = useState<number | null>(null);
+
+  const [wideSheet, setWideSheet] = useState(false);
+  const [noBallSheet, setNoBallSheet] = useState(false);
+  const [byeSheet, setByeSheet] = useState(false);
+  const [legByeSheet, setLegByeSheet] = useState(false);
+  const [customRunsSheet, setCustomRunsSheet] = useState(false);
+  const [customRunsValue, setCustomRunsValue] = useState("5");
+
   const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
+  const [overEndPrompt, setOverEndPrompt] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
   const [dlsSheet, setDlsSheet] = useState(false);
   const [revisedOvers, setRevisedOvers] = useState("15");
 
   const isPaused = state.sessionStatus === "paused";
+
+  const isSuperBallActive =
+    localSuperBallArmed ||
+    (!!state.superBallPending &&
+      state.superBallPending.innings === state.currentInnings);
 
   const dlsPreview = useMemo(() => {
     const overs = parseInt(revisedOvers, 10);
@@ -185,6 +224,7 @@ export function LiveScoringPad({
       .filter(Boolean) as CricketScorerPlayer[];
   }, [players, bowlingId, state.lineups]);
 
+  // Record a ball delivery
   async function recordBall(input: BallInput) {
     if (
       !canTap() ||
@@ -201,6 +241,8 @@ export function LiveScoringPad({
       ? nextLegalBallPosition(innings)
       : illegalBallPosition(innings);
 
+    const isSuperBall = input.isSuperBall ?? isSuperBallActive;
+
     await onBall({
       innings: state.currentInnings,
       over: pos.over,
@@ -212,7 +254,12 @@ export function LiveScoringPad({
       extras: input.extras,
       wicket: input.wicket,
       isLegalDelivery: input.isLegalDelivery,
+      isSuperBall,
     });
+
+    if (localSuperBallArmed) {
+      setLocalSuperBallArmed(false);
+    }
 
     if (input.wicket) {
       onNewBatsman(-1);
@@ -222,8 +269,9 @@ export function LiveScoringPad({
         return next;
       });
     } else if (input.runsOffBat > 0 && strikerId) {
+      const addedRuns = isSuperBall ? input.runsOffBat * 2 : input.runsOffBat;
       setBatterRuns((prev) => {
-        const nextRuns = (prev[strikerId] ?? 0) + input.runsOffBat;
+        const nextRuns = (prev[strikerId] ?? 0) + addedRuns;
         const updated = { ...prev, [strikerId]: nextRuns };
         if (retireAtRuns != null && nextRuns >= retireAtRuns) {
           setRetirePromptPlayerId(strikerId);
@@ -232,27 +280,193 @@ export function LiveScoringPad({
         return updated;
       });
     }
+
+    // Check if over completed (legal ball 6) to trigger new bowler prompt
+    if (input.isLegalDelivery && pos.ball === 6) {
+      setOverEndPrompt(true);
+    }
   }
 
-  async function recordWicket(
-    type: BallInput["wicket"] extends infer W
-      ? W extends { type: infer T }
-        ? T
-        : never
-      : never,
-    dismissedPlayerId?: number,
-  ) {
-    const outId = dismissedPlayerId ?? strikerId;
+  // Wicket submission helper
+  async function submitWicket() {
+    if (!selectedWicketType) return;
+    let outId = strikerId;
+    let runsOffBat = 0;
+
+    if (selectedWicketType === "run_out") {
+      outId = runOutWho === "non_striker" ? nonStrikerId : strikerId;
+      runsOffBat = runOutRunsCompleted;
+    }
+
     if (!outId) return;
+
     setWicketSheet(false);
-    setRunOutPick(false);
+    const wicketType = selectedWicketType;
+    const fielderId = selectedFielderId ?? undefined;
+
+    // Reset picker state
+    setSelectedWicketType(null);
+    setSelectedFielderId(null);
+    setRunOutRunsCompleted(0);
+
     await recordBall({
-      runsOffBat: 0,
+      runsOffBat,
       extras: { type: null, runs: 0 },
-      wicket: { type, dismissedPlayerId: outId },
+      wicket: {
+        type: wicketType,
+        dismissedPlayerId: outId,
+        fielderId,
+      },
       isLegalDelivery: true,
     });
   }
+
+  // Super Ball Toggle
+  async function handleToggleSuperBall() {
+    if (!superBallEnabled || !battingId || busy) return;
+    if (state.superBallPending) {
+      setLocalSuperBallArmed(false);
+      return;
+    }
+    if (!localSuperBallArmed) {
+      setLocalSuperBallArmed(true);
+      await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
+        innings: state.currentInnings,
+        battingTeamId: battingId,
+      });
+    } else {
+      setLocalSuperBallArmed(false);
+    }
+  }
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Don't intercept when typing in inputs or when dialogs are open
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        wicketSheet ||
+        wideSheet ||
+        noBallSheet ||
+        byeSheet ||
+        legByeSheet ||
+        customRunsSheet ||
+        bowlerSheet ||
+        retireSheet ||
+        dlsSheet ||
+        secondaryOpen ||
+        busy ||
+        pendingNewBatsman
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+        case "0":
+          void recordBall({
+            runsOffBat: 0,
+            extras: { type: null, runs: 0 },
+            wicket: null,
+            isLegalDelivery: true,
+          });
+          break;
+        case "1":
+          void recordBall({
+            runsOffBat: 1,
+            extras: { type: null, runs: 0 },
+            wicket: null,
+            isLegalDelivery: true,
+          });
+          break;
+        case "2":
+          void recordBall({
+            runsOffBat: 2,
+            extras: { type: null, runs: 0 },
+            wicket: null,
+            isLegalDelivery: true,
+          });
+          break;
+        case "3":
+          void recordBall({
+            runsOffBat: 3,
+            extras: { type: null, runs: 0 },
+            wicket: null,
+            isLegalDelivery: true,
+          });
+          break;
+        case "4":
+          void recordBall({
+            runsOffBat: 4,
+            extras: { type: null, runs: 0 },
+            wicket: null,
+            isLegalDelivery: true,
+          });
+          break;
+        case "6":
+          void recordBall({
+            runsOffBat: 6,
+            extras: { type: null, runs: 0 },
+            wicket: null,
+            isLegalDelivery: true,
+          });
+          break;
+        case "w":
+        case "W":
+          setWideSheet(true);
+          break;
+        case "n":
+        case "N":
+          setNoBallSheet(true);
+          break;
+        case "b":
+        case "B":
+          setByeSheet(true);
+          break;
+        case "l":
+        case "L":
+          if (legByeEnabled) setLegByeSheet(true);
+          break;
+        case "k":
+        case "K":
+        case "x":
+        case "X":
+          setSelectedWicketType(null);
+          setWicketSheet(true);
+          break;
+        case "u":
+        case "U":
+          if (canTap()) void onUndo();
+          break;
+        case "s":
+        case "S":
+          if (onSwapStrike && canTap()) onSwapStrike();
+          break;
+        default:
+          break;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    busy,
+    pendingNewBatsman,
+    wicketSheet,
+    wideSheet,
+    noBallSheet,
+    byeSheet,
+    legByeSheet,
+    customRunsSheet,
+    bowlerSheet,
+    retireSheet,
+    dlsSheet,
+    secondaryOpen,
+    canTap,
+    onUndo,
+    onSwapStrike,
+    legByeEnabled,
+  ]);
 
   if (
     !innings ||
@@ -285,10 +499,10 @@ export function LiveScoringPad({
     : null;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col space-y-3">
       {isPaused ? (
-        <div className="mx-4 mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 flex items-center gap-2 text-sm text-sky-100">
-          <CloudRain className="w-4 h-4 shrink-0" />
+        <div className="mx-4 mt-2 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3.5 py-2.5 flex items-center gap-2 text-sm text-sky-100">
+          <CloudRain className="w-4 h-4 shrink-0 text-sky-300" />
           <span>
             Rain delay
             {state.interruptionReason ? ` — ${state.interruptionReason}` : ""}.
@@ -296,49 +510,76 @@ export function LiveScoringPad({
           </span>
         </div>
       ) : null}
-      {/* Scoreboard strip */}
-      <div className="px-4 py-3 border-b border-border/60 bg-card/50">
+
+      {/* Super Ball Banner */}
+      {isSuperBallActive ? (
+        <div className="mx-3 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 px-3.5 py-2 flex items-center justify-between text-xs font-bold text-amber-300 shadow-sm animate-pulse">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+            <span>⭐ SUPER BALL ACTIVE: ALL runs on next ball are DOUBLED (2x)!</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLocalSuperBallArmed(false)}
+            className="text-[10px] uppercase font-bold text-muted-foreground hover:text-amber-200 ml-2"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {/* Free Hit Banner */}
+      {state.freeHitActive ? (
+        <div className="mx-3 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-3.5 py-2 flex items-center gap-2 text-xs font-bold text-emerald-300 shadow-sm">
+          <Zap className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+          <span>⚡ FREE HIT ACTIVE: Batter can only be out via Run Out!</span>
+        </div>
+      ) : null}
+
+      {/* ─── Scoreboard Strip ─── */}
+      <div className="px-4 py-3.5 rounded-2xl border border-border/70 bg-card/60 shadow-sm space-y-3">
         {retireAtRuns != null ? (
-          <p className="text-xs text-muted-foreground mb-2">
-            Retire at {retireAtRuns} runs
-            {strikerId && batterRuns[strikerId] != null
-              ? ` · Striker ${batterRuns[strikerId]}/${retireAtRuns}`
-              : ""}
-          </p>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Retire limit: {retireAtRuns} runs per batter</span>
+            {strikerId && batterRuns[strikerId] != null ? (
+              <span className="font-semibold text-amber-400">
+                Striker {batterRuns[strikerId]}/{retireAtRuns}
+              </span>
+            ) : null}
+          </div>
         ) : null}
-        {!lbwEnabled ? (
-          <p className="text-xs text-muted-foreground mb-2">
-            LBW disabled by match policy
-          </p>
-        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">
-              Inn {state.currentInnings}
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Innings {state.currentInnings}
               {state.target ? ` · Target ${state.target}` : ""}
-              {state.freeHitActive ? (
-                <span className="ml-2 text-primary font-semibold">
-                  FREE HIT
-                </span>
-              ) : null}
             </p>
-            <p className="text-3xl font-bold tabular-nums tracking-tight">
-              {innings.runs}/{innings.wickets}
-              <span className="text-lg text-muted-foreground font-normal ml-2">
-                ({oversText(innings.over, innings.ball)})
+            <p className="text-3xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground flex items-baseline gap-2">
+              <span>{innings.runs}/{innings.wickets}</span>
+              <span className="text-base sm:text-lg text-muted-foreground font-semibold">
+                ({oversText(innings.over, innings.ball)} / {state.oversLimit} ov)
               </span>
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              RR {rr}
-              {req ? ` · RRR ${req}` : ""}
-            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+              <span>CRR: <strong className="text-foreground">{rr}</strong></span>
+              {req ? (
+                <>
+                  <span>•</span>
+                  <span>RRR: <strong className="text-amber-400">{req}</strong></span>
+                  <span>•</span>
+                  <span>Need <strong className="text-foreground">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-foreground">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}</strong> balls</span>
+                </>
+              ) : null}
+            </div>
           </div>
+
           <div className="text-right text-xs space-y-1 shrink-0">
             <p
-              className="font-medium truncate max-w-[8rem]"
+              className="font-bold text-sm truncate max-w-[8rem]"
               style={{ color: battingTeam?.color ?? undefined }}
             >
-              {battingTeam?.shortCode ?? "BAT"}
+              {battingTeam?.shortCode ?? "BAT"} 🏏
             </p>
             <p className="text-muted-foreground truncate max-w-[8rem]">
               vs {bowlingTeam?.shortCode ?? "BOWL"}
@@ -346,44 +587,127 @@ export function LiveScoringPad({
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg bg-muted/30 px-2.5 py-2">
-            <span className="text-muted-foreground">Striker </span>
-            <span className="font-medium">
-              {playerNameById(players, strikerId)} *
-            </span>
+        {/* ─── Crease / Batters & Bowler Card ─── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-border/40 text-xs">
+          {/* Striker */}
+          <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/30 px-3 py-2">
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-primary tracking-wider flex items-center gap-1">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                Striker *
+              </span>
+              <p className="font-bold text-foreground text-sm truncate mt-0.5">
+                {playerNameById(players, strikerId) || "Select Striker"}
+              </p>
+            </div>
+            {strikerId && batterRuns[strikerId] != null ? (
+              <span className="text-xs font-bold text-primary tabular-nums">
+                {batterRuns[strikerId]} runs
+              </span>
+            ) : null}
           </div>
-          <div className="rounded-lg bg-muted/30 px-2.5 py-2">
-            <span className="text-muted-foreground">Non-str </span>
-            <span className="font-medium">
-              {playerNameById(players, nonStrikerId)}
-            </span>
+
+          {/* Non-Striker & Swap Button */}
+          <div className="flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-3 py-2">
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                Non-Striker
+              </span>
+              <p className="font-semibold text-foreground text-sm truncate mt-0.5">
+                {playerNameById(players, nonStrikerId) || "Select Non-Striker"}
+              </p>
+            </div>
+            {onSwapStrike ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-bold text-muted-foreground hover:text-primary gap-1"
+                onClick={onSwapStrike}
+                title="Swap Strike (S)"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                Swap
+              </Button>
+            ) : null}
+          </div>
+
+          {/* Active Bowler */}
+          <div className="flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-3 py-2">
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                Bowler
+              </span>
+              <p className="font-semibold text-foreground text-sm truncate mt-0.5">
+                {playerNameById(players, activeBowlerId) || "Select Bowler"}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+              onClick={() => setBowlerSheet(true)}
+            >
+              Change
+            </Button>
           </div>
         </div>
 
-        {state.thisOver.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {state.thisOver.map((b, i) => (
-              <span
-                key={`${b.over}-${b.ball}-${i}`}
-                className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-muted text-xs font-bold tabular-nums"
-              >
-                {b.label}
+        {/* ─── This Over Ball Strip ─── */}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">
+            This Over:
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
+            {state.thisOver.length > 0 ? (
+              state.thisOver.map((b, i) => {
+                const isW = b.isWicket;
+                const isFour = b.runsOffBat === 4 || b.runsOffBat === 8;
+                const isSix = b.runsOffBat === 6 || b.runsOffBat === 12;
+                const isExt = !!b.extrasType;
+                return (
+                  <span
+                    key={`${b.over}-${b.ball}-${i}`}
+                    className={cn(
+                      "inline-flex h-7 min-w-7 px-1.5 items-center justify-center rounded-lg text-xs font-bold tabular-nums shadow-sm border",
+                      isW
+                        ? "bg-red-500/20 border-red-500/40 text-red-300"
+                        : isSix
+                          ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                          : isFour
+                            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                            : isExt
+                              ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                              : "bg-muted/50 border-border text-foreground",
+                    )}
+                  >
+                    {b.label}
+                  </span>
+                );
+              })
+            ) : (
+              <span className="text-xs text-muted-foreground italic">
+                Over started
               </span>
-            ))}
+            )}
           </div>
-        ) : null}
+        </div>
       </div>
 
+      {/* ─── Pending Batter Selection Gate ─── */}
       {pendingNewBatsman ? (
-        <div className="p-4 border-b border-primary/30 bg-primary/5 space-y-2">
-          <p className="text-sm font-medium text-primary">New batter</p>
-          <div className="grid grid-cols-2 gap-2">
-            {availableBatsmen.slice(0, 8).map((p) => (
+        <div className="p-4 rounded-2xl border border-primary/40 bg-primary/10 space-y-2.5 shadow-sm">
+          <div className="flex items-center gap-2 text-primary font-bold text-sm">
+            <UserCheck className="w-4 h-4" />
+            <span>Select Next Batter to Crease:</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {availableBatsmen.map((p) => (
               <Button
                 key={p.id}
                 variant="outline"
-                className="h-11 text-sm justify-start truncate"
+                className="h-11 text-sm justify-start truncate bg-card/60 hover:bg-card border-primary/30 hover:border-primary font-semibold"
                 disabled={busy}
                 onClick={() => onNewBatsman(p.id)}
               >
@@ -394,276 +718,847 @@ export function LiveScoringPad({
         </div>
       ) : null}
 
-      {/* Scoring pad */}
-      <div className="p-3 grid grid-cols-4 gap-2">
-        <ScoreButton
-          label="0"
-          variant="run"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 0,
-              extras: { type: null, runs: 0 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="1"
-          variant="run"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 1,
-              extras: { type: null, runs: 0 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="2"
-          variant="run"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 2,
-              extras: { type: null, runs: 0 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="3"
-          variant="run"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 3,
-              extras: { type: null, runs: 0 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="4"
-          variant="run"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 4,
-              extras: { type: null, runs: 0 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="6"
-          variant="run"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 6,
-              extras: { type: null, runs: 0 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="Wd"
-          sublabel="wide"
-          variant="extra"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 0,
-              extras: { type: "wide", runs: 1 },
-              wicket: null,
-              isLegalDelivery: false,
-            })
-          }
-        />
-        <ScoreButton
-          label="Nb"
-          sublabel={freeHitEnabled ? "no ball" : "no ball (no FH)"}
-          variant="extra"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 0,
-              extras: { type: "no_ball", runs: 1 },
-              wicket: null,
-              isLegalDelivery: false,
-            })
-          }
-        />
-        <ScoreButton
-          label="Bye"
-          sublabel="1 bye"
-          variant="extra"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 0,
-              extras: { type: "bye", runs: 1 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="LB"
-          sublabel="leg bye"
-          variant="extra"
-          disabled={busy || pendingNewBatsman}
-          onClick={() =>
-            recordBall({
-              runsOffBat: 0,
-              extras: { type: "leg_bye", runs: 1 },
-              wicket: null,
-              isLegalDelivery: true,
-            })
-          }
-        />
-        <ScoreButton
-          label="W"
-          sublabel="wicket"
-          variant="wicket"
-          disabled={busy || pendingNewBatsman}
-          onClick={() => setWicketSheet(true)}
-          className="col-span-2"
-        />
-        <ScoreButton
-          label="↩"
-          sublabel="undo"
-          variant="undo"
-          disabled={busy}
-          onClick={() => {
-            if (canTap()) void onUndo();
-          }}
-          className="col-span-2"
-        />
+      {/* ─── Main Scorer Keypad Grid ─── */}
+      <div className="p-3 rounded-2xl border border-border/70 bg-card/40 space-y-2.5">
+        {/* Row 1: Primary Runs 0, 1, 2, 3 */}
+        <div className="grid grid-cols-4 gap-2">
+          <ScoreButton
+            label="0"
+            sublabel="dot"
+            variant="run"
+            disabled={busy || pendingNewBatsman}
+            onClick={() =>
+              recordBall({
+                runsOffBat: 0,
+                extras: { type: null, runs: 0 },
+                wicket: null,
+                isLegalDelivery: true,
+              })
+            }
+          />
+          <ScoreButton
+            label="1"
+            sublabel="single"
+            variant="run"
+            disabled={busy || pendingNewBatsman}
+            onClick={() =>
+              recordBall({
+                runsOffBat: 1,
+                extras: { type: null, runs: 0 },
+                wicket: null,
+                isLegalDelivery: true,
+              })
+            }
+          />
+          <ScoreButton
+            label="2"
+            sublabel="double"
+            variant="run"
+            disabled={busy || pendingNewBatsman}
+            onClick={() =>
+              recordBall({
+                runsOffBat: 2,
+                extras: { type: null, runs: 0 },
+                wicket: null,
+                isLegalDelivery: true,
+              })
+            }
+          />
+          <ScoreButton
+            label="3"
+            sublabel="three"
+            variant="run"
+            disabled={busy || pendingNewBatsman}
+            onClick={() =>
+              recordBall({
+                runsOffBat: 3,
+                extras: { type: null, runs: 0 },
+                wicket: null,
+                isLegalDelivery: true,
+              })
+            }
+          />
+        </div>
+
+        {/* Row 2: Boundaries 4, 6, Custom, Super Ball */}
+        <div className="grid grid-cols-4 gap-2">
+          <ScoreButton
+            label="4"
+            sublabel="four"
+            variant="boundary"
+            disabled={busy || pendingNewBatsman}
+            onClick={() =>
+              recordBall({
+                runsOffBat: 4,
+                extras: { type: null, runs: 0 },
+                wicket: null,
+                isLegalDelivery: true,
+              })
+            }
+          />
+          <ScoreButton
+            label="6"
+            sublabel="six"
+            variant="boundary"
+            disabled={busy || pendingNewBatsman}
+            onClick={() =>
+              recordBall({
+                runsOffBat: 6,
+                extras: { type: null, runs: 0 },
+                wicket: null,
+                isLegalDelivery: true,
+              })
+            }
+          />
+          <ScoreButton
+            label="+"
+            sublabel="custom"
+            variant="default"
+            disabled={busy || pendingNewBatsman}
+            onClick={() => setCustomRunsSheet(true)}
+          />
+          {superBallEnabled ? (
+            <ScoreButton
+              label="⭐"
+              sublabel={isSuperBallActive ? "Active 2x" : "Super Ball"}
+              variant="super_ball"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => void handleToggleSuperBall()}
+              className={cn(
+                isSuperBallActive && "ring-2 ring-amber-400 bg-amber-500/30",
+              )}
+            />
+          ) : (
+            <ScoreButton
+              label="B"
+              sublabel="byes"
+              variant="extra"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => setByeSheet(true)}
+            />
+          )}
+        </div>
+
+        {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes) */}
+        <div className="grid grid-cols-4 gap-2">
+          <ScoreButton
+            label="Wd"
+            sublabel="wide"
+            variant="extra"
+            disabled={busy || pendingNewBatsman}
+            onClick={() => setWideSheet(true)}
+          />
+          <ScoreButton
+            label="Nb"
+            sublabel={freeHitEnabled ? "no ball + FH" : "no ball"}
+            variant="extra"
+            disabled={busy || pendingNewBatsman}
+            onClick={() => setNoBallSheet(true)}
+          />
+          {superBallEnabled ? (
+            <ScoreButton
+              label="Bye"
+              sublabel="byes"
+              variant="extra"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => setByeSheet(true)}
+            />
+          ) : (
+            <ScoreButton
+              label="LB"
+              sublabel={legByeEnabled ? "leg bye" : "disabled"}
+              variant="extra"
+              disabled={busy || pendingNewBatsman || !legByeEnabled}
+              onClick={() => {
+                if (legByeEnabled) setLegByeSheet(true);
+              }}
+            />
+          )}
+          {superBallEnabled && legByeEnabled ? (
+            <ScoreButton
+              label="LB"
+              sublabel="leg bye"
+              variant="extra"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => setLegByeSheet(true)}
+            />
+          ) : (
+            <ScoreButton
+              label="⇄"
+              sublabel="swap strike"
+              variant="default"
+              disabled={busy || pendingNewBatsman || !onSwapStrike}
+              onClick={() => {
+                if (onSwapStrike) onSwapStrike();
+              }}
+            />
+          )}
+        </div>
+
+        {/* Row 4: Wicket & Undo Action Buttons */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <ScoreButton
+            label="OUT / WICKET"
+            sublabel="how out?"
+            variant="wicket"
+            disabled={busy || pendingNewBatsman}
+            onClick={() => {
+              setSelectedWicketType(null);
+              setSelectedFielderId(null);
+              setWicketSheet(true);
+            }}
+          />
+          <ScoreButton
+            label="↩ UNDO"
+            sublabel="last ball"
+            variant="undo"
+            disabled={busy}
+            onClick={() => {
+              if (canTap()) void onUndo();
+            }}
+          />
+        </div>
       </div>
 
-      <div className="px-3 pb-4 flex gap-2">
+      {/* ─── Bottom Actions Bar ─── */}
+      <div className="flex gap-2">
         <Button
           variant="outline"
-          className="flex-1 h-11"
+          className="flex-1 h-11 font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
           disabled={busy}
           onClick={() => setBowlerSheet(true)}
         >
-          Change bowler
+          Change Bowler
         </Button>
         <Button
           variant="outline"
-          className="flex-1 h-11"
+          className="flex-1 h-11 font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
           disabled={busy}
           onClick={() => setSecondaryOpen(true)}
         >
-          More…
+          More Match Actions…
         </Button>
       </div>
 
-      <Sheet
-        open={wicketSheet}
-        onOpenChange={(open) => {
-          setWicketSheet(open);
-          if (!open) setRunOutPick(false);
-        }}
-      >
-        <SheetContent side="bottom" className="rounded-t-2xl">
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Wide Runs Selector Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={wideSheet} onOpenChange={setWideSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
           <SheetHeader>
-            <SheetTitle>
-              {runOutPick ? "Run out — who is out?" : "Wicket — how out?"}
+            <SheetTitle className="text-amber-400 flex items-center gap-2">
+              <span>Wide Ball Options</span>
             </SheetTitle>
+            <SheetDescription>
+              Select total runs scored on this Wide delivery:
+            </SheetDescription>
           </SheetHeader>
-          {runOutPick ? (
-            <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
-              <Button
-                variant="outline"
-                className="h-12"
-                disabled={!strikerId}
-                onClick={() =>
-                  void recordWicket("run_out", strikerId ?? undefined)
-                }
-              >
-                Striker out
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12"
-                disabled={!nonStrikerId}
-                onClick={() =>
-                  void recordWicket("run_out", nonStrikerId ?? undefined)
-                }
-              >
-                Non-striker out
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
-              {dismissalOptions.map((type) => (
-                <Button
-                  key={type}
-                  variant="outline"
-                  className="h-12 capitalize"
-                  onClick={() => {
-                    if (type === "run_out") {
-                      setRunOutPick(true);
-                      return;
-                    }
-                    void recordWicket(type);
-                  }}
-                >
-                  {type.replace("_", " ")}
-                </Button>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-4 pb-6">
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold text-base border-amber-500/30 hover:border-amber-500/60"
+              onClick={() => {
+                setWideSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "wide", runs: 1 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>1 Wd</span>
+              <span className="text-[10px] font-normal text-muted-foreground">Standard 1 Extra</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold text-base border-amber-500/30 hover:border-amber-500/60"
+              onClick={() => {
+                setWideSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "wide", runs: 2 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Wd + 1 run</span>
+              <span className="text-[10px] font-normal text-muted-foreground">2 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold text-base border-amber-500/30 hover:border-amber-500/60"
+              onClick={() => {
+                setWideSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "wide", runs: 3 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Wd + 2 runs</span>
+              <span className="text-[10px] font-normal text-muted-foreground">3 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold text-base border-amber-500/30 hover:border-amber-500/60"
+              onClick={() => {
+                setWideSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "wide", runs: 4 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Wd + 3 runs</span>
+              <span className="text-[10px] font-normal text-muted-foreground">4 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold text-base border-emerald-500/40 text-emerald-400 hover:border-emerald-500 col-span-2 sm:col-span-2"
+              onClick={() => {
+                setWideSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "wide", runs: 5 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Wd + 4 BOUNDARY</span>
+              <span className="text-[10px] font-normal text-muted-foreground">5 runs total (Wide boundary)</span>
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
 
-      <Sheet open={bowlerSheet} onOpenChange={setBowlerSheet}>
-        <SheetContent
-          side="bottom"
-          className="rounded-t-2xl max-h-[70dvh] overflow-y-auto"
-        >
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── No Ball Runs Selector Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={noBallSheet} onOpenChange={setNoBallSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
           <SheetHeader>
-            <SheetTitle>Select bowler</SheetTitle>
+            <SheetTitle className="text-amber-400 flex items-center gap-2">
+              <span>No Ball Delivery</span>
+            </SheetTitle>
+            <SheetDescription>
+              Select runs scored off bat / byes on this No Ball (Triggers Free Hit):
+            </SheetDescription>
           </SheetHeader>
-          <div className="grid gap-2 mt-4 pb-6">
-            {bowlingSquad.map((p) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4 pb-6">
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold border-amber-500/30"
+              onClick={() => {
+                setNoBallSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "no_ball", runs: 1 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Nb + 0</span>
+              <span className="text-[10px] font-normal text-muted-foreground">1 run total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold border-amber-500/30"
+              onClick={() => {
+                setNoBallSheet(false);
+                void recordBall({
+                  runsOffBat: 1,
+                  extras: { type: "no_ball", runs: 1 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Nb + 1 run</span>
+              <span className="text-[10px] font-normal text-muted-foreground">2 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold border-amber-500/30"
+              onClick={() => {
+                setNoBallSheet(false);
+                void recordBall({
+                  runsOffBat: 2,
+                  extras: { type: "no_ball", runs: 1 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Nb + 2 runs</span>
+              <span className="text-[10px] font-normal text-muted-foreground">3 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold border-emerald-500/40 text-emerald-400"
+              onClick={() => {
+                setNoBallSheet(false);
+                void recordBall({
+                  runsOffBat: 4,
+                  extras: { type: "no_ball", runs: 1 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Nb + 4 (FOUR)</span>
+              <span className="text-[10px] font-normal text-muted-foreground">5 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold border-purple-500/40 text-purple-300"
+              onClick={() => {
+                setNoBallSheet(false);
+                void recordBall({
+                  runsOffBat: 6,
+                  extras: { type: "no_ball", runs: 1 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Nb + 6 (SIX)</span>
+              <span className="text-[10px] font-normal text-muted-foreground">7 runs total</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center font-bold border-amber-500/30"
+              onClick={() => {
+                setNoBallSheet(false);
+                void recordBall({
+                  runsOffBat: 0,
+                  extras: { type: "no_ball", runs: 2 },
+                  wicket: null,
+                  isLegalDelivery: false,
+                });
+              }}
+            >
+              <span>Nb + 1 Bye</span>
+              <span className="text-[10px] font-normal text-muted-foreground">2 runs total</span>
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Byes Selector Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={byeSheet} onOpenChange={setByeSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
+          <SheetHeader>
+            <SheetTitle>Byes (Extras)</SheetTitle>
+            <SheetDescription>Select runs taken as byes:</SheetDescription>
+          </SheetHeader>
+          <div className="grid grid-cols-4 gap-2 mt-4 pb-6">
+            {[1, 2, 3, 4].map((r) => (
               <Button
-                key={p.id}
-                variant={activeBowlerId === p.id ? "default" : "outline"}
-                className="h-11 justify-start"
+                key={r}
+                variant="outline"
+                className="h-12 font-bold text-base"
                 onClick={() => {
-                  onBowlerChange(p.id);
-                  setBowlerSheet(false);
+                  setByeSheet(false);
+                  void recordBall({
+                    runsOffBat: 0,
+                    extras: { type: "bye", runs: r },
+                    wicket: null,
+                    isLegalDelivery: true,
+                  });
                 }}
               >
-                {p.name}
+                {r} {r === 1 ? "Bye" : "Byes"}
               </Button>
             ))}
           </div>
         </SheetContent>
       </Sheet>
 
-      <Sheet open={secondaryOpen} onOpenChange={setSecondaryOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Leg Byes Selector Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={legByeSheet} onOpenChange={setLegByeSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
           <SheetHeader>
-            <SheetTitle>Match actions</SheetTitle>
+            <SheetTitle>Leg Byes (Extras)</SheetTitle>
+            <SheetDescription>Select runs taken as leg byes:</SheetDescription>
+          </SheetHeader>
+          <div className="grid grid-cols-4 gap-2 mt-4 pb-6">
+            {[1, 2, 3, 4].map((r) => (
+              <Button
+                key={r}
+                variant="outline"
+                className="h-12 font-bold text-base"
+                onClick={() => {
+                  setLegByeSheet(false);
+                  void recordBall({
+                    runsOffBat: 0,
+                    extras: { type: "leg_bye", runs: r },
+                    wicket: null,
+                    isLegalDelivery: true,
+                  });
+                }}
+              >
+                {r} {r === 1 ? "Leg Bye" : "Leg Byes"}
+              </Button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Custom Runs Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={customRunsSheet} onOpenChange={setCustomRunsSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
+          <SheetHeader>
+            <SheetTitle>Custom Runs / Overthrow</SheetTitle>
+            <SheetDescription>Enter custom runs off bat scored on this delivery:</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-4 pb-6">
+            <div className="grid grid-cols-4 gap-2">
+              {[5, 7, 8, 10].map((num) => (
+                <Button
+                  key={num}
+                  variant="outline"
+                  className="h-12 font-bold text-base"
+                  onClick={() => {
+                    setCustomRunsSheet(false);
+                    void recordBall({
+                      runsOffBat: num,
+                      extras: { type: null, runs: 0 },
+                      wicket: null,
+                      isLegalDelivery: true,
+                    });
+                  }}
+                >
+                  {num} runs
+                </Button>
+              ))}
+            </div>
+            <div className="flex gap-2 items-center">
+              <Input
+                type="number"
+                min={0}
+                max={20}
+                value={customRunsValue}
+                onChange={(e) => setCustomRunsValue(e.target.value)}
+                className="h-12 text-lg font-bold"
+              />
+              <Button
+                className="h-12 px-6 font-bold"
+                onClick={() => {
+                  const val = parseInt(customRunsValue, 10) || 0;
+                  setCustomRunsSheet(false);
+                  void recordBall({
+                    runsOffBat: val,
+                    extras: { type: null, runs: 0 },
+                    wicket: null,
+                    isLegalDelivery: true,
+                  });
+                }}
+              >
+                Submit
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Enhanced Wicket Modal ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet
+        open={wicketSheet}
+        onOpenChange={(open) => {
+          setWicketSheet(open);
+          if (!open) {
+            setSelectedWicketType(null);
+            setSelectedFielderId(null);
+            setRunOutRunsCompleted(0);
+          }
+        }}
+      >
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto max-h-[85dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-red-400">
+              {!selectedWicketType
+                ? "Wicket — How Out?"
+                : selectedWicketType === "run_out"
+                  ? "Run Out Details"
+                  : selectedWicketType === "caught"
+                    ? "Catch Details — Select Fielder"
+                    : selectedWicketType === "stumped"
+                      ? "Stumping Details — Select Keeper"
+                      : "Confirm Dismissal"}
+            </SheetTitle>
+            <SheetDescription>
+              {state.freeHitActive ? (
+                <span className="text-amber-400 font-semibold">
+                  ⚠️ Free Hit Active: Only Run Out, Obstructing Field, or Hit Ball Twice is legal.
+                </span>
+              ) : isSuperBallActive ? (
+                <span className="text-amber-400 font-semibold">
+                  ⚠️ Super Ball Active: Caught is NOT out on Super Ball.
+                </span>
+              ) : (
+                "Select dismissal type and involved fielders."
+              )}
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* Step 1: Pick Dismissal Type */}
+          {!selectedWicketType ? (
+            <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
+              {dismissalOptions.map((type) => {
+                const isIllegalOnFreeHit =
+                  state.freeHitActive && !FREE_HIT_DISMISSALS.includes(type);
+                const isIllegalOnSuperBall =
+                  isSuperBallActive && type === "caught";
+                const isDisabled = isIllegalOnFreeHit || isIllegalOnSuperBall;
+
+                return (
+                  <Button
+                    key={type}
+                    variant="outline"
+                    className={cn(
+                      "h-12 capitalize font-semibold border-border/70 hover:border-red-500/50",
+                      isDisabled && "opacity-35 pointer-events-none line-through",
+                    )}
+                    onClick={() => {
+                      if (type === "caught" || type === "run_out" || type === "stumped") {
+                        setSelectedWicketType(type);
+                      } else {
+                        setSelectedWicketType(type);
+                        // Instant dismiss for bowled/lbw/hit_wicket
+                        setWicketSheet(false);
+                        void recordBall({
+                          runsOffBat: 0,
+                          extras: { type: null, runs: 0 },
+                          wicket: {
+                            type,
+                            dismissedPlayerId: strikerId!,
+                          },
+                          isLegalDelivery: true,
+                        });
+                      }
+                    }}
+                  >
+                    {type.replace(/_/g, " ")}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : selectedWicketType === "run_out" ? (
+            /* Run Out Specific Flow */
+            <div className="space-y-4 mt-4 pb-6">
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Who is out?</label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  <Button
+                    variant={runOutWho === "striker" ? "default" : "outline"}
+                    className="h-12 font-semibold truncate"
+                    onClick={() => setRunOutWho("striker")}
+                  >
+                    Striker ({playerNameById(players, strikerId)})
+                  </Button>
+                  <Button
+                    variant={runOutWho === "non_striker" ? "default" : "outline"}
+                    className="h-12 font-semibold truncate"
+                    disabled={!nonStrikerId}
+                    onClick={() => setRunOutWho("non_striker")}
+                  >
+                    Non-Striker ({playerNameById(players, nonStrikerId)})
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Runs completed before run out?</label>
+                <div className="grid grid-cols-3 gap-2 mt-1.5">
+                  {[0, 1, 2].map((r) => (
+                    <Button
+                      key={r}
+                      variant={runOutRunsCompleted === r ? "default" : "outline"}
+                      className="h-11 font-bold"
+                      onClick={() => setRunOutRunsCompleted(r)}
+                    >
+                      {r} {r === 1 ? "run" : "runs"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Fielder (Optional)</label>
+                <div className="grid grid-cols-2 gap-1.5 mt-1.5 max-h-36 overflow-y-auto">
+                  <Button
+                    variant={selectedFielderId === null ? "secondary" : "outline"}
+                    className="h-9 text-xs justify-start"
+                    onClick={() => setSelectedFielderId(null)}
+                  >
+                    Direct Hit / None
+                  </Button>
+                  {bowlingSquad.map((f) => (
+                    <Button
+                      key={f.id}
+                      variant={selectedFielderId === f.id ? "default" : "outline"}
+                      className="h-9 text-xs justify-start truncate"
+                      onClick={() => setSelectedFielderId(f.id)}
+                    >
+                      {f.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                className="w-full h-12 font-bold bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => void submitWicket()}
+              >
+                Confirm Run Out
+              </Button>
+            </div>
+          ) : (
+            /* Caught or Stumped Fielder Picker */
+            <div className="space-y-4 mt-4 pb-6">
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase">
+                  Select Fielder / Catcher
+                </label>
+                <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto">
+                  {bowlingSquad.map((f) => (
+                    <Button
+                      key={f.id}
+                      variant={selectedFielderId === f.id ? "default" : "outline"}
+                      className="h-10 text-xs justify-start truncate font-semibold"
+                      onClick={() => setSelectedFielderId(f.id)}
+                    >
+                      {f.name}
+                      {f.id === activeBowlerId ? " (c&b)" : ""}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12"
+                  onClick={() => setSelectedWicketType(null)}
+                >
+                  Back
+                </Button>
+                <Button
+                  className="flex-1 h-12 font-bold bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => void submitWicket()}
+                >
+                  Confirm Out
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Bowler Selection Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={bowlerSheet} onOpenChange={setBowlerSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto max-h-[75dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Select Bowler</SheetTitle>
+            <SheetDescription>Pick the bowler for this over:</SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-2 mt-4 pb-6">
+            {bowlingSquad.map((p) => {
+              const isCurrent = activeBowlerId === p.id;
+              return (
+                <Button
+                  key={p.id}
+                  variant={isCurrent ? "default" : "outline"}
+                  className="h-12 justify-between px-4 font-semibold"
+                  onClick={() => {
+                    onBowlerChange(p.id);
+                    setBowlerSheet(false);
+                  }}
+                >
+                  <span>{p.name}</span>
+                  {isCurrent ? <Check className="w-4 h-4 text-primary-foreground" /> : null}
+                </Button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Over Complete Next Bowler Prompt Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={overEndPrompt} onOpenChange={setOverEndPrompt}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto max-h-[75dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-primary flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <span>Over Complete! Select Next Bowler</span>
+            </SheetTitle>
+            <SheetDescription>
+              Strike has rotated. Choose bowler for the next over:
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-2 mt-4 pb-6">
+            {bowlingSquad.map((p) => {
+              const justBowled = activeBowlerId === p.id && bowlingSquad.length > 1;
+              return (
+                <Button
+                  key={p.id}
+                  variant="outline"
+                  disabled={justBowled}
+                  className={cn(
+                    "h-12 justify-between px-4 font-semibold border-border/70",
+                    justBowled && "opacity-40 line-through",
+                  )}
+                  onClick={() => {
+                    onBowlerChange(p.id);
+                    setOverEndPrompt(false);
+                  }}
+                >
+                  <span>{p.name}</span>
+                  {justBowled ? (
+                    <span className="text-[10px] text-muted-foreground uppercase font-normal">
+                      Just bowled
+                    </span>
+                  ) : null}
+                </Button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Secondary / Match Actions Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={secondaryOpen} onOpenChange={setSecondaryOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
+          <SheetHeader>
+            <SheetTitle>Match Actions & Admin</SheetTitle>
           </SheetHeader>
           <div className="grid gap-2 mt-4 pb-6">
             {!isPaused ? (
               <Button
                 variant="outline"
-                className="h-12 border-sky-500/40"
+                className="h-12 border-sky-500/40 text-sky-300 font-semibold"
                 disabled={busy}
                 onClick={async () => {
                   setSecondaryOpen(false);
@@ -673,12 +1568,12 @@ export function LiveScoringPad({
                 }}
               >
                 <CloudRain className="w-4 h-4 mr-2" />
-                Rain delay
+                Rain delay / Interruption
               </Button>
             ) : (
               <Button
                 variant="outline"
-                className="h-12"
+                className="h-12 font-semibold"
                 disabled={busy}
                 onClick={async () => {
                   setSecondaryOpen(false);
@@ -690,7 +1585,7 @@ export function LiveScoringPad({
             )}
             <Button
               variant="outline"
-              className="h-12"
+              className="h-12 font-semibold"
               disabled={busy || state.innings.length === 0}
               onClick={() => {
                 setSecondaryOpen(false);
@@ -701,7 +1596,7 @@ export function LiveScoringPad({
             </Button>
             <Button
               variant="outline"
-              className="h-12"
+              className="h-12 font-semibold"
               disabled={busy || !battingId}
               onClick={async () => {
                 setSecondaryOpen(false);
@@ -716,36 +1611,19 @@ export function LiveScoringPad({
             </Button>
             <Button
               variant="outline"
-              className="h-12"
+              className="h-12 font-semibold"
               disabled={busy || !strikerId}
               onClick={() => {
                 setSecondaryOpen(false);
                 setRetireSheet(true);
               }}
             >
-              Retired batter
+              Retired batter (Hurt / Out)
             </Button>
-            {superBallEnabled ? (
-              <Button
-                variant="outline"
-                className="h-12 border-amber-500/50"
-                disabled={busy || !battingId || !!state.superBallPending}
-                onClick={async () => {
-                  if (!battingId) return;
-                  setSecondaryOpen(false);
-                  await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
-                    innings: state.currentInnings,
-                    battingTeamId: battingId,
-                  });
-                }}
-              >
-                Declare Super Ball
-              </Button>
-            ) : null}
             {superOverEnabled ? (
               <Button
                 variant="outline"
-                className="h-12"
+                className="h-12 font-semibold"
                 disabled={busy}
                 onClick={async () => {
                   if (!battingId || !bowlingId) return;
@@ -758,12 +1636,12 @@ export function LiveScoringPad({
                   });
                 }}
               >
-                Start super over
+                Start Super Over
               </Button>
             ) : null}
             <Button
               variant="outline"
-              className="h-12"
+              className="h-12 font-bold border-amber-500/40 text-amber-300"
               disabled={busy}
               onClick={async () => {
                 setSecondaryOpen(false);
@@ -777,11 +1655,11 @@ export function LiveScoringPad({
                 });
               }}
             >
-              End innings
+              End Current Innings
             </Button>
             <Button
               variant="destructive"
-              className="h-12"
+              className="h-12 font-bold"
               disabled={busy}
               onClick={async () => {
                 setSecondaryOpen(false);
@@ -794,33 +1672,36 @@ export function LiveScoringPad({
                 });
               }}
             >
-              End match
+              Complete Match
             </Button>
             <Button
-              variant="destructive"
-              className="h-12"
+              variant="ghost"
+              className="h-11 text-muted-foreground hover:text-red-400"
               disabled={busy}
               onClick={async () => {
                 setSecondaryOpen(false);
                 await onEvent(CricketEventType.MATCH_ABANDONED, {
-                  reason: "Rain — no result",
+                  reason: "Match abandoned — no result",
                 });
               }}
             >
-              Abandon (no result)
+              Abandon Match
             </Button>
           </div>
         </SheetContent>
       </Sheet>
 
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── DLS Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
       <Sheet open={dlsSheet} onOpenChange={setDlsSheet}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
           <SheetHeader>
-            <SheetTitle>DLS — revised overs</SheetTitle>
+            <SheetTitle>DLS — Revised Overs</SheetTitle>
           </SheetHeader>
           <div className="mt-4 space-y-4 pb-6">
             <div>
-              <label className="text-xs text-muted-foreground">
+              <label className="text-xs text-muted-foreground font-semibold">
                 Overs per innings (revised)
               </label>
               <Input
@@ -829,11 +1710,11 @@ export function LiveScoringPad({
                 max={50}
                 value={revisedOvers}
                 onChange={(e) => setRevisedOvers(e.target.value)}
-                className="mt-1 h-12 text-lg"
+                className="mt-1 h-12 text-lg font-bold"
               />
             </div>
             <Button
-              className="w-full h-12"
+              className="w-full h-12 font-bold"
               disabled={busy || !dlsPreview}
               onClick={async () => {
                 if (!dlsPreview) return;
@@ -848,19 +1729,21 @@ export function LiveScoringPad({
               }}
             >
               {dlsPreview
-                ? `Apply DLS target ${dlsPreview.target} (${revisedOvers} overs)`
-                : "Apply DLS target"}
+                ? `Apply DLS Target ${dlsPreview.target} (${revisedOvers} ov)`
+                : "Apply DLS Target"}
             </Button>
           </div>
         </SheetContent>
       </Sheet>
 
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Retire Batter Sheet ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
       <Sheet open={retireSheet} onOpenChange={setRetireSheet}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
           <SheetHeader>
             <SheetTitle>
-              Retired —{" "}
-              {playerNameById(players, retirePromptPlayerId ?? strikerId)}
+              Retired — {playerNameById(players, retirePromptPlayerId ?? strikerId)}
             </SheetTitle>
           </SheetHeader>
           {retireAtRuns != null && retirePromptPlayerId != null ? (
@@ -868,18 +1751,12 @@ export function LiveScoringPad({
               Policy retire at {retireAtRuns} — striker reached{" "}
               {batterRuns[retirePromptPlayerId] ?? retireAtRuns} runs.
             </p>
-          ) : retireAtRuns != null ? (
-            <p className="text-xs text-muted-foreground mt-2">
-              Match policy: retire at {retireAtRuns} runs.
-            </p>
           ) : null}
           <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
             <Button
               variant="outline"
-              className="h-12"
-              disabled={
-                busy || !(retirePromptPlayerId ?? strikerId) || !battingId
-              }
+              className="h-12 font-semibold"
+              disabled={busy || !(retirePromptPlayerId ?? strikerId) || !battingId}
               onClick={async () => {
                 const playerId = retirePromptPlayerId ?? strikerId;
                 setRetireSheet(false);
@@ -893,14 +1770,12 @@ export function LiveScoringPad({
                 onNewBatsman(-1);
               }}
             >
-              Retired hurt
+              Retired Hurt
             </Button>
             <Button
               variant="outline"
-              className="h-12"
-              disabled={
-                busy || !(retirePromptPlayerId ?? strikerId) || !battingId
-              }
+              className="h-12 font-semibold text-red-400"
+              disabled={busy || !(retirePromptPlayerId ?? strikerId) || !battingId}
               onClick={async () => {
                 const playerId = retirePromptPlayerId ?? strikerId;
                 setRetireSheet(false);
@@ -914,7 +1789,7 @@ export function LiveScoringPad({
                 onNewBatsman(-1);
               }}
             >
-              Retired out
+              Retired Out
             </Button>
           </div>
         </SheetContent>

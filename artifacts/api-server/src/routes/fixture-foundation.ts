@@ -38,6 +38,30 @@ router.get("/tournaments/:tournamentId/fixtures", async (req, res) => {
   res.json({ identities });
 });
 
+/** GET /tournaments/:id/fixtures/aggregate — Fast bulk loader for tournament fixtures */
+router.get("/tournaments/:tournamentId/fixtures/aggregate", async (req, res) => {
+  const tid = parseTournamentId(req.params.tournamentId);
+  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  const identities = await listFixtureIdentities(tid);
+  const rows = await Promise.all(
+    identities.map(async (identity) => {
+      const resolved = await resolveFixture(tid, identity.id);
+      if (!resolved) return null;
+      const validation = await buildFixtureValidation(tid, identity.id);
+      const advancement = await buildFixtureAdvancement(tid, identity.id);
+      return {
+        identity: resolved.identity,
+        configuration: resolved.configuration,
+        lifecycle: resolved.lifecycle,
+        validation,
+        nodes: resolved.nodes,
+        advancementCount: advancement.advancement.length,
+      };
+    }),
+  );
+  res.json({ rows: rows.filter(Boolean) });
+});
+
 router.get("/tournaments/:tournamentId/fixtures/:fixtureId/identity", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
   if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });

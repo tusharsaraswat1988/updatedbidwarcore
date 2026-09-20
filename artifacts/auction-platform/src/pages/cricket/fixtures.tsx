@@ -3,7 +3,7 @@
  * Route: /tournament/:id/score/fixtures
  */
 import { useMemo, useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetTournament,
@@ -17,7 +17,7 @@ import {
   PageHeader,
   btnCompactClass,
   hubCardClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useScoringMatches } from "@/hooks/use-scoring-match";
@@ -151,46 +151,83 @@ export default function CricketFixturesPage() {
             {filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground">No matches in this filter.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtered.map((m) => {
                   const home = teamMap.get(m.homeTeamId);
                   const away = teamMap.get(m.awayTeamId);
+                  const isLive = m.status === "live";
+                  const isCompleted = isTerminalCricketMatchStatus(m.status);
+
                   return (
                     <Link
                       key={m.id}
                       href={`/tournament/${tournamentId}/score/${m.id}`}
-                      className={cn(hubCardClass, "p-4 block hover:border-primary/30")}
+                      className={cn(
+                        hubCardClass,
+                        "p-4.5 block transition-all hover:border-primary/50 hover:shadow-md group relative overflow-hidden",
+                      )}
                     >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <Badge
-                          variant={
-                            m.status === "live"
-                              ? "destructive"
-                              : isTerminalCricketMatchStatus(m.status)
-                                ? "secondary"
-                                : "default"
-                          }
-                          className="capitalize"
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                            isLive
+                              ? "bg-red-500/15 border border-red-500/30 text-red-400 animate-pulse"
+                              : isCompleted
+                                ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                                : "bg-muted border border-border text-muted-foreground",
+                          )}
                         >
                           {m.status}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground">
+                        </span>
+                        <span className="text-xs text-muted-foreground">
                           {m.scheduledAt
                             ? new Date(m.scheduledAt).toLocaleString(undefined, {
                                 dateStyle: "short",
                                 timeStyle: "short",
                               })
-                            : m.venue || "—"}
+                            : m.venue || "Unscheduled"}
                         </span>
                       </div>
-                      <p className="font-display font-bold text-foreground">
-                        {home?.shortCode ?? "Home"} vs {away?.shortCode ?? "Away"}
-                      </p>
-                      {m.roundName ? (
-                        <p className="text-xs text-muted-foreground mt-1">{m.roundName}</p>
-                      ) : null}
-                      {m.resultSummary ? (
-                        <p className="text-xs text-muted-foreground mt-1">{m.resultSummary}</p>
+
+                      {/* Teams Row */}
+                      <div className="flex items-center justify-between gap-3 py-1">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0"
+                            style={{ backgroundColor: home?.color || "#3B82F6" }}
+                          >
+                            {home?.shortCode?.slice(0, 3) || "H"}
+                          </div>
+                          <span className="font-bold text-foreground text-sm truncate">
+                            {home?.name ?? "Home"}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-muted-foreground/60 uppercase">
+                          vs
+                        </span>
+                        <div className="flex items-center gap-2.5 min-w-0 justify-end">
+                          <span className="font-bold text-foreground text-sm truncate text-right">
+                            {away?.name ?? "Away"}
+                          </span>
+                          <div
+                            className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0"
+                            style={{ backgroundColor: away?.color || "#10B981" }}
+                          >
+                            {away?.shortCode?.slice(0, 3) || "A"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {m.roundName || m.resultSummary ? (
+                        <div className="mt-3 pt-2.5 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="truncate">{m.roundName || "Match"}</span>
+                          {m.resultSummary ? (
+                            <span className="font-semibold text-primary truncate max-w-[60%] text-right">
+                              {m.resultSummary}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                     </Link>
                   );

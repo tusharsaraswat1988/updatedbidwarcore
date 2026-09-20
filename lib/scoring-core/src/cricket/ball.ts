@@ -2,12 +2,9 @@ import type { CricketBallRecordedPayload } from "../events/cricket";
 import type { BallDisplayOutcome } from "./state";
 
 export function totalRunsOnBall(payload: CricketBallRecordedPayload): number {
-  const batRuns =
-    payload.isSuperBall && payload.runsOffBat === 4
-      ? 8
-      : payload.isSuperBall && payload.runsOffBat === 6
-        ? 12
-        : payload.runsOffBat;
+  const batRuns = payload.isSuperBall
+    ? payload.runsOffBat * 2
+    : payload.runsOffBat;
   return batRuns + payload.extras.runs;
 }
 
@@ -28,12 +25,9 @@ export function toBallDisplay(
   return {
     over: payload.over,
     ball: payload.ball,
-    runsOffBat:
-      payload.isSuperBall && payload.runsOffBat === 4
-        ? 8
-        : payload.isSuperBall && payload.runsOffBat === 6
-          ? 12
-          : payload.runsOffBat,
+    runsOffBat: payload.isSuperBall
+      ? payload.runsOffBat * 2
+      : payload.runsOffBat,
     extrasType: payload.extras.type,
     extrasRuns: payload.extras.runs,
     isWicket: !!payload.wicket,

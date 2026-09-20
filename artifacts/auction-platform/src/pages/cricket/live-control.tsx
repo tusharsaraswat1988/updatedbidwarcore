@@ -20,7 +20,7 @@ import {
   btnCompactClass,
   hubCardClass,
   hubPanelClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatches } from "@/hooks/use-scoring-match";

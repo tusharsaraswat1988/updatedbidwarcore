@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import {
   useCreateTeam,
   useUpdateTeam,
@@ -14,7 +14,10 @@ import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
-import { ImageEditorDialog } from "@/components/image-editor-dialog";
+
+const ImageEditorDialog = lazy(() =>
+  import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog }))
+);
 
 export function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -443,14 +446,18 @@ export function TeamForm({
             </div>
           </div>
         </div>
-        <ImageEditorDialog
-          open={logoEditorOpen}
-          onClose={() => setLogoEditorOpen(false)}
-          initialUrl={form.logoUrl || undefined}
-          aspect={1}
-          title="Team Logo"
-          onSave={upload => setForm(f => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }))}
-        />
+        {logoEditorOpen && (
+          <Suspense fallback={null}>
+            <ImageEditorDialog
+              open={logoEditorOpen}
+              onClose={() => setLogoEditorOpen(false)}
+              initialUrl={form.logoUrl || undefined}
+              aspect={1}
+              title="Team Logo"
+              onSave={upload => setForm(f => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }))}
+            />
+          </Suspense>
+        )}
       </div>
 
       <div className="flex gap-3 pt-4">
