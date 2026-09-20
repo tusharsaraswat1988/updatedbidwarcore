@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Building2, Briefcase, Trophy, Sparkles } from "lucide-react";
+import { Building2, Trophy, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { clientKeys } from "@/lib/initial-data/query-keys";
 import { useHomeInitialData } from "@/lib/initial-data/initial-data-provider";
 import type { ClientRecord } from "@/lib/initial-data/types";
@@ -75,7 +75,11 @@ function getInitials(name: string): string {
 
 export function OurClientsSection() {
   const initialData = useHomeInitialData();
-  const [selectedFilter, setSelectedFilter] = useState<"all" | "brand" | "organisation">("all");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftState, setScrollLeftState] = useState(0);
+  const [dragMoved, setDragMoved] = useState(false);
 
   const { data: clientsData } = useQuery({
     queryKey: clientKeys.active,
@@ -93,18 +97,41 @@ export function OurClientsSection() {
     return list.filter((c) => c.active !== false);
   }, [clientsData]);
 
-  const filteredClients = useMemo(() => {
-    if (selectedFilter === "all") return allClients;
-    return allClients.filter((c) => c.clientType === selectedFilter);
-  }, [allClients, selectedFilter]);
+  // Smooth scroll buttons
+  const handleScroll = useCallback((dir: -1 | 1) => {
+    if (!scrollRef.current) return;
+    const scrollAmount = 320 * dir;
+    scrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+  }, []);
 
-  const brandCount = allClients.filter((c) => c.clientType === "brand").length;
-  const orgCount = allClients.filter((c) => c.clientType === "organisation").length;
+  // Mouse Drag to Scroll Handlers
+  const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setDragMoved(false);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeftState(scrollRef.current.scrollLeft);
+  };
+
+  const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    scrollRef.current.scrollLeft = scrollLeftState - walk;
+    if (Math.abs(x - startX) > 4) {
+      setDragMoved(true);
+    }
+  };
+
+  const onMouseUpOrLeave = () => {
+    setIsDragging(false);
+  };
 
   return (
     <section
       id="our-clients"
-      className="relative border-t border-white/10 bg-black/40 py-16 sm:py-20 overflow-hidden"
+      className="relative border-t border-white/10 bg-black/40 py-16 sm:py-20 overflow-hidden select-none"
       aria-labelledby="our-clients-heading"
     >
       {/* Subtle Background Glows */}
@@ -113,149 +140,130 @@ export function OurClientsSection() {
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary font-mono mb-3">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            OUR CLIENTS
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary font-mono mb-3">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              OUR CLIENTS
+            </div>
+
+            <h2
+              id="our-clients-heading"
+              className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white"
+            >
+              Trusted by Leading <span className="gold-text">Brands &amp; Organisations</span>
+            </h2>
+
+            <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              From prominent enterprises and media networks to championship sports organisations,
+              BidWar powers live auction draft operations across India.
+            </p>
           </div>
 
-          <h2
-            id="our-clients-heading"
-            className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white"
-          >
-            Trusted by Leading <span className="gold-text">Brands &amp; Organisations</span>
-          </h2>
-
-          <p className="mt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            From prominent enterprises and media networks to championship sports organisations,
-            BidWar powers live auction draft operations across India.
-          </p>
-
-          {/* Filter Pills */}
-          <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-1.5 p-1 rounded-xl bg-card/60 border border-white/10 backdrop-blur-sm">
+          {/* Left/Right Navigation Arrows for Desktop */}
+          <div className="hidden sm:flex items-center gap-2 self-end">
             <button
               type="button"
-              onClick={() => setSelectedFilter("all")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                selectedFilter === "all"
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "text-muted-foreground hover:text-white hover:bg-white/5"
-              }`}
+              onClick={() => handleScroll(-1)}
+              className="w-9 h-9 rounded-xl border border-white/10 bg-slate-900/80 hover:bg-slate-800 hover:border-amber-400/50 text-slate-300 hover:text-white flex items-center justify-center transition shadow-sm active:scale-95"
+              title="Scroll left"
+              aria-label="Scroll left"
             >
-              All Clients ({allClients.length})
+              <ChevronLeft className="w-4 h-4" />
             </button>
-
-            {brandCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setSelectedFilter("brand")}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  selectedFilter === "brand"
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                    : "text-muted-foreground hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Briefcase className="w-3 h-3" />
-                <span>Companies &amp; Brands</span>
-              </button>
-            )}
-
-            {orgCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setSelectedFilter("organisation")}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  selectedFilter === "organisation"
-                    ? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
-                    : "text-muted-foreground hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Trophy className="w-3 h-3" />
-                <span>Auction Organisations</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => handleScroll(1)}
+              className="w-9 h-9 rounded-xl border border-white/10 bg-slate-900/80 hover:bg-slate-800 hover:border-amber-400/50 text-slate-300 hover:text-white flex items-center justify-center transition shadow-sm active:scale-95"
+              title="Scroll right"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Clients Grid */}
-        <div className="mt-10 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-5">
-          {filteredClients.map((client) => {
-            const hasWebsite = Boolean(client.websiteUrl);
-            const CardWrapper = hasWebsite ? "a" : "div";
-            const wrapperProps = hasWebsite
-              ? {
-                  href: client.websiteUrl!,
-                  target: "_blank",
-                  rel: "noopener noreferrer",
-                  title: `Visit ${client.name}`,
-                }
-              : {};
+        {/* Horizontal Scroll Track (Drag to scroll with mouse, swipe on touch) */}
+        <div className="relative -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div
+            ref={scrollRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUpOrLeave}
+            onMouseLeave={onMouseUpOrLeave}
+            className={`flex items-stretch gap-4 sm:gap-5 overflow-x-auto py-3 pb-6 scroll-smooth cursor-grab active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+          >
+            {allClients.map((client) => {
+              const hasWebsite = Boolean(client.websiteUrl);
+              const CardWrapper = hasWebsite ? "a" : "div";
+              const wrapperProps = hasWebsite
+                ? {
+                    href: client.websiteUrl!,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    onClick: (e: React.MouseEvent) => {
+                      if (dragMoved) {
+                        e.preventDefault();
+                      }
+                    },
+                    title: `Visit ${client.name}`,
+                  }
+                : {};
 
-            const initials = getInitials(client.name);
-            const isOrg = client.clientType === "organisation";
+              const initials = getInitials(client.name);
+              const isOrg = client.clientType === "organisation";
 
-            return (
-              <CardWrapper
-                key={client.id}
-                {...wrapperProps}
-                className={`group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-gradient-to-b from-card/60 to-card/30 p-4 sm:p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/50 hover:shadow-xl hover:shadow-amber-500/5 ${
-                  hasWebsite ? "cursor-pointer" : ""
-                }`}
-              >
-                {/* Type Badge & External Link Icon */}
-                <div className="flex items-center justify-between gap-2 w-full mb-3">
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider font-mono ${
-                      isOrg
-                        ? "bg-sky-500/10 text-sky-400 border border-sky-500/30"
-                        : "bg-amber-500/10 text-amber-300 border border-amber-500/30"
-                    }`}
-                  >
-                    {isOrg ? <Trophy className="w-2.5 h-2.5" /> : <Building2 className="w-2.5 h-2.5" />}
-                    {isOrg ? "Organisation" : "Brand"}
-                  </span>
-
-                  {hasWebsite && (
-                    <span className="text-muted-foreground/40 group-hover:text-amber-400 transition-colors">
-                      <ExternalLink className="w-3.5 h-3.5" />
+              return (
+                <CardWrapper
+                  key={client.id}
+                  {...wrapperProps}
+                  className={`group relative flex flex-col justify-between w-[220px] sm:w-[250px] md:w-[270px] flex-shrink-0 rounded-2xl border border-white/10 bg-gradient-to-b from-card/70 to-card/40 p-4 sm:p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/50 hover:shadow-xl hover:shadow-amber-500/5 ${
+                    hasWebsite ? "cursor-pointer" : ""
+                  }`}
+                >
+                  {/* Top: Classification Badge Only (No redirect arrow icon) */}
+                  <div className="flex items-center justify-start w-full mb-2">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider font-mono ${
+                        isOrg
+                          ? "bg-sky-500/10 text-sky-400 border border-sky-500/30"
+                          : "bg-amber-500/10 text-amber-300 border border-amber-500/30"
+                      }`}
+                    >
+                      {isOrg ? <Trophy className="w-2.5 h-2.5" /> : <Building2 className="w-2.5 h-2.5" />}
+                      {isOrg ? "Organisation" : "Brand"}
                     </span>
-                  )}
-                </div>
+                  </div>
 
-                {/* Logo or Stylized Monogram */}
-                <div className="my-auto py-2.5 flex items-center justify-center w-full min-h-[80px] sm:min-h-[88px]">
-                  {client.logoUrl ? (
-                    <img
-                      src={client.logoUrl}
-                      alt={client.name}
-                      className="max-h-[72px] sm:max-h-[80px] w-auto max-w-[90%] object-contain drop-shadow-md transition-all duration-300 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 sm:h-18 sm:w-18 rounded-2xl bg-gradient-to-br from-amber-500/20 via-black to-zinc-900 border border-amber-400/30 flex items-center justify-center shadow-inner group-hover:border-amber-400 group-hover:scale-105 transition-all duration-300">
-                      <span className="font-display font-black text-lg sm:text-xl tracking-wider text-amber-300">
-                        {initials}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                  {/* Middle: Brand Logo or Monogram */}
+                  <div className="my-auto py-3 flex items-center justify-center w-full min-h-[90px]">
+                    {client.logoUrl ? (
+                      <img
+                        src={client.logoUrl}
+                        alt={client.name}
+                        className="max-h-[75px] sm:max-h-[85px] w-auto max-w-[90%] object-contain drop-shadow-md transition-all duration-300 group-hover:scale-105 pointer-events-none"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="h-16 w-16 sm:h-18 sm:w-18 rounded-2xl bg-gradient-to-br from-amber-500/20 via-black to-zinc-900 border border-amber-400/30 flex items-center justify-center shadow-inner group-hover:border-amber-400 group-hover:scale-105 transition-all duration-300">
+                        <span className="font-display font-black text-lg sm:text-xl tracking-wider text-amber-300">
+                          {initials}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-                {/* Name & Optional Link */}
-                <div className="mt-3 pt-3 border-t border-white/5 w-full text-center">
-                  <h3 className="font-display font-semibold text-xs sm:text-sm text-foreground group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
-                    {client.name}
-                  </h3>
-
-                  {hasWebsite && (
-                    <div className="mt-1 text-[11px] text-muted-foreground group-hover:text-primary transition-colors flex items-center justify-center gap-1">
-                      <span>Visit Website</span>
-                      <span className="text-[10px]">↗</span>
-                    </div>
-                  )}
-                </div>
-              </CardWrapper>
-            );
-          })}
+                  {/* Bottom: Clean Client Name (No extra redirect arrow text) */}
+                  <div className="mt-3 pt-3 border-t border-white/5 w-full text-center">
+                    <h3 className="font-display font-semibold text-xs sm:text-sm text-foreground group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
+                      {client.name}
+                    </h3>
+                  </div>
+                </CardWrapper>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
