@@ -849,7 +849,7 @@ function ProductShowcase({
       tag: "CONTROL ROOM",
       icon: Laptop,
       desc: "Total auctioneer command: 1-click bid increments, timer countdown buzzer, category pool selector, RTM, retentions, and instant emergency undo.",
-      img: "https://res.cloudinary.com/dja0upxxe/image/upload/v1786695659/Screenshot_2026-08-14_133632.png",
+      img: "/assets/evidence/auction-control-live-operator.png",
       alt: "BidWar Auction Control console interface showing player queue, timer, quick bid increments and team purses",
       features: [
         "1-Click Quick Bid Increments (₹10k, ₹25k, ₹50k, ₹1L pts)",
