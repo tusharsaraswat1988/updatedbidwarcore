@@ -20,13 +20,13 @@ export type TournamentCreationDraft = {
 export const WIZARD_STEPS: { id: WizardStepId; title: string; job: string }[] = [
   {
     id: "details",
-    title: "Tournament Details",
-    job: "Basic info, sport selection & auction economics",
+    title: "Tournament Setup",
+    job: "Enter basic details to get started",
   },
   {
     id: "experience",
-    title: "License & Launch",
-    job: "Choose license model and review tournament",
+    title: "License Type",
+    job: "Select the features you want for this tournament",
   },
 ];
 
