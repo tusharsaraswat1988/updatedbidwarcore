@@ -894,7 +894,7 @@ function ProductShowcase({
       tag: "LIVESTREAM",
       icon: Radio,
       desc: "Direct browser-source link for OBS Studio, vMix, and Streamlabs. Stream your live auction to YouTube, Facebook Live, or TV broadcast with professional lower-thirds.",
-      img: "/assets/evidence/operator-console-broadcast.png",
+      img: "/assets/evidence/obs-live-overlay.png",
       alt: "BidWar OBS Livestream broadcast overlay graphics running for live streaming",
       features: [
         "1-Click OBS Browser Source link with transparent alpha channel",
