@@ -118,11 +118,11 @@ async function optimizeImageFile(file: Express.Multer.File) {
 }
 
 /**
- * POST /api/upload
+ * POST /api/upload (also aliases /api/upload/image)
  * Accepts a single image file (multipart/form-data, field name "file").
  * Uploads it to Cloudinary and returns the secure HTTPS URL and public_id.
  */
-router.post("/upload", imageUpload.single("file"), async (req, res) => {
+router.post(["/upload", "/upload/image"], imageUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
