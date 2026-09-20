@@ -481,7 +481,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             {children}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto z-0 relative">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden z-0 relative">
             {/* Mobile top bar with hamburger */}
             <div className="md:hidden sticky top-0 z-10 h-12 flex items-center px-4 gap-3 border-b border-border bg-background/80 backdrop-blur-md flex-shrink-0">
               <button

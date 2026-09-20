@@ -125,7 +125,7 @@ import { exportPlayersToExcel } from "@/lib/export-players-excel";
 import { exportPlayersToCsv } from "@/lib/export-players-csv";
 import { useGoogleSheetsExport } from "@/hooks/use-google-sheets-export";
 import { GoogleSheetsReconnectBanner, PlayersExportMenu } from "@/components/players-export-menu";
-import { PlayerCategorySelect } from "@/components/player-category-select";
+import { PlayerCategorySelect, type PlayerCategoryOption } from "@/components/player-category-select";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -702,6 +702,29 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       if (tournamentMatch) {
         setMatchedTournamentPlayer(tournamentMatch);
         setMobileLookedUp(true);
+        setFilledFromProfile(true);
+        setForm(prev => ({
+          ...prev,
+          name: tournamentMatch.name || prev.name,
+          city: tournamentMatch.city ?? prev.city,
+          age: tournamentMatch.age != null ? String(tournamentMatch.age) : prev.age,
+          gender: tournamentMatch.gender ?? prev.gender,
+          role: tournamentMatch.role ?? prev.role,
+          photoUrl: tournamentMatch.photoUrl ?? prev.photoUrl,
+          battingStyle: tournamentMatch.battingStyle ?? prev.battingStyle,
+          bowlingStyle: tournamentMatch.bowlingStyle ?? prev.bowlingStyle,
+          specialization: tournamentMatch.specialization ?? prev.specialization,
+          jerseyNumber: tournamentMatch.jerseyNumber ?? prev.jerseyNumber,
+          jerseySize: (tournamentMatch.jerseySize as JerseySize | null) ?? prev.jerseySize,
+          achievements: tournamentMatch.achievements ?? prev.achievements,
+          cricheroUrl: tournamentMatch.cricheroUrl ?? prev.cricheroUrl,
+          availabilityDates: tournamentMatch.availabilityDates ?? prev.availabilityDates,
+          categoryId: tournamentMatch.categoryId != null ? String(tournamentMatch.categoryId) : prev.categoryId,
+          basePrice: tournamentMatch.basePrice ?? prev.basePrice,
+          selectedBidValue: tournamentMatch.selectedBidValue ? String(tournamentMatch.selectedBidValue) : prev.selectedBidValue,
+          status: tournamentMatch.status ?? prev.status,
+          retainedTeamId: tournamentMatch.teamId ? String(tournamentMatch.teamId) : prev.retainedTeamId,
+        }));
         return;
       }
     }
@@ -712,12 +735,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         setMobileLookupLoading(true);
         try {
           const sportQ = tournament?.sport ? `&sport=${encodeURIComponent(tournament.sport)}` : "";
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5${sportQ}`, {
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1${sportQ}`, {
             credentials: "include",
           });
-          if (!res.ok) {
-            return;
-          }
+          if (!res.ok) return;
           const data: unknown = await res.json();
           const suggestions = Array.isArray(data)
             ? data.filter(
@@ -728,24 +749,24 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                   typeof (item as { name?: unknown }).name === "string",
               )
             : [];
-          const match = suggestions.length > 0
-            ? (digits.length >= 10 ? suggestions[0] : suggestions.find(p => p.name))
-            : undefined;
-          if (match) setPendingMobileProfile(match);
+          const match = suggestions.length > 0 ? suggestions[0] : undefined;
+          if (match) {
+            setPendingMobileProfile(match);
+            fillFromProfile(match);
+          }
         } catch {
           // ignore lookup errors
         } finally {
           setMobileLookupLoading(false);
           setMobileLookedUp(true);
         }
-      }, 600);
+      }, 500);
     }
   }
 
   function applyMobileProfile() {
     if (!pendingMobileProfile) return;
     fillFromProfile(pendingMobileProfile);
-    setPendingMobileProfile(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -873,10 +894,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     applyStatusChange(nextStatus);
   }
 
-  function clearProfileFill(newName: string) {
+  function clearProfileFill(keepName = "") {
     setForm(prev => ({
       ...prev,
-      name: newName,
+      name: keepName,
       city: "",
       role: "",
       battingStyle: "",
@@ -885,15 +906,14 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       age: "",
       gender: "",
       photoUrl: "",
+      photoPublicId: "",
       achievements: "",
       jerseyNumber: "",
       jerseySize: "",
       cricheroUrl: "",
-      mobileNumber: "",
       basePrice: basePriceTouched ? prev.basePrice : (tournament?.minBid || 100000),
     }));
     setFilledFromProfile(false);
-    setMobileLookedUp(false);
     setPendingMobileProfile(null);
     setMatchedTournamentPlayer(null);
     setExtraSpecSelections({});
@@ -902,7 +922,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   function fillFromProfile(p: SuggestionProfile) {
     setForm(prev => ({
       ...prev,
-      name: p.name,
+      name: p.name || prev.name,
       city: p.city || prev.city,
       role: p.role || prev.role,
       age: p.age != null ? String(p.age) : prev.age,
@@ -946,429 +966,483 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Player Name <span className="text-destructive">*</span></Label>
-          {player ? (
-            <Input value={form.name} onChange={e => f("name", e.target.value)} required placeholder="Full name" />
-          ) : (
-            <>
-              <GlobalPlayerSearch
-                value={form.name}
-                onChange={v => {
-                  if (filledFromProfile) clearProfileFill(v);
-                  else f("name", v);
-                }}
-                onFillFromProfile={fillFromProfile}
-                sportSlug={tournament?.sport ?? undefined}
-              />
-              {filledFromProfile && (
-                <p className="text-xs text-primary flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  Filled from player history
-                  <button
-                    type="button"
-                    className="ml-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => clearProfileFill(form.name)}
-                  >
-                    · clear
-                  </button>
-                </p>
-              )}
-            </>
-          )}
+    <form onSubmit={handleSubmit} className="space-y-3.5">
+      {/* 1. Identity & Core Details (Mobile First) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
+        {/* Mobile Number (Primary) */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold flex items-center justify-between">
+            <span>Mobile Number <span className="text-destructive">*</span></span>
+            {!player && mobileLookupLoading && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-normal">
+                <Loader2 className="w-3 h-3 animate-spin" /> Looking up…
+              </span>
+            )}
+          </Label>
+          <div className="relative">
+            <Input
+              value={form.mobileNumber}
+              onChange={e => handleMobileChange(e.target.value)}
+              required
+              placeholder="10-digit mobile number"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              className="h-9 pr-8 text-xs sm:text-sm"
+            />
+            {!player && !mobileLookupLoading && mobileLookedUp && (
+              <span className="absolute right-2.5 top-2.5 pointer-events-none">
+                {matchedTournamentPlayer || pendingMobileProfile ? (
+                  <Check className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <Search className="w-4 h-4 text-muted-foreground/40" />
+                )}
+              </span>
+            )}
+          </div>
+          {mobileError && <p className="text-xs text-destructive">{mobileError}</p>}
         </div>
+
+        {/* Player Name */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">
+            Player Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={form.name}
+            onChange={e => f("name", e.target.value)}
+            required
+            placeholder="Full name"
+            className="h-9 text-xs sm:text-sm"
+          />
+        </div>
+
+        {/* Category (if tournament has categories) */}
+        {categories.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Category</Label>
+            <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
+              <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Select category" /></SelectTrigger>
+              <SelectContent className="dark">
+                {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <OptionalEmailField
+              id="player-email"
+              value={form.email}
+              onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
+              error={emailError || undefined}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Contextual Status Badges */}
+      {!player && matchedTournamentPlayer && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+            <span>Player is already registered in this tournament as <strong>{matchedTournamentPlayer.name}</strong>. Details loaded (saving will update this record).</span>
+          </div>
+        </div>
+      )}
+
+      {!player && !matchedTournamentPlayer && filledFromProfile && pendingMobileProfile && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span className="truncate">Auto-filled from previous tournament history (<strong>{pendingMobileProfile.name}</strong>{pendingMobileProfile.appearanceCount > 1 ? ` · ${pendingMobileProfile.appearanceCount} tournaments` : ""}).</span>
+          </div>
+          <button
+            type="button"
+            className="text-[11px] text-emerald-300 hover:text-white underline shrink-0 cursor-pointer"
+            onClick={() => clearProfileFill(form.name)}
+          >
+            Clear auto-fill
+          </button>
+        </div>
+      )}
+
+      {/* 2. Demographics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-start">
         {categories.length > 0 && (
-        <div className="space-y-2">
-          <Label>Category</Label>
-          <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
-            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-            <SelectContent className="dark">
-              {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+          <div className="space-y-1.5">
+            <OptionalEmailField
+              id="player-email"
+              value={form.email}
+              onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
+              error={emailError || undefined}
+            />
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">City</Label>
+          <CityAutocomplete value={form.city} onChange={v => f("city", v)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Age</Label>
+          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="Age" className="h-9 text-xs sm:text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Gender</Label>
+          <PlayerGenderSelect value={form.gender} onChange={(v) => f("gender", v)} />
+        </div>
+      </div>
+
+      {/* 3. Role & Auction Valuation Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
+        {/* Role */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Role</Label>
+          <Select value={form.role} onValueChange={v => f("role", v)}>
+            <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Select role" /></SelectTrigger>
+            <SelectContent position="popper" className="max-h-60 dark">
+              {(sportRoles.length > 0
+                ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
+                : [{ value: "Player", label: "Player" }]
+              ).map(r => (
+                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-        )}
-      </div>
-      {/* Row 2: Mobile (required) — full width so lookup card doesn't stretch sibling selects */}
-      <div className="space-y-2">
-        <Label>Mobile Number <span className="text-destructive">*</span></Label>
-        <div className="relative">
-          <Input
-            value={form.mobileNumber}
-            onChange={e => handleMobileChange(e.target.value)}
-            required
-            placeholder="10-digit mobile (e.g. 9876543210)"
-            type="tel"
-            inputMode="numeric"
-            maxLength={10}
-            className="pr-8"
-          />
-          {!player && mobileLookupLoading && (
-            <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
-          )}
-          {!player && !mobileLookupLoading && mobileLookedUp && (
-            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${pendingMobileProfile ? "text-green-500" : "text-muted-foreground"}`} />
-          )}
-        </div>
-        {!player && mobileLookupLoading && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-            Looking up mobile number in player database…
-          </p>
-        )}
-        {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
-        {!player && matchedTournamentPlayer && (
-          <p className="text-xs text-amber-400 mt-1">
-            This mobile is already registered as <span className="font-semibold">{matchedTournamentPlayer.name}</span>.
-            Saving will update that player — no duplicate will be created.
-          </p>
-        )}
-        {!player && pendingMobileProfile && !matchedTournamentPlayer && (
-          <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 space-y-3">
-            <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Existing profile found</p>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
-                {pendingMobileProfile.photoUrl ? (
-                  <img
-                    src={cldUrl(pendingMobileProfile.photoUrl, "thumbnail")}
-                    alt={pendingMobileProfile.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User className="w-5 h-5 text-muted-foreground/50" />
-                )}
+
+        {/* Base Price / Selected Bid Value */}
+        <div className="space-y-1.5">
+          {showPlayerBidSelector && bidValueEditable ? (
+            <>
+              <Label className="text-xs font-semibold">Selected Bid Value (₹) <span className="text-destructive">*</span></Label>
+              <Select
+                value={form.selectedBidValue}
+                onValueChange={(v) => {
+                  setBasePriceTouched(true);
+                  f("selectedBidValue", v);
+                  f("basePrice", v);
+                }}
+                required
+              >
+                <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Select bid value" /></SelectTrigger>
+                <SelectContent className="dark">
+                  {organizerBidOptions.map((amount) => (
+                    <SelectItem key={amount} value={String(amount)}>
+                      {formatIndianRupee(amount)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <IndianAmountHint value={form.selectedBidValue} className="text-[10px]" />
+            </>
+          ) : showPlayerBidSelector && !bidValueEditable ? (
+            <>
+              <Label className="text-xs font-semibold">Selected Bid Value (₹)</Label>
+              <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-xs sm:text-sm">
+                {formatIndianRupee(lockedBidDisplayAmount)}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold truncate">{pendingMobileProfile.name}</p>
-                <p className="text-xs font-mono text-muted-foreground">{pendingMobileProfile.mobileNumber}</p>
-                {pendingMobileProfile.appearanceCount > 1 && (
-                  <p className="text-[10px] text-primary mt-0.5">
-                    Seen in {pendingMobileProfile.appearanceCount} tournaments
-                  </p>
-                )}
+            </>
+          ) : bidValueEditable ? (
+            <>
+              <Label className="text-xs font-semibold">Base Price (₹) <span className="text-destructive">*</span></Label>
+              <Input
+                type="number"
+                value={form.basePrice}
+                onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }}
+                required
+                className="h-9 text-xs sm:text-sm"
+              />
+              <IndianAmountHint value={form.basePrice} className="text-[10px]" />
+            </>
+          ) : (
+            <>
+              <Label className="text-xs font-semibold">Base Price (₹)</Label>
+              <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-xs sm:text-sm">
+                {formatIndianRupee(lockedBidDisplayAmount)}
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" className="h-8 gap-1.5" onClick={applyMobileProfile}>
-                <Sparkles className="w-3.5 h-3.5" /> Use this profile
-              </Button>
-              <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setPendingMobileProfile(null)}>
-                Dismiss
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-      <OptionalEmailField
-        id="player-email"
-        value={form.email}
-        onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
-        error={emailError || undefined}
-      />
-      {/* Row 3: City | Age | Gender */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-        <div className="space-y-2">
-          <Label>City</Label>
-          <CityAutocomplete value={form.city} onChange={v => f("city", v)} />
+            </>
+          )}
         </div>
-        <div className="space-y-2">
-          <Label>Age</Label>
-          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} />
-        </div>
-        <PlayerGenderSelect
-          value={form.gender}
-          onChange={(v) => f("gender", v)}
-        />
-      </div>
-      {/* Row 4: Jersey No | Jersey Size */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-        <div className="space-y-2">
-          <Label>Jersey No.</Label>
-          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} />
-        </div>
-        <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
-      </div>
-      {/* Row 5: Base Price / Selected Bid Value */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {showPlayerBidSelector && bidValueEditable ? (
-          <div className="space-y-2 col-span-2">
-            <Label>Selected Bid Value (₹) <span className="text-destructive">*</span></Label>
-            <Select
-              value={form.selectedBidValue}
-              onValueChange={(v) => {
-                setBasePriceTouched(true);
-                f("selectedBidValue", v);
-                f("basePrice", v);
-              }}
-              required
-            >
-              <SelectTrigger><SelectValue placeholder="Select bid value" /></SelectTrigger>
-              <SelectContent className="dark">
-                {organizerBidOptions.map((amount) => (
-                  <SelectItem key={amount} value={String(amount)}>
-                    {formatIndianRupee(amount)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <IndianAmountHint value={form.selectedBidValue} className="text-[10px]" />
-          </div>
-        ) : showPlayerBidSelector && !bidValueEditable ? (
-          <div className="space-y-2 col-span-2">
-            <Label>Selected Bid Value (₹)</Label>
-            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
-              {formatIndianRupee(lockedBidDisplayAmount)}
-            </div>
-            <p className="text-[10px] text-muted-foreground">Bid value is locked after the auction starts.</p>
-          </div>
-        ) : bidValueEditable ? (
-          <div className="space-y-2">
-            <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
+
+        {/* Jersey No & Size combined */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Jersey</Label>
+          <div className="flex gap-2">
             <Input
-              type="number"
-              value={form.basePrice}
-              onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }}
-              required
+              value={form.jerseyNumber}
+              onChange={e => f("jerseyNumber", e.target.value)}
+              placeholder="No. (7)"
+              className="h-9 text-xs sm:text-sm w-20 shrink-0"
             />
-            <IndianAmountHint value={form.basePrice} className="text-[10px]" />
-            <p className="text-[10px] text-muted-foreground">
-              Uses tournament minimum bid ({formatIndianRupee(tournament?.minBid ?? 100000)}).
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <Label>Base Price (₹)</Label>
-            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
-              {formatIndianRupee(lockedBidDisplayAmount)}
+            <div className="flex-1 min-w-0">
+              <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
             </div>
-            <p className="text-[10px] text-muted-foreground">Base price is locked after the auction starts.</p>
           </div>
-        )}
+        </div>
       </div>
-      {/* Role drives the specification fields below — keep them adjacent */}
-      <div className="space-y-2">
-        <Label>Role</Label>
-        <Select value={form.role} onValueChange={v => f("role", v)}>
-          <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-          <SelectContent position="popper" className="max-h-60">
-            {(sportRoles.length > 0
-              ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
-              : [{ value: "Player", label: "Player" }]
-            ).map(r => (
-              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {/* Dynamic spec groups: loaded from sport master per selected role */}
+
+      {/* Dynamic Specifications */}
       {sortedSpecGroups.length > 0 ? (
-        <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <div className="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/15">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             {form.role} Specifications
           </p>
-          {sortedSpecGroups.map((group, idx) => {
-            const key = SPEC_KEYS[idx];
-            const value = key ? form[key] : (extraSpecSelections[group.id] ?? "");
-            const onValueChange = (v: string) => {
-              if (key) f(key, v);
-              else setExtraSpecSelections(prev => ({ ...prev, [group.id]: v }));
-            };
-            return (
-              <div key={group.id} className="space-y-1.5">
-                <Label className="text-sm">
-                  {group.groupName}
-                  {!group.optional && <span className="text-destructive ml-0.5">*</span>}
-                </Label>
-                {group.options.length > 0 ? (
-                  <Select value={value} onValueChange={onValueChange}>
-                    <SelectTrigger><SelectValue placeholder={`Select ${group.groupName}`} /></SelectTrigger>
-                    <SelectContent className="dark">
-                      {group.options.map(o => (
-                        <SelectItem key={o.id} value={o.optionName}>{o.optionName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input value={value} onChange={e => onValueChange(e.target.value)} placeholder={group.groupName} />
-                )}
-              </div>
-            );
-          })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {sortedSpecGroups.map((group, idx) => {
+              const key = SPEC_KEYS[idx];
+              const value = key ? form[key] : (extraSpecSelections[group.id] ?? "");
+              const onValueChange = (v: string) => {
+                if (key) f(key, v);
+                else setExtraSpecSelections(prev => ({ ...prev, [group.id]: v }));
+              };
+              return (
+                <div key={group.id} className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    {group.groupName}
+                    {!group.optional && <span className="text-destructive ml-0.5">*</span>}
+                  </Label>
+                  {group.options.length > 0 ? (
+                    <Select value={value} onValueChange={onValueChange}>
+                      <SelectTrigger className="h-8.5 text-xs"><SelectValue placeholder={`Select ${group.groupName}`} /></SelectTrigger>
+                      <SelectContent className="dark">
+                        {group.options.map(o => (
+                          <SelectItem key={o.id} value={o.optionName}>{o.optionName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input value={value} onChange={e => onValueChange(e.target.value)} placeholder={group.groupName} className="h-8.5 text-xs" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : sportCaps.hasLegacyCricketSpecs ? (
-        /* Fallback free-text spec fields — only when sport declares legacy cricket specs */
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Batting Style</Label>
-            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg border border-border/60 bg-muted/15">
+          <div className="space-y-1">
+            <Label className="text-xs">Batting Style</Label>
+            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} className="h-8.5 text-xs" />
           </div>
-          <div className="space-y-2">
-            <Label>Bowling Style</Label>
-            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} />
+          <div className="space-y-1">
+            <Label className="text-xs">Bowling Style</Label>
+            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} className="h-8.5 text-xs" />
           </div>
-          <div className="space-y-2">
-            <Label>Specialization</Label>
-            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} />
+          <div className="space-y-1">
+            <Label className="text-xs">Specialization</Label>
+            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} className="h-8.5 text-xs" />
           </div>
         </div>
       ) : null}
-      {/* Player Photo */}
-      <div className="space-y-2">
-          <Label>Player Photo</Label>
-          <div className="flex gap-2 items-start">
-            <div className="w-12 h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {form.photoUrl ? (
-                <img
-                  src={form.photoUrl}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                />
-              ) : (
-                <User className="w-5 h-5 text-muted-foreground/40" />
-              )}
-            </div>
-            <div className="flex-1 space-y-1.5">
-              <div className="flex flex-wrap items-center gap-1.5">
+
+      {/* 4. Photo, Achievements & Match Availability */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+        {/* Left: Photo & Achievements */}
+        <div className="space-y-2.5 p-3 rounded-lg border border-border/60 bg-muted/10">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Player Photo</Label>
+            <div className="flex gap-2.5 items-center">
+              <div className="w-10 h-10 rounded-full border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+                {form.photoUrl ? (
+                  <img
+                    src={form.photoUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-muted-foreground/40" />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 text-xs gap-1"
+                  className="h-7 text-xs gap-1 cursor-pointer"
                   onClick={() => setPhotoEditorOpen(true)}
                 >
-                  {form.photoUrl ? <><Pencil className="w-3 h-3" /> Edit Photo</> : <><Upload className="w-3 h-3" /> Upload Photo</>}
+                  {form.photoUrl ? <><Pencil className="w-3 h-3" /> Change Photo</> : <><Upload className="w-3 h-3" /> Upload Photo</>}
                 </Button>
                 {form.photoUrl && (
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
                     onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
                   >
-                    <X className="w-3 h-3" /> Remove
+                    Remove
                   </Button>
                 )}
               </div>
             </div>
           </div>
-          <ImageEditorDialog
-            open={photoEditorOpen}
-            onClose={() => setPhotoEditorOpen(false)}
-            initialUrl={form.photoUrl || undefined}
-            aspect={PLAYER_PHOTO_ASPECT}
-            title="Player Photo"
-            exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
-            exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
-            exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
-            onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
-          />
-        </div>
-      {(() => {
-        const matchDates: string[] = (tournament?.matchDates || "").split(",").filter(Boolean) as string[];
-        if (matchDates.length === 0) return null;
-        const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean) as string[];
-        const selectedSet = new Set<string>(selectedDates);
-        function toggleAvailDate(iso: string) {
-          const next = new Set<string>(selectedSet);
-          if (next.has(iso)) next.delete(iso); else next.add(iso);
-          const kept: string[] = [];
-          next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
-          f("availabilityDates", kept.join(","));
-        }
-        return (
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-              <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
-              Match Availability
-            </Label>
-            <p className="text-xs text-muted-foreground">Check the match days this player will be available to play. All days are selected by default.</p>
-            <div className="flex flex-wrap gap-2">
-              {matchDates.map((iso: string) => {
-                const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-                const checked = selectedSet.has(iso);
-                return (
-                  <label
-                    key={iso}
-                    className={`flex items-center gap-1.5 cursor-pointer text-sm px-2.5 py-1.5 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleAvailDate(iso)}
-                      className="accent-amber-400"
-                    />
-                    {label}
-                  </label>
-                );
-              })}
-            </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Achievements (Optional)</Label>
+            <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="e.g. State level winner, MVP" className="h-8 text-xs" />
           </div>
-        );
-      })()}
-      {sportCaps.hasLegacyCricketSpecs ? (
-        <div className="space-y-2">
-          <Label>Crichero URL</Label>
-          <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} />
-        </div>
-      ) : null}
-      <div className="space-y-2">
-        <Label>Achievements</Label>
-        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} />
-      </div>
-
-      {/* Retained player section */}
-      <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">
-        <div className="space-y-1">
-          <Label>
-            Retained Player <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Choose whether this player is available for auction or already pre-sold to a team.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Select value={form.status} onValueChange={handleStatusChange}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent className="dark">
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="retained">Retained (Pre-sold)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {form.status === "retained" && (
-            <div className="space-y-2">
-              <Label>Retained Price (₹) <span className="text-destructive">*</span></Label>
-              <Input type="number" value={form.retainedPrice} onChange={e => f("retainedPrice", e.target.value)} placeholder="e.g. 1000000" />
-              <IndianAmountHint value={form.retainedPrice} className="text-[10px]" />
-              <p className="text-[10px] text-muted-foreground">
-                Defaults to the player&apos;s base / selected bid value. This amount is deducted from the team purse.
-              </p>
+          {sportCaps.hasLegacyCricketSpecs && (
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Crichero URL (Optional)</Label>
+              <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="Profile URL" className="h-8 text-xs" />
             </div>
           )}
         </div>
-        {form.status === "retained" && (
-          <div className="space-y-2">
-            <Label>Retained By Team <span className="text-destructive">*</span></Label>
-            <Select value={form.retainedTeamId} onValueChange={v => f("retainedTeamId", v)}>
-              <SelectTrigger><SelectValue placeholder="Select team..." /></SelectTrigger>
+
+        {/* Right: Match Availability */}
+        <div className="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/10 h-full">
+          {(() => {
+            const matchDates: string[] = (tournament?.matchDates || "").split(",").filter(Boolean) as string[];
+            if (matchDates.length === 0) {
+              return (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Match Availability</Label>
+                  <p className="text-xs text-muted-foreground">Available for all tournament match days.</p>
+                </div>
+              );
+            }
+            const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean) as string[];
+            const selectedSet = new Set<string>(selectedDates);
+            function toggleAvailDate(iso: string) {
+              const next = new Set<string>(selectedSet);
+              if (next.has(iso)) next.delete(iso); else next.add(iso);
+              const kept: string[] = [];
+              next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
+              f("availabilityDates", kept.join(","));
+            }
+            return (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
+                  Match Availability
+                </Label>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {matchDates.map((iso: string) => {
+                    const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                    const checked = selectedSet.has(iso);
+                    return (
+                      <label
+                        key={iso}
+                        className={`flex items-center gap-1.5 cursor-pointer text-xs px-2 py-1 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300 font-medium" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAvailDate(iso)}
+                          className="accent-amber-400 w-3.5 h-3.5"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      <ImageEditorDialog
+        open={photoEditorOpen}
+        onClose={() => setPhotoEditorOpen(false)}
+        initialUrl={form.photoUrl || undefined}
+        aspect={PLAYER_PHOTO_ASPECT}
+        title="Player Photo"
+        exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
+        exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
+        exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
+        onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
+      />
+
+      {/* 5. Auction Status / Retained & Tags (Compact box) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg border border-border/60 bg-muted/10">
+        {/* Retained Player */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Retained Status (Optional)</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Select value={form.status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent className="dark">
-                {teams.map(t => (
-                  <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                <SelectItem value="available">Available for auction</SelectItem>
+                <SelectItem value="retained">Retained (Pre-sold)</SelectItem>
+              </SelectContent>
+            </Select>
+            {form.status === "retained" && (
+              <Select value={form.retainedTeamId} onValueChange={v => f("retainedTeamId", v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select team..." /></SelectTrigger>
+                <SelectContent className="dark">
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          {form.status === "retained" && (
+            <div className="pt-1">
+              <Input
+                type="number"
+                value={form.retainedPrice}
+                onChange={e => f("retainedPrice", e.target.value)}
+                placeholder="Retained Price (₹)"
+                className="h-8 text-xs"
+              />
+              <IndianAmountHint value={form.retainedPrice} className="text-[10px]" />
+            </div>
+          )}
+        </div>
+
+        {/* Player Tag */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Player Tag (Display Badge)</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Select value={form.playerTag || "_none"} onValueChange={v => f("playerTag", v === "_none" ? "" : v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="No tag" /></SelectTrigger>
+              <SelectContent className="dark">
+                <SelectItem value="_none">No tag</SelectItem>
+                {playerTagOptions.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {form.playerTag && (
+              <Select value={form.playerTagTeamId || "_none"} onValueChange={v => f("playerTagTeamId", v === "_none" ? "" : v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any team" /></SelectTrigger>
+                <SelectContent className="dark">
+                  <SelectItem value="_none">Any team</SelectItem>
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-        )}
-        {isLiveAuction && form.status === "retained" && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            Auction is live. Moving this player to Available will remove them from the team and return the retained amount to that team&apos;s purse.
-          </p>
-        )}
+        </div>
+
+        {/* Checkboxes */}
+        <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-1.5 border-t border-border/40">
+          <label className="flex items-center gap-2 cursor-pointer text-xs">
+            <input
+              type="checkbox"
+              checked={form.isNonPlayingMember}
+              onChange={e => f("isNonPlayingMember", e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-border bg-input accent-primary cursor-pointer"
+            />
+            <span>Non-Playing Member</span>
+          </label>
+          {!player && tournament?.enableRegistrationPayment && (
+            <label className="flex items-center gap-2 cursor-pointer text-xs">
+              <input
+                type="checkbox"
+                checked={form.markPaymentCompleted}
+                onChange={e => f("markPaymentCompleted", e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-border bg-input accent-primary cursor-pointer"
+              />
+              <span>Mark Payment as Paid</span>
+            </label>
+          )}
+        </div>
       </div>
 
       <AlertDialog open={releaseRetainedOpen} onOpenChange={setReleaseRetainedOpen}>
@@ -1404,96 +1478,27 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Player tag section */}
-      <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">
-        <div className="space-y-1">
-          <Label>
-            Player Tag <span className="text-xs font-normal text-muted-foreground">(Optional — display only)</span>
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Add a visual badge on the auction screen. Does not affect bidding rules.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Select value={form.playerTag || "_none"} onValueChange={v => f("playerTag", v === "_none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="No tag" /></SelectTrigger>
-              <SelectContent className="dark">
-                <SelectItem value="_none">No tag</SelectItem>
-                {playerTagOptions.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {form.playerTag && (
-            <div className="space-y-2">
-              <Label>Tag Team</Label>
-              <Select value={form.playerTagTeamId || "_none"} onValueChange={v => f("playerTagTeamId", v === "_none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Any team" /></SelectTrigger>
-                <SelectContent className="dark">
-                  <SelectItem value="_none">Any team</SelectItem>
-                  {teams.map(t => (
-                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {!player && tournament?.enableRegistrationPayment && (
-        <div className="pt-2 border-t border-border">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Payment Completed</p>
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={form.markPaymentCompleted}
-              onChange={e => f("markPaymentCompleted", e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
-            />
-            <div>
-              <p className="text-sm font-semibold group-hover:text-foreground transition-colors">Mark as Paid</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Check if payment was collected offline. Skips UTR and screenshot requirements.
-              </p>
-            </div>
-          </label>
-        </div>
-      )}
-
-      {/* Non-playing member toggle */}
-      <div className="pt-2 border-t border-border">
-        <label className="flex items-start gap-3 cursor-pointer group">
-          <input
-            type="checkbox"
-            checked={form.isNonPlayingMember}
-            onChange={e => f("isNonPlayingMember", e.target.checked)}
-            className="mt-1 w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
-          />
-          <div>
-            <p className="text-sm font-semibold group-hover:text-foreground transition-colors">Is Non-Playing Member?</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Shows in team roster for display purposes only. Not counted in squad size, category limits, or statistics.</p>
-          </div>
-        </label>
-      </div>
-
       {submitError && (
-        <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">
           <span className="flex-shrink-0">!</span>
           {submitError}
         </div>
       )}
-      <div className="flex gap-3 pt-4">
+
+      {/* Form Action Buttons */}
+      <div className="flex gap-3 pt-2">
         <Button
           type="submit"
-          className="flex-1"
+          className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold cursor-pointer"
           disabled={createPlayer.isPending || updatePlayer.isPending}
         >
-          {player ? "Update Player" : "Add Player"}
+          {createPlayer.isPending || updatePlayer.isPending ? (
+            <span className="flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin" /> Saving…</span>
+          ) : (
+            player ? "Update Player" : "Add Player"
+          )}
         </Button>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="outline" className="cursor-pointer" onClick={onClose}>Cancel</Button>
       </div>
     </form>
   );
@@ -2192,7 +2197,7 @@ function PlayerDetailPanel({
   roleSpecGroups: { groupName: string }[];
   tournamentId: number;
   tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null; sport?: string | null };
-  categories?: CategoryOption[];
+  categories?: PlayerCategoryOption[];
   onEdit: () => void;
   onDelete: () => void;
   onWithdraw: () => void;
@@ -2511,15 +2516,15 @@ function PlayerPaymentStatusSelect({
 }
 
 const SORT_LABEL_MAP: Record<string, string> = {
-  "id:asc": "Serial #",
-  "id:desc": "Serial # ↓",
-  "name:asc": "Name A–Z",
-  "name:desc": "Name Z–A",
+  "id:asc": "Serial # (1, 2, 3…)",
+  "id:desc": "Serial # (High to Low)",
+  "name:asc": "Name (A → Z)",
+  "name:desc": "Name (Z → A)",
   "status:asc": "Status",
   "category:asc": "Category",
-  "baseValue:desc": "Base value ↓",
-  "amount:desc": "Sold amount ↓",
-  "team:asc": "Team",
+  "baseValue:desc": "Base value (High to Low)",
+  "amount:desc": "Sold amount (High to Low)",
+  "team:asc": "Team name",
 };
 
 // ─── Players Page ──────────────────────────────────────────────────────────────
@@ -2719,7 +2724,7 @@ export default function Players() {
 
   const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
 
-  const statusCounts = useMemo(() => {
+  const statusCounts: Record<StatusFilterValue, number> = useMemo(() => {
     const list = players || [];
     return {
       all: list.length,
@@ -2727,7 +2732,7 @@ export default function Players() {
       sold: list.filter(p => p.status === "sold").length,
       retained: list.filter(p => p.status === "retained").length,
       unsold: list.filter(p => p.status === "unsold").length,
-      withdrawn: list.filter(p => p.status === "withdrawn").length,
+      withdrawn: list.filter(p => (p.status as string) === "withdrawn").length,
     };
   }, [players]);
 
@@ -3044,7 +3049,7 @@ export default function Players() {
         </div>
 
         {/* 4. Filter & Tools */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5 w-full">
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <MultiFilterPopover
               label="Team"
@@ -3090,7 +3095,7 @@ export default function Players() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <div className="flex items-center gap-2 shrink-0">
             <Select
               value={`${sortKey}:${sortDir}`}
               onValueChange={v => {
@@ -3099,20 +3104,25 @@ export default function Players() {
                 setSortDir(d);
               }}
             >
-              <SelectTrigger className="h-8 px-2.5 text-xs bg-card/30 border-border/40 hover:bg-card/50 hover:border-border/70 text-foreground cursor-pointer transition-colors gap-1 shrink-0 font-medium">
-                <span className="text-muted-foreground font-normal">Sort:</span>
-                <span>{SORT_LABEL_MAP[`${sortKey}:${sortDir}`] || "Serial #"}</span>
+              <SelectTrigger className="w-auto h-8 px-2.5 text-xs bg-card/30 border-border/40 hover:bg-card/50 hover:border-border/70 text-foreground cursor-pointer transition-colors gap-2 shrink-0 font-medium">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground font-normal">Sort:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    {SORT_LABEL_MAP[`${sortKey}:${sortDir}`] || "Serial # (1, 2, 3…)"}
+                  </span>
+                </div>
               </SelectTrigger>
-              <SelectContent className="dark">
-                <SelectItem value="id:asc">Serial # ↑</SelectItem>
-                <SelectItem value="id:desc">Serial # ↓</SelectItem>
-                <SelectItem value="name:asc">Name A–Z</SelectItem>
-                <SelectItem value="name:desc">Name Z–A</SelectItem>
+              <SelectContent className="dark min-w-[200px]">
+                <SelectItem value="id:asc">Serial # (1, 2, 3…)</SelectItem>
+                <SelectItem value="id:desc">Serial # (High to Low)</SelectItem>
+                <SelectItem value="name:asc">Name (A → Z)</SelectItem>
+                <SelectItem value="name:desc">Name (Z → A)</SelectItem>
                 <SelectItem value="status:asc">Status</SelectItem>
                 {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
-                <SelectItem value="baseValue:desc">Base value ↓</SelectItem>
-                <SelectItem value="amount:desc">Sold amount ↓</SelectItem>
-                <SelectItem value="team:asc">Team → Name</SelectItem>
+                <SelectItem value="baseValue:desc">Base value (High to Low)</SelectItem>
+                <SelectItem value="amount:desc">Sold amount (High to Low)</SelectItem>
+                <SelectItem value="team:asc">Team name</SelectItem>
               </SelectContent>
             </Select>
 
@@ -3555,7 +3565,7 @@ export default function Players() {
       {/* Add / Edit Player Dialog */}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
         <DialogContent
-          className="max-w-lg dark"
+          className="max-w-3xl lg:max-w-4xl dark max-h-[92vh] overflow-y-auto"
           onPointerDownOutside={e => e.preventDefault()}
           onEscapeKeyDown={e => e.preventDefault()}
         >
