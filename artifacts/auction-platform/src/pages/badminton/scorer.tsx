@@ -499,9 +499,9 @@ export default function BadmintonScorerPage() {
       const scheduledAt =
         typeof matchDetail?.scheduledAt === "string"
           ? matchDetail.scheduledAt
-          : typeof (data as { match?: { scheduledAt?: string | null } })?.match?.scheduledAt ===
+          : typeof (data as unknown as { match?: { scheduledAt?: string | null } })?.match?.scheduledAt ===
               "string"
-            ? (data as { match: { scheduledAt: string } }).match.scheduledAt
+            ? (data as unknown as { match: { scheduledAt: string } }).match.scheduledAt
             : null;
       return (
         <FullscreenLayout className="lovable-theme">

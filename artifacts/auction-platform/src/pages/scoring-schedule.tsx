@@ -46,6 +46,8 @@ import { cricketPublicPath } from "@/lib/tournament-navigation";
 import { cricketFixturesPath, cricketSettingsPath } from "@/lib/cricket-routes";
 import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+
 export default function ScoringSchedulePage() {
   const [, params] = useRoute("/tournament/:id/score/schedule");
   const tournamentId = parseInt(params?.id || "0");
@@ -244,7 +246,7 @@ export default function ScoringSchedulePage() {
     return (
       <CricketOrganizerPageShell tournamentId={tournamentId}>
         <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule" />
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-10 space-y-3">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-10 space-y-3">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-24 w-full" />
         </div>
@@ -256,7 +258,7 @@ export default function ScoringSchedulePage() {
     return (
       <CricketOrganizerPageShell tournamentId={tournamentId}>
         <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule" />
-        <p className="max-w-3xl mx-auto px-4 sm:px-6 pb-10 text-muted-foreground">
+        <p className="max-w-4xl mx-auto px-4 sm:px-6 pb-10 text-muted-foreground">
           Cricket scoring is not enabled.
         </p>
       </CricketOrganizerPageShell>
@@ -278,45 +280,48 @@ export default function ScoringSchedulePage() {
             <BtnSecondary href={cricketPublicPath(tournamentId)} className={btnCompactClass} external>
               Public page
             </BtnSecondary>
+            <BtnPrimary onClick={openGenerateDialog} className={btnCompactClass}>
+              <Plus className="h-4 w-4" />
+              Generate schedule
+            </BtnPrimary>
           </div>
         }
       />
-      <div className="flex flex-col gap-4 max-w-3xl mx-auto px-4 sm:px-6 pb-10">
-        <div className="flex flex-wrap gap-2">
-          <BtnPrimary onClick={openGenerateDialog} className={btnCompactClass}>
-            <Plus className="h-4 w-4" />
-            Generate schedule
-          </BtnPrimary>
-        </div>
-
-        <section className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Venues
-          </h2>
+      <div className="flex flex-col gap-5 max-w-4xl mx-auto px-4 sm:px-6 pb-12">
+        <section className="rounded-xl border border-border/60 bg-card/60 p-4 sm:p-5 space-y-3.5">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
+            <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
+              <MapPin className="h-4 w-4 text-primary" />
+              Tournament Venues
+            </h2>
+          </div>
 
           {venuesLoading ? (
             <Skeleton className="h-8 w-full" />
           ) : (venues?.length ?? 0) > 0 ? (
             <>
-              <ul className="text-sm space-y-1">
+              <ul className="text-sm space-y-2">
                 {(venues ?? []).map((v) => {
                   const fromSettings =
                     settingsVenueName &&
                     v.name.trim().toLowerCase() === settingsVenueName.toLowerCase();
                   return (
-                    <li key={v.id} className="text-muted-foreground">
-                      {v.name}
-                      {v.city ? ` · ${v.city}` : ""}
+                    <li key={v.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/20 border border-border/40">
+                      <span className="font-semibold text-foreground">
+                        {v.name}
+                        {v.city ? <span className="text-muted-foreground font-normal"> · {v.city}</span> : ""}
+                      </span>
                       {fromSettings ? (
-                        <span className="ml-2 text-[11px] text-primary/80">from settings</span>
+                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
+                          From Settings
+                        </Badge>
                       ) : null}
                     </li>
                   );
                 })}
               </ul>
               {!showAddVenue ? (
-                <BtnSecondary className={cn(btnCompactClass, "h-8 min-h-8")} onClick={() => setShowAddVenue(true)}>
+                <BtnSecondary className={cn(btnCompactClass, "h-8 min-h-8 mt-1")} onClick={() => setShowAddVenue(true)}>
                   + Add another venue
                 </BtnSecondary>
               ) : null}
@@ -341,7 +346,7 @@ export default function ScoringSchedulePage() {
           )}
 
           {(showAddVenue || ((venues?.length ?? 0) === 0 && !settingsVenueName)) ? (
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-2">
               <Input
                 placeholder="Venue name"
                 value={newVenueName}
@@ -367,11 +372,13 @@ export default function ScoringSchedulePage() {
           ) : null}
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Trophy className="h-4 w-4" />
-            Draws
-          </h2>
+        <section className="rounded-xl border border-border/60 bg-card/60 p-4 sm:p-5 space-y-3.5">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
+            <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
+              <Trophy className="h-4 w-4 text-primary" />
+              Tournament Draws
+            </h2>
+          </div>
           {drawsLoading ? (
             <Skeleton className="h-8 w-full" />
           ) : (
@@ -379,27 +386,34 @@ export default function ScoringSchedulePage() {
               {(draws ?? []).map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-card p-3 text-sm"
                 >
-                  <span>
-                    {d.name}
-                    <span className="text-muted-foreground ml-2 capitalize">{d.format.replace("_", " ")}</span>
-                  </span>
-                  <span className="text-xs text-muted-foreground">{d.status}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-foreground truncate">{d.name}</span>
+                    <Badge variant="outline" className="text-[11px] capitalize font-medium shrink-0">
+                      {d.format.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] uppercase font-bold shrink-0">
+                    {d.status}
+                  </Badge>
                 </li>
               ))}
               {draws?.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No draws yet — generate a schedule.</p>
+                <p className="text-sm text-muted-foreground">No draws yet — click &ldquo;Generate schedule&rdquo; to create fixtures.</p>
               ) : null}
             </ul>
           )}
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Fixtures
-          </h2>
+        <section className="rounded-xl border border-border/60 bg-card/60 p-4 sm:p-5 space-y-3.5">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
+            <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
+              <Calendar className="h-4 w-4 text-primary" />
+              Generated Fixtures
+            </h2>
+            <span className="text-xs text-muted-foreground">{fixtures?.length ?? 0} scheduled</span>
+          </div>
           {fixturesLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : (
@@ -410,17 +424,19 @@ export default function ScoringSchedulePage() {
                 return (
                   <li
                     key={f.id}
-                    className="rounded-lg border border-border/40 px-3 py-2.5 text-sm"
+                    className="rounded-lg border border-border/40 bg-card p-3 text-sm flex items-center justify-between gap-3"
                   >
-                    <div className="font-medium">
-                      {home} vs {away}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {f.roundName ?? "Fixture"}
-                      {f.scheduledAt
-                        ? ` · ${new Date(f.scheduledAt).toLocaleDateString()}`
-                        : ""}
-                      {f.venue ? ` · ${f.venue}` : ""}
+                    <div>
+                      <div className="font-bold text-foreground">
+                        {home} <span className="text-muted-foreground font-normal text-xs uppercase px-1">vs</span> {away}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {f.roundName ?? "Fixture"}
+                        {f.scheduledAt
+                          ? ` · ${new Date(f.scheduledAt).toLocaleDateString()}`
+                          : ""}
+                        {f.venue ? ` · ${f.venue}` : ""}
+                      </div>
                     </div>
                   </li>
                 );

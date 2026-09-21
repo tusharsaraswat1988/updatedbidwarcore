@@ -64,16 +64,126 @@ describe("cricket standings", () => {
     expect(rows.every((r) => r.tied === 1 && r.points === 1)).toBe(true);
   });
 
-  it("awards 1 point each for abandoned matches", () => {
+  it("awards 1 point each for abandoned matches without adding runs/overs to NRR", () => {
     const rows = buildStandingsFromMatches([1, 2], [
       {
         matchId: 1,
         status: "abandoned",
         homeTeamId: 1,
         awayTeamId: 2,
-        summary: null,
+        summary: summary(1, 2, [
+          { innings: 1, battingTeamId: 1, bowlingTeamId: 2, runs: 45, wickets: 2, overs: "5.0", phase: "in_progress" },
+        ], null),
       },
     ]);
     expect(rows.every((r) => r.noResult === 1 && r.points === 1)).toBe(true);
+    // NRR must be 0 and no overs/runs added
+    expect(rows.every((r) => r.netRunRate === 0 && r.oversFaced === 0 && r.runsScored === 0)).toBe(true);
+  });
+
+  it("applies the ICC/CricHeroes all-out rule (full overs quota credited)", () => {
+    // 20 over match: Team 1 scores 100 all-out (10 wickets) in 15.3 overs.
+    // Team 2 chases 101/2 in 10.0 overs.
+    const rows = buildStandingsFromMatches([1, 2], [
+      {
+        matchId: 1,
+        status: "completed",
+        homeTeamId: 1,
+        awayTeamId: 2,
+        summary: {
+          innings: [
+            {
+              innings: 1,
+              battingTeamId: 1,
+              bowlingTeamId: 2,
+              runs: 100,
+              wickets: 10,
+              overs: "15.3",
+              phase: "completed",
+              allOut: true,
+              oversLimit: 20,
+            },
+            {
+              innings: 2,
+              battingTeamId: 2,
+              bowlingTeamId: 1,
+              runs: 101,
+              wickets: 2,
+              overs: "10.0",
+              phase: "completed",
+              allOut: false,
+              oversLimit: 20,
+            },
+          ],
+          target: 101,
+          winnerTeamId: 2,
+          resultText: "Team 2 won by 8 wickets",
+          homeTeamId: 1,
+          awayTeamId: 2,
+          oversLimit: 20,
+          maxWickets: 10,
+          currentInnings: 2,
+          matchStatus: "completed",
+        },
+      },
+    ]);
+
+    const team1 = rows.find((r) => r.teamId === 1)!;
+    const team2 = rows.find((r) => r.teamId === 2)!;
+
+    // Team 1 faced full 20.0 overs (due to all out), conceded in 10.0 overs:
+    // Team 1 NRR = (100 / 20) - (101 / 10) = 5.0 - 10.1 = -5.1
+    expect(team1.oversFaced).toBe(20);
+    expect(team1.oversBowled).toBe(10);
+    expect(team1.netRunRate).toBeCloseTo(-5.1, 3);
+
+    // Team 2 faced 10.0 overs, bowled full 20.0 overs:
+    // Team 2 NRR = (101 / 10) - (100 / 20) = 10.1 - 5.0 = +5.1
+    expect(team2.oversFaced).toBe(10);
+    expect(team2.oversBowled).toBe(20);
+    expect(team2.netRunRate).toBeCloseTo(5.1, 3);
+  });
+
+  it("excludes Super Over innings from tournament NRR", () => {
+    // Tied 20-over match: 150/5 vs 150/7
+    // Followed by Super Over: Team 1 scores 15/1 (1.0), Team 2 scores 12/2 (1.0)
+    const rows = buildStandingsFromMatches([1, 2], [
+      {
+        matchId: 1,
+        status: "completed",
+        homeTeamId: 1,
+        awayTeamId: 2,
+        summary: {
+          innings: [
+            { innings: 1, battingTeamId: 1, bowlingTeamId: 2, runs: 150, wickets: 5, overs: "20.0", phase: "completed", kind: "normal" },
+            { innings: 2, battingTeamId: 2, bowlingTeamId: 1, runs: 150, wickets: 7, overs: "20.0", phase: "completed", kind: "normal" },
+            { innings: 3, battingTeamId: 1, bowlingTeamId: 2, runs: 15, wickets: 1, overs: "1.0", phase: "completed", kind: "super_over" },
+            { innings: 4, battingTeamId: 2, bowlingTeamId: 1, runs: 12, wickets: 2, overs: "1.0", phase: "completed", kind: "super_over" },
+          ],
+          target: null,
+          winnerTeamId: 1,
+          resultText: "Team 1 won in Super Over",
+          homeTeamId: 1,
+          awayTeamId: 2,
+          oversLimit: 20,
+          currentInnings: 4,
+          matchStatus: "completed",
+        },
+      },
+    ]);
+
+    const team1 = rows.find((r) => r.teamId === 1)!;
+    const team2 = rows.find((r) => r.teamId === 2)!;
+
+    // Super over runs (15 and 12) and overs (1.0) must NOT be added to regular runs/overs
+    expect(team1.runsScored).toBe(150);
+    expect(team1.oversFaced).toBe(20);
+    expect(team1.runsConceded).toBe(150);
+    expect(team1.oversBowled).toBe(20);
+    expect(team1.netRunRate).toBeCloseTo(0, 3);
+
+    expect(team2.runsScored).toBe(150);
+    expect(team2.oversFaced).toBe(20);
+    expect(team2.netRunRate).toBeCloseTo(0, 3);
   });
 });

@@ -21,12 +21,14 @@ export function PlatformCard({
 export function HubKpiCard({
   label,
   value,
+  subtitle,
   icon: Icon,
   tint = "primary",
   pulse,
 }: {
   label: string;
   value: number | string;
+  subtitle?: ReactNode;
   icon: LucideIcon;
   tint?: "primary" | "amber" | "blue" | "green" | "red" | "purple" | "muted";
   pulse?: boolean;
@@ -46,11 +48,12 @@ export function HubKpiCard({
     <Card className="bg-card border-border hover:border-primary/20 transition-colors">
       <CardContent className="p-3.5 sm:p-5">
         <div className="flex justify-between items-start gap-2">
-          <div className="space-y-1 sm:space-y-2 min-w-0">
+          <div className="space-y-1 min-w-0 flex-1">
             <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{label}</p>
-            <p className="text-2xl sm:text-3xl font-display font-bold tabular-nums text-foreground">{value}</p>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-display font-bold tabular-nums text-foreground truncate">{value}</p>
+            {subtitle ? <p className="text-[11px] sm:text-xs text-muted-foreground truncate">{subtitle}</p> : null}
           </div>
-          <div className={cn("p-2 sm:p-3 rounded-lg relative shrink-0", t.well)}>
+          <div className={cn("p-2 sm:p-2.5 rounded-lg relative shrink-0", t.well)}>
             <Icon className={cn("w-4 h-4 sm:w-5 sm:h-5", t.icon)} />
             {pulse ? (
               <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />

@@ -42,6 +42,7 @@ import {
 } from "@/lib/scoring-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useToast } from "@/hooks/use-toast";
+import { usePlatformFeatures, useCricketScoringActive } from "@/hooks/use-platform-features";
 import { Button } from "@/components/ui/button";
 import {
   Plus,

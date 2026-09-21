@@ -5,6 +5,23 @@ function nrrText(nrr: number): string {
   return nrr.toFixed(3);
 }
 
+function formatDecimalOvers(decimalOvers?: number): string {
+  if (decimalOvers == null || decimalOvers === 0) return "0.0";
+  const totalBalls = Math.round(decimalOvers * 6);
+  const overs = Math.floor(totalBalls / 6);
+  const balls = totalBalls % 6;
+  return `${overs}.${balls}`;
+}
+
+function nrrBreakdownTooltip(row: ScoringStandingRow): string | undefined {
+  if (!row.extrasJson) return undefined;
+  const scored = row.extrasJson.runsScored ?? 0;
+  const faced = formatDecimalOvers(row.extrasJson.oversFaced);
+  const conceded = row.extrasJson.runsConceded ?? 0;
+  const bowled = formatDecimalOvers(row.extrasJson.oversBowled);
+  return `For: ${scored}/${faced} · Against: ${conceded}/${bowled}`;
+}
+
 export function StandingsTable({
   rows,
   compact = false,
@@ -36,7 +53,9 @@ export function StandingsTable({
             {!compact ? <th className="px-3 py-2.5 font-semibold text-center">T</th> : null}
             {!compact ? <th className="px-3 py-2.5 font-semibold text-center">NR</th> : null}
             <th className="px-3 py-2.5 font-semibold text-center">Pts</th>
-            <th className="px-3 py-2.5 font-semibold text-right">NRR</th>
+            <th className="px-3 py-2.5 font-semibold text-right" title="Net Run Rate (ICC / CricHeroes standard)">
+              NRR
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -69,7 +88,10 @@ export function StandingsTable({
               <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-primary">
                 {row.points}
               </td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+              <td
+                className="px-3 py-2.5 text-right tabular-nums text-muted-foreground"
+                title={nrrBreakdownTooltip(row)}
+              >
                 {nrrText(row.netRunRate)}
               </td>
             </tr>

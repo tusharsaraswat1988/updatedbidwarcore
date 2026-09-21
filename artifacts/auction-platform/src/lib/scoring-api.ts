@@ -100,6 +100,12 @@ export type ScoringStandingRow = {
   noResult: number;
   points: number;
   netRunRate: number;
+  extrasJson?: {
+    runsScored?: number;
+    oversFaced?: number;
+    runsConceded?: number;
+    oversBowled?: number;
+  } | null;
 };
 
 export type SquadReadinessRow = {

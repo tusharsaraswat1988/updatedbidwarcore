@@ -90,7 +90,9 @@ export default function ObsLabOverlay() {
   });
 
   const lastActivityAt =
-    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null;
+    typeof (state as unknown as { lastAuctionActivityAt?: string })?.lastAuctionActivityAt === "string"
+      ? (state as unknown as { lastAuctionActivityAt?: string }).lastAuctionActivityAt!
+      : null;
   const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
   const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";
 

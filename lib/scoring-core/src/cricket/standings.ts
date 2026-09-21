@@ -36,6 +36,14 @@ export function oversStringToDecimal(overs: string): number {
   return oversWhole + balls / 6;
 }
 
+/** Convert decimal overs e.g. 19.5 (decimal) → "19.3" (cricket overs.balls). */
+export function decimalToOversString(decimalOvers: number): string {
+  const totalBalls = Math.round(decimalOvers * 6);
+  const overs = Math.floor(totalBalls / 6);
+  const balls = totalBalls % 6;
+  return `${overs}.${balls}`;
+}
+
 function emptyStanding(teamId: number): TeamStandingComputed {
   return {
     teamId,
@@ -60,19 +68,38 @@ function ensureTeam(map: Map<number, TeamStandingComputed>, teamId: number) {
   return map.get(teamId)!;
 }
 
+/**
+ * Apply runs and overs from completed innings to tournament NRR.
+ * Complies with ICC Playing Conditions & CricHeroes NRR rules:
+ * 1. Super Over innings are excluded.
+ * 2. If a team is dismissed (All Out) before completing scheduled overs quota,
+ *    its overs faced (and opponent's overs bowled) are credited as the full quota of overs.
+ */
 function applyNrrFromSummary(
   map: Map<number, TeamStandingComputed>,
   summary: CricketMatchSummary,
 ) {
+  const matchMaxWickets = summary.maxWickets ?? 10;
   for (const inn of summary.innings) {
+    // ICC & CricHeroes Rule: Super Overs are excluded from tournament NRR
+    if (inn.kind === "super_over") {
+      continue;
+    }
+
     const batting = ensureTeam(map, inn.battingTeamId);
     const bowling = ensureTeam(map, inn.bowlingTeamId);
-    const overs = oversStringToDecimal(inn.overs);
+
+    // ICC & CricHeroes All-Out Rule: If dismissed in fewer overs, full quota of overs is credited.
+    const isAllOut = inn.allOut ?? (inn.wickets >= matchMaxWickets);
+    const quotaOvers = inn.oversLimit ?? summary.oversLimit;
+    const actualOvers = oversStringToDecimal(inn.overs);
+
+    const effectiveOvers = isAllOut && quotaOvers > 0 ? quotaOvers : actualOvers;
 
     batting.runsScored += inn.runs;
-    batting.oversFaced += overs;
+    batting.oversFaced += effectiveOvers;
     bowling.runsConceded += inn.runs;
-    bowling.oversBowled += overs;
+    bowling.oversBowled += effectiveOvers;
   }
 }
 
@@ -86,6 +113,8 @@ function finalizeNrr(row: TeamStandingComputed): number {
 /**
  * Build points table from completed/abandoned matches.
  * Points: win 2, tie/no-result 1 each, loss 0.
+ * In accordance with ICC rules, abandoned matches (No Result) award 1 point
+ * but 0 runs and 0 overs count towards tournament Net Run Rate.
  */
 export function buildStandingsFromMatches(
   teamIds: number[],
@@ -107,7 +136,7 @@ export function buildStandingsFromMatches(
       away.noResult += 1;
       home.points += 1;
       away.points += 1;
-      if (match.summary) applyNrrFromSummary(map, match.summary);
+      // ICC Rule: Abandoned / No Result matches do not contribute runs or overs to NRR
       continue;
     }
 

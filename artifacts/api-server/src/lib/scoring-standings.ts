@@ -165,6 +165,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
         noResult: r.noResult,
         points: r.points,
         netRunRate: r.netRunRate ? Number(r.netRunRate) : 0,
+        extrasJson: (r.extrasJson as Record<string, unknown> | null) ?? null,
       };
     })
     .sort((a, b) => {

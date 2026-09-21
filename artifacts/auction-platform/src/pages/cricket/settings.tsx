@@ -113,7 +113,7 @@ function buildBrandingPatchPayload(
         .map((l, idx) => ({
           url: l.url.trim(),
           publicId: l.publicId?.trim() || null,
-          priority: l.priority ?? idx,
+          priority: (l as unknown as { priority?: number }).priority ?? idx,
         })),
     ),
     venue: form.venue.trim() || null,

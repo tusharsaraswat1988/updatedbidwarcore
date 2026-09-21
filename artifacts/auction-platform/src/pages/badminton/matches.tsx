@@ -218,7 +218,7 @@ export default function BadmintonMatchesPage() {
   const tournamentSseStatus = useBadmintonTournamentStreamStatus(tournamentId);
   const matchesInvalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
+  const { data: matches = [], isLoading } = useQuery({
     queryKey: ["badminton-matches", tournamentId],
     queryFn: () => fetchBadmintonMatches(tournamentId),
     enabled: !!tournamentId,
