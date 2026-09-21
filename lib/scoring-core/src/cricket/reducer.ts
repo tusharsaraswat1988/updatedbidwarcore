@@ -32,7 +32,7 @@ import {
   type CricketInningsState,
   type CricketScoreboardState,
 } from "./state";
-import { FREE_HIT_DISMISSALS } from "./types";
+import { FREE_HIT_DISMISSALS, SUPER_BALL_BLOCKED_DISMISSALS } from "./types";
 
 function battingBowlingTeamIds(
   state: CricketScoreboardState,
@@ -283,10 +283,10 @@ function applyBallRecorded(
         "Super Ball is disabled by match rules",
       );
     }
-    if (isSuperBall && payload.wicket?.type === "caught") {
+    if (isSuperBall && payload.wicket && SUPER_BALL_BLOCKED_DISMISSALS.includes(payload.wicket.type)) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
-        "caught is not a valid wicket on Super Ball",
+        `${payload.wicket.type} is not a valid wicket on Super Ball`,
       );
     }
   }
@@ -355,7 +355,12 @@ function applyBallRecorded(
     bowlerId: payload.bowlerId,
     thisOver,
     freeHitActive,
-    superBallPending: isSuperBall ? null : state.superBallPending,
+    superBallPending:
+      isSuperBall &&
+      payload.extras.type !== "wide" &&
+      payload.extras.type !== "no_ball"
+        ? null
+        : state.superBallPending,
   };
 }
 
@@ -587,6 +592,7 @@ function applyMatchInterrupted(
 ): CricketScoreboardState {
   return {
     ...state,
+    matchStatus: "paused",
     sessionStatus: "paused",
     interruptionReason: payload.reason,
     freeHitActive: false,
@@ -596,9 +602,10 @@ function applyMatchInterrupted(
 function applyMatchResumed(
   state: CricketScoreboardState,
 ): CricketScoreboardState {
-  if (state.matchStatus !== "live") return state;
+  if (state.matchStatus !== "live" && state.matchStatus !== "paused") return state;
   return {
     ...state,
+    matchStatus: "live",
     sessionStatus: "live",
     interruptionReason: null,
   };

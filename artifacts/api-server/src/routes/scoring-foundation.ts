@@ -157,6 +157,7 @@ router.post("/officials", async (req, res) => {
     role: z.enum(["umpire", "scorer", "referee", "match_referee"]).optional(),
     mobile: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
+    pin: z.string().min(4).max(32).nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
@@ -181,12 +182,36 @@ router.patch("/officials/:officialId", async (req, res) => {
     role: z.string().optional(),
     mobile: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
+    pin: z.string().min(4).max(32).nullable().optional(),
+    isActive: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
   try {
     res.json(await updateScoringOfficial(tournamentId, officialId, parsed.data));
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/officials/:officialId/reset-login-lockout", async (req, res) => {
+  const tournamentId = tid(req);
+  const officialId = parseInt(req.params.officialId, 10);
+  if (!tournamentId || Number.isNaN(officialId)) {
+    return void res.status(400).json({ error: "Invalid ID" });
+  }
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const officials = await listScoringOfficials(tournamentId);
+    const target = officials.find((o) => o.id === officialId);
+    if (!target || !target.scorerAccountId) {
+      return void res.status(404).json({ error: "Scorer not found" });
+    }
+    const { clearScorerLoginLockoutForTournament } = await import("../lib/scorer-auth");
+    const result = await clearScorerLoginLockoutForTournament(tournamentId, target.scorerAccountId);
+    res.json({ ok: true, cleared: result.cleared });
   } catch (err) {
     handleError(res, err);
   }

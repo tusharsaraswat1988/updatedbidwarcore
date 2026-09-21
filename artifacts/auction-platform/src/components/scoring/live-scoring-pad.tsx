@@ -89,6 +89,7 @@ type LiveScoringPadProps = {
   onBowlerChange: (bowlerId: number) => void;
   onNewBatsman: (playerId: number) => void;
   onSwapStrike?: () => void;
+  onResetMatch?: () => Promise<void>;
   pendingNewBatsman: boolean;
   localStrikerId: number | null;
   localNonStrikerId: number | null;
@@ -119,6 +120,7 @@ export function LiveScoringPad({
   onBowlerChange,
   onNewBatsman,
   onSwapStrike,
+  onResetMatch,
   pendingNewBatsman,
   localStrikerId,
   localNonStrikerId,
@@ -176,6 +178,20 @@ export function LiveScoringPad({
     localSuperBallArmed ||
     (!!state.superBallPending &&
       state.superBallPending.innings === state.currentInnings);
+
+  // Mirror reducer validation so the button is disabled when the server would reject.
+  const canUseSuperBall = useMemo(() => {
+    if (!superBallEnabled || !innings) return false;
+    if (state.superBallPending) return false;
+    if (
+      (state.superBallUsed[state.currentInnings] ?? []).includes(
+        innings.battingTeamId,
+      )
+    )
+      return false;
+    if (state.powerplayOvers.includes(innings.over + 1)) return false;
+    return true;
+  }, [superBallEnabled, innings, state.superBallPending, state.superBallUsed, state.currentInnings, state.powerplayOvers]);
 
   const dlsPreview = useMemo(() => {
     const overs = parseInt(revisedOvers, 10);
@@ -323,17 +339,22 @@ export function LiveScoringPad({
 
   // Super Ball Toggle
   async function handleToggleSuperBall() {
-    if (!superBallEnabled || !battingId || busy) return;
+    if (!superBallEnabled || !battingId || busy || !canUseSuperBall) return;
     if (state.superBallPending) {
       setLocalSuperBallArmed(false);
       return;
     }
     if (!localSuperBallArmed) {
-      setLocalSuperBallArmed(true);
-      await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
-        innings: state.currentInnings,
-        battingTeamId: battingId,
-      });
+      try {
+        await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
+          innings: state.currentInnings,
+          battingTeamId: battingId,
+        });
+        setLocalSuperBallArmed(true);
+      } catch {
+        // Server rejected — ensure we don't show stale "ACTIVE" banner.
+        setLocalSuperBallArmed(false);
+      }
     } else {
       setLocalSuperBallArmed(false);
     }
@@ -499,10 +520,10 @@ export function LiveScoringPad({
     : null;
 
   return (
-    <div className="flex flex-col space-y-3">
+    <div className="flex flex-col h-full justify-between gap-1.5 sm:gap-3 overflow-hidden select-none">
       {isPaused ? (
-        <div className="mx-4 mt-2 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3.5 py-2.5 flex items-center gap-2 text-sm text-sky-100">
-          <CloudRain className="w-4 h-4 shrink-0 text-sky-300" />
+        <div className="mx-2 mt-1 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 flex items-center gap-2 text-xs text-sky-100">
+          <CloudRain className="w-3.5 h-3.5 shrink-0 text-sky-300" />
           <span>
             Rain delay
             {state.interruptionReason ? ` — ${state.interruptionReason}` : ""}.
@@ -513,10 +534,10 @@ export function LiveScoringPad({
 
       {/* Super Ball Banner */}
       {isSuperBallActive ? (
-        <div className="mx-3 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 px-3.5 py-2 flex items-center justify-between text-xs font-bold text-amber-300 shadow-sm animate-pulse">
-          <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-            <span>⭐ SUPER BALL ACTIVE: ALL runs on next ball are DOUBLED (2x)!</span>
+        <div className="mx-2 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 px-3 py-1.5 flex items-center justify-between text-xs font-bold text-amber-300 shadow-sm animate-pulse">
+          <div className="flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span className="text-[11px]">SUPER BALL: ALL runs DOUBLED (2x)!</span>
           </div>
           <button
             type="button"
@@ -530,16 +551,16 @@ export function LiveScoringPad({
 
       {/* Free Hit Banner */}
       {state.freeHitActive ? (
-        <div className="mx-3 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-3.5 py-2 flex items-center gap-2 text-xs font-bold text-emerald-300 shadow-sm">
-          <Zap className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-          <span>⚡ FREE HIT ACTIVE: Batter can only be out via Run Out!</span>
+        <div className="mx-2 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-emerald-300 shadow-sm">
+          <Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
+          <span className="text-[11px]">FREE HIT ACTIVE: Only Run Out dismissals!</span>
         </div>
       ) : null}
 
       {/* ─── Scoreboard Strip ─── */}
-      <div className="px-3 py-2.5 sm:px-4 sm:py-3.5 rounded-xl sm:rounded-2xl border border-border/70 bg-card/60 shadow-sm space-y-2.5 sm:space-y-3">
+      <div className="px-2.5 py-2 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl border border-border/70 bg-card/60 shadow-sm space-y-1.5 sm:space-y-2.5 shrink-0">
         {retireAtRuns != null ? (
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Retire limit: {retireAtRuns} runs per batter</span>
             {strikerId && batterRuns[strikerId] != null ? (
               <span className="font-semibold text-amber-400">
@@ -549,34 +570,34 @@ export function LiveScoringPad({
           </div>
         ) : null}
 
-        <div className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            <p className="text-[9px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Innings {state.currentInnings}
               {state.target ? ` · Target ${state.target}` : ""}
             </p>
-            <p className="text-2xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground flex items-baseline gap-1.5 sm:gap-2">
+            <p className="text-xl sm:text-3xl font-black tabular-nums tracking-tight text-foreground flex items-baseline gap-1.5">
               <span>{innings.runs}/{innings.wickets}</span>
-              <span className="text-sm sm:text-lg text-muted-foreground font-semibold">
+              <span className="text-xs sm:text-base text-muted-foreground font-semibold">
                 ({oversText(innings.over, innings.ball)} / {state.oversLimit} ov)
               </span>
             </p>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] sm:text-xs text-muted-foreground mt-0.5">
               <span>CRR: <strong className="text-foreground">{rr}</strong></span>
               {req ? (
                 <>
                   <span>•</span>
                   <span>RRR: <strong className="text-amber-400">{req}</strong></span>
                   <span>•</span>
-                  <span>Need <strong className="text-foreground">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-foreground">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}</strong> balls</span>
+                  <span>Need <strong className="text-foreground">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-foreground">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}</strong></span>
                 </>
               ) : null}
             </div>
           </div>
 
-          <div className="text-right text-xs space-y-0.5 sm:space-y-1 shrink-0">
+          <div className="text-right text-xs space-y-0.5 shrink-0">
             <p
-              className="font-bold text-xs sm:text-sm truncate max-w-[6.5rem] sm:max-w-[8rem]"
+              className="font-bold text-xs sm:text-sm truncate max-w-[6rem] sm:max-w-[8rem]"
               style={{ color: battingTeam?.color ?? undefined }}
             >
               {battingTeam?.shortCode ?? "BAT"} 🏏
@@ -719,9 +740,9 @@ export function LiveScoringPad({
       ) : null}
 
       {/* ─── Main Scorer Keypad Grid ─── */}
-      <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-border/70 bg-card/40 space-y-2 sm:space-y-2.5">
+      <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-border/70 bg-card/40 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5">
         {/* Row 1: Primary Runs 0, 1, 2, 3 */}
-        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
           <ScoreButton
             label="0"
             sublabel="dot"
@@ -781,7 +802,7 @@ export function LiveScoringPad({
         </div>
 
         {/* Row 2: Boundaries 4, 6, Custom, Super Ball */}
-        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
           <ScoreButton
             label="4"
             sublabel="four"
@@ -822,7 +843,7 @@ export function LiveScoringPad({
               label="⭐"
               sublabel={isSuperBallActive ? "Active 2x" : "Super Ball"}
               variant="super_ball"
-              disabled={busy || pendingNewBatsman}
+              disabled={busy || pendingNewBatsman || (!canUseSuperBall && !isSuperBallActive)}
               onClick={() => void handleToggleSuperBall()}
               className={cn(
                 isSuperBallActive && "ring-2 ring-amber-400 bg-amber-500/30",
@@ -840,7 +861,7 @@ export function LiveScoringPad({
         </div>
 
         {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes) */}
-        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
           <ScoreButton
             label="Wd"
             sublabel="wide"
@@ -896,7 +917,7 @@ export function LiveScoringPad({
         </div>
 
         {/* Row 4: Wicket & Undo Action Buttons */}
-        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
+        <div className="grid grid-cols-2 gap-1 sm:gap-1.5 flex-1 min-h-0">
           <ScoreButton
             label="OUT / WICKET"
             sublabel="how out?"
@@ -921,10 +942,10 @@ export function LiveScoringPad({
       </div>
 
       {/* ─── Bottom Actions Bar ─── */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 shrink-0">
         <Button
           variant="outline"
-          className="flex-1 h-11 font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
+          className="flex-1 h-9 sm:h-10 text-xs font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
           disabled={busy}
           onClick={() => setBowlerSheet(true)}
         >
@@ -932,11 +953,11 @@ export function LiveScoringPad({
         </Button>
         <Button
           variant="outline"
-          className="flex-1 h-11 font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
+          className="h-9 sm:h-10 px-3 text-xs font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
           disabled={busy}
           onClick={() => setSecondaryOpen(true)}
         >
-          More Match Actions…
+          More Actions
         </Button>
       </div>
 
@@ -1309,7 +1330,7 @@ export function LiveScoringPad({
                 </span>
               ) : isSuperBallActive ? (
                 <span className="text-amber-400 font-semibold">
-                  ⚠️ Super Ball Active: Caught is NOT out on Super Ball.
+                  ⚠️ Super Ball Active: Bowled and Caught are NOT out on Super Ball. Only Run Out is valid.
                 </span>
               ) : (
                 "Select dismissal type and involved fielders."
@@ -1324,7 +1345,7 @@ export function LiveScoringPad({
                 const isIllegalOnFreeHit =
                   state.freeHitActive && !FREE_HIT_DISMISSALS.includes(type);
                 const isIllegalOnSuperBall =
-                  isSuperBallActive && type === "caught";
+                  isSuperBallActive && (type === "caught" || type === "bowled");
                 const isDisabled = isIllegalOnFreeHit || isIllegalOnSuperBall;
 
                 return (
@@ -1674,6 +1695,28 @@ export function LiveScoringPad({
             >
               Complete Match
             </Button>
+            {onResetMatch &&
+            (state.innings ?? []).reduce(
+              (acc, inn) => acc + (inn.over ?? 0) * 6 + (inn.ball ?? 0),
+              0,
+            ) === 0 &&
+            (state.innings ?? []).reduce(
+              (acc, inn) => acc + (inn.runs ?? 0),
+              0,
+            ) === 0 ? (
+              <Button
+                variant="outline"
+                className="h-12 font-bold border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                disabled={busy}
+                onClick={async () => {
+                  setSecondaryOpen(false);
+                  await onResetMatch();
+                }}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset Toss & Match to Scheduled
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               className="h-11 text-muted-foreground hover:text-red-400"

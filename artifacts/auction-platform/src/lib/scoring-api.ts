@@ -602,3 +602,23 @@ export async function undoScoringEvent(
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
+
+export async function resetScoringMatch(
+  tournamentId: number,
+  matchId: number,
+): Promise<ScoringMatchDetail> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}/reset`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  );
+  if (!r.ok) {
+    const msg = await parseError(r);
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = r.status;
+    throw err;
+  }
+  return r.json();
+}

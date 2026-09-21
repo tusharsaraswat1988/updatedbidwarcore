@@ -82,6 +82,16 @@ export function cricketScorerPath(tournamentId: number, matchId: number): string
   return `${cricketMatchCenterPath(tournamentId, matchId)}/live`;
 }
 
+/** Scorer Home Portal (Mobile PIN Login + Match Picker). */
+export function cricketScorerHomePath(tournamentId: number): string {
+  return `/cricket/scorer?tid=${tournamentId}`;
+}
+
+/** Standalone Mobile Scorer Pad with zero-scroll layout. */
+export function cricketScorerConsolePath(tournamentId: number, matchId: number): string {
+  return `/cricket/${matchId}/score?tid=${tournamentId}`;
+}
+
 /** Reserved score subpaths — not numeric match IDs. */
 export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "dashboard",

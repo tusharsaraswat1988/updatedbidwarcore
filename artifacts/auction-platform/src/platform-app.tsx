@@ -336,6 +336,8 @@ function PlatformRouter() {
         <Route path="/tournament/:id/cricket/sponsors" component={RedirectToScoringApp} />
         <Route path="/cricket/leaderboards" component={RedirectToScoringApp} />
         <Route path="/player/:globalPlayerId" component={RedirectToScoringApp} />
+        <Route path="/cricket/scorer" component={RedirectToScoringApp} />
+        <Route path="/cricket/:matchId/score" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/schedule" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/live-control" component={RedirectToScoringApp} />

@@ -35,15 +35,15 @@ export function ScoreButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border min-h-[3.5rem] sm:min-h-[4.25rem] p-1.5 touch-manipulation select-none transition-colors",
-        "disabled:opacity-40 disabled:pointer-events-none active:scale-[0.96]",
+        "flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border min-h-[2.6rem] sm:min-h-[3.75rem] h-full p-1 touch-manipulation select-none transition-all duration-75",
+        "disabled:opacity-40 disabled:pointer-events-none active:scale-[0.95]",
         variantClasses[variant],
         className,
       )}
     >
-      <span className="text-xl sm:text-2xl font-bold leading-none tabular-nums">{label}</span>
+      <span className="text-lg sm:text-2xl font-black leading-none tabular-nums">{label}</span>
       {sublabel ? (
-        <span className="text-[9px] sm:text-[10px] uppercase tracking-wider mt-0.5 sm:mt-1 opacity-70 truncate max-w-full px-0.5">
+        <span className="text-[8.5px] sm:text-[10px] uppercase font-semibold tracking-wider mt-0.5 opacity-75 truncate max-w-full px-0.5 leading-none">
           {sublabel}
         </span>
       ) : null}

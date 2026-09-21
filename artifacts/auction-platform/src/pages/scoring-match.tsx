@@ -19,6 +19,7 @@ import {
   appendScoringEvent,
   getCricketMasterTeams,
   getCricketTournamentRoster,
+  resetScoringMatch,
   undoScoringEvent,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
@@ -307,6 +308,8 @@ export default function ScoringMatchPage() {
             description: err.message,
             variant: "destructive",
           });
+          // Rethrow so callers (e.g. handleToggleSuperBall) can roll back local state.
+          throw e;
         }
       } finally {
         sendInFlightRef.current = false;
@@ -315,6 +318,39 @@ export default function ScoringMatchPage() {
     },
     [applyDetail, data, drainQueue, matchId, refetch, refreshQueueDepth, toast, tournamentId],
   );
+
+  const handleResetMatch = useCallback(async () => {
+    if (!data || busy || sendInFlightRef.current) return;
+    setBusy(true);
+    try {
+      const result = await resetScoringMatch(tournamentId, matchId);
+      sequenceRef.current = 0;
+      applyDetail({
+        match: result.match,
+        state: result.state,
+        eventCount: 0,
+        lastSequence: 0,
+      });
+      setLocalStrikerId(null);
+      setLocalNonStrikerId(null);
+      setLocalBowlerId(null);
+      setPendingNewBatsman(false);
+      toast({
+        title: "Match reset to scheduled",
+        description: "Toss and setup have been cleared. You can now redo setup or start another match.",
+      });
+      await refetch();
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      toast({
+        title: "Could not reset match",
+        description: err.message || "Failed to reset match setup.",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [applyDetail, busy, data, matchId, refetch, toast, tournamentId]);
 
   const home = teams.find((t) => t.id === data?.match.homeTeamId);
   const away = teams.find((t) => t.id === data?.match.awayTeamId);
@@ -473,6 +509,7 @@ export default function ScoringMatchPage() {
               localBowlerId={localBowlerId}
               busy={busy}
               onEvent={sendEvent}
+              onResetMatch={handleResetMatch}
               onBowlerSelected={setLocalBowlerId}
               onPrepared={async () => {
                 await refetch();
@@ -493,6 +530,7 @@ export default function ScoringMatchPage() {
                   localNonStrikerId={localNonStrikerId}
                   onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
                   onEvent={sendEvent}
+                  onResetMatch={handleResetMatch}
                   onSwapStrike={() => {
                     const currStriker = localStrikerId ?? data.state.strikerId;
                     const currNonStriker = localNonStrikerId ?? data.state.nonStrikerId;

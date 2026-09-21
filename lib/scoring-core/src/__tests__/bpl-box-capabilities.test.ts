@@ -191,6 +191,20 @@ describe("box cricket configurable capabilities", () => {
     ).toThrow(/Powerplay/);
   });
 
+  it("allows Super Ball on over 1 when no powerplay overs configured", () => {
+    // powerplayOvers is empty — powerplay is disabled for this format.
+    const state = started({ superBallEnabled: true }, []);
+    const next = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(next.superBallPending).toEqual({ innings: 1, battingTeamId: 1 });
+  });
+
   it("rejects Super Ball declaration when only one batsman remains", () => {
     const state = {
       ...started({ superBallEnabled: true, maxWickets: 6 }),
@@ -221,7 +235,8 @@ describe("box cricket configurable capabilities", () => {
     ).toThrow(/only one batsman/);
   });
 
-  it("rejects caught on Super Ball but accepts run out and stumping", () => {
+  it("rejects caught and bowled on Super Ball but accepts run out and stumping", () => {
+    // Caught blocked
     let caughtState = started({ superBallEnabled: true });
     caughtState = reduceCricket(
       caughtState,
@@ -243,6 +258,29 @@ describe("box cricket configurable capabilities", () => {
       ),
     ).toThrow(/caught/);
 
+    // Bowled blocked
+    let bowledState = started({ superBallEnabled: true });
+    bowledState = reduceCricket(
+      bowledState,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(() =>
+      reduceCricket(
+        bowledState,
+        ev(5, CricketEventType.BALL_RECORDED, {
+          ...fourBall,
+          runsOffBat: 0,
+          wicket: { type: "bowled", dismissedPlayerId: 11 },
+        }),
+        { enforceLiveRules: true },
+      ),
+    ).toThrow(/bowled/);
+
+    // Run out allowed
     let runOutState = started({ superBallEnabled: true });
     runOutState = reduceCricket(
       runOutState,
@@ -263,6 +301,7 @@ describe("box cricket configurable capabilities", () => {
     );
     expect(runOutState.innings[0]?.wickets).toBe(1);
 
+    // Stumped allowed
     let stumpedState = started({ superBallEnabled: true });
     stumpedState = reduceCricket(
       stumpedState,
@@ -282,6 +321,87 @@ describe("box cricket configurable capabilities", () => {
       { enforceLiveRules: true },
     );
     expect(stumpedState.innings[0]?.wickets).toBe(1);
+  });
+
+  it("keeps Super Ball active when delivery is a wide", () => {
+    let state = started({ superBallEnabled: true });
+    state = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    // Bowl a wide — super ball should NOT be consumed
+    state = reduceCricket(
+      state,
+      ev(5, CricketEventType.BALL_RECORDED, {
+        ...fourBall,
+        runsOffBat: 0,
+        extras: { type: "wide", runs: 1 },
+        isLegalDelivery: false,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).not.toBeNull();
+    expect(state.innings[0]?.runs).toBe(1); // just the wide extra
+
+    // Next legal delivery should still be a super ball (doubled)
+    state = reduceCricket(
+      state,
+      ev(6, CricketEventType.BALL_RECORDED, {
+        ...fourBall,
+        runsOffBat: 4,
+        extras: { type: null, runs: 0 },
+        isLegalDelivery: true,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.innings[0]?.runs).toBe(9); // 1 (wide) + 8 (4×2 super ball)
+    expect(state.superBallPending).toBeNull(); // consumed now
+  });
+
+  it("keeps Super Ball active on no-ball and creates super free hit", () => {
+    let state = started({ superBallEnabled: true, freeHitEnabled: true });
+    state = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    // Bowl a no-ball during super ball
+    state = reduceCricket(
+      state,
+      ev(5, CricketEventType.BALL_RECORDED, {
+        ...fourBall,
+        runsOffBat: 2,
+        extras: { type: "no_ball", runs: 1 },
+        isLegalDelivery: false,
+      }),
+      { enforceLiveRules: true },
+    );
+    // Super ball NOT consumed + free hit activated
+    expect(state.superBallPending).not.toBeNull();
+    expect(state.freeHitActive).toBe(true);
+    expect(state.innings[0]?.runs).toBe(5); // 2×2 (super doubled) + 1 (no-ball extra)
+
+    // Next ball is both free hit AND super ball
+    state = reduceCricket(
+      state,
+      ev(6, CricketEventType.BALL_RECORDED, {
+        ...fourBall,
+        runsOffBat: 6,
+        extras: { type: null, runs: 0 },
+        isLegalDelivery: true,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.innings[0]?.runs).toBe(17); // 5 + 12 (6×2 super ball)
+    expect(state.superBallPending).toBeNull(); // consumed
+    expect(state.freeHitActive).toBe(false); // cleared by legal delivery
   });
 
   it("supports single-batsman scoring where running runs become zero and boundaries count", () => {

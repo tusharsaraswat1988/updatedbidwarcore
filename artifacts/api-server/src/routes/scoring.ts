@@ -8,6 +8,7 @@ import {
   getLiveScoringDisplay,
   getScoringMatch,
   listScoringMatches,
+  resetCricketMatchSetup,
   ScoringServiceError,
   undoLastScoringEvent,
 } from "../lib/scoring-service";
@@ -577,6 +578,51 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
       },
       state: result.state,
       match: matchToJson(result.match),
+    });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const matchId = parseId(req.params.matchId);
+  if (tournamentId === null || matchId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  const schema = z.object({
+    scorerPin: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const auth = await canWriteScoring(req, tournamentId, parsed.data.scorerPin);
+  if (!auth.ok) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  try {
+    const result = await resetCricketMatchSetup(
+      tournamentId,
+      matchId,
+      actorFromRequest(req, auth.usedPin),
+    );
+    res.json({
+      match: matchToJson(result.match),
+      state: result.state,
+      summary: null,
+      eventCount: 0,
+      lastSequence: 0,
     });
   } catch (err) {
     if (err instanceof ScoringServiceError) {

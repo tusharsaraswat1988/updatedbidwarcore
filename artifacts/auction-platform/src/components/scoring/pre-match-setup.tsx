@@ -31,6 +31,10 @@ import {
   Flame,
   HandMetal,
   Loader2,
+  Pause,
+  Play,
+  RotateCcw,
+  AlertTriangle,
   Shield,
   Sparkles,
   Swords,
@@ -38,6 +42,14 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 type PreMatchSetupProps = {
@@ -52,6 +64,7 @@ type PreMatchSetupProps = {
     eventType: string,
     payload: Record<string, unknown>,
   ) => Promise<void>;
+  onResetMatch?: () => Promise<void>;
   onBowlerSelected: (bowlerId: number) => void;
   /** Refresh match after Runtime Prepare so Start match unlocks. */
   onPrepared?: () => void | Promise<void>;
@@ -196,8 +209,81 @@ export function PreMatchSetup({
   const squadBadgeText =
     playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`;
 
+  const isPaused =
+    state.matchStatus === "paused" || state.sessionStatus === "paused";
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      {/* ─── Match Paused / On Hold Banner ─── */}
+      {isPaused ? (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/15 p-4 flex items-center justify-between gap-3 text-amber-100 animate-pulse">
+          <div className="flex items-center gap-2.5">
+            <Pause className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-sm text-amber-200">Match is currently Paused (On Hold)</p>
+              <p className="text-xs text-amber-300/80">
+                Setup state is preserved. You can start another match, or resume this match when ready.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-amber-500 hover:bg-amber-600 text-black font-bold shrink-0"
+            disabled={busy}
+            onClick={() => onEvent(CricketEventType.MATCH_RESUMED, {})}
+          >
+            <Play className="w-4 h-4 mr-1.5 fill-current" />
+            Resume Match
+          </Button>
+        </div>
+      ) : null}
+
+      {/* ─── Action Bar: Available when Toss is done but 0 balls/runs scored ─── */}
+      {!needsToss ? (
+        <div className="flex items-center justify-between bg-card/60 backdrop-blur-sm border border-border/70 rounded-xl px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Toss Confirmed</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {!isPaused ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10 font-semibold"
+                disabled={busy}
+                onClick={() =>
+                  onEvent(CricketEventType.MATCH_INTERRUPTED, {
+                    reason: "Put on hold by scorer during setup",
+                  })
+                }
+              >
+                <Pause className="w-3.5 h-3.5 mr-1" />
+                Pause / Hold Match
+              </Button>
+            ) : null}
+
+            {onResetMatch ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-semibold"
+                disabled={busy || resetting}
+                onClick={() => setResetDialogOpen(true)}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                Reset Toss & Setup
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* Policy banner */}
       {!limits.fromPolicy ? (
         <div className="text-xs text-amber-200/90 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
@@ -250,6 +336,59 @@ export function PreMatchSetup({
         </div>
       )}
 
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Reset Match Toss & Setup?
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2 text-left">
+              <p>
+                This will cancel the coin toss and lineup selections for this match, returning it to the scheduled (pre-toss) state.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                You will be able to start another match or redo the toss whenever you wish.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={resetting}
+              onClick={() => setResetDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={resetting}
+              onClick={async () => {
+                setResetting(true);
+                try {
+                  await onResetMatch?.();
+                  setResetDialogOpen(false);
+                } finally {
+                  setResetting(false);
+                }
+              }}
+            >
+              {resetting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                  Resetting…
+                </>
+              ) : (
+                "Confirm Reset"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ─── Step 1: Toss ─── */}
       {needsToss ? (
         <TossStep
@@ -269,7 +408,9 @@ export function PreMatchSetup({
               oversLimit,
               powerplayOvers:
                 match.rules?.powerplayOvers ??
-                (match.rules?.superBallEnabled ? [1] : undefined),
+                (match.rules?.superBallEnabled && match.rules?.powerplayEnabled
+                  ? [1]
+                  : undefined),
             })
           }
         />

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   availableDismissalTypes,
   FREE_HIT_DISMISSALS,
+  SUPER_BALL_BLOCKED_DISMISSALS,
   totalRunsOnBall,
 } from "@workspace/scoring-core";
 
@@ -15,6 +16,13 @@ describe("Live Scoring Rules & Keypad helpers", () => {
     expect(withoutLbw).toContain("bowled");
     expect(withoutLbw).toContain("caught");
     expect(withoutLbw).toContain("run_out");
+  });
+
+  it("identifies blocked dismissals on Super Ball", () => {
+    expect(SUPER_BALL_BLOCKED_DISMISSALS).toContain("bowled");
+    expect(SUPER_BALL_BLOCKED_DISMISSALS).toContain("caught");
+    expect(SUPER_BALL_BLOCKED_DISMISSALS).not.toContain("run_out");
+    expect(SUPER_BALL_BLOCKED_DISMISSALS).not.toContain("stumped");
   });
 
   it("identifies allowed dismissals on Free Hit", () => {

@@ -93,7 +93,7 @@ async function ensureNoOtherLiveCricketMatch(
   matchId: number,
 ): Promise<void> {
   const [otherLive] = await db
-    .select({ id: scoringMatchesTable.id })
+    .select({ id: scoringMatchesTable.id, matchLabel: scoringMatchesTable.matchLabel })
     .from(scoringMatchesTable)
     .where(
       and(
@@ -107,7 +107,7 @@ async function ensureNoOtherLiveCricketMatch(
 
   if (otherLive) {
     throw new ScoringPlatformError(
-      "Another match is already live in this tournament",
+      `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is already live in this tournament. Please pause or complete it before starting another match.`,
       409,
       "LIVE_MATCH_EXISTS",
     );
@@ -267,7 +267,10 @@ export async function appendSingleMatchEvent(
     }
   }
 
-  if (input.eventType === CricketEventType.MATCH_STARTED) {
+  if (
+    input.eventType === CricketEventType.MATCH_STARTED ||
+    input.eventType === CricketEventType.MATCH_RESUMED
+  ) {
     await ensureNoOtherLiveCricketMatch(input.tournamentId, input.matchId);
   }
 

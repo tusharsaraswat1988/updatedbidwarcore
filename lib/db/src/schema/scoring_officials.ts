@@ -19,6 +19,7 @@ export const scoringOfficialsTable = pgTable(
     role: text("role").notNull().default("scorer"),
     mobile: text("mobile"),
     email: text("email"),
+    pin: text("pin"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

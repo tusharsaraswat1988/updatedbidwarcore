@@ -41,10 +41,24 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Pause,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function ConnectionBadge({ status }: { status: "connected" | "reconnecting" | "disconnected" }) {
+function ConnectionBadge({
+  status,
+  matchStatus,
+}: {
+  status: "connected" | "reconnecting" | "disconnected";
+  matchStatus?: string;
+}) {
+  if (matchStatus === "paused") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold uppercase tracking-wider animate-pulse">
+        <Pause className="w-3.5 h-3.5 fill-current" /> Paused
+      </span>
+    );
+  }
   if (status === "connected") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
@@ -187,7 +201,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   // Sequence and ball tracker for automatic event animation triggers
   const lastSeqRef = useRef<number | null>(null);
   const lastBowlerIdRef = useRef<number | null>(null);
-  const lastStrikerIdRef = useRef<number | null>(null);
+  const lastCreaseIdsRef = useRef<{ strikerId: number | null; nonStrikerId: number | null }>({
+    strikerId: null,
+    nonStrikerId: null,
+  });
+  const lastWicketsRef = useRef<number | null>(null);
+  const lastRetiredHurtCountRef = useRef<number | null>(null);
   const lastInningsPhaseRef = useRef<string | null>(null);
   const lastMatchStatusRef = useRef<string | null>(null);
 
@@ -239,7 +258,15 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
     if (lastSeqRef.current === null) {
       lastSeqRef.current = state.lastSequence;
       lastBowlerIdRef.current = state.bowlerId;
-      lastStrikerIdRef.current = state.strikerId;
+      lastCreaseIdsRef.current = {
+        strikerId: state.strikerId,
+        nonStrikerId: state.nonStrikerId,
+      };
+      lastWicketsRef.current = innings?.wickets ?? 0;
+      lastRetiredHurtCountRef.current = Object.values(state.retiredHurt || {}).reduce(
+        (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
+        0,
+      );
       lastInningsPhaseRef.current = innings?.phase || null;
       lastMatchStatusRef.current = state.matchStatus;
       return;
@@ -251,8 +278,13 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       lastSeqRef.current = state.lastSequence;
 
       if (lastBall.isSuperBall) {
+        const baseRuns = lastBall.runsOffBat || 0;
+        const totalRuns = baseRuns * 2;
         setActiveEvent({
           type: "SUPER_BALL",
+          runsOffBat: baseRuns,
+          totalRuns: totalRuns,
+          batsmanName: strikerPlayer?.name || "Batter",
           battingTeam: battingTeam?.name,
         });
       } else if (lastBall.isWicket) {
@@ -300,24 +332,58 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       lastBowlerIdRef.current = state.bowlerId;
     }
 
-    // 4. Detect New Striker
-    if (
-      state.strikerId &&
-      lastStrikerIdRef.current !== null &&
-      state.strikerId !== lastStrikerIdRef.current
-    ) {
-      lastStrikerIdRef.current = state.strikerId;
-      const newStriker = players.find((p) => p.id === state.strikerId);
-      if (newStriker) {
+    // 4. Detect True New Batsman (ONLY when a batsman is retired by umpire, or wicket falls, NEVER on normal strike rotation)
+    const prevStriker = lastCreaseIdsRef.current.strikerId;
+    const prevNonStriker = lastCreaseIdsRef.current.nonStrikerId;
+    const prevCrease = new Set([prevStriker, prevNonStriker].filter((id): id is number => id != null));
+
+    const currentStriker = state.strikerId;
+    const currentNonStriker = state.nonStrikerId;
+
+    // Check if any brand-new player arrived at the crease (not existing batsmen swapping ends on 1s, 3s or over end)
+    let incomingNewBatterId: number | null = null;
+    if (currentStriker && !prevCrease.has(currentStriker)) {
+      incomingNewBatterId = currentStriker;
+    } else if (currentNonStriker && !prevCrease.has(currentNonStriker)) {
+      incomingNewBatterId = currentNonStriker;
+    }
+
+    const currentRetiredCount = Object.values(state.retiredHurt || {}).reduce(
+      (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
+      0,
+    );
+    const prevRetiredCount = lastRetiredHurtCountRef.current;
+    const hasNewRetirement = prevRetiredCount !== null && currentRetiredCount > prevRetiredCount;
+
+    const currentWickets = innings?.wickets ?? 0;
+    const prevWickets = lastWicketsRef.current;
+    const hasWicketFell = prevWickets !== null && currentWickets > prevWickets;
+
+    // Only fire if:
+    // - There is an incoming batsman who was NOT already at the crease, AND
+    // - Either a retirement occurred, a wicket fell, or a crease slot was vacated
+    if (prevCrease.size > 0 && incomingNewBatterId !== null) {
+      const newBatter = players.find((p) => p.id === incomingNewBatterId);
+      if (newBatter) {
         setActiveEvent({
           type: "NEW_BATSMAN",
-          batsmanName: newStriker.name,
-          role: newStriker.role || "Batter",
+          batsmanName: newBatter.name,
+          role: hasNewRetirement
+            ? "New Batter (Umpire Retirement)"
+            : hasWicketFell
+            ? "New Batter (Wicket Replacement)"
+            : newBatter.role || "New Batter In",
         });
       }
-    } else {
-      lastStrikerIdRef.current = state.strikerId;
     }
+
+    // Sync crease, wickets, and retirement tracking
+    lastCreaseIdsRef.current = {
+      strikerId: state.strikerId,
+      nonStrikerId: state.nonStrikerId,
+    };
+    lastWicketsRef.current = currentWickets;
+    lastRetiredHurtCountRef.current = currentRetiredCount;
 
     // 5. Detect Innings Complete
     if (
@@ -437,7 +503,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
           {/* Top Right: Sponsor Showcase + Connection Status */}
           <div className="flex items-center gap-4 shrink-0 justify-end">
             <HeaderSponsorShowcase sponsors={sponsors} />
-            <ConnectionBadge status={connectionStatus} />
+            <ConnectionBadge
+              status={connectionStatus}
+              matchStatus={state?.matchStatus}
+            />
           </div>
         </header>
 
@@ -782,11 +851,31 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                 </button>
                 <button
                   onClick={() =>
-                    setActiveEvent({ type: "SUPER_BALL", battingTeam: battingTeam?.name || "Team" })
+                    setActiveEvent({
+                      type: "SUPER_BALL",
+                      runsOffBat: 4,
+                      totalRuns: 8,
+                      batsmanName: strikerPlayer?.name || "Rahul Sharma",
+                      battingTeam: battingTeam?.name || "Jaipur Jaguars",
+                    })
                   }
                   className="px-2.5 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40"
                 >
-                  Test Super Ball
+                  Test Super Ball (4+4=8)
+                </button>
+                <button
+                  onClick={() =>
+                    setActiveEvent({
+                      type: "SUPER_BALL",
+                      runsOffBat: 6,
+                      totalRuns: 12,
+                      batsmanName: strikerPlayer?.name || "Rahul Sharma",
+                      battingTeam: battingTeam?.name || "Jaipur Jaguars",
+                    })
+                  }
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/40"
+                >
+                  Test Super Ball (6+6=12)
                 </button>
                 <button
                   onClick={() => setActiveEvent({ type: "SUPER_OVER" })}

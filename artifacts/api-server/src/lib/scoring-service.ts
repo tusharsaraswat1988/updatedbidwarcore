@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import {
+  scoringEventsTable,
   scoringMatchesTable,
   scoringSessionsTable,
   tournamentsTable,
@@ -16,11 +17,12 @@ import {
   type CricketMatchRulesJson,
   RUNTIME_EXECUTION_POLICY_SOURCE,
 } from "@workspace/scoring-core";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { verifyMatchStartContract } from "@workspace/platform-core/rule-engine";
 import { verifyPresentationMatchStartContract } from "@workspace/platform-core/presentation-engine";
 import { replayScoringMatchState } from "./scoring-platform";
 import { ScoringPlatformError } from "./scoring-platform/errors";
+import { broadcastScoringState } from "./scoring-broadcast";
 import {
   appendSingleMatchEvent,
   type ScoringActor,
@@ -244,24 +246,27 @@ function summaryFromMatch(
   return buildCricketMatchSummary(state);
 }
 
-/** Live or most recently finished match for LED / public display. */
+/** Live, paused, or most recently finished match for LED / public display. */
 export async function getLiveScoringDisplay(tournamentId: number) {
   await ensureTournamentScoring(tournamentId);
 
-  const [live] = await db
+  const [activeMatch] = await db
     .select()
     .from(scoringMatchesTable)
     .where(
       and(
         eq(scoringMatchesTable.tournamentId, tournamentId),
         eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
-        eq(scoringMatchesTable.status, "live"),
+        inArray(scoringMatchesTable.status, ["live", "paused"]),
       ),
     )
-    .orderBy(desc(scoringMatchesTable.startedAt))
+    .orderBy(
+      sql`CASE WHEN ${scoringMatchesTable.status} = 'live' THEN 1 ELSE 2 END`,
+      desc(scoringMatchesTable.startedAt),
+    )
     .limit(1);
 
-  let match = live;
+  let match = activeMatch;
   if (!match) {
     const [recent] = await db
       .select()
@@ -531,4 +536,96 @@ export async function undoLastScoringEvent(
     expectedSequence: input.expectedSequence,
     actor: input.actor,
   });
+}
+
+/**
+ * Resets a match back to "scheduled" pre-toss state when 0 runs and 0 balls have been recorded.
+ */
+export async function resetCricketMatchSetup(
+  tournamentId: number,
+  matchId: number,
+  actor: ScoringActor,
+) {
+  const { match, state } = await getScoringMatch(tournamentId, matchId);
+
+  if (match.status === "completed" || match.status === "abandoned") {
+    throw new ScoringServiceError(
+      "Cannot reset a completed or abandoned match",
+      400,
+      "MATCH_CLOSED",
+    );
+  }
+
+  // Calculate total balls and runs across all innings
+  const totalBalls = (state.innings ?? []).reduce(
+    (acc, inn) => acc + (inn.over ?? 0) * 6 + (inn.ball ?? 0),
+    0,
+  );
+  const totalRuns = (state.innings ?? []).reduce(
+    (acc, inn) => acc + (inn.runs ?? 0),
+    0,
+  );
+
+  if (totalBalls > 0 || totalRuns > 0) {
+    throw new ScoringServiceError(
+      "Cannot reset toss after balls or runs have been recorded. Please undo balls or pause the match instead.",
+      400,
+      "BALLS_ALREADY_RECORDED",
+    );
+  }
+
+  const initialState = createInitialCricketState(matchMetaFromRow(match));
+
+  const [updatedMatch] = await db.transaction(async (tx) => {
+    // 1. Delete setup events for this match
+    await tx
+      .delete(scoringEventsTable)
+      .where(eq(scoringEventsTable.matchId, matchId));
+
+    // 2. Reset session state
+    await tx
+      .update(scoringSessionsTable)
+      .set({
+        status: "idle",
+        stateJson: initialState as unknown as Record<string, unknown>,
+        lastEventSeq: 0,
+      })
+      .where(eq(scoringSessionsTable.matchId, matchId));
+
+    // 3. Reset match status
+    return tx
+      .update(scoringMatchesTable)
+      .set({
+        status: "scheduled",
+        startedAt: null,
+        completedAt: null,
+        winnerTeamId: null,
+        resultSummary: null,
+        summaryJson: null,
+        currentProjectionVersion: 0,
+      })
+      .where(eq(scoringMatchesTable.id, matchId))
+      .returning();
+  });
+
+  // Broadcast reset state to SSE clients
+  broadcastScoringState(tournamentId, {
+    type: "scoring_state",
+    matchId: updatedMatch.id,
+    match: {
+      id: updatedMatch.id,
+      status: updatedMatch.status,
+      homeTeamId: updatedMatch.homeTeamId,
+      awayTeamId: updatedMatch.awayTeamId,
+      winnerTeamId: updatedMatch.winnerTeamId,
+      resultSummary: updatedMatch.resultSummary,
+    },
+    state: initialState,
+    summary: null,
+  });
+
+  return {
+    match: updatedMatch,
+    state: initialState,
+  };
 }

@@ -845,10 +845,12 @@ void systemCQuery(`
       role TEXT NOT NULL DEFAULT 'scorer',
       mobile TEXT,
       email TEXT,
+      pin TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_scoring_officials_tournament_id ON scoring_officials (tournament_id);
+    ALTER TABLE scoring_officials ADD COLUMN IF NOT EXISTS pin TEXT;
 
     CREATE TABLE IF NOT EXISTS scoring_draws (
       id SERIAL PRIMARY KEY,

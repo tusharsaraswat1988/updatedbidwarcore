@@ -165,11 +165,33 @@ export async function deleteScoringVenue(
 
 export async function listScoringOfficials(tournamentId: number) {
   await ensureScoringTournament(tournamentId);
-  return db
+  const officials = await db
     .select()
     .from(scoringOfficialsTable)
     .where(eq(scoringOfficialsTable.tournamentId, tournamentId))
     .orderBy(asc(scoringOfficialsTable.name));
+
+  let scorerAccounts: import("./scorer-auth").ScorerAccountAdminRow[] = [];
+  try {
+    const { listScorerAccountsForTournament } = await import("./scorer-auth");
+    scorerAccounts = await listScorerAccountsForTournament(tournamentId);
+  } catch {
+    scorerAccounts = [];
+  }
+
+  const accountByMobile = new Map(scorerAccounts.map((a) => [a.mobile, a]));
+
+  return officials.map((off) => {
+    const acc = off.mobile ? accountByMobile.get(off.mobile) : undefined;
+    return {
+      ...off,
+      isActive: acc ? acc.isActive : true,
+      lastLoginAt: acc ? acc.lastLoginAt : null,
+      loginLocked: acc ? acc.loginLocked : false,
+      loginLockoutRemainingSec: acc ? acc.loginLockoutRemainingSec : undefined,
+      scorerAccountId: acc ? acc.id : undefined,
+    };
+  });
 }
 
 export async function createScoringOfficial(
@@ -179,17 +201,38 @@ export async function createScoringOfficial(
     role?: string;
     mobile?: string | null;
     email?: string | null;
+    pin?: string | null;
   },
 ) {
   await ensureScoringTournament(tournamentId);
+  const role = input.role ?? "scorer";
+  
+  if (role === "scorer" && input.mobile && input.pin && input.pin.trim().length >= 4) {
+    try {
+      const { createScorerAccountForTournament } = await import("./scorer-auth");
+      await createScorerAccountForTournament(tournamentId, {
+        name: input.name.trim(),
+        mobile: input.mobile.trim(),
+        pin: input.pin.trim(),
+      });
+    } catch (e) {
+      // If scorer already exists or auth error, continue saving official or re-throw
+      const message = e instanceof Error ? e.message : String(e);
+      if (!message.toLowerCase().includes("already assigned")) {
+        throw new ScoringServiceError(message, 400, "SCORER_ACCOUNT_ERROR");
+      }
+    }
+  }
+
   const [row] = await db
     .insert(scoringOfficialsTable)
     .values({
       tournamentId,
-      name: input.name,
-      role: input.role ?? "scorer",
-      mobile: input.mobile ?? null,
-      email: input.email ?? null,
+      name: input.name.trim(),
+      role,
+      mobile: input.mobile ? input.mobile.trim() : null,
+      email: input.email ? input.email.trim() : null,
+      pin: input.pin ? input.pin.trim() : null,
     })
     .returning();
   return row;
@@ -203,12 +246,57 @@ export async function updateScoringOfficial(
     role: string;
     mobile: string | null;
     email: string | null;
+    pin: string | null;
+    isActive: boolean;
   }>,
 ) {
   await ensureScoringTournament(tournamentId);
+  const [existing] = await db
+    .select()
+    .from(scoringOfficialsTable)
+    .where(
+      and(
+        eq(scoringOfficialsTable.id, officialId),
+        eq(scoringOfficialsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    throw new ScoringServiceError(
+      "Official not found",
+      404,
+      "OFFICIAL_NOT_FOUND",
+    );
+  }
+
+  if (existing.role === "scorer" && existing.mobile && (patch.pin || typeof patch.isActive === "boolean")) {
+    try {
+      const { listScorerAccountsForTournament, updateScorerAccountForTournament } = await import("./scorer-auth");
+      const accounts = await listScorerAccountsForTournament(tournamentId);
+      const acc = accounts.find((a) => a.mobile === existing.mobile);
+      if (acc) {
+        await updateScorerAccountForTournament(tournamentId, acc.id, {
+          name: patch.name ?? existing.name,
+          pin: patch.pin && patch.pin.trim().length >= 4 ? patch.pin.trim() : undefined,
+          isActive: patch.isActive,
+        });
+      }
+    } catch {
+      // non-fatal
+    }
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (patch.name !== undefined) updateData.name = patch.name.trim();
+  if (patch.role !== undefined) updateData.role = patch.role;
+  if (patch.mobile !== undefined) updateData.mobile = patch.mobile ? patch.mobile.trim() : null;
+  if (patch.email !== undefined) updateData.email = patch.email ? patch.email.trim() : null;
+  if (patch.pin !== undefined) updateData.pin = patch.pin ? patch.pin.trim() : null;
+
   const [row] = await db
     .update(scoringOfficialsTable)
-    .set(patch)
+    .set(updateData)
     .where(
       and(
         eq(scoringOfficialsTable.id, officialId),
@@ -216,12 +304,6 @@ export async function updateScoringOfficial(
       ),
     )
     .returning();
-  if (!row)
-    throw new ScoringServiceError(
-      "Official not found",
-      404,
-      "OFFICIAL_NOT_FOUND",
-    );
   return row;
 }
 

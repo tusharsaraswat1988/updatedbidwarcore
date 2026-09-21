@@ -18,6 +18,12 @@ export type ScoringOfficial = {
   role: string;
   mobile: string | null;
   email: string | null;
+  pin?: string | null;
+  isActive?: boolean;
+  lastLoginAt?: string | null;
+  loginLocked?: boolean;
+  loginLockoutRemainingSec?: number;
+  scorerAccountId?: number;
 };
 
 export type ScoringDraw = {
@@ -92,7 +98,13 @@ export async function listOfficials(tournamentId: number): Promise<ScoringOffici
 
 export async function createOfficial(
   tournamentId: number,
-  body: { name: string; role?: string; mobile?: string | null; email?: string | null },
+  body: {
+    name: string;
+    role?: string;
+    mobile?: string | null;
+    email?: string | null;
+    pin?: string | null;
+  },
 ): Promise<ScoringOfficial> {
   const r = await apiFetch(`${base(tournamentId)}/officials`, {
     method: "POST",
@@ -110,6 +122,8 @@ export async function updateOfficial(
     role?: string;
     mobile?: string | null;
     email?: string | null;
+    pin?: string | null;
+    isActive?: boolean;
   },
 ): Promise<ScoringOfficial> {
   const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}`, {
@@ -118,6 +132,16 @@ export async function updateOfficial(
   });
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
+}
+
+export async function resetOfficialLockout(
+  tournamentId: number,
+  officialId: number,
+): Promise<{ ok: boolean; cleared: number }> {
+  const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}/reset-login-lockout`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function deleteOfficial(

@@ -25,3 +25,9 @@ export const FREE_HIT_DISMISSALS: DismissalType[] = [
   "hit_ball_twice",
   "timed_out",
 ];
+
+/** On a super ball, these dismissals are NOT valid (batter is protected). */
+export const SUPER_BALL_BLOCKED_DISMISSALS: DismissalType[] = [
+  "bowled",
+  "caught",
+];
