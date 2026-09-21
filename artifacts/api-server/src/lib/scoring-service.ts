@@ -365,7 +365,18 @@ export async function updateScoringMatch(
   return { match: targetMatch, state: refreshedState };
 }
 
-/** Organizer-level match deletion — allowed ONLY if match has not started and toss has not occurred. */
+/**
+ * Organizer-level match deletion.
+ *
+ * Safe to delete when:
+ *  - Match is still in "scheduled" state (toss not done), OR
+ *  - Match has been started/tossed BUT 0 balls have been recorded
+ *    (stuck in "live"/"paused" with no actual play — e.g. toss setup abandoned).
+ *
+ * Blocked when:
+ *  - Match is completed or abandoned (use result correction flows), OR
+ *  - Match has at least 1 ball recorded (real play has happened).
+ */
 export async function deleteCricketMatch(
   tournamentId: number,
   matchId: number,
@@ -389,46 +400,26 @@ export async function deleteCricketMatch(
     throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
-  // Pre-toss constraint: only scheduled matches with no start time
-  if (match.status !== "scheduled" || match.startedAt !== null) {
+  // Completed / abandoned matches cannot be deleted via this API
+  if (match.status === "completed" || match.status === "abandoned") {
     throw new ScoringServiceError(
-      "Cannot delete a match that has already started or been completed. Matches can only be deleted prior to the toss.",
+      "Cannot delete a match that has been completed or abandoned.",
       409,
-      "MATCH_ALREADY_STARTED",
+      "MATCH_ALREADY_COMPLETED",
     );
   }
 
-  // Check if any match started/toss or ball events exist
+  // For matches that have started (toss/live/paused), only allow deletion if 0 balls recorded
   const events = await loadMatchEvents(matchId);
-  const hasStartedEvent = events.some(
-    (e) =>
-      e.eventType === CricketEventType.MATCH_STARTED ||
-      e.eventType === CricketEventType.BALL_RECORDED,
+  const hasBallRecorded = events.some(
+    (e) => e.eventType === CricketEventType.BALL_RECORDED,
   );
-  if (hasStartedEvent) {
+  if (hasBallRecorded) {
     throw new ScoringServiceError(
-      "Cannot delete a match where the toss has already occurred. Matches can only be deleted prior to the toss.",
+      "Cannot delete a match where balls have already been recorded. Matches can only be deleted if no balls have been bowled.",
       409,
-      "TOSS_ALREADY_CONDUCTED",
+      "BALLS_ALREADY_RECORDED",
     );
-  }
-
-  // Check session state for recorded toss
-  const [session] = await db
-    .select()
-    .from(scoringSessionsTable)
-    .where(eq(scoringSessionsTable.matchId, matchId))
-    .limit(1);
-
-  if (session?.stateJson) {
-    const state = session.stateJson as unknown as CricketScoreboardState;
-    if (state.tossWinnerTeamId != null || (state.innings && state.innings.length > 0)) {
-      throw new ScoringServiceError(
-        "Cannot delete a match where the toss has already occurred.",
-        409,
-        "TOSS_ALREADY_CONDUCTED",
-      );
-    }
   }
 
   // Transactionally delete all dependent rows and the match row itself
@@ -514,7 +505,8 @@ export async function getLiveScoringDisplay(tournamentId: number) {
 
 export async function listScoringMatches(tournamentId: number) {
   await ensureTournamentScoring(tournamentId);
-  return db
+  // Fetch ordered by id ASC so sequence numbers reflect creation order
+  const rows = await db
     .select()
     .from(scoringMatchesTable)
     .where(
@@ -523,7 +515,13 @@ export async function listScoringMatches(tournamentId: number) {
         eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
       ),
     )
-    .orderBy(desc(scoringMatchesTable.createdAt));
+    .orderBy(scoringMatchesTable.id); // ascending for numbering
+
+  // Assign tournament-scoped sequential match numbers (1-based)
+  const numbered = rows.map((m, idx) => ({ ...m, tournamentMatchNumber: idx + 1 }));
+
+  // Return newest-first for the match list UI
+  return numbered.reverse();
 }
 
 export async function getScoringMatch(tournamentId: number, matchId: number) {

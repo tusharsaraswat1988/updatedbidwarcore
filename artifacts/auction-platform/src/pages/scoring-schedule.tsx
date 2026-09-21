@@ -11,10 +11,18 @@ import {
   BtnSecondary,
   PageHeader,
   btnCompactClass,
+  hubCardClass,
+  hubPanelClass,
+  HubKpiCard,
+  HubSectionHeader,
+  EmptyState,
+  FormModal,
+  FormField,
 } from "@/components/scoring/cricket-page-chrome";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -25,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   createVenue,
@@ -44,13 +53,60 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
 import { cricketFixturesPath, cricketSettingsPath } from "@/lib/cricket-routes";
-import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  ExternalLink,
+  Layers,
+  Loader2,
+  MapPin,
+  Plus,
+  Repeat,
+  RotateCcw,
+  Shield,
+  Shuffle,
+  Sparkles,
+  Trophy,
+  Users,
+} from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+type DrawFormat = "round_robin" | "knockout" | "league_knockout";
+
+const FORMAT_OPTIONS: {
+  value: DrawFormat;
+  title: string;
+  badge: string;
+  description: string;
+  icon: typeof Repeat;
+}[] = [
+  {
+    value: "round_robin",
+    title: "Round Robin",
+    badge: "League",
+    description: "Every team plays against all other teams. Ranked by points and Net Run Rate.",
+    icon: Repeat,
+  },
+  {
+    value: "knockout",
+    title: "Knockout",
+    badge: "Sudden Death",
+    description: "Single-elimination bracket. Losers are eliminated; winner advances each round.",
+    icon: Trophy,
+  },
+  {
+    value: "league_knockout",
+    title: "Groups + Knockout",
+    badge: "Pool Stage",
+    description: "Teams play round-robin inside Group A and Group B, followed by playoff finals.",
+    icon: Layers,
+  },
+];
 
 export default function ScoringSchedulePage() {
   const [, params] = useRoute("/tournament/:id/score/schedule");
-  const tournamentId = parseInt(params?.id || "0");
+  const tournamentId = parseInt(params?.id || "0", 10);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -102,23 +158,27 @@ export default function ScoringSchedulePage() {
     [teams],
   );
 
+  // Modal & Form States
   const [showGenerate, setShowGenerate] = useState(false);
   const [drawName, setDrawName] = useState("");
-  const [format, setFormat] = useState<"round_robin" | "knockout" | "league_knockout">("round_robin");
+  const [format, setFormat] = useState<DrawFormat>("round_robin");
   const [selectedTeams, setSelectedTeams] = useState<number[]>([]);
   const [oversLimit, setOversLimit] = useState(20);
   const [venueId, setVenueId] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [busy, setBusy] = useState(false);
-  const [newVenueName, setNewVenueName] = useState("");
-  const [newVenueCity, setNewVenueCity] = useState("");
-  const [showAddVenue, setShowAddVenue] = useState(false);
-  const seededVenueRef = useRef(false);
 
   const [groupA, setGroupA] = useState<number[]>([]);
   const [groupB, setGroupB] = useState<number[]>([]);
 
-  // Prefer Tournament settings venue — auto-create scoring venue once when list is empty.
+  // Venue management modal state
+  const [showAddVenue, setShowAddVenue] = useState(false);
+  const [newVenueName, setNewVenueName] = useState("");
+  const [newVenueCity, setNewVenueCity] = useState("");
+  const [venueBusy, setVenueBusy] = useState(false);
+  const seededVenueRef = useRef(false);
+
+  // Auto-seed venue from settings when venue list is empty
   useEffect(() => {
     if (!scoringActive || venuesLoading || seededVenueRef.current) return;
     if (venues == null) return;
@@ -140,7 +200,7 @@ export default function ScoringSchedulePage() {
         await refetchVenues();
         toast({
           title: "Venue ready",
-          description: `Using “${settingsVenueName}” from Tournament settings.`,
+          description: `Configured venue “${settingsVenueName}” from Tournament settings.`,
         });
       } catch {
         seededVenueRef.current = false;
@@ -163,42 +223,124 @@ export default function ScoringSchedulePage() {
     if (!newVenueCity && settingsCity) setNewVenueCity(settingsCity);
   }, [showAddVenue, settingsVenueName, settingsCity, newVenueName, newVenueCity]);
 
-  function setTeamSelected(id: number, selected: boolean) {
-    setSelectedTeams((prev) => {
-      if (selected) return prev.includes(id) ? prev : [...prev, id];
-      return prev.filter((x) => x !== id);
-    });
-  }
-
+  // Handle opening the generate dialog
   function openGenerateDialog() {
     const allTeamIds = teams.map((t) => t.id);
     setSelectedTeams(allTeamIds);
-    setGroupA([]);
-    setGroupB([]);
+    setDrawName(
+      tournament?.name ? `${tournament.name} Stage 1` : "League Stage 2026",
+    );
+    // Split into groups default 50/50
+    const half = Math.ceil(allTeamIds.length / 2);
+    setGroupA(allTeamIds.slice(0, half));
+    setGroupB(allTeamIds.slice(half));
     setShowGenerate(true);
   }
 
+  function setTeamSelected(id: number, selected: boolean) {
+    setSelectedTeams((prev) => {
+      const next = selected ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id);
+      // Synchronize groups
+      if (!selected) {
+        setGroupA((g) => g.filter((x) => x !== id));
+        setGroupB((g) => g.filter((x) => x !== id));
+      } else {
+        // Add to group with fewer teams
+        if (groupA.length <= groupB.length) {
+          setGroupA((g) => (g.includes(id) ? g : [...g, id]));
+        } else {
+          setGroupB((g) => (g.includes(id) ? g : [...g, id]));
+        }
+      }
+      return next;
+    });
+  }
+
+  function selectAllTeams() {
+    const allIds = teams.map((t) => t.id);
+    setSelectedTeams(allIds);
+    const half = Math.ceil(allIds.length / 2);
+    setGroupA(allIds.slice(0, half));
+    setGroupB(allIds.slice(half));
+  }
+
+  function clearAllTeams() {
+    setSelectedTeams([]);
+    setGroupA([]);
+    setGroupB([]);
+  }
+
+  function autoBalanceGroups() {
+    const shuffled = [...selectedTeams].sort(() => Math.random() - 0.5);
+    const half = Math.ceil(shuffled.length / 2);
+    setGroupA(shuffled.slice(0, half));
+    setGroupB(shuffled.slice(half));
+    toast({
+      title: "Groups Balanced",
+      description: `Group A: ${half} teams · Group B: ${shuffled.length - half} teams`,
+    });
+  }
+
+  // Estimated fixtures count calculation
+  const estimatedMatches = useMemo(() => {
+    const n = selectedTeams.length;
+    if (n < 2) return 0;
+    if (format === "round_robin") {
+      return (n * (n - 1)) / 2;
+    }
+    if (format === "knockout") {
+      return n - 1;
+    }
+    if (format === "league_knockout") {
+      const a = groupA.length;
+      const b = groupB.length;
+      const groupMatches = (a * (a - 1)) / 2 + (b * (b - 1)) / 2;
+      return groupMatches > 0 ? groupMatches + (a >= 2 && b >= 2 ? 3 : 0) : 0;
+    }
+    return 0;
+  }, [selectedTeams.length, format, groupA.length, groupB.length]);
+
   async function handleAddVenue() {
     if (!newVenueName.trim()) return;
+    setVenueBusy(true);
     try {
-      await createVenue(tournamentId, { name: newVenueName.trim(), city: newVenueCity || null });
+      const added = await createVenue(tournamentId, {
+        name: newVenueName.trim(),
+        city: newVenueCity.trim() || null,
+      });
       setNewVenueName("");
       setNewVenueCity("");
       await refetchVenues();
-      toast({ title: "Venue added" });
+      if (added?.id) {
+        setVenueId(String(added.id));
+      }
+      setShowAddVenue(false);
+      toast({ title: "Venue Added", description: `Added “${newVenueName.trim()}”.` });
     } catch (e) {
-      toast({ title: "Failed", description: String(e), variant: "destructive" });
+      toast({ title: "Failed to Add Venue", description: String(e), variant: "destructive" });
+    } finally {
+      setVenueBusy(false);
     }
   }
 
   async function handleGenerate() {
     if (!drawName.trim()) {
-      toast({ title: "Enter a draw name", variant: "destructive" });
+      toast({ title: "Stage Name Required", description: "Please enter a draw / stage name.", variant: "destructive" });
       return;
     }
     if (selectedTeams.length < 2) {
-      toast({ title: "Select at least 2 teams", variant: "destructive" });
+      toast({ title: "Teams Required", description: "Please select at least 2 teams to generate fixtures.", variant: "destructive" });
       return;
+    }
+    if (format === "league_knockout") {
+      if (groupA.length < 2 || groupB.length < 2) {
+        toast({
+          title: "Incomplete Groups",
+          description: "Both Group A and Group B must have at least 2 teams assigned.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     setBusy(true);
     try {
@@ -213,10 +355,6 @@ export default function ScoringSchedulePage() {
         createMatches: true,
       };
       if (format === "league_knockout") {
-        if (groupA.length < 2 || groupB.length < 2) {
-          toast({ title: "Each group needs 2+ teams", variant: "destructive" });
-          return;
-        }
         body.groups = [
           { name: "Group A", teamIds: groupA },
           { name: "Group B", teamIds: groupB },
@@ -224,15 +362,15 @@ export default function ScoringSchedulePage() {
       }
       const result = await generateDraw(tournamentId, body);
       toast({
-        title: "Schedule generated",
-        description: `${result.fixtureCount} fixtures created`,
+        title: "Schedule Generated",
+        description: `Successfully scheduled ${result.fixtureCount} matches across ${selectedTeams.length} teams.`,
       });
       setShowGenerate(false);
       await qc.invalidateQueries({ queryKey: ["scoring-draws", tournamentId] });
       await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
       await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
     } catch (e) {
-      toast({ title: "Generation failed", description: String(e), variant: "destructive" });
+      toast({ title: "Schedule Generation Failed", description: String(e), variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -245,10 +383,14 @@ export default function ScoringSchedulePage() {
   if (tournamentLoading) {
     return (
       <CricketOrganizerPageShell tournamentId={tournamentId}>
-        <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-10 space-y-3">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-24 w-full" />
+        <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule & Generate" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </CricketOrganizerPageShell>
     );
@@ -257,10 +399,14 @@ export default function ScoringSchedulePage() {
   if (!scoringActive) {
     return (
       <CricketOrganizerPageShell tournamentId={tournamentId}>
-        <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule" />
-        <p className="max-w-4xl mx-auto px-4 sm:px-6 pb-10 text-muted-foreground">
-          Cricket scoring is not enabled.
-        </p>
+        <PageHeader tournamentId={tournamentId} eyebrow="Cricket Operations" title="Schedule & Generate" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10">
+          <EmptyState
+            icon={Trophy}
+            title="Cricket Scoring Not Activated"
+            desc="Enable cricket scoring module in tournament settings to manage venues, draws, and fixture schedules."
+          />
+        </div>
       </CricketOrganizerPageShell>
     );
   }
@@ -271,350 +417,765 @@ export default function ScoringSchedulePage() {
         tournamentId={tournamentId}
         eyebrow="Cricket Operations"
         title="Schedule & Generate"
-        subtitle="Venues, draws, and batch fixture generation"
+        subtitle="Configure venues, draw stages, and batch-generate balanced match fixtures"
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <BtnSecondary href={cricketFixturesPath(tournamentId)} className={btnCompactClass}>
-              Fixture browser
+              <Calendar className="w-3.5 h-3.5 mr-1" />
+              Fixture Browser
             </BtnSecondary>
             <BtnSecondary href={cricketPublicPath(tournamentId)} className={btnCompactClass} external>
-              Public page
+              <ExternalLink className="w-3.5 h-3.5 mr-1" />
+              Public Page
             </BtnSecondary>
             <BtnPrimary onClick={openGenerateDialog} className={btnCompactClass}>
-              <Plus className="h-4 w-4" />
-              Generate schedule
+              <Plus className="w-4 h-4 mr-1" />
+              Generate Schedule
             </BtnPrimary>
           </div>
         }
       />
-      <div className="flex flex-col gap-5 max-w-4xl mx-auto px-4 sm:px-6 pb-12">
-        <section className="rounded-xl border border-border/60 bg-card/60 p-4 sm:p-5 space-y-3.5">
-          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
-            <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
-              <MapPin className="h-4 w-4 text-primary" />
-              Tournament Venues
-            </h2>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 space-y-6">
+        {/* KPI Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <HubKpiCard
+            label="Tournament Draws"
+            value={draws?.length ?? 0}
+            icon={Trophy}
+            tint="primary"
+          />
+          <HubKpiCard
+            label="Scheduled Fixtures"
+            value={fixtures?.length ?? 0}
+            icon={Calendar}
+            tint="green"
+          />
+          <HubKpiCard
+            label="Venues Ready"
+            value={venues?.length ?? 0}
+            icon={MapPin}
+            tint="muted"
+          />
+          <HubKpiCard
+            label="Registered Teams"
+            value={teams.length}
+            icon={Shield}
+            tint="primary"
+          />
+        </div>
+
+        {/* Venues Section */}
+        <section className={cn(hubCardClass, "p-4 sm:p-5 space-y-4")}>
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/60">
+            <div>
+              <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                <MapPin className="h-4 w-4 text-primary" />
+                Tournament Venues
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Venues and grounds assigned to scheduled match fixtures
+              </p>
+            </div>
+            <BtnSecondary
+              className={cn(btnCompactClass, "h-8 min-h-8 text-xs")}
+              onClick={() => setShowAddVenue(true)}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add Venue
+            </BtnSecondary>
           </div>
 
           {venuesLoading ? (
-            <Skeleton className="h-8 w-full" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
+            </div>
           ) : (venues?.length ?? 0) > 0 ? (
-            <>
-              <ul className="text-sm space-y-2">
-                {(venues ?? []).map((v) => {
-                  const fromSettings =
-                    settingsVenueName &&
-                    v.name.trim().toLowerCase() === settingsVenueName.toLowerCase();
-                  return (
-                    <li key={v.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/20 border border-border/40">
-                      <span className="font-semibold text-foreground">
-                        {v.name}
-                        {v.city ? <span className="text-muted-foreground font-normal"> · {v.city}</span> : ""}
-                      </span>
-                      {fromSettings ? (
-                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
-                          From Settings
-                        </Badge>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-              {!showAddVenue ? (
-                <BtnSecondary className={cn(btnCompactClass, "h-8 min-h-8 mt-1")} onClick={() => setShowAddVenue(true)}>
-                  + Add another venue
-                </BtnSecondary>
-              ) : null}
-            </>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {(venues ?? []).map((v) => {
+                const fromSettings =
+                  settingsVenueName &&
+                  v.name.trim().toLowerCase() === settingsVenueName.toLowerCase();
+                return (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between p-3.5 rounded-lg bg-muted/20 border border-border/50 transition-colors hover:border-primary/40"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="font-semibold text-sm text-foreground truncate flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="truncate">{v.name}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5 truncate pl-5">
+                        {v.city ? v.city : "Ground venue"}
+                      </div>
+                    </div>
+                    {fromSettings ? (
+                      <Badge variant="outline" className="text-[10px] text-primary border-primary/30 shrink-0 font-medium">
+                        Tournament Venue
+                      </Badge>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           ) : settingsVenueName ? (
-            <p className="text-sm text-muted-foreground">
-              Using <span className="text-foreground font-medium">{settingsVenueName}</span>
-              {settingsCity ? ` · ${settingsCity}` : ""} from{" "}
-              <Link href={cricketSettingsPath(tournamentId)} className="text-primary underline-offset-2 hover:underline">
-                Tournament settings
-              </Link>
-              …
-            </p>
+            <div className="rounded-lg border border-dashed border-border p-4 bg-muted/10 text-sm text-muted-foreground flex items-center justify-between gap-3">
+              <div>
+                Using <span className="text-foreground font-semibold">{settingsVenueName}</span>
+                {settingsCity ? ` · ${settingsCity}` : ""} configured from{" "}
+                <Link href={cricketSettingsPath(tournamentId)} className="text-primary underline hover:text-primary/80 font-medium">
+                  Tournament settings
+                </Link>
+                .
+              </div>
+              <BtnSecondary className={btnCompactClass} onClick={() => setShowAddVenue(true)}>
+                + Add Another
+              </BtnSecondary>
+            </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No venue in{" "}
-              <Link href={cricketSettingsPath(tournamentId)} className="text-primary underline-offset-2 hover:underline">
-                Tournament settings
-              </Link>
-              yet — add one here or set it in settings.
-            </p>
+            <div className="rounded-lg border border-dashed border-border p-4 bg-muted/10 text-sm text-muted-foreground flex items-center justify-between gap-3">
+              <span>No venues configured yet. Add your ground location for fixtures.</span>
+              <BtnSecondary className={btnCompactClass} onClick={() => setShowAddVenue(true)}>
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Add Venue
+              </BtnSecondary>
+            </div>
+          )}
+        </section>
+
+        {/* Tournament Draws Section */}
+        <section className={cn(hubCardClass, "p-4 sm:p-5 space-y-4")}>
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/60">
+            <div>
+              <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Trophy className="h-4 w-4 text-primary" />
+                Tournament Draws & Stages
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Active scheduling draws generated for this tournament
+              </p>
+            </div>
+            <BtnPrimary onClick={openGenerateDialog} className={cn(btnCompactClass, "h-8 min-h-8 text-xs")}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              New Draw Schedule
+            </BtnPrimary>
+          </div>
+
+          {drawsLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+            </div>
+          ) : (draws?.length ?? 0) > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {(draws ?? []).map((d) => {
+                const drawFixtures = (fixtures ?? []).filter((f) => f.drawId === d.id);
+                return (
+                  <div
+                    key={d.id}
+                    className="flex flex-col justify-between rounded-lg border border-border/60 bg-muted/10 p-4 transition-colors hover:border-primary/40 space-y-3"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-bold text-sm text-foreground truncate">{d.name}</span>
+                        <Badge variant="secondary" className="text-[10px] uppercase font-bold shrink-0 tracking-wider">
+                          {d.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[11px] capitalize font-medium text-foreground/80">
+                          {d.format.replace(/_/g, " ")}
+                        </Badge>
+                        <span>·</span>
+                        <span>{drawFixtures.length > 0 ? `${drawFixtures.length} matches` : "Generated"}</span>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "Active"}
+                      </span>
+                      <Link
+                        href={cricketFixturesPath(tournamentId)}
+                        className="text-primary font-medium hover:underline inline-flex items-center gap-1"
+                      >
+                        View Fixtures <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Trophy}
+              title="No Draws Generated Yet"
+              desc="Set up your first tournament stage (Round Robin, Knockout, or Groups) to automatically create paired fixtures."
+              action={{
+                label: "Generate First Schedule",
+                onClick: openGenerateDialog,
+              }}
+            />
+          )}
+        </section>
+
+        {/* Scheduled Fixtures Preview Section */}
+        <section className={cn(hubCardClass, "p-4 sm:p-5 space-y-4")}>
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/60">
+            <div>
+              <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Calendar className="h-4 w-4 text-primary" />
+                Scheduled Fixtures Preview
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {fixtures?.length ?? 0} fixture{fixtures?.length === 1 ? "" : "s"} scheduled across active draws
+              </p>
+            </div>
+            {(fixtures?.length ?? 0) > 0 ? (
+              <BtnSecondary href={cricketFixturesPath(tournamentId)} className={cn(btnCompactClass, "h-8 min-h-8 text-xs")}>
+                Browse All Fixtures
+                <ChevronRight className="w-3.5 h-3.5 ml-1" />
+              </BtnSecondary>
+            ) : null}
+          </div>
+
+          {fixturesLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
+            </div>
+          ) : (fixtures?.length ?? 0) > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(fixtures ?? []).slice(0, 8).map((f) => {
+                const home = teamMap.get(f.homeTeamId);
+                const away = teamMap.get(f.awayTeamId);
+                return (
+                  <div
+                    key={f.id}
+                    className="rounded-lg border border-border/50 bg-muted/15 p-3.5 text-sm flex flex-col justify-between gap-2.5 transition-colors hover:border-primary/30"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {/* Home Team */}
+                        <div className="flex items-center gap-1.5 min-w-0 font-semibold text-foreground truncate">
+                          {home?.logoUrl ? (
+                            <img
+                              src={home.logoUrl}
+                              alt=""
+                              className="w-5 h-5 rounded object-contain border border-border shrink-0"
+                            />
+                          ) : (
+                            <div
+                              className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                              style={{ backgroundColor: `${home?.color || "#3B82F6"}22`, color: home?.color || "#3B82F6" }}
+                            >
+                              {home?.shortCode?.slice(0, 2) || "H"}
+                            </div>
+                          )}
+                          <span className="truncate">{home?.name || `Team ${f.homeTeamId}`}</span>
+                        </div>
+
+                        <span className="text-muted-foreground font-bold text-xs uppercase px-1 shrink-0">vs</span>
+
+                        {/* Away Team */}
+                        <div className="flex items-center gap-1.5 min-w-0 font-semibold text-foreground truncate">
+                          {away?.logoUrl ? (
+                            <img
+                              src={away.logoUrl}
+                              alt=""
+                              className="w-5 h-5 rounded object-contain border border-border shrink-0"
+                            />
+                          ) : (
+                            <div
+                              className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                              style={{ backgroundColor: `${away?.color || "#EF4444"}22`, color: away?.color || "#EF4444" }}
+                            >
+                              {away?.shortCode?.slice(0, 2) || "A"}
+                            </div>
+                          )}
+                          <span className="truncate">{away?.name || `Team ${f.awayTeamId}`}</span>
+                        </div>
+                      </div>
+
+                      <Badge variant="outline" className="text-[10px] uppercase font-bold shrink-0">
+                        {f.status}
+                      </Badge>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 gap-2">
+                      <span className="font-medium text-foreground/80">{f.roundName ?? "League Match"}</span>
+                      <div className="flex items-center gap-2">
+                        {f.scheduledAt ? (
+                          <span>
+                            {new Date(f.scheduledAt).toLocaleDateString([], {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        ) : null}
+                        {f.venue ? <span>· {f.venue}</span> : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Calendar}
+              title="No Fixtures Scheduled Yet"
+              desc="Click 'Generate Schedule' to pair your tournament teams into fixtures automatically."
+              action={{
+                label: "Generate Schedule",
+                onClick: openGenerateDialog,
+              }}
+            />
           )}
 
-          {(showAddVenue || ((venues?.length ?? 0) === 0 && !settingsVenueName)) ? (
-            <div className="flex gap-2 pt-2">
+          {(fixtures?.length ?? 0) > 8 ? (
+            <div className="pt-2 text-center">
+              <BtnSecondary href={cricketFixturesPath(tournamentId)} className={btnCompactClass}>
+                View All {fixtures?.length} Fixtures in Fixture Browser
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </BtnSecondary>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* Generate Schedule FormModal                                               */}
+      {/* ========================================================================= */}
+      {showGenerate ? (
+        <FormModal
+          title="Generate Tournament Schedule"
+          subtitle="Auto-pair teams into matches, balance draws, and configure playing rules"
+          onClose={() => setShowGenerate(false)}
+          size="xl"
+          footer={
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>
+                  {estimatedMatches > 0
+                    ? `Estimated ${estimatedMatches} fixtures will be created`
+                    : "Select at least 2 teams to schedule"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <BtnSecondary onClick={() => setShowGenerate(false)} disabled={busy}>
+                  Cancel
+                </BtnSecondary>
+                <BtnPrimary
+                  onClick={handleGenerate}
+                  disabled={busy || selectedTeams.length < 2 || !drawName.trim()}
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Generate Schedule ({estimatedMatches} Matches)
+                    </>
+                  )}
+                </BtnPrimary>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-6">
+            {/* Draw / Stage Name */}
+            <FormField label="Draw / Stage Name" required htmlFor="draw-name-input">
               <Input
-                placeholder="Venue name"
+                id="draw-name-input"
+                value={drawName}
+                onChange={(e) => setDrawName(e.target.value)}
+                placeholder="e.g. League Stage 2026, Premier Division"
+                className="h-10 text-sm"
+              />
+            </FormField>
+
+            {/* Tournament Format Cards */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Tournament Format
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {FORMAT_OPTIONS.map((opt) => {
+                  const active = format === opt.value;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormat(opt.value)}
+                      className={cn(
+                        "relative flex flex-col justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer",
+                        active
+                          ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/40"
+                          : "border-border bg-card/60 hover:border-primary/30 hover:bg-muted/30",
+                      )}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={cn(
+                              "w-7 h-7 rounded-lg flex items-center justify-center text-xs",
+                              active ? "bg-primary text-primary-foreground font-bold" : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <Badge
+                            variant={active ? "default" : "outline"}
+                            className="text-[10px] uppercase font-bold"
+                          >
+                            {opt.badge}
+                          </Badge>
+                        </div>
+                        <div className="font-bold text-sm text-foreground">{opt.title}</div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {opt.description}
+                        </p>
+                      </div>
+
+                      {active ? (
+                        <div className="flex items-center gap-1 text-[11px] font-semibold text-primary mt-2">
+                          <Check className="w-3.5 h-3.5" />
+                          Selected
+                        </div>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Participating Teams Selection */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-primary" />
+                  Participating Teams ({selectedTeams.length} of {teams.length} Selected)
+                </Label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={selectAllTeams}
+                    className="text-xs text-primary font-medium hover:underline"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-muted-foreground text-xs">·</span>
+                  <button
+                    type="button"
+                    onClick={clearAllTeams}
+                    className="text-xs text-muted-foreground hover:text-foreground font-medium"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {teams.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                  No teams registered in this tournament yet. Add teams in the Teams & Players section.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 border rounded-lg border-border/70 bg-muted/10">
+                  {teams.map((t) => {
+                    const isChecked = selectedTeams.includes(t.id);
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => setTeamSelected(t.id, !isChecked)}
+                        className={cn(
+                          "flex items-center gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors",
+                          isChecked
+                            ? "bg-primary/10 border-primary/40 text-foreground"
+                            : "bg-background border-border/50 text-muted-foreground hover:text-foreground hover:border-border",
+                        )}
+                      >
+                        <Checkbox
+                          id={`team-select-${t.id}`}
+                          checked={isChecked}
+                          onCheckedChange={(checked) => setTeamSelected(t.id, checked === true)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {t.logoUrl ? (
+                          <img
+                            src={t.logoUrl}
+                            alt=""
+                            className="w-5 h-5 rounded object-contain border border-border shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-5 h-5 rounded flex items-center justify-center font-bold text-[9px] shrink-0"
+                            style={{ backgroundColor: `${t.color || "#3B82F6"}22`, color: t.color || "#3B82F6" }}
+                          >
+                            {t.shortCode?.slice(0, 2) || "T"}
+                          </div>
+                        )}
+                        <span className="font-semibold truncate flex-1">{t.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Group Distribution Panel (When Groups format is selected) */}
+            {format === "league_knockout" ? (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-primary/20">
+                  <div>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-primary" />
+                      Group Stage Allocation
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Both Group A and Group B must have 2 or more teams
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={autoBalanceGroups}
+                    className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    <Shuffle className="w-3 h-3" />
+                    Auto-Balance 50/50
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Group A */}
+                  <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                      <span>Group A</span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {groupA.length} Teams
+                      </Badge>
+                    </div>
+                    <ul className="space-y-1 max-h-32 overflow-y-auto">
+                      {selectedTeams.map((id) => {
+                        const t = teamMap.get(id);
+                        const inA = groupA.includes(id);
+                        return (
+                          <li
+                            key={id}
+                            onClick={() => {
+                              setGroupA((prev) =>
+                                inA ? prev.filter((x) => x !== id) : [...prev, id],
+                              );
+                              if (!inA) {
+                                setGroupB((prev) => prev.filter((x) => x !== id));
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer",
+                              inA
+                                ? "bg-primary/10 font-semibold text-foreground"
+                                : "text-muted-foreground hover:bg-muted/50",
+                            )}
+                          >
+                            <Checkbox checked={inA} />
+                            <span className="truncate">{t?.name || `Team ${id}`}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+
+                  {/* Group B */}
+                  <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                      <span>Group B</span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {groupB.length} Teams
+                      </Badge>
+                    </div>
+                    <ul className="space-y-1 max-h-32 overflow-y-auto">
+                      {selectedTeams.map((id) => {
+                        const t = teamMap.get(id);
+                        const inB = groupB.includes(id);
+                        return (
+                          <li
+                            key={id}
+                            onClick={() => {
+                              setGroupB((prev) =>
+                                inB ? prev.filter((x) => x !== id) : [...prev, id],
+                              );
+                              if (!inB) {
+                                setGroupA((prev) => prev.filter((x) => x !== id));
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer",
+                              inB
+                                ? "bg-primary/10 font-semibold text-foreground"
+                                : "text-muted-foreground hover:bg-muted/50",
+                            )}
+                          >
+                            <Checkbox checked={inB} />
+                            <span className="truncate">{t?.name || `Team ${id}`}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Match & Schedule Parameters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              {/* Overs */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Overs per Match
+                </Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={oversLimit}
+                    onChange={(e) => setOversLimit(parseInt(e.target.value, 10) || 20)}
+                    className="h-10 text-sm font-semibold"
+                  />
+                </div>
+                <div className="flex gap-1 pt-1">
+                  {[6, 10, 15, 20].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setOversLimit(num)}
+                      className={cn(
+                        "flex-1 py-1 rounded text-[10px] font-bold border transition-colors",
+                        oversLimit === num
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border bg-muted/40 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {num}T
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Start Date */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Start Date
+                </Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-10 text-sm"
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  Batched by 2 matches / day
+                </span>
+              </div>
+
+              {/* Venue */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Venue Ground
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddVenue(true)}
+                    className="text-[10px] text-primary font-medium hover:underline"
+                  >
+                    + New
+                  </button>
+                </div>
+                <Select value={venueId} onValueChange={setVenueId}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Select Venue (Optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(venues ?? []).map((v) => (
+                      <SelectItem key={v.id} value={String(v.id)}>
+                        {v.name} {v.city ? `(${v.city})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-[10px] text-muted-foreground">
+                  Applied to generated fixtures
+                </span>
+              </div>
+            </div>
+          </div>
+        </FormModal>
+      ) : null}
+
+      {/* ========================================================================= */}
+      {/* Add Venue FormModal                                                       */}
+      {/* ========================================================================= */}
+      {showAddVenue ? (
+        <FormModal
+          title="Add Ground Venue"
+          subtitle="Add a match ground or venue location for fixtures"
+          onClose={() => setShowAddVenue(false)}
+          size="sm"
+          footer={
+            <div className="flex items-center justify-end gap-2">
+              <BtnSecondary onClick={() => setShowAddVenue(false)} disabled={venueBusy}>
+                Cancel
+              </BtnSecondary>
+              <BtnPrimary
+                onClick={handleAddVenue}
+                disabled={venueBusy || !newVenueName.trim()}
+              >
+                {venueBusy ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    Adding…
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Venue
+                  </>
+                )}
+              </BtnPrimary>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <FormField label="Venue / Ground Name" required htmlFor="venue-name-input">
+              <Input
+                id="venue-name-input"
+                placeholder="e.g. Eden Sports Arena, Stadium 1"
                 value={newVenueName}
                 onChange={(e) => setNewVenueName(e.target.value)}
-                className="h-9"
+                className="h-10 text-sm"
               />
+            </FormField>
+
+            <FormField label="City / Location" htmlFor="venue-city-input">
               <CityAutocomplete
                 value={newVenueCity}
                 onChange={setNewVenueCity}
                 placeholder="City"
-                className="h-9 min-w-[7rem] flex-1"
+                className="h-10"
                 showHint={false}
               />
-              <BtnPrimary
-                className={btnCompactClass}
-                onClick={() => {
-                  void handleAddVenue().then(() => setShowAddVenue(false));
-                }}
-              >
-                Add
-              </BtnPrimary>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="rounded-xl border border-border/60 bg-card/60 p-4 sm:p-5 space-y-3.5">
-          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
-            <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
-              <Trophy className="h-4 w-4 text-primary" />
-              Tournament Draws
-            </h2>
+            </FormField>
           </div>
-          {drawsLoading ? (
-            <Skeleton className="h-8 w-full" />
-          ) : (
-            <ul className="space-y-2">
-              {(draws ?? []).map((d) => (
-                <li
-                  key={d.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-card p-3 text-sm"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold text-foreground truncate">{d.name}</span>
-                    <Badge variant="outline" className="text-[11px] capitalize font-medium shrink-0">
-                      {d.format.replace(/_/g, " ")}
-                    </Badge>
-                  </div>
-                  <Badge variant="secondary" className="text-[10px] uppercase font-bold shrink-0">
-                    {d.status}
-                  </Badge>
-                </li>
-              ))}
-              {draws?.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No draws yet — click &ldquo;Generate schedule&rdquo; to create fixtures.</p>
-              ) : null}
-            </ul>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-border/60 bg-card/60 p-4 sm:p-5 space-y-3.5">
-          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
-            <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
-              <Calendar className="h-4 w-4 text-primary" />
-              Generated Fixtures
-            </h2>
-            <span className="text-xs text-muted-foreground">{fixtures?.length ?? 0} scheduled</span>
-          </div>
-          {fixturesLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : (
-            <ul className="space-y-2">
-              {(fixtures ?? []).map((f) => {
-                const home = teamMap.get(f.homeTeamId)?.name ?? `Team ${f.homeTeamId}`;
-                const away = teamMap.get(f.awayTeamId)?.name ?? `Team ${f.awayTeamId}`;
-                return (
-                  <li
-                    key={f.id}
-                    className="rounded-lg border border-border/40 bg-card p-3 text-sm flex items-center justify-between gap-3"
-                  >
-                    <div>
-                      <div className="font-bold text-foreground">
-                        {home} <span className="text-muted-foreground font-normal text-xs uppercase px-1">vs</span> {away}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {f.roundName ?? "Fixture"}
-                        {f.scheduledAt
-                          ? ` · ${new Date(f.scheduledAt).toLocaleDateString()}`
-                          : ""}
-                        {f.venue ? ` · ${f.venue}` : ""}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-              {fixtures?.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No fixtures scheduled.</p>
-              ) : null}
-            </ul>
-          )}
-        </section>
-
-        {showGenerate ? (
-          <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm overflow-y-auto">
-            <div className="max-w-lg mx-auto p-4 space-y-4 pb-24">
-              <h2 className="text-lg font-semibold">Generate schedule</h2>
-
-              <div className="space-y-2">
-                <Label>Draw name</Label>
-                <Input value={drawName} onChange={(e) => setDrawName(e.target.value)} placeholder="League 2026" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Format</Label>
-                <Select value={format} onValueChange={(v) => setFormat(v as typeof format)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      value="round_robin"
-                      description="Every team plays every other team. Standings by points."
-                    >
-                      Round Robin (League)
-                    </SelectItem>
-                    <SelectItem
-                      value="knockout"
-                      description="Single-elimination — lose once and you're out."
-                    >
-                      Knockout
-                    </SelectItem>
-                    <SelectItem
-                      value="league_knockout"
-                      description="Play in groups first; top teams advance later."
-                    >
-                      Groups (League stage)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Teams ({selectedTeams.length} selected)</Label>
-                <ul className="max-h-40 overflow-y-auto space-y-1 border rounded-lg p-2">
-                  {teams.map((t) => (
-                    <li key={t.id}>
-                      <div className="flex items-center gap-2 py-1.5">
-                        <Checkbox
-                          id={`team-${t.id}`}
-                          checked={selectedTeams.includes(t.id)}
-                          onCheckedChange={(checked) => setTeamSelected(t.id, checked === true)}
-                        />
-                        <label htmlFor={`team-${t.id}`} className="text-sm cursor-pointer flex-1">
-                          {t.name}
-                        </label>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {format === "league_knockout" ? (
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <Label className="text-xs">Group A</Label>
-                    <ul className="border rounded p-2 max-h-32 overflow-y-auto mt-1 space-y-1">
-                      {selectedTeams.map((id) => {
-                        const t = teamMap.get(id);
-                        return (
-                          <li key={id}>
-                            <div className="flex gap-1 items-center">
-                              <Checkbox
-                                id={`group-a-${id}`}
-                                checked={groupA.includes(id)}
-                                onCheckedChange={(checked) =>
-                                  setGroupA((p) =>
-                                    checked === true
-                                      ? p.includes(id)
-                                        ? p
-                                        : [...p, id]
-                                      : p.filter((x) => x !== id),
-                                  )
-                                }
-                              />
-                              <label htmlFor={`group-a-${id}`} className="cursor-pointer">
-                                {t?.name}
-                              </label>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Group B</Label>
-                    <ul className="border rounded p-2 max-h-32 overflow-y-auto mt-1 space-y-1">
-                      {selectedTeams.map((id) => {
-                        const t = teamMap.get(id);
-                        return (
-                          <li key={id}>
-                            <div className="flex gap-1 items-center">
-                              <Checkbox
-                                id={`group-b-${id}`}
-                                checked={groupB.includes(id)}
-                                onCheckedChange={(checked) =>
-                                  setGroupB((p) =>
-                                    checked === true
-                                      ? p.includes(id)
-                                        ? p
-                                        : [...p, id]
-                                      : p.filter((x) => x !== id),
-                                  )
-                                }
-                              />
-                              <label htmlFor={`group-b-${id}`} className="cursor-pointer">
-                                {t?.name}
-                              </label>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Overs</Label>
-                  <Input
-                    type="number"
-                    value={oversLimit}
-                    onChange={(e) => setOversLimit(parseInt(e.target.value, 10) || 20)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Start date</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-              </div>
-
-              {venues && venues.length > 0 ? (
-                <div className="space-y-2">
-                  <Label>Venue</Label>
-                  <Select value={venueId} onValueChange={setVenueId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Optional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {venues.map((v) => (
-                        <SelectItem key={v.id} value={String(v.id)}>
-                          {v.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-
-              <div className="flex gap-2 pt-2">
-                <BtnPrimary className="flex-1" disabled={busy} onClick={handleGenerate}>
-                  Generate
-                </BtnPrimary>
-                <BtnSecondary onClick={() => setShowGenerate(false)}>Cancel</BtnSecondary>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
+        </FormModal>
+      ) : null}
     </CricketOrganizerPageShell>
   );
 }

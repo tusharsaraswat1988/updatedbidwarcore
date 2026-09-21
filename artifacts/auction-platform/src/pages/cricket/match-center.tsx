@@ -351,7 +351,7 @@ export default function CricketMatchCenterPage() {
               <Edit2 className="w-4 h-4" />
               Edit Details
             </BtnSecondary>
-            {data?.match.status === "scheduled" && !data.match.startedAt ? (
+            {data?.match.status !== "completed" && data?.match.status !== "abandoned" ? (
               <Button
                 variant="outline"
                 onClick={() => setDeleteOpen(true)}
@@ -395,7 +395,7 @@ export default function CricketMatchCenterPage() {
               })}
             />
           ) : null}
-          <MetaChip label="Match #" value={String(data.match.id)} />
+          <MetaChip label="Match #" value={String(data.match.tournamentMatchNumber ?? data.match.id)} />
           {(officials?.length ?? 0) > 0 ? (
             <MetaChip
               label="Officials"
@@ -672,7 +672,7 @@ export default function CricketMatchCenterPage() {
                   {data.match.status}
                 </Badge>
               </div>
-              <span className="text-xs text-muted-foreground">Match #{data.match.id}</span>
+              <span className="text-xs text-muted-foreground">Match #{data.match.tournamentMatchNumber ?? data.match.id}</span>
             </div>
 
             {data.match.status !== "scheduled" && data.match.status !== "draft" ? (
@@ -745,12 +745,12 @@ export default function CricketMatchCenterPage() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Match #{matchId}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Match #{data?.match.tournamentMatchNumber ?? matchId}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete this scheduled match between{" "}
+              Are you sure you want to permanently delete this match between{" "}
               <strong>{home?.name ?? "Home Team"}</strong> and{" "}
               <strong>{away?.name ?? "Away Team"}</strong>?
-              This action cannot be undone. Matches can only be deleted prior to conducting the toss.
+              This action cannot be undone. Matches can only be deleted if no balls have been bowled.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

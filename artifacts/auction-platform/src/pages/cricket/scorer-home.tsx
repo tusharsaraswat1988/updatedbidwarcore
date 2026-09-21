@@ -366,7 +366,7 @@ export default function CricketScorerHomePage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-bold text-white/60 uppercase tracking-wide">
-                        {m.roundName || `Match #${m.id}`}
+                        {m.roundName || `Match #${m.tournamentMatchNumber ?? m.id}`}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500 text-white flex items-center gap-1">
                         <Activity className="w-3 h-3 animate-pulse" />
@@ -443,7 +443,7 @@ export default function CricketScorerHomePage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-bold text-white/50 uppercase tracking-wide">
-                        {m.roundName || `Match #${m.id}`}
+                        {m.roundName || `Match #${m.tournamentMatchNumber ?? m.id}`}
                       </span>
                       {m.scheduledAt ? (
                         <span className="text-xs text-amber-300 font-medium flex items-center gap-1">

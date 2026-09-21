@@ -72,6 +72,8 @@ export type ScoringMatchJson = {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  /** Tournament-scoped sequential match number (1-based, null for getScoringMatch single-match endpoint). */
+  tournamentMatchNumber?: number | null;
 };
 
 export type ScoringMatchRow = ScoringMatchJson;
@@ -187,6 +189,7 @@ export async function createScoringMatch(
     awayTeamId: number;
     oversLimit?: number;
     roundName?: string | null;
+    scheduledAt?: string | null;
     venue?: string | null;
   },
 ): Promise<ScoringMatchDetail> {

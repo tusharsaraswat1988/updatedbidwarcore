@@ -144,6 +144,7 @@ export default function CricketFixturesPage() {
   const [createRoundName, setCreateRoundName] = useState("Semi Final 1");
   const [createOvers, setCreateOvers] = useState(6);
   const [createVenue, setCreateVenue] = useState("");
+  const [createScheduledAt, setCreateScheduledAt] = useState(""); // datetime-local string
   const [creating, setCreating] = useState(false);
 
   const [editMatch, setEditMatch] = useState<ScoringMatchRow | null>(null);
@@ -151,6 +152,7 @@ export default function CricketFixturesPage() {
   const [editOvers, setEditOvers] = useState(6);
   const [editVenue, setEditVenue] = useState("");
   const [editResultSummary, setEditResultSummary] = useState("");
+  const [editScheduledAt, setEditScheduledAt] = useState(""); // datetime-local string
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [matchToDelete, setMatchToDelete] = useState<ScoringMatchRow | null>(null);
@@ -162,6 +164,14 @@ export default function CricketFixturesPage() {
     setEditOvers(m.rules?.overs ?? 6);
     setEditVenue(m.venue || "");
     setEditResultSummary(m.resultSummary || "");
+    // Convert ISO to datetime-local string (YYYY-MM-DDTHH:MM) in local time
+    if (m.scheduledAt) {
+      const d = new Date(m.scheduledAt);
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+      setEditScheduledAt(local.toISOString().slice(0, 16));
+    } else {
+      setEditScheduledAt("");
+    }
   }
 
   async function handleSaveEdit() {
@@ -173,10 +183,11 @@ export default function CricketFixturesPage() {
         oversLimit: editOvers || 6,
         venue: editVenue.trim() || null,
         resultSummary: editResultSummary.trim() || null,
+        scheduledAt: editScheduledAt ? new Date(editScheduledAt).toISOString() : null,
       });
       toast({
         title: "Match updated",
-        description: `Saved changes for Match #${editMatch.id}`,
+        description: `Saved changes for Match #${editMatch.tournamentMatchNumber ?? editMatch.id}`,
       });
       setEditMatch(null);
       await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
@@ -199,7 +210,7 @@ export default function CricketFixturesPage() {
       await deleteScoringMatch(tournamentId, matchToDelete.id);
       toast({
         title: "Match deleted",
-        description: `Match #${matchToDelete.id} was deleted.`,
+        description: `Match #${matchToDelete.tournamentMatchNumber ?? matchToDelete.id} was deleted.`,
       });
       setMatchToDelete(null);
       await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
@@ -230,6 +241,7 @@ export default function CricketFixturesPage() {
         roundName: createRoundName.trim() || undefined,
         oversLimit: createOvers || 6,
         venue: createVenue.trim() || undefined,
+        scheduledAt: createScheduledAt ? new Date(createScheduledAt).toISOString() : undefined,
       });
       toast({
         title: "Match created",
@@ -238,6 +250,7 @@ export default function CricketFixturesPage() {
       setCreateOpen(false);
       setCreateHomeId("");
       setCreateAwayId("");
+      setCreateScheduledAt("");
       await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
       await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
     } catch (e) {
@@ -390,7 +403,7 @@ export default function CricketFixturesPage() {
                                   dateStyle: "short",
                                   timeStyle: "short",
                                 })
-                              : m.venue || "Match #" + m.id}
+                              : m.venue || `Match #${m.tournamentMatchNumber ?? m.id}`}
                           </span>
                         </div>
 
@@ -425,7 +438,7 @@ export default function CricketFixturesPage() {
 
                         {/* Round / Result Summary */}
                         <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="truncate">{m.roundName || `Match #${m.id}`}</span>
+                          <span className="truncate">{m.roundName || `Match #${m.tournamentMatchNumber ?? m.id}`}</span>
                           {m.resultSummary ? (
                             <span className="font-semibold text-primary truncate max-w-[60%] text-right">
                               {m.resultSummary}
@@ -675,6 +688,15 @@ export default function CricketFixturesPage() {
                     Custom text displayed on cards, scorecards, and overlays.
                   </p>
                 </div>
+
+                <div className="space-y-1.5">
+                  <Label>Match Date & Time <span className="text-muted-foreground font-normal text-[11px]">(optional)</span></Label>
+                  <Input
+                    type="datetime-local"
+                    value={editScheduledAt}
+                    onChange={(e) => setEditScheduledAt(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2 border-t border-border/40">
@@ -697,12 +719,12 @@ export default function CricketFixturesPage() {
         <AlertDialog open={!!matchToDelete} onOpenChange={(open) => !open && setMatchToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Match #{matchToDelete?.id}?</AlertDialogTitle>
+              <AlertDialogTitle>Delete Match #{matchToDelete?.tournamentMatchNumber ?? matchToDelete?.id}?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to permanently delete this scheduled match between{" "}
+                Are you sure you want to permanently delete this match between{" "}
                 <strong>{teamMap.get(matchToDelete?.homeTeamId ?? 0)?.name ?? "Home Team"}</strong> and{" "}
                 <strong>{teamMap.get(matchToDelete?.awayTeamId ?? 0)?.name ?? "Away Team"}</strong>?
-                This action cannot be undone. Matches can only be deleted prior to conducting the toss.
+                This action cannot be undone. Matches can only be deleted if no balls have been bowled.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

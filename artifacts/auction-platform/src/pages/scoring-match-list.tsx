@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { useScoringMatches, useSquadReadiness, scoringSquadsQueryKey } from "@/hooks/use-scoring-match";
 import {
   createScoringMatch,
+  deleteScoringMatch,
   getCricketMasterTeams,
   handoffAuctionParticipantsToSports,
   ScoringApiError,
@@ -56,6 +57,7 @@ import {
   Trophy,
   Users,
   Copy,
+  Trash2,
 } from "lucide-react";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import {
@@ -168,8 +170,10 @@ export default function ScoringMatchListPage() {
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
   const [overs, setOvers] = useState("20");
+  const [matchDateTime, setMatchDateTime] = useState(""); // datetime-local string
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState<MatchFilter>("all");
+  const [deletingMatchId, setDeletingMatchId] = useState<number | null>(null);
 
   const filteredMatches = useMemo(() => {
     const list = matches ?? [];
@@ -203,12 +207,18 @@ export default function ScoringMatchListPage() {
     }
     setCreating(true);
     try {
+      // Convert local datetime-local input to ISO string for the API
+      const scheduledAtIso = matchDateTime
+        ? new Date(matchDateTime).toISOString()
+        : null;
       const detail = await createScoringMatch(tournamentId, {
         homeTeamId: home,
         awayTeamId: away,
         oversLimit: oversLimit || 20,
+        scheduledAt: scheduledAtIso,
       });
       setCreateOpen(false);
+      setMatchDateTime("");
       navigate(`/tournament/${tournamentId}/score/${detail.match.id}`);
     } catch (e) {
       const rosterBlocked = e instanceof ScoringApiError && e.code === "ROSTER_NOT_READY";
@@ -220,6 +230,23 @@ export default function ScoringMatchListPage() {
       if (rosterBlocked) setCreateOpen(false);
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDelete(matchId: number) {
+    setDeletingMatchId(matchId);
+    try {
+      await deleteScoringMatch(tournamentId, matchId);
+      await refetch();
+      toast({ title: "Match deleted successfully" });
+    } catch (e) {
+      toast({
+        title: "Could not delete match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingMatchId(null);
     }
   }
 
@@ -488,8 +515,12 @@ export default function ScoringMatchListPage() {
                     const isLive = m.status === "live";
                     const isCompleted = isTerminalCricketMatchStatus(m.status);
                     const isScheduled = m.status === "scheduled";
+                    const canDelete = !isCompleted;
                     const scorerPath = `/tournament/${tournamentId}/score/${m.id}/live`;
                     const matchCenterPath = `/tournament/${tournamentId}/score/${m.id}`;
+                    const matchLabel = m.tournamentMatchNumber != null
+                      ? `Match #${m.tournamentMatchNumber}`
+                      : `Match #${m.id}`;
 
                     return (
                       <div
@@ -506,7 +537,7 @@ export default function ScoringMatchListPage() {
                               {isLive ? "🔴 LIVE NOW" : m.status}
                             </Badge>
                             <span className="text-[11px] text-muted-foreground font-semibold">
-                              Match #{m.id}
+                              {matchLabel}
                             </span>
                           </div>
 
@@ -516,10 +547,18 @@ export default function ScoringMatchListPage() {
                             </p>
                             {m.resultSummary ? (
                               <p className="text-xs text-muted-foreground">{m.resultSummary}</p>
-                            ) : m.venue || m.scheduledAt ? (
+                            ) : m.scheduledAt ? (
                               <p className="text-xs text-muted-foreground">
                                 {m.venue ? `${m.venue} • ` : ""}
-                                {m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : `${m.rules?.overs ?? 20} Overs`}
+                                {new Date(m.scheduledAt).toLocaleString([], {
+                                  month: "short", day: "numeric",
+                                  hour: "2-digit", minute: "2-digit",
+                                })}
+                                {" • "}{m.rules?.overs ?? 20} Overs
+                              </p>
+                            ) : m.venue ? (
+                              <p className="text-xs text-muted-foreground">
+                                {m.venue} • {m.rules?.overs ?? 20} Overs
                               </p>
                             ) : (
                               <p className="text-xs text-muted-foreground capitalize">{m.status} • {m.rules?.overs ?? 20} Overs</p>
@@ -567,11 +606,28 @@ export default function ScoringMatchListPage() {
                               </Link>
                             </div>
                           )}
+                          {/* Delete button — shown for scheduled/live (0-ball) matches */}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 gap-1 self-end px-2 rounded-lg"
+                              disabled={deletingMatchId === m.id}
+                              onClick={() => {
+                                if (!window.confirm(`Delete ${matchLabel}? This cannot be undone.`)) return;
+                                void handleDelete(m.id);
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              {deletingMatchId === m.id ? "Deleting…" : "Delete"}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
               ) : (
                 <EmptyState
                   icon={Plus}
@@ -717,6 +773,17 @@ export default function ScoringMatchListPage() {
             <div className="space-y-2">
               <Label>Overs</Label>
               <Input value={overs} onChange={(e) => setOvers(e.target.value)} inputMode="numeric" />
+            </div>
+            <div className="space-y-2">
+              <Label>Match Date & Time <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                type="datetime-local"
+                value={matchDateTime}
+                onChange={(e) => setMatchDateTime(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Shown on match cards and fixtures. Leave blank to set later.
+              </p>
             </div>
             <BtnPrimary className="w-full" disabled={creating} onClick={() => void handleCreate()}>
               Create match

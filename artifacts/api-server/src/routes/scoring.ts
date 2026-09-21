@@ -100,6 +100,7 @@ function matchToJson(m: {
   startedAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
+  tournamentMatchNumber?: number | null;
 }) {
   const prep = m.runtimePrepMetadataJson as
     | {
@@ -166,6 +167,8 @@ function matchToJson(m: {
     startedAt: m.startedAt?.toISOString() ?? null,
     completedAt: m.completedAt?.toISOString() ?? null,
     createdAt: m.createdAt.toISOString(),
+    /** Tournament-scoped sequential match number (1 = first match created in this tournament). */
+    tournamentMatchNumber: m.tournamentMatchNumber ?? null,
   };
 }
 
