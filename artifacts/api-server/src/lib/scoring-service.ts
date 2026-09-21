@@ -1,7 +1,14 @@
-import { db } from "@workspace/db";
 import {
+  db,
+  matchConfigurationHistoryTable,
+  runtimeMatchHistoryTable,
+  scorerMatchLocksTable,
+  scoringDlsCalculationsTable,
   scoringEventsTable,
   scoringMatchesTable,
+  scoringMatchPlayerStatsTable,
+  scoringMatchSquadsTable,
+  scoringPlayerAwardsTable,
   scoringSessionsTable,
   tournamentsTable,
 } from "@workspace/db";
@@ -246,6 +253,7 @@ export async function updateScoringMatch(
     scheduledAt?: string | null;
     homeTeamId?: number;
     awayTeamId?: number;
+    resultSummary?: string | null;
   },
 ) {
   await ensureTournamentScoring(tournamentId);
@@ -265,11 +273,13 @@ export async function updateScoringMatch(
     throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
-  if (existing.status !== "scheduled" && existing.status !== "draft") {
+  // If match has already started or toss made, teams cannot be altered (as player lineups and toss are tied to teams)
+  const isStarted = existing.status !== "scheduled" && existing.status !== "draft";
+  if (isStarted && (input.homeTeamId !== undefined || input.awayTeamId !== undefined)) {
     throw new ScoringServiceError(
-      "Cannot edit a match that has already started or completed",
+      "Cannot change teams after the match has started or toss has been made. Display metadata (overs, venue, round name, scheduled time, result summary) can still be edited.",
       400,
-      "MATCH_ALREADY_STARTED",
+      "TEAMS_LOCKED_AFTER_START",
     );
   }
 
@@ -279,6 +289,7 @@ export async function updateScoringMatch(
 
   if (input.roundName !== undefined) patch.roundName = input.roundName;
   if (input.venue !== undefined) patch.venue = input.venue;
+  if (input.resultSummary !== undefined) patch.resultSummary = input.resultSummary;
   if (input.scheduledAt !== undefined) {
     patch.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
   }
@@ -315,16 +326,134 @@ export async function updateScoringMatch(
     .where(eq(scoringMatchesTable.id, matchId))
     .limit(1);
 
-  const refreshedState = createInitialCricketState(
-    matchMetaFromRow(refreshed ?? existing),
-  );
+  const targetMatch = refreshed ?? existing;
+  const events = await loadMatchEvents(matchId);
+
+  // If match already has events (toss done or scoring done), re-project state so we don't wipe innings/balls!
+  let refreshedState: CricketScoreboardState;
+  if (events.length > 0) {
+    refreshedState = await projectMatchState(targetMatch);
+  } else {
+    refreshedState = createInitialCricketState(
+      matchMetaFromRow(targetMatch),
+    );
+  }
 
   await db
     .update(scoringSessionsTable)
     .set({ stateJson: refreshedState, updatedAt: new Date() })
     .where(eq(scoringSessionsTable.matchId, matchId));
 
-  return { match: refreshed ?? existing, state: refreshedState };
+  const summary = summaryFromMatch(targetMatch, refreshedState);
+
+  // Broadcast updated match and state to all live scoreboards, LED displays, and OBS overlays
+  broadcastScoringState(tournamentId, {
+    type: "scoring_state",
+    matchId: targetMatch.id,
+    match: {
+      id: targetMatch.id,
+      status: targetMatch.status,
+      homeTeamId: targetMatch.homeTeamId,
+      awayTeamId: targetMatch.awayTeamId,
+      winnerTeamId: targetMatch.winnerTeamId,
+      resultSummary: targetMatch.resultSummary,
+    },
+    state: refreshedState,
+    summary,
+  });
+
+  return { match: targetMatch, state: refreshedState };
+}
+
+/** Organizer-level match deletion — allowed ONLY if match has not started and toss has not occurred. */
+export async function deleteCricketMatch(
+  tournamentId: number,
+  matchId: number,
+  _actor?: ScoringActor,
+) {
+  await ensureTournamentScoring(tournamentId);
+
+  const [match] = await db
+    .select()
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
+      ),
+    )
+    .limit(1);
+
+  if (!match) {
+    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+  }
+
+  // Pre-toss constraint: only scheduled matches with no start time
+  if (match.status !== "scheduled" || match.startedAt !== null) {
+    throw new ScoringServiceError(
+      "Cannot delete a match that has already started or been completed. Matches can only be deleted prior to the toss.",
+      409,
+      "MATCH_ALREADY_STARTED",
+    );
+  }
+
+  // Check if any match started/toss or ball events exist
+  const events = await loadMatchEvents(matchId);
+  const hasStartedEvent = events.some(
+    (e) =>
+      e.eventType === CricketEventType.MATCH_STARTED ||
+      e.eventType === CricketEventType.BALL_RECORDED,
+  );
+  if (hasStartedEvent) {
+    throw new ScoringServiceError(
+      "Cannot delete a match where the toss has already occurred. Matches can only be deleted prior to the toss.",
+      409,
+      "TOSS_ALREADY_CONDUCTED",
+    );
+  }
+
+  // Check session state for recorded toss
+  const [session] = await db
+    .select()
+    .from(scoringSessionsTable)
+    .where(eq(scoringSessionsTable.matchId, matchId))
+    .limit(1);
+
+  if (session?.stateJson) {
+    const state = session.stateJson as unknown as CricketScoreboardState;
+    if (state.tossWinnerTeamId != null || (state.innings && state.innings.length > 0)) {
+      throw new ScoringServiceError(
+        "Cannot delete a match where the toss has already occurred.",
+        409,
+        "TOSS_ALREADY_CONDUCTED",
+      );
+    }
+  }
+
+  // Transactionally delete all dependent rows and the match row itself
+  await db.transaction(async (tx) => {
+    await tx.delete(scoringEventsTable).where(eq(scoringEventsTable.matchId, matchId));
+    await tx.delete(scoringSessionsTable).where(eq(scoringSessionsTable.matchId, matchId));
+    await tx.delete(scoringMatchSquadsTable).where(eq(scoringMatchSquadsTable.matchId, matchId));
+    await tx.delete(scoringMatchPlayerStatsTable).where(eq(scoringMatchPlayerStatsTable.matchId, matchId));
+    await tx.delete(scoringPlayerAwardsTable).where(eq(scoringPlayerAwardsTable.matchId, matchId));
+    await tx.delete(scoringDlsCalculationsTable).where(eq(scoringDlsCalculationsTable.matchId, matchId));
+    await tx.delete(matchConfigurationHistoryTable).where(eq(matchConfigurationHistoryTable.matchId, matchId));
+    await tx.delete(runtimeMatchHistoryTable).where(eq(runtimeMatchHistoryTable.matchId, matchId));
+    await tx.delete(scorerMatchLocksTable).where(eq(scorerMatchLocksTable.matchId, matchId));
+
+    await tx
+      .delete(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+  });
+
+  return { ok: true, deletedMatchId: matchId };
 }
 
 function summaryFromMatch(

@@ -5,6 +5,7 @@ import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware
 import {
   appendScoringEvent,
   createScoringMatch,
+  deleteCricketMatch,
   updateScoringMatch,
   getLiveScoringDisplay,
   getScoringMatch,
@@ -445,6 +446,7 @@ router.patch("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, 
     roundName: z.string().nullable().optional(),
     scheduledAt: z.string().datetime().nullable().optional(),
     venue: z.string().nullable().optional(),
+    resultSummary: z.string().nullable().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -459,6 +461,27 @@ router.patch("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, 
       match: matchToJson(result.match),
       state: result.state,
     });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.delete("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const matchId = parseId(req.params.matchId);
+  if (tournamentId === null || matchId === null) {
+    res.status(400).json({ error: "Invalid tournament or match ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    await deleteCricketMatch(tournamentId, matchId);
+    res.status(204).send();
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });

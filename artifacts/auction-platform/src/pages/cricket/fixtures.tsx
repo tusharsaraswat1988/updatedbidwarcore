@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useScoringMatches } from "@/hooks/use-scoring-match";
 import {
   createScoringMatch,
+  deleteScoringMatch,
   getCricketMasterTeams,
   isTerminalCricketMatchStatus,
   updateScoringMatch,
@@ -47,7 +48,17 @@ import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketScheduleOpsPath, cricketScorerPath, cricketMatchCenterPath } from "@/lib/cricket-routes";
-import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Trophy } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Trash2, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "today" | "upcoming" | "live" | "completed";
@@ -139,13 +150,18 @@ export default function CricketFixturesPage() {
   const [editRoundName, setEditRoundName] = useState("");
   const [editOvers, setEditOvers] = useState(6);
   const [editVenue, setEditVenue] = useState("");
+  const [editResultSummary, setEditResultSummary] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const [matchToDelete, setMatchToDelete] = useState<ScoringMatchRow | null>(null);
+  const [deletingMatch, setDeletingMatch] = useState(false);
 
   function handleOpenEdit(m: ScoringMatchRow) {
     setEditMatch(m);
     setEditRoundName(m.roundName || "");
     setEditOvers(m.rules?.overs ?? 6);
     setEditVenue(m.venue || "");
+    setEditResultSummary(m.resultSummary || "");
   }
 
   async function handleSaveEdit() {
@@ -156,10 +172,11 @@ export default function CricketFixturesPage() {
         roundName: editRoundName.trim() || null,
         oversLimit: editOvers || 6,
         venue: editVenue.trim() || null,
+        resultSummary: editResultSummary.trim() || null,
       });
       toast({
         title: "Match updated",
-        description: `Set to ${editOvers} overs (${editRoundName || "Match #" + editMatch.id})`,
+        description: `Saved changes for Match #${editMatch.id}`,
       });
       setEditMatch(null);
       await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
@@ -172,6 +189,29 @@ export default function CricketFixturesPage() {
       });
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function handleDeleteMatch() {
+    if (!matchToDelete) return;
+    setDeletingMatch(true);
+    try {
+      await deleteScoringMatch(tournamentId, matchToDelete.id);
+      toast({
+        title: "Match deleted",
+        description: `Match #${matchToDelete.id} was deleted.`,
+      });
+      setMatchToDelete(null);
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+    } catch (e) {
+      toast({
+        title: "Could not delete match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingMatch(false);
     }
   }
 
@@ -406,6 +446,15 @@ export default function CricketFixturesPage() {
                                 Scorer Pad
                               </Button>
                             </Link>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8.5 w-8.5 text-xs font-semibold rounded-lg shrink-0"
+                              onClick={() => handleOpenEdit(m)}
+                              title="Edit overs & match details"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
                             <Link href={centerUrl}>
                               <Button variant="outline" className="h-8.5 px-3 text-xs font-semibold rounded-lg">
                                 Scorecard
@@ -429,6 +478,17 @@ export default function CricketFixturesPage() {
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
+                            {!m.startedAt && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8.5 w-8.5 text-xs font-semibold rounded-lg shrink-0 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                                onClick={() => setMatchToDelete(m)}
+                                title="Delete Match (pre-toss only)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                             <Link href={centerUrl}>
                               <Button variant="outline" className="h-8.5 px-3 text-xs font-semibold rounded-lg">
                                 Details
@@ -436,12 +496,23 @@ export default function CricketFixturesPage() {
                             </Link>
                           </>
                         ) : (
-                          <Link href={centerUrl} className="w-full">
-                            <Button variant="outline" className="w-full h-8.5 font-semibold text-xs rounded-lg gap-1.5 justify-between">
-                              <span>View Match Scorecard</span>
-                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                          <>
+                            <Link href={centerUrl} className="flex-1">
+                              <Button variant="outline" className="w-full h-8.5 font-semibold text-xs rounded-lg gap-1.5 justify-between">
+                                <span>View Match Scorecard</span>
+                                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8.5 w-8.5 text-xs font-semibold rounded-lg shrink-0"
+                              onClick={() => handleOpenEdit(m)}
+                              title="Edit match display & summary"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
                             </Button>
-                          </Link>
+                          </>
                         )}
                       </div>
                     </div>
@@ -542,14 +613,25 @@ export default function CricketFixturesPage() {
           </div>
         ) : null}
 
-        {/* Modal: Edit Scheduled Match */}
+        {/* Modal: Edit Match Setup */}
         {editMatch ? (
           <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                <h3 className="font-bold text-base">Edit Match Setup</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base">Edit Match Details</h3>
+                  <Badge variant="outline" className="text-[10px] capitalize font-semibold">
+                    {editMatch.status}
+                  </Badge>
+                </div>
                 <span className="text-xs text-muted-foreground">Match #{editMatch.id}</span>
               </div>
+
+              {editMatch.status !== "scheduled" && editMatch.status !== "draft" ? (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
+                  Editing a {editMatch.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
+                </div>
+              ) : null}
 
               <div className="space-y-3 text-sm">
                 <div className="space-y-1.5">
@@ -581,6 +663,18 @@ export default function CricketFixturesPage() {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-1.5">
+                  <Label>Result / Display Summary</Label>
+                  <Input
+                    value={editResultSummary}
+                    onChange={(e) => setEditResultSummary(e.target.value)}
+                    placeholder="e.g. Team A won by 15 runs, No result due to rain"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Custom text displayed on cards, scorecards, and overlays.
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2 border-t border-border/40">
@@ -598,6 +692,34 @@ export default function CricketFixturesPage() {
             </div>
           </div>
         ) : null}
+
+        {/* Modal: Confirm Delete Match (Pre-toss only) */}
+        <AlertDialog open={!!matchToDelete} onOpenChange={(open) => !open && setMatchToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Match #{matchToDelete?.id}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete this scheduled match between{" "}
+                <strong>{teamMap.get(matchToDelete?.homeTeamId ?? 0)?.name ?? "Home Team"}</strong> and{" "}
+                <strong>{teamMap.get(matchToDelete?.awayTeamId ?? 0)?.name ?? "Away Team"}</strong>?
+                This action cannot be undone. Matches can only be deleted prior to conducting the toss.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingMatch}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deletingMatch}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDeleteMatch();
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletingMatch ? "Deleting..." : "Delete Match"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </CricketOrganizerPageShell>
   );

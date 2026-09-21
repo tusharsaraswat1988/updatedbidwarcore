@@ -6,9 +6,23 @@
  * Organizer Live Control is /tournament/:id/score/live-control
  * Reuses: MatchSummaryCard, ScorecardView, ShareButtons, scoring APIs.
  */
-import { useMemo } from "react";
-import { useRoute, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useRoute, Link, useLocation } from "wouter";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -32,9 +46,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatch } from "@/hooks/use-scoring-match";
 import {
+  deleteScoringMatch,
   getCricketMasterTeams,
   getPublicMatchScorecard,
   isTerminalCricketMatchStatus,
+  updateScoringMatch,
 } from "@/lib/scoring-api";
 import { getMatchSquads, listOfficials, type MatchSquadJson } from "@/lib/scoring-foundation-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
@@ -47,6 +63,7 @@ import {
 } from "@/lib/cricket-match-center";
 import {
   cricketDashboardPath,
+  cricketFixturesPath,
   cricketLiveControlPath,
   cricketScoreHubPath,
   cricketScorerPath,
@@ -65,10 +82,12 @@ import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scorin
 import {
   AlertTriangle,
   Download,
+  Edit2,
   ExternalLink,
   Monitor,
   Printer,
   Radio,
+  Trash2,
   Trophy,
   Tv,
   type LucideIcon,
@@ -124,6 +143,82 @@ export default function CricketMatchCenterPage() {
   const home = data ? teamMap.get(data.match.homeTeamId) : undefined;
   const away = data ? teamMap.get(data.match.awayTeamId) : undefined;
   const state = data?.state;
+
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRoundName, setEditRoundName] = useState("");
+  const [editOvers, setEditOvers] = useState(6);
+  const [editVenue, setEditVenue] = useState("");
+  const [editResultSummary, setEditResultSummary] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function handleOpenEdit() {
+    if (!data?.match) return;
+    setEditRoundName(data.match.roundName || "");
+    setEditOvers(data.match.rules?.overs ?? 6);
+    setEditVenue(data.match.venue || "");
+    setEditResultSummary(data.match.resultSummary || "");
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit() {
+    if (!data?.match) return;
+    setSavingEdit(true);
+    try {
+      await updateScoringMatch(tournamentId, matchId, {
+        roundName: editRoundName.trim() || null,
+        oversLimit: editOvers || 6,
+        venue: editVenue.trim() || null,
+        resultSummary: editResultSummary.trim() || null,
+      });
+      toast({
+        title: "Match updated",
+        description: `Saved changes for Match #${matchId}`,
+      });
+      setEditOpen(false);
+      await refetch();
+      await qc.invalidateQueries({ queryKey: ["scoring-match", tournamentId, matchId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-scorecard", tournamentId, matchId] });
+    } catch (e) {
+      toast({
+        title: "Failed to update match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleDeleteMatch() {
+    setDeleting(true);
+    try {
+      await deleteScoringMatch(tournamentId, matchId);
+      toast({
+        title: "Match deleted",
+        description: `Match #${matchId} was deleted successfully.`,
+      });
+      setDeleteOpen(false);
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+      setLocation(cricketFixturesPath(tournamentId));
+    } catch (e) {
+      toast({
+        title: "Could not delete match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
   const isLive = data?.match.status === "live";
   const isFinished = data ? isTerminalCricketMatchStatus(data.match.status) : false;
 
@@ -252,6 +347,20 @@ export default function CricketMatchCenterPage() {
               <Monitor className="w-4 h-4" />
               LED
             </BtnSecondary>
+            <BtnSecondary onClick={handleOpenEdit} className={btnCompactClass}>
+              <Edit2 className="w-4 h-4" />
+              Edit Details
+            </BtnSecondary>
+            {data?.match.status === "scheduled" && !data.match.startedAt ? (
+              <Button
+                variant="outline"
+                onClick={() => setDeleteOpen(true)}
+                className={cn(btnCompactClass, "text-muted-foreground hover:text-destructive hover:border-destructive/40 gap-1.5")}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            ) : null}
             <BtnSecondary
               className={btnCompactClass}
               onClick={() =>
@@ -551,6 +660,114 @@ export default function CricketMatchCenterPage() {
           </Link>
         </div>
       </div>
+
+      {/* Modal: Edit Match Details */}
+      {editOpen && data ? (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base">Edit Match Details</h3>
+                <Badge variant="outline" className="text-[10px] capitalize font-semibold">
+                  {data.match.status}
+                </Badge>
+              </div>
+              <span className="text-xs text-muted-foreground">Match #{data.match.id}</span>
+            </div>
+
+            {data.match.status !== "scheduled" && data.match.status !== "draft" ? (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
+                Editing a {data.match.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
+              </div>
+            ) : null}
+
+            <div className="space-y-3 text-sm">
+              <div className="space-y-1.5">
+                <Label>Round / Match Stage</Label>
+                <Input
+                  value={editRoundName}
+                  onChange={(e) => setEditRoundName(e.target.value)}
+                  placeholder="e.g. Semi Final 1, Final"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Overs per Inning</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={editOvers}
+                    onChange={(e) => setEditOvers(parseInt(e.target.value, 10) || 6)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Venue (Optional)</Label>
+                  <Input
+                    value={editVenue}
+                    onChange={(e) => setEditVenue(e.target.value)}
+                    placeholder="Stadium / Ground"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Result / Display Summary</Label>
+                <Input
+                  value={editResultSummary}
+                  onChange={(e) => setEditResultSummary(e.target.value)}
+                  placeholder="e.g. Team A won by 15 runs, Match Abandoned"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Custom text displayed on cards, scorecards, and overlays.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-border/40">
+              <Button
+                className="flex-1 font-bold"
+                disabled={savingEdit}
+                onClick={handleSaveEdit}
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal: Confirm Delete Match (Pre-toss only) */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Match #{matchId}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this scheduled match between{" "}
+              <strong>{home?.name ?? "Home Team"}</strong> and{" "}
+              <strong>{away?.name ?? "Away Team"}</strong>?
+              This action cannot be undone. Matches can only be deleted prior to conducting the toss.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteMatch();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete Match"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CricketOrganizerPageShell>
   );
 }

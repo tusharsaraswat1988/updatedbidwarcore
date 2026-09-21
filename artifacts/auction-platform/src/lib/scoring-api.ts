@@ -74,6 +74,8 @@ export type ScoringMatchJson = {
   createdAt: string;
 };
 
+export type ScoringMatchRow = ScoringMatchJson;
+
 export type ScoringMatchDetail = {
   match: ScoringMatchJson;
   state: CricketScoreboardState;
@@ -291,6 +293,7 @@ export async function updateScoringMatch(
     roundName?: string | null;
     scheduledAt?: string | null;
     venue?: string | null;
+    resultSummary?: string | null;
   },
 ): Promise<{
   match: ScoringMatchRow;
@@ -310,6 +313,25 @@ export async function updateScoringMatch(
     throw err;
   }
   return r.json();
+}
+
+/** Organizer-level match deletion — allowed prior to toss only. */
+export async function deleteScoringMatch(
+  tournamentId: number,
+  matchId: number,
+): Promise<void> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  if (!r.ok) {
+    const msg = await parseError(r);
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = r.status;
+    throw err;
+  }
 }
 
 export async function getSquadReadiness(tournamentId: number): Promise<{
