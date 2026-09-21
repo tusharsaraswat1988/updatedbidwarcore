@@ -29,6 +29,7 @@ import {
   listCricketFranchiseTeams,
 } from "./master-sports/cricket-franchise-registry";
 import { prepareRuntimeMatch } from "./runtime-match-service";
+import { deleteScorerAccountForTournament } from "./scorer-auth";
 
 async function ensureScoringTournament(tournamentId: number) {
   const [tournament] = await db
@@ -207,21 +208,22 @@ export async function createScoringOfficial(
   await ensureScoringTournament(tournamentId);
   const role = input.role ?? "scorer";
   
-  if (role === "scorer" && input.mobile && input.pin && input.pin.trim().length >= 4) {
-    try {
-      const { createScorerAccountForTournament } = await import("./scorer-auth");
-      await createScorerAccountForTournament(tournamentId, {
-        name: input.name.trim(),
-        mobile: input.mobile.trim(),
-        pin: input.pin.trim(),
-      });
-    } catch (e) {
-      // If scorer already exists or auth error, continue saving official or re-throw
-      const message = e instanceof Error ? e.message : String(e);
-      if (!message.toLowerCase().includes("already assigned")) {
-        throw new ScoringServiceError(message, 400, "SCORER_ACCOUNT_ERROR");
-      }
+  if (role === "scorer") {
+    if (!input.mobile || !input.pin || input.pin.trim().length < 4) {
+      throw new ScoringServiceError(
+        "Scorer requires a mobile number and 4-digit PIN",
+        400,
+        "SCORER_CREDENTIALS_REQUIRED",
+      );
     }
+    const { createScorerAccountForTournament } = await import("./scorer-auth");
+    // Account creation is part of official creation. Never save an official
+    // row when its login identity could not be created/synchronized.
+    await createScorerAccountForTournament(tournamentId, {
+      name: input.name.trim(),
+      mobile: input.mobile.trim(),
+      pin: input.pin.trim(),
+    });
   }
 
   const [row] = await db
@@ -307,26 +309,61 @@ export async function updateScoringOfficial(
   return row;
 }
 
+
+async function resolveScorerAccountIdByMobile(mobile: string): Promise<number> {
+  const { scorerAccountsTable } = await import("@workspace/db");
+  const [account] = await db
+    .select({ id: scorerAccountsTable.id })
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.mobile, mobile.trim()))
+    .limit(1);
+  if (!account) throw new ScoringServiceError("Scorer account not found", 404, "SCORER_ACCOUNT_NOT_FOUND");
+  return account.id;
+}
+
 export async function deleteScoringOfficial(
   tournamentId: number,
   officialId: number,
 ) {
   await ensureScoringTournament(tournamentId);
-  const [row] = await db
-    .delete(scoringOfficialsTable)
+  const [existing] = await db
+    .select()
+    .from(scoringOfficialsTable)
     .where(
       and(
         eq(scoringOfficialsTable.id, officialId),
         eq(scoringOfficialsTable.tournamentId, tournamentId),
       ),
     )
-    .returning();
-  if (!row)
+    .limit(1);
+  if (!existing) {
     throw new ScoringServiceError(
       "Official not found",
       404,
       "OFFICIAL_NOT_FOUND",
     );
+  }
+
+  if (existing.role === "scorer" && existing.mobile) {
+    try {
+      // Remove the tournament assignment and invalidate the scorer's active
+      // sessions. If this identity has no other tournament assignments, the
+      // global account is removed as well.
+      await deleteScorerAccountForTournament(
+        tournamentId,
+        await resolveScorerAccountIdByMobile(existing.mobile),
+      );
+    } catch (e) {
+      if (!(e instanceof Error && /not found|not assigned/i.test(e.message))) {
+        throw e;
+      }
+    }
+  }
+
+  const [row] = await db
+    .delete(scoringOfficialsTable)
+    .where(eq(scoringOfficialsTable.id, officialId))
+    .returning();
   return row;
 }
 
