@@ -77,7 +77,11 @@ export function cricketLiveControlPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/live-control`;
 }
 
-/** Scorer pad (umpire / assigned scorer). URL kept as /live for existing bookmarks. */
+/**
+ * @deprecated The old organizer-facing scorer pad URL. The scoring pad has been removed
+ * from this route — it now shows an Empire Scorer redirect page.
+ * Use {@link cricketScorerConsolePath} to link to the dedicated scorer console.
+ */
 export function cricketScorerPath(tournamentId: number, matchId: number): string {
   return `${cricketMatchCenterPath(tournamentId, matchId)}/live`;
 }

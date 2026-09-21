@@ -34,6 +34,30 @@ async function parseError(res: Response): Promise<ScorerApiError> {
   return new ScorerApiError(message, typeof body.code === "string" ? body.code : undefined, res.status);
 }
 
+/**
+ * Authenticated fetch for dedicated scorer / Empire scoring mutations.
+ * Reads the scorer JWT from session storage and adds `Authorization: Bearer <token>`.
+ * Throws ScorerApiError on non-2xx responses.
+ */
+export async function scorerApiFetch<T = unknown>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  // Import lazily to avoid circular dependency (scorer-api ← badminton-scorer-session)
+  const { getScorerAuthSession } = await import("./badminton-scorer-session");
+  const session = getScorerAuthSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  if (session?.token) {
+    headers["Authorization"] = `Bearer ${session.token}`;
+  }
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (!res.ok) throw await parseError(res);
+  return res.json() as Promise<T>;
+}
+
 export async function loginScorer(mobile: string, pin: string): Promise<ScorerLoginResult> {
   const res = await fetch(`${API_BASE}/api/scorer/login`, {
     method: "POST",

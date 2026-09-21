@@ -656,3 +656,17 @@ export async function updateScorerAccountForTournament(
   return updateScorerAccountForAdmin(scorerId, input);
 }
 
+/**
+ * Extract Bearer token from an Express request and resolve a full ScorerAuthContext.
+ * Throws ScorerAuthError (with structured code + HTTP status) on any failure.
+ * Import this in any route that requires a valid dedicated scorer session.
+ */
+export async function requireScorerFromRequest(
+  req: import("express").Request,
+): Promise<ScorerAuthContext> {
+  const token = extractBearerToken(req.headers.authorization);
+  if (!token) {
+    throw new ScorerAuthError("Authentication required", "AUTH_REQUIRED", 401);
+  }
+  return resolveScorerAuthFromToken(token);
+}

@@ -1,4 +1,5 @@
 import { apiFetch } from "@workspace/api-base/api-fetch";
+import { scorerApiFetch } from "./scorer-api";
 import type {
   CricketFullScorecard,
   CricketMatchSummary,
@@ -246,20 +247,14 @@ export async function appendScoringEvent(
     event: { id: number; eventType: string; sequence: number };
   }
 > {
-  const r = await apiFetch(
-    `/tournaments/${tournamentId}/scoring/matches/${matchId}/events`,
+  // Uses scorerApiFetch to attach the dedicated scorer JWT — required by backend.
+  return scorerApiFetch(
+    `/api/tournaments/${tournamentId}/scoring/matches/${matchId}/events`,
     {
       method: "POST",
       body: JSON.stringify(body),
     },
   );
-  if (!r.ok) {
-    const msg = await parseError(r);
-    const err = new Error(msg) as Error & { status?: number };
-    err.status = r.status;
-    throw err;
-  }
-  return r.json();
 }
 
 export type ScoringGroupResult = {
@@ -663,33 +658,26 @@ export async function undoScoringEvent(
     event: { id: number; eventType: string; sequence: number };
   }
 > {
-  const r = await apiFetch(
-    `/tournaments/${tournamentId}/scoring/matches/${matchId}/undo`,
+  // Uses scorerApiFetch to attach the dedicated scorer JWT — required by backend.
+  return scorerApiFetch(
+    `/api/tournaments/${tournamentId}/scoring/matches/${matchId}/undo`,
     {
       method: "POST",
       body: JSON.stringify({ expectedSequence }),
     },
   );
-  if (!r.ok) throw new Error(await parseError(r));
-  return r.json();
 }
 
 export async function resetScoringMatch(
   tournamentId: number,
   matchId: number,
 ): Promise<ScoringMatchDetail> {
-  const r = await apiFetch(
-    `/tournaments/${tournamentId}/scoring/matches/${matchId}/reset`,
+  // Uses scorerApiFetch to attach the dedicated scorer JWT — required by backend.
+  return scorerApiFetch(
+    `/api/tournaments/${tournamentId}/scoring/matches/${matchId}/reset`,
     {
       method: "POST",
       body: JSON.stringify({}),
     },
   );
-  if (!r.ok) {
-    const msg = await parseError(r);
-    const err = new Error(msg) as Error & { status?: number };
-    err.status = r.status;
-    throw err;
-  }
-  return r.json();
 }

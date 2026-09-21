@@ -1,78 +1,47 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRoute, useLocation } from "wouter";
+/**
+ * Cricket Scorer Redirect — organizer view for /tournament/:id/score/:matchId/live
+ *
+ * The scoring pad has been permanently migrated to the Dedicated Scorer (Empire) model.
+ * Organizers can no longer score from this page.
+ *
+ * This page shows organizers:
+ * - A clear explanation that scoring has moved
+ * - The direct link to the dedicated scorer console for this match
+ * - A "Copy Scorer Link" button to share with the assigned Empire scorer
+ */
+import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
 import {
   CricketOrganizerPageShell,
-  BtnPrimary,
-  BtnSecondary,
-  EmptyState,
   PageHeader,
-  btnCompactClass,
 } from "@/components/scoring/cricket-page-chrome";
-import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
-import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
-import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useScoringMatch, useInvalidateScoring } from "@/hooks/use-scoring-match";
-import {
-  appendScoringEvent,
-  getCricketMasterTeams,
-  getCricketTournamentRoster,
-  resetScoringMatch,
-  undoScoringEvent,
-  type ScoringMatchDetail,
-} from "@/lib/scoring-api";
-import {
-  cricketMasterTeamToScorerTeam,
-  cricketRosterToScorerPlayer,
-  playerNameById,
-} from "@/lib/scoring-squad";
-import {
-  countQueuedScoringEvents,
-  enqueueScoringEvent,
-  isNetworkScoringError,
-  listQueuedScoringEvents,
-  removeQueuedScoringEvent,
-} from "@/lib/scoring-offline-queue";
-import { useToast } from "@/hooks/use-toast";
-import { openScoreDisplay } from "@/lib/tournament-navigation";
-import { cricketMatchCenterPath, cricketScoreHubPath } from "@/lib/cricket-routes";
-import { ArrowLeft, Monitor, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
-import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
-import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
+import { Button } from "@/components/ui/button";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
-import { cn } from "@/lib/utils";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
+import { getCricketMasterTeams } from "@/lib/scoring-api";
+import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
+import { cricketScorerConsolePath, cricketMatchCenterPath } from "@/lib/cricket-routes";
+import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Copy, Radio, ShieldCheck } from "lucide-react";
+import { useMemo } from "react";
 
 export default function ScoringMatchPage() {
   const [, params] = useRoute("/tournament/:id/score/:matchId/live");
-  const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const matchId = parseInt(params?.matchId || "0");
-  const matchCenterHref = cricketMatchCenterPath(tournamentId, matchId);
   const { toast } = useToast();
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
-  const { loading: featuresLoading } = usePlatformFeatures();
-  const { data, isLoading, isError, error, refetch, isFetching, isPending } = useScoringMatch(
-    tournamentId,
-    matchId,
-    scoringActive,
-  );
-
-  const { invalidateAll, setMatchDetail } = useInvalidateScoring(tournamentId, matchId);
 
   const { data: masterTeams } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],
     queryFn: () => getCricketMasterTeams(tournamentId),
-    enabled: scoringActive && !!tournamentId,
-  });
-  const { data: roster } = useQuery({
-    queryKey: ["cricket-roster", tournamentId],
-    queryFn: () => getCricketTournamentRoster(tournamentId),
     enabled: scoringActive && !!tournamentId,
   });
 
@@ -80,358 +49,34 @@ export default function ScoringMatchPage() {
     () => (Array.isArray(masterTeams) ? masterTeams.map(cricketMasterTeamToScorerTeam) : []),
     [masterTeams],
   );
-  const players = useMemo(
-    () => (Array.isArray(roster) ? roster.map(cricketRosterToScorerPlayer) : []),
-    [roster],
-  );
+  const home = teams.find((t) => t.id === undefined); // resolved after match load
+  void home; // unused but avoids unused-var lint
 
-  const [busy, setBusy] = useState(false);
-  const [queueDepth, setQueueDepth] = useState(0);
-  const [localBowlerId, setLocalBowlerId] = useState<number | null>(null);
-  const [pendingNewBatsman, setPendingNewBatsman] = useState(false);
-  const [localStrikerId, setLocalStrikerId] = useState<number | null>(null);
-  const [localNonStrikerId, setLocalNonStrikerId] = useState<number | null>(null);
-  const sequenceRef = useRef(0);
-  const sendInFlightRef = useRef(false);
+  const scorerConsoleUrl = cricketScorerConsolePath(tournamentId, matchId);
+  const scorerFullUrl =
+    typeof window !== "undefined"
+      ? scoringAppPublicUrl(window.location.origin, scorerConsoleUrl)
+      : scorerConsoleUrl;
 
-  useEffect(() => {
-    if (!data) return;
-    // Authoritative sequence only — never advance locally for offline guesses.
-    sequenceRef.current = data.state.lastSequence;
-    if (data.state.matchStatus !== "live" || data.state.innings.length === 0) return;
+  const matchCenterHref = cricketMatchCenterPath(tournamentId, matchId);
 
-    const strikerVacant = data.state.strikerId == null;
-    const nonStrikerVacant = data.state.nonStrikerId == null;
-    if (!strikerVacant && !nonStrikerVacant) {
-      // Crease filled on server — drop local override + gate.
-      setPendingNewBatsman(false);
-      setLocalStrikerId(null);
-      setLocalNonStrikerId(null);
-      return;
-    }
-
-    // Restore replacement gate after refresh when vacancy is still unfilled locally.
-    // Do not re-open the gate after the scorer already picked a local replacement.
-    const filledLocally =
-      (!strikerVacant || localStrikerId != null) &&
-      (!nonStrikerVacant || localNonStrikerId != null);
-    setPendingNewBatsman(!filledLocally);
-  }, [
-    data?.state.lastSequence,
-    data?.state.strikerId,
-    data?.state.nonStrikerId,
-    data?.state.matchStatus,
-    data?.state.innings.length,
-    localStrikerId,
-    localNonStrikerId,
-  ]);
-
-  const refreshQueueDepth = useCallback(async () => {
-    if (!matchId) return;
-    setQueueDepth(await countQueuedScoringEvents(matchId));
-  }, [matchId]);
-
-  useEffect(() => {
-    void refreshQueueDepth();
-  }, [refreshQueueDepth]);
-
-  const applyDetail = useCallback(
-    (detail: ScoringMatchDetail) => {
-      setMatchDetail(detail);
-      invalidateAll();
-    },
-    [setMatchDetail, invalidateAll],
-  );
-
-  const drainQueue = useCallback(async () => {
-    if (!data || sendInFlightRef.current) return;
-    const queued = await listQueuedScoringEvents(matchId);
-    if (queued.length === 0) return;
-
-    sendInFlightRef.current = true;
-    setBusy(true);
-    try {
-      for (const item of queued) {
-        let synced = false;
-        for (let attempt = 0; attempt < 2 && !synced; attempt++) {
-          try {
-            const result = await appendScoringEvent(tournamentId, matchId, {
-              eventType: item.eventType,
-              payload: item.payload,
-              expectedSequence: sequenceRef.current,
-              correlationId: item.correlationId,
-            });
-            sequenceRef.current = result.state.lastSequence;
-            await removeQueuedScoringEvent(item.id);
-            applyDetail({
-              match: result.match,
-              state: result.state,
-              eventCount: (data.eventCount ?? 0) + 1,
-              lastSequence: result.state.lastSequence,
-            });
-            synced = true;
-          } catch (e) {
-            const err = e as Error & { status?: number };
-            if (err.status === 409) {
-              const refreshed = await refetch();
-              if (refreshed.data) {
-                sequenceRef.current = refreshed.data.state.lastSequence;
-              }
-              continue;
-            }
-            if (isNetworkScoringError(e)) {
-              return;
-            }
-            throw e;
-          }
-        }
-        if (!synced) break;
-      }
-    } finally {
-      sendInFlightRef.current = false;
-      setBusy(false);
-      await refreshQueueDepth();
-    }
-  }, [applyDetail, data, matchId, refetch, refreshQueueDepth, tournamentId]);
-
-  useEffect(() => {
-    const onOnline = () => void drainQueue();
-    window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
-  }, [drainQueue]);
-
-  const sendEvent = useCallback(
-    async (eventType: string, payload: Record<string, unknown>) => {
-      if (!data || sendInFlightRef.current) return;
-      sendInFlightRef.current = true;
-      setBusy(true);
-      const correlationId = crypto.randomUUID();
-      try {
-        let result: (ScoringMatchDetail & { event: { id: number; eventType: string; sequence: number } }) | null = null;
-        try {
-          result = await appendScoringEvent(tournamentId, matchId, {
-            eventType,
-            payload,
-            expectedSequence: sequenceRef.current,
-            correlationId,
-          });
-        } catch (initialError) {
-          const err = initialError as Error & { status?: number };
-          // Auto-retry once for setup/lineup events if a sequence conflict occurs
-          if (
-            err.status === 409 &&
-            (eventType === CricketEventType.LINEUP_SET ||
-              eventType === CricketEventType.MATCH_STARTED)
-          ) {
-            const refreshed = await refetch();
-            const nextSeq =
-              refreshed.data?.lastSequence ??
-              refreshed.data?.state?.lastSequence ??
-              0;
-            sequenceRef.current = nextSeq;
-            result = await appendScoringEvent(tournamentId, matchId, {
-              eventType,
-              payload,
-              expectedSequence: nextSeq,
-              correlationId: crypto.randomUUID(),
-            });
-          } else {
-            throw initialError;
-          }
-        }
-
-        if (result) {
-          sequenceRef.current = result.state.lastSequence;
-          applyDetail({
-            match: result.match,
-            state: result.state,
-            eventCount: data.eventCount + 1,
-            lastSequence: result.state.lastSequence,
-          });
-          setLocalStrikerId(null);
-          setLocalNonStrikerId(null);
-          if (result.state.strikerId == null || result.state.nonStrikerId == null) {
-            setPendingNewBatsman(true);
-          }
-          await drainQueue();
-        }
-      } catch (e) {
-        const err = e as Error & { status?: number };
-        if (err.status === 409) {
-          const refreshed = await refetch();
-          if (refreshed.data) {
-            sequenceRef.current =
-              refreshed.data.lastSequence ??
-              refreshed.data.state.lastSequence ??
-              0;
-          }
-          if (eventType === CricketEventType.BALL_RECORDED) {
-            toast({
-              title: "Score conflict",
-              description: "Match refreshed to the latest score. Re-enter the ball only if it is missing.",
-              variant: "destructive",
-            });
-          } else if (
-            eventType === CricketEventType.LINEUP_SET ||
-            eventType === CricketEventType.MATCH_STARTED
-          ) {
-            toast({
-              title: "Match state updated",
-              description: err.message || "Match refreshed to latest state. Please verify and confirm again.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Update conflict",
-              description: err.message || "Match refreshed to latest score.",
-              variant: "destructive",
-            });
-          }
-        } else if (isNetworkScoringError(e)) {
-          await enqueueScoringEvent({
-            tournamentId,
-            matchId,
-            eventType,
-            payload,
-            expectedSequence: sequenceRef.current,
-            correlationId,
-          });
-          // Do not advance sequenceRef — server is still at the prior sequence.
-          await refreshQueueDepth();
-          toast({
-            title: "Queued offline",
-            description: "Will sync when online. Do not tap the same ball again until synced.",
-          });
-        } else {
-          toast({
-            title: "Could not save",
-            description: err.message,
-            variant: "destructive",
-          });
-          // Rethrow so callers (e.g. handleToggleSuperBall) can roll back local state.
-          throw e;
-        }
-      } finally {
-        sendInFlightRef.current = false;
-        setBusy(false);
-      }
-    },
-    [applyDetail, data, drainQueue, matchId, refetch, refreshQueueDepth, toast, tournamentId],
-  );
-
-  const handleResetMatch = useCallback(async () => {
-    if (!data || busy || sendInFlightRef.current) return;
-    setBusy(true);
-    try {
-      const result = await resetScoringMatch(tournamentId, matchId);
-      sequenceRef.current = 0;
-      applyDetail({
-        match: result.match,
-        state: result.state,
-        eventCount: 0,
-        lastSequence: 0,
-      });
-      setLocalStrikerId(null);
-      setLocalNonStrikerId(null);
-      setLocalBowlerId(null);
-      setPendingNewBatsman(false);
-      toast({
-        title: "Match reset to scheduled",
-        description: "Toss and setup have been cleared. You can now redo setup or start another match.",
-      });
-      await refetch();
-    } catch (e) {
-      const err = e as Error & { status?: number };
-      toast({
-        title: "Could not reset match",
-        description: err.message || "Failed to reset match setup.",
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
-  }, [applyDetail, busy, data, matchId, refetch, toast, tournamentId]);
-
-  const home = teams.find((t) => t.id === data?.match.homeTeamId);
-  const away = teams.find((t) => t.id === data?.match.awayTeamId);
-  const subtitle = home && away ? `${home.shortCode} vs ${away.shortCode}` : undefined;
-
-  const needsCreaseFill =
-    !!data &&
-    data.state.matchStatus === "live" &&
-    data.state.innings.length > 0 &&
-    (data.state.strikerId == null || data.state.nonStrikerId == null);
-
-  const creaseFilledForScoring =
-    !!data &&
-    (data.state.strikerId != null || localStrikerId != null) &&
-    (data.state.nonStrikerId != null || localNonStrikerId != null);
-
-  const readyToScore =
-    data &&
-    data.state.tossWinnerTeamId != null &&
-    data.state.innings.length > 0 &&
-    (localBowlerId != null || data.state.bowlerId != null) &&
-    (
-      pendingNewBatsman ||
-      creaseFilledForScoring
+  function copyLink() {
+    void navigator.clipboard.writeText(scorerFullUrl).then(
+      () => toast({ title: "Scorer link copied" }),
+      () => toast({ title: "Could not copy link", variant: "destructive" }),
     );
-
-  const isFinished =
-    data?.state.matchStatus === "completed" || data?.state.matchStatus === "abandoned";
-  const summary =
-    data?.summary ??
-    (data && isFinished ? buildCricketMatchSummary(data.state) : null);
-
-  const matchTitle =
-    data?.match.status === "live"
-      ? "Scorer"
-      : data?.match.status === "completed"
-        ? "Match result"
-        : "Match setup";
-
-  const loadingShell = (
-    <CricketOrganizerPageShell tournamentId={tournamentId}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-      </div>
-    </CricketOrganizerPageShell>
-  );
+  }
 
   if (tournament?.sport === "badminton") {
     return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
   }
 
-  if (featuresLoading || tournamentLoading || (isPending && !data)) {
-    return loadingShell;
-  }
-
-  if (!scoringActive) {
+  if (tournamentLoading) {
     return (
       <CricketOrganizerPageShell tournamentId={tournamentId}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <EmptyState
-            icon={AlertTriangle}
-            title="Cricket scoring is off"
-            desc="Enable scoring for this tournament in auction settings, then return here."
-          />
-        </div>
-      </CricketOrganizerPageShell>
-    );
-  }
-
-  if (isError && !data) {
-    return (
-      <CricketOrganizerPageShell tournamentId={tournamentId}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <EmptyState
-            icon={AlertTriangle}
-            title="Could not load match"
-            desc={error instanceof Error ? error.message : "Something went wrong. Try again."}
-            action={{ label: "Retry", onClick: () => void refetch() }}
-          />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-4">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-32 w-full rounded-xl" />
         </div>
       </CricketOrganizerPageShell>
     );
@@ -441,184 +86,73 @@ export default function ScoringMatchPage() {
     <CricketOrganizerPageShell tournamentId={tournamentId}>
       <PageHeader
         tournamentId={tournamentId}
-        eyebrow="Scorer"
-        title={matchTitle}
-        subtitle={subtitle ?? tournament?.name}
-        badge={data?.match.status === "live" ? "LIVE" : undefined}
+        eyebrow="Match"
+        title="Empire Scorer"
+        subtitle={tournament?.name}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <BtnSecondary href={matchCenterHref} className={btnCompactClass}>
-              <ArrowLeft className="w-4 h-4" />
+          <Button variant="outline" size="sm" asChild>
+            <a href={matchCenterHref}>
+              <ArrowLeft className="w-4 h-4 mr-1" />
               Match Center
-            </BtnSecondary>
-            <BtnSecondary
-              className={btnCompactClass}
-              disabled={isFetching}
-              onClick={() => void refetch()}
-            >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-              Refresh
-            </BtnSecondary>
-            <BtnSecondary
-              className={btnCompactClass}
-              onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-            >
-              <Monitor className="w-4 h-4" />
-              LED display
-            </BtnSecondary>
-          </div>
+            </a>
+          </Button>
         }
       />
 
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 md:px-6 pb-10 space-y-3 sm:space-y-4">
-        {queueDepth > 0 ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-center gap-2 text-sm text-amber-100">
-            <WifiOff className="w-4 h-4 shrink-0" />
-            <span>
-              {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — scoring paused until synced.
-            </span>
-            <BtnPrimary className={cn(btnCompactClass, "ml-auto")} onClick={() => void drainQueue()}>
-              Sync now
-            </BtnPrimary>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16 space-y-6">
+        {/* Explanation card */}
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-3">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-7 h-7 text-primary shrink-0" />
+            <div>
+              <h2 className="font-bold text-base">Scoring has moved to Empire Scorer</h2>
+              <p className="text-sm text-muted-foreground">
+                Cricket scoring is now exclusively done by the assigned Dedicated Scorer (Empire).
+                Organizers cannot score from this page.
+              </p>
+            </div>
           </div>
-        ) : null}
+        </div>
 
-        {isLoading && !data ? (
-          <div className="space-y-3">
-            <Skeleton className="h-24 w-full rounded-xl" />
-            <Skeleton className="h-48 w-full rounded-xl" />
+        {/* Action card */}
+        <div className="rounded-xl border bg-card p-6 space-y-4">
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+            Open Scorer Console
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Share this link with the assigned Empire Scorer. They will log in with their
+            mobile number and PIN, acquire the match lock, and begin scoring.
+          </p>
+
+          <div className="rounded-lg bg-muted/60 border px-3 py-2 text-xs font-mono text-muted-foreground break-all select-all">
+            {scorerFullUrl}
           </div>
-        ) : !data ? (
-          <EmptyState
-            icon={AlertTriangle}
-            title="Match not found"
-            desc="This match may have been removed. Go back to the match list."
-            action={{
-              label: "Back to Match Center",
-              onClick: () => navigate(matchCenterHref || cricketScoreHubPath(tournamentId)),
-            }}
-          />
-        ) : (
-          <>
-            <PreMatchSetup
-              tournamentId={tournamentId}
-              match={data.match}
-              state={data.state}
-              teams={teams}
-              players={players}
-              localBowlerId={localBowlerId}
-              busy={busy}
-              onEvent={sendEvent}
-              onResetMatch={handleResetMatch}
-              onBowlerSelected={setLocalBowlerId}
-              onPrepared={async () => {
-                await refetch();
-              }}
-            />
 
-            {readyToScore && data.state.matchStatus !== "completed" ? (
-              <div className="max-w-lg mx-auto w-full">
-                <LiveScoringPad
-                  state={data.state}
-                  teams={teams}
-                  players={players}
-                  rules={data.match.rules}
-                  bowlerId={localBowlerId}
-                  busy={busy || queueDepth > 0}
-                  pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
-                  localStrikerId={localStrikerId}
-                  localNonStrikerId={localNonStrikerId}
-                  onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
-                  onEvent={sendEvent}
-                  onResetMatch={handleResetMatch}
-                  onSwapStrike={() => {
-                    const currStriker = localStrikerId ?? data.state.strikerId;
-                    const currNonStriker = localNonStrikerId ?? data.state.nonStrikerId;
-                    if (currStriker && currNonStriker) {
-                      setLocalStrikerId(currNonStriker);
-                      setLocalNonStrikerId(currStriker);
-                      toast({
-                        title: "Strike rotated",
-                        description: `Striker is now ${playerNameById(players, currNonStriker)}`,
-                      });
-                    }
-                  }}
-                  onUndo={async () => {
-                    if (!data || sendInFlightRef.current || queueDepth > 0) return;
-                    sendInFlightRef.current = true;
-                    setBusy(true);
-                    try {
-                      const result = await undoScoringEvent(
-                        tournamentId,
-                        matchId,
-                        sequenceRef.current,
-                      );
-                      sequenceRef.current = result.state.lastSequence;
-                      applyDetail({
-                        match: result.match,
-                        state: result.state,
-                        eventCount: data.eventCount + 1,
-                        lastSequence: result.state.lastSequence,
-                      });
-                      setPendingNewBatsman(
-                        result.state.strikerId == null || result.state.nonStrikerId == null,
-                      );
-                      toast({
-                        title: "Undone",
-                        description: "Last recorded ball has been undone.",
-                      });
-                    } catch (e) {
-                      toast({
-                        title: "Undo failed",
-                        description: e instanceof Error ? e.message : "Error",
-                        variant: "destructive",
-                      });
-                    } finally {
-                      sendInFlightRef.current = false;
-                      setBusy(false);
-                    }
-                  }}
-                  onInningsEnd={(payload) => {
-                    setLocalBowlerId(null);
-                    setPendingNewBatsman(false);
-                    return sendEvent(CricketEventType.INNINGS_ENDED, payload);
-                  }}
-                  onMatchComplete={(payload) =>
-                    sendEvent(CricketEventType.MATCH_COMPLETED, payload)
-                  }
-                  onBowlerChange={setLocalBowlerId}
-                  onNewBatsman={(playerId) => {
-                    if (playerId < 0) {
-                      setPendingNewBatsman(true);
-                      return;
-                    }
-                    if (data.state.strikerId == null) {
-                      setLocalStrikerId(playerId);
-                    } else if (data.state.nonStrikerId == null) {
-                      setLocalNonStrikerId(playerId);
-                    } else {
-                      setLocalStrikerId(playerId);
-                    }
-                    setPendingNewBatsman(false);
-                  }}
-                />
-              </div>
-            ) : null}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              asChild
+              className="gap-2"
+            >
+              <a href={scorerConsoleUrl} target="_blank" rel="noopener noreferrer">
+                <Radio className="w-4 h-4" />
+                Open Scorer Console
+              </a>
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={copyLink}>
+              <Copy className="w-4 h-4" />
+              Copy Link
+            </Button>
+          </div>
+        </div>
 
-            {!readyToScore &&
-            !isFinished &&
-            data.state.innings.length > 0 &&
-            data.state.tossWinnerTeamId != null ? (
-              <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-                Complete squad selection and pick openers + bowler to start scoring balls.
-              </div>
-            ) : null}
-
-            {isFinished && summary ? (
-              <MatchSummaryCard summary={summary} teams={teams} compact />
-            ) : null}
-          </>
-        )}
+        {/* Info note */}
+        <p className="text-xs text-muted-foreground">
+          To manage scorer accounts and assignments, go to{" "}
+          <a href={matchCenterHref} className="underline underline-offset-2 hover:text-foreground">
+            Match Center
+          </a>
+          .
+        </p>
       </div>
     </CricketOrganizerPageShell>
   );

@@ -1,7 +1,10 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
-import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware/require-organizer";
+import {
+  isTournamentOrganizer,
+  requireTournamentOrganizer,
+} from "../middleware/require-organizer";
 import {
   appendScoringEvent,
   createScoringMatch,
@@ -20,7 +23,7 @@ import {
   removeScoringSseClient,
 } from "../lib/scoring-broadcast";
 import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
-import { db, tournamentsTable } from "@workspace/db";
+import { db, scoringMatchesTable, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
@@ -38,6 +41,16 @@ import {
 import { getGlobalCricketLeaderboard } from "../lib/scoring-global-stats-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
+import {
+  requireScorerFromRequest,
+  assertScorerCanScore,
+  assertScorerMayAccessTournament,
+  ScorerAuthError,
+} from "../lib/scorer-auth";
+import {
+  assertSessionOwnsMatchLock,
+  ScorerLockError,
+} from "../lib/scorer-match-locks";
 
 const router = Router();
 
@@ -48,36 +61,90 @@ function parseId(value: string): number | null {
   return Number.isNaN(id) ? null : id;
 }
 
-function actorFromRequest(req: Request, usedPin: boolean) {
-  if (req.jwtUser?.isAdmin) {
-    return { type: "admin" as const, id: "admin" };
-  }
-  if (usedPin) {
-    return { type: "scorer_pin" as const, id: "pin" };
-  }
-  return { type: "organizer" as const, id: req.jwtUser?.organizerAccountId?.toString() ?? "organizer" };
-}
-
-async function canWriteScoring(
-  req: Request,
+/**
+ * Resolve and validate the full dedicated-scorer authorization chain for a mutation.
+ * This is the ONLY authorized path for cricket scoring mutations.
+ *
+ * Pipeline:
+ *  1. requireScorerFromRequest  — valid scorer JWT (no organizer fallback)
+ *  2. assertScorerCanScore      — account is active (not view-only)
+ *  3. assertScorerMayAccessTournament — scorer assigned to tournament
+ *  4. verify match.tournamentId === tournamentId (tenant isolation)
+ *  5. assertSessionOwnsMatchLock — session owns the active match lock
+ *
+ * Throws ScorerAuthError or ScorerLockError on any failure.
+ * Returns the resolved ScorerAuthContext (for audit logging).
+ */
+async function requireScorerForMutation(
+  req: import("express").Request,
   tournamentId: number,
-  scorerPin?: string,
-): Promise<{ ok: true; usedPin: boolean } | { ok: false }> {
-  const [tournament] = await db
-    .select({ organizerId: tournamentsTable.organizerId, scoringPin: tournamentsTable.scoringPin })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
+  matchId: number,
+) {
+  const scorerAuth = await requireScorerFromRequest(req);
+  assertScorerCanScore(scorerAuth);
+  await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+
+  // Tenant isolation: match must belong to the tournament in the URL.
+  const [match] = await db
+    .select({ tournamentId: scoringMatchesTable.tournamentId })
+    .from(scoringMatchesTable)
+    .where(eq(scoringMatchesTable.id, matchId))
     .limit(1);
 
-  if (tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId)) {
-    return { ok: true, usedPin: false };
+  if (!match) {
+    throw new ScorerAuthError("Match not found", "MATCH_NOT_FOUND", 404);
   }
-  if (!scorerPin) return { ok: false };
+  if (match.tournamentId !== tournamentId) {
+    logger.warn(
+      {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        matchId,
+        urlTournamentId: tournamentId,
+        actualTournamentId: match.tournamentId,
+        reason: "TENANT_MISMATCH",
+      },
+      "SCORING_AUTH_DENIED: match does not belong to the requested tournament",
+    );
+    throw new ScorerAuthError(
+      "Match does not belong to this tournament",
+      "TENANT_MISMATCH",
+      403,
+    );
+  }
 
-  if (tournament?.scoringPin && tournament.scoringPin === scorerPin) {
-    return { ok: true, usedPin: true };
+  await assertSessionOwnsMatchLock({ matchId, sessionId: scorerAuth.sessionId });
+
+  return scorerAuth;
+}
+
+/** Map ScorerAuthError to HTTP response. Returns true if handled. */
+function sendScorerAuthError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ScorerAuthError) {
+    logger.warn(
+      { code: e.code, status: e.status, message: e.message },
+      "SCORING_AUTH_DENIED",
+    );
+    res.status(e.status).json({ error: e.message, code: e.code });
+    return true;
   }
-  return { ok: false };
+  return false;
+}
+
+/** Map ScorerLockError to HTTP response. Returns true if handled. */
+function sendScorerLockError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ScorerLockError) {
+    // LOCK_NOT_FOUND → 409 MATCH_LOCK_REQUIRED (no lock at all)
+    // MATCH_LOCKED   → 409 MATCH_LOCKED (another session owns it)
+    // LOCK_NOT_OWNED → 409 MATCH_LOCK_REQUIRED (own lock but stale)
+    const code =
+      e.code === "MATCH_LOCKED" ? "MATCH_LOCKED" : "MATCH_LOCK_REQUIRED";
+    const status = 409;
+    logger.warn({ code, lockCode: e.code, message: e.message }, "SCORING_LOCK_DENIED");
+    res.status(status).json({ error: e.message, code });
+    return true;
+  }
+  return false;
 }
 
 function matchToJson(m: {
@@ -526,7 +593,28 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
     res.status(400).json({ error: "Invalid ID" });
     return;
   }
-  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  // Allow either organizer JWT or dedicated scorer JWT to read a single match (read-only).
+  // We check both identities manually to avoid requireTournamentOrganizer writing a 403
+  // response before the scorer fallback is attempted.
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const callerIsOrganizer = !!tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!callerIsOrganizer) {
+    // Not an organizer — require a valid dedicated scorer session.
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (sendScorerAuthError(res, e)) return;
+      res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+      return;
+    }
+  }
 
   try {
     const result = await getScoringMatch(tournamentId, matchId);
@@ -555,6 +643,12 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
   }
 });
 
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/:matchId/events
+ *
+ * ONLY dedicated scorers with a valid JWT + tournament assignment + active match lock
+ * may submit scoring events. Organizer JWT is NOT accepted here.
+ */
 router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
@@ -567,8 +661,8 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
     eventType: z.string().min(1),
     payload: z.record(z.unknown()),
     expectedSequence: z.number().int().min(0),
-    scorerPin: z.string().optional(),
     correlationId: z.string().uuid().optional(),
+    // scorerPin is intentionally NOT accepted — legacy field removed from mutation path.
   });
 
   const parsed = schema.safeParse(req.body);
@@ -577,10 +671,13 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
     return;
   }
 
-  const auth = await canWriteScoring(req, tournamentId, parsed.data.scorerPin);
-  if (!auth.ok) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
+  let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
+  try {
+    scorerAuth = await requireScorerForMutation(req, tournamentId, matchId);
+  } catch (e) {
+    if (sendScorerAuthError(res, e)) return;
+    if (sendScorerLockError(res, e)) return;
+    throw e;
   }
 
   try {
@@ -589,7 +686,7 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
       payload: parsed.data.payload,
       expectedSequence: parsed.data.expectedSequence,
       correlationId: parsed.data.correlationId,
-      actor: actorFromRequest(req, auth.usedPin),
+      actor: { type: "scorer", id: String(scorerAuth.scorerId) },
     });
     res.status(201).json({
       event: {
@@ -610,6 +707,11 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
   }
 });
 
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/:matchId/undo
+ *
+ * ONLY dedicated scorers with a valid JWT + tournament assignment + active match lock.
+ */
 router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
@@ -620,7 +722,7 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
 
   const schema = z.object({
     expectedSequence: z.number().int().min(0),
-    scorerPin: z.string().optional(),
+    // scorerPin intentionally NOT accepted.
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -628,16 +730,19 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
     return;
   }
 
-  const auth = await canWriteScoring(req, tournamentId, parsed.data.scorerPin);
-  if (!auth.ok) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
+  let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
+  try {
+    scorerAuth = await requireScorerForMutation(req, tournamentId, matchId);
+  } catch (e) {
+    if (sendScorerAuthError(res, e)) return;
+    if (sendScorerLockError(res, e)) return;
+    throw e;
   }
 
   try {
     const result = await undoLastScoringEvent(tournamentId, matchId, {
       expectedSequence: parsed.data.expectedSequence,
-      actor: actorFromRequest(req, auth.usedPin),
+      actor: { type: "scorer", id: String(scorerAuth.scorerId) },
     });
     res.status(201).json({
       event: {
@@ -658,6 +763,11 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
   }
 });
 
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/:matchId/reset
+ *
+ * ONLY dedicated scorers with a valid JWT + tournament assignment + active match lock.
+ */
 router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
@@ -666,27 +776,23 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (
     return;
   }
 
-  const schema = z.object({
-    scorerPin: z.string().optional(),
-  });
-  const parsed = schema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  // No body required for reset, but parse gracefully.
+  // scorerPin is intentionally NOT accepted.
 
-  const auth = await canWriteScoring(req, tournamentId, parsed.data.scorerPin);
-  if (!auth.ok) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
+  let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
+  try {
+    scorerAuth = await requireScorerForMutation(req, tournamentId, matchId);
+  } catch (e) {
+    if (sendScorerAuthError(res, e)) return;
+    if (sendScorerLockError(res, e)) return;
+    throw e;
   }
 
   try {
-    const result = await resetCricketMatchSetup(
-      tournamentId,
-      matchId,
-      actorFromRequest(req, auth.usedPin),
-    );
+    const result = await resetCricketMatchSetup(tournamentId, matchId, {
+      type: "scorer",
+      id: String(scorerAuth.scorerId),
+    });
     res.json({
       match: matchToJson(result.match),
       state: result.state,

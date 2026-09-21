@@ -31,7 +31,8 @@ import { parseScoringEvent, replayScoringMatchState } from "../scoring-platform"
 import { isTerminalScoringMatchStatus } from "../scoring-match-terminal";
 
 export type ScoringActor = {
-  type: "organizer" | "admin" | "scorer_pin" | "system";
+  /** 'scorer' = dedicated Empire scorer acting on a locked match. */
+  type: "organizer" | "admin" | "scorer_pin" | "scorer" | "system";
   id?: string | null;
 };
 

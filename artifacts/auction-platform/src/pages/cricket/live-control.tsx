@@ -32,7 +32,7 @@ import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scorin
 import {
   cricketMatchCenterPath,
   cricketScoreHubPath,
-  cricketScorerPath,
+  cricketScorerConsolePath,
 } from "@/lib/cricket-routes";
 import {
   cricketObsLivePath,
@@ -106,7 +106,7 @@ export default function CricketLiveControlPage() {
   }
 
   function copyScorerLink(matchId: number) {
-    const path = cricketScorerPath(tournamentId, matchId);
+    const path = cricketScorerConsolePath(tournamentId, matchId);
     const url =
       typeof window !== "undefined"
         ? scoringAppPublicUrl(window.location.origin, path)
@@ -217,7 +217,7 @@ export default function CricketLiveControlPage() {
                       title={`${teamLabel(m.homeTeamId)} vs ${teamLabel(m.awayTeamId)}`}
                       status={m.status}
                       detail={m.roundName ?? m.venue ?? undefined}
-                      scorerHref={cricketScorerPath(tournamentId, m.id)}
+                      scorerHref={cricketScorerConsolePath(tournamentId, m.id)}
                       centerHref={cricketMatchCenterPath(tournamentId, m.id)}
                       obsHref={cricketObsMatchPath(
                         tournamentId,
@@ -246,7 +246,7 @@ export default function CricketLiveControlPage() {
                       title={`${teamLabel(m.homeTeamId)} vs ${teamLabel(m.awayTeamId)}`}
                       status={m.status}
                       detail={m.roundName ?? m.venue ?? undefined}
-                      scorerHref={cricketScorerPath(tournamentId, m.id)}
+                      scorerHref={cricketScorerConsolePath(tournamentId, m.id)}
                       centerHref={cricketMatchCenterPath(tournamentId, m.id)}
                       onCopyScorer={() => copyScorerLink(m.id)}
                     />

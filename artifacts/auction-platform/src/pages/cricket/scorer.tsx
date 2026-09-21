@@ -85,6 +85,7 @@ export default function CricketScorerPage() {
   const [session, setSession] = useState(() => getScorerAuthSession());
   const [lockAcquired, setLockAcquired] = useState(false);
   const [lockError, setLockError] = useState("");
+  const [lockLost, setLockLost] = useState(false);
   const lockHeldRef = useRef(false);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useScoringMatch(
@@ -165,6 +166,7 @@ export default function CricketScorerPage() {
         });
         if (lockRes.ok) {
           setLockAcquired(true);
+          setLockLost(false);
           lockHeldRef.current = true;
           setLockError("");
 
@@ -172,10 +174,19 @@ export default function CricketScorerPage() {
             if (!lockHeldRef.current) return;
             try {
               await heartbeatScorerMatchLock(matchId, token);
-            } catch {
-              // Lock lost or disconnected
+            } catch (e) {
+              // Lock lost or disconnected — disable scoring controls.
+              lockHeldRef.current = false;
+              setLockAcquired(false);
+              setLockLost(true);
+              if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+              }
             }
           }, HEARTBEAT_INTERVAL_MS);
+        } else {
+          setLockError(lockRes.message);
         }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Match lock could not be acquired";
@@ -240,7 +251,8 @@ export default function CricketScorerPage() {
   );
 
   const drainQueue = useCallback(async () => {
-    if (!data || sendInFlightRef.current) return;
+    // Do not drain if the match lock is no longer held — events would be rejected 409.
+    if (!data || sendInFlightRef.current || !lockHeldRef.current) return;
     const queued = await listQueuedScoringEvents(matchId);
     if (queued.length === 0) return;
 
@@ -349,7 +361,44 @@ export default function CricketScorerPage() {
           await drainQueue();
         }
       } catch (e) {
-        const err = e as Error & { status?: number };
+        const err = e as Error & { status?: number; code?: string };
+        // ── Structured error mapping for scorer auth / lock failures ──
+        if (err.status === 401) {
+          // Session expired or revoked — redirect to scorer login.
+          const description =
+            err.code === "SESSION_EXPIRED" || err.code === "SESSION_REVOKED"
+              ? "Your scorer session has expired. Please log in again."
+              : err.code === "SESSION_INVALID"
+                ? "Your scorer session is no longer valid. Please log in again."
+                : "Authentication required. Please log in again.";
+          toast({ title: "Session ended", description, variant: "destructive" });
+          clearScorerAuthSession();
+          navigate(cricketScorerHomePath(tournamentId));
+          return;
+        }
+        if (err.status === 403 && err.code === "TOURNAMENT_NOT_ASSIGNED") {
+          toast({
+            title: "Not assigned",
+            description: "You are not assigned to this tournament.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (err.status === 409 && (err.code === "MATCH_LOCKED" || err.code === "MATCH_LOCK_REQUIRED")) {
+          // Lock was lost or taken by another scorer.
+          lockHeldRef.current = false;
+          setLockAcquired(false);
+          setLockLost(true);
+          toast({
+            title: err.code === "MATCH_LOCKED" ? "Match locked by another scorer" : "Match lock lost",
+            description:
+              err.code === "MATCH_LOCKED"
+                ? "This match is being scored by another active session."
+                : "Your match lock expired. Reacquire the lock to continue scoring.",
+            variant: "destructive",
+          });
+          return;
+        }
         if (err.status === 409) {
           const refreshed = await refetch();
           if (refreshed.data) {
@@ -364,19 +413,28 @@ export default function CricketScorerPage() {
             variant: "destructive",
           });
         } else if (isNetworkScoringError(e)) {
-          await enqueueScoringEvent({
-            tournamentId,
-            matchId,
-            eventType,
-            payload,
-            expectedSequence: sequenceRef.current,
-            correlationId,
-          });
-          await refreshQueueDepth();
-          toast({
-            title: "Queued offline",
-            description: "Will sync automatically when connected.",
-          });
+          // Only enqueue if we still hold the lock — otherwise events would never drain.
+          if (lockHeldRef.current) {
+            await enqueueScoringEvent({
+              tournamentId,
+              matchId,
+              eventType,
+              payload,
+              expectedSequence: sequenceRef.current,
+              correlationId,
+            });
+            await refreshQueueDepth();
+            toast({
+              title: "Queued offline",
+              description: "Will sync automatically when connected.",
+            });
+          } else {
+            toast({
+              title: "Cannot queue — lock lost",
+              description: "Reacquire the match lock before scoring.",
+              variant: "destructive",
+            });
+          }
         } else {
           toast({
             title: "Could not record ball",
@@ -389,7 +447,7 @@ export default function CricketScorerPage() {
         setBusy(false);
       }
     },
-    [applyDetail, data, drainQueue, matchId, refetch, refreshQueueDepth, toast, tournamentId],
+    [applyDetail, clearScorerAuthSession, data, drainQueue, matchId, navigate, refetch, refreshQueueDepth, toast, tournamentId],
   );
 
   const handleResetMatch = useCallback(async () => {
@@ -536,6 +594,47 @@ export default function CricketScorerPage() {
         </div>
       </header>
 
+      {/* ─── Lock Lost Banner ─── */}
+      {lockLost ? (
+        <div className="shrink-0 px-3 py-2 bg-red-900/80 border-b border-red-500/40 flex items-center gap-3 z-10">
+          <Lock className="w-4 h-4 text-red-300 shrink-0" />
+          <span className="text-xs text-red-200 flex-1">
+            Match lock lost. Scoring is disabled.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs border-red-500/40 text-red-200 hover:bg-red-500/20 hover:text-white shrink-0"
+            onClick={() => {
+              const currentSession = getScorerAuthSession();
+              if (!currentSession?.token) {
+                navigate(cricketScorerHomePath(tournamentId));
+                return;
+              }
+              setLockLost(false);
+              setLockError("");
+              void acquireScorerMatchLock(matchId, currentSession.token, { tournamentId, sport: "cricket" }).then(
+                (lockRes) => {
+                  if (lockRes.ok) {
+                    setLockAcquired(true);
+                    lockHeldRef.current = true;
+                  } else {
+                    setLockError(lockRes.message);
+                    setLockLost(true);
+                  }
+                },
+              ).catch((e: unknown) => {
+                setLockError(e instanceof Error ? e.message : "Could not reacquire lock");
+                setLockLost(true);
+              });
+            }}
+          >
+            Reacquire Lock
+          </Button>
+        </div>
+      ) : null}
+
       {/* ─── Main Scoring Viewport ─── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-2 sm:p-3 max-w-lg mx-auto w-full">
         {data && (!readyToScore || data.state.innings.length === 0 || data.state.tossWinnerTeamId == null) && !isFinished ? (
@@ -547,9 +646,9 @@ export default function CricketScorerPage() {
               teams={teams}
               players={players}
               localBowlerId={localBowlerId}
-              busy={busy}
-              onEvent={sendEvent}
-              onResetMatch={handleResetMatch}
+              busy={busy || lockLost}
+              onEvent={lockLost ? () => Promise.resolve() : sendEvent}
+              onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
               onBowlerSelected={setLocalBowlerId}
               onPrepared={async () => {
                 await refetch();
@@ -566,14 +665,14 @@ export default function CricketScorerPage() {
               players={players}
               rules={data.match.rules}
               bowlerId={localBowlerId}
-              busy={busy || queueDepth > 0}
+              busy={busy || queueDepth > 0 || lockLost}
               pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
               localStrikerId={localStrikerId}
               localNonStrikerId={localNonStrikerId}
               dismissedBatters={dismissedFromScorecard}
-              onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
-              onEvent={sendEvent}
-              onResetMatch={handleResetMatch}
+              onBall={lockLost ? async (_p: Record<string, unknown>) => {} : (payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
+              onEvent={lockLost ? () => Promise.resolve() : sendEvent}
+              onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
               onSwapStrike={() => {
                 const currStriker = localStrikerId ?? data.state.strikerId;
                 const currNonStriker = localNonStrikerId ?? data.state.nonStrikerId;
