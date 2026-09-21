@@ -117,6 +117,14 @@ export default function CricketLiveControlPage() {
     );
   }
 
+  function copyObsLiveLink() {
+    const url = cricketObsLivePath(tournamentId, tournament?.auctionCode);
+    void navigator.clipboard.writeText(url).then(
+      () => toast({ title: "Cricket OBS URL copied to clipboard", description: "Paste as Browser Source (1920×1080) in OBS Studio / vMix" }),
+      () => toast({ title: "Could not copy OBS link", variant: "destructive" }),
+    );
+  }
+
   if (tournament?.sport === "badminton") {
     return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
   }
@@ -194,11 +202,36 @@ export default function CricketLiveControlPage() {
           </div>
         ) : (
           <>
-            <section className={cn(hubPanelClass, "p-4 sm:p-5 space-y-2")}>
-              <h2 className="text-sm font-semibold">Displays</h2>
-              <p className="text-xs text-muted-foreground">
-                LED and OBS follow the live match. Open Scorer only for umpires or assigned scorers.
-              </p>
+            <section className={cn(hubPanelClass, "p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4")}>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-white">Cricket OBS Broadcast Layer</h2>
+                  <Badge variant="outline" className="text-[10px] uppercase border-amber-400/40 text-amber-400">1920 × 1080 Full HD</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                  Add this link as a <strong>Browser Source</strong> on top of your camera streaming team&apos;s feed in OBS / vMix. Mid section is 100% transparent. Header (with BidWar branding) and footer scorebug are solid non-transparent. Real-time animations trigger on boundaries, wickets &amp; free hits.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <BtnSecondary className={btnCompactClass} onClick={copyObsLiveLink}>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy OBS URL
+                </BtnSecondary>
+                <BtnPrimary
+                  className={btnCompactClass}
+                  onClick={() =>
+                    window.open(
+                      cricketObsLivePath(tournamentId, tournament?.auctionCode),
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                >
+                  <Tv className="w-3.5 h-3.5" />
+                  Launch OBS Screen
+                </BtnPrimary>
+              </div>
             </section>
 
             <section>

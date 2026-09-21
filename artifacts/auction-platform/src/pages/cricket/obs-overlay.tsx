@@ -20,7 +20,10 @@ function CricketObsInner({
   tournamentId: number;
   pinnedMatchId: number | null;
 }) {
-  const { vm, scoringActive, isLoading } = useCricketObsLive(tournamentId, pinnedMatchId);
+  const { vm, scoringActive, isLoading, setMidOverlay, triggerFlash } = useCricketObsLive(
+    tournamentId,
+    pinnedMatchId,
+  );
 
   if (!scoringActive) {
     return (
@@ -48,7 +51,14 @@ function CricketObsInner({
     );
   }
 
-  return <CricketObsStage vm={vm} />;
+  return (
+    <CricketObsStage
+      vm={vm}
+      tournamentId={tournamentId}
+      onSetOverlay={setMidOverlay}
+      onTriggerFlash={triggerFlash}
+    />
+  );
 }
 
 export default function CricketObsOverlayPage() {

@@ -7,18 +7,30 @@ import {
 } from "@/lib/broadcast-overlay";
 import { useObsBrowserSource } from "@/components/broadcast/use-obs-browser-source";
 import { useObsTransparentDocument } from "@/components/scoring/cricket-obs/use-obs-transparent-document";
-import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
+import type { CricketObsFlashKind, CricketObsMidOverlayKind, CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 import { CricketObsScorebug } from "@/components/scoring/cricket-obs/cricket-obs-scorebug";
-import { CricketObsSecondaryStrip } from "@/components/scoring/cricket-obs/cricket-obs-secondary-strip";
 import { CricketObsEventFlash } from "@/components/scoring/cricket-obs/cricket-obs-event-flash";
 import { CricketObsBranding } from "@/components/scoring/cricket-obs/cricket-obs-branding";
 import { CricketObsWaiting } from "@/components/scoring/cricket-obs/cricket-obs-waiting";
+import { CricketObsMidOverlays } from "@/components/scoring/cricket-obs/cricket-obs-mid-overlays";
+import { CricketObsOperatorDock } from "@/components/scoring/cricket-obs/cricket-obs-operator-dock";
 
 type Props = {
   vm: CricketObsViewModel;
+  tournamentId?: number;
+  onSetOverlay?: (overlay: CricketObsMidOverlayKind) => void;
+  onTriggerFlash?: (flash: CricketObsFlashKind, detail?: string) => void;
 };
 
-export function CricketObsStage({ vm }: Props) {
+/**
+ * 5-in-1 Cricket OBS Broadcast Screen:
+ * 1. Solid Top Header (Non-Transparent) with BidWar branding centered, tournament logo left, sponsor logo right
+ * 2. Transparent Mid Viewport (Camera feed space 100% transparent)
+ * 3. Solid Bottom Footer / Scorebug (Non-Transparent) with batsman figures, bowler spell, over train, and run rates
+ * 4. Real-time Animations (Come and go event alerts: Four, Six, Superball, Wicket, Free Hit, New Batsman)
+ * 5. 80% Screen Frosted Overlays (Sponsors, Standings, Schedule, Scorecard, Summary)
+ */
+export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerFlash }: Props) {
   useObsTransparentDocument();
   const isObs = useObsBrowserSource();
 
@@ -49,41 +61,61 @@ export function CricketObsStage({ vm }: Props) {
       data-obs={isObs ? "1" : "0"}
       data-cricket-obs-phase={vm.phase}
     >
-      {/* Transparent stage — camera remains the hero */}
+      {/* 1. TOP HEADER (SOLID / NON-TRANSPARENT) */}
+      <div className="absolute top-0 left-0 right-0 z-40">
+        <CricketObsBranding vm={vm} />
+      </div>
+
+      {/* 2. MID SECTION (100% TRANSPARENT CAMERA VIEWPORT)
+          Kept completely clear so live video feed shines through */}
+
+      {/* 4. REAL-TIME EVENT ANIMATIONS (Come and go) */}
+      <CricketObsEventFlash flash={vm.flash} token={vm.flashToken} detail={vm.flashDetail} />
+
+      {/* 5. 80% SCREEN FROSTED OVERLAYS (Sponsors, Points Table, Schedule, Scorecard, Summary) */}
+      {tournamentId > 0 ? (
+        <CricketObsMidOverlays
+          vm={vm}
+          overlay={vm.midOverlay}
+          tournamentId={tournamentId}
+          onClose={() => onSetOverlay?.("none")}
+        />
+      ) : null}
+
+      {/* 3. BOTTOM FOOTER / SCOREBUG (SOLID / NON-TRANSPARENT) */}
       <div
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end"
         style={{
           paddingLeft: BROADCAST_OVERLAY_SAFE_INSET_X,
           paddingRight: BROADCAST_OVERLAY_SAFE_INSET_X,
-          paddingTop: BROADCAST_OVERLAY_SAFE_INSET_Y,
           paddingBottom: BROADCAST_OVERLAY_SAFE_INSET_Y,
         }}
       >
-        <div className="relative flex h-full w-full flex-col justify-between">
-          <CricketObsBranding vm={vm} />
+        <div className="flex w-full flex-col items-stretch gap-2">
+          {vm.connectionHint === "reconnecting" ? (
+            <p
+              className="self-end text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55 drop-shadow"
+            >
+              Live data reconnecting…
+            </p>
+          ) : null}
 
-          <div className="mt-auto flex w-full flex-col items-stretch gap-2">
-            {vm.connectionHint === "reconnecting" ? (
-              <p
-                className="self-end text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55"
-                style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}
-              >
-                Live data reconnecting
-              </p>
-            ) : null}
-
-            {showScorebug ? (
-              <>
-                <CricketObsEventFlash flash={vm.flash} token={vm.flashToken} />
-                <CricketObsSecondaryStrip vm={vm} />
-                <CricketObsScorebug vm={vm} />
-              </>
-            ) : (
-              <CricketObsWaiting vm={vm} />
-            )}
-          </div>
+          {showScorebug ? (
+            <CricketObsScorebug vm={vm} />
+          ) : (
+            <CricketObsWaiting vm={vm} />
+          )}
         </div>
       </div>
+
+      {/* OPERATOR BROADCAST CONTROLLER DOCK (Visible for testing or stream management) */}
+      {onSetOverlay && onTriggerFlash ? (
+        <CricketObsOperatorDock
+          currentOverlay={vm.midOverlay}
+          onSetOverlay={onSetOverlay}
+          onTriggerFlash={onTriggerFlash}
+        />
+      ) : null}
     </div>
   );
 }
