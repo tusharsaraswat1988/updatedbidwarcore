@@ -56,10 +56,15 @@ import {
   Users,
   Copy,
 } from "lucide-react";
-import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
-import { cricketPublicPath, openScoreDisplay, scoringSchedulePath, auctionRoomPath } from "@/lib/tournament-navigation";
-import { cricketLiveControlPath } from "@/lib/cricket-routes";
+import {
+  cricketPublicPath,
+  openScoreDisplay,
+  scoringSchedulePath,
+  auctionRoomPath,
+  scoreDisplayPath,
+  cricketObsLivePath,
+} from "@/lib/tournament-navigation";
 import { CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
 import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { cn } from "@/lib/utils";
@@ -513,10 +518,10 @@ export default function ScoringMatchListPage() {
                             ) : m.venue || m.scheduledAt ? (
                               <p className="text-xs text-muted-foreground">
                                 {m.venue ? `${m.venue} • ` : ""}
-                                {m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : `${m.oversLimit ?? 20} Overs`}
+                                {m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : `${m.rules?.overs ?? 20} Overs`}
                               </p>
                             ) : (
-                              <p className="text-xs text-muted-foreground capitalize">{m.status} • {m.oversLimit ?? 20} Overs</p>
+                              <p className="text-xs text-muted-foreground capitalize">{m.status} • {m.rules?.overs ?? 20} Overs</p>
                             )}
                           </div>
                         </div>
