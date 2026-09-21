@@ -78,8 +78,8 @@ export async function logoutScorer(token: string): Promise<void> {
 export async function acquireScorerMatchLock(
   matchId: number,
   token: string,
-  meta?: { tournamentId?: number; sport?: string },
-): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+  meta?: { tournamentId?: number; sport?: string; forceTakeover?: boolean },
+): Promise<{ ok: true; reacquired?: boolean } | { ok: false; code: string; message: string }> {
   const res = await fetch(`${API_BASE}/api/scorer/matches/${matchId}/lock`, {
     method: "POST",
     headers: {
@@ -88,7 +88,8 @@ export async function acquireScorerMatchLock(
     },
     body: JSON.stringify({
       tournamentId: meta?.tournamentId,
-      sport: meta?.sport ?? "badminton",
+      sport: meta?.sport ?? "cricket",
+      forceTakeover: meta?.forceTakeover,
     }),
   });
   if (res.status === 409) {
@@ -114,7 +115,8 @@ export async function acquireScorerMatchLock(
     };
   }
   if (!res.ok) throw await parseError(res);
-  return { ok: true };
+  const data = await res.json().catch(() => ({ ok: true }));
+  return { ok: true, reacquired: data?.reacquired };
 }
 
 export async function heartbeatScorerMatchLock(matchId: number, token: string): Promise<void> {

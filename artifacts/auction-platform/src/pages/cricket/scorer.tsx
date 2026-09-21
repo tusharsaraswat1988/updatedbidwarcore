@@ -594,8 +594,52 @@ export default function CricketScorerPage() {
         </div>
       </header>
 
-      {/* ─── Lock Lost Banner ─── */}
-      {lockLost ? (
+      {/* ─── Lock Error / Takeover Banner ─── */}
+      {lockError ? (
+        <div className="shrink-0 px-3 py-2 bg-amber-950/90 border-b border-amber-500/50 flex flex-wrap items-center justify-between gap-2 z-10">
+          <div className="flex items-center gap-2 min-w-0">
+            <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-xs text-amber-200 truncate">
+              {lockError}
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shrink-0"
+            onClick={async () => {
+              const currentSession = getScorerAuthSession();
+              if (!currentSession?.token) {
+                navigate(cricketScorerHomePath(tournamentId));
+                return;
+              }
+              try {
+                const lockRes = await acquireScorerMatchLock(matchId, currentSession.token, {
+                  tournamentId,
+                  sport: "cricket",
+                  forceTakeover: true,
+                });
+                if (lockRes.ok) {
+                  setLockAcquired(true);
+                  setLockLost(false);
+                  lockHeldRef.current = true;
+                  setLockError("");
+                  toast({
+                    title: "Lock acquired",
+                    description: "Scoring has been transferred to this device.",
+                  });
+                } else {
+                  setLockError(lockRes.message);
+                }
+              } catch (e) {
+                setLockError(e instanceof Error ? e.message : "Takeover failed");
+              }
+            }}
+          >
+            Take Over on This Device
+          </Button>
+        </div>
+      ) : lockLost ? (
         <div className="shrink-0 px-3 py-2 bg-red-900/80 border-b border-red-500/40 flex items-center gap-3 z-10">
           <Lock className="w-4 h-4 text-red-300 shrink-0" />
           <span className="text-xs text-red-200 flex-1">
@@ -614,11 +658,12 @@ export default function CricketScorerPage() {
               }
               setLockLost(false);
               setLockError("");
-              void acquireScorerMatchLock(matchId, currentSession.token, { tournamentId, sport: "cricket" }).then(
+              void acquireScorerMatchLock(matchId, currentSession.token, { tournamentId, sport: "cricket", forceTakeover: true }).then(
                 (lockRes) => {
                   if (lockRes.ok) {
                     setLockAcquired(true);
                     lockHeldRef.current = true;
+                    toast({ title: "Lock reacquired" });
                   } else {
                     setLockError(lockRes.message);
                     setLockLost(true);

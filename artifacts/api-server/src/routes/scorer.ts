@@ -129,6 +129,7 @@ router.post("/matches/:matchId/lock", async (req, res) => {
   const metaSchema = z.object({
     tournamentId: z.number().int().positive().optional(),
     sport: z.string().max(40).optional(),
+    forceTakeover: z.boolean().optional(),
   });
   const meta = metaSchema.safeParse(req.body ?? {});
 
@@ -159,6 +160,7 @@ router.post("/matches/:matchId/lock", async (req, res) => {
       sessionId: auth.sessionId,
       tournamentId: resolvedTournamentId,
       sport: meta.success ? meta.data.sport ?? null : null,
+      forceTakeover: meta.success ? meta.data.forceTakeover : undefined,
     });
 
     if (!result.ok) {

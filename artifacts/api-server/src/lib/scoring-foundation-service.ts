@@ -218,8 +218,6 @@ export async function createScoringOfficial(
       );
     }
     const { createScorerAccountForTournament } = await import("./scorer-auth");
-    // Account creation is part of official creation. Never save an official
-    // row when its login identity could not be created/synchronized.
     await createScorerAccountForTournament(tournamentId, {
       name: input.name.trim(),
       mobile: input.mobile.trim(),
@@ -273,17 +271,27 @@ export async function updateScoringOfficial(
     );
   }
 
-  if (existing.role === "scorer" && existing.mobile && (patch.pin || typeof patch.isActive === "boolean")) {
+  const targetRole = patch.role ?? existing.role;
+  const targetMobile = patch.mobile !== undefined ? (patch.mobile ? patch.mobile.trim() : null) : existing.mobile;
+  const targetName = patch.name !== undefined ? patch.name.trim() : existing.name;
+
+  if (targetRole === "scorer" && targetMobile) {
     try {
-      const { listScorerAccountsForTournament, updateScorerAccountForTournament } = await import("./scorer-auth");
-      const accounts = await listScorerAccountsForTournament(tournamentId);
-      const acc = accounts.find((a) => a.mobile === existing.mobile);
-      if (acc) {
-        await updateScorerAccountForTournament(tournamentId, acc.id, {
-          name: patch.name ?? existing.name,
-          pin: patch.pin && patch.pin.trim().length >= 4 ? patch.pin.trim() : undefined,
-          isActive: patch.isActive,
+      const { createScorerAccountForTournament, removeScorerFromTournament, clearAllScorerLoginLockouts } = await import("./scorer-auth");
+      
+      // If mobile changed, unassign old mobile
+      if (existing.mobile && existing.mobile !== targetMobile) {
+        await removeScorerFromTournament(tournamentId, existing.mobile);
+      }
+
+      if (patch.pin && patch.pin.trim().length >= 4) {
+        await createScorerAccountForTournament(tournamentId, {
+          name: targetName,
+          mobile: targetMobile,
+          pin: patch.pin.trim(),
         });
+      } else {
+        clearAllScorerLoginLockouts(targetMobile);
       }
     } catch {
       // non-fatal
@@ -326,6 +334,7 @@ export async function deleteScoringOfficial(
   officialId: number,
 ) {
   await ensureScoringTournament(tournamentId);
+
   const [existing] = await db
     .select()
     .from(scoringOfficialsTable)
@@ -336,6 +345,7 @@ export async function deleteScoringOfficial(
       ),
     )
     .limit(1);
+
   if (!existing) {
     throw new ScoringServiceError(
       "Official not found",
@@ -344,26 +354,26 @@ export async function deleteScoringOfficial(
     );
   }
 
+  // If this official was a scorer, revoke active sessions, release locks, and unassign from tournament
   if (existing.role === "scorer" && existing.mobile) {
     try {
-      // Remove the tournament assignment and invalidate the scorer's active
-      // sessions. If this identity has no other tournament assignments, the
-      // global account is removed as well.
-      await deleteScorerAccountForTournament(
-        tournamentId,
-        await resolveScorerAccountIdByMobile(existing.mobile),
-      );
-    } catch (e) {
-      if (!(e instanceof Error && /not found|not assigned/i.test(e.message))) {
-        throw e;
-      }
+      const { removeScorerFromTournament } = await import("./scorer-auth");
+      await removeScorerFromTournament(tournamentId, existing.mobile);
+    } catch {
+      // non-fatal
     }
   }
 
   const [row] = await db
     .delete(scoringOfficialsTable)
-    .where(eq(scoringOfficialsTable.id, officialId))
+    .where(
+      and(
+        eq(scoringOfficialsTable.id, officialId),
+        eq(scoringOfficialsTable.tournamentId, tournamentId),
+      ),
+    )
     .returning();
+
   return row;
 }
 

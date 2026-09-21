@@ -101,7 +101,7 @@ export default function CricketScorerHomePage() {
       setAuthError("Enter a valid Tournament ID or use the link sent by your organizer");
       return;
     }
-    const cleanMobile = mobileInput.replace(/\D/g, "");
+    const cleanMobile = mobileInput.replace(/\D/g, "").slice(-10);
     if (cleanMobile.length < 10) {
       setAuthError("Enter a valid 10-digit registered mobile number");
       return;

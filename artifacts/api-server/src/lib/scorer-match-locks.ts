@@ -43,6 +43,7 @@ export async function acquireMatchLock(input: {
   sessionId: string;
   tournamentId?: number | null;
   sport?: string | null;
+  forceTakeover?: boolean;
 }): Promise<AcquireLockResult> {
   const now = new Date();
   const existing = await db
@@ -85,46 +86,50 @@ export async function acquireMatchLock(input: {
     return { ok: true, reacquired: false, lock: lock! };
   }
 
-  if (!isStale(existing.lastHeartbeatAt, now)) {
-    return { ok: false, code: "MATCH_LOCKED" };
-  }
+  if (input.forceTakeover || isStale(existing.lastHeartbeatAt, now)) {
+    const action = input.forceTakeover ? "lock_force_takeover" : "lock_reacquired";
 
-  await writeScorerAudit({
-    actorType: "system",
-    actorId: "system",
-    scorerId: existing.scorerId,
-    sessionId: existing.sessionId,
-    tournamentId: input.tournamentId,
-    matchId: input.matchId,
-    sport: input.sport,
-    action: "lock_expired",
-    payload: { reason: "stale_on_acquire", previousSessionId: existing.sessionId },
-  });
+    if (!input.forceTakeover) {
+      await writeScorerAudit({
+        actorType: "system",
+        actorId: "system",
+        scorerId: existing.scorerId,
+        sessionId: existing.sessionId,
+        tournamentId: input.tournamentId,
+        matchId: input.matchId,
+        sport: input.sport,
+        action: "lock_expired",
+        payload: { reason: "stale_on_acquire", previousSessionId: existing.sessionId },
+      });
+    }
 
-  const [lock] = await db
-    .update(scorerMatchLocksTable)
-    .set({
+    const [lock] = await db
+      .update(scorerMatchLocksTable)
+      .set({
+        scorerId: input.scorerId,
+        sessionId: input.sessionId,
+        lockedAt: now,
+        lastHeartbeatAt: now,
+      })
+      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+      .returning();
+
+    await writeScorerAudit({
+      actorType: "scorer",
+      actorId: String(input.scorerId),
       scorerId: input.scorerId,
       sessionId: input.sessionId,
-      lockedAt: now,
-      lastHeartbeatAt: now,
-    })
-    .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-    .returning();
+      tournamentId: input.tournamentId,
+      matchId: input.matchId,
+      sport: input.sport,
+      action,
+      payload: { previousSessionId: existing.sessionId, previousScorerId: existing.scorerId },
+    });
 
-  await writeScorerAudit({
-    actorType: "scorer",
-    actorId: String(input.scorerId),
-    scorerId: input.scorerId,
-    sessionId: input.sessionId,
-    tournamentId: input.tournamentId,
-    matchId: input.matchId,
-    sport: input.sport,
-    action: "lock_reacquired",
-    payload: { previousSessionId: existing.sessionId },
-  });
+    return { ok: true, reacquired: true, lock: lock! };
+  }
 
-  return { ok: true, reacquired: true, lock: lock! };
+  return { ok: false, code: "MATCH_LOCKED" };
 }
 
 export async function heartbeatMatchLock(input: {

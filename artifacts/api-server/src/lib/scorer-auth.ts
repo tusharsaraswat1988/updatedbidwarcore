@@ -8,6 +8,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import {
   db,
   scorerAccountsTable,
+  scorerMatchLocksTable,
   scorerSessionsTable,
   scorerTournamentAssignmentsTable,
   scorerMatchLocksTable,
@@ -592,6 +593,72 @@ export async function clearScorerLoginLockoutForTournament(
   };
 }
 
+export async function removeScorerFromTournament(
+  tournamentId: number,
+  mobileOrScorerId: string | number,
+): Promise<void> {
+  let scorerId: number | null = null;
+  let mobile: string | null = null;
+
+  if (typeof mobileOrScorerId === "number") {
+    scorerId = mobileOrScorerId;
+    const [acc] = await db
+      .select({ id: scorerAccountsTable.id, mobile: scorerAccountsTable.mobile })
+      .from(scorerAccountsTable)
+      .where(eq(scorerAccountsTable.id, scorerId))
+      .limit(1);
+    if (acc) mobile = acc.mobile;
+  } else {
+    try {
+      mobile = normalizeMobile(mobileOrScorerId);
+      const [acc] = await db
+        .select({ id: scorerAccountsTable.id })
+        .from(scorerAccountsTable)
+        .where(eq(scorerAccountsTable.mobile, mobile))
+        .limit(1);
+      if (acc) scorerId = acc.id;
+    } catch {
+      return;
+    }
+  }
+
+  if (!scorerId) return;
+
+  // 1. Delete tournament assignment
+  await db
+    .delete(scorerTournamentAssignmentsTable)
+    .where(
+      and(
+        eq(scorerTournamentAssignmentsTable.scorerId, scorerId),
+        eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
+      ),
+    );
+
+  // 2. Revoke all active sessions for this scorer so scoring stops immediately
+  await db
+    .update(scorerSessionsTable)
+    .set({ revokedAt: new Date() })
+    .where(eq(scorerSessionsTable.scorerId, scorerId));
+
+  // 3. Remove any active match locks held by this scorer
+  await db
+    .delete(scorerMatchLocksTable)
+    .where(eq(scorerMatchLocksTable.scorerId, scorerId));
+
+  // 4. Clear any login lockout records for this mobile
+  if (mobile) {
+    clearAllScorerLoginLockouts(mobile);
+  }
+
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_removed_from_tournament",
+    scorerId,
+    tournamentId,
+    payload: { tournamentId },
+  });
+}
+
 /**
  * Create (or re-use by mobile) a scorer and assign them to this tournament.
  * Does not expose/list scorers from other tournaments.
@@ -617,18 +684,10 @@ export async function createScorerAccountForTournament(
     .limit(1);
 
   let account: typeof scorerAccountsTable.$inferSelect;
+  const pinHash = await hashScorerPin(pin);
+
   if (existing) {
-    // Re-use global identity but only expose via this tournament's assignment.
-    const already = await isScorerAssignedToTournament(existing.id, tournamentId);
-    if (already) {
-      throw new ScorerAuthError(
-        "This scorer is already assigned to this tournament",
-        "ALREADY_ASSIGNED",
-        409,
-      );
-    }
-    // Update PIN/name when re-assigning an existing mobile to this tournament.
-    const pinHash = await hashScorerPin(pin);
+    // Update PIN/name and ensure active when organizer sets/resets official credentials.
     const [updated] = await db
       .update(scorerAccountsTable)
       .set({ name, pinHash, isActive: true })
@@ -643,7 +702,6 @@ export async function createScorerAccountForTournament(
       .set({ revokedAt: new Date() })
       .where(eq(scorerSessionsTable.scorerId, existing.id));
   } else {
-    const pinHash = await hashScorerPin(pin);
     const [created] = await db
       .insert(scorerAccountsTable)
       .values({
@@ -655,6 +713,9 @@ export async function createScorerAccountForTournament(
       .returning();
     account = created!;
   }
+
+  // Clear any existing login failure lockouts for this mobile
+  clearAllScorerLoginLockouts(mobile);
 
   await assignScorerToTournament(account.id, tournamentId);
 
