@@ -57,20 +57,14 @@ export function squadPlayersForTeam(
   players: CricketScorerPlayer[] | undefined,
   teamId: number,
 ): CricketScorerPlayer[] {
-  if (!players) return [];
+  if (!players || !Array.isArray(players)) return [];
+  const excludedStatuses = new Set(["withdrawn", "unsold", "inactive", "disqualified"]);
   return players.filter(
     (p) =>
+      p &&
       p.teamId === teamId &&
       !p.isNonPlayingMember &&
-      p.status !== "withdrawn" &&
-      p.status !== "unsold" &&
-      (p.status === "sold" ||
-        p.status === "retained" ||
-        p.status === "transfer" ||
-        p.status === "unsold_replacement" ||
-        p.status === "interchange" ||
-        p.status === "auction_sale" ||
-        p.status === "available"),
+      (!p.status || !excludedStatuses.has(String(p.status).toLowerCase())),
   );
 }
 

@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -24,14 +24,30 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { useScoringMatches } from "@/hooks/use-scoring-match";
-import { getCricketMasterTeams, isTerminalCricketMatchStatus } from "@/lib/scoring-api";
+import {
+  createScoringMatch,
+  getCricketMasterTeams,
+  isTerminalCricketMatchStatus,
+  updateScoringMatch,
+  type ScoringMatchRow,
+} from "@/lib/scoring-api";
 import { listFixtures } from "@/lib/scoring-foundation-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketScheduleOpsPath, cricketScorerPath, cricketMatchCenterPath } from "@/lib/cricket-routes";
-import { Calendar, CheckCircle2, ChevronRight, ListOrdered, Radio, Trophy } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "today" | "upcoming" | "live" | "completed";
@@ -108,6 +124,93 @@ export default function CricketFixturesPage() {
     }
   }, [matches, filter]);
 
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createHomeId, setCreateHomeId] = useState("");
+  const [createAwayId, setCreateAwayId] = useState("");
+  const [createRoundName, setCreateRoundName] = useState("Semi Final 1");
+  const [createOvers, setCreateOvers] = useState(6);
+  const [createVenue, setCreateVenue] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const [editMatch, setEditMatch] = useState<ScoringMatchRow | null>(null);
+  const [editRoundName, setEditRoundName] = useState("");
+  const [editOvers, setEditOvers] = useState(6);
+  const [editVenue, setEditVenue] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  function handleOpenEdit(m: ScoringMatchRow) {
+    setEditMatch(m);
+    setEditRoundName(m.roundName || "");
+    setEditOvers(m.rules?.overs ?? 6);
+    setEditVenue(m.venue || "");
+  }
+
+  async function handleSaveEdit() {
+    if (!editMatch) return;
+    setSavingEdit(true);
+    try {
+      await updateScoringMatch(tournamentId, editMatch.id, {
+        roundName: editRoundName.trim() || null,
+        oversLimit: editOvers || 6,
+        venue: editVenue.trim() || null,
+      });
+      toast({
+        title: "Match updated",
+        description: `Set to ${editOvers} overs (${editRoundName || "Match #" + editMatch.id})`,
+      });
+      setEditMatch(null);
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+    } catch (e) {
+      toast({
+        title: "Failed to update match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleCreateCustomMatch() {
+    const home = parseInt(createHomeId, 10);
+    const away = parseInt(createAwayId, 10);
+    if (!home || !away || home === away) {
+      toast({ title: "Pick two different teams", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
+    try {
+      await createScoringMatch(tournamentId, {
+        homeTeamId: home,
+        awayTeamId: away,
+        roundName: createRoundName.trim() || undefined,
+        oversLimit: createOvers || 6,
+        venue: createVenue.trim() || undefined,
+      });
+      toast({
+        title: "Match created",
+        description: `${createRoundName || "Match"} scheduled with ${createOvers} overs.`,
+      });
+      setCreateOpen(false);
+      setCreateHomeId("");
+      setCreateAwayId("");
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+    } catch (e) {
+      toast({
+        title: "Could not create match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setCreating(false);
+    }
+  }
+
   if (tournament?.sport === "badminton") {
     return <CricketScoringSportRedirect tournamentId={tournamentId} sport={tournament.sport} />;
   }
@@ -120,10 +223,20 @@ export default function CricketFixturesPage() {
         title="Fixture Browser"
         subtitle={`${stats.fixturesCount} fixture${stats.fixturesCount === 1 ? "" : "s"} · ${stats.total} match${stats.total === 1 ? "" : "es"}`}
         actions={
-          <BtnPrimary href={cricketScheduleOpsPath(tournamentId)} className={btnCompactClass}>
-            <Calendar className="w-4 h-4" />
-            Schedule & generate
-          </BtnPrimary>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              className={cn(btnCompactClass, "font-semibold text-xs gap-1.5")}
+              onClick={() => setCreateOpen(true)}
+              disabled={!scoringActive}
+            >
+              <Plus className="w-4 h-4" />
+              Add Playoff / Custom Match
+            </Button>
+            <BtnPrimary href={cricketScheduleOpsPath(tournamentId)} className={btnCompactClass}>
+              <Calendar className="w-4 h-4" />
+              Schedule & generate
+            </BtnPrimary>
+          </div>
         }
       />
 
@@ -307,6 +420,15 @@ export default function CricketFixturesPage() {
                                 Start Toss & Score
                               </Button>
                             </Link>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8.5 w-8.5 text-xs font-semibold rounded-lg shrink-0"
+                              onClick={() => handleOpenEdit(m)}
+                              title="Edit overs & details"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
                             <Link href={centerUrl}>
                               <Button variant="outline" className="h-8.5 px-3 text-xs font-semibold rounded-lg">
                                 Details
@@ -329,6 +451,153 @@ export default function CricketFixturesPage() {
             )}
           </>
         )}
+
+        {/* Modal: Create Playoff / Custom Match */}
+        {createOpen ? (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                <h3 className="font-bold text-base">Schedule Playoff / Custom Match</h3>
+                <span className="text-xs text-muted-foreground">Custom Overs</span>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="space-y-1.5">
+                  <Label>Round / Match Stage</Label>
+                  <Input
+                    value={createRoundName}
+                    onChange={(e) => setCreateRoundName(e.target.value)}
+                    placeholder="e.g. Semi Final 1, Final"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Home Team</Label>
+                    <Select value={createHomeId} onValueChange={setCreateHomeId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teams.map((t) => (
+                          <SelectItem key={t.id} value={String(t.id)}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Away Team</Label>
+                    <Select value={createAwayId} onValueChange={setCreateAwayId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teams.map((t) => (
+                          <SelectItem key={t.id} value={String(t.id)}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Overs per Inning</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={createOvers}
+                      onChange={(e) => setCreateOvers(parseInt(e.target.value, 10) || 6)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Venue (Optional)</Label>
+                    <Input
+                      value={createVenue}
+                      onChange={(e) => setCreateVenue(e.target.value)}
+                      placeholder="Stadium / Ground"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-border/40">
+                <Button
+                  className="flex-1 font-bold"
+                  disabled={creating}
+                  onClick={handleCreateCustomMatch}
+                >
+                  {creating ? "Scheduling..." : "Schedule Match"}
+                </Button>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Modal: Edit Scheduled Match */}
+        {editMatch ? (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                <h3 className="font-bold text-base">Edit Match Setup</h3>
+                <span className="text-xs text-muted-foreground">Match #{editMatch.id}</span>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="space-y-1.5">
+                  <Label>Round / Match Stage</Label>
+                  <Input
+                    value={editRoundName}
+                    onChange={(e) => setEditRoundName(e.target.value)}
+                    placeholder="e.g. Semi Final 1, Final"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Overs per Inning</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={editOvers}
+                      onChange={(e) => setEditOvers(parseInt(e.target.value, 10) || 6)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Venue (Optional)</Label>
+                    <Input
+                      value={editVenue}
+                      onChange={(e) => setEditVenue(e.target.value)}
+                      placeholder="Stadium / Ground"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-border/40">
+                <Button
+                  className="flex-1 font-bold"
+                  disabled={savingEdit}
+                  onClick={handleSaveEdit}
+                >
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button variant="outline" onClick={() => setEditMatch(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </CricketOrganizerPageShell>
   );

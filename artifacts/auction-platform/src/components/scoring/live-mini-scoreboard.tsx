@@ -14,6 +14,7 @@ interface LiveMiniScoreboardProps {
   teamMap: Map<number, PublicTeam>;
   scorecardData?: PublicScorecardResponse | null;
   streamUrl?: string | null;
+  tournamentPlayers?: Array<{ id: number; name: string }>;
 }
 
 function calculateOversToBalls(over: number, ball: number): number {
@@ -27,6 +28,7 @@ export function LiveMiniScoreboard({
   teamMap,
   scorecardData,
   streamUrl,
+  tournamentPlayers,
 }: LiveMiniScoreboardProps) {
   const state = (liveDisplay?.state as CricketScoreboardState | null) ?? null;
 
@@ -63,25 +65,30 @@ export function LiveMiniScoreboard({
       ? ((runsNeeded / ballsRemaining) * 6).toFixed(2)
       : null;
 
-  // Player Name resolver from scorecard or state
+  // Player Name resolver: prioritize tournament roster, then scorecard
   const playerNameMap = useMemo(() => {
     const map = new Map<number, string>();
+    if (tournamentPlayers) {
+      tournamentPlayers.forEach((p) => {
+        map.set(p.id, p.name);
+      });
+    }
     if (scorecardData?.players) {
       Object.entries(scorecardData.players).forEach(([id, name]) => {
         map.set(Number(id), name);
       });
     }
     return map;
-  }, [scorecardData]);
+  }, [tournamentPlayers, scorecardData]);
 
-  // Striker & Non-Striker stats
+  // Striker & Non-Striker stats (never show serial numbers like Batsman #372)
   const strikerId = state?.strikerId ?? null;
   const nonStrikerId = state?.nonStrikerId ?? null;
   const bowlerId = state?.bowlerId ?? null;
 
-  const strikerName = strikerId ? playerNameMap.get(strikerId) || `Batsman #${strikerId}` : "Striker";
-  const nonStrikerName = nonStrikerId ? playerNameMap.get(nonStrikerId) || `Batsman #${nonStrikerId}` : "Non-Striker";
-  const bowlerName = bowlerId ? playerNameMap.get(bowlerId) || `Bowler #${bowlerId}` : "Current Bowler";
+  const strikerName = strikerId ? (playerNameMap.get(strikerId) || "Striker") : "Striker";
+  const nonStrikerName = nonStrikerId ? (playerNameMap.get(nonStrikerId) || "Non-Striker") : "Non-Striker";
+  const bowlerName = bowlerId ? (playerNameMap.get(bowlerId) || "Current Bowler") : "Current Bowler";
 
   // Detailed batsman stats if available in scorecard
   const strikerStats = useMemo(() => {
@@ -153,8 +160,8 @@ export function LiveMiniScoreboard({
 
       {/* Main Scoreboard Display Grid */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-        {/* Left: Score & Chasing Target */}
-        <div className="lg:col-span-6 space-y-2">
+        {/* Left: Score, Ball Train & Chasing Target */}
+        <div className="lg:col-span-6 space-y-3">
           <div className="flex items-center gap-3">
             {battingTeam?.logoUrl ? (
               <img
@@ -197,7 +204,55 @@ export function LiveMiniScoreboard({
             </div>
           </div>
 
-          {/* Target Equation Notice */}
+          {/* Over Train (Runs per ball in current over) */}
+          <div className="flex items-center gap-2 py-1.5 px-2.5 rounded-xl bg-black/30 border border-white/10 w-fit max-w-full overflow-x-auto scrollbar-none">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">
+              Over {over + 1}:
+            </span>
+            {thisOverDeliveries.length === 0 ? (
+              <span className="text-white/40 italic text-xs">Over starting...</span>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                {thisOverDeliveries.map((delivery, index) => {
+                  const label = delivery.label || `${delivery.runsOffBat}`;
+                  const isWicket = delivery.isWicket;
+                  const isSix = delivery.runsOffBat === 6;
+                  const isFour = delivery.runsOffBat === 4;
+                  const isDot = delivery.runsOffBat === 0 && !delivery.extrasType && !isWicket;
+
+                  return (
+                    <span
+                      key={`deliv-${index}`}
+                      className={cn(
+                        "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums shadow-sm",
+                        isWicket
+                          ? "bg-red-600 text-white border border-red-400 animate-pulse"
+                          : isSix
+                          ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-black border border-yellow-300 font-black"
+                          : isFour
+                          ? "bg-emerald-600 text-white border border-emerald-400"
+                          : isDot
+                          ? "bg-white/10 text-white/60 border border-white/10"
+                          : "bg-white/20 text-white border border-white/20",
+                      )}
+                    >
+                      {isSix ? (
+                        <span className="flex items-center gap-0.5">
+                          <Flame className="h-2.5 w-2.5 text-red-900 inline" /> 6
+                        </span>
+                      ) : isWicket ? (
+                        "W"
+                      ) : (
+                        label
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Target Equation Notice or Projected Score (Only after 1 full over) */}
           {target != null ? (
             <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
               <Target className="h-4 w-4 text-amber-400 shrink-0" />
@@ -212,9 +267,13 @@ export function LiveMiniScoreboard({
                 )}
               </span>
             </div>
+          ) : totalBallsBowled >= 6 ? (
+            <p className="text-xs text-white/70">
+              1st Innings • Projected score: ~<strong className="text-emerald-300">{Math.round(parseFloat(crr) * oversLimit)}</strong> (at {crr} rpo)
+            </p>
           ) : (
-            <p className="text-xs text-white/60">
-              1st Innings • Projected score at current rate: ~{Math.round(parseFloat(crr) * oversLimit)}
+            <p className="text-xs text-white/50">
+              1st Innings • In progress
             </p>
           )}
         </div>
@@ -290,63 +349,17 @@ export function LiveMiniScoreboard({
         </div>
       </div>
 
-      {/* This Over Ball-by-Ball Strip */}
+      {/* Scoreboard Bottom Bar */}
       <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white/50 shrink-0">
-            This Over:
-          </span>
-          {thisOverDeliveries.length === 0 ? (
-            <span className="text-white/40 italic text-xs">Over starting...</span>
-          ) : (
-            thisOverDeliveries.map((delivery, index) => {
-              const label = delivery.label || `${delivery.runsOffBat}`;
-              const isWicket = delivery.isWicket;
-              const isSix = delivery.runsOffBat === 6;
-              const isFour = delivery.runsOffBat === 4;
-              const isDot = delivery.runsOffBat === 0 && !delivery.extrasType && !isWicket;
-
-              return (
-                <span
-                  key={`deliv-${index}`}
-                  className={cn(
-                    "flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-bold tabular-nums shadow-sm transition-transform hover:scale-110",
-                    isWicket
-                      ? "bg-red-600 text-white border border-red-400 animate-pulse"
-                      : isSix
-                      ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-black border border-yellow-300 font-black"
-                      : isFour
-                      ? "bg-emerald-600 text-white border border-emerald-400"
-                      : isDot
-                      ? "bg-white/10 text-white/60 border border-white/10"
-                      : "bg-white/20 text-white border border-white/20",
-                  )}
-                >
-                  {isSix ? (
-                    <span className="flex items-center gap-0.5">
-                      <Flame className="h-3 w-3 text-red-900 inline" /> 6
-                    </span>
-                  ) : isWicket ? (
-                    "W"
-                  ) : (
-                    label
-                  )}
-                </span>
-              );
-            })
-          )}
-        </div>
-
-        {/* Quick CTA Links */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2">
           {streamUrl ? (
             <button
               type="button"
               onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 text-xs transition-colors shadow-lg shadow-red-900/40"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 text-xs transition-colors shadow-lg shadow-red-900/40 cursor-pointer"
             >
               <CircleDot className="h-3 w-3 animate-ping text-white" />
-              Watch Stream
+              Watch Live Stream
             </button>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/50">
@@ -354,14 +367,14 @@ export function LiveMiniScoreboard({
               Stream link not provided by organizer yet
             </span>
           )}
-
-          <Link
-            href={cricketFanMatchPath(tournamentId, match.id)}
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/40 text-emerald-200 font-semibold px-3 py-1.5 text-xs transition-colors"
-          >
-            Full Match Center <ArrowRight className="h-3 w-3" />
-          </Link>
         </div>
+
+        <Link
+          href={cricketFanMatchPath(tournamentId, match.id)}
+          className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/40 text-emerald-200 font-semibold px-3 py-1.5 text-xs transition-colors"
+        >
+          Full Match Center <ArrowRight className="h-3 w-3" />
+        </Link>
       </div>
     </div>
   );

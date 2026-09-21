@@ -165,16 +165,47 @@ export default function CricketStandingsPage() {
             </div>
 
             {/* Standings Table Container */}
-            <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
-                <HubSectionHeader
-                  title="Points Table & Net Run Rate"
-                  subtitle={`${rows.length} franchise team${rows.length === 1 ? "" : "s"}`}
-                />
-              </div>
+            {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
+              <div className="space-y-6">
+                {standings.groups.map((g) => (
+                  <section key={g.id} className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
+                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                      <HubSectionHeader
+                        title={`${g.name} Points Table`}
+                        subtitle={`${g.rows.length} teams · Top 2 qualify for Semi-Finals`}
+                      />
+                      <span className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
+                        Top 2 $\rightarrow$ SF
+                      </span>
+                    </div>
 
-              <StandingsTable rows={rows} highlightTop={4} />
-            </section>
+                    <StandingsTable rows={g.rows} highlightTop={2} />
+                  </section>
+                ))}
+
+                <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4 opacity-80 hover:opacity-100 transition-opacity")}>
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                    <HubSectionHeader
+                      title="Overall Tournament Standings"
+                      subtitle="Combined league view across all groups"
+                    />
+                  </div>
+
+                  <StandingsTable rows={rows} highlightTop={0} />
+                </section>
+              </div>
+            ) : (
+              <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                  <HubSectionHeader
+                    title="Points Table & Net Run Rate"
+                    subtitle={`${rows.length} franchise team${rows.length === 1 ? "" : "s"}`}
+                  />
+                </div>
+
+                <StandingsTable rows={rows} highlightTop={4} />
+              </section>
+            )}
           </>
         )}
       </div>

@@ -92,10 +92,30 @@ export default function ScoringPublicStandingsPage() {
         </section>
       ) : null}
 
-      <section>
-        <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Full standings</h2>
-        <StandingsTable rows={standings ?? []} highlightTop={4} />
-      </section>
+      {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
+        <div className="space-y-6">
+          {standings.groups.map((g) => (
+            <section key={g.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className={cn(cricketSectionTitleClass)}>{g.name} Standings</h2>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                  Top 2 Qualify
+                </span>
+              </div>
+              <StandingsTable rows={g.rows} highlightTop={2} />
+            </section>
+          ))}
+          <section className="space-y-2 opacity-80">
+            <h2 className={cn(cricketSectionTitleClass)}>Overall Standings</h2>
+            <StandingsTable rows={standings ?? []} highlightTop={0} />
+          </section>
+        </div>
+      ) : (
+        <section>
+          <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Full standings</h2>
+          <StandingsTable rows={standings ?? []} highlightTop={4} />
+        </section>
+      )}
     </CricketFanExperienceShell>
   );
 }

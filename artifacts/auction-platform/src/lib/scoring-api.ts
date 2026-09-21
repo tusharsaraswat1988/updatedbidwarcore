@@ -257,13 +257,59 @@ export async function appendScoringEvent(
   return r.json();
 }
 
+export type ScoringGroupResult = {
+  id: number;
+  name: string;
+  sortOrder: number;
+  rows: ScoringStandingRow[];
+};
+
+export type ScoringStandingsWithGroups = ScoringStandingRow[] & {
+  hasGroups?: boolean;
+  groups?: ScoringGroupResult[];
+};
+
 export async function getScoringStandings(
   tournamentId: number,
-): Promise<ScoringStandingRow[]> {
+): Promise<ScoringStandingsWithGroups> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/standings`);
   if (!r.ok) throw new Error(await parseError(r));
   const data = await r.json();
-  return data.standings ?? [];
+  const rows = (data.standings ?? []) as ScoringStandingsWithGroups;
+  rows.hasGroups = Boolean(data.hasGroups && data.groups && data.groups.length > 0);
+  rows.groups = data.groups ?? [];
+  return rows;
+}
+
+export async function updateScoringMatch(
+  tournamentId: number,
+  matchId: number,
+  body: {
+    homeTeamId?: number;
+    awayTeamId?: number;
+    oversLimit?: number;
+    roundName?: string | null;
+    scheduledAt?: string | null;
+    venue?: string | null;
+  },
+): Promise<{
+  match: ScoringMatchRow;
+  state: CricketScoreboardState;
+}> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+  if (!r.ok) {
+    const msg = await parseError(r);
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = r.status;
+    throw err;
+  }
+  return r.json();
 }
 
 export async function getSquadReadiness(tournamentId: number): Promise<{

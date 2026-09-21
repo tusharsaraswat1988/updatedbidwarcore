@@ -18,6 +18,7 @@ import {
   appendScoringEvent,
   getCricketMasterTeams,
   getCricketTournamentRoster,
+  getPublicMatchScorecard,
   resetScoringMatch,
   undoScoringEvent,
   type ScoringMatchDetail,
@@ -113,6 +114,24 @@ export default function CricketScorerPage() {
     () => (roster ?? []).map(cricketRosterToScorerPlayer),
     [roster],
   );
+
+  const { data: scorecardData } = useQuery({
+    queryKey: ["scoring-scorecard", tournamentId, matchId],
+    queryFn: () => getPublicMatchScorecard(tournamentId, matchId),
+    enabled: !!tournamentId && !!matchId,
+    refetchInterval: data?.match.status === "live" ? 5000 : false,
+  });
+
+  const dismissedFromScorecard = useMemo(() => {
+    if (!scorecardData?.scorecard?.innings) return [];
+    const currentInn = scorecardData.scorecard.innings.find(
+      (inn) => inn.innings === data?.state.currentInnings,
+    );
+    if (!currentInn?.batting) return [];
+    return currentInn.batting
+      .filter((b) => !b.notOut)
+      .map((b) => b.playerId);
+  }, [scorecardData, data?.state.currentInnings]);
 
   const [busy, setBusy] = useState(false);
   const [queueDepth, setQueueDepth] = useState(0);
@@ -551,6 +570,7 @@ export default function CricketScorerPage() {
               pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
               localStrikerId={localStrikerId}
               localNonStrikerId={localNonStrikerId}
+              dismissedBatters={dismissedFromScorecard}
               onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
               onEvent={sendEvent}
               onResetMatch={handleResetMatch}
@@ -623,6 +643,10 @@ export default function CricketScorerPage() {
                   setLocalStrikerId(playerId);
                 }
                 setPendingNewBatsman(false);
+                toast({
+                  title: "New batter selected",
+                  description: `${playerNameById(players, playerId)} is at the crease.`,
+                });
               }}
             />
           </div>

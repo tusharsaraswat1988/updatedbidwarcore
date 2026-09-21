@@ -321,19 +321,24 @@ export function FanCheerFloatingWidget({
         </button>
       </div>
 
-      {/* Slide-out Drawer / Overlay Layer */}
+      {/* Slide-out Compact Bottom-Sheet (Mobile) / Floating Dock (Desktop) */}
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full sm:w-[420px] h-[85vh] sm:h-[90vh] sm:mr-6 rounded-t-3xl sm:rounded-3xl border border-white/20 bg-[#0c1822] shadow-2xl flex flex-col overflow-hidden text-white">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-end bg-black/25 backdrop-blur-[2px] transition-all"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsOpen(false);
+          }}
+        >
+          <div className="w-full sm:w-[380px] max-h-[52vh] sm:max-h-[480px] sm:mr-5 sm:mb-20 rounded-t-2xl sm:rounded-2xl border border-white/20 bg-[#0c1822]/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden text-white animate-in slide-in-from-bottom duration-200">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 bg-[#0a141d]">
+            <div className="flex items-center justify-between border-b border-white/10 px-3.5 py-2.5 bg-[#0a141d]">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center">
-                  <Flame className="h-4 w-4 text-black fill-black" />
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center">
+                  <Flame className="h-3.5 w-3.5 text-black fill-black" />
                 </div>
                 <div>
-                  <h4 className="font-display font-bold text-sm text-white">Live Cheer Arena</h4>
-                  <p className="text-[10px] text-white/50">Cheer from anywhere on the portal</p>
+                  <h4 className="font-display font-bold text-xs text-white">Live Cheer Arena</h4>
+                  <p className="text-[9px] text-white/50">Cheer live while watching</p>
                 </div>
               </div>
 

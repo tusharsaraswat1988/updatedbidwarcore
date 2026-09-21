@@ -175,25 +175,25 @@ export function PreMatchSetup({
 
   const { battingId, bowlingId } = resolveCricketSideTeamIds(state, match);
   const needsToss =
-    state.innings.length === 0 &&
-    state.matchStatus !== "completed" &&
-    state.matchStatus !== "abandoned";
+    (state?.innings?.length ?? 0) === 0 &&
+    state?.matchStatus !== "completed" &&
+    state?.matchStatus !== "abandoned";
   const needsBattingLineup =
-    battingId != null && (state.lineups[battingId]?.length ?? 0) < 2;
+    battingId != null && (state?.lineups?.[battingId]?.length ?? 0) < 2;
   const needsBowlingLineup =
-    bowlingId != null && (state.lineups[bowlingId]?.length ?? 0) < 1;
+    bowlingId != null && (state?.lineups?.[bowlingId]?.length ?? 0) < 1;
   const needsOpeners =
     !needsToss &&
     !needsBattingLineup &&
     !needsBowlingLineup &&
-    state.strikerId == null &&
-    state.nonStrikerId == null;
+    state?.strikerId == null &&
+    state?.nonStrikerId == null;
   const needsBowler =
     !needsToss &&
     !needsBattingLineup &&
     !needsBowlingLineup &&
     !needsOpeners &&
-    state.bowlerId == null &&
+    state?.bowlerId == null &&
     localBowlerId == null;
 
   if (
@@ -479,12 +479,12 @@ export function PreMatchSetup({
           teamId={battingId}
           teamName={teamName(teams, battingId)}
           players={players}
-          lineup={state.lineups[battingId] ?? []}
+          lineup={state?.lineups?.[battingId] ?? []}
           busy={busy}
           onConfirm={(strikerId, nonStrikerId) =>
             onEvent(CricketEventType.LINEUP_SET, {
               teamId: battingId,
-              playerIds: state.lineups[battingId] ?? [],
+              playerIds: state?.lineups?.[battingId] ?? [],
               battingOrder: [strikerId, nonStrikerId],
             })
           }
@@ -497,7 +497,7 @@ export function PreMatchSetup({
           teamId={bowlingId}
           teamName={teamName(teams, bowlingId)}
           players={players}
-          lineup={state.lineups[bowlingId] ?? []}
+          lineup={state?.lineups?.[bowlingId] ?? []}
           busy={busy}
           onSelect={onBowlerSelected}
         />
@@ -963,12 +963,13 @@ function OpenersPicker({
   onConfirm: (strikerId: number, nonStrikerId: number) => void;
 }) {
   const squad = useMemo(() => {
-    const map = new Map(
-      squadPlayersForTeam(players, teamId).map((p) => [p.id, p]),
-    );
-    return lineup
+    const allSquad = squadPlayersForTeam(players, teamId);
+    if (!lineup || lineup.length === 0) return allSquad;
+    const map = new Map(allSquad.map((p) => [p.id, p]));
+    const matched = lineup
       .map((id) => map.get(id))
       .filter(Boolean) as CricketScorerPlayer[];
+    return matched.length >= 2 ? matched : allSquad;
   }, [players, teamId, lineup]);
 
   const [striker, setStriker] = useState<number | null>(squad[0]?.id ?? null);
@@ -1084,12 +1085,13 @@ function BowlerPicker({
   onSelect: (bowlerId: number) => void;
 }) {
   const squad = useMemo(() => {
-    const map = new Map(
-      squadPlayersForTeam(players, teamId).map((p) => [p.id, p]),
-    );
-    return lineup
+    const allSquad = squadPlayersForTeam(players, teamId);
+    if (!lineup || lineup.length === 0) return allSquad;
+    const map = new Map(allSquad.map((p) => [p.id, p]));
+    const matched = lineup
       .map((id) => map.get(id))
       .filter(Boolean) as CricketScorerPlayer[];
+    return matched.length >= 1 ? matched : allSquad;
   }, [players, teamId, lineup]);
 
   const [bowler, setBowler] = useState<number | null>(squad[0]?.id ?? null);

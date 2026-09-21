@@ -33,11 +33,13 @@ import {
   suggestInningsEndReason,
 } from "@/lib/scoring-match-logic";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import {
   AlertCircle,
   ArrowLeftRight,
   Check,
   CloudRain,
+  Play,
   RotateCcw,
   Sparkles,
   Star,
@@ -93,6 +95,7 @@ type LiveScoringPadProps = {
   pendingNewBatsman: boolean;
   localStrikerId: number | null;
   localNonStrikerId: number | null;
+  dismissedBatters?: number[];
 };
 
 function useDebounceTap(ms = 400) {
@@ -124,7 +127,9 @@ export function LiveScoringPad({
   pendingNewBatsman,
   localStrikerId,
   localNonStrikerId,
+  dismissedBatters,
 }: LiveScoringPadProps) {
+  const { toast } = useToast();
   const lbwEnabled = rules?.lbwEnabled !== false;
   const legByeEnabled = rules?.legByeEnabled !== false;
   const freeHitEnabled = rules?.freeHitEnabled !== false;
@@ -138,6 +143,9 @@ export function LiveScoringPad({
   const [batterRuns, setBatterRuns] = useState<Record<number, number>>({});
   const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<number | null>(null);
 
+  // Local dismissed batters tracker (to immediately exclude dismissed batters without waiting for refetch)
+  const [localDismissedBatters, setLocalDismissedBatters] = useState<number[]>([]);
+
   // Super ball local intent toggle
   const [localSuperBallArmed, setLocalSuperBallArmed] = useState(false);
 
@@ -146,6 +154,7 @@ export function LiveScoringPad({
     setBatterRuns({});
     setRetirePromptPlayerId(null);
     setLocalSuperBallArmed(false);
+    setLocalDismissedBatters([]);
   }, [state.currentInnings]);
 
   const canTap = useDebounceTap();
@@ -179,19 +188,30 @@ export function LiveScoringPad({
     (!!state.superBallPending &&
       state.superBallPending.innings === state.currentInnings);
 
-  // Mirror reducer validation so the button is disabled when the server would reject.
-  const canUseSuperBall = useMemo(() => {
-    if (!superBallEnabled || !innings) return false;
-    if (state.superBallPending) return false;
-    if (
-      (state.superBallUsed[state.currentInnings] ?? []).includes(
-        innings.battingTeamId,
-      )
-    )
-      return false;
-    if (state.powerplayOvers.includes(innings.over + 1)) return false;
-    return true;
-  }, [superBallEnabled, innings, state.superBallPending, state.superBallUsed, state.currentInnings, state.powerplayOvers]);
+  // Super Ball reason calculation for button sublabel and toast feedback
+  const superBallReason = useMemo(() => {
+    if (!superBallEnabled) return "Super Ball is not enabled for this match";
+    if (!innings) return "No active innings";
+    if (state.superBallPending) return "Super Ball already declared";
+    const used = (state.superBallUsed?.[state.currentInnings] ?? []).includes(
+      innings.battingTeamId,
+    );
+    if (used) return "Super Ball already used this innings";
+    const powerplay = state.powerplayOvers ?? [];
+    if (powerplay.includes(innings.over + 1)) {
+      return `Unavailable in Powerplay (Over ${innings.over + 1})`;
+    }
+    return null;
+  }, [
+    superBallEnabled,
+    innings,
+    state.superBallPending,
+    state.superBallUsed,
+    state.currentInnings,
+    state.powerplayOvers,
+  ]);
+
+  const canUseSuperBall = superBallReason === null;
 
   const dlsPreview = useMemo(() => {
     const overs = parseInt(revisedOvers, 10);
@@ -213,7 +233,7 @@ export function LiveScoringPad({
   const battingTeam = teams.find((t) => t.id === battingId);
   const bowlingTeam = teams.find((t) => t.id === bowlingId);
 
-  const battingLineup = battingId ? (state.lineups[battingId] ?? []) : [];
+  const battingLineup = battingId ? (state?.lineups?.[battingId] ?? []) : [];
   const onlyOneBatsmanAvailable =
     !!innings &&
     battingLineup.length > 0 &&
@@ -222,30 +242,62 @@ export function LiveScoringPad({
   const availableBatsmen = useMemo(() => {
     if (!battingId) return [];
     const squad = squadPlayersForTeam(players, battingId);
-    const inXi = new Set(battingLineup);
     const atCrease = new Set(
       [strikerId, nonStrikerId].filter(Boolean) as number[],
     );
-    return squad.filter((p) => inXi.has(p.id) && !atCrease.has(p.id));
-  }, [players, battingId, battingLineup, strikerId, nonStrikerId]);
+    const dismissed = new Set([...(dismissedBatters ?? []), ...localDismissedBatters]);
+
+    const notAtCreaseOrDismissed = squad.filter(
+      (p) => !atCrease.has(p.id) && !dismissed.has(p.id),
+    );
+
+    // If lineup is configured, prioritize players in the lineup
+    if (battingLineup.length > 0) {
+      const inXi = new Set(battingLineup);
+      const xiAvailable = notAtCreaseOrDismissed.filter((p) => inXi.has(p.id));
+      if (xiAvailable.length > 0) {
+        return xiAvailable;
+      }
+    }
+
+    // Fall back to any available squad players
+    return notAtCreaseOrDismissed;
+  }, [
+    players,
+    battingId,
+    battingLineup,
+    strikerId,
+    nonStrikerId,
+    dismissedBatters,
+    localDismissedBatters,
+  ]);
 
   const bowlingSquad = useMemo(() => {
     if (!bowlingId) return [];
-    const lineup = state.lineups[bowlingId] ?? [];
-    const map = new Map(
-      squadPlayersForTeam(players, bowlingId).map((p) => [p.id, p]),
-    );
-    return lineup
-      .map((id) => map.get(id))
-      .filter(Boolean) as CricketScorerPlayer[];
-  }, [players, bowlingId, state.lineups]);
+    const allSquad = squadPlayersForTeam(players, bowlingId);
+    const lineup = state?.lineups?.[bowlingId] ?? [];
+    if (lineup.length > 0) {
+      const map = new Map(allSquad.map((p) => [p.id, p]));
+      const matched = lineup
+        .map((id) => map.get(id))
+        .filter(Boolean) as CricketScorerPlayer[];
+      if (matched.length > 0) return matched;
+    }
+    return allSquad;
+  }, [players, bowlingId, state?.lineups]);
 
   // Record a ball delivery
   async function recordBall(input: BallInput) {
+    if (isPaused) {
+      toast({
+        title: "Match is Paused",
+        description: "Click 'Resume Play' in the top banner before recording balls.",
+      });
+      return;
+    }
     if (
       !canTap() ||
       busy ||
-      isPaused ||
       !innings ||
       !strikerId ||
       (!nonStrikerId && !onlyOneBatsmanAvailable) ||
@@ -278,6 +330,7 @@ export function LiveScoringPad({
     }
 
     if (input.wicket) {
+      setLocalDismissedBatters((prev) => [...prev, input.wicket!.dismissedPlayerId]);
       onNewBatsman(-1);
       setBatterRuns((prev) => {
         const next = { ...prev };
@@ -325,6 +378,8 @@ export function LiveScoringPad({
     setSelectedFielderId(null);
     setRunOutRunsCompleted(0);
 
+    setLocalDismissedBatters((prev) => [...prev, outId!]);
+
     await recordBall({
       runsOffBat,
       extras: { type: null, runs: 0 },
@@ -339,9 +394,18 @@ export function LiveScoringPad({
 
   // Super Ball Toggle
   async function handleToggleSuperBall() {
-    if (!superBallEnabled || !battingId || busy || !canUseSuperBall) return;
+    if (!superBallEnabled || !battingId || busy) return;
     if (state.superBallPending) {
       setLocalSuperBallArmed(false);
+      return;
+    }
+    if (!canUseSuperBall) {
+      if (superBallReason) {
+        toast({
+          title: "Super Ball Unavailable",
+          description: superBallReason,
+        });
+      }
       return;
     }
     if (!localSuperBallArmed) {
@@ -351,8 +415,13 @@ export function LiveScoringPad({
           battingTeamId: battingId,
         });
         setLocalSuperBallArmed(true);
-      } catch {
+      } catch (e) {
         // Server rejected — ensure we don't show stale "ACTIVE" banner.
+        toast({
+          title: "Super Ball declaration failed",
+          description: e instanceof Error ? e.message : "Could not declare Super Ball",
+          variant: "destructive",
+        });
         setLocalSuperBallArmed(false);
       }
     } else {
@@ -522,13 +591,37 @@ export function LiveScoringPad({
   return (
     <div className="flex flex-col h-full justify-between gap-1.5 sm:gap-3 overflow-hidden select-none">
       {isPaused ? (
-        <div className="mx-2 mt-1 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 flex items-center gap-2 text-xs text-sky-100">
-          <CloudRain className="w-3.5 h-3.5 shrink-0 text-sky-300" />
-          <span>
-            Rain delay
-            {state.interruptionReason ? ` — ${state.interruptionReason}` : ""}.
-            Resume play or apply DLS.
-          </span>
+        <div className="mx-2 mt-1 rounded-xl border border-sky-500/40 bg-sky-500/15 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-sky-100 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <CloudRain className="w-4 h-4 shrink-0 text-sky-300 animate-pulse" />
+            <span>
+              <strong>Match Paused</strong> (Rain delay
+              {state.interruptionReason ? ` — ${state.interruptionReason}` : ""}).
+              Keypad is locked until resumed.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 px-3 text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold gap-1 shadow"
+              disabled={busy}
+              onClick={() => onEvent(CricketEventType.MATCH_RESUMED, {})}
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              Resume Play
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs border-sky-400/40 text-sky-200 hover:bg-sky-500/20"
+              disabled={busy}
+              onClick={() => setDlsSheet(true)}
+            >
+              DLS / Overs
+            </Button>
+          </div>
         </div>
       ) : null}
 
@@ -718,24 +811,51 @@ export function LiveScoringPad({
 
       {/* ─── Pending Batter Selection Gate ─── */}
       {pendingNewBatsman ? (
-        <div className="p-4 rounded-2xl border border-primary/40 bg-primary/10 space-y-2.5 shadow-sm">
-          <div className="flex items-center gap-2 text-primary font-bold text-sm">
-            <UserCheck className="w-4 h-4" />
-            <span>Select Next Batter to Crease:</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {availableBatsmen.map((p) => (
+        <div className="p-3.5 sm:p-4 rounded-2xl border border-primary/40 bg-primary/10 space-y-2.5 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-primary font-bold text-sm">
+              <UserCheck className="w-4 h-4" />
+              <span>Select Next Batter to Crease:</span>
+            </div>
+            {availableBatsmen.length === 0 ? (
               <Button
-                key={p.id}
-                variant="outline"
-                className="h-11 text-sm justify-start truncate bg-card/60 hover:bg-card border-primary/30 hover:border-primary font-semibold"
-                disabled={busy}
-                onClick={() => onNewBatsman(p.id)}
+                variant="destructive"
+                size="sm"
+                className="h-7 text-xs font-bold"
+                onClick={async () => {
+                  const suggest = suggestInningsEndReason(state);
+                  await onInningsEnd({
+                    innings: state.currentInnings,
+                    reason: suggest.suggestedReason,
+                    runs: innings.runs,
+                    wickets: innings.wickets,
+                    overs: oversText(innings.over, innings.ball),
+                  });
+                }}
               >
-                {p.name}
+                End Innings
               </Button>
-            ))}
+            ) : null}
           </div>
+          {availableBatsmen.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+              {availableBatsmen.map((p) => (
+                <Button
+                  key={p.id}
+                  variant="outline"
+                  className="h-11 text-sm justify-start truncate bg-card/60 hover:bg-card border-primary/30 hover:border-primary font-semibold"
+                  disabled={busy}
+                  onClick={() => onNewBatsman(p.id)}
+                >
+                  {p.name}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-amber-300/90 py-1">
+              No more batters available (all squad members are at crease or dismissed). You can end this innings now.
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -841,12 +961,19 @@ export function LiveScoringPad({
           {superBallEnabled ? (
             <ScoreButton
               label="⭐"
-              sublabel={isSuperBallActive ? "Active 2x" : "Super Ball"}
+              sublabel={
+                isSuperBallActive
+                  ? "Active 2x"
+                  : superBallReason
+                    ? (superBallReason.includes("Powerplay") ? "In P-Play" : "Locked")
+                    : "Super Ball"
+              }
               variant="super_ball"
-              disabled={busy || pendingNewBatsman || (!canUseSuperBall && !isSuperBallActive)}
+              disabled={busy || pendingNewBatsman}
               onClick={() => void handleToggleSuperBall()}
               className={cn(
                 isSuperBallActive && "ring-2 ring-amber-400 bg-amber-500/30",
+                !canUseSuperBall && !isSuperBallActive && "opacity-60",
               )}
             />
           ) : (
@@ -924,6 +1051,13 @@ export function LiveScoringPad({
             variant="wicket"
             disabled={busy || pendingNewBatsman}
             onClick={() => {
+              if (isPaused) {
+                toast({
+                  title: "Match is Paused",
+                  description: "Click 'Resume Play' in the top banner before recording wickets.",
+                });
+                return;
+              }
               setSelectedWicketType(null);
               setSelectedFielderId(null);
               setWicketSheet(true);
@@ -1363,6 +1497,9 @@ export function LiveScoringPad({
                         setSelectedWicketType(type);
                         // Instant dismiss for bowled/lbw/hit_wicket
                         setWicketSheet(false);
+                        if (strikerId) {
+                          setLocalDismissedBatters((prev) => [...prev, strikerId]);
+                        }
                         void recordBall({
                           runsOffBat: 0,
                           extras: { type: null, runs: 0 },

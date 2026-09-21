@@ -68,7 +68,16 @@ export function StandingsTable({
                   : "border-b border-border/60 last:border-0"
               }
             >
-              <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
+              <td className="px-3 py-2.5 text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  {idx + 1}
+                  {highlightTop > 0 && idx < highlightTop ? (
+                    <span className="text-[10px] font-extrabold uppercase px-1 py-0.2 rounded bg-primary/20 text-primary border border-primary/30" title="Top qualifier spot">
+                      Q
+                    </span>
+                  ) : null}
+                </span>
+              </td>
               <td className="px-3 py-2.5 font-medium">
                 <span className="inline-flex items-center gap-2">
                   {row.color ? (

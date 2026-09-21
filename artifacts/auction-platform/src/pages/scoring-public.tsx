@@ -15,6 +15,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
+import { useListPlayers } from "@workspace/api-client-react";
 import {
   getPublicMatchScorecard,
   getScoringLeaderboard,
@@ -77,8 +78,36 @@ const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: s
 ];
 
 export default function ScoringPublicPage() {
-  const [, params] = useRoute("/tournament/:id/cricket");
-  const tournamentId = parseInt(params?.id || "0");
+  const [, paramsShort1] = useRoute("/:code/fanpage");
+  const [, paramsFanId] = useRoute("/fan/:id");
+  const [, paramsFanpageId] = useRoute("/fanpage/:id");
+  const [, paramsTournFan] = useRoute("/tournament/:id/fan");
+  const [, paramsTournCricket] = useRoute("/tournament/:id/cricket");
+
+  const rawParam =
+    paramsShort1?.code ||
+    paramsFanId?.id ||
+    paramsFanpageId?.id ||
+    paramsTournFan?.id ||
+    paramsTournCricket?.id ||
+    "0";
+
+  const isNumeric = /^\d+$/.test(rawParam);
+  const numericId = isNumeric ? parseInt(rawParam, 10) : 0;
+
+  const { data: codeContext } = useQuery({
+    queryKey: ["tournament-code-context", rawParam],
+    queryFn: async () => {
+      const res = await fetch(`/api/register/${encodeURIComponent(rawParam)}/context`);
+      if (!res.ok) return null;
+      return (await res.json()) as { tournament: { id: number; name: string } };
+    },
+    enabled: !isNumeric && !!rawParam && rawParam !== "0",
+  });
+
+  const tournamentId = numericId || codeContext?.tournament?.id || 0;
+  const { data: playersData } = useListPlayers(tournamentId);
+
   const [lbTab, setLbTab] = useState<LeaderboardCategory>("runs");
   const [standingsView, setStandingsView] = useState<"table" | "bracket">("table");
   const [activeSection, setActiveSection] = useState<TournamentSectionTab>("live");
@@ -228,6 +257,7 @@ export default function ScoringPublicPage() {
       {/* ── Permanent BidWar Header + Event Animations + 4 Top Sections ─ */}
       <TournamentFanHeader
         tournament={t}
+        tournamentCode={!isNumeric ? rawParam : undefined}
         activeSection={activeSection}
         onSelectSection={setActiveSection}
         liveMatch={live[0]}
@@ -249,53 +279,6 @@ export default function ScoringPublicPage() {
         {/* ============================================================== */}
         {activeSection === "live" && (
           <div className="space-y-6 animate-fade-in">
-            {/* Live Contextual Quick-Bar: Venue, Dates, Share & Stream Link */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-white/80">
-                {venue ? (
-                  <span className="inline-flex items-center gap-1.5 font-medium">
-                    <MapPin className="h-3.5 w-3.5 text-emerald-400" />
-                    {venue}
-                  </span>
-                ) : null}
-                {dates ? (
-                  <span className="inline-flex items-center gap-1.5 font-medium text-white/60">
-                    <CalendarDays className="h-3.5 w-3.5 text-emerald-400" />
-                    {dates}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Stream Link & Share Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                {streamUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/50 bg-red-600/30 hover:bg-red-600/50 text-red-200 px-3.5 py-1.5 text-xs font-bold transition-all shadow-lg shadow-red-950/50 active:scale-95"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-red-400 animate-ping" />
-                    <Tv className="h-3.5 w-3.5 text-red-400" />
-                    Watch Live Stream
-                  </button>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/50">
-                    <Tv className="h-3.5 w-3.5 text-white/40" />
-                    Live stream not provided by organizer yet
-                  </span>
-                )}
-
-                {pageUrl ? (
-                  <ShareButtons
-                    url={pageUrl}
-                    shareText={`${shareTitle} — live scores, standings & stats`}
-                    compact
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            {/* Option A: Primary Live Match Scoreboard & Ball Tracker */}
             {live[0] ? (
               <LiveMiniScoreboard
                 tournamentId={tournamentId}
@@ -304,50 +287,24 @@ export default function ScoringPublicPage() {
                 teamMap={teamMap}
                 scorecardData={liveScorecard}
                 streamUrl={streamUrl}
+                tournamentPlayers={playersData}
               />
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                <Calendar className="h-9 w-9 mx-auto text-emerald-400 mb-2 opacity-80" />
-                <p className="font-semibold text-white">No match live right now</p>
-                <p className="text-xs text-white/60 mt-1">
-                  Check upcoming fixtures, schedule, and team standings.
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-8 text-center text-white/70">
+                <Calendar className="h-10 w-10 mx-auto text-emerald-400 mb-3 opacity-80" />
+                <p className="font-bold text-base text-white">No match live right now</p>
+                <p className="text-xs text-white/60 mt-1 max-w-md mx-auto">
+                  There is no match currently in progress. Head over to Upcoming Matches & Stats to view full schedules and standings.
                 </p>
                 <button
                   type="button"
                   onClick={() => setActiveSection("matches_stats")}
-                  className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition-colors"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
                 >
                   View Upcoming Matches & Stats <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
-
-            {/* Today's Active / Live Matches Feed */}
-            {live.length > 0 ? (
-              <section>
-                <div className="flex items-end justify-between gap-3 mb-3">
-                  <h2 className={cricketSectionTitleClass}>Active Matches on Ground</h2>
-                  <Link
-                    href={cricketFanMatchesPath(tournamentId)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    All matches
-                  </Link>
-                </div>
-                <ul className="space-y-2">
-                  {live.map((m) => (
-                    <li key={m.id}>
-                      <PublicMatchCard
-                        tournamentId={tournamentId}
-                        match={m}
-                        teamMap={teamMap}
-                        liveScoreline={m.id === primaryLiveId ? liveScoreline : null}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
           </div>
         )}
 

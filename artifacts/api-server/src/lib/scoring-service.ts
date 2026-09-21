@@ -236,6 +236,97 @@ export async function createScoringMatch(
   return { match, state: initialState };
 }
 
+export async function updateScoringMatch(
+  tournamentId: number,
+  matchId: number,
+  input: {
+    oversLimit?: number;
+    roundName?: string | null;
+    venue?: string | null;
+    scheduledAt?: string | null;
+    homeTeamId?: number;
+    awayTeamId?: number;
+  },
+) {
+  await ensureTournamentScoring(tournamentId);
+
+  const [existing] = await db
+    .select()
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+  }
+
+  if (existing.status !== "scheduled" && existing.status !== "draft") {
+    throw new ScoringServiceError(
+      "Cannot edit a match that has already started or completed",
+      400,
+      "MATCH_ALREADY_STARTED",
+    );
+  }
+
+  const patch: Partial<typeof scoringMatchesTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.roundName !== undefined) patch.roundName = input.roundName;
+  if (input.venue !== undefined) patch.venue = input.venue;
+  if (input.scheduledAt !== undefined) {
+    patch.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
+  }
+  if (input.homeTeamId !== undefined) {
+    await ensureTeamInTournament(tournamentId, input.homeTeamId);
+    patch.homeTeamId = input.homeTeamId;
+    patch.homeSideJson = { teamId: input.homeTeamId };
+  }
+  if (input.awayTeamId !== undefined) {
+    await ensureTeamInTournament(tournamentId, input.awayTeamId);
+    patch.awayTeamId = input.awayTeamId;
+    patch.awaySideJson = { teamId: input.awayTeamId };
+  }
+
+  if (input.oversLimit !== undefined && input.oversLimit > 0) {
+    const prevRules = (existing.rulesJson ?? {}) as Record<string, unknown>;
+    patch.rulesJson = {
+      ...prevRules,
+      overs: input.oversLimit,
+    };
+  }
+
+  await db
+    .update(scoringMatchesTable)
+    .set(patch)
+    .where(eq(scoringMatchesTable.id, matchId));
+
+  // Re-run runtime prepare to freeze/refresh rules & sessions
+  await prepareRuntimeMatch(tournamentId, matchId, null);
+
+  const [refreshed] = await db
+    .select()
+    .from(scoringMatchesTable)
+    .where(eq(scoringMatchesTable.id, matchId))
+    .limit(1);
+
+  const refreshedState = createInitialCricketState(
+    matchMetaFromRow(refreshed ?? existing),
+  );
+
+  await db
+    .update(scoringSessionsTable)
+    .set({ stateJson: refreshedState, updatedAt: new Date() })
+    .where(eq(scoringSessionsTable.matchId, matchId));
+
+  return { match: refreshed ?? existing, state: refreshedState };
+}
+
 function summaryFromMatch(
   match: typeof scoringMatchesTable.$inferSelect,
   state: CricketScoreboardState,

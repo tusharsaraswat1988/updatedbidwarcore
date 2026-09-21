@@ -50,4 +50,16 @@ describe("standings projection inputs", () => {
     expect(rows[0]?.points).toBe(4);
     expect(rows[0]?.won).toBe(2);
   });
+
+  it("correctly identifies knockout and playoff matches", async () => {
+    const { isKnockoutMatch } = await import("../lib/scoring-standings");
+    expect(isKnockoutMatch({ matchTypeId: "knockout" })).toBe(true);
+    expect(isKnockoutMatch({ roundName: "Semi Final 1" })).toBe(true);
+    expect(isKnockoutMatch({ roundName: "Grand Final" })).toBe(true);
+    expect(isKnockoutMatch({ roundName: "Quarter Final 2" })).toBe(true);
+    expect(isKnockoutMatch({ roundName: "Eliminator" })).toBe(true);
+    expect(isKnockoutMatch({ roundName: "Qualifier 1" })).toBe(true);
+    expect(isKnockoutMatch({ roundName: "Group A — Round 1", matchTypeId: "league" })).toBe(false);
+    expect(isKnockoutMatch({ roundName: "Round 2", matchTypeId: "league" })).toBe(false);
+  });
 });

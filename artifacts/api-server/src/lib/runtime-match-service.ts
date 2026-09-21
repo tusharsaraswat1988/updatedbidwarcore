@@ -557,7 +557,16 @@ export async function prepareRuntimeMatch(
     const resolved = engineResult.resolvedRuntimeRules;
     runtimeExecutionPolicy = buildRuntimeExecutionPolicy(resolved);
     const projected = projectRuntimeExecutionPolicyToRulesJson(runtimeExecutionPolicy);
-    rulesJsonUpdate = { ...projected };
+    const existingMatchRules = match.rulesJson as { overs?: number } | null;
+    const matchOvers =
+      typeof existingMatchRules?.overs === "number" && existingMatchRules.overs > 0
+        ? existingMatchRules.overs
+        : undefined;
+
+    rulesJsonUpdate = {
+      ...projected,
+      ...(matchOvers ? { overs: matchOvers } : {}),
+    };
     resolutionId = resolved.resolutionId;
     rulesHash = resolved.rulesHash;
     runtimeRulesVersion = resolved.runtimeRulesVersion;

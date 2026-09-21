@@ -5,6 +5,7 @@ import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware
 import {
   appendScoringEvent,
   createScoringMatch,
+  updateScoringMatch,
   getLiveScoringDisplay,
   getScoringMatch,
   listScoringMatches,
@@ -254,7 +255,11 @@ router.get("/tournaments/:tournamentId/scoring/standings", async (req, res) => {
 
   try {
     const standings = await getScoringStandings(tournamentId);
-    res.json({ standings });
+    res.json({
+      standings,
+      hasGroups: (standings as unknown as { hasGroups?: boolean }).hasGroups ?? false,
+      groups: (standings as unknown as { groups?: unknown[] }).groups ?? [],
+    });
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
@@ -412,6 +417,45 @@ router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   try {
     const result = await createScoringMatch(tournamentId, parsed.data);
     res.status(201).json({
+      match: matchToJson(result.match),
+      state: result.state,
+    });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.patch("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const matchId = parseId(req.params.matchId);
+  if (tournamentId === null || matchId === null) {
+    res.status(400).json({ error: "Invalid tournament or match ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    homeTeamId: z.number().int().positive().optional(),
+    awayTeamId: z.number().int().positive().optional(),
+    oversLimit: z.number().int().positive().max(50).optional(),
+    roundName: z.string().nullable().optional(),
+    scheduledAt: z.string().datetime().nullable().optional(),
+    venue: z.string().nullable().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const result = await updateScoringMatch(tournamentId, matchId, parsed.data);
+    res.json({
       match: matchToJson(result.match),
       state: result.state,
     });
