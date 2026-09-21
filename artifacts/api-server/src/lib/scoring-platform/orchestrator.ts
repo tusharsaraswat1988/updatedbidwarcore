@@ -154,14 +154,30 @@ async function updateCricketMatchAndSession(
     .where(eq(scoringMatchesTable.id, match.id))
     .returning();
 
-  await tx
-    .update(scoringSessionsTable)
-    .set({
+  const [sessionRow] = await tx
+    .select({ id: scoringSessionsTable.id })
+    .from(scoringSessionsTable)
+    .where(eq(scoringSessionsTable.matchId, match.id))
+    .limit(1);
+
+  if (sessionRow) {
+    await tx
+      .update(scoringSessionsTable)
+      .set({
+        status: projection.sessionStatus ?? "idle",
+        stateJson: state as Record<string, unknown>,
+        lastEventSeq: projection.lastEventSeq ?? 0,
+      })
+      .where(eq(scoringSessionsTable.matchId, match.id));
+  } else {
+    await tx.insert(scoringSessionsTable).values({
+      matchId: match.id,
+      tournamentId: match.tournamentId,
       status: projection.sessionStatus ?? "idle",
       stateJson: state as Record<string, unknown>,
       lastEventSeq: projection.lastEventSeq ?? 0,
-    })
-    .where(eq(scoringSessionsTable.matchId, match.id));
+    });
+  }
 
   return updatedMatch;
 }
@@ -273,7 +289,12 @@ export async function appendSingleMatchEvent(
         .where(eq(scoringSessionsTable.matchId, input.matchId))
         .limit(1);
 
-      const currentSeq = getCurrentSequence(session?.lastEventSeq);
+      const events = await loadMatchEvents(input.matchId, undefined, tx);
+      const currentSeq =
+        events.length > 0
+          ? events[events.length - 1]!.sequence
+          : getCurrentSequence(session?.lastEventSeq);
+
       try {
         assertExpectedSequence(input.expectedSequence, currentSeq);
       } catch {
@@ -284,7 +305,6 @@ export async function appendSingleMatchEvent(
         );
       }
 
-      const events = await loadMatchEvents(input.matchId, undefined, tx);
       const currentState = replayScoringMatchState(input.sportSlug, input.matchMeta, events);
       const newSeq = nextSequence(currentSeq);
 

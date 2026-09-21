@@ -304,8 +304,9 @@ export function PreMatchSetup({
         />
       ) : null}
 
-      {/* ─── Step 2B: Bowling Team Squad Lineup ─── */}
-      {needsBowlingLineup &&
+      {/* ─── Step 2B: Bowling Team Squad Lineup (Sequential after Batting) ─── */}
+      {!needsBattingLineup &&
+      needsBowlingLineup &&
       bowlingId &&
       playingSquadSize != null &&
       benchSize != null ? (
@@ -580,8 +581,12 @@ function SquadLineupPicker({
   const [captainId, setCaptainId] = useState<number | null>(null);
   const [wicketKeeperId, setWicketKeeperId] = useState<number | null>(null);
 
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Auto-fill all squad if empty
   function handleAutoFill() {
+    setErrorMessage(null);
     const allIds = squad.map((p) => p.id);
     const xi = allIds.slice(0, playingSquadSize);
     const b = allIds.slice(playingSquadSize, playingSquadSize + benchSize);
@@ -592,6 +597,7 @@ function SquadLineupPicker({
   }
 
   function toggleXi(id: number) {
+    setErrorMessage(null);
     setPlayingXi((prev) => {
       if (prev.includes(id)) {
         setBench((b) => b.filter((x) => x !== id));
@@ -606,12 +612,32 @@ function SquadLineupPicker({
   }
 
   function toggleBench(id: number) {
+    setErrorMessage(null);
     if (playingXi.includes(id)) return;
     setBench((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (prev.length >= benchSize) return prev;
       return [...prev, id];
     });
+  }
+
+  async function handleConfirm() {
+    if (busy || submitting || playingXi.length < 2) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await onConfirm(
+        playingXi,
+        bench,
+        playingXi,
+        captainId,
+        wicketKeeperId,
+      );
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : "Failed to save squad");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const isComplete = playingXi.length === playingSquadSize;
@@ -631,6 +657,7 @@ function SquadLineupPicker({
             variant="outline"
             size="sm"
             className="h-8 text-xs font-semibold gap-1 rounded-xl"
+            disabled={busy || submitting}
             onClick={handleAutoFill}
           >
             <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -676,6 +703,7 @@ function SquadLineupPicker({
                 <label className="flex flex-1 items-center gap-2.5 cursor-pointer min-w-0">
                   <Checkbox
                     checked={inXi}
+                    disabled={busy || submitting}
                     onCheckedChange={() => toggleXi(p.id)}
                   />
                   <ScoringPlayerAvatar
@@ -700,6 +728,7 @@ function SquadLineupPicker({
                       {/* Captain Toggle */}
                       <button
                         type="button"
+                        disabled={busy || submitting}
                         onClick={() => setCaptainId(isC ? null : p.id)}
                         className={cn(
                           "w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center transition-all",
@@ -715,6 +744,7 @@ function SquadLineupPicker({
                       {/* Wicketkeeper Toggle */}
                       <button
                         type="button"
+                        disabled={busy || submitting}
                         onClick={() => setWicketKeeperId(isWk ? null : p.id)}
                         className={cn(
                           "w-8 h-7 rounded-lg text-xs font-black flex items-center justify-center transition-all",
@@ -730,6 +760,7 @@ function SquadLineupPicker({
                   ) : (
                     <button
                       type="button"
+                      disabled={busy || submitting}
                       onClick={() => toggleBench(p.id)}
                       className={cn(
                         "px-2 py-1 rounded-lg text-[10px] font-bold uppercase transition-all",
@@ -748,20 +779,25 @@ function SquadLineupPicker({
         </ul>
       )}
 
+      {errorMessage ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {errorMessage}
+        </div>
+      ) : null}
+
       <Button
         className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
-        disabled={busy || playingXi.length < 2}
-        onClick={() =>
-          void onConfirm(
-            playingXi,
-            bench,
-            playingXi,
-            captainId,
-            wicketKeeperId,
-          )
-        }
+        disabled={busy || submitting || playingXi.length < 2}
+        onClick={() => void handleConfirm()}
       >
-        Confirm {playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`} ({playingXi.length} Selected)
+        {submitting ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Saving Squad…
+          </span>
+        ) : (
+          `Confirm ${playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`} (${playingXi.length} Selected)`
+        )}
       </Button>
     </section>
   );

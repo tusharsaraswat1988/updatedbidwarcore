@@ -206,37 +206,86 @@ export default function ScoringMatchPage() {
       setBusy(true);
       const correlationId = crypto.randomUUID();
       try {
-        const result = await appendScoringEvent(tournamentId, matchId, {
-          eventType,
-          payload,
-          expectedSequence: sequenceRef.current,
-          correlationId,
-        });
-        sequenceRef.current = result.state.lastSequence;
-        applyDetail({
-          match: result.match,
-          state: result.state,
-          eventCount: data.eventCount + 1,
-          lastSequence: result.state.lastSequence,
-        });
-        setLocalStrikerId(null);
-        setLocalNonStrikerId(null);
-        if (result.state.strikerId == null || result.state.nonStrikerId == null) {
-          setPendingNewBatsman(true);
+        let result: (ScoringMatchDetail & { event: { id: number; eventType: string; sequence: number } }) | null = null;
+        try {
+          result = await appendScoringEvent(tournamentId, matchId, {
+            eventType,
+            payload,
+            expectedSequence: sequenceRef.current,
+            correlationId,
+          });
+        } catch (initialError) {
+          const err = initialError as Error & { status?: number };
+          // Auto-retry once for setup/lineup events if a sequence conflict occurs
+          if (
+            err.status === 409 &&
+            (eventType === CricketEventType.LINEUP_SET ||
+              eventType === CricketEventType.MATCH_STARTED)
+          ) {
+            const refreshed = await refetch();
+            const nextSeq =
+              refreshed.data?.lastSequence ??
+              refreshed.data?.state?.lastSequence ??
+              0;
+            sequenceRef.current = nextSeq;
+            result = await appendScoringEvent(tournamentId, matchId, {
+              eventType,
+              payload,
+              expectedSequence: nextSeq,
+              correlationId: crypto.randomUUID(),
+            });
+          } else {
+            throw initialError;
+          }
         }
-        await drainQueue();
+
+        if (result) {
+          sequenceRef.current = result.state.lastSequence;
+          applyDetail({
+            match: result.match,
+            state: result.state,
+            eventCount: data.eventCount + 1,
+            lastSequence: result.state.lastSequence,
+          });
+          setLocalStrikerId(null);
+          setLocalNonStrikerId(null);
+          if (result.state.strikerId == null || result.state.nonStrikerId == null) {
+            setPendingNewBatsman(true);
+          }
+          await drainQueue();
+        }
       } catch (e) {
         const err = e as Error & { status?: number };
         if (err.status === 409) {
           const refreshed = await refetch();
           if (refreshed.data) {
-            sequenceRef.current = refreshed.data.state.lastSequence;
+            sequenceRef.current =
+              refreshed.data.lastSequence ??
+              refreshed.data.state.lastSequence ??
+              0;
           }
-          toast({
-            title: "Score conflict",
-            description: "Match refreshed to the latest score. Re-enter the ball only if it is missing.",
-            variant: "destructive",
-          });
+          if (eventType === CricketEventType.BALL_RECORDED) {
+            toast({
+              title: "Score conflict",
+              description: "Match refreshed to the latest score. Re-enter the ball only if it is missing.",
+              variant: "destructive",
+            });
+          } else if (
+            eventType === CricketEventType.LINEUP_SET ||
+            eventType === CricketEventType.MATCH_STARTED
+          ) {
+            toast({
+              title: "Match state updated",
+              description: err.message || "Match refreshed to latest state. Please verify and confirm again.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Update conflict",
+              description: err.message || "Match refreshed to latest score.",
+              variant: "destructive",
+            });
+          }
         } else if (isNetworkScoringError(e)) {
           await enqueueScoringEvent({
             tournamentId,
