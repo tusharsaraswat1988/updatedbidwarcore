@@ -53,6 +53,7 @@ export async function exportCricketRosterToExcel({
     throw new Error("No players available to export.");
   }
 
+  const sortedPlayers = [...players].sort((a, b) => (a.serialNo ?? a.id) - (b.serialNo ?? b.id));
   const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
   const teamById = new Map<number, Team>();
@@ -78,7 +79,7 @@ export async function exportCricketRosterToExcel({
     // Single Team Excel
     const team = teamById.get(scope);
     const teamName = team?.name || `Team #${scope}`;
-    const teamPlayers = players.filter((p) => p.teamId === scope);
+    const teamPlayers = sortedPlayers.filter((p) => p.teamId === scope);
     const rows = teamPlayers.map((p, idx) => buildPlayerRow(p, teamName, catMap, idx));
     const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ "Player Name": "No players in team" }]);
     ws["!cols"] = colWidths;
@@ -91,7 +92,7 @@ export async function exportCricketRosterToExcel({
 
   if (scope === "multi-sheet") {
     // Multi-sheet Excel: One sheet per team + unassigned + all players
-    const allRows = players.map((p, idx) => {
+    const allRows = sortedPlayers.map((p, idx) => {
       const t = p.teamId != null ? teamById.get(p.teamId) : undefined;
       return buildPlayerRow(p, t?.name || "Unassigned", catMap, idx);
     });
@@ -102,7 +103,7 @@ export async function exportCricketRosterToExcel({
     const usedSheetNames = new Set<string>(["All Players"]);
 
     for (const team of teams) {
-      const teamPlayers = players.filter((p) => p.teamId === team.id);
+      const teamPlayers = sortedPlayers.filter((p) => p.teamId === team.id);
       const rows = teamPlayers.map((p, idx) => buildPlayerRow(p, team.name, catMap, idx));
       const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ "Player Name": "No players" }]);
       ws["!cols"] = colWidths;
@@ -115,7 +116,7 @@ export async function exportCricketRosterToExcel({
       XLSX.utils.book_append_sheet(wb, ws, sName);
     }
 
-    const unassigned = players.filter((p) => p.teamId == null);
+    const unassigned = sortedPlayers.filter((p) => p.teamId == null);
     if (unassigned.length > 0) {
       const rows = unassigned.map((p, idx) => buildPlayerRow(p, "Unassigned", catMap, idx));
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -129,7 +130,7 @@ export async function exportCricketRosterToExcel({
   }
 
   // Scope: "all" — Single sheet with all players
-  const allRows = players.map((p, idx) => {
+  const allRows = sortedPlayers.map((p, idx) => {
     const t = p.teamId != null ? teamById.get(p.teamId) : undefined;
     return buildPlayerRow(p, t?.name || "Unassigned", catMap, idx);
   });
@@ -307,6 +308,8 @@ export async function exportCricketRosterToPdf({
     currentY += rowHeight;
   }
 
+  const sortedPlayers = [...players].sort((a, b) => (a.serialNo ?? a.id) - (b.serialNo ?? b.id));
+
   // Render content based on scope
   const dateStr = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
@@ -314,7 +317,7 @@ export async function exportCricketRosterToPdf({
     // Single Team PDF
     const team = teamById.get(scope);
     const teamName = team?.name || `Team #${scope}`;
-    const teamPlayers = players.filter((p) => p.teamId === scope);
+    const teamPlayers = sortedPlayers.filter((p) => p.teamId === scope);
 
     drawDocHeader(`${tournamentName} — ${teamName}`, `Official Squad Roster · Generated on ${dateStr}`);
     drawTeamHeader(teamName, team?.shortCode, teamPlayers.length);
@@ -342,18 +345,18 @@ export async function exportCricketRosterToPdf({
   }
 
   // All Teams PDF
-  drawDocHeader(tournamentName, `Complete Tournament Scoring Roster · Total ${players.length} Players · ${dateStr}`);
+  drawDocHeader(tournamentName, `Complete Tournament Scoring Roster · Total ${sortedPlayers.length} Players · ${dateStr}`);
 
   // Group by team
   for (const team of teams) {
-    const teamPlayers = players.filter((p) => p.teamId === team.id);
+    const teamPlayers = sortedPlayers.filter((p) => p.teamId === team.id);
     if (teamPlayers.length === 0) continue;
     drawTeamHeader(team.name, team.shortCode, teamPlayers.length);
     teamPlayers.forEach((p, idx) => drawPlayerRow(p, idx));
     currentY += 4; // spacing between teams
   }
 
-  const unassigned = players.filter((p) => p.teamId == null);
+  const unassigned = sortedPlayers.filter((p) => p.teamId == null);
   if (unassigned.length > 0) {
     drawTeamHeader("Players without Team", undefined, unassigned.length);
     unassigned.forEach((p, idx) => drawPlayerRow(p, idx));

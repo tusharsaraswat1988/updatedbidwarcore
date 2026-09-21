@@ -378,7 +378,7 @@ export default function CricketPlayersPage() {
       buckets.set(key, list);
     }
     for (const list of buckets.values()) {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => (a.serialNo ?? a.id) - (b.serialNo ?? b.id));
     }
     return [...buckets.entries()].sort(([a], [b]) => {
       if (a === UNASSIGNED_KEY) return 1;
