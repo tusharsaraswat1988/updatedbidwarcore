@@ -3,9 +3,9 @@
  * Editable roster with search + filters; team names highlighted by team color.
  * Route: /tournament/:id/score/players
  */
-import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRoute } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getGetTournamentQueryKey,
   getListCategoriesQueryKey,
@@ -45,6 +45,7 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { handoffAuctionParticipantsToSports } from "@/lib/scoring-api";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import {
   isScoringPlayerRegistration,
   parseRegistrationCategoryMode,
@@ -63,6 +64,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -73,15 +81,24 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import {
+  CalendarX,
+  Check,
+  CheckCircle2,
   ChevronDown,
+  Copy,
   Download,
+  ExternalLink,
   FileSpreadsheet,
   FileText,
   LayoutGrid,
   LayoutList,
+  Link2,
   Loader2,
+  Lock,
+  MessageCircle,
   Pencil,
   Plus,
+  Settings,
   Trash2,
   Upload,
   UserMinus,
@@ -239,6 +256,8 @@ export default function CricketPlayersPage() {
   const [bowlingFilter, setBowlingFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [regSettingsOpen, setRegSettingsOpen] = useState(false);
+  const [regCopied, setRegCopied] = useState(false);
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -248,6 +267,40 @@ export default function CricketPlayersPage() {
   const scoringMode = isScoringPlayerRegistration(tournament?.playerRegistrationMode);
   const categoryMode = parseRegistrationCategoryMode(tournament?.registrationCategoryMode);
   const showCategoryControls = shouldShowOrganizerCategoryControls(categoryMode);
+
+  const regUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const code = tournament?.auctionCode;
+    if (!code) return "";
+    return playerRegistrationShareUrl(window.location.origin, code);
+  }, [tournament?.auctionCode]);
+
+  const { data: regStatus } = useQuery({
+    queryKey: ["registration-status", tournamentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tournaments/${tournamentId}/registration-status`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{
+        open: boolean;
+        reason?: string | null;
+        currentCount: number;
+        limit?: number | null;
+      }>;
+    },
+    enabled: !!tournamentId,
+  });
+
+  const handleCopyLink = useCallback(async () => {
+    if (!regUrl) return;
+    try {
+      await navigator.clipboard.writeText(regUrl);
+      setRegCopied(true);
+      toast({ title: "Link copied to clipboard" });
+      setTimeout(() => setRegCopied(false), 2000);
+    } catch {
+      toast({ title: "Failed to copy link", variant: "destructive" });
+    }
+  }, [regUrl, toast]);
 
   const { data: players = [], isLoading: playersLoading } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled },
@@ -686,6 +739,13 @@ export default function CricketPlayersPage() {
         subtitle="Sports roster — search, filter, and edit scoring fields"
         actions={
           <div className="flex flex-wrap gap-2">
+            <BtnSecondary
+              disabled={!scoringActive || !tournament?.auctionCode}
+              onClick={() => setRegSettingsOpen(true)}
+            >
+              <Link2 className="w-4 h-4" />
+              Registration Link
+            </BtnSecondary>
             <BtnSecondary disabled={!scoringActive || importBusy} onClick={() => void handleImport()}>
               <Upload className="w-4 h-4" />
               {importBusy ? "Importing…" : "Import from Auction"}
@@ -1551,6 +1611,75 @@ export default function CricketPlayersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share Registration Link Dialog */}
+      <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
+        <DialogContent className="max-w-lg dark">
+          <DialogHeader>
+            <DialogTitle>Share Player Registration Link</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Share this link with players so they can register directly for this cricket tournament and select their team.
+          </p>
+          {regStatus && (
+            <div className="pt-1">
+              {regStatus.open ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2.5 py-0.5">
+                  <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
+                </span>
+              ) : regStatus.reason === "deadline_passed" ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                  <CalendarX className="w-3 h-3" /> Closed — deadline passed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                  <Lock className="w-3 h-3" /> Closed — limit reached
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3">
+            {regUrl ? (
+              <>
+                <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => void handleCopyLink()}>
+                  {regCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {regCopied ? "Copied" : "Copy link"}
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                  <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our cricket tournament: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="w-3 h-3 text-emerald-400" /> WhatsApp
+                  </a>
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
+                  <ExternalLink className="w-3 h-3" /> Open
+                </Button>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Registration link is unavailable until this tournament has a registration code.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              asChild
+            >
+              <a href={`/tournament/${tournamentId}/score/settings#registration`}>
+                <Settings className="w-3.5 h-3.5" />
+                Registration Settings
+              </a>
+            </Button>
+            <Button type="button" onClick={() => setRegSettingsOpen(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </CricketOrganizerPageShell>
   );
 }

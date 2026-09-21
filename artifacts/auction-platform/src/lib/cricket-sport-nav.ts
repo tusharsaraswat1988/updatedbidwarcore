@@ -171,11 +171,16 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     id: "standings",
     label: "Standings & Stats",
     href: cricketStandingsOpsPath,
-    isActive: (path) => scoreSection(path, "standings") || scoreSection(path, "stats"),
+    isActive: (path) =>
+      scoreSection(path, "standings") ||
+      scoreSection(path, "stats") ||
+      scoreSection(path, "reports") ||
+      scoreSection(path, "awards"),
     icon: Trophy,
     preload: () => {
       preloadNav("standings");
       preloadNav("stats");
+      preloadNav("reports");
     },
     children: [
       {
@@ -192,6 +197,13 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
         isActive: (path) => scoreSection(path, "stats"),
         preload: () => preloadNav("stats"),
       },
+      {
+        id: "stats-reports",
+        label: "Reports & Awards",
+        href: cricketReportsPath,
+        isActive: (path) => scoreSection(path, "reports") || scoreSection(path, "awards"),
+        preload: () => preloadNav("reports"),
+      },
     ],
   },
   {
@@ -201,9 +213,7 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     isActive: (path) =>
       scoreSection(path, "settings") ||
       scoreSection(path, "rules") ||
-      scoreSection(path, "officials") ||
-      scoreSection(path, "awards") ||
-      scoreSection(path, "reports"),
+      scoreSection(path, "officials"),
     icon: Settings,
     preload: () => preloadNav("settings"),
     children: [
@@ -227,13 +237,6 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
         href: cricketOfficialsPath,
         isActive: (path) => scoreSection(path, "officials"),
         preload: () => preloadNav("officials"),
-      },
-      {
-        id: "settings-reports",
-        label: "Reports & Awards",
-        href: cricketReportsPath,
-        isActive: (path) => scoreSection(path, "reports") || scoreSection(path, "awards"),
-        preload: () => preloadNav("reports"),
       },
     ],
   },

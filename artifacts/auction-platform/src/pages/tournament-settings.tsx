@@ -1085,108 +1085,35 @@ export default function TournamentSettings() {
         {activeSection === "playerRegistration" && (
           <SettingsTabPanel>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Card 1: Registration Mode & Limits */}
+              {/* Card 1: Form Deadlines & Capacity */}
               <SettingsCard
-                title="Registration Mode & Limits"
-                description="Choose player pool type and set optional registration limits."
-                icon={<UserPlus className="w-4 h-4 text-primary" />}
+                title="Form Deadlines & Capacity"
+                description="Set optional registration end date and maximum participant limit."
+                icon={<CalendarIcon className="w-4 h-4 text-primary" />}
                 className={fieldWrapClass("registration")}
               >
-                <div className="space-y-4">
-                  {/* Mode Selector */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-foreground/90">Registration Type</Label>
-                    <RadioGroup
-                      value={(editForm.playerRegistrationMode as string) || "auction"}
-                      onValueChange={(v) => setEditForm((f) => ({
-                        ...f,
-                        playerRegistrationMode: parsePlayerRegistrationMode(v) as PlayerRegistrationMode,
-                      }))}
-                      className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
-                    >
-                      <label className={`flex items-start gap-2.5 rounded-lg border p-3 cursor-pointer transition-all ${
-                        (editForm.playerRegistrationMode || "auction") === "auction"
-                          ? "border-primary/50 bg-primary/5 text-foreground ring-1 ring-primary/20"
-                          : "border-border/60 bg-muted/10 hover:bg-muted/20 text-muted-foreground"
-                      }`}>
-                        <RadioGroupItem value="auction" className="mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <span className="block text-xs font-semibold text-foreground">Auction Pool</span>
-                          <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                            Players enter bidding pool with base prices &amp; purse tracking.
-                          </span>
-                        </div>
-                      </label>
-                      <label className={`flex items-start gap-2.5 rounded-lg border p-3 cursor-pointer transition-all ${
-                        editForm.playerRegistrationMode === "scoring"
-                          ? "border-primary/50 bg-primary/5 text-foreground ring-1 ring-primary/20"
-                          : "border-border/60 bg-muted/10 hover:bg-muted/20 text-muted-foreground"
-                      }`}>
-                        <RadioGroupItem value="scoring" className="mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <span className="block text-xs font-semibold text-foreground">Scoring Only</span>
-                          <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                            Direct match registration for fixtures (no live bidding).
-                          </span>
-                        </div>
-                      </label>
-                    </RadioGroup>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground/80">Last Date to Register</Label>
+                    <Input
+                      type="date"
+                      value={editForm.registrationDeadline as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))}
+                      className="h-9 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Auto-closes after this date.</p>
                   </div>
-
-                  {/* If Scoring Mode: Categories */}
-                  {editForm.playerRegistrationMode === "scoring" ? (
-                    <div className="space-y-1.5 p-3 rounded-lg border border-border/60 bg-muted/15">
-                      <Label className="text-xs font-medium">Divisions / Category Policy</Label>
-                      <Select
-                        value={(editForm.registrationCategoryMode as string) || "hidden"}
-                        onValueChange={(v) => setEditForm((f) => ({
-                          ...f,
-                          registrationCategoryMode: parseRegistrationCategoryMode(v) as RegistrationCategoryMode,
-                        }))}
-                      >
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent className="dark">
-                          <SelectItem value="hidden">Disabled — hide category on form</SelectItem>
-                          <SelectItem value="player_select">Player selects category (optional)</SelectItem>
-                          <SelectItem value="organizer_assign">Organizer assigns category later</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : null}
-
-                  {/* Registration Limits */}
-                  <div className="pt-2 border-t border-border/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                        <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                        Form Deadlines &amp; Capacity
-                      </span>
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">Optional</Badge>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium text-foreground/80">Last Date to Register</Label>
-                        <Input
-                          type="date"
-                          value={editForm.registrationDeadline as string || ""}
-                          onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))}
-                          className="h-9 text-xs"
-                        />
-                        <p className="text-[10px] text-muted-foreground">Auto-closes after this date.</p>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium text-foreground/80">Max Registrations</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={editForm.registrationLimit as string || ""}
-                          onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
-                          placeholder="e.g. 100"
-                          className="h-9 text-xs"
-                        />
-                        <p className="text-[10px] text-muted-foreground">Auto-closes when limit reached.</p>
-                      </div>
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground/80">Max Registrations</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editForm.registrationLimit as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
+                      placeholder="e.g. 100"
+                      className="h-9 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Auto-closes when limit reached.</p>
                   </div>
                 </div>
               </SettingsCard>
@@ -1320,120 +1247,130 @@ export default function TournamentSettings() {
                 </div>
               </SettingsCard>
 
-              {/* Card 4: Bid Value Mode (Auction Mode Only) */}
-              {editForm.playerRegistrationMode !== "scoring" ? (
-                <SettingsCard
-                  title="Player Base Price Mode"
-                  description="System-wide minimum bid or custom player-selected base price options."
-                  icon={<IndianRupee className="w-4 h-4 text-amber-400" />}
-                >
-                  <div className="space-y-3.5">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-foreground/90">Assignment Mode</Label>
-                      <Select
-                        value={(editForm.bidValueMode as string) || "system"}
-                        onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
-                      >
-                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent className="dark">
-                          <SelectItem value="system">System Default (Tournament Min Bid)</SelectItem>
-                          <SelectItem value="player">Player Selected (Choice of Base Values)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[10px] text-muted-foreground">
-                        {editForm.bidValueMode === "player"
-                          ? "Players choose their base price from allowed values during registration."
-                          : "Every player starts at tournament minimum bid price."}
-                      </p>
-                    </div>
-
-                    {editForm.bidValueMode === "player" ? (
-                      <div className="space-y-2.5 pt-2 border-t border-border/50">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-semibold text-foreground">Allowed Base Values (₹)</Label>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs px-2.5 gap-1"
-                            onClick={() => setBidValueOptions((opts) => [...opts, 0])}
-                          >
-                            + Add Value
-                          </Button>
-                        </div>
-                        {bidValueOptions.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic py-1">Add at least one value for players to choose from.</p>
-                        ) : (
-                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                            {bidValueOptions.map((value, i) => (
-                              <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg border border-border/60 bg-muted/15">
-                                <span className="text-[11px] font-medium text-muted-foreground w-6 shrink-0 text-center">
-                                  #{i + 1}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    value={value || ""}
-                                    onChange={(e) => {
-                                      const next = Number(e.target.value) || 0;
-                                      setBidValueOptions((opts) => opts.map((v, j) => (j === i ? next : v)));
-                                    }}
-                                    placeholder="e.g. 5000"
-                                    className="h-8 text-xs font-mono"
-                                  />
-                                </div>
-                                <IndianAmountHint value={value} className="text-[10px] hidden sm:inline shrink-0" />
-                                <div className="flex items-center shrink-0">
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    disabled={i === 0}
-                                    onClick={() => setBidValueOptions((opts) => {
-                                      if (i === 0) return opts;
-                                      const next = [...opts];
-                                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
-                                      return next;
-                                    })}
-                                  >
-                                    <ArrowUp className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    disabled={i === bidValueOptions.length - 1}
-                                    onClick={() => setBidValueOptions((opts) => {
-                                      if (i >= opts.length - 1) return opts;
-                                      const next = [...opts];
-                                      [next[i], next[i + 1]] = [next[i + 1], next[i]];
-                                      return next;
-                                    })}
-                                  >
-                                    <ArrowDown className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                    onClick={() => setBidValueOptions((opts) => opts.filter((_, j) => j !== i))}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
+              {/* Card 4: Bid Value Mode */}
+              <SettingsCard
+                title="Player Base Price Mode"
+                description="System-wide minimum bid or custom player-selected base price options."
+                icon={<IndianRupee className="w-4 h-4 text-amber-400" />}
+              >
+                <div className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground/90">Assignment Mode</Label>
+                    <Select
+                      value={(editForm.bidValueMode as string) || "system"}
+                      onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
+                    >
+                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent className="dark">
+                        <SelectItem value="system">System Default (Tournament Min Bid)</SelectItem>
+                        <SelectItem value="player">Player Selected (Choice of Base Values)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      {editForm.bidValueMode === "player"
+                        ? "Players choose their base price from allowed values during registration."
+                        : "Every player starts at tournament minimum bid price."}
+                    </p>
                   </div>
-                </SettingsCard>
-              ) : null}
+
+                  {editForm.bidValueMode === "player" ? (
+                    <div className="space-y-2.5 pt-2 border-t border-border/50">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-foreground">Allowed Base Values (₹)</Label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => {
+                            const last = bidValueOptions[bidValueOptions.length - 1] ?? 500;
+                            setBidValueOptions((opts) => [...opts, last + 500]);
+                          }}
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Value
+                        </Button>
+                      </div>
+
+                      {bidValueOptions.length === 0 ? (
+                        <p className="text-xs text-amber-400/90 italic">
+                          Add at least one base value option for players to choose.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {bidValueOptions.map((val, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground w-5 text-right shrink-0">
+                                #{i + 1}
+                              </span>
+                              <div className="relative flex-1">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
+                                  ₹
+                                </span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={val}
+                                  onChange={(e) => {
+                                    const num = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setBidValueOptions((opts) => {
+                                      const next = [...opts];
+                                      next[i] = num;
+                                      return next;
+                                    });
+                                  }}
+                                  className="h-8 pl-6 text-xs font-mono"
+                                />
+                              </div>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  disabled={i === 0}
+                                  onClick={() => setBidValueOptions((opts) => {
+                                    if (i === 0) return opts;
+                                    const next = [...opts];
+                                    [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                    return next;
+                                  })}
+                                >
+                                  <ArrowUp className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  disabled={i === bidValueOptions.length - 1}
+                                  onClick={() => setBidValueOptions((opts) => {
+                                    if (i === bidValueOptions.length - 1) return opts;
+                                    const next = [...opts];
+                                    [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                    return next;
+                                  })}
+                                >
+                                  <ArrowDown className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setBidValueOptions((opts) => opts.filter((_, j) => j !== i))}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </SettingsCard>
 
               {/* Card 5: Declaration & Consent (Full Width) */}
               <SettingsCard

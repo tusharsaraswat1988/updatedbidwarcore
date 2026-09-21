@@ -38,9 +38,11 @@ function navActive(location: string, tournamentId: number, key: (typeof NAV_ITEM
 export function CricketFanNav({
   tournamentId,
   liveMatchId,
+  streamUrl,
 }: {
   tournamentId: number;
   liveMatchId?: number | null;
+  streamUrl?: string | null;
 }) {
   const [location] = useLocation();
 
@@ -51,13 +53,30 @@ export function CricketFanNav({
     >
       <div className="rounded-xl border border-border/80 bg-card/85 backdrop-blur-md shadow-sm">
         {liveMatchId ? (
-          <Link
-            href={cricketFanMatchPath(tournamentId, liveMatchId)}
-            className="flex items-center gap-2 border-b border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-emerald-400 hover:bg-emerald-500/15 transition-colors"
-          >
-            <CircleDot className="h-3.5 w-3.5 animate-pulse" />
-            Live match in progress — watch now
-          </Link>
+          <div className="flex items-center justify-between border-b border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+            <Link
+              href={cricketFanMatchPath(tournamentId, liveMatchId)}
+              className="flex items-center gap-2 hover:underline transition-colors"
+            >
+              <CircleDot className="h-3.5 w-3.5 animate-pulse text-emerald-400" />
+              Live match in progress — watch now
+            </Link>
+
+            {streamUrl ? (
+              <button
+                type="button"
+                onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
+                className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-500 px-3 py-1 text-[11px] font-bold text-white transition-colors shadow-sm"
+              >
+                <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+                Watch Stream
+              </button>
+            ) : (
+              <span className="hidden sm:inline-block text-[11px] text-emerald-300/70 font-normal lowercase tracking-normal">
+                (stream link not provided by organizer yet)
+              </span>
+            )}
+          </div>
         ) : null}
         <div
           className="flex items-center gap-1 overflow-x-auto px-2 py-2 scrollbar-none"
@@ -91,17 +110,27 @@ export function CricketFanNav({
 export function CricketFanExperienceShell({
   tournamentId,
   liveMatchId,
+  streamUrl,
+  hideNav = false,
   children,
   maxWidth = "max-w-5xl",
 }: {
   tournamentId: number;
   liveMatchId?: number | null;
+  streamUrl?: string | null;
+  hideNav?: boolean;
   children: ReactNode;
   maxWidth?: string;
 }) {
   return (
     <CricketPublicShell maxWidth={maxWidth} className="public-tournament-experience">
-      <CricketFanNav tournamentId={tournamentId} liveMatchId={liveMatchId} />
+      {!hideNav && (
+        <CricketFanNav
+          tournamentId={tournamentId}
+          liveMatchId={liveMatchId}
+          streamUrl={streamUrl}
+        />
+      )}
       {children}
     </CricketPublicShell>
   );

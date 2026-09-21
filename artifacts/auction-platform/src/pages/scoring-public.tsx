@@ -1,9 +1,22 @@
 import { useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { CircleDot, MapPin, CalendarDays, Layers } from "lucide-react";
+import {
+  CircleDot,
+  MapPin,
+  CalendarDays,
+  Layers,
+  Trophy,
+  Tv,
+  Flame,
+  MessageCircle,
+  Calendar,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import {
+  getPublicMatchScorecard,
   getScoringLeaderboard,
   getScoringLive,
   getScoringStandings,
@@ -14,6 +27,17 @@ import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
 import { ShareButtons } from "@/components/scoring/share-buttons";
 import { PublicMatchCard } from "@/components/scoring/public-match-card";
 import { PublicSponsorsStrip, parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
+import { LiveMiniScoreboard } from "@/components/scoring/live-mini-scoreboard";
+import {
+  FanCheerFloatingWidget,
+  FanArenaSection,
+  useFanCheerState,
+} from "@/components/scoring/fan-cheer-chat";
+import {
+  TournamentFanHeader,
+  type TournamentSectionTab,
+} from "@/components/scoring/tournament-fan-header";
+import { TournamentBracketTree } from "@/components/scoring/tournament-bracket-tree";
 import {
   CricketFanEmpty,
   CricketFanExperienceShell,
@@ -29,9 +53,6 @@ import {
   cricketFanMatchesPath,
   cricketFanStandingsPath,
   cricketFanStatisticsPath,
-  cricketFanTeamsPath,
-  cricketFanPlayersPath,
-  cricketFanSponsorsPath,
   cricketFanMatchPath,
   cricketPublicPath,
 } from "@/lib/tournament-navigation";
@@ -44,7 +65,7 @@ import {
   venueLabel,
 } from "@/lib/public-tournament-utils";
 import { cn } from "@/lib/utils";
-import type { LeaderboardCategory } from "@workspace/scoring-core";
+import type { LeaderboardCategory, CricketScoreboardState } from "@workspace/scoring-core";
 
 const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: string }[] = [
   { key: "runs", label: "Runs", valueLabel: "Runs" },
@@ -59,6 +80,8 @@ export default function ScoringPublicPage() {
   const [, params] = useRoute("/tournament/:id/cricket");
   const tournamentId = parseInt(params?.id || "0");
   const [lbTab, setLbTab] = useState<LeaderboardCategory>("runs");
+  const [standingsView, setStandingsView] = useState<"table" | "bracket">("table");
+  const [activeSection, setActiveSection] = useState<TournamentSectionTab>("live");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["scoring-public", tournamentId],
@@ -102,6 +125,13 @@ export default function ScoringPublicPage() {
     refetchInterval: 8000,
   });
 
+  const { data: liveScorecard } = useQuery({
+    queryKey: ["scoring-scorecard-live", tournamentId, primaryLiveId],
+    queryFn: () => getPublicMatchScorecard(tournamentId, primaryLiveId!),
+    enabled: !!tournamentId && primaryLiveId != null,
+    refetchInterval: 10000,
+  });
+
   const teamMap = useMemo(
     () => new Map(((data?.teams ?? []) as PublicTeam[]).map((t) => [t.id, t])),
     [data?.teams],
@@ -116,6 +146,29 @@ export default function ScoringPublicPage() {
   const venue = data?.tournament ? venueLabel(data.tournament) : null;
   const top4 = (standings ?? []).slice(0, 4);
   const activeLb = LEADERBOARD_TABS.find((t) => t.key === lbTab);
+
+  // Live streaming destination URL — NEVER fallback to OBS; only direct link if provided by organizer
+  const streamUrl = useMemo(() => {
+    const direct =
+      live[0]?.streamUrl ||
+      data?.tournament?.streamUrl ||
+      data?.tournament?.liveStreamUrl;
+    return direct && typeof direct === "string" && direct.trim().length > 0
+      ? direct.trim()
+      : null;
+  }, [live, data?.tournament]);
+
+  // Active teams for Fan Battle Heat Meter
+  const activeMatchTeams = useMemo(() => {
+    if (!live[0]) return null;
+    return {
+      homeTeamId: live[0].homeTeamId,
+      awayTeamId: live[0].awayTeamId,
+    };
+  }, [live]);
+
+  // Shared Fan Cheer State (Overlay on all sections + Fan Arena view)
+  const cheerState = useFanCheerState(tournamentId, data?.teams ?? [], activeMatchTeams);
 
   const liveScoreline = (() => {
     if (!liveDisplay?.state || !primaryLiveId) return null;
@@ -166,282 +219,386 @@ export default function ScoringPublicPage() {
   const showBanner = Boolean(t.mainBannerEnabled && t.mainBannerUrl);
 
   return (
-    <CricketFanExperienceShell tournamentId={tournamentId} liveMatchId={primaryLiveId}>
-      <header className="relative mb-8 overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-[#0b1f17] via-[#10261c] to-[#0a1620]">
-        {showBanner ? (
-          <div className="absolute inset-0">
-            <img
-              src={t.mainBannerUrl!}
-              alt=""
-              className="h-full w-full object-cover opacity-35"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a1620] via-[#0a1620]/70 to-transparent" />
-          </div>
-        ) : (
-          <div
-            className="pointer-events-none absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                "radial-gradient(ellipse at 20% 0%, rgba(34,197,94,0.25), transparent 50%), radial-gradient(ellipse at 90% 30%, rgba(234,179,8,0.12), transparent 40%)",
-            }}
-          />
-        )}
+    <CricketFanExperienceShell
+      tournamentId={tournamentId}
+      liveMatchId={primaryLiveId}
+      streamUrl={streamUrl}
+      hideNav={true}
+    >
+      {/* ── Permanent BidWar Header + Event Animations + 4 Top Sections ─ */}
+      <TournamentFanHeader
+        tournament={t}
+        activeSection={activeSection}
+        onSelectSection={setActiveSection}
+        liveMatch={live[0]}
+        liveState={(liveDisplay?.state as CricketScoreboardState | null) ?? null}
+        teamMap={teamMap}
+        liveCount={live.length}
+        upcomingCount={upcoming.length}
+        completedCount={completed.length}
+        soundEnabled={cheerState.soundEnabled}
+        onToggleSound={cheerState.toggleSound}
+      />
 
-        <div className="relative z-10 space-y-5 p-5 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4 min-w-0">
-              {t.logoUrl ? (
-                <img
-                  src={t.logoUrl}
-                  alt=""
-                  className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover border border-white/10 bg-black/30 shrink-0"
-                />
-              ) : (
-                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl border border-emerald-400/20 bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-display font-bold text-emerald-300">
-                    {t.name.slice(0, 2).toUpperCase()}
+      {/* ── Persistent Floating Cheer & Reaction Overlay (Common across ALL tabs) ─ */}
+      <FanCheerFloatingWidget cheerState={cheerState} teams={data.teams} />
+
+      <main className="space-y-8">
+        {/* ============================================================== */}
+        {/* SECTION 1: LIVE MATCH                                          */}
+        {/* ============================================================== */}
+        {activeSection === "live" && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Live Contextual Quick-Bar: Venue, Dates, Share & Stream Link */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-white/80">
+                {venue ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+                    {venue}
                   </span>
-                </div>
-              )}
-              <div className="min-w-0 space-y-2">
-                <p className={cn(cricketEyebrowClass, "text-emerald-300/90")}>Corporate Box Cricket</p>
-                <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white truncate">
-                  {t.name}
-                </h1>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-md border border-emerald-400/30 bg-emerald-500/15 px-2.5 py-1 font-semibold uppercase tracking-wide text-emerald-300">
-                    {tournamentStageLabel(t)}
+                ) : null}
+                {dates ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-white/60">
+                    <CalendarDays className="h-3.5 w-3.5 text-emerald-400" />
+                    {dates}
                   </span>
-                  {stage ? (
-                    <span className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-white/80 inline-flex items-center gap-1">
-                      <Layers className="h-3 w-3" />
-                      {stage}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-            {pageUrl ? (
-              <ShareButtons
-                url={pageUrl}
-                shareText={`${shareTitle} — live scores, standings & stats`}
-                compact
-              />
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-4 text-sm text-white/75">
-            {venue ? (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-emerald-300" />
-                {venue}
-              </span>
-            ) : null}
-            {dates ? (
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4 text-emerald-300" />
-                {dates}
-              </span>
-            ) : null}
-          </div>
-
-          {sponsors.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-white/10">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Sponsored by</span>
-              {sponsors.slice(0, 6).map((s, i) =>
-                s.url ? (
-                  <img
-                    key={`${s.url}-${i}`}
-                    src={s.url}
-                    alt={s.name || "Sponsor"}
-                    className="h-8 max-w-[100px] object-contain opacity-90"
-                  />
-                ) : null,
-              )}
-            </div>
-          ) : null}
-
-          {live[0] ? (
-            <Link
-              href={cricketFanMatchPath(tournamentId, live[0].id)}
-              className="flex items-center justify-between gap-3 rounded-xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 hover:bg-emerald-500/25 transition-colors"
-            >
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 flex items-center gap-1.5">
-                  <CircleDot className="h-3.5 w-3.5 animate-pulse" />
-                  Live match
-                </p>
-                <p className="text-white font-semibold truncate mt-0.5">
-                  {teamMap.get(live[0].homeTeamId)?.name ?? "Home"} vs{" "}
-                  {teamMap.get(live[0].awayTeamId)?.name ?? "Away"}
-                </p>
-                {liveScoreline ? (
-                  <p className="text-emerald-200 text-sm tabular-nums mt-0.5">{liveScoreline}</p>
                 ) : null}
               </div>
-              <span className="text-xs font-semibold text-emerald-300 shrink-0">Open →</span>
-            </Link>
-          ) : null}
 
-          <div className="flex flex-wrap gap-2 pt-1">
-            {[
-              { label: "Matches", href: cricketFanMatchesPath(tournamentId) },
-              { label: "Standings", href: cricketFanStandingsPath(tournamentId) },
-              { label: "Teams", href: cricketFanTeamsPath(tournamentId) },
-              { label: "Players", href: cricketFanPlayersPath(tournamentId) },
-              { label: "Statistics", href: cricketFanStatisticsPath(tournamentId) },
-              { label: "Sponsors", href: cricketFanSponsorsPath(tournamentId) },
-            ].map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-white/10 transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </header>
+              {/* Stream Link & Share Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                {streamUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/50 bg-red-600/30 hover:bg-red-600/50 text-red-200 px-3.5 py-1.5 text-xs font-bold transition-all shadow-lg shadow-red-950/50 active:scale-95"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-red-400 animate-ping" />
+                    <Tv className="h-3.5 w-3.5 text-red-400" />
+                    Watch Live Stream
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/50">
+                    <Tv className="h-3.5 w-3.5 text-white/40" />
+                    Live stream not provided by organizer yet
+                  </span>
+                )}
 
-      <main className="space-y-10">
-        <section>
-          <div className="flex items-end justify-between gap-3 mb-3">
-            <h2 className={cricketSectionTitleClass}>Today&apos;s matches</h2>
-            <Link
-              href={cricketFanMatchesPath(tournamentId)}
-              className="text-xs text-primary hover:underline"
-            >
-              All matches
-            </Link>
-          </div>
-          {today.length === 0 && live.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No matches scheduled for today.</p>
-          ) : (
-            <ul className="space-y-2">
-              {(today.length > 0 ? today : [...live, ...upcoming.slice(0, 4)]).map((m) => (
-                <li key={m.id}>
-                  <PublicMatchCard
-                    tournamentId={tournamentId}
-                    match={m}
-                    teamMap={teamMap}
-                    liveScoreline={m.id === primaryLiveId ? liveScoreline : null}
+                {pageUrl ? (
+                  <ShareButtons
+                    url={pageUrl}
+                    shareText={`${shareTitle} — live scores, standings & stats`}
+                    compact
                   />
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span>
-              <span className="text-emerald-400 font-semibold">{live.length}</span> live
-            </span>
-            <span>
-              <span className="text-sky-300 font-semibold">{upcoming.length}</span> upcoming
-            </span>
-            <span>
-              <span className="font-semibold text-foreground/80">{completed.length}</span> completed
-            </span>
-          </div>
-        </section>
-
-        {top4.length > 0 ? (
-          <section>
-            <div className="flex items-end justify-between gap-3 mb-3">
-              <div>
-                <h2 className={cricketSectionTitleClass}>Standings</h2>
-                <p className="text-xs text-muted-foreground mt-1">Top 4 · qualification race · NRR</p>
+                ) : null}
               </div>
-              <Link
-                href={cricketFanStandingsPath(tournamentId)}
-                className="text-xs text-primary hover:underline"
-              >
-                Full table
-              </Link>
             </div>
-            <StandingsTable rows={top4} compact highlightTop={4} />
-            {(standings?.length ?? 0) > 4 ? (
-              <p className="text-xs text-muted-foreground mt-2">
-                Positions 1–4 highlighted as the current qualification band.
-              </p>
+
+            {/* Option A: Primary Live Match Scoreboard & Ball Tracker */}
+            {live[0] ? (
+              <LiveMiniScoreboard
+                tournamentId={tournamentId}
+                match={live[0]}
+                liveDisplay={liveDisplay}
+                teamMap={teamMap}
+                scorecardData={liveScorecard}
+                streamUrl={streamUrl}
+              />
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
+                <Calendar className="h-9 w-9 mx-auto text-emerald-400 mb-2 opacity-80" />
+                <p className="font-semibold text-white">No match live right now</p>
+                <p className="text-xs text-white/60 mt-1">
+                  Check upcoming fixtures, schedule, and team standings.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection("matches_stats")}
+                  className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition-colors"
+                >
+                  View Upcoming Matches & Stats <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Today's Active / Live Matches Feed */}
+            {live.length > 0 ? (
+              <section>
+                <div className="flex items-end justify-between gap-3 mb-3">
+                  <h2 className={cricketSectionTitleClass}>Active Matches on Ground</h2>
+                  <Link
+                    href={cricketFanMatchesPath(tournamentId)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    All matches
+                  </Link>
+                </div>
+                <ul className="space-y-2">
+                  {live.map((m) => (
+                    <li key={m.id}>
+                      <PublicMatchCard
+                        tournamentId={tournamentId}
+                        match={m}
+                        teamMap={teamMap}
+                        liveScoreline={m.id === primaryLiveId ? liveScoreline : null}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
-          </section>
-        ) : null}
-
-        <section>
-          <div className="flex items-end justify-between gap-3 mb-3">
-            <h2 className={cricketSectionTitleClass}>Top players</h2>
-            <Link
-              href={cricketFanStatisticsPath(tournamentId)}
-              className="text-xs text-primary hover:underline"
-            >
-              Full stats
-            </Link>
           </div>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {LEADERBOARD_TABS.map((tab) => (
-              <CricketFilterPill key={tab.key} active={lbTab === tab.key} onClick={() => setLbTab(tab.key)}>
-                {tab.label}
-              </CricketFilterPill>
-            ))}
-          </div>
-          <LeaderboardTable
-            rows={leaderboard ?? []}
-            valueLabel={activeLb?.valueLabel}
-            tournamentId={tournamentId}
-          />
-        </section>
+        )}
 
-        {completed.length > 0 ? (
-          <section>
-            <div className="flex items-end justify-between gap-3 mb-3">
-              <h2 className={cricketSectionTitleClass}>Recent results</h2>
-              <Link
-                href={`${cricketFanMatchesPath(tournamentId)}?filter=completed`}
-                className="text-xs text-primary hover:underline"
-              >
-                All results
-              </Link>
-            </div>
-            <ul className="space-y-2">
-              {completed.slice(0, 6).map((m) => (
-                <li key={m.id}>
-                  <PublicMatchCard tournamentId={tournamentId} match={m} teamMap={teamMap} compact />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        {/* ============================================================== */}
+        {/* SECTION 2: UPCOMING MATCH & STATS                              */}
+        {/* ============================================================== */}
+        {activeSection === "matches_stats" && (
+          <div className="space-y-10 animate-fade-in">
+            {/* Matches List */}
+            <section>
+              <div className="flex items-end justify-between gap-3 mb-3">
+                <h2 className={cricketSectionTitleClass}>Today&apos;s & Upcoming Matches</h2>
+                <Link
+                  href={cricketFanMatchesPath(tournamentId)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  All fixtures
+                </Link>
+              </div>
+              {today.length === 0 && upcoming.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No upcoming matches scheduled.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {(today.length > 0 ? today : upcoming.slice(0, 5)).map((m) => (
+                    <li key={m.id}>
+                      <PublicMatchCard
+                        tournamentId={tournamentId}
+                        match={m}
+                        teamMap={teamMap}
+                        liveScoreline={m.id === primaryLiveId ? liveScoreline : null}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        {announcements.length > 0 ? (
-          <section>
-            <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Announcements</h2>
-            <ul className="space-y-2">
-              {announcements.map((item, idx) => {
-                const content = (
-                  <div className={cn(cricketCardClass, "px-4 py-3 bg-card/60")}>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
-                      {item.title}
-                    </p>
-                    <p className="text-sm text-foreground mt-1">{item.detail}</p>
+            {/* Standings & Playoff Bracket Tree Switcher */}
+            <section>
+              <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+                <div>
+                  <h2 className={cricketSectionTitleClass}>Standings & Tournament Ladder</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Qualification race, NRR & championship playoff bracket
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center rounded-lg border border-white/15 bg-white/5 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setStandingsView("table")}
+                      className={cn(
+                        "rounded-md px-3 py-1 text-xs font-semibold transition-colors",
+                        standingsView === "table"
+                          ? "bg-primary/20 text-primary border border-primary/30"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      Points Table
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStandingsView("bracket")}
+                      className={cn(
+                        "rounded-md px-3 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5",
+                        standingsView === "bracket"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Trophy className="h-3 w-3" />
+                      Playoff Bracket
+                    </button>
                   </div>
-                );
-                return (
-                  <li key={`${item.title}-${idx}`}>
-                    {item.href ? (
-                      <Link href={item.href} className="block hover:opacity-95 transition-opacity">
-                        {content}
-                      </Link>
-                    ) : (
-                      content
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : null}
 
-        <PublicSponsorsStrip sponsors={sponsors} title="Sponsors" />
+                  <Link
+                    href={cricketFanStandingsPath(tournamentId)}
+                    className="text-xs text-primary hover:underline ml-2"
+                  >
+                    Full table
+                  </Link>
+                </div>
+              </div>
+
+              {standingsView === "table" ? (
+                <>
+                  {top4.length > 0 ? (
+                    <>
+                      <StandingsTable rows={top4} compact highlightTop={4} />
+                      {(standings?.length ?? 0) > 4 ? (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Positions 1–4 highlighted as the current qualification band.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No standings recorded yet.</p>
+                  )}
+                </>
+              ) : (
+                <TournamentBracketTree
+                  tournamentId={tournamentId}
+                  fixtures={data.fixtures}
+                  matches={data.matches}
+                  teamMap={teamMap}
+                  tournamentName={data.tournament.name}
+                />
+              )}
+            </section>
+
+            {/* Top Players Leaderboards */}
+            <section>
+              <div className="flex items-end justify-between gap-3 mb-3">
+                <h2 className={cricketSectionTitleClass}>Tournament Leaderboards</h2>
+                <Link
+                  href={cricketFanStatisticsPath(tournamentId)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Full stats
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {LEADERBOARD_TABS.map((tab) => (
+                  <CricketFilterPill key={tab.key} active={lbTab === tab.key} onClick={() => setLbTab(tab.key)}>
+                    {tab.label}
+                  </CricketFilterPill>
+                ))}
+              </div>
+              <LeaderboardTable
+                rows={leaderboard ?? []}
+                valueLabel={activeLb?.valueLabel}
+                tournamentId={tournamentId}
+              />
+            </section>
+
+            {/* Recent Completed Results */}
+            {completed.length > 0 ? (
+              <section>
+                <div className="flex items-end justify-between gap-3 mb-3">
+                  <h2 className={cricketSectionTitleClass}>Recent Results</h2>
+                  <Link
+                    href={`${cricketFanMatchesPath(tournamentId)}?filter=completed`}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    All results
+                  </Link>
+                </div>
+                <ul className="space-y-2">
+                  {completed.slice(0, 6).map((m) => (
+                    <li key={m.id}>
+                      <PublicMatchCard tournamentId={tournamentId} match={m} teamMap={teamMap} compact />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {/* Announcements */}
+            {announcements.length > 0 ? (
+              <section>
+                <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Announcements</h2>
+                <ul className="space-y-2">
+                  {announcements.map((item, idx) => {
+                    const content = (
+                      <div className={cn(cricketCardClass, "px-4 py-3 bg-card/60")}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+                          {item.title}
+                        </p>
+                        <p className="text-sm text-foreground mt-1">{item.detail}</p>
+                      </div>
+                    );
+                    return (
+                      <li key={`${item.title}-${idx}`}>
+                        {item.href ? (
+                          <Link href={item.href} className="block hover:opacity-95 transition-opacity">
+                            {content}
+                          </Link>
+                        ) : (
+                          content
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* SECTION 3: SPONSORS                                            */}
+        {/* ============================================================== */}
+        {activeSection === "sponsors" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#121f17] to-[#0c1620] p-6 sm:p-8 text-white">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                  <Trophy className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-white">
+                    Official Tournament Partners & Sponsors
+                  </h3>
+                  <p className="text-xs text-white/60">
+                    Recognizing the organizations making this competition possible.
+                  </p>
+                </div>
+              </div>
+
+              {sponsors.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-6">
+                  {sponsors.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-black/30 p-4 hover:border-amber-400/40 transition-colors"
+                    >
+                      {s.url ? (
+                        <img
+                          src={s.url}
+                          alt={s.name || "Sponsor"}
+                          className="h-14 max-w-full object-contain mb-2"
+                        />
+                      ) : (
+                        <div className="h-14 w-14 rounded-lg bg-white/10 flex items-center justify-center font-bold text-xs text-white/60 mb-2">
+                          {s.name?.slice(0, 2).toUpperCase() || "SP"}
+                        </div>
+                      )}
+                      <span className="text-xs font-semibold text-white/90 text-center truncate max-w-full">
+                        {s.name || "Official Partner"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-white/50 text-center py-8">
+                  No sponsors configured for this tournament.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* SECTION 4: FAN ARENA                                           */}
+        {/* ============================================================== */}
+        {activeSection === "fan_arena" && (
+          <div className="animate-fade-in">
+            <FanArenaSection cheerState={cheerState} teams={data.teams} />
+          </div>
+        )}
       </main>
     </CricketFanExperienceShell>
   );

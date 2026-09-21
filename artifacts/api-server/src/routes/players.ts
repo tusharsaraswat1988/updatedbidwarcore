@@ -210,6 +210,22 @@ async function computeRegistrationStatus(tid: number) {
           sortOrder: c.sortOrder,
         }))
     : [];
+  const teams = (await db
+    .select({
+      id: teamsTable.id,
+      name: teamsTable.name,
+      shortName: teamsTable.shortCode,
+      logoUrl: teamsTable.logoUrl,
+    })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tid))
+    .orderBy(asc(teamsTable.name)))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      shortName: t.shortName ?? null,
+      logoUrl: t.logoUrl ?? null,
+    }));
   return {
     open,
     reason,
@@ -221,6 +237,7 @@ async function computeRegistrationStatus(tid: number) {
     playerRegistrationMode,
     registrationCategoryMode,
     categories,
+    teams,
     sport: tournament.sport,
     enableRegistrationPayment: scoring ? false : (tournament.enableRegistrationPayment ?? false),
     registrationFee: scoring ? null : (tournament.registrationFee ?? null),
@@ -295,6 +312,7 @@ function buildPublicRegistrationProfileUpdates(
     cricheroUrl?: string | null;
     availabilityDates?: string | null;
     whatsappConsent?: boolean | null;
+    teamId?: number | null;
   },
   email: string | null,
   paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
@@ -318,6 +336,7 @@ function buildPublicRegistrationProfileUpdates(
     email,
     cricheroUrl: d.cricheroUrl ?? null,
     availabilityDates: d.availabilityDates ?? null,
+    ...(d.teamId !== undefined ? { teamId: d.teamId } : {}),
   };
 
   if (d.whatsappConsent && !existing.whatsappConsent) {
@@ -884,12 +903,22 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     )
       ? d.categoryId
       : undefined;
-    if (categoryIdForUpdate !== undefined && !await rejectInvalidCategory(res, tid, categoryIdForUpdate)) {
-      return;
+    let validatedTeamIdForUpdate: number | null | undefined = undefined;
+    if (d.teamId !== undefined) {
+      if (d.teamId === null) {
+        validatedTeamIdForUpdate = null;
+      } else {
+        const teamCheck = await validateTeamBelongsToTournament(tid, d.teamId);
+        if (!teamCheck.ok) {
+          res.status(teamCheck.status).json({ error: teamCheck.error });
+          return;
+        }
+        validatedTeamIdForUpdate = d.teamId;
+      }
     }
     const updates = {
       ...buildPublicRegistrationProfileUpdates(
-        d,
+        { ...d, teamId: validatedTeamIdForUpdate },
         emailParsed.email,
         paymentConfig,
         paymentFields,
@@ -1007,6 +1036,16 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     : null;
   if (!await rejectInvalidCategory(res, tid, publicCategoryId)) return;
 
+  let validatedTeamId: number | null = null;
+  if (d.teamId != null) {
+    const teamCheck = await validateTeamBelongsToTournament(tid, d.teamId);
+    if (!teamCheck.ok) {
+      res.status(teamCheck.status).json({ error: teamCheck.error });
+      return;
+    }
+    validatedTeamId = d.teamId;
+  }
+
   const bidConfig = await fetchTournamentBidConfig(tid);
   if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
   const bidResolved = resolvePublicRegistrationBidFields(
@@ -1027,6 +1066,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       tournamentId: tid,
       serialNo: await allocateNextPlayerSerialNo(tid),
       categoryId: publicCategoryId,
+      teamId: validatedTeamId,
       name: d.name,
       city: d.city ?? null,
       role: d.role ?? null,
@@ -1064,6 +1104,15 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       tournamentId: tid,
       eventType: "web_checkbox",
     });
+  }
+
+  if (validatedTeamId != null) {
+    onAuctionPlayerRosterChangedAsync(
+      player,
+      null,
+      tid,
+      scoring ? "transfer" : undefined,
+    );
   }
 
   if (scoring) {

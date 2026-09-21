@@ -100,6 +100,7 @@ interface GlobalPlayerLookup {
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
   categoryId?: number | null;
+  teamId?: number | null;
   appearanceCount?: number;
 }
 
@@ -174,6 +175,7 @@ export default function PlayerRegister() {
     bowlingStyle: "",
     specialization: "",
     categoryId: "",
+    teamId: "",
   });
 
   // Spec group selections: groupId → chosen optionName
@@ -308,6 +310,9 @@ export default function PlayerRegister() {
   const categoryMode = (status?.registrationCategoryMode
     ?? tournament?.registrationCategoryMode) as RegistrationCategoryMode | undefined;
   const publicCategories = status?.categories ?? [];
+  const teams = (
+    (status as { teams?: Array<{ id: number; name: string; shortName?: string | null; logoUrl?: string | null }> } | undefined)?.teams ?? []
+  );
   const showCategorySelect = scoringMode && shouldShowPublicCategorySelect(categoryMode ?? "hidden")
     && publicCategories.length > 0;
 
@@ -441,6 +446,7 @@ export default function PlayerRegister() {
                 cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
                 availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
                 categoryId: tp.categoryId != null ? String(tp.categoryId) : prev.categoryId,
+                teamId: tp.teamId != null ? String(tp.teamId) : prev.teamId,
               }));
             } else if (match) {
               setForm(prev => ({
@@ -458,6 +464,7 @@ export default function PlayerRegister() {
                 jerseySize: prev.jerseySize || ((match.jerseySize as JerseySize | null) ?? ""),
                 achievements: prev.achievements || (match.achievements ?? ""),
                 cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
+                teamId: prev.teamId || (match.teamId != null ? String(match.teamId) : ""),
               }));
             }
           } else {
@@ -485,6 +492,7 @@ export default function PlayerRegister() {
                 cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
                 availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
                 categoryId: tp.categoryId != null ? String(tp.categoryId) : prev.categoryId,
+                teamId: tp.teamId != null ? String(tp.teamId) : prev.teamId,
               }));
             }
           }
@@ -614,6 +622,7 @@ export default function PlayerRegister() {
             photoUrl: form.photoUrl || undefined,
             photoPublicId: form.photoPublicId || undefined,
             categoryId: publicRegistrationCategoryIdPayload(showCategorySelect, form.categoryId),
+            teamId: form.teamId ? parseInt(form.teamId, 10) : undefined,
             basePrice: scoringMode ? undefined : (playerBidValueMode ? undefined : (tournament?.minBid ?? 100000)),
             selectedBidValue: !scoringMode && playerBidValueMode && !existingRegistration
               ? parseInt(selectedBidValue, 10)
@@ -1202,29 +1211,48 @@ export default function PlayerRegister() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Batting Style</Label>
-                              <Input
-                                value={form.battingStyle}
-                                onChange={e => f("battingStyle", e.target.value)}
-                                className="h-11 sm:h-9"
+                              <Select
+                                value={form.battingStyle || "unset"}
+                                onValueChange={v => f("battingStyle", v === "unset" ? "" : v)}
                                 disabled={closedUpdateReadOnly}
-                                readOnly={closedUpdateReadOnly}
-                              />
+                              >
+                                <SelectTrigger className="h-11 sm:h-9">
+                                  <SelectValue placeholder="Select batting style" />
+                                </SelectTrigger>
+                                <SelectContent className="dark">
+                                  <SelectItem value="unset">-- Select Batting Style --</SelectItem>
+                                  <SelectItem value="Right Hand Bat">Right Hand Bat</SelectItem>
+                                  <SelectItem value="Left Hand Bat">Left Hand Bat</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div className="space-y-2">
                               <Label>Bowling Style</Label>
-                              <Input
-                                value={form.bowlingStyle}
-                                onChange={e => f("bowlingStyle", e.target.value)}
-                                className="h-11 sm:h-9"
+                              <Select
+                                value={form.bowlingStyle || "unset"}
+                                onValueChange={v => f("bowlingStyle", v === "unset" ? "" : v)}
                                 disabled={closedUpdateReadOnly}
-                                readOnly={closedUpdateReadOnly}
-                              />
+                              >
+                                <SelectTrigger className="h-11 sm:h-9">
+                                  <SelectValue placeholder="Select bowling style" />
+                                </SelectTrigger>
+                                <SelectContent className="dark">
+                                  <SelectItem value="unset">-- Select Bowling Style --</SelectItem>
+                                  <SelectItem value="Right-arm fast">Right-arm fast</SelectItem>
+                                  <SelectItem value="Right-arm medium">Right-arm medium</SelectItem>
+                                  <SelectItem value="Right-arm spin">Right-arm spin</SelectItem>
+                                  <SelectItem value="Left-arm fast">Left-arm fast</SelectItem>
+                                  <SelectItem value="Left-arm spin">Left-arm spin</SelectItem>
+                                  <SelectItem value="None">None</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div className="space-y-2 sm:col-span-2">
-                              <Label>Specialization</Label>
+                              <Label>Specialization (Optional)</Label>
                               <Input
                                 value={form.specialization}
                                 onChange={e => f("specialization", e.target.value)}
+                                placeholder="e.g. Top-order Batsman, Death Bowler, Finisher"
                                 className="h-11 sm:h-9"
                                 disabled={closedUpdateReadOnly}
                                 readOnly={closedUpdateReadOnly}
@@ -1461,9 +1489,37 @@ export default function PlayerRegister() {
                         />
                       </div>
 
-                      {scoringMode && (showCategorySelect || showMatchAvailability) && (
+                      {scoringMode && (showCategorySelect || showMatchAvailability || teams.length > 0) && (
                         <div className="pt-1 space-y-4">
                           <h3 className="font-bold text-base">Tournament Details</h3>
+                          {teams.length > 0 && (
+                            <div className="space-y-2">
+                              <Label className="inline-flex items-center gap-1.5">
+                                Select Your Team
+                                {identityFieldsLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                              </Label>
+                              <Select
+                                value={form.teamId || "none"}
+                                onValueChange={(v) => f("teamId", v === "none" ? "" : v)}
+                                disabled={identityFieldsLocked}
+                              >
+                                <SelectTrigger className="h-11 sm:h-9">
+                                  <SelectValue placeholder="Select team (optional)" />
+                                </SelectTrigger>
+                                <SelectContent className="dark max-h-[min(50dvh,320px)]">
+                                  <SelectItem value="none">-- Not in a team / Assign later --</SelectItem>
+                                  {teams.map((t) => (
+                                    <SelectItem key={t.id} value={String(t.id)}>
+                                      {t.name} {t.shortName ? `(${t.shortName})` : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">
+                                Choose which team you belong to for fixtures &amp; scoring.
+                              </p>
+                            </div>
+                          )}
                           {showCategorySelect && (
                             <div className="space-y-2">
                               <Label>Category</Label>
