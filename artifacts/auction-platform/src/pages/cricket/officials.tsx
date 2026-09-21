@@ -46,6 +46,8 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
   Key,
   LockOpen,
   Plus,
@@ -76,11 +78,14 @@ export default function CricketOfficialsPage() {
   const [role, setRole] = useState<string>("scorer");
   const [mobile, setMobile] = useState("");
   const [pin, setPin] = useState("");
+  const [showAddPin, setShowAddPin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [showPinMap, setShowPinMap] = useState<Record<number, boolean>>({});
   const [editingOfficial, setEditingOfficial] = useState<ScoringOfficial | null>(null);
   const [editName, setEditName] = useState("");
   const [editPin, setEditPin] = useState("");
+  const [showEditPin, setShowEditPin] = useState(false);
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -226,7 +231,7 @@ export default function CricketOfficialsPage() {
       `Tournament: ${tournamentName}`,
       `Scorer: ${official.name}`,
       `Mobile: ${official.mobile || "Registered Mobile"}`,
-      `PIN: (Use the 4-digit PIN set during registration)`,
+      `PIN: ${official.pin || "(Use the 4-digit PIN set during registration)"}`,
       `Scorer Portal Link: ${scorerLink}`,
       ``,
       `Instructions: Open the link on your mobile, enter your mobile number and 4-digit PIN to select the match and start scoring.`,
@@ -348,16 +353,26 @@ export default function CricketOfficialsPage() {
                 {role === "scorer" ? (
                   <div>
                     <Label htmlFor="off-pin">4-Digit Login PIN *</Label>
-                    <Input
-                      id="off-pin"
-                      type="password"
-                      inputMode="numeric"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                      placeholder="e.g. 1234"
-                      maxLength={8}
-                      className="mt-1.5 font-mono"
-                    />
+                    <div className="relative mt-1.5">
+                      <Input
+                        id="off-pin"
+                        type={showAddPin ? "text" : "password"}
+                        inputMode="numeric"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                        placeholder="e.g. 1234"
+                        maxLength={8}
+                        className="font-mono pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPin((v) => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                        title={showAddPin ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showAddPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Scorer will enter this PIN along with their mobile on Scorer Home.
                     </p>
@@ -394,6 +409,7 @@ export default function CricketOfficialsPage() {
                 <div className="space-y-3">
                   {(officials ?? []).map((o) => {
                     const isScorer = o.role === "scorer";
+                    const isPinVisible = !!showPinMap[o.id];
                     return (
                       <div
                         key={o.id}
@@ -403,7 +419,7 @@ export default function CricketOfficialsPage() {
                           isScorer && "border-primary/25 hover:border-primary/40",
                         )}
                       >
-                        <div className="space-y-1 min-w-0">
+                        <div className="space-y-1.5 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-base font-bold text-foreground truncate">{o.name}</p>
                             <span
@@ -435,18 +451,45 @@ export default function CricketOfficialsPage() {
                               </span>
                             ) : null}
                           </div>
-                          <p className="text-xs text-muted-foreground flex items-center gap-2">
+                          <div className="text-xs text-muted-foreground flex items-center gap-2.5 flex-wrap">
                             {o.mobile ? (
                               <span className="font-mono">{o.mobile}</span>
                             ) : (
                               <span>No phone</span>
+                            )}
+                            {isScorer && (
+                              <div className="inline-flex items-center gap-1 font-mono bg-muted/60 px-2 py-0.5 rounded border border-border/60 text-[11px] text-foreground">
+                                <span className="text-muted-foreground text-[10px] uppercase font-sans font-semibold">PIN:</span>
+                                <span className="font-bold tracking-wider">
+                                  {isPinVisible ? (o.pin || "Not set") : (o.pin ? "••••" : "Not set")}
+                                </span>
+                                {o.pin ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowPinMap((prev) => ({
+                                        ...prev,
+                                        [o.id]: !prev[o.id],
+                                      }))
+                                    }
+                                    className="ml-0.5 text-muted-foreground hover:text-foreground p-0.5 rounded focus:outline-none"
+                                    title={isPinVisible ? "Hide PIN" : "Show PIN"}
+                                  >
+                                    {isPinVisible ? (
+                                      <EyeOff className="w-3 h-3 text-primary" />
+                                    ) : (
+                                      <Eye className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                ) : null}
+                              </div>
                             )}
                             {o.lastLoginAt ? (
                               <span>
                                 · Last login: {new Date(o.lastLoginAt).toLocaleDateString()}
                               </span>
                             ) : null}
-                          </p>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap sm:justify-end">
@@ -551,16 +594,26 @@ export default function CricketOfficialsPage() {
                     {editingOfficial.role === "scorer" ? (
                       <div>
                         <Label htmlFor="edit-pin">New 4-Digit PIN (Optional)</Label>
-                        <Input
-                          id="edit-pin"
-                          type="password"
-                          inputMode="numeric"
-                          value={editPin}
-                          onChange={(e) => setEditPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                          placeholder="Leave blank to keep current PIN"
-                          maxLength={8}
-                          className="mt-1 font-mono"
-                        />
+                        <div className="relative mt-1">
+                          <Input
+                            id="edit-pin"
+                            type={showEditPin ? "text" : "password"}
+                            inputMode="numeric"
+                            value={editPin}
+                            onChange={(e) => setEditPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                            placeholder="Leave blank to keep current PIN"
+                            maxLength={8}
+                            className="font-mono pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEditPin((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                            title={showEditPin ? "Hide PIN" : "Show PIN"}
+                          >
+                            {showEditPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                   </div>

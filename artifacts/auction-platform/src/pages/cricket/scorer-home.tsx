@@ -23,6 +23,7 @@ import {
 import { loginScorer, logoutScorer } from "@/lib/scorer-api";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { cricketScorerConsolePath, cricketScorerPath } from "@/lib/cricket-routes";
+import { CricketPublicBrandMark } from "@/components/scoring/cricket-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,6 +32,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Eye,
+  EyeOff,
   KeyRound,
   Lock,
   LogOut,
@@ -57,6 +60,7 @@ export default function CricketScorerHomePage() {
 
   const [mobileInput, setMobileInput] = useState("");
   const [pinInput, setPinInput] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [authError, setAuthError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [session, setSession] = useState(() => getScorerAuthSession());
@@ -159,8 +163,11 @@ export default function CricketScorerHomePage() {
       <div className="min-h-[100dvh] bg-[#070b19] text-white flex flex-col justify-center px-4 py-8">
         <div className="max-w-sm w-full mx-auto space-y-6">
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-2">
-              <KeyRound className="w-7 h-7" />
+            <div className="flex justify-center mb-3">
+              <CricketPublicBrandMark variant="scorer-bar" className="h-8" />
+            </div>
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-1">
+              <KeyRound className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-black tracking-tight font-display">Cricket Scorer Portal</h1>
             <p className="text-xs text-white/50">
@@ -209,20 +216,40 @@ export default function CricketScorerHomePage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-400" />
-                4-Digit PIN
+              <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  4-Digit PIN
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowPin((v) => !v)}
+                  className="text-[11px] text-amber-400/80 hover:text-amber-400 flex items-center gap-1 font-normal lowercase tracking-normal"
+                >
+                  {showPin ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  {showPin ? "hide" : "show"}
+                </button>
               </label>
-              <Input
-                type="password"
-                inputMode="numeric"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                placeholder="••••"
-                maxLength={8}
-                className="bg-white/5 border-white/15 text-white font-mono text-center h-12 text-2xl tracking-widest"
-                required
-              />
+              <div className="relative">
+                <Input
+                  type={showPin ? "text" : "password"}
+                  inputMode="numeric"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="••••"
+                  maxLength={8}
+                  className="bg-white/5 border-white/15 text-white font-mono text-center h-12 text-2xl tracking-widest pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1"
+                  title={showPin ? "Hide PIN" : "Show PIN"}
+                >
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             {authError ? (
@@ -261,26 +288,30 @@ export default function CricketScorerHomePage() {
       {/* Top Scorer App Header */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b19]/90 backdrop-blur-md px-4 py-3 sm:px-6">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-amber-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
-                <Trophy className="w-3.5 h-3.5" />
-                {tournament?.name || `Tournament #${tournamentId}`}
-              </span>
+          <div className="flex items-center gap-3 min-w-0">
+            <CricketPublicBrandMark variant="scorer-bar" className="h-7 shrink-0" />
+            <div className="h-4 w-px bg-white/20 shrink-0 hidden sm:block" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                  <Trophy className="w-3.5 h-3.5" />
+                  {tournament?.name || `Tournament #${tournamentId}`}
+                </span>
+              </div>
+              <p className="text-sm font-bold text-white truncate flex items-center gap-1.5 mt-0.5">
+                <User className="w-3.5 h-3.5 text-white/60" />
+                {session.scorer.name}
+                {session.canScore ? (
+                  <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
+                    Active Scorer
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-semibold bg-white/10 text-white/60 px-1.5 py-0.5 rounded">
+                    View-only
+                  </span>
+                )}
+              </p>
             </div>
-            <p className="text-sm font-bold text-white truncate flex items-center gap-1.5 mt-0.5">
-              <User className="w-3.5 h-3.5 text-white/60" />
-              {session.scorer.name}
-              {session.canScore ? (
-                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
-                  Active Scorer
-                </span>
-              ) : (
-                <span className="text-[10px] font-semibold bg-white/10 text-white/60 px-1.5 py-0.5 rounded">
-                  View-only
-                </span>
-              )}
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

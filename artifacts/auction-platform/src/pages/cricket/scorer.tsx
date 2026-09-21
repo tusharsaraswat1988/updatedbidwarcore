@@ -48,6 +48,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
+import { CricketPublicBrandMark } from "@/components/scoring/cricket-branding";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -472,6 +473,8 @@ export default function CricketScorerPage() {
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
+          <CricketPublicBrandMark variant="scorer-bar" className="h-6 shrink-0" />
+          <div className="h-3.5 w-px bg-white/20 shrink-0 hidden xs:block" />
           <div className="min-w-0">
             <span className="text-xs font-black text-white truncate flex items-center gap-1.5 leading-none">
               {matchVsText}
