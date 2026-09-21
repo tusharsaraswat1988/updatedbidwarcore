@@ -10,6 +10,7 @@ import {
   scoringSessionsTable,
   scoringVenuesTable,
   tournamentsTable,
+  scorerAccountsTable,
   type MatchSquadJson,
   type ScoringDrawConfigJson,
   type ScoringDrawFormat,
@@ -311,7 +312,6 @@ export async function updateScoringOfficial(
 
 
 async function resolveScorerAccountIdByMobile(mobile: string): Promise<number> {
-  const { scorerAccountsTable } = await import("@workspace/db");
   const [account] = await db
     .select({ id: scorerAccountsTable.id })
     .from(scorerAccountsTable)
