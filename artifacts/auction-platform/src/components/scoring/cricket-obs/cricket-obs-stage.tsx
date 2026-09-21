@@ -108,8 +108,8 @@ export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerF
         </div>
       </div>
 
-      {/* OPERATOR BROADCAST CONTROLLER DOCK (Visible for testing or stream management) */}
-      {onSetOverlay && onTriggerFlash ? (
+      {/* OPERATOR BROADCAST CONTROLLER DOCK (Visible when previewing, hidden inside pure OBS browser source) */}
+      {!isObs && onSetOverlay && onTriggerFlash ? (
         <CricketObsOperatorDock
           currentOverlay={vm.midOverlay}
           onSetOverlay={onSetOverlay}

@@ -39,6 +39,7 @@ import {
   cricketObsMatchPath,
   openScoreDisplay,
 } from "@/lib/tournament-navigation";
+import { CricketObsDirectorPanel } from "@/components/scoring/cricket-obs/cricket-obs-director-panel";
 import {
   Copy,
   Monitor,
@@ -233,6 +234,8 @@ export default function CricketLiveControlPage() {
                 </BtnPrimary>
               </div>
             </section>
+
+            <CricketObsDirectorPanel tournamentId={tournamentId} />
 
             <section>
               <HubSectionHeader
