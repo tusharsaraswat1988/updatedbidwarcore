@@ -662,8 +662,21 @@ export default function BadmintonScorerHomePage() {
     setVerifying(true);
     void loadHomeSession(tournamentId)
       .catch((err) => {
-        clearScorerAuthSession();
-        setAuthError(err instanceof Error ? err.message : "Session expired. Sign in again.");
+        const msg = err instanceof Error ? err.message : "";
+        const isAuthError =
+          msg.includes("401") ||
+          msg.includes("Session") ||
+          msg.includes("revoked") ||
+          msg.includes("expired") ||
+          msg.includes("Authentication required");
+        if (isAuthError) {
+          clearScorerAuthSession();
+          setAuthError(msg || "Session expired. Sign in again.");
+        } else {
+          // Network hiccup on mobile wakeup — keep auth, allow retry
+          setAuthAccepted(true);
+          setAuthError(msg || "Connection error. Pull to refresh or tap Refresh.");
+        }
       })
       .finally(() => setVerifying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -675,11 +688,23 @@ export default function BadmintonScorerHomePage() {
     try {
       const next = await fetchBadmintonScorerSession(tournamentId);
       applySession(next);
-    } catch {
-      clearScorerAuthSession();
-      setAuthAccepted(false);
-      setSession(null);
-      setAuthError("Session expired. Sign in again.");
+      setAuthError("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const isAuthError =
+        msg.includes("401") ||
+        msg.includes("Session") ||
+        msg.includes("revoked") ||
+        msg.includes("expired") ||
+        msg.includes("Authentication required");
+      if (isAuthError) {
+        clearScorerAuthSession();
+        setAuthAccepted(false);
+        setSession(null);
+        setAuthError("Session expired. Sign in again.");
+      } else {
+        setAuthError(msg || "Failed to update match list. Check connection.");
+      }
     } finally {
       setRefreshing(false);
     }

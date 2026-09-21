@@ -39,10 +39,12 @@ import {
   ArrowLeftRight,
   Check,
   CloudRain,
+  Flag,
   Play,
   RotateCcw,
   Sparkles,
   Star,
+  Trophy,
   UserCheck,
   Zap,
 } from "lucide-react";
@@ -179,7 +181,7 @@ export function LiveScoringPad({
   const [overEndPrompt, setOverEndPrompt] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
   const [dlsSheet, setDlsSheet] = useState(false);
-  const [revisedOvers, setRevisedOvers] = useState("15");
+  const [revisedOvers, setRevisedOvers] = useState(String(state.revisedOversLimit || state.oversLimit || 20));
 
   const isPaused = state.sessionStatus === "paused";
 
@@ -238,6 +240,39 @@ export function LiveScoringPad({
     !!innings &&
     battingLineup.length > 0 &&
     battingLineup.length - innings.wickets <= 1;
+
+  const isTargetReached =
+    state.target != null &&
+    !!innings &&
+    state.currentInnings >= 2 &&
+    innings.runs >= state.target;
+
+  const isInnings1Finished =
+    state.currentInnings === 1 &&
+    !!innings &&
+    innings.phase === "in_progress" &&
+    (innings.wickets >= state.maxWickets ||
+      (innings.over >= state.oversLimit && innings.ball >= 6) ||
+      innings.over >= state.oversLimit);
+
+  const isInnings2Finished =
+    state.currentInnings >= 2 &&
+    !!innings &&
+    (isTargetReached ||
+      innings.wickets >= state.maxWickets ||
+      (innings.over >= state.oversLimit && innings.ball >= 6) ||
+      innings.over >= state.oversLimit);
+
+  const isMatchCompleteState =
+    state.matchStatus === "completed" || isInnings2Finished;
+
+  const matchResultPreview = useMemo(() => {
+    try {
+      return buildMatchResult(state);
+    } catch {
+      return null;
+    }
+  }, [state]);
 
   const availableBatsmen = useMemo(() => {
     if (!battingId) return [];
@@ -859,221 +894,318 @@ export function LiveScoringPad({
         </div>
       ) : null}
 
-      {/* ─── Main Scorer Keypad Grid ─── */}
-      <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-border/70 bg-card/40 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5">
-        {/* Row 1: Primary Runs 0, 1, 2, 3 */}
-        <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
-          <ScoreButton
-            label="0"
-            sublabel="dot"
-            variant="run"
-            disabled={busy || pendingNewBatsman}
-            onClick={() =>
-              recordBall({
-                runsOffBat: 0,
-                extras: { type: null, runs: 0 },
-                wicket: null,
-                isLegalDelivery: true,
-              })
-            }
-          />
-          <ScoreButton
-            label="1"
-            sublabel="single"
-            variant="run"
-            disabled={busy || pendingNewBatsman}
-            onClick={() =>
-              recordBall({
-                runsOffBat: 1,
-                extras: { type: null, runs: 0 },
-                wicket: null,
-                isLegalDelivery: true,
-              })
-            }
-          />
-          <ScoreButton
-            label="2"
-            sublabel="double"
-            variant="run"
-            disabled={busy || pendingNewBatsman}
-            onClick={() =>
-              recordBall({
-                runsOffBat: 2,
-                extras: { type: null, runs: 0 },
-                wicket: null,
-                isLegalDelivery: true,
-              })
-            }
-          />
-          <ScoreButton
-            label="3"
-            sublabel="three"
-            variant="run"
-            disabled={busy || pendingNewBatsman}
-            onClick={() =>
-              recordBall({
-                runsOffBat: 3,
-                extras: { type: null, runs: 0 },
-                wicket: null,
-                isLegalDelivery: true,
-              })
-            }
-          />
-        </div>
-
-        {/* Row 2: Boundaries 4, 6, Custom, Super Ball */}
-        <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
-          <ScoreButton
-            label="4"
-            sublabel="four"
-            variant="boundary"
-            disabled={busy || pendingNewBatsman}
-            onClick={() =>
-              recordBall({
-                runsOffBat: 4,
-                extras: { type: null, runs: 0 },
-                wicket: null,
-                isLegalDelivery: true,
-              })
-            }
-          />
-          <ScoreButton
-            label="6"
-            sublabel="six"
-            variant="boundary"
-            disabled={busy || pendingNewBatsman}
-            onClick={() =>
-              recordBall({
-                runsOffBat: 6,
-                extras: { type: null, runs: 0 },
-                wicket: null,
-                isLegalDelivery: true,
-              })
-            }
-          />
-          <ScoreButton
-            label="+"
-            sublabel="custom"
-            variant="default"
-            disabled={busy || pendingNewBatsman}
-            onClick={() => setCustomRunsSheet(true)}
-          />
-          {superBallEnabled ? (
-            <ScoreButton
-              label="⭐"
-              sublabel={
-                isSuperBallActive
-                  ? "Active 2x"
-                  : superBallReason
-                    ? (superBallReason.includes("Powerplay") ? "In P-Play" : "Locked")
-                    : "Super Ball"
-              }
-              variant="super_ball"
-              disabled={busy || pendingNewBatsman}
-              onClick={() => void handleToggleSuperBall()}
-              className={cn(
-                isSuperBallActive && "ring-2 ring-amber-400 bg-amber-500/30",
-                !canUseSuperBall && !isSuperBallActive && "opacity-60",
-              )}
-            />
-          ) : (
-            <ScoreButton
-              label="B"
-              sublabel="byes"
-              variant="extra"
-              disabled={busy || pendingNewBatsman}
-              onClick={() => setByeSheet(true)}
-            />
-          )}
-        </div>
-
-        {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes) */}
-        <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
-          <ScoreButton
-            label="Wd"
-            sublabel="wide"
-            variant="extra"
-            disabled={busy || pendingNewBatsman}
-            onClick={() => setWideSheet(true)}
-          />
-          <ScoreButton
-            label="Nb"
-            sublabel={freeHitEnabled ? "no ball + FH" : "no ball"}
-            variant="extra"
-            disabled={busy || pendingNewBatsman}
-            onClick={() => setNoBallSheet(true)}
-          />
-          {superBallEnabled ? (
-            <ScoreButton
-              label="Bye"
-              sublabel="byes"
-              variant="extra"
-              disabled={busy || pendingNewBatsman}
-              onClick={() => setByeSheet(true)}
-            />
-          ) : (
-            <ScoreButton
-              label="LB"
-              sublabel={legByeEnabled ? "leg bye" : "disabled"}
-              variant="extra"
-              disabled={busy || pendingNewBatsman || !legByeEnabled}
-              onClick={() => {
-                if (legByeEnabled) setLegByeSheet(true);
-              }}
-            />
-          )}
-          {superBallEnabled && legByeEnabled ? (
-            <ScoreButton
-              label="LB"
-              sublabel="leg bye"
-              variant="extra"
-              disabled={busy || pendingNewBatsman}
-              onClick={() => setLegByeSheet(true)}
-            />
-          ) : (
-            <ScoreButton
-              label="⇄"
-              sublabel="swap strike"
-              variant="default"
-              disabled={busy || pendingNewBatsman || !onSwapStrike}
-              onClick={() => {
-                if (onSwapStrike) onSwapStrike();
-              }}
-            />
-          )}
-        </div>
-
-        {/* Row 4: Wicket & Undo Action Buttons */}
-        <div className="grid grid-cols-2 gap-1 sm:gap-1.5 flex-1 min-h-0">
-          <ScoreButton
-            label="OUT / WICKET"
-            sublabel="how out?"
-            variant="wicket"
-            disabled={busy || pendingNewBatsman}
-            onClick={() => {
-              if (isPaused) {
-                toast({
-                  title: "Match is Paused",
-                  description: "Click 'Resume Play' in the top banner before recording wickets.",
+      {/* ─── Match / Innings Complete State vs Main Keypad ─── */}
+      {isMatchCompleteState ? (
+        <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-emerald-500/50 bg-gradient-to-b from-emerald-950/40 via-card to-black flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-3 sm:gap-4 shadow-xl shadow-emerald-950/30">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/60 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-bounce">
+            <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-emerald-400" />
+          </div>
+          <div className="space-y-1">
+            <span className="inline-block text-xs font-black uppercase tracking-[0.25em] text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30 mb-1">
+              {isTargetReached ? "🏆 TARGET REACHED · MATCH WON" : "🏁 CHASE COMPLETE · MATCH FINISHED"}
+            </span>
+            <h3 className="text-2xl sm:text-4xl font-black text-white tracking-wide">
+              {(() => {
+                const winnerTeam = teams.find((t) => t.id === matchResultPreview?.winnerTeamId);
+                if (matchResultPreview?.isTie) return "Match Tied!";
+                if (winnerTeam) return `${winnerTeam.name} ${matchResultPreview?.resultText ?? "Won"}`;
+                return matchResultPreview?.resultText ?? "Match Complete";
+              })()}
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Final Score: <strong className="text-foreground font-mono">{innings?.runs}/{innings?.wickets}</strong> in <strong className="text-foreground font-mono">{oversText(innings?.over ?? 0, innings?.ball ?? 0)}</strong> ov
+              {state.target != null ? ` (Target: ${state.target})` : ""}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-sm mt-1 sm:mt-2">
+            <Button
+              className="w-full h-12 text-base font-black bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/30"
+              disabled={busy}
+              onClick={async () => {
+                const result = buildMatchResult(state);
+                await onMatchComplete({
+                  winnerTeamId: result.winnerTeamId,
+                  margin: result.margin,
+                  resultText: result.resultText,
+                  isTie: result.isTie,
                 });
-                return;
-              }
-              setSelectedWicketType(null);
-              setSelectedFielderId(null);
-              setWicketSheet(true);
-            }}
-          />
-          <ScoreButton
-            label="↩ UNDO"
-            sublabel="last ball"
-            variant="undo"
-            disabled={busy}
-            onClick={() => {
-              if (canTap()) void onUndo();
-            }}
-          />
+              }}
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Complete Match Now
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-11 text-xs font-bold border-border/80 text-muted-foreground hover:text-foreground"
+              disabled={busy}
+              onClick={onUndo}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Undo Last Ball
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : isInnings1Finished ? (
+        <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-primary/50 bg-gradient-to-b from-primary/10 via-card to-black flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-3 sm:gap-4 shadow-xl">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-primary/20 border-2 border-primary/60 flex items-center justify-center shadow-lg shadow-primary/20">
+            <Flag className="w-9 h-9 sm:w-11 sm:h-11 text-primary" />
+          </div>
+          <div className="space-y-1">
+            <span className="inline-block text-xs font-black uppercase tracking-[0.25em] text-primary bg-primary/15 px-3 py-1 rounded-full border border-primary/30 mb-1">
+              🏁 INNINGS 1 COMPLETE
+            </span>
+            <h3 className="text-2xl sm:text-4xl font-black text-white tracking-wide">
+              {battingTeam?.name ?? "1st Innings"}: {innings?.runs}/{innings?.wickets}
+            </h3>
+            <p className="text-xs sm:text-sm text-primary font-bold">
+              Target for 2nd Innings: {innings?.runs ? innings.runs + 1 : 1} runs in {state.oversLimit} overs
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-sm mt-1 sm:mt-2">
+            <Button
+              className="w-full h-12 text-base font-black bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+              disabled={busy}
+              onClick={async () => {
+                const reason = suggestInningsEndReason(state);
+                await onInningsEnd({
+                  innings: 1,
+                  reason,
+                  runs: innings?.runs ?? 0,
+                  wickets: innings?.wickets ?? 0,
+                  overs: oversText(innings?.over ?? 0, innings?.ball ?? 0),
+                });
+              }}
+            >
+              Start 2nd Innings
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-11 text-xs font-bold border-border/80 text-muted-foreground hover:text-foreground"
+              disabled={busy}
+              onClick={onUndo}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Undo Last Ball
+            </Button>
+          </div>
+        </div>
+      ) : (
+        /* ─── Main Scorer Keypad Grid ─── */
+        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-border/70 bg-card/40 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5">
+          {/* Row 1: Primary Runs 0, 1, 2, 3 */}
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
+            <ScoreButton
+              label="0"
+              sublabel="dot"
+              variant="run"
+              disabled={busy || pendingNewBatsman}
+              onClick={() =>
+                recordBall({
+                  runsOffBat: 0,
+                  extras: { type: null, runs: 0 },
+                  wicket: null,
+                  isLegalDelivery: true,
+                })
+              }
+            />
+            <ScoreButton
+              label="1"
+              sublabel="single"
+              variant="run"
+              disabled={busy || pendingNewBatsman}
+              onClick={() =>
+                recordBall({
+                  runsOffBat: 1,
+                  extras: { type: null, runs: 0 },
+                  wicket: null,
+                  isLegalDelivery: true,
+                })
+              }
+            />
+            <ScoreButton
+              label="2"
+              sublabel="double"
+              variant="run"
+              disabled={busy || pendingNewBatsman}
+              onClick={() =>
+                recordBall({
+                  runsOffBat: 2,
+                  extras: { type: null, runs: 0 },
+                  wicket: null,
+                  isLegalDelivery: true,
+                })
+              }
+            />
+            <ScoreButton
+              label="3"
+              sublabel="three"
+              variant="run"
+              disabled={busy || pendingNewBatsman}
+              onClick={() =>
+                recordBall({
+                  runsOffBat: 3,
+                  extras: { type: null, runs: 0 },
+                  wicket: null,
+                  isLegalDelivery: true,
+                })
+              }
+            />
+          </div>
+
+          {/* Row 2: Boundaries 4, 6, Custom, Super Ball */}
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
+            <ScoreButton
+              label="4"
+              sublabel="four"
+              variant="boundary"
+              disabled={busy || pendingNewBatsman}
+              onClick={() =>
+                recordBall({
+                  runsOffBat: 4,
+                  extras: { type: null, runs: 0 },
+                  wicket: null,
+                  isLegalDelivery: true,
+                })
+              }
+            />
+            <ScoreButton
+              label="6"
+              sublabel="six"
+              variant="boundary"
+              disabled={busy || pendingNewBatsman}
+              onClick={() =>
+                recordBall({
+                  runsOffBat: 6,
+                  extras: { type: null, runs: 0 },
+                  wicket: null,
+                  isLegalDelivery: true,
+                })
+              }
+            />
+            <ScoreButton
+              label="+"
+              sublabel="custom"
+              variant="default"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => setCustomRunsSheet(true)}
+            />
+            {superBallEnabled ? (
+              <ScoreButton
+                label="⭐"
+                sublabel={
+                  isSuperBallActive
+                    ? "Active 2x"
+                    : superBallReason
+                      ? (superBallReason.includes("Powerplay") ? "In P-Play" : "Locked")
+                      : "Super Ball"
+                }
+                variant="super_ball"
+                disabled={busy || pendingNewBatsman}
+                onClick={() => void handleToggleSuperBall()}
+                className={cn(
+                  isSuperBallActive && "ring-2 ring-amber-400 bg-amber-500/30",
+                  !canUseSuperBall && !isSuperBallActive && "opacity-60",
+                )}
+              />
+            ) : (
+              <ScoreButton
+                label="B"
+                sublabel="byes"
+                variant="extra"
+                disabled={busy || pendingNewBatsman}
+                onClick={() => setByeSheet(true)}
+              />
+            )}
+          </div>
+
+          {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes) */}
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
+            <ScoreButton
+              label="Wd"
+              sublabel="wide"
+              variant="extra"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => setWideSheet(true)}
+            />
+            <ScoreButton
+              label="Nb"
+              sublabel={freeHitEnabled ? "no ball + FH" : "no ball"}
+              variant="extra"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => setNoBallSheet(true)}
+            />
+            {superBallEnabled ? (
+              <ScoreButton
+                label="Bye"
+                sublabel="byes"
+                variant="extra"
+                disabled={busy || pendingNewBatsman}
+                onClick={() => setByeSheet(true)}
+              />
+            ) : (
+              <ScoreButton
+                label="LB"
+                sublabel={legByeEnabled ? "leg bye" : "disabled"}
+                variant="extra"
+                disabled={busy || pendingNewBatsman || !legByeEnabled}
+                onClick={() => {
+                  if (legByeEnabled) setLegByeSheet(true);
+                }}
+              />
+            )}
+            {superBallEnabled && legByeEnabled ? (
+              <ScoreButton
+                label="LB"
+                sublabel="leg bye"
+                variant="extra"
+                disabled={busy || pendingNewBatsman}
+                onClick={() => setLegByeSheet(true)}
+              />
+            ) : (
+              <ScoreButton
+                label="⇄"
+                sublabel="swap strike"
+                variant="default"
+                disabled={busy || pendingNewBatsman || !onSwapStrike}
+                onClick={() => {
+                  if (onSwapStrike) onSwapStrike();
+                }}
+              />
+            )}
+          </div>
+
+          {/* Row 4: Wicket & Undo Action Buttons */}
+          <div className="grid grid-cols-2 gap-1 sm:gap-1.5 flex-1 min-h-0">
+            <ScoreButton
+              label="OUT / WICKET"
+              sublabel="how out?"
+              variant="wicket"
+              disabled={busy || pendingNewBatsman}
+              onClick={() => {
+                if (isPaused) {
+                  toast({
+                    title: "Match is Paused",
+                    description: "Click 'Resume Play' in the top banner before recording wickets.",
+                  });
+                  return;
+                }
+                setSelectedWicketType(null);
+                setSelectedFielderId(null);
+                setWicketSheet(true);
+              }}
+            />
+            <ScoreButton
+              label="↩ UNDO"
+              sublabel="last ball"
+              variant="undo"
+              disabled={busy}
+              onClick={() => {
+                if (canTap()) void onUndo();
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ─── Bottom Actions Bar ─── */}
       <div className="flex gap-1.5 shrink-0">
@@ -1875,26 +2007,91 @@ export function LiveScoringPad({
       {/* ─── DLS Sheet ─── */}
       {/* ═══════════════════════════════════════════════════ */}
       <Sheet open={dlsSheet} onOpenChange={setDlsSheet}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto bg-card border-t-2 border-sky-500/40">
           <SheetHeader>
-            <SheetTitle>DLS — Revised Overs</SheetTitle>
+            <SheetTitle className="flex items-center gap-2 text-sky-400">
+              <CloudRain className="w-5 h-5" />
+              DLS Method — Rain Target Revision
+            </SheetTitle>
           </SheetHeader>
           <div className="mt-4 space-y-4 pb-6">
+            {/* Match Situation Context */}
+            {state.innings.length > 0 && (() => {
+              const firstInn = state.innings.find((i) => i.innings === 1);
+              const secondInn = state.innings.find((i) => i.innings === 2);
+              return (
+                <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1.5 border border-border/60">
+                  {firstInn && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">1st Innings Score:</span>
+                      <span className="font-bold text-foreground">
+                        {firstInn.runs}/{firstInn.wickets} ({oversText(firstInn.over, firstInn.ball)} ov)
+                      </span>
+                    </div>
+                  )}
+                  {secondInn && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">2nd Innings Current:</span>
+                      <span className="font-bold text-foreground">
+                        {secondInn.runs}/{secondInn.wickets} ({oversText(secondInn.over, secondInn.ball)} ov)
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Original Match Overs:</span>
+                    <span className="font-semibold text-foreground">{state.oversLimit} overs</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div>
               <label className="text-xs text-muted-foreground font-semibold">
-                Overs per innings (revised)
+                Revised Match Overs per Innings
               </label>
               <Input
                 type="number"
                 min={1}
-                max={50}
+                max={state.oversLimit || 50}
                 value={revisedOvers}
                 onChange={(e) => setRevisedOvers(e.target.value)}
-                className="mt-1 h-12 text-lg font-bold"
+                className="mt-1 h-12 text-xl font-black tracking-wider text-sky-400 border-sky-500/40"
               />
             </div>
+
+            {/* DLS Preview Card */}
+            {dlsPreview ? (
+              <div className="rounded-xl border-2 border-sky-400/40 bg-sky-500/10 p-4 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs uppercase font-black tracking-wider text-sky-300">
+                    Revised Target
+                  </span>
+                  <span className="text-3xl font-black text-white font-mono">
+                    {dlsPreview.target}{" "}
+                    <span className="text-sm font-semibold text-sky-200">
+                      runs in {revisedOvers} ov
+                    </span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-sky-500/20 text-[11px] text-muted-foreground">
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-sky-300">Par Score</span>
+                    <strong className="text-foreground text-sm font-mono">{dlsPreview.parScore}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-sky-300">R1 Used</span>
+                    <strong className="text-foreground text-sm font-mono">{dlsPreview.resourceFirst}%</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-sky-300">R2 Available</span>
+                    <strong className="text-foreground text-sm font-mono">{dlsPreview.resourceSecond}%</strong>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <Button
-              className="w-full h-12 font-bold"
+              className="w-full h-12 font-bold bg-sky-500 hover:bg-sky-600 text-slate-950 text-base shadow-lg shadow-sky-500/20"
               disabled={busy || !dlsPreview}
               onClick={async () => {
                 if (!dlsPreview) return;
@@ -1905,6 +2102,10 @@ export function LiveScoringPad({
                   parScore: dlsPreview.parScore,
                   target: dlsPreview.target,
                   reason: "Rain — DLS",
+                });
+                toast({
+                  title: "DLS Target Applied",
+                  description: `Target set to ${dlsPreview.target} runs in ${revisedOvers} overs.`,
                 });
               }}
             >

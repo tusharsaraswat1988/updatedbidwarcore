@@ -542,10 +542,14 @@ function applyInningsEnded(
       first.battingTeamId,
       state.oversLimit,
     );
+    const target =
+      state.revisedOversLimit != null && state.target != null
+        ? state.target
+        : payload.runs + 1;
     return {
       ...next,
       currentInnings: 2,
-      target: payload.runs + 1,
+      target,
       innings: [...next.innings, second],
       thisOver: [],
       strikerId: null,
@@ -592,7 +596,6 @@ function applyMatchInterrupted(
 ): CricketScoreboardState {
   return {
     ...state,
-    matchStatus: "paused",
     sessionStatus: "paused",
     interruptionReason: payload.reason,
     freeHitActive: false,
@@ -602,10 +605,9 @@ function applyMatchInterrupted(
 function applyMatchResumed(
   state: CricketScoreboardState,
 ): CricketScoreboardState {
-  if (state.matchStatus !== "live" && state.matchStatus !== "paused") return state;
+  if (state.matchStatus !== "live") return state;
   return {
     ...state,
-    matchStatus: "live",
     sessionStatus: "live",
     interruptionReason: null,
   };
@@ -615,14 +617,6 @@ function applyDlsApplied(
   state: CricketScoreboardState,
   payload: CricketDlsAppliedPayload,
 ): CricketScoreboardState {
-  const innings = state.innings.find((i) => i.innings === payload.innings);
-  if (!innings) {
-    throw new InvalidEventPayloadError(
-      CricketEventType.DLS_APPLIED,
-      `innings ${payload.innings} not found`,
-    );
-  }
-
   let next: CricketScoreboardState = {
     ...state,
     target: payload.target,
@@ -632,10 +626,13 @@ function applyDlsApplied(
     interruptionReason: null,
   };
 
-  next = updateInnings(next, payload.innings, (inn) => ({
-    ...inn,
-    oversLimit: payload.revisedOvers,
-  }));
+  const innings = state.innings.find((i) => i.innings === payload.innings);
+  if (innings) {
+    next = updateInnings(next, payload.innings, (inn) => ({
+      ...inn,
+      oversLimit: payload.revisedOvers,
+    }));
+  }
 
   return next;
 }

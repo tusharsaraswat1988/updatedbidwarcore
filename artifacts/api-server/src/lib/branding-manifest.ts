@@ -95,3 +95,31 @@ export async function buildOwnerAppManifest(): Promise<Record<string, unknown>> 
     ],
   };
 }
+
+export async function buildScoringAppManifest(): Promise<Record<string, unknown>> {
+  const [settings] = await db.select().from(brandingSettingsTable).limit(1);
+  const icon192 = await relativeManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon192);
+  const icon512 = await relativeManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon512);
+  const brandName = settings?.brandName?.trim() || "BidWar";
+  const themeColor = "#1b2044";
+
+  return {
+    id: "/scoring-app/",
+    name: `${brandName} Scoring Console`,
+    short_name: `${brandName} Scorer`,
+    description: "Official match scoring console for cricket, badminton, and tournaments — BidWar",
+    theme_color: themeColor,
+    background_color: themeColor,
+    display: "standalone",
+    display_override: ["standalone", "minimal-ui", "window-controls-overlay"],
+    orientation: "any",
+    scope: "/scoring-app/",
+    start_url: "/scoring-app/",
+    prefer_related_applications: false,
+    icons: [
+      { src: icon192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: icon512, sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      { src: icon192, sizes: "192x192", type: "image/png", purpose: "maskable" },
+    ],
+  };
+}

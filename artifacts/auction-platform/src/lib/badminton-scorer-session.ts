@@ -17,7 +17,19 @@ export type ScorerAuthSession = {
 export function getScorerAuthSession(): ScorerAuthSession | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(STORAGE_KEY);
+    } catch {
+      // localStorage may fail in restricted/incognito modes
+    }
+    if (!raw) {
+      try {
+        raw = sessionStorage.getItem(STORAGE_KEY);
+      } catch {
+        // sessionStorage fallback
+      }
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ScorerAuthSession>;
     if (
@@ -36,13 +48,21 @@ export function getScorerAuthSession(): ScorerAuthSession | null {
       typeof parsed.canScore === "boolean"
         ? parsed.canScore
         : parsed.scorer.isActive !== false;
-    return {
+    const result: ScorerAuthSession = {
       token: parsed.token,
       scorer: parsed.scorer as ScorerAuthSession["scorer"],
       canScore,
       expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : "",
       verifiedAt: typeof parsed.verifiedAt === "number" ? parsed.verifiedAt : Date.now(),
     };
+    // Keep storages in sync if read from one but missing from another
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+    } catch {}
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+    } catch {}
+    return result;
   } catch {
     return null;
   }
@@ -56,7 +76,13 @@ export function setScorerAuthSession(session: Omit<ScorerAuthSession, "verifiedA
       canScore: session.canScore !== false,
       verifiedAt: Date.now(),
     };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    const serialized = JSON.stringify(payload);
+    try {
+      localStorage.setItem(STORAGE_KEY, serialized);
+    } catch {}
+    try {
+      sessionStorage.setItem(STORAGE_KEY, serialized);
+    } catch {}
   } catch {
     // Private browsing / quota
   }
@@ -77,7 +103,12 @@ export function patchScorerAuthCanScore(canScore: boolean): void {
 export function clearScorerAuthSession(): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {}
   } catch {
     // ignore
   }

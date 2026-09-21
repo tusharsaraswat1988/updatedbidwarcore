@@ -491,8 +491,8 @@ export function LedEventAnimationOverlay({
             7. SUPER BALL (2X RUNS) - HIGH-VOLTAGE COLLISION EQUATION
         ============================================================ */}
         {currentEvent.type === "SUPER_BALL" && (() => {
-          const baseRuns = currentEvent.runsOffBat ?? 4;
-          const totalRuns = currentEvent.totalRuns ?? baseRuns * 2;
+          const totalRuns = currentEvent.totalRuns ?? (currentEvent.runsOffBat != null ? currentEvent.runsOffBat * 2 : 8);
+          const baseRuns = currentEvent.runsOffBat ?? Math.round(totalRuns / 2);
 
           return (
             <div className="relative z-20 flex flex-col items-center justify-center text-center px-4 max-w-6xl">

@@ -91,8 +91,17 @@ export default function CricketScorerHomePage() {
   const teams = masterTeams.map(cricketMasterTeamToScorerTeam);
 
   useEffect(() => {
-    const current = getScorerAuthSession();
-    if (current) setSession(current);
+    const sync = () => {
+      const current = getScorerAuthSession();
+      if (current) setSession(current);
+    };
+    sync();
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
   }, []);
 
   async function handleLogin(e?: React.FormEvent) {

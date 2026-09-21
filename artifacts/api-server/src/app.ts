@@ -45,6 +45,7 @@ import {
   buildAdminAppManifest,
   buildAuctionPlatformManifest,
   buildOwnerAppManifest,
+  buildScoringAppManifest,
 } from "./lib/branding-manifest.js";
 
 const app: Express = express();
@@ -242,6 +243,18 @@ app.get("/admin.webmanifest", async (_req, res) => {
     res.json(manifest);
   } catch (err) {
     logger.error({ err }, "Failed to build admin manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
+
+app.get(["/scoring-app/manifest.webmanifest", "/scoring-app/site.webmanifest"], async (_req, res) => {
+  try {
+    const manifest = await buildScoringAppManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build scoring-app manifest");
     res.status(500).json({ error: "Manifest unavailable" });
   }
 });

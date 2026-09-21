@@ -199,37 +199,49 @@ export default function BadmintonScorerPage() {
 
     const tick = () => {
       void heartbeatScorerMatchLock(matchId, token).catch(() => {
-        setAuthError("Connection lost — lock expired. Re-open the match.");
-        setLockAccepted(false);
-        lockHeldRef.current = false;
+        // If phone slept past heartbeat TTL, attempt to reacquire once before erroring
+        void acquireScorerMatchLock(matchId, token, {
+          tournamentId,
+          sport: "badminton",
+        }).then((res) => {
+          if (res.ok) {
+            lockHeldRef.current = true;
+            setLockAccepted(true);
+            setAuthError("");
+          } else {
+            setAuthError("Scoring paused — match lock lost. Tap Reconnect or Retry lock.");
+            setLockAccepted(false);
+            lockHeldRef.current = false;
+          }
+        }).catch(() => {
+          setAuthError("Connection lost — lock expired. Re-open the match.");
+          setLockAccepted(false);
+          lockHeldRef.current = false;
+        });
       });
     };
+
     const id = window.setInterval(tick, HEARTBEAT_MS);
-    return () => window.clearInterval(id);
-  }, [lockAccepted, matchId, viewingComplete]);
+
+    // When returning from background / other app, immediately verify / heartbeat lock
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onVisibilityChange);
+    };
+  }, [lockAccepted, matchId, viewingComplete, tournamentId]);
 
   useEffect(() => {
-    function releaseOnUnload() {
-      if (!lockHeldRef.current || !matchId) return;
-      const token = getScorerAuthSession()?.token;
-      if (!token) return;
-      lockHeldRef.current = false;
-      const params = new URLSearchParams({
-        tournamentId: String(tournamentId),
-        sport: "badminton",
-      });
-      void fetch(
-        `${import.meta.env.VITE_API_URL ?? ""}/api/scorer/matches/${matchId}/lock?${params}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-          keepalive: true,
-        },
-      ).catch(() => {});
-    }
-    window.addEventListener("pagehide", releaseOnUnload);
+    // Release lock only on component unmount (navigating away / closing console)
     return () => {
-      window.removeEventListener("pagehide", releaseOnUnload);
       if (!lockHeldRef.current || !matchId) return;
       const token = getScorerAuthSession()?.token;
       if (!token) return;
@@ -708,7 +720,7 @@ export default function BadmintonScorerPage() {
   }
 
   return (
-    <FullscreenLayout className="lovable-theme h-[100dvh] min-h-0 overflow-hidden">
+    <FullscreenLayout className="lovable-theme fixed inset-0 h-[100dvh] max-h-[100dvh] w-full min-h-0 overflow-hidden select-none touch-manipulation">
       <div className="h-full min-h-0 overflow-hidden flex flex-col bg-background overscroll-none">
         {tournamentId > 0 ? (
           <div className="shrink-0 px-3 py-1.5 border-b border-border bg-card/80 flex items-center justify-between gap-2">

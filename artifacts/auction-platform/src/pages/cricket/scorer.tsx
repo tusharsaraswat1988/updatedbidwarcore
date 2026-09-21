@@ -158,11 +158,12 @@ export default function CricketScorerPage() {
     let heartbeatTimer: NodeJS.Timeout | null = null;
     const token = currentSession.token;
 
-    async function obtainLock() {
+    async function obtainLock(forceTakeover = false) {
       try {
         const lockRes = await acquireScorerMatchLock(matchId, token, {
           tournamentId,
           sport: "cricket",
+          forceTakeover,
         });
         if (lockRes.ok) {
           setLockAcquired(true);
@@ -170,12 +171,25 @@ export default function CricketScorerPage() {
           lockHeldRef.current = true;
           setLockError("");
 
+          if (heartbeatTimer) clearInterval(heartbeatTimer);
           heartbeatTimer = setInterval(async () => {
             if (!lockHeldRef.current) return;
             try {
               await heartbeatScorerMatchLock(matchId, token);
-            } catch (e) {
-              // Lock lost or disconnected — disable scoring controls.
+            } catch {
+              // Try silent reacquire once before marking lock lost
+              try {
+                const reacquire = await acquireScorerMatchLock(matchId, token, {
+                  tournamentId,
+                  sport: "cricket",
+                });
+                if (reacquire.ok) {
+                  lockHeldRef.current = true;
+                  setLockAcquired(true);
+                  setLockLost(false);
+                  return;
+                }
+              } catch {}
               lockHeldRef.current = false;
               setLockAcquired(false);
               setLockLost(true);
@@ -196,7 +210,19 @@ export default function CricketScorerPage() {
 
     void obtainLock();
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible" && lockHeldRef.current) {
+        void heartbeatScorerMatchLock(matchId, token).catch(() => {
+          void obtainLock();
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onVisibilityChange);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onVisibilityChange);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (lockHeldRef.current) {
         lockHeldRef.current = false;
@@ -536,7 +562,7 @@ export default function CricketScorerPage() {
   }
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full bg-[#070b19] text-white flex flex-col overflow-hidden select-none touch-manipulation">
+    <div className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full bg-[#070b19] text-white flex flex-col overflow-hidden select-none touch-manipulation overscroll-none">
       {/* ─── Fixed Header Bar (44px) ─── */}
       <header className="h-11 shrink-0 px-3 border-b border-white/10 bg-[#090e21] flex items-center justify-between gap-2 z-20">
         <div className="flex items-center gap-2 min-w-0">

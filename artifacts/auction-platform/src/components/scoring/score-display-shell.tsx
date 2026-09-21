@@ -278,8 +278,9 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       lastSeqRef.current = state.lastSequence;
 
       if (lastBall.isSuperBall) {
-        const baseRuns = lastBall.runsOffBat || 0;
-        const totalRuns = baseRuns * 2;
+        // lastBall.runsOffBat from toBallDisplay is already the doubled total (e.g. 12 on 6-hit)
+        const totalRuns = lastBall.runsOffBat || 0;
+        const baseRuns = Math.round(totalRuns / 2);
         setActiveEvent({
           type: "SUPER_BALL",
           runsOffBat: baseRuns,
