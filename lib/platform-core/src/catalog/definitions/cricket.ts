@@ -100,6 +100,16 @@ export const CRICKET_RULE_DEFINITIONS = [
     defaultValue: false,
   }),
   def({
+    id: "cricket.special.super_ball_doubles_boundaries_only",
+    name: "Super Ball doubles boundaries only",
+    description:
+      "When enabled, only 4s and 6s are doubled on Super Ball; otherwise all runs are doubled.",
+    categoryId: "special",
+    sportId: "cricket",
+    type: "boolean",
+    defaultValue: true,
+  }),
+  def({
     id: "cricket.bowling.free_hit_enabled",
     name: "Free hit enabled",
     description: "Whether free-hit deliveries are awarded after no-balls.",

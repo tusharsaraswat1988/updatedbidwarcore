@@ -25,6 +25,8 @@ export const CRICKET_CUSTOM_RULE_PROFILES = [
       value("cricket.powerplay.enabled", "inherit"),
       value("cricket.tie_break.ties_allowed", "inherit"),
       value("cricket.tie_break.super_over_enabled", "inherit"),
+      value("cricket.special.super_ball_enabled", "inherit"),
+      value("cricket.special.super_ball_doubles_boundaries_only", "inherit"),
       value("cricket.boundary.four_runs", "inherit"),
       value("cricket.boundary.six_runs", "inherit"),
     ],

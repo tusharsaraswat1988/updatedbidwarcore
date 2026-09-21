@@ -25,6 +25,8 @@ export const CRICKET_TENNIS_BALL_RULE_PROFILES = [
       value("cricket.powerplay.enabled", false),
       value("cricket.tie_break.ties_allowed", true),
       value("cricket.tie_break.super_over_enabled", true),
+      value("cricket.special.super_ball_enabled", false),
+      value("cricket.special.super_ball_doubles_boundaries_only", true),
       value("cricket.boundary.four_runs", 4),
       value("cricket.boundary.six_runs", 6),
     ],

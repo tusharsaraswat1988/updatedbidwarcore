@@ -10,11 +10,15 @@ export const CRICKET_KEY_RULE_OVERRIDE_IDS = [
   "cricket.match.playing_squad_size",
   "cricket.match.playing_xi_enforced",
   "cricket.match.bench_size",
+  "cricket.match.balls_per_over",
+  "cricket.match.ball_type",
   "cricket.batting.retire_at_runs",
   "cricket.dismissal.lbw_enabled",
   "cricket.extras.leg_bye_enabled",
   "cricket.bowling.free_hit_enabled",
+  "cricket.powerplay.enabled",
   "cricket.special.super_ball_enabled",
+  "cricket.special.super_ball_doubles_boundaries_only",
   "cricket.tie_break.super_over_enabled",
   "cricket.tie_break.super_over_overs",
   "cricket.tie_break.super_over_wickets",
@@ -100,11 +104,26 @@ export function validateCricketKeyRuleOverrides(
       key === "cricket.bowling.free_hit_enabled" ||
       key === "cricket.extras.leg_bye_enabled" ||
       key === "cricket.match.playing_xi_enforced" ||
+      key === "cricket.powerplay.enabled" ||
       key === "cricket.special.super_ball_enabled" ||
+      key === "cricket.special.super_ball_doubles_boundaries_only" ||
       key === "cricket.tie_break.super_over_enabled"
     ) {
       if (typeof value !== "boolean") {
         return { ok: false, error: `${key} must be boolean` };
+      }
+      values[key] = value;
+      continue;
+    }
+    if (key === "cricket.match.ball_type") {
+      if (
+        typeof value !== "string" ||
+        !["leather", "tennis", "tape", "indoor"].includes(value)
+      ) {
+        return {
+          ok: false,
+          error: "Ball type must be leather, tennis, tape, or indoor",
+        };
       }
       values[key] = value;
       continue;
@@ -124,6 +143,9 @@ export function validateCricketKeyRuleOverrides(
     }
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return { ok: false, error: `${key} must be a number` };
+    }
+    if (key === "cricket.match.balls_per_over" && (value < 1 || value > 10)) {
+      return { ok: false, error: "Balls per over must be between 1 and 10" };
     }
     if (key === "cricket.match.overs_per_innings" && value < 1) {
       return { ok: false, error: "Overs per innings must be ≥ 1" };

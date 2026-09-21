@@ -10,6 +10,7 @@ import {
   loadParticipants,
   loadTournamentCompetitionRow,
   lockCompetitionSetup,
+  unlockCompetitionSetup,
   patchCompetitionConfiguration,
 } from "../lib/competition-service";
 import {
@@ -193,6 +194,24 @@ router.post("/tournaments/:id/competition/ready", async (req, res) => {
     planVersion: result.plan.version,
     plan: result.plan,
     tournamentTransitionResult: result.tournamentTransitionResult,
+  });
+});
+
+/** Unlock Competition Setup — returns tournament to editable draft mode. */
+router.post("/tournaments/:id/competition/unlock", async (req, res) => {
+  const tid = parseTid(req.params.id);
+  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const result = await unlockCompetitionSetup(tid);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  const aggregate = await buildCompetitionAggregate(tid);
+  res.json({
+    ok: true,
+    competitionStatus: aggregate?.summary.status ?? null,
   });
 });
 

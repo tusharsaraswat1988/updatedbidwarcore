@@ -77,6 +77,13 @@ export async function applyCricketRulesToMatches(
   let failedCount = 0;
 
   for (const match of matches) {
+    if (
+      match.lifecycleStatus === "completed" ||
+      match.lifecycleStatus === "abandoned"
+    ) {
+      // Completed and abandoned historical matches are immutable and unaffected by rule updates.
+      continue;
+    }
     const steps = { drawsReady: true, matchLocked: false, prepared: false };
     try {
       // Ensure linked draw (if any) is covered even if tournament-wide update raced.

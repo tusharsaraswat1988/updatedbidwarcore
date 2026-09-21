@@ -184,8 +184,22 @@ export type LockCompetitionResult =
       validation?: CompetitionValidationResult;
     };
 
+export async function unlockCompetitionSetup(
+  tournamentId: number,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const tournament = await loadTournamentCompetitionRow(tournamentId);
+  if (!tournament) {
+    return { ok: false, status: 404, error: "Tournament not found" };
+  }
+  await db
+    .delete(competitionConfigurationHistoryTable)
+    .where(eq(competitionConfigurationHistoryTable.tournamentId, tournamentId));
+
+  return { ok: true };
+}
+
 /**
- * Lock Competition Setup — freeze once.
+ * Lock Competition Setup — freeze once (or re-freeze after edits).
  * Does not hard-mutate tournament.status when product state machine is not enforced;
  * records Transition Rules request and optionally sets status when still in setup/draft.
  */
@@ -199,13 +213,7 @@ export async function lockCompetitionSetup(
   }
 
   const existing = await loadLatestPlan(tournamentId);
-  if (existing) {
-    return {
-      ok: false,
-      status: 409,
-      error: "Competition Setup is already locked. Re-freeze is not allowed in this epic.",
-    };
-  }
+  const nextVersion = (existing?.version ?? 0) + 1;
 
   const configuration = buildWorkingConfiguration(tournament, null);
   const validation = validateCompetitionConfiguration(configuration);
@@ -226,7 +234,7 @@ export async function lockCompetitionSetup(
     .insert(competitionConfigurationHistoryTable)
     .values({
       tournamentId,
-      version: 1,
+      version: nextVersion,
       payloadJson: payload as unknown as Record<string, unknown>,
       checksum,
       frozenBy,

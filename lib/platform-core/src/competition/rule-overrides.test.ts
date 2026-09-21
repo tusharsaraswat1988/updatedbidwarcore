@@ -21,7 +21,7 @@ describe("rule overrides", () => {
 
   it("rejects unknown override keys", () => {
     const result = validateCricketKeyRuleOverrides({
-      values: { "cricket.match.ball_type": "tennis" },
+      values: { "cricket.unknown.some_flag": true },
     });
     expect(result.ok).toBe(false);
   });
@@ -47,7 +47,7 @@ describe("rule overrides", () => {
       parseRuleOverrides({
         values: {
           "cricket.match.overs_per_innings": 8,
-          "cricket.match.ball_type": "tennis",
+          "cricket.unknown.some_flag": true,
         },
       }),
     ).toEqual({

@@ -332,78 +332,65 @@ export default function CricketMatchCenterPage() {
           />
         </section>
 
-        {/* Quick actions */}
-        <section>
-          <HubSectionHeader title="Quick actions" subtitle="Everything you need for this match" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-3">
-            <ActionLink href={scorerHref} label="Open Scorer" icon={Radio} primary />
-            <ActionLink href={liveControlHref} label="Live Control" icon={Tv} />
-            <ActionLink
-              href={scoreDisplayPath(tournamentId, tournament?.auctionCode)}
-              label="LED / Scoreboard"
-              icon={Monitor}
-              external
-            />
-            <ActionLink
-              href={cricketObsLivePath(tournamentId, tournament?.auctionCode)}
-              label="Cricket OBS"
-              icon={Tv}
-              external
-            />
-            <ActionLink
-              href={cricketObsMatchPath(tournamentId, matchId, tournament?.auctionCode)}
-              label="Cricket OBS (this match)"
-              icon={Tv}
-              external
-            />
-            <ActionLink
+        {/* Primary Actions & Screen Shortcuts */}
+        <section className="space-y-3">
+          <HubSectionHeader title="Match Actions" subtitle="Scoring, public view, and live screens for this match" />
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            {/* 1. Scorer Pad */}
+            <a
+              href={scorerHref}
+              className="flex items-center gap-3 p-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-all shadow-md shadow-amber-400/20"
+            >
+              <Radio className="w-5 h-5 shrink-0" />
+              <div>
+                <div className="text-sm leading-tight">Open Scorer / Umpire Pad</div>
+                <div className="text-[11px] opacity-80 font-normal">Toss, lineups & ball-by-ball scoring</div>
+              </div>
+            </a>
+
+            {/* 2. Public Match View */}
+            <a
               href={cricketMatchPublicPath(tournamentId, matchId)}
-              label="Public Match"
-              icon={ExternalLink}
-              external
-            />
-            <ActionLink
-              href={cricketPublicPath(tournamentId)}
-              label="Public Tournament"
-              icon={Trophy}
-              external
-            />
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(hubPanelClass, "flex items-center gap-3 p-4 hover:border-primary/40 transition-all")}
+            >
+              <ExternalLink className="w-5 h-5 text-primary shrink-0" />
+              <div>
+                <div className="text-sm font-bold text-foreground leading-tight">Public Match Page</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Fan scorecard & ball replay</div>
+              </div>
+            </a>
+
+            {/* 3. Ground LED Screen */}
+            <button
+              type="button"
+              onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+              className={cn(hubPanelClass, "flex items-center gap-3 p-4 hover:border-primary/40 text-left transition-all")}
+            >
+              <Monitor className="w-5 h-5 text-sky-400 shrink-0" />
+              <div>
+                <div className="text-sm font-bold text-foreground leading-tight">Ground LED Scoreboard</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Live fullscreen for stadium</div>
+              </div>
+            </button>
+
+            {/* 4. Print / PDF */}
             <button
               type="button"
               onClick={() => window.print()}
-              className={cn(hubPanelClass, "text-left text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
+              className={cn(hubPanelClass, "flex items-center gap-3 p-4 hover:border-primary/40 text-left transition-all")}
             >
-              <Printer className="w-4 h-4 text-primary shrink-0" />
-              Print / PDF
+              <Printer className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <div className="text-sm font-bold text-foreground leading-tight">Print / PDF Scorecard</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Official match sheet download</div>
+              </div>
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                const a = document.createElement("a");
-                a.href = cricketMatchPublicPath(tournamentId, matchId);
-                a.target = "_blank";
-                a.rel = "noopener";
-                a.click();
-              }}
-              className={cn(hubPanelClass, "text-left text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              <Download className="w-4 h-4 text-primary shrink-0" />
-              Scorecard
-            </button>
-            <Link
-              href={sportsMissionControlPath(tournamentId)}
-              className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              Tournament Dashboard
-            </Link>
-            <Link
-              href={cricketDashboardPath(tournamentId)}
-              className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              Dashboard
-            </Link>
           </div>
-          <div className="mt-3">
+
+          <div className="mt-2">
             <ShareButtons
               url={publicMatchUrl}
               shareText={`${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`}

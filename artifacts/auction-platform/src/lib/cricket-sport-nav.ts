@@ -100,61 +100,39 @@ export function preloadAllCricketChunks() {
 }
 
 /**
- * Primary cricket organizer destinations — Sports product.
- * Teams / Players live here (import from Auction or add manually), like badminton.
+ * Primary cricket organizer destinations — Simplified 5-Zone Navigation.
  */
 export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   {
-    id: "mission-control",
-    label: "Setup & Readiness",
-    href: sportsMissionControlPath,
-    isActive: (path, tid) => isMissionControlPath(path, tid),
-    icon: ClipboardCheck,
-    preload: () => preloadNav("missionControl"),
-  },
-  {
-    id: "dashboard",
-    label: "Match Dashboard",
-    href: cricketDashboardPath,
-    isActive: (path) => isDashboardPath(path),
-    icon: LayoutDashboard,
-    preload: () => preloadNav("dashboard"),
-  },
-  {
-    id: "settings",
-    label: "Tournament settings",
-    href: cricketSettingsPath,
-    isActive: (path) => scoreSection(path, "settings"),
-    icon: Settings,
-    preload: () => preloadNav("settings"),
-  },
-  {
-    id: "rules",
-    label: "Rules & format",
-    href: cricketRulesPath,
-    isActive: (path) => scoreSection(path, "rules"),
-    icon: Scale,
-    preload: () => preloadNav("rules"),
-  },
-  {
     id: "teams",
-    label: "Teams",
+    label: "Teams & Players",
     href: cricketTeamsPath,
-    isActive: (path) => scoreSection(path, "teams"),
-    icon: Shield,
-    preload: () => preloadNav("teams"),
-  },
-  {
-    id: "players",
-    label: "Players",
-    href: cricketPlayersPath,
-    isActive: (path) => scoreSection(path, "players"),
-    icon: UserRound,
-    preload: () => preloadNav("players"),
+    isActive: (path) => scoreSection(path, "teams") || scoreSection(path, "players"),
+    icon: Users,
+    preload: () => {
+      preloadNav("teams");
+      preloadNav("players");
+    },
+    children: [
+      {
+        id: "teams-list",
+        label: "Franchise Teams",
+        href: cricketTeamsPath,
+        isActive: (path) => scoreSection(path, "teams"),
+        preload: () => preloadNav("teams"),
+      },
+      {
+        id: "players-list",
+        label: "Player Roster",
+        href: cricketPlayersPath,
+        isActive: (path) => scoreSection(path, "players"),
+        preload: () => preloadNav("players"),
+      },
+    ],
   },
   {
     id: "fixtures",
-    label: "Fixtures",
+    label: "Fixtures & Schedule",
     href: cricketFixturesPath,
     isActive: (path) =>
       scoreSection(path, "fixtures") || scoreSection(path, "schedule"),
@@ -163,14 +141,14 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     children: [
       {
         id: "fixtures-browser",
-        label: "Fixture browser",
+        label: "Match Fixtures",
         href: cricketFixturesPath,
         isActive: (path) => scoreSection(path, "fixtures"),
         preload: () => preloadNav("fixtures"),
       },
       {
         id: "fixtures-schedule",
-        label: "Schedule & generate",
+        label: "Schedule & Generate",
         href: cricketScheduleOpsPath,
         isActive: (path) => scoreSection(path, "schedule"),
         preload: () => preloadNav("schedule"),
@@ -179,68 +157,82 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "matches",
-    label: "Matches & Scoring",
+    label: "Matches & Live Screens",
     href: cricketScoreHubPath,
-    isActive: (path, tid) => isMatchesListPath(path, tid),
+    isActive: (path, tid) => isMatchesListPath(path, tid) || scoreSection(path, "live-control"),
     icon: Radio,
     preload: () => {
       preloadNav("matches");
       preloadNav("matchCenter");
+      preloadNav("liveControl");
     },
   },
   {
-    id: "live-control",
-    label: "Live Control",
-    href: cricketLiveControlPath,
-    isActive: (path) => scoreSection(path, "live-control"),
-    icon: Monitor,
-    preload: () => preloadNav("liveControl"),
-  },
-  {
     id: "standings",
-    label: "Standings",
+    label: "Standings & Stats",
     href: cricketStandingsOpsPath,
-    isActive: (path) => scoreSection(path, "standings"),
-    icon: Table2,
-    preload: () => preloadNav("standings"),
-  },
-  {
-    id: "stats",
-    label: "Statistics",
-    href: cricketStatsOpsPath,
-    isActive: (path) => scoreSection(path, "stats"),
+    isActive: (path) => scoreSection(path, "standings") || scoreSection(path, "stats"),
     icon: Trophy,
-    preload: () => preloadNav("stats"),
-  },
-  {
-    id: "officials",
-    label: "Officials",
-    href: cricketOfficialsPath,
-    isActive: (path) => scoreSection(path, "officials"),
-    icon: Users,
-    preload: () => preloadNav("officials"),
-  },
-  {
-    id: "closeout",
-    label: "Closeout",
-    href: cricketAwardsPath,
-    isActive: (path) =>
-      scoreSection(path, "awards") || scoreSection(path, "reports"),
-    icon: Award,
-    preload: () => preloadNav("awards"),
+    preload: () => {
+      preloadNav("standings");
+      preloadNav("stats");
+    },
     children: [
       {
-        id: "closeout-awards",
-        label: "Awards",
-        href: cricketAwardsPath,
-        isActive: (path) => scoreSection(path, "awards"),
-        preload: () => preloadNav("awards"),
+        id: "standings-table",
+        label: "Points Table",
+        href: cricketStandingsOpsPath,
+        isActive: (path) => scoreSection(path, "standings"),
+        preload: () => preloadNav("standings"),
       },
       {
-        id: "closeout-reports",
-        label: "Reports",
+        id: "stats-leaderboards",
+        label: "Top Players & Stats",
+        href: cricketStatsOpsPath,
+        isActive: (path) => scoreSection(path, "stats"),
+        preload: () => preloadNav("stats"),
+      },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings & Rules",
+    href: cricketSettingsPath,
+    isActive: (path) =>
+      scoreSection(path, "settings") ||
+      scoreSection(path, "rules") ||
+      scoreSection(path, "officials") ||
+      scoreSection(path, "awards") ||
+      scoreSection(path, "reports"),
+    icon: Settings,
+    preload: () => preloadNav("settings"),
+    children: [
+      {
+        id: "settings-tournament",
+        label: "Tournament Info & Branding",
+        href: cricketSettingsPath,
+        isActive: (path) => scoreSection(path, "settings"),
+        preload: () => preloadNav("settings"),
+      },
+      {
+        id: "settings-rules",
+        label: "Match Rules & Format",
+        href: cricketRulesPath,
+        isActive: (path) => scoreSection(path, "rules"),
+        preload: () => preloadNav("rules"),
+      },
+      {
+        id: "settings-officials",
+        label: "Umpires & Scorers",
+        href: cricketOfficialsPath,
+        isActive: (path) => scoreSection(path, "officials"),
+        preload: () => preloadNav("officials"),
+      },
+      {
+        id: "settings-reports",
+        label: "Reports & Awards",
         href: cricketReportsPath,
-        isActive: (path) => scoreSection(path, "reports"),
+        isActive: (path) => scoreSection(path, "reports") || scoreSection(path, "awards"),
         preload: () => preloadNav("reports"),
       },
     ],
