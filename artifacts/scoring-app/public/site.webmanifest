@@ -2,7 +2,7 @@
   "name": "BidWar Scoring Console",
   "short_name": "BidWar Scorer",
   "description": "Live match scoring console for cricket, badminton, and tournaments — BidWar",
-  "start_url": "/scoring-app/",
+  "start_url": "/scoring-app/cricket/scorer",
   "scope": "/scoring-app/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],

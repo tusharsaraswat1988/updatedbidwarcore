@@ -12,7 +12,12 @@ vi.mock("../lib/branding-asset-resolver.js", () => ({
   getBrandingIconCacheVersion: vi.fn(async () => 42),
 }));
 
-import { buildAdminAppManifest, buildAuctionPlatformManifest, buildOwnerAppManifest } from "../lib/branding-manifest.js";
+import {
+  buildAdminAppManifest,
+  buildAuctionPlatformManifest,
+  buildOwnerAppManifest,
+  buildScoringAppManifest,
+} from "../lib/branding-manifest.js";
 
 function chainSelectLimit(rows: unknown[]) {
   return {
@@ -74,6 +79,32 @@ describe("buildOwnerAppManifest", () => {
     expect(icons[0]?.sizes).toBe("192x192");
     expect(icons[1]?.src).toBe("/pwa-icon-512.png?v=42");
     expect(icons[1]?.sizes).toBe("512x512");
+  });
+});
+
+describe("buildScoringAppManifest", () => {
+  beforeEach(() => {
+    selectMock.mockReset();
+  });
+
+  it("returns dedicated scorer console PWA manifest pointing to cricket scorer portal", async () => {
+    selectMock.mockReturnValue(
+      chainSelectLimit([{ brandName: "BidWar", backgroundColor: "#09090b" }]),
+    );
+
+    const manifest = await buildScoringAppManifest();
+
+    expect(manifest.name).toBe("BidWar Scoring Console");
+    expect(manifest.short_name).toBe("BidWar Scorer");
+    expect(manifest.start_url).toBe("/scoring-app/cricket/scorer");
+    expect(manifest.scope).toBe("/scoring-app/");
+    expect(manifest.id).toBe("/scoring-app/");
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.theme_color).toBe("#1b2044");
+    expect(Array.isArray(manifest.icons)).toBe(true);
+    const icons = manifest.icons as { src: string; sizes: string }[];
+    expect(icons[0]?.src).toBe("/pwa-icon-192.png?v=42");
+    expect(icons[1]?.src).toBe("/pwa-icon-512.png?v=42");
   });
 });
 

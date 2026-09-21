@@ -11,12 +11,12 @@ import {
   requiredRate,
   runRate,
 } from "@/lib/scoring-ball";
-import type { ScoringLiveDisplay, ScoringMatchJson } from "@/lib/scoring-api";
+import type { CricketFullScorecard, ScoringLiveDisplay, ScoringMatchJson } from "@/lib/scoring-api";
 import {
   getDisplayThemeFromPresentationPaint,
   type PresentationPaintJson,
 } from "@/lib/display-theme";
-import type { CricketScorerTeam } from "@/lib/scoring-squad";
+import type { CricketScorerPlayer, CricketScorerTeam } from "@/lib/scoring-squad";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import {
   BIDWAR_BROADCAST_YELLOW,
@@ -504,6 +504,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const bowling = innings ? teamView(teams, innings.bowlingTeamId) : null;
   const winner = teamView(teams, state.winnerTeamId ?? match.winnerTeamId);
   const crr = innings && (over > 0 || ball > 0 || runs > 0) ? runRate(runs, over, ball) : null;
+  const target = state.target ?? null;
   const isTargetReached =
     target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
   const isMatchFinished =

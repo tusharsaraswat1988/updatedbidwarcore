@@ -114,7 +114,7 @@ export async function buildScoringAppManifest(): Promise<Record<string, unknown>
     display_override: ["standalone", "minimal-ui", "window-controls-overlay"],
     orientation: "any",
     scope: "/scoring-app/",
-    start_url: "/scoring-app/",
+    start_url: "/scoring-app/cricket/scorer",
     prefer_related_applications: false,
     icons: [
       { src: icon192, sizes: "192x192", type: "image/png", purpose: "any" },

@@ -3,8 +3,24 @@ import { BRANDING_ICON_PATHS } from "@workspace/api-base/branding-assets";
 /** PWA manifest for Super Admin install (Add to Home Screen). */
 export const ADMIN_MANIFEST_HREF = "/admin.webmanifest";
 
+/** PWA manifest for Scorer Console install (Add to Home Screen). */
+export const SCORER_MANIFEST_HREF = "/scoring-app/manifest.webmanifest";
+
 export function isAdminPwaRoute(pathname: string): boolean {
   return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
+export function isScorerPwaRoute(pathname: string): boolean {
+  const p = pathname.split("?")[0] || "";
+  return (
+    p.startsWith("/scoring-app") ||
+    p === "/cricket/scorer" ||
+    p.startsWith("/cricket/scorer/") ||
+    /^\/cricket\/[^/]+\/score\/?$/.test(p) ||
+    p === "/badminton/scorer" ||
+    p.startsWith("/badminton/scorer/") ||
+    /^\/badminton\/[^/]+\/score\/?$/.test(p)
+  );
 }
 
 type BrandLogos = {

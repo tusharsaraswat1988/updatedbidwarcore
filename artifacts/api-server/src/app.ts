@@ -293,8 +293,9 @@ if (serveStatic) {
             "sitemap-blog.xml",
             "sitemap-taxonomy.xml",
             "sitemap-images.xml",
+            "sw.js",
           ]);
-          if (noCacheFiles.has(base) || base.endsWith(".webmanifest")) {
+          if (noCacheFiles.has(base) || base.endsWith(".webmanifest") || base === "sw.js") {
             res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
           } else {
             // Vite content-hashes every JS/CSS asset — safe to cache forever

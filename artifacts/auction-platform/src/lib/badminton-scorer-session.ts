@@ -4,6 +4,7 @@
  */
 
 const STORAGE_KEY = "bidwar:scorer-auth:v1";
+const TID_STORAGE_KEY = "bidwar:scorer-tid";
 
 export type ScorerAuthSession = {
   token: string;
@@ -12,7 +13,27 @@ export type ScorerAuthSession = {
   canScore: boolean;
   expiresAt: string;
   verifiedAt: number;
+  tournamentId?: number;
 };
+
+export function getScorerSavedTournamentId(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = localStorage.getItem(TID_STORAGE_KEY) || sessionStorage.getItem(TID_STORAGE_KEY);
+    const parsed = parseInt(raw || "0", 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setScorerSavedTournamentId(tournamentId: number): void {
+  if (typeof window === "undefined" || !tournamentId || tournamentId <= 0) return;
+  try {
+    localStorage.setItem(TID_STORAGE_KEY, String(tournamentId));
+    sessionStorage.setItem(TID_STORAGE_KEY, String(tournamentId));
+  } catch {}
+}
 
 export function getScorerAuthSession(): ScorerAuthSession | null {
   if (typeof window === "undefined") return null;
@@ -48,12 +69,14 @@ export function getScorerAuthSession(): ScorerAuthSession | null {
       typeof parsed.canScore === "boolean"
         ? parsed.canScore
         : parsed.scorer.isActive !== false;
+    const savedTid = parsed.tournamentId && parsed.tournamentId > 0 ? parsed.tournamentId : getScorerSavedTournamentId();
     const result: ScorerAuthSession = {
       token: parsed.token,
       scorer: parsed.scorer as ScorerAuthSession["scorer"],
       canScore,
       expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : "",
       verifiedAt: typeof parsed.verifiedAt === "number" ? parsed.verifiedAt : Date.now(),
+      tournamentId: savedTid > 0 ? savedTid : undefined,
     };
     // Keep storages in sync if read from one but missing from another
     try {
@@ -71,10 +94,15 @@ export function getScorerAuthSession(): ScorerAuthSession | null {
 export function setScorerAuthSession(session: Omit<ScorerAuthSession, "verifiedAt">): void {
   if (typeof window === "undefined") return;
   try {
+    const savedTid = session.tournamentId && session.tournamentId > 0 ? session.tournamentId : getScorerSavedTournamentId();
+    if (savedTid > 0) {
+      setScorerSavedTournamentId(savedTid);
+    }
     const payload: ScorerAuthSession = {
       ...session,
       canScore: session.canScore !== false,
       verifiedAt: Date.now(),
+      tournamentId: savedTid > 0 ? savedTid : undefined,
     };
     const serialized = JSON.stringify(payload);
     try {
@@ -97,6 +125,7 @@ export function patchScorerAuthCanScore(canScore: boolean): void {
     scorer: { ...existing.scorer, isActive: canScore },
     canScore,
     expiresAt: existing.expiresAt,
+    tournamentId: existing.tournamentId,
   });
 }
 
@@ -105,9 +134,11 @@ export function clearScorerAuthSession(): void {
   try {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(TID_STORAGE_KEY);
     } catch {}
     try {
       sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(TID_STORAGE_KEY);
     } catch {}
   } catch {
     // ignore

@@ -289,6 +289,9 @@ function Router() {
   return (
     <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
+        <Route path="/">
+          {() => <Redirect to="/cricket/scorer" replace />}
+        </Route>
         <Route path="/login" component={ScoringLoginPage} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
         <Route path="/tournament/:id/cricket/obs/:matchId" component={CricketObsOverlay} />

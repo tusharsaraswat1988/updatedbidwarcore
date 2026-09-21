@@ -4,7 +4,13 @@ import { QueryClient, QueryClientProvider, hydrate, type DehydratedState } from 
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { PageTracking } from "@/components/page-tracking";
-import { applyPwaHeadBranding, ADMIN_MANIFEST_HREF, isAdminPwaRoute } from "@/lib/branding-pwa";
+import {
+  applyPwaHeadBranding,
+  ADMIN_MANIFEST_HREF,
+  SCORER_MANIFEST_HREF,
+  isAdminPwaRoute,
+  isScorerPwaRoute,
+} from "@/lib/branding-pwa";
 import {
   InitialDataProvider,
   homePageInitialData,
@@ -95,7 +101,11 @@ function BrandingEffects() {
   const [location] = useLocation();
   const { logos, brandName, iconVersion } = useBranding();
   const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
-  const manifestHref = isAdminPwaRoute(location) ? ADMIN_MANIFEST_HREF : "/site.webmanifest";
+  const manifestHref = isScorerPwaRoute(location)
+    ? SCORER_MANIFEST_HREF
+    : isAdminPwaRoute(location)
+      ? ADMIN_MANIFEST_HREF
+      : "/site.webmanifest";
 
   useEffect(() => {
     applyPwaHeadBranding(logos, manifestHref, iconVersion);

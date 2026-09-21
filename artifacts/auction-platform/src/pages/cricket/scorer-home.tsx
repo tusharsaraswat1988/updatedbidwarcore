@@ -19,6 +19,8 @@ import {
   getScorerAuthSession,
   setScorerAuthSession,
   clearScorerAuthSession,
+  getScorerSavedTournamentId,
+  setScorerSavedTournamentId,
 } from "@/lib/badminton-scorer-session";
 import { loginScorer, logoutScorer } from "@/lib/scorer-api";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
@@ -53,18 +55,27 @@ export default function CricketScorerHomePage() {
   const searchParams = new URLSearchParams(search);
   const tidFromQuery = parseInt(searchParams.get("tid") ?? "0", 10);
 
+  const [session, setSession] = useState(() => getScorerAuthSession());
+  const savedTid = session?.tournamentId || getScorerSavedTournamentId();
+  const effectiveTid = tidFromQuery > 0 ? tidFromQuery : savedTid;
+
   const [tournamentIdInput, setTournamentIdInput] = useState(
-    tidFromQuery > 0 ? String(tidFromQuery) : "",
+    effectiveTid > 0 ? String(effectiveTid) : "",
   );
   const tournamentId =
-    tidFromQuery > 0 ? tidFromQuery : parseInt(tournamentIdInput || "0", 10) || 0;
+    tidFromQuery > 0 ? tidFromQuery : parseInt(tournamentIdInput || "0", 10) || (savedTid > 0 ? savedTid : 0);
 
   const [mobileInput, setMobileInput] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [authError, setAuthError] = useState("");
   const [verifying, setVerifying] = useState(false);
-  const [session, setSession] = useState(() => getScorerAuthSession());
+
+  useEffect(() => {
+    if (tidFromQuery > 0) {
+      setScorerSavedTournamentId(tidFromQuery);
+    }
+  }, [tidFromQuery]);
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(
     tournamentId > 0 ? tournamentId : 0,
@@ -94,7 +105,12 @@ export default function CricketScorerHomePage() {
   useEffect(() => {
     const sync = () => {
       const current = getScorerAuthSession();
-      if (current) setSession(current);
+      if (current) {
+        setSession(current);
+        if (current.tournamentId && !tournamentIdInput && !tidFromQuery) {
+          setTournamentIdInput(String(current.tournamentId));
+        }
+      }
     };
     sync();
     window.addEventListener("focus", sync);
@@ -103,7 +119,7 @@ export default function CricketScorerHomePage() {
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
     };
-  }, []);
+  }, [tournamentIdInput, tidFromQuery]);
 
   async function handleLogin(e?: React.FormEvent) {
     if (e) e.preventDefault();
@@ -135,8 +151,10 @@ export default function CricketScorerHomePage() {
         },
         canScore: login.canScore ?? login.scorer.isActive !== false,
         expiresAt: login.expiresAt,
+        tournamentId,
       };
       setScorerAuthSession(authPayload);
+      setScorerSavedTournamentId(tournamentId);
       setSession(getScorerAuthSession());
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : "Authentication failed. Check your mobile number and PIN.");

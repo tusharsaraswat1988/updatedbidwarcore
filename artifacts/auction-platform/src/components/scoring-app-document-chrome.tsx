@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
-import { applyPwaHeadBranding } from "@/lib/branding-pwa";
+import { applyPwaHeadBranding, SCORER_MANIFEST_HREF } from "@/lib/branding-pwa";
 
 const DEFAULT_TITLE = "BidWar Scoring";
 
@@ -104,7 +104,7 @@ export function ScoringAppDocumentChrome() {
   const { logos, brandName, iconVersion } = useBranding();
 
   useEffect(() => {
-    applyPwaHeadBranding(logos, "/site.webmanifest", iconVersion);
+    applyPwaHeadBranding(logos, SCORER_MANIFEST_HREF, iconVersion);
   }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, iconVersion]);
 
   useEffect(() => {

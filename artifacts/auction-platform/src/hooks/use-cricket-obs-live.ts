@@ -250,15 +250,17 @@ export function useCricketObsLive(
     );
   }, [mergedLive]);
 
-  // Automatic Event Detection: New Batsman, Free Hit, Match Won, Superball
+  // Automatic Event Detection: Real-time ball-by-ball triggers from Scorer actions
   const seenBatsmenRef = useRef<Set<number>>(new Set());
   const prevFreeHitRef = useRef<boolean>(false);
   const prevTossWinnerRef = useRef<number | null>(null);
   const prevWonRef = useRef<boolean>(false);
+  const prevSequenceRef = useRef<number | null>(null);
 
   useEffect(() => {
     const state = mergedLive?.state;
-    if (!state) return;
+    const match = mergedLive?.match;
+    if (!state || !match) return;
 
     // Detect Match Won / Target Reached
     const innings = getActiveInnings(state);
@@ -280,37 +282,90 @@ export function useCricketObsLive(
       prevWonRef.current = false;
     }
 
+    // 1. Initial Sequence Bootstrap (don't flash on first page load/refresh)
+    if (prevSequenceRef.current === null) {
+      prevSequenceRef.current = state.lastSequence ?? 0;
+      if (state.strikerId) seenBatsmenRef.current.add(state.strikerId);
+      if (state.nonStrikerId) seenBatsmenRef.current.add(state.nonStrikerId);
+      prevFreeHitRef.current = !!state.freeHitActive;
+      prevTossWinnerRef.current = state.tossWinnerTeamId ?? null;
+      return;
+    }
+
+    // 2. Real-Time Scorer Ball Trigger: when scorer logs any ball/wicket
+    if (state.lastSequence != null && state.lastSequence !== prevSequenceRef.current) {
+      prevSequenceRef.current = state.lastSequence;
+
+      const trail = state.thisOver;
+      const lastBall = trail.length > 0 ? trail[trail.length - 1] : null;
+      if (lastBall) {
+        const flashKind = mapBallToFlash(lastBall);
+        if (flashKind) {
+          let detail: string | undefined = undefined;
+          if (flashKind === "FOUR" || flashKind === "SIX") {
+            const striker = players.find((p) => p.id === state.strikerId);
+            detail = striker
+              ? `${striker.name} · ${flashKind === "SIX" ? "MAXIMUM 6" : "BOUNDARY 4"}`
+              : undefined;
+          } else if (flashKind === "WICKET") {
+            const dismissed = players.find(
+              (p) => p.id === state.strikerId || p.id === state.nonStrikerId,
+            );
+            detail = dismissed ? `${dismissed.name} · OUT` : "WICKET BREAKTHROUGH";
+          } else if (flashKind === "NO_BALL") {
+            detail = "EXTRA RUN + FREE HIT";
+          } else if (flashKind === "WIDE") {
+            detail = "+1 EXTRA RUN";
+          } else if (flashKind === "SUPERBALL") {
+            detail = "2X RUNS SCORED";
+          }
+          triggerFlash(flashKind, detail);
+        }
+      }
+    }
+
     if (state.matchStatus !== "live") return;
 
-    // Detect Free Hit turn-on
+    // 3. Detect Free Hit turn-on
     if (state.freeHitActive && !prevFreeHitRef.current) {
-      triggerFlash("FREE_HIT");
+      triggerFlash("FREE_HIT", "CANNOT BE OUT BOWLED / CAUGHT");
     }
     prevFreeHitRef.current = !!state.freeHitActive;
 
-    // Detect Toss Win
+    // 4. Detect Toss Win
     if (state.tossWinnerTeamId && prevTossWinnerRef.current !== state.tossWinnerTeamId) {
       if (prevTossWinnerRef.current === null && bootstrappedFlash.current) {
-        triggerFlash("TOSS_WIN");
+        const winnerTeam = teams.find((t) => t.id === state.tossWinnerTeamId);
+        const decision = state.electedTo ? state.electedTo.toUpperCase() : "BAT";
+        triggerFlash(
+          "TOSS_WIN",
+          winnerTeam ? `${winnerTeam.name} ELECTED TO ${decision}` : undefined,
+        );
       }
       prevTossWinnerRef.current = state.tossWinnerTeamId;
     }
 
-    // Detect New Batsman
+    // 5. Detect New Batsman Walking In
     if (bootstrappedFlash.current) {
       const strikerId = state.strikerId;
       if (strikerId && !seenBatsmenRef.current.has(strikerId)) {
         seenBatsmenRef.current.add(strikerId);
         const player = players.find((p) => p.id === strikerId);
         if (player) {
-          triggerFlash("NEW_BATSMAN", player.name);
+          triggerFlash("NEW_BATSMAN", `${player.name} · WALKING IN`);
         }
       }
     } else {
       if (state.strikerId) seenBatsmenRef.current.add(state.strikerId);
       if (state.nonStrikerId) seenBatsmenRef.current.add(state.nonStrikerId);
     }
-  }, [mergedLive?.state, players, triggerFlash]);
+  }, [
+    mergedLive?.state,
+    mergedLive?.match,
+    players,
+    teams,
+    triggerFlash,
+  ]);
 
   const vm = useMemo(
     () =>
