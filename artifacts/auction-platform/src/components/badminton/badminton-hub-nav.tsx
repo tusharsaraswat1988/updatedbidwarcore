@@ -48,15 +48,17 @@ function NavChip({
   item,
   tournamentId,
   location,
+  search,
   tone = "default",
 }: {
   item: BadmintonHubNavItem;
   tournamentId: number;
   location: string;
+  search?: string;
   /** Visual-only read-only styling for COMPLETED setup (links still navigate). */
   tone?: "default" | "readonly";
 }) {
-  const active = item.isActive(location, tournamentId);
+  const active = item.isActive(location, tournamentId, search);
   return (
     <Link
       href={item.href(tournamentId)}
@@ -81,6 +83,7 @@ function CollapsibleNavSection({
   items,
   tournamentId,
   location,
+  search,
   readOnly = false,
   defaultOpen = false,
 }: {
@@ -88,10 +91,11 @@ function CollapsibleNavSection({
   items: BadmintonHubNavItem[];
   tournamentId: number;
   location: string;
+  search?: string;
   readOnly?: boolean;
   defaultOpen?: boolean;
 }) {
-  const sectionActive = items.some((item) => item.isActive(location, tournamentId));
+  const sectionActive = items.some((item) => item.isActive(location, tournamentId, search));
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
   const open = userOpen ?? (defaultOpen || sectionActive);
 
@@ -136,6 +140,7 @@ function CollapsibleNavSection({
               item={item}
               tournamentId={tournamentId}
               location={location}
+              search={search}
               tone={readOnly ? "readonly" : "default"}
             />
           ))}
@@ -176,10 +181,10 @@ export function BadmintonHubNav({ tournamentId }: { tournamentId: number }) {
   const layout = getBadmintonHubNavLayout({ mode, broadcastEnabled: true });
 
   const setupOpenByDefault = layout.setupCollapsed.some((item) =>
-    item.isActive(location, tournamentId),
+    item.isActive(location, tournamentId, search),
   );
   const moreOpenByDefault = layout.more.some((item) =>
-    item.isActive(location, tournamentId),
+    item.isActive(location, tournamentId, search),
   );
 
   return (

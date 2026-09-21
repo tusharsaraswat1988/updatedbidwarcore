@@ -113,7 +113,7 @@ export default function CricketMatchCenterPage() {
   });
 
   const teams = useMemo(
-    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    () => (Array.isArray(masterTeams) ? masterTeams.map(cricketMasterTeamToScorerTeam) : []),
     [masterTeams],
   );
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
@@ -603,7 +603,7 @@ function TeamPanel({
             className="h-10 w-10 rounded flex items-center justify-center text-xs font-bold"
             style={{ backgroundColor: color ? `${color}33` : undefined }}
           >
-            {shortCode.slice(0, 3)}
+            {(shortCode || "TM").slice(0, 3)}
           </span>
         )}
         <div className="min-w-0">

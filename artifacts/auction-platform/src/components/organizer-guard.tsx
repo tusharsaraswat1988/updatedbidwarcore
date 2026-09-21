@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
@@ -38,9 +38,8 @@ function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean })
           <Shield className="w-5 h-5 animate-pulse" />
           <span className="text-sm">Checking access...</span>
         </div>
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
       </div>
     </div>
   );
@@ -53,14 +52,14 @@ function scoringLoginUrl(returnTo: string): string {
 export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
   const { isLoggedIn, isLoading, refetch } = useOrganizerAuth(tournamentId);
   const { isLoading: accountLoading } = useOrganizerAccountAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const search = useSearch();
   const queryClient = useQueryClient();
 
-  const [location] = useLocation();
   const badmintonRoute = isBadmintonOrganizerPath(location);
   const inScoringApp =
     typeof window !== "undefined" &&
-    window.location.pathname.startsWith(SCORING_APP_BASE);
+    location.startsWith(SCORING_APP_BASE);
 
   const [accessDenied, setAccessDenied] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -85,7 +84,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
 
     redirectedRef.current = true;
     setResolvingAccount(true);
-    const returnTo = `${window.location.pathname}${window.location.search}`;
+    const returnTo = `${location}${search ? `?${search}` : ""}`;
 
     void (async () => {
       try {
@@ -131,7 +130,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         setResolvingAccount(false);
       }
     })();
-  }, [authSettled, isLoggedIn, tournamentId, navigate, inScoringApp, refetch, queryClient]);
+  }, [authSettled, isLoggedIn, tournamentId, navigate, inScoringApp, refetch, queryClient, location, search]);
 
   if (sessionExpired) {
     return (
@@ -139,7 +138,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         code={401}
         actionLabel="Sign in again"
         onAction={() => {
-          const returnTo = `${window.location.pathname}${window.location.search}`;
+          const returnTo = `${location}${search ? `?${search}` : ""}`;
           if (inScoringApp) {
             window.location.href = scoringLoginUrl(returnTo);
             return;
@@ -156,7 +155,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         code={403}
         actionLabel="Sign in with another account"
         onAction={() => {
-          const returnTo = `${window.location.pathname}${window.location.search}`;
+          const returnTo = `${location}${search ? `?${search}` : ""}`;
           void (async () => {
             await logoutOrganizerAccount();
             clearOrganizerClientState(queryClient);

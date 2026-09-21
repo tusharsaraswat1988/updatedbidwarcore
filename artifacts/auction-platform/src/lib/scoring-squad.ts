@@ -23,17 +23,18 @@ export type CricketScorerPlayer = {
 
 export function cricketMasterTeamToScorerTeam(t: {
   auctionTeamId: number;
-  name: string;
-  shortName: string | null;
-  logoUrl: string | null;
-  primaryColor: string | null;
+  name?: string | null;
+  shortName?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
 }): CricketScorerTeam {
+  const safeName = t?.name?.trim() || `Team ${t?.auctionTeamId ?? ""}`.trim() || "Team";
   return {
-    id: t.auctionTeamId,
-    name: t.name,
-    shortCode: t.shortName?.trim() || t.name.slice(0, 3).toUpperCase(),
-    color: t.primaryColor,
-    logoUrl: t.logoUrl,
+    id: t?.auctionTeamId ?? 0,
+    name: safeName,
+    shortCode: t?.shortName?.trim() || safeName.slice(0, 3).toUpperCase() || "TM",
+    color: t?.primaryColor ?? null,
+    logoUrl: t?.logoUrl ?? null,
   };
 }
 
@@ -41,12 +42,12 @@ export function cricketRosterToScorerPlayer(
   p: CricketTournamentRosterPlayer,
 ): CricketScorerPlayer {
   return {
-    id: p.auctionPlayerId,
-    name: p.displayName,
-    teamId: p.auctionTeamId,
-    status: p.status,
-    photoUrl: p.photoUrl,
-    role: p.role,
+    id: p?.auctionPlayerId ?? 0,
+    name: p?.displayName?.trim() || "Player",
+    teamId: p?.auctionTeamId ?? null,
+    status: p?.status ?? "active",
+    photoUrl: p?.photoUrl ?? null,
+    role: p?.role ?? null,
     gender: null,
     isNonPlayingMember: false,
   };
@@ -72,6 +73,6 @@ export function playerNameById(
   players: CricketScorerPlayer[] | undefined,
   id: number | null,
 ): string {
-  if (!id || !players) return "—";
-  return players.find((p) => p.id === id)?.name ?? `#${id}`;
+  if (!id || !players || !Array.isArray(players)) return "—";
+  return players.find((p) => p && p.id === id)?.name ?? `#${id}`;
 }

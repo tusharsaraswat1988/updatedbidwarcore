@@ -771,27 +771,50 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 const SESSION_SAVE_ERROR =
   "Sign-in worked but your browser did not save the session. Clear cookies for this site and try again.";
 
-function readAuthTabFromLocation(): "login" | "signup" {
-  try {
-    return new URLSearchParams(window.location.search).get("tab") === "signup" ? "signup" : "login";
-  } catch {
-    return "login";
-  }
-}
-
 export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next, initialView = "login" }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; initialRedirectUriHint?: string; next?: string; initialView?: "login" | "signup" }) {
   const queryClient = useQueryClient();
-  const [view, setView] = useState<"login" | "signup" | "forgot">(() => {
-    const fromUrl = readAuthTabFromLocation();
-    return fromUrl === "signup" ? "signup" : initialView;
-  });
+  const search = useSearch();
+  const [pathname, navigate] = useLocation();
+
+  const urlTab = useMemo(() => {
+    try {
+      const tab = new URLSearchParams(search).get("tab");
+      return tab === "signup" ? "signup" : tab === "forgot" ? "forgot" : tab === "login" ? "login" : null;
+    } catch {
+      return null;
+    }
+  }, [search]);
+
+  const [localView, setLocalView] = useState<"login" | "signup" | "forgot" | null>(null);
+
+  useEffect(() => {
+    setLocalView(null);
+  }, [search]);
+
+  const view = urlTab ?? localView ?? initialView;
+
+  const setView = useCallback((newView: "login" | "signup" | "forgot") => {
+    setLocalView(newView);
+    try {
+      const params = new URLSearchParams(search);
+      if (newView === "login") {
+        params.delete("tab");
+      } else {
+        params.set("tab", newView);
+      }
+      const qs = params.toString();
+      navigate(`${pathname}${qs ? `?${qs}` : ""}`);
+    } catch {
+      // fallback
+    }
+  }, [pathname, search, navigate]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError ?? "");
   const [redirectUriHint] = useState(initialRedirectUriHint ?? "");
   const [showPw, setShowPw] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
-  const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
   const logoSrc = getBrandLogoSrc(logos, authLoginPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
@@ -2253,12 +2276,9 @@ export default function OrganizerPortal() {
   const [, navigate] = useLocation();
   const bootHandledRef = useRef(false);
 
-  const nextParam = (() => {
+  const nextParam = useMemo(() => {
     try { return new URLSearchParams(search).get("next") ?? ""; } catch { return ""; }
-  })();
-
-  // Capture before auth-check effects strip ?tab=signup from the URL.
-  const [authInitialView] = useState<"login" | "signup">(readAuthTabFromLocation);
+  }, [search]);
 
   const needsMobile =
     forceNeedsMobile || !!(organizer?.needsMobile || organizer?.incompleteProfile);
@@ -2267,40 +2287,24 @@ export default function OrganizerPortal() {
   const [googleRedirectUriHint, setGoogleRedirectUriHint] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     const err = params.get("error");
     if (err) {
       const redirectUri = params.get("oauth_redirect_uri");
       setGoogleRedirectUriHint(redirectUri ?? "");
       setGoogleError(GOOGLE_ERROR_MESSAGES[err] ?? "Google sign-in failed. Please try again.");
-      window.history.replaceState({}, "", "/organizer");
     } else if (params.get("require_mobile") === "1") {
       setForceNeedsMobile(true);
-      window.history.replaceState({}, "", "/organizer");
     }
-  }, []);
-
-  useEffect(() => {
-    if (isLoading || isLoggedIn) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") !== "signup") return;
-    const next = params.get("next");
-    window.history.replaceState(
-      {},
-      "",
-      next ? `/organizer?next=${encodeURIComponent(next)}` : "/organizer",
-    );
-  }, [isLoading, isLoggedIn]);
+  }, [search]);
 
   useEffect(() => {
     if (isLoading || bootHandledRef.current) return;
     bootHandledRef.current = true;
 
-    const params = new URLSearchParams(window.location.search);
-    // Preserve next BEFORE clearing google_ok query — required for /mobile return paths.
+    const params = new URLSearchParams(search);
     const next = params.get("next") ?? "";
     if (params.get("google_ok") === "1") {
-      window.history.replaceState({}, "", "/organizer");
       if (!isLoggedIn) {
         setGoogleError(
           "Google sign-in succeeded but your browser did not save the session. Clear cookies for this site and try again.",
@@ -2389,7 +2393,7 @@ export default function OrganizerPortal() {
           </motion.div>
         ) : (
           <motion.div key="auth" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} initialRedirectUriHint={googleRedirectUriHint} next={nextParam} initialView={authInitialView} />
+            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} initialRedirectUriHint={googleRedirectUriHint} next={nextParam} />
           </motion.div>
         )}
       </AnimatePresence>

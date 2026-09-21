@@ -151,23 +151,9 @@ function OrganizerAccountAuthBootstrap() {
 }
 
 /**
- * Root URL gate: never mount Landing for an authenticated Organizer.
- * Redirect uses replace so Back does not return to a page that re-redirects.
+ * Root URL gate: renders the public Landing page.
  */
 function HomeRoute() {
-  const { isLoggedIn, isLoading } = useOrganizerAccountAuth();
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!isLoading && isLoggedIn) {
-      navigate("/organizer", { replace: true });
-    }
-  }, [isLoading, isLoggedIn, navigate]);
-
-  if (!isLoading && isLoggedIn) {
-    return <BootSplash />;
-  }
-
   return (
     <ErrorBoundary fallbackTitle="BidWar Homepage">
       <Landing />

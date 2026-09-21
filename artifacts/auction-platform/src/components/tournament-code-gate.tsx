@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff, AlertTriangle, RefreshCw } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
@@ -11,9 +12,9 @@ function sessionKey(tid: number) {
   return `tournament_verified_${tid}`;
 }
 
-function getCodeParam(): string {
+function getCodeParam(search: string): string {
   try {
-    return new URLSearchParams(window.location.search).get("code") ?? "";
+    return new URLSearchParams(search).get("code") ?? "";
   } catch {
     return "";
   }
@@ -26,6 +27,7 @@ export function TournamentCodeGate({
   tournamentId: number;
   children: ReactNode;
 }) {
+  const search = useSearch();
   const { logos, brandName, poweredByText } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
   const [status, setStatus] = useState<"loading" | "locked" | "unlocked" | "error">("loading");
@@ -36,7 +38,7 @@ export function TournamentCodeGate({
   const [showCode, setShowCode] = useState(false);
   const [inputError, setInputError] = useState("");
 
-  function loadTournament() {
+  const loadTournament = useCallback(() => {
     if (!tournamentId) return;
 
     if (isBidWarLocalHost()) {
@@ -83,7 +85,7 @@ export function TournamentCodeGate({
         }
 
         // Auto-unlock from ?code= query param
-        const paramCode = getCodeParam().toUpperCase();
+        const paramCode = getCodeParam(search).toUpperCase();
         if (paramCode && paramCode === ac.toUpperCase()) {
           sessionStorage.setItem(sessionKey(tournamentId), "1");
           setStatus("unlocked");
@@ -96,12 +98,11 @@ export function TournamentCodeGate({
         // Fail-closed: network / parse errors keep the gate locked
         setStatus("error");
       });
-  }
+  }, [tournamentId, search]);
 
   useEffect(() => {
     loadTournament();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId]);
+  }, [loadTournament]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

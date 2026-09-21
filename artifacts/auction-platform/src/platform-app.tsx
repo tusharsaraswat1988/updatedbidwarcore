@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { lazy, Suspense, useMemo } from "react";
+import { Switch, Route, Redirect, useSearch } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OrganizerGuard } from "@/components/organizer-guard";
@@ -125,6 +125,22 @@ function RouteSuspenseFallback() {
   return <BootSplash />;
 }
 
+function LegacyLiveRedirect() {
+  const search = useSearch();
+  const auction = useMemo(() => {
+    try {
+      return new URLSearchParams(search).get("auction");
+    } catch {
+      return null;
+    }
+  }, [search]);
+
+  if (auction && /^\d+$/.test(auction)) {
+    return <Redirect to={`/live/${auction}`} />;
+  }
+  return <Redirect to="/upcoming-auctions" />;
+}
+
 function PlatformRouter() {
   return (
     <Suspense fallback={<RouteSuspenseFallback />}>
@@ -138,15 +154,7 @@ function PlatformRouter() {
         <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectToScoringApp} />
         {/* Public live viewer — no auction code gate; share /live/:id with fans */}
         <Route path="/live/:id" component={LiveViewer} />
-        <Route path="/live">
-          {() => {
-            const auction = new URLSearchParams(window.location.search).get("auction");
-            if (auction && /^\d+$/.test(auction)) {
-              return <Redirect to={`/live/${auction}`} />;
-            }
-            return <Redirect to="/upcoming-auctions" />;
-          }}
-        </Route>
+        <Route path="/live" component={LegacyLiveRedirect} />
         <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
         <Route path="/register/:code" component={PlayerRegister} />
         <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />

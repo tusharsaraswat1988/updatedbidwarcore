@@ -22,29 +22,31 @@ export function illegalBallPosition(innings: CricketInningsState): { over: numbe
   return { over: innings.over, ball: innings.ball === 0 ? 1 : innings.ball };
 }
 
-export function getActiveInnings(state: CricketScoreboardState) {
-  return state.innings.find((i) => i.innings === state.currentInnings) ?? null;
+export function getActiveInnings(state?: CricketScoreboardState | null) {
+  if (!state || !Array.isArray(state.innings)) return null;
+  return state.innings.find((i) => i && i.innings === state.currentInnings) ?? null;
 }
 
-export function oversText(over: number, ball: number): string {
-  return `${over}.${ball}`;
+export function oversText(over?: number | null, ball?: number | null): string {
+  return `${over ?? 0}.${ball ?? 0}`;
 }
 
-export function runRate(runs: number, over: number, ball: number): string {
-  const overs = over + ball / 6;
+export function runRate(runs?: number | null, over?: number | null, ball?: number | null): string {
+  const overs = (over ?? 0) + (ball ?? 0) / 6;
   if (overs <= 0) return "0.00";
-  return (runs / overs).toFixed(2);
+  return ((runs ?? 0) / overs).toFixed(2);
 }
 
 export function requiredRate(
-  target: number,
-  runs: number,
-  oversLimit: number,
-  over: number,
-  ball: number,
+  target?: number | null,
+  runs?: number | null,
+  oversLimit?: number | null,
+  over?: number | null,
+  ball?: number | null,
 ): string | null {
-  const remaining = target - runs;
-  const oversLeft = oversLimit - over - ball / 6;
+  if (target == null || oversLimit == null) return null;
+  const remaining = target - (runs ?? 0);
+  const oversLeft = oversLimit - (over ?? 0) - (ball ?? 0) / 6;
   if (oversLeft <= 0 || remaining <= 0) return null;
   return (remaining / oversLeft).toFixed(2);
 }

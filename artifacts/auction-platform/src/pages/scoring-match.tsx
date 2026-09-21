@@ -77,11 +77,11 @@ export default function ScoringMatchPage() {
   });
 
   const teams = useMemo(
-    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    () => (Array.isArray(masterTeams) ? masterTeams.map(cricketMasterTeamToScorerTeam) : []),
     [masterTeams],
   );
   const players = useMemo(
-    () => (roster ?? []).map(cricketRosterToScorerPlayer),
+    () => (Array.isArray(roster) ? roster.map(cricketRosterToScorerPlayer) : []),
     [roster],
   );
 

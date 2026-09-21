@@ -76,7 +76,7 @@ export function executionLimitsFromMatch(match: ScoringMatchJson) {
 }
 
 function teamName(teams: CricketScorerTeam[], id: number) {
-  return teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
+  return (teams ?? []).find((t) => t.id === id)?.name ?? `Team ${id}`;
 }
 
 /** Batting/bowling sides from active innings, or from toss when innings not started yet. */
@@ -977,6 +977,18 @@ function OpenersPicker({
     squad[1]?.id ?? null,
   );
 
+  useEffect(() => {
+    if (squad.length > 0) {
+      if (striker == null || !squad.some((p) => p.id === striker)) {
+        setStriker(squad[0]?.id ?? null);
+      }
+      if (nonStriker == null || !squad.some((p) => p.id === nonStriker)) {
+        const nextNon = squad[1]?.id ?? (squad[0]?.id !== striker ? squad[0]?.id : null);
+        setNonStriker(nextNon);
+      }
+    }
+  }, [squad, striker, nonStriker]);
+
   return (
     <section className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-3.5 sm:p-5 md:p-6 shadow-md space-y-4 sm:space-y-5">
       <div>
@@ -1095,6 +1107,14 @@ function BowlerPicker({
   }, [players, teamId, lineup]);
 
   const [bowler, setBowler] = useState<number | null>(squad[0]?.id ?? null);
+
+  useEffect(() => {
+    if (squad.length > 0) {
+      if (bowler == null || !squad.some((p) => p.id === bowler)) {
+        setBowler(squad[0]?.id ?? null);
+      }
+    }
+  }, [squad, bowler]);
 
   return (
     <section className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/70 backdrop-blur-sm p-3.5 sm:p-5 md:p-6 shadow-md space-y-4 sm:space-y-5">

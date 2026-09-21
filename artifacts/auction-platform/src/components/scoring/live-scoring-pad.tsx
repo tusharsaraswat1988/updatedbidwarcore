@@ -215,7 +215,7 @@ export function LiveScoringPad({
 
   const dlsPreview = useMemo(() => {
     const overs = parseInt(revisedOvers, 10);
-    if (!overs || overs < 1 || state.innings.length === 0) return null;
+    if (!overs || overs < 1 || (state?.innings?.length ?? 0) === 0) return null;
     try {
       return computeDlsApplication(state, overs);
     } catch {
@@ -223,15 +223,15 @@ export function LiveScoringPad({
     }
   }, [revisedOvers, state]);
 
-  const strikerId = localStrikerId ?? state.strikerId;
-  const nonStrikerId = localNonStrikerId ?? state.nonStrikerId;
-  const activeBowlerId = bowlerId ?? state.bowlerId;
+  const strikerId = localStrikerId ?? state?.strikerId;
+  const nonStrikerId = localNonStrikerId ?? state?.nonStrikerId;
+  const activeBowlerId = bowlerId ?? state?.bowlerId;
 
   const battingId = battingTeamId(state);
   const bowlingId = bowlingTeamId(state);
 
-  const battingTeam = teams.find((t) => t.id === battingId);
-  const bowlingTeam = teams.find((t) => t.id === bowlingId);
+  const battingTeam = (teams ?? []).find((t) => t.id === battingId);
+  const bowlingTeam = (teams ?? []).find((t) => t.id === bowlingId);
 
   const battingLineup = battingId ? (state?.lineups?.[battingId] ?? []) : [];
   const onlyOneBatsmanAvailable =
@@ -774,8 +774,8 @@ export function LiveScoringPad({
             This Over:
           </span>
           <div className="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
-            {state.thisOver.length > 0 ? (
-              state.thisOver.map((b, i) => {
+            {(state?.thisOver?.length ?? 0) > 0 ? (
+              (state?.thisOver ?? []).map((b, i) => {
                 const isW = b.isWicket;
                 const isFour = b.runsOffBat === 4 || b.runsOffBat === 8;
                 const isSix = b.runsOffBat === 6 || b.runsOffBat === 12;

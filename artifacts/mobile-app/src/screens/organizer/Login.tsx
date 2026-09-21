@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Clock, Eye, EyeOff } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Capacitor } from "@capacitor/core";
 import { MOBILE_APP_BASE } from "@workspace/api-base/mobile-app-urls";
 import { AppShell, BrandMark } from "@/components/AppShell";
@@ -34,6 +34,7 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
  */
 export function OrganizerLoginScreen() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const { isLoading, isLoggedIn, login } = useOrganizerAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +55,7 @@ export function OrganizerLoginScreen() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     const err = params.get("error");
     if (err) {
       setRedirectUriHint(params.get("oauth_redirect_uri") ?? "");
@@ -78,7 +79,7 @@ export function OrganizerLoginScreen() {
         setSubmitting(false);
       })();
     }
-  }, []);
+  }, [search]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;

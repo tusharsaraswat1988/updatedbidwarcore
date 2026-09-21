@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Loader2, Link2, RefreshCw, Send, CheckCircle2, AlertCircle, Copy } from "lucide-react";
 
@@ -16,6 +17,7 @@ type SearchConsoleStatus = {
  * it means Google rejected the OAuth request (usually redirect_uri_mismatch).
  */
 export function SearchConsolePanel() {
+  const search = useSearch();
   const [status, setStatus] = useState<SearchConsoleStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -57,14 +59,14 @@ export function SearchConsolePanel() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     if (params.get("google_search_console_connected") === "1") {
       setMessage("Google Search Console connected successfully.");
     } else if (params.get("error")?.startsWith("google_search_console")) {
       setError(`Connection failed: ${params.get("error")}`);
     }
     void loadStatus();
-  }, [loadStatus]);
+  }, [loadStatus, search]);
 
   async function copyRedirectUri() {
     const uri = status?.redirectUri;

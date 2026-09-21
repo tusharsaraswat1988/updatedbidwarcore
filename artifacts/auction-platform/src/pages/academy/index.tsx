@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { BookOpen, GraduationCap, Search } from "lucide-react";
 import { AcademyLayout } from "@/components/academy/academy-layout";
 import {
@@ -36,13 +36,9 @@ const META_TITLE = "BidWar Academy — Sports Auction Tutorials & Platform Guide
 const META_DESC =
   "Free video tutorials and step-by-step guides for running franchise league player auctions with BidWar. Learn auction setup, live bidding, and organiser workflows.";
 
-function readCategoryFromSearch(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("category");
-}
-
 export default function AcademyIndexPage() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const searchParams = useSearch();
   const [data, setData] = useState<PublicAcademyIndexData | null>(() => {
     const ssr = readWindowAcademyData();
     return ssr?.page === "index" ? ssr : null;
@@ -50,7 +46,13 @@ export default function AcademyIndexPage() {
   const [lessons, setLessons] = useState<PublicAcademyLessonSummary[]>(() => data?.lessons ?? []);
   const [loading, setLoading] = useState(!data);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(() => readCategoryFromSearch());
+  const categoryFilter = useMemo(() => {
+    try {
+      return new URLSearchParams(searchParams).get("category");
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
   const [continueLesson, setContinueLesson] = useState(() => readAcademyProgress());
 
   const load = useCallback(async () => {
@@ -69,10 +71,6 @@ export default function AcademyIndexPage() {
   useEffect(() => {
     if (!data) load();
   }, [data, load]);
-
-  useEffect(() => {
-    setCategoryFilter(readCategoryFromSearch());
-  }, [location]);
 
   useEffect(() => {
     setContinueLesson(readAcademyProgress());
@@ -200,8 +198,7 @@ export default function AcademyIndexPage() {
                 type="button"
                 onClick={() => {
                   setSearch("");
-                  setCategoryFilter(null);
-                  window.history.replaceState({}, "", "/academy");
+                  navigate("/academy");
                 }}
                 className="text-xs font-semibold text-primary hover:underline"
               >
@@ -220,8 +217,7 @@ export default function AcademyIndexPage() {
                   type="button"
                   onClick={() => {
                     setSearch("");
-                    setCategoryFilter(null);
-                    window.history.replaceState({}, "", "/academy");
+                    navigate("/academy");
                   }}
                   className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
                 >
